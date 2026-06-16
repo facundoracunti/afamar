@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
 import { Grid3x3, Trash2, Plus, RotateCcw } from 'lucide-react';
 
-const PLATE_W = 3.00;
-const PLATE_H = 1.80;
-const PLATE_AREA = PLATE_W * PLATE_H;
-
 export default function CalculadoraPlaca() {
   const [piezas, setPiezas] = useState([]);
   const [nuevaPieza, setNuevaPieza] = useState({ largo: '', ancho: '', cantidad: 1 });
+  const [plateW, setPlateW] = useState(3.00);
+  const [plateH, setPlateH] = useState(1.80);
 
   const handleInputChange = (field, value) => {
     setNuevaPieza((prev) => ({ ...prev, [field]: value }));
@@ -31,9 +29,12 @@ export default function CalculadoraPlaca() {
     setNuevaPieza({ largo: '', ancho: '', cantidad: 1 });
   };
 
+  const ANCHO_DISCO = 0.003;
   const totalM2 = piezas.reduce((sum, p) => sum + p.largo * p.ancho * p.cantidad, 0);
-  const placasNecesarias = Math.ceil(totalM2 / PLATE_AREA);
-  const utilizacion = placasNecesarias > 0 ? (totalM2 / (placasNecesarias * PLATE_AREA)) * 100 : 0;
+  const totalM2Bruto = piezas.reduce((sum, p) => sum + (p.largo + ANCHO_DISCO) * (p.ancho + ANCHO_DISCO) * p.cantidad, 0);
+  const plateArea = plateW * plateH;
+  const placasNecesarias = Math.ceil(totalM2Bruto / plateArea);
+  const utilizacion = placasNecesarias > 0 ? (totalM2Bruto / (placasNecesarias * plateArea)) * 100 : 0;
   const desperdicio = 100 - utilizacion;
 
   const barColor = utilizacion >= 80 ? '#22c55e' : utilizacion >= 60 ? '#f59e0b' : '#ef4444';
@@ -64,8 +65,16 @@ export default function CalculadoraPlaca() {
           </div>
           <div>
             <div style={{ fontSize: 13, color: '#475569', marginBottom: 2 }}>Placa estándar</div>
-            <div style={{ fontSize: 16, fontWeight: 700 }}>
-              {PLATE_W.toFixed(2)} m × {PLATE_H.toFixed(2)} m <span style={{ color: '#64748b', fontWeight: 400 }}>(Total: {PLATE_AREA.toFixed(2)} m²)</span>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input className="input" type="number" step="0.01" style={{ width: 70, fontSize: 16, fontWeight: 700, textAlign: 'center', padding: '4px 6px' }}
+                value={plateW} onChange={(e) => setPlateW(Number(e.target.value) || 0)} /> 
+              <span style={{ fontSize: 18, color: '#64748b' }}>×</span>
+              <input className="input" type="number" step="0.01" style={{ width: 70, fontSize: 16, fontWeight: 700, textAlign: 'center', padding: '4px 6px' }}
+                value={plateH} onChange={(e) => setPlateH(Number(e.target.value) || 0)} />
+              <span style={{ fontSize: 14, color: '#64748b', fontWeight: 400 }}>(Total: {plateArea.toFixed(2)} m²)</span>
+            </div>
+            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>
+              Corte de disco: +3 mm por lado por pieza
             </div>
           </div>
         </div>
