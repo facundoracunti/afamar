@@ -1,0 +1,45 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    image: backend:latest
+    container_name: backend
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    networks:
+      - infra-net
+    ports:
+      - ${API_PORT:-8000}:8000
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+    image: frontend:latest
+    container_name: frontend
+    environment:
+      - API_URL=${API_URL:-/api/v1}
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5173"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    ports:
+      - ${WEB_PORT:-5173}:80
+    networks:
+      - infra-net
+    restart: unless-stopped
+
+networks:
+  infra-net:
+    driver: bridge
+    name: infra-net
+    enable_ipv6: false
+    external: true
