@@ -675,3 +675,12 @@ cd afamar/backend
 ### Archivos modificados
 - `frontend/src/components/ordenes/OrdenForm.js` — showCroquis, tarjetas rediseñadas, grilla auto-fill
 - `frontend/src/components/presupuestos/PresupuestoForm.js` — mismos cambios que OrdenForm
+
+## Sesión 18-Jun-2026 — Menú lateral reorganizado
+
+### 1. Menú PRESUPUESTOS reorganizado
+- 4 sub-ítems en lugar de 3: Presupuesto Local (nuevo), Presupuesto en línea (nuevo), Presupuesto Local / WhatsApp (lista activos), Presupuestos Realizados (convertidos)
+- Al crear presupuesto → visible en "Local / WhatsApp". Al convertirlo a OT → pasa a "Realizados"
+
+### Archivos modificados
+- `frontend/src/components/Layout.js` — 4 sub-ítems, links actualizados

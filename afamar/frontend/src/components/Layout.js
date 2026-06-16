@@ -15,8 +15,9 @@ const accordionGroups = [
     label: 'PRESUPUESTOS',
     icon: FileText,
     subItems: [
-      { label: 'Presupuesto Local', path: '/presupuestos', icon: FileText },
-      { label: 'NUEVO PRESUPUESTO EN LÍNEA', path: '/presupuestos-online/nuevo', icon: Globe },
+      { label: 'Presupuesto Local', path: '/presupuestos/nuevo', icon: FileText },
+      { label: 'Presupuesto en línea', path: '/presupuestos-online/nuevo', icon: Globe },
+      { label: 'Presupuesto Local / WhatsApp', path: '/presupuestos', icon: FileText },
       { label: 'Presupuestos Realizados', path: '/presupuestos?estado=CONVERTIDO+A+OT', icon: Clock },
     ],
   },
