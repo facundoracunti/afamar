@@ -640,3 +640,38 @@ cd afamar/backend
 - `frontend/src/components/presupuestos/PresupuestoOnlineForm.js` — hayUSD
 - `frontend/src/components/calculadora/CalculadoraPlaca.js` — placa editable, kerf 3mm, bruto
 - `frontend/src/utils/formatters.js` — TRAFORO DE PILETA DE APOYO
+
+## Sesión 17-Jun-2026 — Croquis colapsable, tarjetas de materiales rediseñadas, grilla dinámica
+
+### 1. Croquis colapsable
+- Estado `showCroquis` (boolean) controla visibilidad del lienzo de dibujo
+- Botón **📐 Activar Diseño / Croquis** / **👁️ Ocultar Diseño**
+- Croquis oculto por defecto — no ocupa espacio en pantalla
+- Solo el CroquisEditor está envuelto en la condición `showCroquis &&`
+- El panel MATERIALES siempre visible, independiente del croquis
+- Layout con CSS Grid: cuando croquis activo → `7fr 3fr`, cuando oculto → `1fr`
+- Hook useState colocado antes del early return (`if (loading) return <Loading />`)
+
+### 2. Tarjetas de Materiales rediseñadas
+- Fondo blanco, borde `#e2e8f0`, border-radius 8, padding 16, box-shadow sutil
+- Nombre en mayúsculas + badge de categoría (`#edf2f7`)
+- Botón ✕ rojo para eliminar
+- Inputs con labels: Cant., Largo (mts), Ancho (mts), Precio M²
+- Layout interno en grid de 2 columnas
+- Fila destacada: **Rendimiento** (azul) + **Subtotal** (verde) sobre fondo `#f7fafc`
+
+### 3. Grilla dinámica de materiales
+- Contenedor grid: `repeat(auto-fill, minmax(360px, 1fr))` con gap 16px
+- Múltiples tarjetas en paralelo cuando hay espacio horizontal
+- Se apilan automáticamente en pantalla angosta o con croquis activo
+- Sin margin-bottom (reemplazado por gap del grid)
+- Aplica en OrdenForm y PresupuestoForm
+
+### 4. Bugfix: }}} caracteres fantasma
+- Eliminados los `)}` que se renderizaban como texto en la UI
+- Causa: estructura anidada incorrecta de `showCroquis &&` + `muestroMat &&`
+- Solución: separar croquis (condicional) de materiales (siempre visible)
+
+### Archivos modificados
+- `frontend/src/components/ordenes/OrdenForm.js` — showCroquis, tarjetas rediseñadas, grilla auto-fill
+- `frontend/src/components/presupuestos/PresupuestoForm.js` — mismos cambios que OrdenForm
