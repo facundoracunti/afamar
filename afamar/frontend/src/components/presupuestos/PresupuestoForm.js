@@ -141,8 +141,8 @@ export default function PresupuestoForm() {
     const dd = Number(form.dolar_dia);
     const ppArs = (form.piletas || []).filter((pt) => pt.moneda !== 'USD').reduce((sum, pt) => sum + (pt.precio || 0) * (pt.cantidad || 1), 0);
     const ppUsd = (form.piletas || []).filter((pt) => pt.moneda === 'USD').reduce((sum, pt) => sum + (pt.precio || 0) * (pt.cantidad || 1), 0);
-    const matArs = (form.materiales || []).filter((m) => m.moneda !== 'USD').reduce((sum, m) => sum + (Number(m.largo || 0) * Number(m.ancho || 0) * (m.precio_m2 || 0)), 0);
-    const matUsd = (form.materiales || []).filter((m) => m.moneda === 'USD').reduce((sum, m) => sum + (Number(m.largo || 0) * Number(m.ancho || 0) * (m.precio_m2_usd || 0)), 0);
+    const matArs = (form.materiales || []).filter((m) => m.moneda !== 'USD').reduce((sum, m) => sum + (Number(m.largo || 0) * Number(m.ancho || 0) * (m.cantidad || 1) * (m.precio_m2 || 0)), 0);
+    const matUsd = (form.materiales || []).filter((m) => m.moneda === 'USD').reduce((sum, m) => sum + (Number(m.largo || 0) * Number(m.ancho || 0) * (m.cantidad || 1) * (m.precio_m2_usd || 0)), 0);
     const subtotal = arsTotal + (dd > 0 ? Math.round(usdTotal * dd * 100) / 100 : 0) + matArs + ppArs;
     const tr = Number(form.traslado) || 0;
     const total = Math.max(0, subtotal + tr);
@@ -335,7 +335,7 @@ export default function PresupuestoForm() {
     update('materiales', [...(form.materiales || []), {
       nombre: mat.nombre, categoria: mat.categoria || '', color: mat.color || '',
       precio_m2: mat.precio_m2 || 0, precio_m2_usd: mat.precio_m2_usd || 0,
-      moneda: mat.moneda || 'ARS', m2_utilizados: 0,
+      moneda: mat.moneda || 'ARS', cantidad: 1, m2_utilizados: 0,
     }]);
   };
 
@@ -659,11 +659,11 @@ export default function PresupuestoForm() {
                     </div>
                   ))}
                   {(form.materiales || []).filter((m) => m.moneda === 'USD').map((m, i) => {
-                    const m2 = Number(m.largo || 0) * Number(m.ancho || 0);
+                    const m2 = Number(m.largo || 0) * Number(m.ancho || 0) * (m.cantidad || 1);
                     const sub = m2 * (m.precio_m2_usd || 0);
                     return sub > 0 ? (
                       <div key={'mu' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>{m.nombre} ({m2.toFixed(2)} m²)</span>
+                        <span>{m.nombre} ({m2.toFixed(2)} m²){(m.cantidad || 1) > 1 ? ` x${m.cantidad}` : ''}</span>
                         <span style={{ fontWeight: 600 }}>USD {sub.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                       </div>
                     ) : null;
@@ -698,7 +698,7 @@ export default function PresupuestoForm() {
             <CroquisEditor croquis={form.croquis} onChange={(v) => update('croquis', v)} readOnly={readOnly} />
           </div>
           {muestroMat && (
-          <div style={{ flex: 3, minWidth: 0 }}>
+          <div style={{ flex: 3, minWidth: 0, maxWidth: 260 }}>
             <div className="card" style={{ height: '100%' }}>
               <h3 className="section-title">MATERIALES</h3>
               <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
@@ -722,18 +722,21 @@ export default function PresupuestoForm() {
                     <span>Precio M²:</span>
                     <span>{mat.moneda === 'USD' ? `USD ${(mat.precio_m2_usd || 0).toLocaleString('es-AR')}` : `$ ${(mat.precio_m2 || 0).toLocaleString('es-AR')}`}</span>
                   </div>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 6 }}>
-                    <input className="input" type="number" step="0.01" style={{ width: 70, fontSize: 11, padding: '3px 6px' }}
-                      value={mat.largo || ''} onChange={(e) => updateMaterial(idx, 'largo', Number(e.target.value))} placeholder="Largo" disabled={readOnly} />
-                    <span style={{ fontSize: 12, color: '#94a3b8' }}>×</span>
-                    <input className="input" type="number" step="0.01" style={{ width: 70, fontSize: 11, padding: '3px 6px' }}
-                      value={mat.ancho || ''} onChange={(e) => updateMaterial(idx, 'ancho', Number(e.target.value))} placeholder="Ancho" disabled={readOnly} />
-                    <span style={{ fontSize: 11, fontWeight: 600, color: '#1e40af' }}>{(Number(mat.largo || 0) * Number(mat.ancho || 0)).toFixed(4)} m²</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: mat.moneda === 'USD' ? '#059669' : '#dc2626', marginLeft: 8 }}>
-                      = {mat.moneda === 'USD'
-                        ? `USD ${((Number(mat.largo || 0) * Number(mat.ancho || 0) * (mat.precio_m2_usd || 0)).toLocaleString('es-AR', { minimumFractionDigits: 2 }))}`
-                        : `$ ${((Number(mat.largo || 0) * Number(mat.ancho || 0) * (mat.precio_m2 || 0)).toLocaleString('es-AR', { minimumFractionDigits: 2 }))}`}
-                    </span>
+                  <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginTop: 6 }}>
+                    <input className="input" type="number" min="1" style={{ width: 40, fontSize: 11, padding: '3px 5px' }}
+                      value={mat.cantidad || 1} onChange={(e) => updateMaterial(idx, 'cantidad', Number(e.target.value))} disabled={readOnly} />
+                    <span style={{ fontSize: 10, color: '#94a3b8' }}>×</span>
+                    <input className="input" type="number" step="0.01" style={{ width: 50, fontSize: 11, padding: '3px 5px' }}
+                      value={mat.largo || ''} onChange={(e) => updateMaterial(idx, 'largo', Number(e.target.value))} placeholder="L" disabled={readOnly} />
+                    <span style={{ fontSize: 11, color: '#94a3b8' }}>×</span>
+                    <input className="input" type="number" step="0.01" style={{ width: 50, fontSize: 11, padding: '3px 5px' }}
+                      value={mat.ancho || ''} onChange={(e) => updateMaterial(idx, 'ancho', Number(e.target.value))} placeholder="A" disabled={readOnly} />
+                    <span style={{ fontSize: 11, fontWeight: 600, color: '#1e40af' }}>= {(Number(mat.largo || 0) * Number(mat.ancho || 0) * (mat.cantidad || 1)).toFixed(2)} m²</span>
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: mat.moneda === 'USD' ? '#059669' : '#dc2626', marginTop: 2 }}>
+                    {mat.moneda === 'USD'
+                      ? `USD ${((Number(mat.largo || 0) * Number(mat.ancho || 0) * (mat.cantidad || 1) * (mat.precio_m2_usd || 0)).toLocaleString('es-AR', { minimumFractionDigits: 2 }))}`
+                      : `$ ${((Number(mat.largo || 0) * Number(mat.ancho || 0) * (mat.cantidad || 1) * (mat.precio_m2 || 0)).toLocaleString('es-AR', { minimumFractionDigits: 2 }))}`}
                   </div>
                 </div>
               ))}
@@ -908,11 +911,11 @@ export default function PresupuestoForm() {
                     </div>
                   ))}
                   {(form.materiales || []).filter((m) => m.moneda !== 'USD').map((m, i) => {
-                    const m2 = Number(m.largo || 0) * Number(m.ancho || 0);
+                    const m2 = Number(m.largo || 0) * Number(m.ancho || 0) * (m.cantidad || 1);
                     const sub = m2 * (m.precio_m2 || 0);
                     return sub > 0 ? (
                       <div key={'ma' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>{m.nombre} ({m2.toFixed(2)} m²)</span>
+                        <span>{m.nombre} ({m2.toFixed(2)} m²){(m.cantidad || 1) > 1 ? ` x${m.cantidad}` : ''}</span>
                         <span style={{ fontWeight: 600 }}>{formatCurrency(sub)}</span>
                       </div>
                     ) : null;
