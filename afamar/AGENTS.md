@@ -586,3 +586,57 @@ cd afamar/backend
 - `frontend/src/components/materiales/MaterialesList.js` — columna Precio M² única
 - `frontend/src/components/stock/StockPiletas.js` — marca dropdown + precio_usd fix
 - `frontend/src/components/ordenes/CroquisEditor.js` — texto posicionable, rotación, medida editable
+
+## Sesión 16-Jun-2026 — Material por fila, piletas dinámicas, recargo financiero, calculadora mejorada
+
+### 1. Material por fila + Largo/Ancho/Cantidad en panel MATERIALES
+- Cada material en el panel MATERIALES tiene Largo × Ancho inputs con M² y Precio Final calculados automáticamente
+- Se eliminó el filtro de duplicados — un mismo material se puede agregar múltiples veces
+- Campo `cantidad` en cada material (multiplica M² y precio)
+- `matArs` / `matUsd` calculados en calculateTotals (incluyen cantidad)
+- Materiales se renderizan en SUBTOTALES (ARS) y (USD) del panel PRESUPUESTO
+- `form.materiales` agregado a dependencias del useEffect de calculateTotals
+
+### 2. Piletas dinámicas con cantidad
+- Panel PILETAS permite múltiples piletas sin límite de duplicados
+- Cada pileta: Cant., Moneda (ARS/USD), Precio, ✕
+- Al cambiar moneda, precio se actualiza desde el stock (ARS o USD) en una sola operación
+- `form.piletas` agregado a dependencias del useEffect
+- Carga de `piletas` desde API al editar (bugfix: faltaba en data loading)
+- Piletas ARS solo en SUBTOTALES ARS, piletas USD solo en USD
+
+### 3. Recargo financiero por cuotas
+- Forma de pago: select con EFECTIVO / TRANSFERENCIA BANCARIA / TARJETA DE DÉBITO / TARJETA DE CRÉDITO
+- Al elegir TARJETA DE CRÉDITO: selector de cuotas (1 a 12)
+- Recargo: 5% por cuota desde la 3ra en adelante (1=0%, 2=0%, 3=15%, 6=30%, 12=60%)
+- Recargo visible en panel PRESUPUESTO (línea roja entre Traslado y TOTAL)
+- Cuotas info: "6 cuotas mensuales fijas de $X" debajo de Forma de pago
+- `form.cuotas`, `form.forma_pago` agregados a dependencias del useEffect
+- Recargo se recalcula al cambiar cuotas o forma de pago
+
+### 4. Cantidad en Detalle de Fabricación
+- Nueva columna **Cant** en la tabla de fabricación
+- Cada fila tiene input de cantidad (default 1)
+- `cantidad: 1` agregado a `addDetalle`
+- Display en SUBTOTALES muestra "x2" cuando cantidad > 1
+- Precio se almacena como total (no unitario), cantidad es informativa
+- TRAFORO DE PILETA DE APOYO renombrado (antes TRAFORO DE APOYO)
+
+### 5. Calculadora de placa mejorada
+- Placa estándar editable (inputs para Largo y Ancho)
+- Ancho de disco (kerf): +3mm por lado por pieza
+- `totalM2Bruto` calcula área real incluyendo kerf
+- Placas necesarias calculadas sobre área bruta
+- Utilización sobre área bruta, desperdicio más realista
+- Nota informativa: "Corte de disco: +3 mm por lado por pieza"
+
+### 6. PresupuestoForm sincronizado con OrdenForm
+- Agregadas todas las features faltantes: Cantidad columna, recargo financiero, cuotas, forma de pago select, TRAFORO DE PILETA DE APOYO
+- Ambos formularios ahora son funcionalmente idénticos
+
+### Archivos modificados
+- `frontend/src/components/ordenes/OrdenForm.js` — cantidad en fabricación, recargo, cuotas, materiales en PRESUPUESTO
+- `frontend/src/components/presupuestos/PresupuestoForm.js` — sincronizado con OrdenForm
+- `frontend/src/components/presupuestos/PresupuestoOnlineForm.js` — hayUSD
+- `frontend/src/components/calculadora/CalculadoraPlaca.js` — placa editable, kerf 3mm, bruto
+- `frontend/src/utils/formatters.js` — TRAFORO DE PILETA DE APOYO

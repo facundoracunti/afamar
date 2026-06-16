@@ -146,7 +146,8 @@ export default function OrdenForm() {
     const ppUsd = (form.piletas || []).filter((pt) => (pt.moneda || 'ARS') === 'USD').reduce((sum, pt) => sum + (pt.precio || 0) * (pt.cantidad || 1), 0);
     const matArs = (form.materiales || []).filter((m) => m.moneda !== 'USD').reduce((sum, m) => sum + (Number(m.largo || 0) * Number(m.ancho || 0) * (m.cantidad || 1) * (m.precio_m2 || 0)), 0);
     const matUsd = (form.materiales || []).filter((m) => m.moneda === 'USD').reduce((sum, m) => sum + (Number(m.largo || 0) * Number(m.ancho || 0) * (m.cantidad || 1) * (m.precio_m2_usd || 0)), 0);
-    const CONFIG_CUOTAS = { 1: 0, 3: 15, 6: 30, 12: 60 };
+    const CONFIG_CUOTAS = {};
+    for (let i = 1; i <= 12; i++) CONFIG_CUOTAS[i] = i <= 2 ? 0 : i * 5;
     const pctRecargo = form.forma_pago === 'TARJETA DE CRÉDITO' ? (CONFIG_CUOTAS[form.cuotas] || 0) : 0;
     const subtotal = arsTotal + (dd > 0 ? Math.round(usdTotal * dd * 100) / 100 : 0) + matArs + ppArs;
     const tr = Number(form.traslado) || 0;
@@ -283,7 +284,7 @@ export default function OrdenForm() {
   const TRAFORO_DETALLES = {
     'TRAFORO DE PILETA': 'APERTURA Y PEGADO DE PILETA',
     'TRAFORO DE ANAFE': 'APERTURA DE ANAFE',
-    'TRAFORO DE APOYO': 'APERTURA PILETA DE APOYO',
+    'TRAFORO DE PILETA DE APOYO': 'APERTURA PILETA DE APOYO',
   };
 
   const handleDetalleChange = (idx, field, value) => {
@@ -337,7 +338,7 @@ export default function OrdenForm() {
   };
 
   const addDetalle = () => {
-    update('detalles_fabricacion', [...form.detalles_fabricacion, { concepto: 'FRENTE', detalle: '', material: '', material_precio_m2: 0, largo: 0, ancho: 0, m2: 0, mano_de_obra: 0, moneda: 'ARS', precio: 0 }]);
+    update('detalles_fabricacion', [...form.detalles_fabricacion, { concepto: 'FRENTE', detalle: '', material: '', material_precio_m2: 0, largo: 0, ancho: 0, m2: 0, mano_de_obra: 0, cantidad: 1, moneda: 'ARS', precio: 0 }]);
   };
 
   const removeDetalle = (idx) => {
@@ -642,8 +643,8 @@ export default function OrdenForm() {
                   <th>Material</th>
                   <th>Detalle</th>
                   <th style={{ width: 70 }}>Moneda</th>
-                  <th style={{ width: 110 }}>Precio</th>
-                  <th style={{ width: 30 }}></th>
+                  <th style={{ width: 100 }}>Precio</th>
+                  <th style={{ width: 50 }}>Cant</th>
                   <th style={{ width: 30 }}></th>
                 </tr>
               </thead>
@@ -698,11 +699,15 @@ export default function OrdenForm() {
                         <span style={{ fontSize: 12, fontWeight: 600, color: d.moneda === 'USD' ? '#059669' : '#1e293b' }}>{d.moneda === 'USD' ? 'USD ' : '$'}{Number(d.precio || 0).toLocaleString('es-AR')}</span>
                       ) : d.concepto === 'OTRA' ? (
                         <span style={{ fontSize: 12, fontWeight: 600, color: d.moneda === 'USD' ? '#059669' : '#1e293b' }}>{d.moneda === 'USD' ? 'USD ' : '$'}{Number(d.precio || 0).toLocaleString('es-AR')}</span>
-                      ) : ['TRAFORO DE PILETA', 'TRAFORO DE ANAFE', 'TRAFORO DE APOYO'].includes(d.concepto) ? (
+                      ) : ['TRAFORO DE PILETA', 'TRAFORO DE ANAFE', 'TRAFORO DE PILETA DE APOYO'].includes(d.concepto) ? (
                         <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '100%' }} value={d.precio || ''} onChange={(e) => handleDetalleChange(i, 'precio', Number(e.target.value))} placeholder="0" disabled={readOnly} />
                       ) : (
                         <span style={{ fontSize: 12, color: '#94a3b8' }}>-</span>
                       )}
+                    </td>
+                    <td>
+                      <input className="input" type="number" min="1" style={{ width: 45, fontSize: 12, padding: '4px 6px' }}
+                        value={d.cantidad || 1} onChange={(e) => handleDetalleChange(i, 'cantidad', Number(e.target.value))} disabled={readOnly} />
                     </td>
                     <td>
                       <button type="button" className="btn btn-outline" style={{ padding: '2px 6px' }} onClick={() => removeDetalle(i)} disabled={readOnly}>
@@ -814,7 +819,7 @@ export default function OrdenForm() {
                 <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: 8, marginBottom: 8 }}>
                   {(form.detalles_fabricacion || []).filter((d) => Number(d.precio) > 0 && d.moneda !== 'USD').map((d, i) => (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>{d.concepto === 'OTRA' ? (d.detalle || 'OTRA') : d.concepto}{d.material ? ` - ${d.material}` : ''}{d.m2 > 0 ? ` (${d.m2} m²)` : ''}{d.largo > 0 && d.concepto === 'OTRA' ? ` (${d.largo} m)` : ''}</span>
+                      <span>{d.concepto === 'OTRA' ? (d.detalle || 'OTRA') : d.concepto}{d.material ? ` - ${d.material}` : ''}{d.m2 > 0 ? ` (${d.m2} m²)` : ''}{d.largo > 0 && d.concepto === 'OTRA' ? ` (${d.largo} m)` : ''}{(d.cantidad || 1) > 1 ? ` x${d.cantidad}` : ''}</span>
                       <span style={{ fontWeight: 600 }}>{formatCurrency(d.precio)}</span>
                     </div>
                   ))}
@@ -884,7 +889,7 @@ export default function OrdenForm() {
                 <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: 8, marginBottom: 8 }}>
                   {(form.detalles_fabricacion || []).filter((d) => Number(d.precio) > 0 && d.moneda === 'USD').map((d, i) => (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>{d.concepto === 'OTRA' ? (d.detalle || 'OTRA') : d.concepto}{d.material ? ` - ${d.material}` : ''}{d.m2 > 0 ? ` (${d.m2} m²)` : ''}</span>
+                      <span>{d.concepto === 'OTRA' ? (d.detalle || 'OTRA') : d.concepto}{d.material ? ` - ${d.material}` : ''}{d.m2 > 0 ? ` (${d.m2} m²)` : ''}{(d.cantidad || 1) > 1 ? ` x${d.cantidad}` : ''}</span>
                       <span style={{ fontWeight: 600 }}>USD {Number(d.precio).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   ))}
@@ -1006,11 +1011,11 @@ export default function OrdenForm() {
                     <option value="TARJETA DE CRÉDITO">TARJETA DE CRÉDITO</option>
                   </select>
                   {form.forma_pago === 'TARJETA DE CRÉDITO' && (
-                    <select className="input" style={{ width: 130 }} value={form.cuotas || 1} onChange={(e) => update('cuotas', Number(e.target.value))} disabled={readOnly}>
-                      <option value={1}>1 cuota (0%)</option>
-                      <option value={3}>3 cuotas (15%)</option>
-                      <option value={6}>6 cuotas (30%)</option>
-                      <option value={12}>12 cuotas (60%)</option>
+                    <select className="input" style={{ width: 160 }} value={form.cuotas || 1} onChange={(e) => update('cuotas', Number(e.target.value))} disabled={readOnly}>
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map((c) => {
+                        const pct = c <= 2 ? 0 : c * 5;
+                        return <option key={c} value={c}>{c} cuota{c > 1 ? 's' : ''} ({pct}%)</option>;
+                      })}
                     </select>
                   )}
                 </div>

@@ -41,6 +41,7 @@ export default function PresupuestoForm() {
     subtotal: 0, traslado: 0, total: 0,
     sena_recibida: 0, saldo_pendiente: 0, forma_pago: '', saldo_pagado: false, fecha_pago_saldo: '',
     dolar_dia: 1000,
+    cuotas: 1,
     subtotal_usd: 0, traslado_usd: 0, total_usd: 0, sena_usd: 0, saldo_pendiente_usd: 0,
     fecha_entrega: '',
     firma_cliente: null, fecha_aprobacion: '',
@@ -143,26 +144,36 @@ export default function PresupuestoForm() {
     const ppUsd = (form.piletas || []).filter((pt) => pt.moneda === 'USD').reduce((sum, pt) => sum + (pt.precio || 0) * (pt.cantidad || 1), 0);
     const matArs = (form.materiales || []).filter((m) => m.moneda !== 'USD').reduce((sum, m) => sum + (Number(m.largo || 0) * Number(m.ancho || 0) * (m.cantidad || 1) * (m.precio_m2 || 0)), 0);
     const matUsd = (form.materiales || []).filter((m) => m.moneda === 'USD').reduce((sum, m) => sum + (Number(m.largo || 0) * Number(m.ancho || 0) * (m.cantidad || 1) * (m.precio_m2_usd || 0)), 0);
+    const CONFIG_CUOTAS = {};
+    for (let i = 1; i <= 12; i++) CONFIG_CUOTAS[i] = i <= 2 ? 0 : i * 5;
+    const pctRecargo = form.forma_pago === 'TARJETA DE CRÉDITO' ? (CONFIG_CUOTAS[form.cuotas] || 0) : 0;
     const subtotal = arsTotal + (dd > 0 ? Math.round(usdTotal * dd * 100) / 100 : 0) + matArs + ppArs;
     const tr = Number(form.traslado) || 0;
-    const total = Math.max(0, subtotal + tr);
+    const totalBase = Math.max(0, subtotal + tr);
+    const recargoArs = Math.round(totalBase * pctRecargo / 100);
+    const total = totalBase + recargoArs;
     const saldo = Math.max(0, total - (Number(form.sena_recibida) || 0));
     const tr_usd = Number(form.traslado_usd) || 0;
     const sena_usd = Number(form.sena_usd) || 0;
     const subtotal_usd = usdTotal + matUsd + ppUsd;
-    const total_usd = Math.max(0, subtotal_usd + tr_usd);
+    const totalBaseUsd = Math.max(0, subtotal_usd + tr_usd);
+    const recargoUsd = Math.round(totalBaseUsd * pctRecargo / 100);
+    const total_usd = totalBaseUsd + recargoUsd;
     const saldo_pendiente_usd = Math.max(0, total_usd - sena_usd);
 
     setForm((prev) => ({
       ...prev,
       subtotal,
       total,
+      recargo_ars: recargoArs,
+      recargo_usd: recargoUsd,
+      recargo_pct: pctRecargo,
       saldo_pendiente: saldo,
       subtotal_usd,
       total_usd,
       saldo_pendiente_usd,
     }));
-  }, [form.detalles_fabricacion, form.traslado, form.piletas, form.materiales, form.sena_recibida, form.traslado_usd, form.sena_usd, form.dolar_dia]);
+  }, [form.detalles_fabricacion, form.traslado, form.piletas, form.materiales, form.sena_recibida, form.traslado_usd, form.sena_usd, form.dolar_dia, form.cuotas, form.forma_pago]);
 
   useEffect(() => {
     const handleClick = (e) => {
@@ -271,7 +282,7 @@ export default function PresupuestoForm() {
   const TRAFORO_DETALLES = {
     'TRAFORO DE PILETA': 'APERTURA Y PEGADO DE PILETA',
     'TRAFORO DE ANAFE': 'APERTURA DE ANAFE',
-    'TRAFORO DE APOYO': 'APERTURA PILETA DE APOYO',
+    'TRAFORO DE PILETA DE APOYO': 'APERTURA PILETA DE APOYO',
   };
 
   const handleDetalleChange = (idx, field, value) => {
@@ -325,7 +336,7 @@ export default function PresupuestoForm() {
   };
 
   const addDetalle = () => {
-    update('detalles_fabricacion', [...form.detalles_fabricacion, { concepto: 'FRENTE', detalle: '', material: '', material_precio_m2: 0, largo: 0, ancho: 0, m2: 0, mano_de_obra: 0, moneda: 'ARS', precio: 0 }]);
+    update('detalles_fabricacion', [...form.detalles_fabricacion, { concepto: 'FRENTE', detalle: '', material: '', material_precio_m2: 0, largo: 0, ancho: 0, m2: 0, mano_de_obra: 0, cantidad: 1, moneda: 'ARS', precio: 0 }]);
   };
 
   const addMaterial = (nombre) => {
@@ -408,6 +419,7 @@ export default function PresupuestoForm() {
         sena_usd: Number(form.sena_usd),
         saldo_pendiente_usd: Number(form.saldo_pendiente_usd),
         forma_pago: form.forma_pago,
+        cuotas: form.cuotas || 1,
         saldo_pagado: form.saldo_pagado || false,
         fecha_pago_saldo: form.fecha_pago_saldo || null,
         fecha_entrega: form.fecha_entrega ? new Date(form.fecha_entrega).toISOString() : null,
@@ -475,6 +487,7 @@ export default function PresupuestoForm() {
         sena_usd: Number(form.sena_usd),
         saldo_pendiente_usd: Number(form.saldo_pendiente_usd),
         forma_pago: form.forma_pago,
+        cuotas: form.cuotas || 1,
         saldo_pagado: form.saldo_pagado || false,
         fecha_pago_saldo: form.fecha_pago_saldo || null,
         fecha_entrega: form.fecha_entrega ? new Date(form.fecha_entrega).toISOString() : null,
@@ -534,6 +547,7 @@ export default function PresupuestoForm() {
         sena_usd: Number(form.sena_usd),
         saldo_pendiente_usd: Number(form.saldo_pendiente_usd),
         forma_pago: form.forma_pago,
+        cuotas: form.cuotas || 1,
         saldo_pagado: form.saldo_pagado || false,
         fecha_pago_saldo: form.fecha_pago_saldo || null,
         fecha_entrega: form.fecha_entrega ? new Date(form.fecha_entrega).toISOString() : null,
@@ -750,7 +764,8 @@ export default function PresupuestoForm() {
                   <th>Material</th>
                   <th>Detalle</th>
                   <th style={{ width: 70 }}>Moneda</th>
-                  <th style={{ width: 110 }}>Precio</th>
+                  <th style={{ width: 100 }}>Precio</th>
+                  <th style={{ width: 50 }}>Cant</th>
                   <th style={{ width: 30 }}></th>
                 </tr>
               </thead>
@@ -805,11 +820,15 @@ export default function PresupuestoForm() {
                         <span style={{ fontSize: 12, fontWeight: 600, color: d.moneda === 'USD' ? '#059669' : '#1e293b' }}>{d.moneda === 'USD' ? 'USD ' : '$'}{Number(d.precio || 0).toLocaleString('es-AR')}</span>
                       ) : d.concepto === 'OTRA' ? (
                         <span style={{ fontSize: 12, fontWeight: 600, color: d.moneda === 'USD' ? '#059669' : '#1e293b' }}>{d.moneda === 'USD' ? 'USD ' : '$'}{Number(d.precio || 0).toLocaleString('es-AR')}</span>
-                      ) : ['TRAFORO DE PILETA', 'TRAFORO DE ANAFE', 'TRAFORO DE APOYO'].includes(d.concepto) ? (
+                      ) : ['TRAFORO DE PILETA', 'TRAFORO DE ANAFE', 'TRAFORO DE PILETA DE APOYO'].includes(d.concepto) ? (
                         <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '100%' }} value={d.precio || ''} onChange={(e) => handleDetalleChange(i, 'precio', Number(e.target.value))} placeholder="0" disabled={readOnly} />
                       ) : (
                         <span style={{ fontSize: 12, color: '#94a3b8' }}>-</span>
                       )}
+                    </td>
+                    <td>
+                      <input className="input" type="number" min="1" style={{ width: 45, fontSize: 12, padding: '4px 6px' }}
+                        value={d.cantidad || 1} onChange={(e) => handleDetalleChange(i, 'cantidad', Number(e.target.value))} disabled={readOnly} />
                     </td>
                     <td>
                       <button type="button" className="btn btn-outline" style={{ padding: '2px 6px' }} onClick={() => removeDetalle(i)} disabled={readOnly}>
@@ -918,7 +937,13 @@ export default function PresupuestoForm() {
                     onChange={(e) => handleTrasladoChange(e.target.value, 'ars')}
                     disabled={readOnly} />
                 </div>
-                <div style={{ borderTop: '2px solid #e5e7eb', paddingTop: 6, marginBottom: 4 }}>
+                {form.recargo_pct > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', fontSize: 12, color: '#c0392b' }}>
+                  <span>Recargo financiero ({form.cuotas} cuotas - {form.recargo_pct}%)</span>
+                  <span style={{ fontWeight: 700 }}>+ {formatCurrency(form.recargo_ars || 0)}</span>
+                </div>
+                )}
+                <div style={{ borderTop: form.recargo_pct > 0 ? '1px solid #e5e7eb' : '2px solid #e5e7eb', paddingTop: 6, marginBottom: 4 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: 16, fontWeight: 700 }}>TOTAL ARS</span>
                     <span style={{ fontSize: 18, fontWeight: 700, color: '#dc2626' }}>{formatCurrency(form.total)}</span>
@@ -1066,8 +1091,29 @@ export default function PresupuestoForm() {
               </div>
               <div className="form-group" style={{ marginTop: 8 }}>
                 <label>Forma de pago</label>
-                <input className="input" value={form.forma_pago} onChange={(e) => update('forma_pago', e.target.value)} placeholder="Ej: Efectivo / Transferencia" disabled={readOnly} />
+                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                  <select className="input" style={{ flex: 1 }} value={form.forma_pago} onChange={(e) => update('forma_pago', e.target.value)} disabled={readOnly}>
+                    <option value="">Seleccionar...</option>
+                    <option value="EFECTIVO">EFECTIVO</option>
+                    <option value="TRANSFERENCIA BANCARIA">TRANSFERENCIA BANCARIA</option>
+                    <option value="TARJETA DE DÉBITO">TARJETA DE DÉBITO</option>
+                    <option value="TARJETA DE CRÉDITO">TARJETA DE CRÉDITO</option>
+                  </select>
+                  {form.forma_pago === 'TARJETA DE CRÉDITO' && (
+                    <select className="input" style={{ width: 160 }} value={form.cuotas || 1} onChange={(e) => update('cuotas', Number(e.target.value))} disabled={readOnly}>
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map((c) => {
+                        const pct = c <= 2 ? 0 : c * 5;
+                        return <option key={c} value={c}>{c} cuota{c > 1 ? 's' : ''} ({pct}%)</option>;
+                      })}
+                    </select>
+                  )}
+                </div>
               </div>
+              {form.recargo_pct > 0 && form.cuotas > 1 && (
+                <div style={{ fontSize: 12, color: '#c0392b', fontWeight: 600, marginTop: 4, textAlign: 'center' }}>
+                  {form.cuotas} cuotas mensuales fijas de {formatCurrency(Math.round((form.total || 0) / (form.cuotas || 1)))}
+                </div>
+              )}
               <div className="form-group" style={{ marginTop: 8 }}>
                 <label>Fecha de entrega estimada</label>
                 <input type="date" className="input" value={form.fecha_entrega} onChange={(e) => update('fecha_entrega', e.target.value)} disabled={readOnly} />
