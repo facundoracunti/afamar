@@ -141,13 +141,15 @@ export default function PresupuestoForm() {
     const dd = Number(form.dolar_dia);
     const ppArs = (form.piletas || []).filter((pt) => pt.moneda !== 'USD').reduce((sum, pt) => sum + (pt.precio || 0) * (pt.cantidad || 1), 0);
     const ppUsd = (form.piletas || []).filter((pt) => pt.moneda === 'USD').reduce((sum, pt) => sum + (pt.precio || 0) * (pt.cantidad || 1), 0);
-    const subtotal = arsTotal + (dd > 0 ? Math.round(usdTotal * dd * 100) / 100 : 0) + ppArs;
+    const matArs = (form.materiales || []).filter((m) => m.moneda !== 'USD').reduce((sum, m) => sum + (Number(m.largo || 0) * Number(m.ancho || 0) * (m.precio_m2 || 0)), 0);
+    const matUsd = (form.materiales || []).filter((m) => m.moneda === 'USD').reduce((sum, m) => sum + (Number(m.largo || 0) * Number(m.ancho || 0) * (m.precio_m2_usd || 0)), 0);
+    const subtotal = arsTotal + (dd > 0 ? Math.round(usdTotal * dd * 100) / 100 : 0) + matArs + ppArs;
     const tr = Number(form.traslado) || 0;
     const total = Math.max(0, subtotal + tr);
     const saldo = Math.max(0, total - (Number(form.sena_recibida) || 0));
     const tr_usd = Number(form.traslado_usd) || 0;
     const sena_usd = Number(form.sena_usd) || 0;
-    const subtotal_usd = usdTotal + ppUsd;
+    const subtotal_usd = usdTotal + matUsd + ppUsd;
     const total_usd = Math.max(0, subtotal_usd + tr_usd);
     const saldo_pendiente_usd = Math.max(0, total_usd - sena_usd);
 
@@ -160,7 +162,7 @@ export default function PresupuestoForm() {
       total_usd,
       saldo_pendiente_usd,
     }));
-  }, [form.detalles_fabricacion, form.traslado, form.piletas, form.sena_recibida, form.traslado_usd, form.sena_usd, form.dolar_dia]);
+  }, [form.detalles_fabricacion, form.traslado, form.piletas, form.materiales, form.sena_recibida, form.traslado_usd, form.sena_usd, form.dolar_dia]);
 
   useEffect(() => {
     const handleClick = (e) => {
@@ -264,7 +266,7 @@ export default function PresupuestoForm() {
     }));
   };
 
-  const CONCEPTOS_M2 = ['LONGITUD', 'ZÓCALO', 'FRENTE'];
+  const CONCEPTOS_M2 = ['ZÓCALO', 'FRENTE'];
 
   const TRAFORO_DETALLES = {
     'TRAFORO DE PILETA': 'APERTURA Y PEGADO DE PILETA',
@@ -323,12 +325,11 @@ export default function PresupuestoForm() {
   };
 
   const addDetalle = () => {
-    update('detalles_fabricacion', [...form.detalles_fabricacion, { concepto: 'LONGITUD', detalle: '', material: '', material_precio_m2: 0, largo: 0, ancho: 0, m2: 0, mano_de_obra: 0, moneda: 'ARS', precio: 0 }]);
+    update('detalles_fabricacion', [...form.detalles_fabricacion, { concepto: 'FRENTE', detalle: '', material: '', material_precio_m2: 0, largo: 0, ancho: 0, m2: 0, mano_de_obra: 0, moneda: 'ARS', precio: 0 }]);
   };
 
   const addMaterial = (nombre) => {
     if (!nombre) return;
-    if (form.materiales?.find((m) => m.nombre === nombre)) return;
     const mat = materiales.find((m) => m.nombre === nombre);
     if (!mat) return;
     update('materiales', [...(form.materiales || []), {
@@ -561,6 +562,8 @@ export default function PresupuestoForm() {
     (form.detalles_fabricacion || []).some((d) => d.moneda === 'USD') ||
     (form.piletas || []).some((pt) => pt.moneda === 'USD');
 
+  const muestroMat = true;
+
   return (
     <div className="presupuesto-form">  
       {/* ===== HEADER ===== */}
@@ -684,7 +687,7 @@ export default function PresupuestoForm() {
           <div style={{ flex: (form.detalles_fabricacion || []).some((d) => CONCEPTOS_M2.includes(d.concepto)) ? 7 : 1, minWidth: 0 }}>
             <CroquisEditor croquis={form.croquis} onChange={(v) => update('croquis', v)} readOnly={readOnly} />
           </div>
-          {(form.detalles_fabricacion || []).some((d) => CONCEPTOS_M2.includes(d.concepto)) && (
+          {muestroMat && (
           <div style={{ flex: 3, minWidth: 0 }}>
             <div className="card" style={{ height: '100%' }}>
               <h3 className="section-title">MATERIALES</h3>
@@ -708,6 +711,19 @@ export default function PresupuestoForm() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700, color: mat.moneda === 'USD' ? '#059669' : '#1e293b' }}>
                     <span>Precio M²:</span>
                     <span>{mat.moneda === 'USD' ? `USD ${(mat.precio_m2_usd || 0).toLocaleString('es-AR')}` : `$ ${(mat.precio_m2 || 0).toLocaleString('es-AR')}`}</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 6 }}>
+                    <input className="input" type="number" step="0.01" style={{ width: 70, fontSize: 11, padding: '3px 6px' }}
+                      value={mat.largo || ''} onChange={(e) => updateMaterial(idx, 'largo', Number(e.target.value))} placeholder="Largo" disabled={readOnly} />
+                    <span style={{ fontSize: 12, color: '#94a3b8' }}>×</span>
+                    <input className="input" type="number" step="0.01" style={{ width: 70, fontSize: 11, padding: '3px 6px' }}
+                      value={mat.ancho || ''} onChange={(e) => updateMaterial(idx, 'ancho', Number(e.target.value))} placeholder="Ancho" disabled={readOnly} />
+                    <span style={{ fontSize: 11, fontWeight: 600, color: '#1e40af' }}>{(Number(mat.largo || 0) * Number(mat.ancho || 0)).toFixed(4)} m²</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: mat.moneda === 'USD' ? '#059669' : '#dc2626', marginLeft: 8 }}>
+                      = {mat.moneda === 'USD'
+                        ? `USD ${((Number(mat.largo || 0) * Number(mat.ancho || 0) * (mat.precio_m2_usd || 0)).toLocaleString('es-AR', { minimumFractionDigits: 2 }))}`
+                        : `$ ${((Number(mat.largo || 0) * Number(mat.ancho || 0) * (mat.precio_m2 || 0)).toLocaleString('es-AR', { minimumFractionDigits: 2 }))}`}
+                    </span>
                   </div>
                 </div>
               ))}
