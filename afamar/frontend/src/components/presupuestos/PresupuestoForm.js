@@ -717,11 +717,12 @@ export default function PresupuestoForm() {
                   ))}
                 </select>
               </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: 16 }}>
               {(form.materiales || []).map((mat, idx) => {
                 const m2 = Number(mat.largo || 0) * Number(mat.ancho || 0) * (mat.cantidad || 1);
                 const subtotal = m2 * (mat.moneda === 'USD' ? (mat.precio_m2_usd || 0) : (mat.precio_m2 || 0));
                 return (
-                <div key={idx} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: 16, marginBottom: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                <div key={idx} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <div>
                       <span style={{ fontSize: 16, fontWeight: 700, textTransform: 'uppercase', color: '#1a202c' }}>{mat.nombre}</span>
@@ -763,6 +764,7 @@ export default function PresupuestoForm() {
                 </div>
                 );
               })}
+              </div>
               {(form.materiales || []).length === 0 && (
                 <div style={{ padding: 16, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
                   Sin materiales agregados. Usá "+ AGREGAR MATERIAL" para sumar.
