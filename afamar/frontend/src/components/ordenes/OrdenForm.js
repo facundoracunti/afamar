@@ -21,6 +21,7 @@ export default function OrdenForm() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [logoUrl, setLogoUrl] = useState('');
+  const [showCroquis, setShowCroquis] = useState(false);
   const menuRef = useRef(null);
   const clienteRef = useRef(null);
   const materialPrecioRef = useRef(0);
@@ -568,13 +569,25 @@ export default function OrdenForm() {
           </div>
         </div>
 
-        {/* ===== ÁREA CENTRAL: Croquis | Materiales ===== */}
-        <div style={{ display: 'flex', gap: 16, marginTop: 16 }}>
-          <div style={{ flex: muestroMat ? 7 : 1, minWidth: 0 }}>
+        {/* ===== BOTÓN CROQUIS COLAPSABLE ===== */}
+        <div style={{ marginTop: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button type="button" className="btn btn-outline" onClick={() => setShowCroquis(!showCroquis)}
+            style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px' }}>
+            {showCroquis ? '👁️' : '📐'} {showCroquis ? 'Ocultar Diseño / Croquis' : 'Activar Diseño / Croquis'}
+          </button>
+          {!showCroquis && (
+            <span style={{ fontSize: 12, color: '#94a3b8' }}>El croquis está oculto. Hacé clic para diseñar.</span>
+          )}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: showCroquis && muestroMat ? '7fr 3fr' : '1fr', gap: 16, marginTop: 16 }}>
+          {showCroquis && (
+          <div style={{ minWidth: 0 }}>
             <CroquisEditor croquis={form.croquis} onChange={(v) => update('croquis', v)} readOnly={readOnly} />
           </div>
+          )}
           {muestroMat && (
-          <div style={{ flex: 3, minWidth: 0, maxWidth: 260 }}>
+          <div style={{ minWidth: 0 }}>
             <div className="card" style={{ height: '100%' }}>
               <h3 className="section-title">MATERIALES</h3>
               <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
@@ -585,38 +598,52 @@ export default function OrdenForm() {
                   ))}
                 </select>
               </div>
-              {(form.materiales || []).map((mat, idx) => (
-                <div key={idx} style={{ marginBottom: 8, padding: 10, background: '#f8fafc', borderRadius: 6, border: '1px solid #e2e8f0' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                    <span style={{ fontWeight: 700, fontSize: 14 }}>{mat.nombre}</span>
-                    <button type="button" onClick={() => removeMaterial(idx)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 16 }} disabled={readOnly}>✕</button>
+              {(form.materiales || []).map((mat, idx) => {
+                const m2 = Number(mat.largo || 0) * Number(mat.ancho || 0) * (mat.cantidad || 1);
+                const subtotal = m2 * (mat.moneda === 'USD' ? (mat.precio_m2_usd || 0) : (mat.precio_m2 || 0));
+                return (
+                <div key={idx} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: 16, marginBottom: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <div>
+                      <span style={{ fontSize: 16, fontWeight: 700, textTransform: 'uppercase', color: '#1a202c' }}>{mat.nombre}</span>
+                      <span style={{ marginLeft: 8, fontSize: 12, color: '#718096', background: '#edf2f7', padding: '2px 8px', borderRadius: 4 }}>{mat.categoria}</span>
+                    </div>
+                    <button type="button" onClick={() => removeMaterial(idx)} style={{ color: '#e53e3e', background: 'none', border: 'none', cursor: 'pointer', fontSize: 18 }} disabled={readOnly}>✕</button>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#64748b', marginBottom: 2 }}>
-                    <span>Categoría:</span>
-                    <span style={{ fontWeight: 600 }}>{mat.categoria || '-'}</span>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+                    <div>
+                      <label style={{ fontSize: 11, color: '#4a5568', display: 'block', marginBottom: 2 }}>Cant.</label>
+                      <input className="input" type="number" min="1" style={{ width: '100%', padding: '5px 6px', fontSize: 12 }}
+                        value={mat.cantidad || 1} onChange={(e) => updateMaterial(idx, 'cantidad', Number(e.target.value))} disabled={readOnly} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, color: '#4a5568', display: 'block', marginBottom: 2 }}>Largo (mts)</label>
+                      <input className="input" type="number" step="0.01" style={{ width: '100%', padding: '5px 6px', fontSize: 12 }}
+                        value={mat.largo || ''} onChange={(e) => updateMaterial(idx, 'largo', Number(e.target.value))} disabled={readOnly} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, color: '#4a5568', display: 'block', marginBottom: 2 }}>Ancho (mts)</label>
+                      <input className="input" type="number" step="0.01" style={{ width: '100%', padding: '5px 6px', fontSize: 12 }}
+                        value={mat.ancho || ''} onChange={(e) => updateMaterial(idx, 'ancho', Number(e.target.value))} disabled={readOnly} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, color: '#4a5568', display: 'block', marginBottom: 2 }}>Precio M²</label>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: mat.moneda === 'USD' ? '#059669' : '#1e293b', padding: '5px 6px' }}>
+                        {mat.moneda === 'USD' ? `USD ${(mat.precio_m2_usd || 0).toLocaleString('es-AR')}` : `$ ${(mat.precio_m2 || 0).toLocaleString('es-AR')}`}
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700, color: mat.moneda === 'USD' ? '#059669' : '#1e293b' }}>
-                    <span>Precio M²:</span>
-                    <span>{mat.moneda === 'USD' ? `USD ${(mat.precio_m2_usd || 0).toLocaleString('es-AR')}` : `$ ${(mat.precio_m2 || 0).toLocaleString('es-AR')}`}</span>
-                  </div>
-                  <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginTop: 6 }}>
-                    <input className="input" type="number" min="1" style={{ width: 40, fontSize: 11, padding: '3px 5px' }}
-                      value={mat.cantidad || 1} onChange={(e) => updateMaterial(idx, 'cantidad', Number(e.target.value))} disabled={readOnly} />
-                    <span style={{ fontSize: 10, color: '#94a3b8' }}>×</span>
-                    <input className="input" type="number" step="0.01" style={{ width: 50, fontSize: 11, padding: '3px 5px' }}
-                      value={mat.largo || ''} onChange={(e) => updateMaterial(idx, 'largo', Number(e.target.value))} placeholder="L" disabled={readOnly} />
-                    <span style={{ fontSize: 11, color: '#94a3b8' }}>×</span>
-                    <input className="input" type="number" step="0.01" style={{ width: 50, fontSize: 11, padding: '3px 5px' }}
-                      value={mat.ancho || ''} onChange={(e) => updateMaterial(idx, 'ancho', Number(e.target.value))} placeholder="A" disabled={readOnly} />
-                    <span style={{ fontSize: 11, fontWeight: 600, color: '#1e40af' }}>= {(Number(mat.largo || 0) * Number(mat.ancho || 0) * (mat.cantidad || 1)).toFixed(2)} m²</span>
-                  </div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: mat.moneda === 'USD' ? '#059669' : '#dc2626', marginTop: 2 }}>
-                    {mat.moneda === 'USD'
-                      ? `USD ${((Number(mat.largo || 0) * Number(mat.ancho || 0) * (mat.cantidad || 1) * (mat.precio_m2_usd || 0)).toLocaleString('es-AR', { minimumFractionDigits: 2 }))}`
-                      : `$ ${((Number(mat.largo || 0) * Number(mat.ancho || 0) * (mat.cantidad || 1) * (mat.precio_m2 || 0)).toLocaleString('es-AR', { minimumFractionDigits: 2 }))}`}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f7fafc', padding: 10, borderRadius: 6 }}>
+                    <div style={{ fontSize: 13, color: '#4a5568' }}>
+                      <span>Rendimiento: <strong style={{ color: '#2b6cb0' }}>{m2.toFixed(2)} m²</strong></span>
+                    </div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: '#2f855a' }}>
+                      Subtotal: {mat.moneda === 'USD' ? `USD ${subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}` : `$ ${subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}
+                    </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
               {(form.materiales || []).length === 0 && (
                 <div style={{ padding: 16, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
                   Sin materiales agregados. Usá "+ AGREGAR MATERIAL" para sumar.
@@ -630,6 +657,7 @@ export default function OrdenForm() {
           </div>
           )}
         </div>
+        )}
 
         {/* ===== SECCIÓN INFERIOR: 4 paneles ===== */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
