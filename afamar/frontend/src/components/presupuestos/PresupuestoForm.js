@@ -658,10 +658,20 @@ export default function PresupuestoForm() {
                       <div style={{ fontSize: 12, color: '#94a3b8' }}>{c.telefono} {c.email ? `| ${c.email}` : ''}</div>
                     </div>
                   ))}
-                  {(form.piletas || []).filter((pt) => pt.moneda !== 'USD').map((pt, i) => (
-                    <div key={'pa' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  {(form.materiales || []).filter((m) => m.moneda === 'USD').map((m, i) => {
+                    const m2 = Number(m.largo || 0) * Number(m.ancho || 0);
+                    const sub = m2 * (m.precio_m2_usd || 0);
+                    return sub > 0 ? (
+                      <div key={'mu' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>{m.nombre} ({m2.toFixed(2)} m²)</span>
+                        <span style={{ fontWeight: 600 }}>USD {sub.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    ) : null;
+                  })}
+                  {(form.piletas || []).filter((pt) => pt.moneda === 'USD').map((pt, i) => (
+                    <div key={'pu' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span>Pileta {pt.marca} - {pt.modelo}{pt.cantidad > 1 ? ` (x${pt.cantidad})` : ''}</span>
-                      <span style={{ fontWeight: 600 }}>{formatCurrency((pt.precio || 0) * (pt.cantidad || 1))}</span>
+                      <span style={{ fontWeight: 600 }}>USD {((pt.precio || 0) * (pt.cantidad || 1)).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                     </div>
                   ))}
                 </div>
@@ -895,6 +905,22 @@ export default function PresupuestoForm() {
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span>{d.concepto === 'OTRA' ? (d.detalle || 'OTRA') : d.concepto}{d.material ? ` - ${d.material}` : ''}{d.m2 > 0 ? ` (${d.m2} m²)` : ''}{d.largo > 0 && d.concepto === 'OTRA' ? ` (${d.largo} m)` : ''}</span>
                       <span style={{ fontWeight: 600 }}>{formatCurrency(d.precio)}</span>
+                    </div>
+                  ))}
+                  {(form.materiales || []).filter((m) => m.moneda !== 'USD').map((m, i) => {
+                    const m2 = Number(m.largo || 0) * Number(m.ancho || 0);
+                    const sub = m2 * (m.precio_m2 || 0);
+                    return sub > 0 ? (
+                      <div key={'ma' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>{m.nombre} ({m2.toFixed(2)} m²)</span>
+                        <span style={{ fontWeight: 600 }}>{formatCurrency(sub)}</span>
+                      </div>
+                    ) : null;
+                  })}
+                  {(form.piletas || []).filter((pt) => pt.moneda !== 'USD').map((pt, i) => (
+                    <div key={'pa' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>Pileta {pt.marca} - {pt.modelo}{pt.cantidad > 1 ? ` (x${pt.cantidad})` : ''}</span>
+                      <span style={{ fontWeight: 600 }}>{formatCurrency((pt.precio || 0) * (pt.cantidad || 1))}</span>
                     </div>
                   ))}
                 </div>
