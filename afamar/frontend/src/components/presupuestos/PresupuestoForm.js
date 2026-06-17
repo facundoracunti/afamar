@@ -149,8 +149,9 @@ export default function PresupuestoForm() {
     const dd = Number(form.dolar_dia);
     const ppArs = (form.piletas || []).filter((pt) => pt.moneda !== 'USD').reduce((sum, pt) => sum + (pt.precio || 0) * (pt.cantidad || 1), 0);
     const ppUsd = (form.piletas || []).filter((pt) => pt.moneda === 'USD').reduce((sum, pt) => sum + (pt.precio || 0) * (pt.cantidad || 1), 0);
-    const matArs = (form.materiales || []).filter((m) => m.moneda !== 'USD').reduce((sum, m) => sum + (Number(m.largo || 0) * Number(m.ancho || 0) * (m.cantidad || 1) * (m.precio_m2 || 0)), 0);
-    const matUsd = (form.materiales || []).filter((m) => m.moneda === 'USD').reduce((sum, m) => sum + (Number(m.largo || 0) * Number(m.ancho || 0) * (m.cantidad || 1) * (m.precio_m2_usd || 0)), 0);
+    const matsMain = (form.materiales || []).filter((m) => !m.es_alternativa);
+    const matArs = matsMain.filter((m) => m.moneda !== 'USD').reduce((sum, m) => sum + (Number(m.largo || 0) * Number(m.ancho || 0) * (m.cantidad || 1) * (m.precio_m2 || 0)), 0);
+    const matUsd = matsMain.filter((m) => m.moneda === 'USD').reduce((sum, m) => sum + (Number(m.largo || 0) * Number(m.ancho || 0) * (m.cantidad || 1) * (m.precio_m2_usd || 0)), 0);
     const CONFIG_CUOTAS = {};
     for (let i = 1; i <= 12; i++) CONFIG_CUOTAS[i] = i <= 2 ? 0 : i * 5;
     const pctRecargo = form.forma_pago === 'TARJETA DE CRÉDITO' ? (CONFIG_CUOTAS[form.cuotas] || 0) : 0;
@@ -392,6 +393,7 @@ export default function PresupuestoForm() {
     update('piletas', [...(form.piletas || []), {
       pileta_id: pt.id, marca: pt.marca, modelo: pt.modelo,
       precio: pt.precio || 0, moneda: 'ARS', imagen: '', cantidad: 1,
+      es_alternativa: false,
     }]);
   };
   const removePileta = (idx) => { update('piletas', form.piletas.filter((_, i) => i !== idx)); };
@@ -748,7 +750,15 @@ export default function PresupuestoForm() {
                       <span style={{ fontSize: 16, fontWeight: 700, textTransform: 'uppercase', color: '#1a202c' }}>{mat.nombre}</span>
                       <span style={{ marginLeft: 8, fontSize: 12, color: '#718096', background: '#edf2f7', padding: '2px 8px', borderRadius: 4 }}>{mat.categoria}</span>
                     </div>
-                    <button type="button" onClick={() => removeMaterial(idx)} style={{ color: '#e53e3e', background: 'none', border: 'none', cursor: 'pointer', fontSize: 18 }} disabled={readOnly}>✕</button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <label style={{ fontSize: 11, color: '#4a5568', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <input type="checkbox" checked={mat.es_alternativa || false}
+                          onChange={(e) => updateMaterial(idx, 'es_alternativa', e.target.checked)}
+                          disabled={readOnly} style={{ width: 14, height: 14 }} />
+                        <span>Alternativa</span>
+                      </label>
+                      <button type="button" onClick={() => removeMaterial(idx)} style={{ color: '#e53e3e', background: 'none', border: 'none', cursor: 'pointer', fontSize: 18 }} disabled={readOnly}>✕</button>
+                    </div>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
                     <div>
@@ -948,10 +958,13 @@ export default function PresupuestoForm() {
             <h3 className="section-title">PRESUPUESTO</h3>
 
             {(() => {
-              const esComparativo = (form.materiales || []).filter((m) => Number(m.largo || 0) * Number(m.ancho || 0) > 0).length > 1;
-              if (!esComparativo) {
-                return (
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+              const hayAlternativas = (form.materiales || []).some((m) => m.es_alternativa);
+              const matsMain = hayAlternativas ? (form.materiales || []).filter((m) => !m.es_alternativa) : (form.materiales || []);
+              const matsAlt = (form.materiales || []).filter((m) => m.es_alternativa);
+
+              return (
+              <div>
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
               {/* Columna ARS */}
               <div style={{ flex: hayUSD ? '1 1 280px' : '1 1 100%', fontSize: 13, lineHeight: 1.8 }}>
                 <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: 6, marginBottom: 6 }}>
@@ -968,7 +981,7 @@ export default function PresupuestoForm() {
                     </div>
                     );
                   })}
-                  {(form.materiales || []).map((m, i) => {
+                  {(matsMain || []).map((m, i) => {
                     const dd2 = Number(form.dolar_dia);
                     const m2 = Number(m.largo || 0) * Number(m.ancho || 0) * (m.cantidad || 1);
                     const sub = m.moneda === 'ARS' ? m2 * (m.precio_m2 || 0) : (dd2 > 0 ? m2 * (m.precio_m2_usd || 0) * dd2 : 0);
@@ -1054,7 +1067,7 @@ export default function PresupuestoForm() {
                     </div>
                     );
                   })}
-                  {(form.materiales || []).map((m, i) => {
+                  {(matsMain || []).map((m, i) => {
                     const dd2 = Number(form.dolar_dia);
                     const m2 = Number(m.largo || 0) * Number(m.ancho || 0) * (m.cantidad || 1);
                     const sub = m.moneda === 'USD' ? m2 * (m.precio_m2_usd || 0) : (dd2 > 0 ? m2 * (m.precio_m2 || 0) / dd2 : 0);
@@ -1106,59 +1119,58 @@ export default function PresupuestoForm() {
                 </div>
               </div>
               )}
-            </div>
-                );
-              }
-
-              const dd2 = Number(form.dolar_dia) || 1;
-              const fijosArs = (form.detalles_fabricacion || []).reduce((s, d) => s + (Number(d.precio) || 0) * (d.cantidad || 1), 0)
-                + (form.piletas || []).reduce((s, pt) => s + (Number(pt.precio) || 0) * (pt.cantidad || 1), 0)
-                + (Number(form.traslado) || 0);
-
-              return (
-              <div>
-                <div style={{ marginBottom: 12, padding: '8px 12px', background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 8 }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: '#1e40af' }}>📋 PRESUPUESTO COMPARATIVO</span>
-                  <span style={{ fontSize: 11, color: '#3b82f6', marginLeft: 8 }}>{form.materiales.length} opciones de material</span>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
-                  {(form.materiales || []).filter((m) => Number(m.largo || 0) * Number(m.ancho || 0) > 0).map((mat, idx) => {
-                    const letra = String.fromCharCode(65 + idx);
-                    const m2 = Number(mat.largo || 0) * Number(mat.ancho || 0) * (mat.cantidad || 1);
-                    const costoMat = mat.moneda === 'USD' ? m2 * (mat.precio_m2_usd || 0) : m2 * (mat.precio_m2 || 0);
-                    const costoMatArs = mat.moneda === 'USD' ? (dd2 > 0 ? costoMat * dd2 : 0) : costoMat;
-                    const totalArs = costoMatArs + fijosArs;
-                    return (
-                      <div key={idx} style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12, background: '#fafafa', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                        <div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                            <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', padding: '2px 8px', background: '#dbeafe', color: '#1e40af', borderRadius: 4 }}>Opci&oacute;n {letra}</span>
-                            <span style={{ fontSize: 11, color: '#6b7280' }}>{mat.cantidad || 1} pza. ({m2.toFixed(2)} m²)</span>
-                          </div>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', textTransform: 'uppercase', marginBottom: 2 }}>{mat.nombre}</div>
-                          {mat.moneda === 'USD' && <div style={{ fontSize: 11, color: '#059669', fontWeight: 600, marginBottom: 8 }}>USD {costoMat.toFixed(2)}</div>}
-                          <div style={{ borderTop: '1px dashed #d1d5db', paddingTop: 6, fontSize: 12, color: '#6b7280', marginBottom: 8 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span>Material:</span>
-                              <span style={{ fontWeight: 600, color: '#374151' }}>$ {costoMatArs.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+
+                {hayAlternativas && (
+                <div style={{ marginTop: 16 }}>
+                  <div style={{ marginBottom: 12, padding: '8px 12px', background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 8 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#1e40af' }}>📋 PRESUPUESTO COMPARATIVO</span>
+                    <span style={{ fontSize: 11, color: '#3b82f6', marginLeft: 8 }}>{matsAlt.length} opciones alternativas</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+                    {matsAlt.map((mat, idx) => {
+                      const letra = String.fromCharCode(65 + idx);
+                      const dd2 = Number(form.dolar_dia) || 1;
+                      const m2 = Number(mat.largo || 0) * Number(mat.ancho || 0) * (mat.cantidad || 1);
+                      const costoMat = mat.moneda === 'USD' ? m2 * (mat.precio_m2_usd || 0) : m2 * (mat.precio_m2 || 0);
+                      const costoMatArs = mat.moneda === 'USD' ? (dd2 > 0 ? costoMat * dd2 : 0) : costoMat;
+                      const fijosArsAlt = (form.detalles_fabricacion || []).reduce((s, d) => s + (Number(d.precio) || 0) * (d.cantidad || 1), 0)
+                        + (form.piletas || []).reduce((s, pt) => s + (Number(pt.precio) || 0) * (pt.cantidad || 1), 0)
+                        + (Number(form.traslado) || 0);
+                      const totalArs = costoMatArs + fijosArsAlt;
+                      return (
+                        <div key={idx} style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12, background: '#fafafa', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                              <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', padding: '2px 8px', background: '#dbeafe', color: '#1e40af', borderRadius: 4 }}>Alternativa {letra}</span>
+                              <span style={{ fontSize: 11, color: '#6b7280' }}>{mat.cantidad || 1} pza. ({m2.toFixed(2)} m²)</span>
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span>Trabajos + Piletas + Traslado:</span>
-                              <span style={{ fontWeight: 600, color: '#374151' }}>$ {fijosArs.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', textTransform: 'uppercase', marginBottom: 2 }}>{mat.nombre}</div>
+                            {mat.moneda === 'USD' && <div style={{ fontSize: 11, color: '#059669', fontWeight: 600, marginBottom: 8 }}>USD {costoMat.toFixed(2)}</div>}
+                            <div style={{ borderTop: '1px dashed #d1d5db', paddingTop: 6, fontSize: 12, color: '#6b7280', marginBottom: 8 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span>Material:</span>
+                                <span style={{ fontWeight: 600, color: '#374151' }}>$ {costoMatArs.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span>Trabajos + Piletas + Traslado:</span>
+                                <span style={{ fontWeight: 600, color: '#374151' }}>$ {fijosArsAlt.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                              </div>
                             </div>
                           </div>
+                          <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 8, textAlign: 'center', background: '#fff', borderRadius: 6, padding: 8 }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase' }}>Total alternativa</div>
+                            <div style={{ fontSize: 18, fontWeight: 900, color: '#dc2626' }}>$ {Math.round(totalArs).toLocaleString('es-AR')}</div>
+                          </div>
                         </div>
-                        <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 8, textAlign: 'center', background: '#fff', borderRadius: 6, padding: 8 }}>
-                          <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase' }}>Total presupuesto</div>
-                          <div style={{ fontSize: 18, fontWeight: 900, color: '#dc2626' }}>$ {Math.round(totalArs).toLocaleString('es-AR')}</div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
+                  <div style={{ fontSize: 10, color: '#9ca3af', textAlign: 'center', marginTop: 12, fontStyle: 'italic' }}>
+                    * Todos los totales incluyen la misma configuraci&oacute;n de trabajos, piletas y traslados.
+                  </div>
                 </div>
-                <div style={{ fontSize: 10, color: '#9ca3af', textAlign: 'center', marginTop: 12, fontStyle: 'italic' }}>
-                  * Todos los totales incluyen la misma configuraci&oacute;n de trabajos, piletas y traslados cotizados al tipo de cambio del d&iacute;a.
-                </div>
+                )}
               </div>
               );
             })()}
