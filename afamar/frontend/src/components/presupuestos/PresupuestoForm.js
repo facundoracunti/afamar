@@ -946,6 +946,11 @@ export default function PresupuestoForm() {
           {/* Panel 3: Presupuesto */}
           <div className="card">
             <h3 className="section-title">PRESUPUESTO</h3>
+
+            {(() => {
+              const esComparativo = (form.materiales || []).filter((m) => Number(m.largo || 0) * Number(m.ancho || 0) > 0).length > 1;
+              if (!esComparativo) {
+                return (
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
               {/* Columna ARS */}
               <div style={{ flex: hayUSD ? '1 1 280px' : '1 1 100%', fontSize: 13, lineHeight: 1.8 }}>
@@ -1086,6 +1091,13 @@ export default function PresupuestoForm() {
                     </span>
                   </div>
                 </div>
+                <div className="form-group" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label style={{ margin: 0 }}>Seña recibida (USD)</label>
+                  <input type="number" className="input" style={{ width: 130, textAlign: 'right' }}
+                    value={form.sena_usd}
+                    onChange={(e) => handleSenaMontoChange(e.target.value)}
+                    disabled={readOnly} />
+                </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
                   <span style={{ fontWeight: 600 }}>Saldo pendiente USD</span>
                   <span style={{ fontSize: 16, fontWeight: 700, color: '#059669' }}>
@@ -1095,6 +1107,61 @@ export default function PresupuestoForm() {
               </div>
               )}
             </div>
+                );
+              }
+
+              const dd2 = Number(form.dolar_dia) || 1;
+              const fijosArs = (form.detalles_fabricacion || []).reduce((s, d) => s + (Number(d.precio) || 0) * (d.cantidad || 1), 0)
+                + (form.piletas || []).reduce((s, pt) => s + (Number(pt.precio) || 0) * (pt.cantidad || 1), 0)
+                + (Number(form.traslado) || 0);
+
+              return (
+              <div>
+                <div style={{ marginBottom: 12, padding: '8px 12px', background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#1e40af' }}>📋 PRESUPUESTO COMPARATIVO</span>
+                  <span style={{ fontSize: 11, color: '#3b82f6', marginLeft: 8 }}>{form.materiales.length} opciones de material</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+                  {(form.materiales || []).filter((m) => Number(m.largo || 0) * Number(m.ancho || 0) > 0).map((mat, idx) => {
+                    const letra = String.fromCharCode(65 + idx);
+                    const m2 = Number(mat.largo || 0) * Number(mat.ancho || 0) * (mat.cantidad || 1);
+                    const costoMat = mat.moneda === 'USD' ? m2 * (mat.precio_m2_usd || 0) : m2 * (mat.precio_m2 || 0);
+                    const costoMatArs = mat.moneda === 'USD' ? (dd2 > 0 ? costoMat * dd2 : 0) : costoMat;
+                    const totalArs = costoMatArs + fijosArs;
+                    return (
+                      <div key={idx} style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12, background: '#fafafa', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                            <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', padding: '2px 8px', background: '#dbeafe', color: '#1e40af', borderRadius: 4 }}>Opci&oacute;n {letra}</span>
+                            <span style={{ fontSize: 11, color: '#6b7280' }}>{mat.cantidad || 1} pza. ({m2.toFixed(2)} m²)</span>
+                          </div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', textTransform: 'uppercase', marginBottom: 2 }}>{mat.nombre}</div>
+                          {mat.moneda === 'USD' && <div style={{ fontSize: 11, color: '#059669', fontWeight: 600, marginBottom: 8 }}>USD {costoMat.toFixed(2)}</div>}
+                          <div style={{ borderTop: '1px dashed #d1d5db', paddingTop: 6, fontSize: 12, color: '#6b7280', marginBottom: 8 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span>Material:</span>
+                              <span style={{ fontWeight: 600, color: '#374151' }}>$ {costoMatArs.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span>Trabajos + Piletas + Traslado:</span>
+                              <span style={{ fontWeight: 600, color: '#374151' }}>$ {fijosArs.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 8, textAlign: 'center', background: '#fff', borderRadius: 6, padding: 8 }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase' }}>Total presupuesto</div>
+                          <div style={{ fontSize: 18, fontWeight: 900, color: '#dc2626' }}>$ {Math.round(totalArs).toLocaleString('es-AR')}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{ fontSize: 10, color: '#9ca3af', textAlign: 'center', marginTop: 12, fontStyle: 'italic' }}>
+                  * Todos los totales incluyen la misma configuraci&oacute;n de trabajos, piletas y traslados cotizados al tipo de cambio del d&iacute;a.
+                </div>
+              </div>
+              );
+            })()}
 
             {/* Estado de pago y forma de pago (ancho completo) */}
             <div style={{ marginTop: 12, borderTop: '1px solid #e5e7eb', paddingTop: 12 }}>
