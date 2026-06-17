@@ -741,3 +741,44 @@ cd afamar/backend
 - `frontend/src/components/presupuestos/PresupuestosList.js` — badges, títulos, filtros, dropdown
 - `frontend/src/components/Layout.js` — menú 4 items, date color
 - `frontend/src/index.css` — input spinner CSS
+
+## Sesión 18-Jun-2026 (final) — Presupuesto Comparativo Multimaterial
+
+### Features
+- **Checkbox "Alternativa"** en cada tarjeta de material (campo `es_alternativa`). Materiales tildados como alternativa no se suman al total principal.
+- **Comparativa automática**: si hay alternativas, el PRESUPUESTO muta a un banner azul "MÓDULO DE COTIZACIÓN COMPARATIVA" + tarjetas en grilla, una por alternativa. Cada tarjeta muestra: Valor del Material + Trabajos/Piletas/Traslado fijo = **PRECIO TOTAL OBRA**.
+- **Totales superiores en $0**: cuando hay alternativas, `calculateTotales` fuerza `total=0`, `total_usd=0`, `saldo_pendiente=0`.
+- **Payment section oculto**: el bloque de Seña, Saldos, Forma de pago, Cuotas, Confirmar pago se oculta con `{!hayAlternativas && (...)}`.
+- **deep clone en conversión**: `convertir_a_orden` ahora fusiona `detalles_fabricacion` + `items` + `adicionales` del modelo antiguo, y persiste `adicionales` como JSON.
+- **Seña con selector ARS/USD**: input único con dropdown ARS/USD reemplaza los dos campos separados. `sena_moneda` se persiste en BD. Saldo pendiente ARS descuenta seña USD convertida vía dolar_dia.
+- **Columna USD condicional**: `hayUSD` se evalúa solo por `form.materiales.some(m => m.moneda === 'USD')`. Oculta toda la columna USD, DÓLAR DEL DÍA y saldos USD cuando no hay materiales importados.
+- **Espejo completo ARS↔USD**: todos los ítems (fabricación, materiales, piletas) aparecen en ambas columnas, convertidos según su moneda original usando dolar_dia.
+- **Saldo intermoneda**: la seña en ARS descuenta de ambos saldos (ARS y USD convertido), igual con seña USD.
+- **Botón dinámico de estados**: en OrdenForm, botón azul "Enviar a Taller" (→ EN EL TALLER) y verde "Finalizar Trabajo" (→ ENTREGADO + liquida saldo).
+- **Cuotas movido**: el texto "X cuotas mensuales fijas de..." se movió de la cabecera a entre TOTAL ARS y Forma de pago.
+- **Cartel de cuotas en finalizar**: al hacer clic en "Finalizar Trabajo", se auto-liquida: `sena_recibida=total`, `saldo_pendiente=0`, `saldo_pagado=true`.
+
+### Backend changes
+- `models/presupuesto.py` — columna `sena_moneda`
+- `models/orden_trabajo.py` — columna `sena_moneda`, columna `adicionales`
+- `schemas/presupuesto.py` — `sena_moneda` en Base y Update, `piletas` en Update
+- `schemas/orden_trabajo.py` — `sena_moneda` en Base y Update, `piletas` en Update
+- `routers/presupuestos.py` — `sena_moneda` en response y convertir, `items`/`adicionales` merge en deep clone
+- `routers/ordenes_trabajo.py` — `sena_moneda` en response
+
+### Frontend changes (ambos formularios)
+- `es_alternativa: false` en `addMaterial`
+- Checkbox "Alternativa" + label en tarjeta de material
+- IIFE con `if (hayAlternativas)` → banner azul + tarjetas comparativas
+- `const hayAlternativas` a nivel componente
+- `const hayUSD` basado solo en `form.materiales`
+- `calculateTotales`: `matsMain` filtra `!m.es_alternativa`; `esComparativo` fuerza `total=0`
+- `handleSenaMonedaChange` + `handleSenaMontoChange` reemplazan `handleSenaChange`
+- Input de Seña unificado con dropdown ARS/USD
+- `handleDolarDiaChange` ya no recalcula `sena_recibida`
+- USD column display: todos los ítems (no filtrados por moneda), ARS convertidos
+- ARS column display: todos los ítems, USD convertidos
+
+### Known issues
+- SQLite DB debe eliminarse manualmente cuando hay cambios de schema; recrear con `python seed.py`
+- Al agregar `sena_moneda` o `adicionales` a modelos existentes, se requiere ALTER TABLE o recreación de DB
