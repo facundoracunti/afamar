@@ -509,6 +509,7 @@ export default function OrdenForm() {
   const readOnly = ['EN EL TALLER', 'ENTREGADO'].includes(form.estado);
 
   const hayUSD = (form.materiales || []).some((m) => m.moneda === 'USD');
+  const hayAlternativas = (form.materiales || []).some((m) => m.es_alternativa);
 
   const muestroMat = true;
 
@@ -918,8 +919,7 @@ export default function OrdenForm() {
             <h3 className="section-title">PRESUPUESTO</h3>
 
             {(() => {
-              const hayAlternativas = (form.materiales || []).some((m) => m.es_alternativa);
-              const matsMain = hayAlternativas ? (form.materiales || []).filter((m) => !m.es_alternativa) : (form.materiales || []);
+                            const matsMain = hayAlternativas ? (form.materiales || []).filter((m) => !m.es_alternativa) : (form.materiales || []);
               const matsAlt = (form.materiales || []).filter((m) => m.es_alternativa);
 
               return (
@@ -1135,6 +1135,8 @@ export default function OrdenForm() {
               );
             })()}
 
+            {!hayAlternativas && (
+            <div>
             {/* Estado de pago y forma de pago (ancho completo) */}
             <div style={{ marginTop: 12, borderTop: '1px solid #e5e7eb', paddingTop: 12 }}>
               <div style={{ marginTop: 12, padding: '10px 14px', background: form.saldo_pagado ? '#d1fae5' : '#fef9c3', borderRadius: 8, border: `1px solid ${form.saldo_pagado ? '#6ee7b7' : '#fde68a'}` }}>
@@ -1224,6 +1226,8 @@ export default function OrdenForm() {
                 <input type="date" className="input" value={form.fecha_entrega} onChange={(e) => update('fecha_entrega', e.target.value)} disabled={readOnly} />
               </div>
             </div>
+            </div>
+            )}
           </div>
 
           {/* Panel 4: Aprobación */}
