@@ -565,11 +565,6 @@ export default function OrdenForm() {
               <input className="input" value={form.email} onChange={(e) => update('email', e.target.value)} placeholder="Email" disabled={readOnly} />
                 </div>
               </div>
-              {form.recargo_pct > 0 && form.cuotas > 1 && (
-                <div style={{ fontSize: 12, color: '#c0392b', fontWeight: 600, marginTop: 4, textAlign: 'center' }}>
-                  {form.cuotas} cuotas mensuales fijas de {formatCurrency(Math.round((form.total || 0) / (form.cuotas || 1)))}
-                </div>
-              )}
               <div className="form-group" style={{ marginTop: 8 }}>
             <label>Domicilio</label>
             <input className="input" value={form.domicilio} onChange={(e) => update('domicilio', e.target.value)} placeholder="Calle N° - Ciudad - Provincia" disabled={readOnly} />
@@ -1053,6 +1048,11 @@ export default function OrdenForm() {
                   )}
                 </div>
               </div>
+              {form.recargo_pct > 0 && form.cuotas > 1 && (
+                <div style={{ fontSize: 12, color: '#c0392b', fontWeight: 600, marginTop: 8, marginBottom: 8, textAlign: 'center' }}>
+                  {form.cuotas} cuotas mensuales fijas de {formatCurrency(Math.round((form.total || 0) / (form.cuotas || 1)))}
+                </div>
+              )}
               <div className="form-group" style={{ marginTop: 8 }}>
                 <label>Forma de pago</label>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
