@@ -595,7 +595,7 @@ export default function PresupuestoForm() {
 
   const readOnly = ['CONVERTIDO A OT', 'RECHAZADO'].includes(form.estado);
 
-  const hayUSD = true;
+  const hayUSD = (form.materiales || []).some((m) => m.moneda === 'USD');
 
   const muestroMat = true;
 

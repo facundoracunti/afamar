@@ -506,7 +506,7 @@ export default function OrdenForm() {
 
   const readOnly = ['EN EL TALLER', 'ENTREGADO'].includes(form.estado);
 
-  const hayUSD = true;
+  const hayUSD = (form.materiales || []).some((m) => m.moneda === 'USD');
 
   const muestroMat = true;
 
