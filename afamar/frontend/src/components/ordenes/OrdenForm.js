@@ -174,17 +174,23 @@ export default function OrdenForm() {
     const total_usd = totalBaseUsd + recargoUsd;
     const saldo_pendiente_usd = Math.max(0, total_usd - senaTotalUsd);
 
+    const esComparativo = (form.materiales || []).some((m) => m.es_alternativa);
+    const totalFinal = esComparativo ? 0 : total;
+    const totalUsdFinal = esComparativo ? 0 : total_usd;
+    const saldoFinal = esComparativo ? 0 : saldo;
+    const saldoUsdFinal = esComparativo ? 0 : saldo_pendiente_usd;
+
     setForm((prev) => ({
       ...prev,
       subtotal,
-      total,
+      total: totalFinal,
       recargo_ars: recargoArs,
       recargo_usd: recargoUsd,
       recargo_pct: pctRecargo,
-      saldo_pendiente: saldo,
+      saldo_pendiente: saldoFinal,
       subtotal_usd,
-      total_usd,
-      saldo_pendiente_usd,
+      total_usd: totalUsdFinal,
+      saldo_pendiente_usd: saldoUsdFinal,
     }));
   }, [form.detalles_fabricacion, form.traslado, form.piletas, form.materiales, form.sena_moneda, form.sena_recibida, form.traslado_usd, form.sena_usd, form.dolar_dia, form.cuotas, form.forma_pago]);
 
