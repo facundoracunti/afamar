@@ -136,8 +136,6 @@ def listar_unificados(
             "materiales": [{"nombre": m.get("nombre")} for m in (p.materiales or [])] if p.materiales else [],
         })
     for o in onlines:
-        if estado and estado != "CONVERTIDO A OT":
-            continue
         if estado == "CONVERTIDO A OT" and o.estado != "CONVERTIDO A OT":
             continue
         result.append({

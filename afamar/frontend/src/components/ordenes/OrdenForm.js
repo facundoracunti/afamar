@@ -153,7 +153,7 @@ export default function OrdenForm() {
     const CONFIG_CUOTAS = {};
     for (let i = 1; i <= 12; i++) CONFIG_CUOTAS[i] = i <= 2 ? 0 : i * 5;
     const pctRecargo = form.forma_pago === 'TARJETA DE CRÉDITO' ? (CONFIG_CUOTAS[form.cuotas] || 0) : 0;
-    const subtotal = arsTotal + (dd > 0 ? Math.round(usdTotal * dd * 100) / 100 : 0) + matArs + ppArs;
+    const subtotal = arsTotal + (dd > 0 ? Math.round((usdTotal + matUsd) * dd * 100) / 100 : 0) + matArs + ppArs + (dd > 0 ? Math.round(ppUsd * dd * 100) / 100 : 0);
     const tr = Number(form.traslado) || 0;
     const totalBase = Math.max(0, subtotal + tr);
     const recargoArs = Math.round(totalBase * pctRecargo / 100);
