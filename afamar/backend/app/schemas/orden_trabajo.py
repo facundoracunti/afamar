@@ -52,6 +52,7 @@ class OrdenTrabajoBase(BaseModel):
     sena_recibida: Optional[float] = 0
     saldo_pendiente: Optional[float] = 0
     forma_pago: Optional[str] = None
+    cuotas: Optional[int] = None
     saldo_pagado: Optional[bool] = False
     fecha_pago_saldo: Optional[datetime] = None
     dolar_dia: Optional[float] = 1000
@@ -104,6 +105,7 @@ class OrdenTrabajoUpdate(BaseModel):
     sena_recibida: Optional[float] = None
     saldo_pendiente: Optional[float] = None
     forma_pago: Optional[str] = None
+    cuotas: Optional[int] = None
     saldo_pagado: Optional[bool] = None
     fecha_pago_saldo: Optional[datetime] = None
     dolar_dia: Optional[float] = None

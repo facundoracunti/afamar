@@ -61,6 +61,7 @@ class OrdenTrabajo(Base):
     saldo_pagado = Column(Boolean, default=False)
     fecha_pago_saldo = Column(DateTime, nullable=True)
     forma_pago = Column(String(255))
+    cuotas = Column(Integer, default=1)
     dolar_dia = Column(Float, default=1000)
     subtotal_usd = Column(Float, default=0)
     traslado_usd = Column(Float, default=0)

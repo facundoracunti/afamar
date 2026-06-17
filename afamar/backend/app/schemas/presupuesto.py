@@ -55,6 +55,7 @@ class PresupuestoBase(BaseModel):
     subtotal_servicios: Optional[float] = 0
     total: Optional[float] = 0
     forma_pago: Optional[str] = None
+    cuotas: Optional[int] = None
     validez: Optional[str] = "10 días"
     entrega_aproximada: Optional[str] = None
     fecha_estimada_entrega: Optional[datetime] = None
@@ -119,6 +120,7 @@ class PresupuestoUpdate(BaseModel):
     subtotal_servicios: Optional[float] = None
     total: Optional[float] = None
     forma_pago: Optional[str] = None
+    cuotas: Optional[int] = None
     validez: Optional[str] = None
     entrega_aproximada: Optional[str] = None
     fecha_estimada_entrega: Optional[datetime] = None

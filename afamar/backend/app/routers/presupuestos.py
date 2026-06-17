@@ -371,6 +371,7 @@ def convertir_a_orden(presupuesto_id: int, db: Session = Depends(get_db)):
         detalles_fabricacion=presupuesto.detalles_fabricacion or [],
         detalles_presupuestados=presupuesto.detalles_fabricacion or [],
         materiales=presupuesto.materiales or [],
+        piletas=presupuesto.piletas or [],
 
         pileta_id=presupuesto.pileta_id,
         pileta_precio=presupuesto.pileta_precio or 0,
@@ -388,6 +389,7 @@ def convertir_a_orden(presupuesto_id: int, db: Session = Depends(get_db)):
         saldo_pagado=presupuesto.saldo_pagado or False,
         fecha_pago_saldo=presupuesto.fecha_pago_saldo,
         forma_pago=presupuesto.forma_pago,
+        cuotas=presupuesto.cuotas or 1,
         dolar_dia=presupuesto.dolar_dia or 1000,
         subtotal_usd=presupuesto.subtotal_usd or 0,
         traslado_usd=presupuesto.traslado_usd or 0,
@@ -480,6 +482,7 @@ def _presupuesto_to_schema(p):
         subtotal_servicios=p.subtotal_servicios,
         total=p.total,
         forma_pago=p.forma_pago,
+        cuotas=p.cuotas,
         validez=p.validez,
         entrega_aproximada=p.entrega_aproximada,
         fecha_estimada_entrega=p.fecha_estimada_entrega,

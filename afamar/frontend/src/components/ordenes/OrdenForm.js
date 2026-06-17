@@ -87,7 +87,10 @@ export default function OrdenForm() {
           observaciones_diseno: d.observaciones_diseno || '',
           detalles_fabricacion: d.detalles_fabricacion?.length ? d.detalles_fabricacion.map((df) => ({ ...df, largo: df.largo || 0, ancho: df.ancho || 0, m2: df.m2 || 0, mano_de_obra: df.mano_de_obra || 0, precio: df.precio || 0 })) : [],
           detalles_presupuestados: d.detalles_presupuestados || [],
-          materiales: d.materiales || [],
+          materiales: (d.materiales || []).map((m) => ({
+            ...m,
+            m2_presupuestado: m.m2_presupuestado || (Number(m.largo || 0) * Number(m.ancho || 0) * (m.cantidad || 1)),
+          })),
           piletas: d.piletas || [],
           pileta_id: d.pileta_id || '',
           pileta_precio: d.pileta_precio || 0,
@@ -354,7 +357,7 @@ export default function OrdenForm() {
     update('materiales', [...(form.materiales || []), {
       nombre: mat.nombre, categoria: mat.categoria || '', color: mat.color || '',
       precio_m2: mat.precio_m2 || 0, precio_m2_usd: mat.precio_m2_usd || 0,
-      moneda: mat.moneda || 'ARS', cantidad: 1, m2_utilizados: 0,
+      moneda: mat.moneda || 'ARS', cantidad: 1, m2_utilizados: 0, m2_presupuestado: 0,
     }]);
   };
 
@@ -777,6 +780,22 @@ export default function OrdenForm() {
                         <tr key={'med_' + i}>
                           <td style={{ fontWeight: 600 }}>{d.concepto === 'OTRA' ? (d.detalle || 'OTRA') : d.concepto}</td>
                           <td style={{ textAlign: 'center' }}>{m2Ori.toFixed(4)} m²</td>
+                          <td style={{ textAlign: 'center', fontWeight: 600 }}>{m2Real.toFixed(4)} m²</td>
+                          <td style={{ textAlign: 'center', fontWeight: 700, color: difColor }}>
+                            {dif > 0 ? '+' : ''}{dif.toFixed(4)} m²
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {(form.materiales || []).filter((m) => Number(m.largo || 0) * Number(m.ancho || 0) > 0).map((m, i) => {
+                      const m2Real = Number(m.largo || 0) * Number(m.ancho || 0) * (m.cantidad || 1);
+                      const m2Pres = m.m2_presupuestado || 0;
+                      const dif = Math.round((m2Real - m2Pres) * 10000) / 10000;
+                      const difColor = dif > 0 ? '#16a34a' : dif < 0 ? '#dc2626' : '#6b7280';
+                      return (
+                        <tr key={'mat_' + i}>
+                          <td style={{ fontWeight: 600 }}>{m.nombre}</td>
+                          <td style={{ textAlign: 'center' }}>{m2Pres.toFixed(4)} m²</td>
                           <td style={{ textAlign: 'center', fontWeight: 600 }}>{m2Real.toFixed(4)} m²</td>
                           <td style={{ textAlign: 'center', fontWeight: 700, color: difColor }}>
                             {dif > 0 ? '+' : ''}{dif.toFixed(4)} m²

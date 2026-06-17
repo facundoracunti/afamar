@@ -290,6 +290,7 @@ def _orden_to_schema(o):
         sena_usd=o.sena_usd,
         saldo_pendiente_usd=o.saldo_pendiente_usd,
         forma_pago=o.forma_pago,
+        cuotas=o.cuotas,
         fecha_entrega=o.fecha_entrega,
         prioridad=o.prioridad,
         firma_cliente=o.firma_cliente,

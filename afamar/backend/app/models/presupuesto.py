@@ -32,6 +32,7 @@ class Presupuesto(Base):
     total = Column(Float, default=0)
     
     forma_pago = Column(String(50))
+    cuotas = Column(Integer, default=1)
     validez = Column(String(100), default="10 días")
     entrega_aproximada = Column(String(100))
     fecha_estimada_entrega = Column(DateTime)

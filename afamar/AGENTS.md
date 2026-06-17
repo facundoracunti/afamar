@@ -684,3 +684,60 @@ cd afamar/backend
 
 ### Archivos modificados
 - `frontend/src/components/Layout.js` — 4 sub-ítems, links actualizados
+
+## Sesión 18-Jun-2026 (tarde) — Persistencia cuotas, FabricacionDetalle.cantidad, menú, badges, croquis toggle
+
+### 1. Cuotas y recargo financiero persistido
+- Columna `cuotas` (Integer, default 1) agregada a modelos `orden_trabajo.py` y `presupuesto.py`
+- `cuotas` agregado a schemas (Base y Update) de ambos
+- `cuotas` agregado a `_to_schema` en routers de ordenes y presupuestos
+- `cuotas` (y `piletas`) agregados al endpoint `convertir_a_orden`
+- Frontend: `cuotas: d.cuotas || 1` en data loading de ambos formularios
+
+### 2. FabricacionDetalle.cantidad persistido
+- `cantidad: int = 1` agregado a `FabricacionDetalle` en schemas de orden_trabajo.py y presupuesto.py
+- Ahora la cantidad viaja completa en el JSON de detalles_fabricacion
+
+### 3. Piletas cargadas desde API en PresupuestoForm
+- Agregado `piletas: d.piletas || []` en la carga de datos de PresupuestoForm (faltaba)
+
+### 4. Menú lateral reestructurado
+- Presupuesto Local → `/presupuestos/nuevo`
+- Presupuesto en línea → `/presupuestos-online/nuevo`
+- Presupuesto Local / WhatsApp → `/presupuestos` (lista unificada, excluye convertidos)
+- Presupuestos Realizados → `/presupuestos?estado=CONVERTIDO+A+OT`
+- Renombrado "PRESUPUESTOS" a "PRESUPUESTOS LOCAL / WHATSAPP" en lista
+- Dropdown default: value="PENDIENTE"
+- Badges: PENDIENTE (amarillo), PENDIENTE - ONLINE (amarillo con borde), CONCRETADO (verde)
+
+### 5. Croquis toggle y grilla de materiales
+- Croquis colapsable con botón Activar/Ocultar
+- Materiales siempre visibles, solo CroquisEditor escondido
+- Tarjetas de materiales rediseñadas (bordes, sombras, labels, grid)
+- Grilla `repeat(auto-fill, minmax(360px, 1fr))` para tarjetas
+
+### 6. Comparativa de medición con materiales
+- Tabla COMPARATIVA DE MEDICIÓN ahora incluye materiales
+- `m2_presupuestado` guardado por material al crear o cargar
+- Δ diferencia calculada y coloreada (verde/rojo/gris)
+
+### 7. Bugfix: cálculo de recargo con useEffect
+- `form.cuotas` y `form.forma_pago` agregados a dependencias del useEffect de calculateTotals
+- Al cambiar cuotas, el recargo se recalcula al instante
+
+### 8. CSS: ocultar flechas de inputs numéricos
+- `input::-webkit-outer-spin-button`, `input[type=number]` rule agregada a index.css
+- Color de fecha en Layout.js cambiado a `#4a5568`
+
+### Archivos modificados
+- `backend/app/models/orden_trabajo.py` — cuotas
+- `backend/app/models/presupuesto.py` — cuotas
+- `backend/app/schemas/orden_trabajo.py` — FabricacionDetalle.cantidad, cuotas
+- `backend/app/schemas/presupuesto.py` — FabricacionDetalle.cantidad, cuotas
+- `backend/app/routers/ordenes_trabajo.py` — cuotas en _to_schema
+- `backend/app/routers/presupuestos.py` — cuotas, piletas en convertir y _to_schema
+- `frontend/src/components/ordenes/OrdenForm.js` — cuotas/d.piletas loading, m2_presupuestado, comparativa materiales, calculateTotales deps
+- `frontend/src/components/presupuestos/PresupuestoForm.js` — cuotas/d.piletas/d.materiales loading, m2_presupuestado
+- `frontend/src/components/presupuestos/PresupuestosList.js` — badges, títulos, filtros, dropdown
+- `frontend/src/components/Layout.js` — menú 4 items, date color
+- `frontend/src/index.css` — input spinner CSS

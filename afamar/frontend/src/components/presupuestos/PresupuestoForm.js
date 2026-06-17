@@ -95,6 +95,7 @@ export default function PresupuestoForm() {
           sena_recibida: d.sena_recibida || 0,
           saldo_pendiente: d.saldo_pendiente || 0,
           forma_pago: d.forma_pago || '',
+          cuotas: d.cuotas || 1,
           saldo_pagado: d.saldo_pagado || false,
           fecha_pago_saldo: d.fecha_pago_saldo ? d.fecha_pago_saldo.slice(0, 10) : '',
           dolar_dia: d.dolar_dia ?? 1000,
@@ -108,7 +109,10 @@ export default function PresupuestoForm() {
           fecha_aprobacion: d.fecha_aprobacion ? d.fecha_aprobacion.slice(0, 10) : '',
           observaciones: d.observaciones || '',
           observaciones_importantes: d.observaciones_importantes || '',
-          materiales: d.materiales || [],
+          materiales: (d.materiales || []).map((m) => ({
+            ...m,
+            m2_presupuestado: m.m2_presupuestado || (Number(m.largo || 0) * Number(m.ancho || 0) * (m.cantidad || 1)),
+          })),
           piletas: d.piletas || [],
         });
         setOrdenTrabajoNumero(d.orden_trabajo_numero || null);
@@ -348,7 +352,7 @@ export default function PresupuestoForm() {
     update('materiales', [...(form.materiales || []), {
       nombre: mat.nombre, categoria: mat.categoria || '', color: mat.color || '',
       precio_m2: mat.precio_m2 || 0, precio_m2_usd: mat.precio_m2_usd || 0,
-      moneda: mat.moneda || 'ARS', cantidad: 1, m2_utilizados: 0,
+      moneda: mat.moneda || 'ARS', cantidad: 1, m2_utilizados: 0, m2_presupuestado: 0,
     }]);
   };
 

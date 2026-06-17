@@ -186,7 +186,7 @@ export default function Layout() {
       <div className="main-content" style={{ marginLeft: mainShift, transition: 'margin-left 0.3s ease-in-out' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
           <div />
-          <div style={{ fontSize: 14, color: '#64748b' }}>
+          <div style={{ fontSize: 14, color: '#4a5568' }}>
             {new Date().toLocaleDateString('es-AR', {
               weekday: 'long',
               year: 'numeric',
