@@ -165,7 +165,7 @@ export default function OrdenForm() {
     const saldo = Math.max(0, total - senaEfectivaArs);
     const tr_usd = Number(form.traslado_usd) || 0;
     const sena_usd = Number(form.sena_usd) || 0;
-    const subtotal_usd = usdTotal + matUsd + ppUsd;
+    const subtotal_usd = usdTotal + matUsd + ppUsd + (dd > 0 ? (arsTotal + matArs + ppArs) / dd : 0);
     const totalBaseUsd = Math.max(0, subtotal_usd + tr_usd);
     const recargoUsd = Math.round(totalBaseUsd * pctRecargo / 100);
     const total_usd = totalBaseUsd + recargoUsd;
@@ -481,9 +481,7 @@ export default function OrdenForm() {
 
   const readOnly = ['EN EL TALLER', 'ENTREGADO'].includes(form.estado);
 
-  const hayUSD = (form.materiales || []).some((m) => m.moneda === 'USD') ||
-    (form.detalles_fabricacion || []).some((d) => d.moneda === 'USD') ||
-    (form.piletas || []).some((pt) => (pt.moneda || 'ARS') === 'USD');
+  const hayUSD = true;
 
   const muestroMat = true;
 
@@ -952,15 +950,20 @@ export default function OrdenForm() {
                   <span style={{ fontWeight: 700, color: '#6b7280' }}>SUBTOTALES (USD)</span>
                 </div>
                 <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: 8, marginBottom: 8 }}>
-                  {(form.detalles_fabricacion || []).filter((d) => Number(d.precio) > 0 && d.moneda === 'USD').map((d, i) => (
+                  {(form.detalles_fabricacion || []).filter((d) => Number(d.precio) > 0).map((d, i) => {
+                    const dd2 = Number(form.dolar_dia);
+                    const precioUsd = d.moneda === 'USD' ? Number(d.precio) : (dd2 > 0 ? Number(d.precio) / dd2 : 0);
+                    return (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span>{d.concepto === 'OTRA' ? (d.detalle || 'OTRA') : d.concepto}{d.material ? ` - ${d.material}` : ''}{d.m2 > 0 ? ` (${d.m2} m²)` : ''}{(d.cantidad || 1) > 1 ? ` x${d.cantidad}` : ''}</span>
-                      <span style={{ fontWeight: 600 }}>USD {(Number(d.precio) * (d.cantidad || 1)).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span style={{ fontWeight: 600 }}>USD {(precioUsd * (d.cantidad || 1)).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
-                  ))}
-                  {(form.materiales || []).filter((m) => m.moneda === 'USD').map((m, i) => {
+                    );
+                  })}
+                  {(form.materiales || []).map((m, i) => {
+                    const dd2 = Number(form.dolar_dia);
                     const m2 = Number(m.largo || 0) * Number(m.ancho || 0) * (m.cantidad || 1);
-                    const sub = m2 * (m.precio_m2_usd || 0);
+                    const sub = m.moneda === 'USD' ? m2 * (m.precio_m2_usd || 0) : (dd2 > 0 ? m2 * (m.precio_m2 || 0) / dd2 : 0);
                     return sub > 0 ? (
                       <div key={'mu' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span>Material: {m.nombre} ({m2.toFixed(2)} m²){(m.cantidad || 1) > 1 ? ` x${m.cantidad}` : ''}</span>
@@ -968,12 +971,16 @@ export default function OrdenForm() {
                       </div>
                     ) : null;
                   })}
-                  {(form.piletas || []).filter((pt) => (pt.moneda || 'ARS') === 'USD').map((pt, i) => (
+                  {(form.piletas || []).map((pt, i) => {
+                    const dd2 = Number(form.dolar_dia);
+                    const precioUsd = (pt.moneda || 'ARS') === 'USD' ? (pt.precio || 0) : (dd2 > 0 ? (pt.precio || 0) / dd2 : 0);
+                    return (
                     <div key={'pu' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span>Pileta {pt.marca} - {pt.modelo}{pt.cantidad > 1 ? ` (x${pt.cantidad})` : ''}</span>
-                      <span style={{ fontWeight: 600 }}>USD {((pt.precio || 0) * (pt.cantidad || 1)).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                      <span style={{ fontWeight: 600 }}>USD {(precioUsd * (pt.cantidad || 1)).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 <div className="form-group" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                   <label style={{ margin: 0, fontWeight: 600 }}>Traslado (USD)</label>
