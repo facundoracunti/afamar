@@ -677,8 +677,7 @@ export default function PresupuestoForm() {
             )}
           </div>
           </div>
-              </div>
-              )}
+            </div>
             </div>
 
       <form onSubmit={handleSubmit} onKeyDown={(e) => { if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') e.preventDefault(); }}>

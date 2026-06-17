@@ -64,6 +64,52 @@ def _find_or_create_cliente(db, nombre, telefono, email, domicilio):
         return nuevo.id
 
 
+def _descontar_stock_piletas(db, piletas, orden_numero):
+    if not piletas:
+        return
+    for pt in piletas:
+        if isinstance(pt, dict):
+            pid = pt.get("pileta_id")
+            cant = pt.get("cantidad", 1)
+        else:
+            continue
+        if not pid:
+            continue
+        pileta = db.query(StockPileta).filter(StockPileta.id == pid).first()
+        if pileta:
+            pileta.cantidad = max(0, (pileta.cantidad or 0) - cant)
+            movimiento = MovimientoPileta(
+                pileta_id=pid,
+                tipo="Egreso",
+                cantidad=cant,
+                descripcion=f"SALIDA POR PRODUCCIÓN - Orden {orden_numero}"
+            )
+            db.add(movimiento)
+
+
+def _restaurar_stock_piletas(db, piletas, orden_numero):
+    if not piletas:
+        return
+    for pt in piletas:
+        if isinstance(pt, dict):
+            pid = pt.get("pileta_id")
+            cant = pt.get("cantidad", 1)
+        else:
+            continue
+        if not pid:
+            continue
+        pileta = db.query(StockPileta).filter(StockPileta.id == pid).first()
+        if pileta:
+            pileta.cantidad = (pileta.cantidad or 0) + cant
+            movimiento = MovimientoPileta(
+                pileta_id=pid,
+                tipo="Ingreso",
+                cantidad=cant,
+                descripcion=f"ENTRADA POR CANCELACIÓN - Orden {orden_numero}"
+            )
+            db.add(movimiento)
+
+
 @router.get("/", response_model=List[OrdenTrabajoSchema])
 def listar_ordenes(
     search: Optional[str] = Query(None),
@@ -159,7 +205,13 @@ def crear_orden(data: OrdenTrabajoCreate, db: Session = Depends(get_db)):
 
     orden = OrdenTrabajo(**payload)
     orden.numero = generar_numero_orden(db)
+    orden.stock_descontado = True
     db.add(orden)
+    db.flush()
+
+    piletas = payload.get("piletas") or []
+    _descontar_stock_piletas(db, piletas, orden.numero)
+
     db.commit()
     db.refresh(orden)
     return _orden_to_schema(orden)
@@ -188,31 +240,13 @@ def actualizar_orden(orden_id: int, data: OrdenTrabajoUpdate, db: Session = Depe
     # Stock de pileta: descontar al pasar a EN EL TALLER, reponer al cancelar
     nuevo_estado = payload.get("estado", orden.estado)
     if nuevo_estado != orden.estado:
-        pileta_id = payload.get("pileta_id", orden.pileta_id)
-        if pileta_id:
-            pileta = db.query(StockPileta).filter(StockPileta.id == pileta_id).first()
-            if pileta:
-                if nuevo_estado == "EN EL TALLER" and not orden.stock_descontado:
-                    pileta.cantidad = max(0, (pileta.cantidad or 0) - 1)
-                    orden.stock_descontado = True
-                    movimiento = MovimientoPileta(
-                        pileta_id=pileta_id,
-                        tipo="Egreso",
-                        cantidad=1,
-                        descripcion=f"SALIDA POR PRODUCCIÓN - Orden {orden.numero}"
-                    )
-                    db.add(movimiento)
-                elif nuevo_estado in ("CANCELADO", "ENTREGADO") and orden.stock_descontado:
-                    if nuevo_estado == "CANCELADO":
-                        pileta.cantidad = (pileta.cantidad or 0) + 1
-                        orden.stock_descontado = False
-                        movimiento = MovimientoPileta(
-                            pileta_id=pileta_id,
-                            tipo="Ingreso",
-                            cantidad=1,
-                            descripcion=f"ENTRADA POR CANCELACIÓN - Orden {orden.numero}"
-                        )
-                        db.add(movimiento)
+        piletas = payload.get("piletas", orden.piletas or [])
+        if nuevo_estado == "EN EL TALLER" and not orden.stock_descontado:
+            _descontar_stock_piletas(db, piletas, orden.numero)
+            orden.stock_descontado = True
+        elif nuevo_estado == "CANCELADO" and orden.stock_descontado:
+            _restaurar_stock_piletas(db, piletas, orden.numero)
+            orden.stock_descontado = False
 
     for key, value in payload.items():
         setattr(orden, key, value)
@@ -223,21 +257,24 @@ def actualizar_orden(orden_id: int, data: OrdenTrabajoUpdate, db: Session = Depe
 
 @router.delete("/{orden_id}", status_code=204)
 def eliminar_orden(orden_id: int, db: Session = Depends(get_db)):
-    from app.models.stock_pileta import StockPileta, MovimientoPileta
     orden = db.query(OrdenTrabajo).filter(OrdenTrabajo.id == orden_id).first()
     if not orden:
         raise HTTPException(404, "Orden de trabajo no encontrada")
-    if orden.pileta_id and orden.stock_descontado:
-        pileta = db.query(StockPileta).filter(StockPileta.id == orden.pileta_id).first()
-        if pileta:
-            pileta.cantidad = (pileta.cantidad or 0) + 1
-            movimiento = MovimientoPileta(
-                pileta_id=orden.pileta_id,
-                tipo="Ingreso",
-                cantidad=1,
-                descripcion=f"Restauración por eliminación de orden {orden.numero}"
-            )
-            db.add(movimiento)
+    if orden.stock_descontado:
+        piletas = orden.piletas or []
+        if piletas:
+            _restaurar_stock_piletas(db, piletas, orden.numero)
+        elif orden.pileta_id:
+            pileta = db.query(StockPileta).filter(StockPileta.id == orden.pileta_id).first()
+            if pileta:
+                pileta.cantidad = (pileta.cantidad or 0) + 1
+                movimiento = MovimientoPileta(
+                    pileta_id=orden.pileta_id,
+                    tipo="Ingreso",
+                    cantidad=1,
+                    descripcion=f"Restauración por eliminación de orden {orden.numero}"
+                )
+                db.add(movimiento)
     db.delete(orden)
     db.commit()
 

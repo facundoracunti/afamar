@@ -331,6 +331,7 @@ def descargar_pdf_presupuesto(presupuesto_id: int, db: Session = Depends(get_db)
 def convertir_a_orden(presupuesto_id: int, db: Session = Depends(get_db)):
     from app.models.orden_trabajo import OrdenTrabajo
     from app.utils.numeracion import generar_numero_orden
+    from app.routers.ordenes_trabajo import _descontar_stock_piletas
 
     presupuesto = db.query(Presupuesto).filter(Presupuesto.id == presupuesto_id).first()
     if not presupuesto:
@@ -415,7 +416,11 @@ def convertir_a_orden(presupuesto_id: int, db: Session = Depends(get_db)):
         estado="EN MEDICIÓN",
     )
     presupuesto.estado = "CONVERTIDO A OT"
+    orden.stock_descontado = True
     db.add(orden)
+    db.flush()
+
+    _descontar_stock_piletas(db, orden.piletas or [], orden.numero)
     db.commit()
     db.refresh(orden)
     return {
