@@ -102,6 +102,7 @@ export default function OrdenForm() {
           sena_recibida: d.sena_recibida || 0,
           saldo_pendiente: d.saldo_pendiente || 0,
           forma_pago: d.forma_pago || '',
+          cuotas: d.cuotas || 1,
           saldo_pagado: d.saldo_pagado || false,
           fecha_pago_saldo: d.fecha_pago_saldo ? d.fecha_pago_saldo.slice(0, 10) : '',
           dolar_dia: d.dolar_dia ?? 1000,
