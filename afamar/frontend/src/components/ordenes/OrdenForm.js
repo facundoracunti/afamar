@@ -851,6 +851,33 @@ export default function OrdenForm() {
                       );
                     })}
                   </tbody>
+                  {(() => {
+                    let totalM2Pre = 0;
+                    let totalM2Real = 0;
+                    form.detalles_fabricacion.forEach((d, i) => {
+                      if (!CONCEPTOS_M2.includes(d.concepto)) return;
+                      const pres = form.detalles_presupuestados[i];
+                      if (!pres) return;
+                      totalM2Pre += Number(pres.m2) || 0;
+                      totalM2Real += d.m2 || 0;
+                    });
+                    (form.materiales || []).filter((m) => Number(m.largo || 0) * Number(m.ancho || 0) > 0).forEach((m) => {
+                      totalM2Pre += m.m2_presupuestado || 0;
+                      totalM2Real += Number(m.largo || 0) * Number(m.ancho || 0) * (m.cantidad || 1);
+                    });
+                    const difTotal = Math.round((totalM2Real - totalM2Pre) * 10000) / 10000;
+                    const difColor = difTotal > 0 ? '#16a34a' : difTotal < 0 ? '#dc2626' : '#6b7280';
+                    return (
+                      <tr style={{ background: '#f3f4f6', fontWeight: 700, borderTop: '2px solid #d1d5db' }}>
+                        <td style={{ padding: '6px 8px', textTransform: 'uppercase', letterSpacing: 1 }}>TOTAL GENERAL</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'center', background: '#f9fafb' }}>{totalM2Pre.toFixed(4)} m²</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'center', color: '#2563eb', background: '#eff6ff' }}>{totalM2Real.toFixed(4)} m²</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 700, color: difColor, background: '#f9fafb' }}>
+                          {difTotal === 0 ? '-' : `${difTotal > 0 ? '+' : ''}${difTotal.toFixed(4)} m²`}
+                        </td>
+                      </tr>
+                    );
+                  })()}
                 </table>
               </div>
             )}
