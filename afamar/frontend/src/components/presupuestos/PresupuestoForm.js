@@ -966,9 +966,63 @@ export default function PresupuestoForm() {
             {(() => {
               const matsMain = hayAlternativas ? (form.materiales || []).filter((m) => !m.es_alternativa) : (form.materiales || []);
               const matsAlt = (form.materiales || []).filter((m) => m.es_alternativa);
+              const dd2 = Number(form.dolar_dia) || 1;
+
+              let sumatoriaAdicionalesARS = Number(form.traslado || 0);
+              const detalleTrabajosComunes = [];
+              if (Number(form.traslado || 0) > 0) {
+                detalleTrabajosComunes.push({ concepto: 'Traslado', cant: 1, total: Number(form.traslado) });
+              }
+              (form.detalles_fabricacion || []).forEach((item) => {
+                const totalItem = Number(item.precio || 0) * Number(item.cantidad || 1);
+                if (totalItem > 0) {
+                  sumatoriaAdicionalesARS += totalItem;
+                  detalleTrabajosComunes.push({ concepto: item.concepto + (item.detalle ? ` - ${item.detalle}` : ''), cant: item.cantidad || 1, total: totalItem });
+                }
+              });
+              (form.piletas || []).forEach((pil) => {
+                const totalPil = Number(pil.precio || 0) * Number(pil.cantidad || 1);
+                if (totalPil > 0) {
+                  sumatoriaAdicionalesARS += totalPil;
+                  detalleTrabajosComunes.push({ concepto: `Pileta ${pil.marca || ''} ${pil.modelo || ''}`.trim(), cant: pil.cantidad || 1, total: totalPil });
+                }
+              });
 
               return (
               <div>
+                {hayAlternativas ? (
+                  <div style={{ marginTop: 0 }}>
+                    {/* ===== NEW TOP PANEL: Common work details ===== */}
+                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #e2e8f0', paddingBottom: 12, marginBottom: 16 }}>
+                        <div>
+                          <h3 style={{ fontSize: 13, fontWeight: 900, color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+                            DETALLE DE FABRICACI&Oacute;N Y ACCESORIOS COMUNES
+                          </h3>
+                          <p style={{ fontSize: 11, color: '#94a3b8', margin: '4px 0 0 0' }}>
+                            Estos trabajos se aplican y ya est&aacute;n sumados en cada una de las opciones de abajo.
+                          </p>
+                        </div>
+                        <div style={{ background: 'white', border: '1px solid #e2e8f0', padding: '4px 12px', borderRadius: 6, textAlign: 'center' }}>
+                          <span style={{ display: 'block', fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>D&oacute;lar Ref.</span>
+                          <span style={{ fontSize: 12, fontWeight: 900, color: '#334155' }}>$ {dd2.toLocaleString('es-AR')}</span>
+                        </div>
+                      </div>
+                      {detalleTrabajosComunes.length > 0 ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '4px 16px', fontSize: 12, fontWeight: 500, color: '#475569' }}>
+                          {detalleTrabajosComunes.map((job, idx) => (
+                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px dashed #e2e8f0' }}>
+                              <span>&#10003; {job.concepto} ({job.cant > 1 ? `x${job.cant}` : 'x1'})</span>
+                              <span style={{ color: '#1e293b', fontWeight: 700 }}>$ {job.total.toLocaleString('es-AR')}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>No hay trabajos adicionales comunes configurados.</p>
+                      )}
+                    </div>
+                </div>
+                ) : (
                 <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
               {/* Columna ARS */}
               <div style={{ flex: hayUSD ? '1 1 280px' : '1 1 100%', fontSize: 13, lineHeight: 1.8 }}>
@@ -1125,54 +1179,64 @@ export default function PresupuestoForm() {
               </div>
               )}
                 </div>
+                )}
 
                 {hayAlternativas && (
-                <div style={{ marginTop: 16 }}>
-                  <div style={{ marginBottom: 12, padding: '8px 12px', background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 8 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#1e40af' }}>📋 PRESUPUESTO COMPARATIVO</span>
-                    <span style={{ fontSize: 11, color: '#3b82f6', marginLeft: 8 }}>{matsAlt.length} opciones alternativas</span>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+                <div style={{ borderTop: '2px solid #e2e8f0', marginTop: 24, paddingTop: 20 }}>
+                  <h3 style={{ fontSize: 11, fontWeight: 900, color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    OPCIONES DE COTIZACI&Oacute;N DISPONIBLES
+                  </h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 24 }}>
                     {matsAlt.map((mat, idx) => {
                       const letra = String.fromCharCode(65 + idx);
                       const dd2 = Number(form.dolar_dia) || 1;
                       const m2 = Number(mat.largo || 0) * Number(mat.ancho || 0) * (mat.cantidad || 1);
                       const costoMat = mat.moneda === 'USD' ? m2 * (mat.precio_m2_usd || 0) : m2 * (mat.precio_m2 || 0);
                       const costoMatArs = mat.moneda === 'USD' ? (dd2 > 0 ? costoMat * dd2 : 0) : costoMat;
-                      const fijosArsAlt = (form.detalles_fabricacion || []).reduce((s, d) => s + (Number(d.precio) || 0) * (d.cantidad || 1), 0)
-                        + (form.piletas || []).reduce((s, pt) => s + (Number(pt.precio) || 0) * (pt.cantidad || 1), 0)
-                        + (Number(form.traslado) || 0);
-                      const totalArs = costoMatArs + fijosArsAlt;
+                      const totalFinalARS = costoMatArs + sumatoriaAdicionalesARS;
+                      const totalFinalUSD = dd2 > 0 ? totalFinalARS / dd2 : 0;
                       return (
-                        <div key={idx} style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12, background: '#fafafa', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                        <div key={idx} style={{ background: 'white', border: '2px solid #dbeafe', borderRadius: 12, padding: 20, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}
+                             onMouseEnter={(e) => e.currentTarget.style.borderColor = '#3b82f6'}
+                             onMouseLeave={(e) => e.currentTarget.style.borderColor = '#dbeafe'}>
                           <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                              <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', padding: '2px 8px', background: '#dbeafe', color: '#1e40af', borderRadius: 4 }}>Alternativa {letra}</span>
-                              <span style={{ fontSize: 11, color: '#6b7280' }}>{mat.cantidad || 1} pza. ({m2.toFixed(2)} m²)</span>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                              <span style={{ fontSize: 10, fontWeight: 900, padding: '4px 10px', background: '#eff6ff', color: '#1d4ed8', borderRadius: 999, textTransform: 'uppercase' }}>
+                                ALTERNATIVA {letra}
+                              </span>
+                              <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 700 }}>
+                                {mat.cantidad || 1} pza. ({m2.toFixed(2)} m&sup2;)
+                              </span>
                             </div>
-                            <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', textTransform: 'uppercase', marginBottom: 2 }}>{mat.nombre}</div>
-                            {mat.moneda === 'USD' && <div style={{ fontSize: 11, color: '#059669', fontWeight: 600, marginBottom: 8 }}>USD {costoMat.toFixed(2)}</div>}
-                            <div style={{ borderTop: '1px dashed #d1d5db', paddingTop: 6, fontSize: 12, color: '#6b7280', marginBottom: 8 }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span>Material:</span>
-                                <span style={{ fontWeight: 600, color: '#374151' }}>$ {costoMatArs.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                            <h4 style={{ fontSize: 16, fontWeight: 900, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '-0.02em', margin: 0 }}>{mat.nombre}</h4>
+                            <p style={{ fontSize: 11, color: '#9ca3af', fontStyle: 'italic', margin: '2px 0 0 0' }}>{mat.categoria || 'Marmoler&iacute;a'}</p>
+                            <div style={{ marginTop: 12, padding: '8px 10px', background: '#f8fafc', borderRadius: 8, fontSize: 12, color: '#475569', borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+                                <span>Costo Material ({mat.nombre}):</span>
+                                <span style={{ fontWeight: 700, color: '#1e293b' }}>
+                                  {mat.moneda === 'USD' ? `USD ${costoMat.toLocaleString()}` : `$ ${costoMat.toLocaleString('es-AR')}`}
+                                </span>
                               </div>
-                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span>Trabajos + Piletas + Traslado:</span>
-                                <span style={{ fontWeight: 600, color: '#374151' }}>$ {fijosArsAlt.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderTop: '1px solid #e2e8f0' }}>
+                                <span>Trabajos, Piletas y Adicionales:</span>
+                                <span style={{ fontWeight: 700, color: '#1e293b' }}>$ {sumatoriaAdicionalesARS.toLocaleString('es-AR')}</span>
                               </div>
                             </div>
                           </div>
-                          <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 8, textAlign: 'center', background: '#fff', borderRadius: 6, padding: 8 }}>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase' }}>Total alternativa</div>
-                            <div style={{ fontSize: 18, fontWeight: 900, color: '#dc2626' }}>$ {Math.round(totalArs).toLocaleString('es-AR')}</div>
+                          <div style={{ background: '#2563eb', borderRadius: 12, padding: 12, textAlign: 'center', marginTop: 16, boxShadow: '0 2px 4px rgba(37,99,235,0.2)' }}>
+                            <span style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#93c5fd', textTransform: 'uppercase', letterSpacing: '0.1em' }}>TOTAL LLAVE EN MANO</span>
+                            <span style={{ display: 'block', fontSize: 22, fontWeight: 900, color: 'white' }}>
+                              $ {Math.round(totalFinalARS).toLocaleString('es-AR')}
+                            </span>
+                            {mat.moneda === 'USD' && (
+                              <span style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#bfdbfe', marginTop: 2 }}>
+                                o USD {totalFinalUSD.toFixed(2)}
+                              </span>
+                            )}
                           </div>
                         </div>
                       );
                     })}
-                  </div>
-                  <div style={{ fontSize: 10, color: '#9ca3af', textAlign: 'center', marginTop: 12, fontStyle: 'italic' }}>
-                    * Todos los totales incluyen la misma configuraci&oacute;n de trabajos, piletas y traslados.
                   </div>
                 </div>
                 )}
