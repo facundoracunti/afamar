@@ -161,15 +161,17 @@ export default function OrdenForm() {
     const recargoArs = Math.round(totalBase * pctRecargo / 100);
     const total = totalBase + recargoArs;
     const senaMoneda = form.sena_moneda || 'ARS';
-    const senaEfectivaArs = senaMoneda === 'USD' ? (Number(form.sena_usd) || 0) * (dd > 0 ? dd : 0) : (Number(form.sena_recibida) || 0);
-    const saldo = Math.max(0, total - senaEfectivaArs);
+    const senaArs = Number(form.sena_recibida) || 0;
+    const senaUsdVal = Number(form.sena_usd) || 0;
+    const senaTotalArs = senaArs + (dd > 0 ? senaUsdVal * dd : 0);
+    const senaTotalUsd = senaUsdVal + (dd > 0 ? senaArs / dd : 0);
+    const saldo = Math.max(0, total - senaTotalArs);
     const tr_usd = Number(form.traslado_usd) || 0;
-    const sena_usd = Number(form.sena_usd) || 0;
     const subtotal_usd = usdTotal + matUsd + ppUsd + (dd > 0 ? (arsTotal + matArs + ppArs) / dd : 0);
     const totalBaseUsd = Math.max(0, subtotal_usd + tr_usd);
     const recargoUsd = Math.round(totalBaseUsd * pctRecargo / 100);
     const total_usd = totalBaseUsd + recargoUsd;
-    const saldo_pendiente_usd = Math.max(0, total_usd - sena_usd);
+    const saldo_pendiente_usd = Math.max(0, total_usd - senaTotalUsd);
 
     setForm((prev) => ({
       ...prev,
@@ -911,15 +913,20 @@ export default function OrdenForm() {
                   <span style={{ fontWeight: 700, color: '#6b7280' }}>SUBTOTALES (ARS)</span>
                 </div>
                 <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: 8, marginBottom: 8 }}>
-                  {(form.detalles_fabricacion || []).filter((d) => Number(d.precio) > 0 && d.moneda !== 'USD').map((d, i) => (
+                  {(form.detalles_fabricacion || []).filter((d) => Number(d.precio) > 0).map((d, i) => {
+                    const dd2 = Number(form.dolar_dia);
+                    const precioArs = d.moneda === 'ARS' ? Number(d.precio) : (dd2 > 0 ? Number(d.precio) * dd2 : 0);
+                    return (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span>{d.concepto === 'OTRA' ? (d.detalle || 'OTRA') : d.concepto}{d.material ? ` - ${d.material}` : ''}{d.m2 > 0 ? ` (${d.m2} m²)` : ''}{d.largo > 0 && d.concepto === 'OTRA' ? ` (${d.largo} m)` : ''}{(d.cantidad || 1) > 1 ? ` x${d.cantidad}` : ''}</span>
-                      <span style={{ fontWeight: 600 }}>{formatCurrency((d.precio || 0) * (d.cantidad || 1))}</span>
+                      <span style={{ fontWeight: 600 }}>{formatCurrency(precioArs * (d.cantidad || 1))}</span>
                     </div>
-                  ))}
-                  {(form.materiales || []).filter((m) => m.moneda !== 'USD').map((m, i) => {
+                    );
+                  })}
+                  {(form.materiales || []).map((m, i) => {
+                    const dd2 = Number(form.dolar_dia);
                     const m2 = Number(m.largo || 0) * Number(m.ancho || 0) * (m.cantidad || 1);
-                    const sub = m2 * (m.precio_m2 || 0);
+                    const sub = m.moneda === 'ARS' ? m2 * (m.precio_m2 || 0) : (dd2 > 0 ? m2 * (m.precio_m2_usd || 0) * dd2 : 0);
                     return sub > 0 ? (
                       <div key={'ma' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span>Material: {m.nombre} ({m2.toFixed(2)} m²){(m.cantidad || 1) > 1 ? ` x${m.cantidad}` : ''}</span>
@@ -927,12 +934,16 @@ export default function OrdenForm() {
                       </div>
                     ) : null;
                   })}
-                  {(form.piletas || []).filter((pt) => (pt.moneda || 'ARS') !== 'USD').map((pt, i) => (
+                  {(form.piletas || []).map((pt, i) => {
+                    const dd2 = Number(form.dolar_dia);
+                    const precioArs = (pt.moneda || 'ARS') === 'ARS' ? (pt.precio || 0) : (dd2 > 0 ? (pt.precio || 0) * dd2 : 0);
+                    return (
                     <div key={'pa' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span>Pileta {pt.marca} - {pt.modelo}{pt.cantidad > 1 ? ` (x${pt.cantidad})` : ''}</span>
-                      <span style={{ fontWeight: 600 }}>{formatCurrency((pt.precio || 0) * (pt.cantidad || 1))}</span>
+                      <span style={{ fontWeight: 600 }}>{formatCurrency(precioArs * (pt.cantidad || 1))}</span>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 <div className="form-group" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                   <label style={{ margin: 0, fontWeight: 600 }}>Traslado</label>
