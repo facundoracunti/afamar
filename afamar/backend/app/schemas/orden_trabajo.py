@@ -120,6 +120,7 @@ class OrdenTrabajoUpdate(BaseModel):
     fecha_aprobacion: Optional[datetime] = None
     observaciones: Optional[str] = None
     observaciones_importantes: Optional[str] = None
+    piletas: Optional[List[Any]] = None
 
 class OrdenTrabajo(OrdenTrabajoBase):
     id: int

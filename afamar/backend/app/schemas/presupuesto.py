@@ -162,6 +162,7 @@ class PresupuestoUpdate(BaseModel):
     pileta_imagen: Optional[str] = None
     stock_descontado: Optional[bool] = None
     acabado: Optional[str] = None
+    piletas: Optional[List[Any]] = None
 
 class Presupuesto(PresupuestoBase):
     id: int
