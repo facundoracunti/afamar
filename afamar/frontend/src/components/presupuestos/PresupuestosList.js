@@ -113,14 +113,15 @@ export default function PresupuestosList() {
             <table>
               <thead>
                 <tr>
-                  <th>Número</th>
-                  <th>Fecha</th>
-                  <th>Cliente</th>
-                  <th>Teléfono</th>
-                  <th>Material</th>
-                  <th>Total</th>
-                  <th>Estado</th>
-                  <th style={{ width: 240 }}>Acciones</th>
+                  <th style={{ width: 90 }}>Número</th>
+                  <th style={{ width: 95, fontSize: 12 }}>Fecha</th>
+                  <th style={{ width: 160 }}>Cliente</th>
+                  <th style={{ width: 110 }}>Teléfono</th>
+                  <th style={{ width: 130 }}>Material</th>
+                  <th>Detalles</th>
+                  <th style={{ width: 110 }}>Total</th>
+                  <th style={{ width: 100 }}>Estado</th>
+                  <th style={{ width: 160 }}>Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -137,7 +138,18 @@ export default function PresupuestosList() {
                     <td>{formatDate(p.fecha) || '-'}</td>
                     <td>{p.cliente_nombre || '-'}</td>
                     <td>{p.cliente_telefono || '-'}</td>
-                    <td>{p.material || (p.tipo === 'online' ? 'Online' : '-')}</td>
+                    <td style={{ fontWeight: 500, textTransform: 'uppercase' }}>
+                      {p.materiales && p.materiales.length > 0
+                        ? [...new Set(p.materiales.map((m) => m.nombre.trim()))].join(' - ')
+                        : p.material || (p.tipo === 'online' ? 'Online' : '-')}
+                    </td>
+                    <td style={{ color: '#2d3748', fontSize: 13, lineHeight: 1.4, whiteSpace: 'normal', wordBreak: 'break-word' }}
+                      title={p.observaciones_diseno || ''}>
+                      {(() => {
+                        const txt = p.observaciones_diseno || '';
+                        return txt.length > 60 ? txt.slice(0, 60) + '...' : (txt || '-');
+                      })()}
+                    </td>
                     <td style={{ fontWeight: 600 }}>{formatCurrency(p.total)}</td>
                     <td>
                       {p.estado === 'CONVERTIDO A OT' ? (

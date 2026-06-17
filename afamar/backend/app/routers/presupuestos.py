@@ -132,6 +132,8 @@ def listar_unificados(
             "material": p.material, "total": p.total or 0, "total_usd": p.total_usd or 0,
             "estado": p.estado, "orden_trabajo_numero": p.orden_trabajo.numero if p.orden_trabajo else None,
             "created_at": p.created_at, "sena_recibida": p.sena_recibida or 0, "saldo_pendiente": p.saldo_pendiente or 0,
+            "observaciones_diseno": p.observaciones_diseno or "",
+            "materiales": [{"nombre": m.get("nombre")} for m in (p.materiales or [])] if p.materiales else [],
         })
     for o in onlines:
         if estado and estado != "CONVERTIDO A OT":

@@ -292,6 +292,9 @@ export default function OrdenForm() {
   };
 
   const handleDetalleChange = (idx, field, value) => {
+    if (field === 'material' && value) {
+      addMaterial(value);
+    }
     setForm((prev) => {
       const list = [...prev.detalles_fabricacion];
       list[idx] = { ...list[idx], [field]: value };
