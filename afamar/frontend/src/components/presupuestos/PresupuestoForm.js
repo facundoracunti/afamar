@@ -40,7 +40,7 @@ export default function PresupuestoForm() {
     detalles_fabricacion: [],
     pileta_id: '', pileta_imagen: '', pileta_precio: 0, pileta_moneda: 'ARS',
     subtotal: 0, traslado: 0, total: 0,
-    sena_recibida: 0, saldo_pendiente: 0, forma_pago: '', saldo_pagado: false, fecha_pago_saldo: '',
+    sena_recibida: 0, sena_moneda: 'ARS', saldo_pendiente: 0, forma_pago: '', saldo_pagado: false, fecha_pago_saldo: '',
     dolar_dia: 1000,
     cuotas: 1,
     subtotal_usd: 0, traslado_usd: 0, total_usd: 0, sena_usd: 0, saldo_pendiente_usd: 0,
@@ -93,6 +93,7 @@ export default function PresupuestoForm() {
           traslado: d.traslado || 0,
           total: d.total || 0,
           sena_recibida: d.sena_recibida || 0,
+          sena_moneda: d.sena_moneda || 'ARS',
           saldo_pendiente: d.saldo_pendiente || 0,
           forma_pago: d.forma_pago || '',
           cuotas: d.cuotas || 1,
@@ -158,7 +159,9 @@ export default function PresupuestoForm() {
     const totalBase = Math.max(0, subtotal + tr);
     const recargoArs = Math.round(totalBase * pctRecargo / 100);
     const total = totalBase + recargoArs;
-    const saldo = Math.max(0, total - (Number(form.sena_recibida) || 0));
+    const senaMoneda = form.sena_moneda || 'ARS';
+    const senaEfectivaArs = senaMoneda === 'USD' ? (Number(form.sena_usd) || 0) * (dd > 0 ? dd : 0) : (Number(form.sena_recibida) || 0);
+    const saldo = Math.max(0, total - senaEfectivaArs);
     const tr_usd = Number(form.traslado_usd) || 0;
     const sena_usd = Number(form.sena_usd) || 0;
     const subtotal_usd = usdTotal + matUsd + ppUsd;
@@ -179,7 +182,7 @@ export default function PresupuestoForm() {
       total_usd,
       saldo_pendiente_usd,
     }));
-  }, [form.detalles_fabricacion, form.traslado, form.piletas, form.materiales, form.sena_recibida, form.traslado_usd, form.sena_usd, form.dolar_dia, form.cuotas, form.forma_pago]);
+  }, [form.detalles_fabricacion, form.traslado, form.piletas, form.materiales, form.sena_moneda, form.sena_recibida, form.traslado_usd, form.sena_usd, form.dolar_dia, form.cuotas, form.forma_pago]);
 
   useEffect(() => {
     const handleClick = (e) => {
@@ -258,28 +261,34 @@ export default function PresupuestoForm() {
     }
   };
 
-  const handleSenaChange = (value, source) => {
+  const handleSenaMonedaChange = (moneda) => {
     const dd = Number(form.dolar_dia);
-    if (source === 'usd') {
-      const usd = Number(value) || 0;
-      const ars = Math.round(usd * dd * 100) / 100;
-      setForm((prev) => ({ ...prev, sena_usd: usd, sena_recibida: ars }));
-    } else {
-      const ars = Number(value) || 0;
-      const usd = dd > 0 ? Math.round((ars / dd) * 100) / 100 : 0;
-      setForm((prev) => ({ ...prev, sena_recibida: ars, sena_usd: usd }));
-    }
+    const current = Number(form.sena_recibida || form.sena_usd || 0);
+    setForm((prev) => ({
+      ...prev,
+      sena_moneda: moneda,
+      sena_recibida: moneda === 'ARS' ? current : 0,
+      sena_usd: moneda === 'USD' ? current : 0,
+    }));
+  };
+
+  const handleSenaMontoChange = (value) => {
+    const val = Number(value) || 0;
+    const moneda = form.sena_moneda || 'ARS';
+    setForm((prev) => ({
+      ...prev,
+      sena_recibida: moneda === 'ARS' ? val : 0,
+      sena_usd: moneda === 'USD' ? val : 0,
+    }));
   };
 
   const handleDolarDiaChange = (value) => {
     const dd = Number(value);
     const tr_usd = Number(form.traslado_usd) || 0;
-    const sena_usd = Number(form.sena_usd) || 0;
     setForm((prev) => ({
       ...prev,
       dolar_dia: dd,
       traslado: Math.round(tr_usd * dd * 100) / 100,
-      sena_recibida: Math.round(sena_usd * dd * 100) / 100,
     }));
   };
 
@@ -420,6 +429,7 @@ export default function PresupuestoForm() {
         traslado: Number(form.traslado),
         total: Number(form.total),
         sena_recibida: Number(form.sena_recibida),
+        sena_moneda: form.sena_moneda || 'ARS',
         saldo_pendiente: Number(form.saldo_pendiente),
         dolar_dia: Number(form.dolar_dia),
         subtotal_usd: Number(form.subtotal_usd),
@@ -488,6 +498,7 @@ export default function PresupuestoForm() {
         traslado: Number(form.traslado),
         total: Number(form.total),
         sena_recibida: Number(form.sena_recibida),
+        sena_moneda: form.sena_moneda || 'ARS',
         saldo_pendiente: Number(form.saldo_pendiente),
         dolar_dia: Number(form.dolar_dia),
         subtotal_usd: Number(form.subtotal_usd),
@@ -548,6 +559,7 @@ export default function PresupuestoForm() {
         traslado: Number(form.traslado),
         total: Number(form.total),
         sena_recibida: Number(form.sena_recibida),
+        sena_moneda: form.sena_moneda || 'ARS',
         saldo_pendiente: Number(form.saldo_pendiente),
         dolar_dia: Number(form.dolar_dia),
         subtotal_usd: Number(form.subtotal_usd),
@@ -984,11 +996,18 @@ export default function PresupuestoForm() {
                   </div>
                 </div>
                 <div className="form-group" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <label style={{ margin: 0 }}>Seña recibida (ARS)</label>
-                  <input type="number" className="input" style={{ width: 130, textAlign: 'right' }}
-                    value={form.sena_recibida}
-                    onChange={(e) => handleSenaChange(e.target.value, 'ars')}
-                    disabled={readOnly} />
+                  <label style={{ margin: 0 }}>Seña recibida</label>
+                  <div style={{ display: 'flex', borderRadius: 6, border: '1px solid #d1d5db', overflow: 'hidden', width: 180 }}>
+                    <select value={form.sena_moneda || 'ARS'} onChange={(e) => handleSenaMonedaChange(e.target.value)} disabled={readOnly}
+                      style={{ background: '#f3f4f6', borderRight: '1px solid #d1d5db', padding: '4px 6px', fontSize: 12, fontWeight: 700, border: 'none', outline: 'none' }}>
+                      <option value="ARS">ARS</option>
+                      <option value="USD">USD</option>
+                    </select>
+                    <input type="number" className="input" style={{ flex: 1, textAlign: 'right', borderRadius: 0, border: 'none' }}
+                      value={form.sena_moneda === 'USD' ? form.sena_usd : form.sena_recibida}
+                      onChange={(e) => handleSenaMontoChange(e.target.value)}
+                      disabled={readOnly} />
+                  </div>
                 </div>
                 {hayUSD && (
                 <div className="form-group" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
@@ -1049,13 +1068,6 @@ export default function PresupuestoForm() {
                     </span>
                   </div>
                 </div>
-                <div className="form-group" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <label style={{ margin: 0 }}>Seña recibida (USD)</label>
-                  <input type="number" className="input" style={{ width: 130, textAlign: 'right' }}
-                    value={form.sena_usd}
-                    onChange={(e) => handleSenaChange(e.target.value, 'usd')}
-                    disabled={readOnly} />
-                </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
                   <span style={{ fontWeight: 600 }}>Saldo pendiente USD</span>
                   <span style={{ fontSize: 16, fontWeight: 700, color: '#059669' }}>
@@ -1090,6 +1102,7 @@ export default function PresupuestoForm() {
                       };
                       if (nuevo) {
                         payload.sena_recibida = Number(form.total);
+                        payload.sena_moneda = 'ARS';
                         payload.saldo_pendiente = 0;
                         payload.sena_usd = Number(form.total_usd);
                         payload.saldo_pendiente_usd = 0;

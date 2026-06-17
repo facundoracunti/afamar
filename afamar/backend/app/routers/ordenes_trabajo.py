@@ -281,6 +281,7 @@ def _orden_to_schema(o):
         descuento=o.descuento,
         total=o.total,
         sena_recibida=o.sena_recibida,
+        sena_moneda=o.sena_moneda,
         saldo_pendiente=o.saldo_pendiente,
         saldo_pagado=o.saldo_pagado,
         fecha_pago_saldo=o.fecha_pago_saldo,

@@ -60,6 +60,7 @@ class Presupuesto(Base):
     instalacion = Column(Float, default=0)
     descuento = Column(Float, default=0)
     sena_recibida = Column(Float, default=0)
+    sena_moneda = Column(String(5), default="ARS")
     saldo_pendiente = Column(Float, default=0)
     saldo_pagado = Column(Boolean, default=False)
     fecha_pago_saldo = Column(DateTime, nullable=True)

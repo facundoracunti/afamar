@@ -51,6 +51,7 @@ class OrdenTrabajoBase(BaseModel):
     descuento: Optional[float] = 0
     total: Optional[float] = 0
     sena_recibida: Optional[float] = 0
+    sena_moneda: Optional[str] = "ARS"
     saldo_pendiente: Optional[float] = 0
     forma_pago: Optional[str] = None
     cuotas: Optional[int] = None
@@ -104,6 +105,7 @@ class OrdenTrabajoUpdate(BaseModel):
     descuento: Optional[float] = None
     total: Optional[float] = None
     sena_recibida: Optional[float] = None
+    sena_moneda: Optional[str] = None
     saldo_pendiente: Optional[float] = None
     forma_pago: Optional[str] = None
     cuotas: Optional[int] = None

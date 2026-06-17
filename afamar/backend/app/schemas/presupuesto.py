@@ -75,6 +75,7 @@ class PresupuestoBase(BaseModel):
     instalacion: Optional[float] = 0
     descuento: Optional[float] = 0
     sena_recibida: Optional[float] = 0
+    sena_moneda: Optional[str] = "ARS"
     saldo_pendiente: Optional[float] = 0
     saldo_pagado: Optional[bool] = False
     fecha_pago_saldo: Optional[datetime] = None
@@ -141,6 +142,7 @@ class PresupuestoUpdate(BaseModel):
     instalacion: Optional[float] = None
     descuento: Optional[float] = None
     sena_recibida: Optional[float] = None
+    sena_moneda: Optional[str] = None
     saldo_pendiente: Optional[float] = None
     saldo_pagado: Optional[bool] = None
     fecha_pago_saldo: Optional[datetime] = None
