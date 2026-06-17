@@ -473,6 +473,19 @@ export default function OrdenForm() {
     navigate('/ordenes');
   };
 
+  const handleCambioEstadoAccion = async (nuevoEstado) => {
+    if (!id) return;
+    setSaving(true);
+    try {
+      await updateOrden(id, { estado: nuevoEstado });
+      setForm((prev) => ({ ...prev, estado: nuevoEstado }));
+    } catch (err) {
+      alert('Error al cambiar estado');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handlePrint = () => window.print();
 
   const materialesAgrupados = materiales.filter((m) => m.nombre);
@@ -500,11 +513,26 @@ export default function OrdenForm() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', zIndex: 1, width: '100%' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <span style={{ fontSize: 22, fontWeight: 700 }}>Orden N° {form.numero || 'A-_____'}</span>
-            {!['EN MEDICIÓN'].includes(form.estado) && (
-              <span className={badgeClass(form.estado)} style={{ fontSize: 13, padding: '4px 14px' }}>{form.estado}</span>
-            )}
+            <span className={badgeClass(form.estado)} style={{ fontSize: 13, padding: '4px 14px' }}>{form.estado}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {form.estado === 'EN MEDICIÓN' && (
+            <button className="btn" onClick={() => handleCambioEstadoAccion('EN EL TALLER')} disabled={saving}
+              style={{ background: '#2563eb', color: '#fff', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+              🏭 Enviar a Taller
+            </button>
+          )}
+          {form.estado === 'EN EL TALLER' && (
+            <button className="btn" onClick={() => handleCambioEstadoAccion('ENTREGADO')} disabled={saving}
+              style={{ background: '#059669', color: '#fff', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+              ✅ Finalizar Trabajo
+            </button>
+          )}
+          {form.estado === 'ENTREGADO' && (
+            <span style={{ background: '#f3f4f6', color: '#6b7280', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', border: '1px solid #d1d5db', borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+              📦 Trabajo Entregado
+            </span>
+          )}
           <button className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <Eye size={16} /> VISTA PREVIA PDF
           </button>
