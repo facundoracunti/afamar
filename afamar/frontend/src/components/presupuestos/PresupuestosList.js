@@ -49,8 +49,7 @@ export default function PresupuestosList() {
     if (!window.confirm('¿Convertir este presupuesto online en Orden de Trabajo? Se copiarán todos los ítems.')) return;
     try {
       const res = await convertirOnlineAOrden(id);
-      alert(`Orden ${res.data.numero} creada exitosamente.`);
-      load();
+      navigate(`/ordenes/${res.data.orden_id}`);
     } catch (err) {
       alert(err.response?.data?.detail || 'Error al convertir');
     }
@@ -60,8 +59,7 @@ export default function PresupuestosList() {
     if (!window.confirm('¿Convertir este presupuesto en Orden de Trabajo?\n\nSe copiará toda la información: material, croquis, firma, detalles de fabricación, pileta, precios y condiciones comerciales.')) return;
     try {
       const res = await convertirAOrden(id);
-      alert(`Orden ${res.data.numero} creada exitosamente.`);
-      load();
+      navigate(`/ordenes/${res.data.orden_id}`);
     } catch (err) {
       alert(err.response?.data?.detail || 'Error al convertir');
     }

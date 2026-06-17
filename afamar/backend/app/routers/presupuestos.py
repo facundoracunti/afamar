@@ -368,10 +368,17 @@ def convertir_a_orden(presupuesto_id: int, db: Session = Depends(get_db)):
         anafe=presupuesto.anafe,
         observaciones_diseno=presupuesto.observaciones_diseno,
 
-        detalles_fabricacion=presupuesto.detalles_fabricacion or [],
+        detalles_fabricacion=(presupuesto.detalles_fabricacion or []) + [
+            {"concepto": i.sector, "detalle": "", "cantidad": i.cantidad or 1, "precio": i.subtotal or (i.m2 or 0) * (i.precio_m2 or 0), "moneda": "ARS", "m2": i.m2 or 0, "largo": i.largo or 0, "ancho": i.ancho or 0, "material": "", "material_precio_m2": 0}
+            for i in (presupuesto.items or [])
+        ] + [
+            {"concepto": a.concepto, "detalle": a.detalle or "", "cantidad": a.cantidad or 1, "precio": a.subtotal or (a.precio_unitario or 0), "moneda": "ARS", "m2": 0, "largo": 0, "ancho": 0, "material": "", "material_precio_m2": 0}
+            for a in (presupuesto.adicionales or [])
+        ],
         detalles_presupuestados=presupuesto.detalles_fabricacion or [],
         materiales=presupuesto.materiales or [],
         piletas=presupuesto.piletas or [],
+        adicionales=[{"concepto": a.concepto, "detalle": a.detalle or "", "cantidad": a.cantidad or 1, "precio_unitario": a.precio_unitario or 0, "subtotal": a.subtotal or 0} for a in (presupuesto.adicionales or [])],
 
         pileta_id=presupuesto.pileta_id,
         pileta_precio=presupuesto.pileta_precio or 0,

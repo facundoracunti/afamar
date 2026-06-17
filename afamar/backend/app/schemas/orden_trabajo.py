@@ -44,6 +44,7 @@ class OrdenTrabajoBase(BaseModel):
     pileta_imagen: Optional[str] = None
     stock_descontado: Optional[bool] = False
     piletas: Optional[List[Any]] = None
+    adicionales: Optional[List[Any]] = None
     subtotal: Optional[float] = 0
     traslado: Optional[float] = 0
     instalacion: Optional[float] = 0

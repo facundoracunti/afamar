@@ -274,6 +274,7 @@ def _orden_to_schema(o):
         pileta_imagen=o.pileta_imagen,
         stock_descontado=o.stock_descontado,
         piletas=o.piletas,
+        adicionales=o.adicionales,
         subtotal=o.subtotal,
         traslado=o.traslado,
         instalacion=o.instalacion,

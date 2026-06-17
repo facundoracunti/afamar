@@ -48,6 +48,7 @@ class OrdenTrabajo(Base):
     pileta_imagen = Column(Text)
     stock_descontado = Column(Boolean, default=False)
     piletas = Column(JSON, default=list)
+    adicionales = Column(JSON, default=list)
 
     # Comercial
     prioridad = Column(String(20), default="Normal")
