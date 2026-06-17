@@ -13,6 +13,7 @@ class FabricacionDetalle(BaseModel):
     m2: Optional[float] = 0
     mano_de_obra: Optional[float] = 0
     moneda: str = "ARS"
+    cantidad: int = 1
     precio: Optional[float] = 0
 
 class OrdenTrabajoBase(BaseModel):

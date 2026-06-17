@@ -109,6 +109,7 @@ export default function PresupuestoForm() {
           observaciones: d.observaciones || '',
           observaciones_importantes: d.observaciones_importantes || '',
           materiales: d.materiales || [],
+          piletas: d.piletas || [],
         });
         setOrdenTrabajoNumero(d.orden_trabajo_numero || null);
         setLoading(false);
@@ -138,8 +139,8 @@ export default function PresupuestoForm() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     materialPrecioRef.current = form.material_precio_m2;
-    const arsTotal = (form.detalles_fabricacion || []).reduce((sum, d) => sum + ((d.moneda === 'USD') ? 0 : Number(d.precio) || 0), 0);
-    const usdTotal = (form.detalles_fabricacion || []).reduce((sum, d) => sum + ((d.moneda === 'USD') ? Number(d.precio) || 0 : 0), 0);
+    const arsTotal = (form.detalles_fabricacion || []).reduce((sum, d) => sum + ((d.moneda === 'USD') ? 0 : (Number(d.precio) || 0) * (d.cantidad || 1)), 0);
+    const usdTotal = (form.detalles_fabricacion || []).reduce((sum, d) => sum + ((d.moneda === 'USD') ? (Number(d.precio) || 0) * (d.cantidad || 1) : 0), 0);
     const dd = Number(form.dolar_dia);
     const ppArs = (form.piletas || []).filter((pt) => pt.moneda !== 'USD').reduce((sum, pt) => sum + (pt.precio || 0) * (pt.cantidad || 1), 0);
     const ppUsd = (form.piletas || []).filter((pt) => pt.moneda === 'USD').reduce((sum, pt) => sum + (pt.precio || 0) * (pt.cantidad || 1), 0);
@@ -936,7 +937,7 @@ export default function PresupuestoForm() {
                   {(form.detalles_fabricacion || []).filter((d) => Number(d.precio) > 0 && d.moneda !== 'USD').map((d, i) => (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span>{d.concepto === 'OTRA' ? (d.detalle || 'OTRA') : d.concepto}{d.material ? ` - ${d.material}` : ''}{d.m2 > 0 ? ` (${d.m2} m²)` : ''}{d.largo > 0 && d.concepto === 'OTRA' ? ` (${d.largo} m)` : ''}</span>
-                      <span style={{ fontWeight: 600 }}>{formatCurrency(d.precio)}</span>
+                      <span style={{ fontWeight: 600 }}>{formatCurrency((d.precio || 0) * (d.cantidad || 1))}</span>
                     </div>
                   ))}
                   {(form.materiales || []).filter((m) => m.moneda !== 'USD').map((m, i) => {
@@ -1006,7 +1007,7 @@ export default function PresupuestoForm() {
                   {(form.detalles_fabricacion || []).filter((d) => Number(d.precio) > 0 && d.moneda === 'USD').map((d, i) => (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span>{d.concepto === 'OTRA' ? (d.detalle || 'OTRA') : d.concepto}{d.material ? ` - ${d.material}` : ''}{d.m2 > 0 ? ` (${d.m2} m²)` : ''}</span>
-                      <span style={{ fontWeight: 600 }}>USD {Number(d.precio).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span style={{ fontWeight: 600 }}>USD {(Number(d.precio) * (d.cantidad || 1)).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   ))}
                   {(form.materiales || []).filter((m) => m.moneda === 'USD').map((m, i) => {

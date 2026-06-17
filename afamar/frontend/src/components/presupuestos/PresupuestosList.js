@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Search, Trash2, FileDown, FileOutput, Eye, Send, Mail } from 'lucide-react';
 import { getPresupuestosUnificados, deletePresupuesto, deletePresupuestoOnline, updatePresupuesto, convertirAOrden, convertirOnlineAOrden, getPresupuestoPdf, enviarPresupuestoWhatsApp, enviarPresupuestoEmail } from '../../services/api';
-import { formatCurrency, formatDate, badgeClass } from '../../utils/formatters';
+import { formatCurrency, formatDate } from '../../utils/formatters';
 import ConfirmDialog from '../common/ConfirmDialog';
 import Loading from '../common/Loading';
 
@@ -17,7 +17,7 @@ export default function PresupuestosList() {
   const [deleteTipo, setDeleteTipo] = useState(null);
 
   useEffect(() => {
-    const e = searchParams.get('estado') || '';
+    const e = searchParams.get('estado') || 'PENDIENTE';
     setEstado(e);
   }, [searchParams]);
 
@@ -88,7 +88,7 @@ export default function PresupuestosList() {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700 }}>PRESUPUESTOS LOCAL</h1>
+        <h1 style={{ fontSize: 24, fontWeight: 700 }}>PRESUPUESTOS LOCAL / WHATSAPP</h1>
         <button className="btn btn-primary" onClick={() => navigate('/presupuestos/nuevo')}>
           <Plus size={16} /> Nuevo Presupuesto Local
         </button>
@@ -101,7 +101,7 @@ export default function PresupuestosList() {
             <input className="input" placeholder="Buscar por N° / Cliente / Teléfono / Material..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ paddingLeft: 40 }} />
           </div>
           <select className="input" style={{ width: 240 }} value={estado} onChange={(e) => setEstado(e.target.value)}>
-            <option value="">PRESUPUESTOS</option>
+            <option value="PENDIENTE">PRESUPUESTO LOCAL / WHATSAPP</option>
             <option value="CONVERTIDO A OT">PRESUPUESTOS REALIZADOS</option>
           </select>
         </div>
@@ -140,8 +140,13 @@ export default function PresupuestosList() {
                     <td>{p.material || (p.tipo === 'online' ? 'Online' : '-')}</td>
                     <td style={{ fontWeight: 600 }}>{formatCurrency(p.total)}</td>
                     <td>
-                      <span className={badgeClass(p.estado)}>{p.estado}</span>
-                      {p.tipo === 'online' && <span className="badge badge-production" style={{ marginLeft: 4, fontSize: 10 }}>ONLINE</span>}
+                      {p.estado === 'CONVERTIDO A OT' ? (
+                        <span style={{ background: '#d1fae5', color: '#065f46', padding: '4px 12px', borderRadius: 50, fontSize: 12, fontWeight: 700, display: 'inline-block' }}>CONCRETADO</span>
+                      ) : p.tipo === 'online' ? (
+                        <span style={{ background: '#fef3c7', color: '#d97706', padding: '4px 12px', borderRadius: 50, fontSize: 12, fontWeight: 700, display: 'inline-block', border: '1px solid #f59e0b' }}>PENDIENTE - ONLINE</span>
+                      ) : (
+                        <span style={{ background: '#fef3c7', color: '#b45309', padding: '4px 12px', borderRadius: 50, fontSize: 12, fontWeight: 700, display: 'inline-block' }}>PENDIENTE</span>
+                      )}
                     </td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
