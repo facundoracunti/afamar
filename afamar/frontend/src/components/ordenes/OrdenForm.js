@@ -477,8 +477,18 @@ export default function OrdenForm() {
     if (!id) return;
     setSaving(true);
     try {
-      await updateOrden(id, { estado: nuevoEstado });
-      setForm((prev) => ({ ...prev, estado: nuevoEstado }));
+      const payload = { estado: nuevoEstado };
+      if (nuevoEstado === 'ENTREGADO') {
+        payload.sena_recibida = Number(form.total);
+        payload.sena_moneda = 'ARS';
+        payload.saldo_pendiente = 0;
+        payload.sena_usd = Number(form.total_usd);
+        payload.saldo_pendiente_usd = 0;
+        payload.saldo_pagado = true;
+        payload.fecha_pago_saldo = new Date().toISOString().slice(0, 10);
+      }
+      await updateOrden(id, payload);
+      setForm((prev) => ({ ...prev, ...payload, estado: nuevoEstado }));
     } catch (err) {
       alert('Error al cambiar estado');
     } finally {
