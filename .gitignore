@@ -1,1 +1,118 @@
 node_modules/
+Fragmento de código
+# =======================================================================
+# 🐍 PYTHON / FASTAPI (Backend)
+# =======================================================================
+
+# Entornos virtuales (Virtual Environments)
+.venv/
+venv/
+ENV/
+env/
+pyenv/
+.env-py/
+
+# Archivos de configuración local y credenciales (¡MUY IMPORTANTE!)
+.env
+*.env
+.env.local
+.env.*.local
+
+# Caché de Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Distribución / Paquetes
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Base de datos local (por si usás SQLite para desarrollo)
+*.db
+*.sqlite3
+
+# Logs del Backend
+*.log
+
+
+# =======================================================================
+# ⚛️ REACT / NODE (Frontend)
+# =======================================================================
+
+# Dependencias (Nunca subir esta carpeta, es pesadísima)
+node_modules/
+jspm_packages/
+
+# Carpetas de producción / Compilación (Build outputs)
+dist/
+.next/
+out/
+build/
+
+# Logs de Node / npm / yarn
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Caché de herramientas de Frontend (Vite, Next, Turbo, etc.)
+.turbo/
+.eslintcache
+.stylelintcache
+.vite/
+.parcel-cache
+
+
+# =======================================================================
+# 💻 ARCHIVOS DEL SISTEMA OPERATIVO / EDITORES
+# =======================================================================
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+desktop.ini
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Editores de código (VS Code, JetBrains, Warp, etc.)
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+
+# =======================================================================
+# 🐳 DOCKER (Opcional)
+# =======================================================================
+.dockerignore
