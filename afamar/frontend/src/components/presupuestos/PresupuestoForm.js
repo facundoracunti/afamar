@@ -1199,38 +1199,78 @@ export default function PresupuestoForm() {
                         <div key={idx} style={{ background: 'white', border: '2px solid #dbeafe', borderRadius: 12, padding: 20, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}
                              onMouseEnter={(e) => e.currentTarget.style.borderColor = '#3b82f6'}
                              onMouseLeave={(e) => e.currentTarget.style.borderColor = '#dbeafe'}>
-                          <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                              <span style={{ fontSize: 10, fontWeight: 900, padding: '4px 10px', background: '#eff6ff', color: '#1d4ed8', borderRadius: 999, textTransform: 'uppercase' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                            {/* Header */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                              <span style={{ fontSize: 10, fontWeight: 900, padding: '4px 10px', background: '#eff6ff', color: '#1d4ed8', borderRadius: 999, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                 ALTERNATIVA {letra}
                               </span>
-                              <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 700 }}>
+                              <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 700 }}>
                                 {mat.cantidad || 1} pza. ({m2.toFixed(2)} m&sup2;)
                               </span>
                             </div>
-                            <h4 style={{ fontSize: 16, fontWeight: 900, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '-0.02em', margin: 0 }}>{mat.nombre}</h4>
-                            <p style={{ fontSize: 11, color: '#9ca3af', fontStyle: 'italic', margin: '2px 0 0 0' }}>{mat.categoria || 'Marmoler&iacute;a'}</p>
-                            <div style={{ marginTop: 12, padding: '8px 10px', background: '#f8fafc', borderRadius: 8, fontSize: 12, color: '#475569', borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                                <span>Costo Material ({mat.nombre}):</span>
-                                <span style={{ fontWeight: 700, color: '#1e293b' }}>
-                                  {mat.moneda === 'USD' ? `USD ${costoMat.toLocaleString()}` : `$ ${costoMat.toLocaleString('es-AR')}`}
+
+                            {/* Título */}
+                            <h4 style={{ fontSize: 18, fontWeight: 900, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '-0.025em', margin: 0 }}>{mat.nombre}</h4>
+                            <p style={{ fontSize: 11, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 20px 0' }}>{mat.categoria || 'Sinterizados'}</p>
+
+                            {/* Desglose detallado */}
+                            <div style={{ background: 'rgba(248,250,252,0.7)', border: '1px solid #f1f5f9', borderRadius: 12, padding: 16, fontSize: 12, color: '#475569' }}>
+                              {/* Encabezados */}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 700, color: '#94a3b8', paddingBottom: 8, borderBottom: '1px solid #e2e8f0', marginBottom: 0 }}>
+                                <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Concepto</span>
+                                <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Subtotal</span>
+                              </div>
+
+                              {/* Costo del Material */}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8 }}>
+                                <span style={{ fontWeight: 500, color: '#1e293b' }}>Costo Material ({mat.nombre}):</span>
+                                <span style={{ fontWeight: 700, color: '#0f172a', background: 'white', padding: '2px 8px', borderRadius: 4, border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                                  {mat.moneda === 'USD' ? `USD $${costoMat.toLocaleString()}` : `$ ${costoMat.toLocaleString('es-AR')}`}
                                 </span>
                               </div>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderTop: '1px solid #e2e8f0' }}>
-                                <span>Trabajos, Piletas y Adicionales:</span>
-                                <span style={{ fontWeight: 700, color: '#1e293b' }}>$ {sumatoriaAdicionalesARS.toLocaleString('es-AR')}</span>
-                              </div>
+
+                              {/* Detalles de Fabricación */}
+                              {(form.detalles_fabricacion || []).filter((d) => Number(d.precio || 0) * Number(d.cantidad || 1) > 0).map((item, i) => {
+                                const totalItem = Number(item.precio || 0) * Number(item.cantidad || 1);
+                                return (
+                                  <div key={`df-${i}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 6, borderTop: '1px dashed rgba(226,232,240,0.8)' }}>
+                                    <span style={{ color: '#64748b' }}>{item.concepto}{item.detalle ? ` - ${item.detalle}` : ''}{item.cantidad > 1 ? ` (x${item.cantidad})` : ''}:</span>
+                                    <span style={{ fontWeight: 600, color: '#1e293b' }}>$ {totalItem.toLocaleString('es-AR')}</span>
+                                  </div>
+                                );
+                              })}
+
+                              {/* Piletas */}
+                              {(form.piletas || []).filter((p) => Number(p.precio || 0) * Number(p.cantidad || 1) > 0).map((pil, i) => {
+                                const totalPil = Number(pil.precio || 0) * Number(pil.cantidad || 1);
+                                return (
+                                  <div key={`pil-${i}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 6, borderTop: '1px dashed rgba(226,232,240,0.8)' }}>
+                                    <span style={{ color: '#64748b' }}>Pileta {pil.marca || ''} {pil.modelo || ''}{pil.cantidad > 1 ? ` (x${pil.cantidad})` : ''}:</span>
+                                    <span style={{ fontWeight: 600, color: '#1e293b' }}>$ {totalPil.toLocaleString('es-AR')}</span>
+                                  </div>
+                                );
+                              })}
+
+                              {/* Traslado */}
+                              {Number(form.traslado) > 0 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 6, borderTop: '1px dashed rgba(226,232,240,0.8)' }}>
+                                  <span style={{ color: '#64748b' }}>Log&iacute;stica y Traslado:</span>
+                                  <span style={{ fontWeight: 600, color: '#1e293b' }}>$ {Number(form.traslado).toLocaleString('es-AR')}</span>
+                                </div>
+                              )}
                             </div>
                           </div>
-                          <div style={{ background: '#2563eb', borderRadius: 12, padding: 12, textAlign: 'center', marginTop: 16, boxShadow: '0 2px 4px rgba(37,99,235,0.2)' }}>
-                            <span style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#93c5fd', textTransform: 'uppercase', letterSpacing: '0.1em' }}>TOTAL LLAVE EN MANO</span>
-                            <span style={{ display: 'block', fontSize: 22, fontWeight: 900, color: 'white' }}>
+
+                          {/* Blue button */}
+                          <div style={{ background: '#2563eb', borderRadius: 12, padding: 16, textAlign: 'center', marginTop: 20, boxShadow: '0 4px 6px -1px rgba(59,130,246,0.2)' }}>
+                            <span style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#93c5fd', textTransform: 'uppercase', letterSpacing: '0.1em' }}>TOTAL PRESUPUESTO</span>
+                            <span style={{ display: 'block', fontSize: 24, fontWeight: 900, letterSpacing: '-0.025em', marginTop: 2, color: 'white' }}>
                               $ {Math.round(totalFinalARS).toLocaleString('es-AR')}
                             </span>
                             {mat.moneda === 'USD' && (
-                              <span style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#bfdbfe', marginTop: 2 }}>
-                                o USD {totalFinalUSD.toFixed(2)}
+                              <span style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#e0e7ff', marginTop: 2, background: 'rgba(59,130,246,0.25)', padding: '2px 0', borderRadius: 6, border: '1px solid rgba(96,165,250,0.3)' }}>
+                                Ref. USD ${(totalFinalARS / dd2).toFixed(2)}
                               </span>
                             )}
                           </div>
