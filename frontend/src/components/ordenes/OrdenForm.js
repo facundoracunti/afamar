@@ -739,7 +739,6 @@ export default function OrdenForm() {
                   <th>Concepto</th>
                   <th>Material</th>
                   <th>Detalle</th>
-                  <th style={{ width: 70 }}>Moneda</th>
                   <th style={{ width: 100 }}>Precio</th>
                   <th style={{ width: 50 }}>Cant</th>
                   <th style={{ width: 30 }}></th>
@@ -781,15 +780,6 @@ export default function OrdenForm() {
                       ) : (
                         <input className="input" style={{ fontSize: 12, padding: '4px 8px' }} value={d.detalle} onChange={(e) => handleDetalleChange(i, 'detalle', e.target.value)} placeholder="Cant / ML / cm" disabled={readOnly} />
                       )}
-                    </td>
-                    <td>
-                      <select className="input" style={{ fontSize: 11, padding: '4px 4px', width: '100%' }}
-                        value={d.moneda || 'ARS'}
-                        onChange={(e) => handleDetalleChange(i, 'moneda', e.target.value)}
-                        disabled={readOnly || !!d.material}>
-                        <option value="ARS">ARS</option>
-                        <option value="USD">USD</option>
-                      </select>
                     </td>
                     <td>
                       {CONCEPTOS_M2.includes(d.concepto) ? (

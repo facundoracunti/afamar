@@ -825,7 +825,6 @@ export default function PresupuestoForm() {
                   <th>Concepto</th>
                   <th>Material</th>
                   <th>Detalle</th>
-                  <th style={{ width: 70 }}>Moneda</th>
                   <th style={{ width: 100 }}>Precio</th>
                   <th style={{ width: 50 }}>Cant</th>
                   <th style={{ width: 30 }}></th>
@@ -867,15 +866,6 @@ export default function PresupuestoForm() {
                       ) : (
                         <input className="input" style={{ fontSize: 12, padding: '4px 8px' }} value={d.detalle} onChange={(e) => handleDetalleChange(i, 'detalle', e.target.value)} placeholder="Cant / ML / cm" disabled={readOnly} />
                       )}
-                    </td>
-                    <td>
-                      <select className="input" style={{ fontSize: 11, padding: '4px 4px', width: '100%' }}
-                        value={d.moneda || 'ARS'}
-                        onChange={(e) => handleDetalleChange(i, 'moneda', e.target.value)}
-                        disabled={readOnly || !!d.material}>
-                        <option value="ARS">ARS</option>
-                        <option value="USD">USD</option>
-                      </select>
                     </td>
                     <td>
                       {CONCEPTOS_M2.includes(d.concepto) ? (
@@ -975,16 +965,18 @@ export default function PresupuestoForm() {
               }
               (form.detalles_fabricacion || []).forEach((item) => {
                 const totalItem = Number(item.precio || 0) * Number(item.cantidad || 1);
-                if (totalItem > 0) {
-                  sumatoriaAdicionalesARS += totalItem;
-                  detalleTrabajosComunes.push({ concepto: item.concepto + (item.detalle ? ` - ${item.detalle}` : ''), cant: item.cantidad || 1, total: totalItem });
+                const totalItemARS = item.moneda === 'USD' ? (dd2 > 0 ? totalItem * dd2 : 0) : totalItem;
+                if (totalItemARS > 0) {
+                  sumatoriaAdicionalesARS += totalItemARS;
+                  detalleTrabajosComunes.push({ concepto: item.concepto + (item.detalle ? ` - ${item.detalle}` : ''), cant: item.cantidad || 1, total: totalItemARS });
                 }
               });
               (form.piletas || []).forEach((pil) => {
                 const totalPil = Number(pil.precio || 0) * Number(pil.cantidad || 1);
-                if (totalPil > 0) {
-                  sumatoriaAdicionalesARS += totalPil;
-                  detalleTrabajosComunes.push({ concepto: `Pileta ${pil.marca || ''} ${pil.modelo || ''}`.trim(), cant: pil.cantidad || 1, total: totalPil });
+                const totalPilARS = pil.moneda === 'USD' ? (dd2 > 0 ? totalPil * dd2 : 0) : totalPil;
+                if (totalPilARS > 0) {
+                  sumatoriaAdicionalesARS += totalPilARS;
+                  detalleTrabajosComunes.push({ concepto: `Pileta ${pil.marca || ''} ${pil.modelo || ''}`.trim(), cant: pil.cantidad || 1, total: totalPilARS });
                 }
               });
 
@@ -1194,7 +1186,7 @@ export default function PresupuestoForm() {
                       const costoMat = mat.moneda === 'USD' ? m2 * (mat.precio_m2_usd || 0) : m2 * (mat.precio_m2 || 0);
                       const costoMatArs = mat.moneda === 'USD' ? (dd2 > 0 ? costoMat * dd2 : 0) : costoMat;
                       const totalFinalARS = costoMatArs + sumatoriaAdicionalesARS;
-                      const totalFinalUSD = dd2 > 0 ? totalFinalARS / dd2 : 0;
+                      const tipoCambio = dd2;
                       return (
                         <div key={idx} style={{ background: 'white', border: '2px solid #dbeafe', borderRadius: 12, padding: 20, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}
                              onMouseEnter={(e) => e.currentTarget.style.borderColor = '#3b82f6'}
@@ -1206,71 +1198,73 @@ export default function PresupuestoForm() {
                                 ALTERNATIVA {letra}
                               </span>
                               <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 700 }}>
-                                {mat.cantidad || 1} pza. ({m2.toFixed(2)} m&sup2;)
+                                Cant: {mat.cantidad || 1} &middot; &Aacute;rea: {m2.toFixed(2)} m&sup2;
                               </span>
                             </div>
 
                             {/* Título */}
-                            <h4 style={{ fontSize: 18, fontWeight: 900, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '-0.025em', margin: 0 }}>{mat.nombre}</h4>
-                            <p style={{ fontSize: 11, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 20px 0' }}>{mat.categoria || 'Sinterizados'}</p>
+                            <h4 style={{ fontSize: 18, fontWeight: 900, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '-0.025em', margin: 0, lineHeight: 1.15 }}>{mat.nombre}</h4>
+                            <p style={{ fontSize: 11, color: '#64748b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '4px 0 16px 0' }}>
+                              Categor&iacute;a: {mat.categoria || 'Sinterizados'}
+                            </p>
 
-                            {/* Desglose detallado */}
-                            <div style={{ background: 'rgba(248,250,252,0.7)', border: '1px solid #f1f5f9', borderRadius: 12, padding: 16, fontSize: 12, color: '#475569' }}>
-                              {/* Encabezados */}
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 700, color: '#94a3b8', paddingBottom: 8, borderBottom: '1px solid #e2e8f0', marginBottom: 0 }}>
-                                <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Concepto</span>
-                                <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Subtotal</span>
+                            {/* 📋 CUADRO DE DESGLOSE DETALLADO INDIVIDUAL */}
+                            <div className="space-y-2 text-xs bg-slate-50/70 p-4 rounded-xl border border-slate-100 text-slate-600">
+                              <div className="flex justify-between font-semibold pb-1.5 border-b border-slate-200">
+                                <span className="text-[10px] tracking-wider text-slate-400 font-bold uppercase">Concepto</span>
+                                <span className="text-[10px] tracking-wider text-slate-400 font-bold uppercase">Subtotal</span>
                               </div>
 
-                              {/* Costo del Material */}
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8 }}>
-                                <span style={{ fontWeight: 500, color: '#1e293b' }}>Costo Material ({mat.nombre}):</span>
-                                <span style={{ fontWeight: 700, color: '#0f172a', background: 'white', padding: '2px 8px', borderRadius: 4, border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                                  {mat.moneda === 'USD' ? `USD $${costoMat.toLocaleString()}` : `$ ${costoMat.toLocaleString('es-AR')}`}
+                              {/* 💎 Renglón del material específico */}
+                              <div className="flex justify-between items-start gap-3 pt-1">
+                                <span className="font-semibold text-slate-800 leading-tight">
+                                  Costo Material
+                                  <span className="block text-[11px] text-slate-500 font-medium mt-0.5">({mat.nombre})</span>
+                                </span>
+                                <span className="font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200 shadow-sm whitespace-nowrap">
+                                  {mat.moneda === 'USD'
+                                    ? `USD $${costoMat.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                                    : `$ ${costoMat.toLocaleString('es-AR')}`}
                                 </span>
                               </div>
 
-                              {/* Detalles de Fabricación */}
-                              {(form.detalles_fabricacion || []).filter((d) => Number(d.precio || 0) * Number(d.cantidad || 1) > 0).map((item, i) => {
-                                const totalItem = Number(item.precio || 0) * Number(item.cantidad || 1);
+                              {/* Trabajos comunes convertidos seg&uacute;n moneda de la tarjeta */}
+                              {detalleTrabajosComunes.map((job, i) => {
+                                const esTarjetaUSD = mat.moneda === 'USD';
+                                const valorMostrar = esTarjetaUSD ? (job.total / tipoCambio) : job.total;
                                 return (
-                                  <div key={`df-${i}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 6, borderTop: '1px dashed rgba(226,232,240,0.8)' }}>
-                                    <span style={{ color: '#64748b' }}>{item.concepto}{item.detalle ? ` - ${item.detalle}` : ''}{item.cantidad > 1 ? ` (x${item.cantidad})` : ''}:</span>
-                                    <span style={{ fontWeight: 600, color: '#1e293b' }}>$ {totalItem.toLocaleString('es-AR')}</span>
+                                  <div key={i} className="flex justify-between items-start gap-3 pt-1.5 border-t border-dashed border-slate-200">
+                                    <span className="text-slate-500 leading-tight">
+                                      {job.concepto}
+                                      {job.cant > 1 && (
+                                        <span className="inline-block ml-1 text-[10px] font-bold text-slate-600 bg-slate-200/70 px-1.5 py-0.5 rounded">
+                                          x{job.cant}
+                                        </span>
+                                      )}
+                                    </span>
+                                    <span className="font-semibold text-slate-800 whitespace-nowrap text-right">
+                                      {esTarjetaUSD
+                                        ? `USD $${valorMostrar.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                        : `$ ${valorMostrar.toLocaleString('es-AR')}`
+                                      }
+                                    </span>
                                   </div>
                                 );
                               })}
-
-                              {/* Piletas */}
-                              {(form.piletas || []).filter((p) => Number(p.precio || 0) * Number(p.cantidad || 1) > 0).map((pil, i) => {
-                                const totalPil = Number(pil.precio || 0) * Number(pil.cantidad || 1);
-                                return (
-                                  <div key={`pil-${i}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 6, borderTop: '1px dashed rgba(226,232,240,0.8)' }}>
-                                    <span style={{ color: '#64748b' }}>Pileta {pil.marca || ''} {pil.modelo || ''}{pil.cantidad > 1 ? ` (x${pil.cantidad})` : ''}:</span>
-                                    <span style={{ fontWeight: 600, color: '#1e293b' }}>$ {totalPil.toLocaleString('es-AR')}</span>
-                                  </div>
-                                );
-                              })}
-
-                              {/* Traslado */}
-                              {Number(form.traslado) > 0 && (
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 6, borderTop: '1px dashed rgba(226,232,240,0.8)' }}>
-                                  <span style={{ color: '#64748b' }}>Log&iacute;stica y Traslado:</span>
-                                  <span style={{ fontWeight: 600, color: '#1e293b' }}>$ {Number(form.traslado).toLocaleString('es-AR')}</span>
-                                </div>
-                              )}
                             </div>
                           </div>
 
-                          {/* Blue button */}
-                          <div style={{ background: '#2563eb', borderRadius: 12, padding: 16, textAlign: 'center', marginTop: 20, boxShadow: '0 4px 6px -1px rgba(59,130,246,0.2)' }}>
-                            <span style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#93c5fd', textTransform: 'uppercase', letterSpacing: '0.1em' }}>TOTAL PRESUPUESTO</span>
-                            <span style={{ display: 'block', fontSize: 24, fontWeight: 900, letterSpacing: '-0.025em', marginTop: 2, color: 'white' }}>
+                          {/* 🟦 BOTÓN DE TOTAL PRESUPUESTO PREMIUM */}
+                          <div className="bg-blue-600 rounded-xl p-4 text-center mt-5 shadow-md text-white">
+                            <span className="block text-[10px] font-bold text-blue-200 uppercase tracking-widest">
+                              TOTAL PRESUPUESTO
+                            </span>
+                            <span className="block text-2xl font-black tracking-tight mt-0.5">
                               $ {Math.round(totalFinalARS).toLocaleString('es-AR')}
                             </span>
                             {mat.moneda === 'USD' && (
-                              <span style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#e0e7ff', marginTop: 2, background: 'rgba(59,130,246,0.25)', padding: '2px 0', borderRadius: 6, border: '1px solid rgba(96,165,250,0.3)' }}>
-                                Ref. USD ${(totalFinalARS / dd2).toFixed(2)}
+                              <span className="block text-[11px] font-bold text-blue-100 mt-1.5 bg-blue-700/40 py-1 px-2 rounded-md border border-blue-500/30 inline-block">
+                                Ref. USD ${Number(totalFinalARS / tipoCambio).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </span>
                             )}
                           </div>
