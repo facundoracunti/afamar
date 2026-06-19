@@ -39,30 +39,59 @@ afamar/
 │       │   ├── mediciones.py         # CRUD mediciones
 │       │   ├── reportes.py
 │       │   └── configuracion.py      # Incluye upload-logo (multipart)
-│       ├── services/
+│       ├── repositories/            # Repository Pattern (SQLAlchemy queries)
+│       │   ├── base.py               # BaseRepository genérico (CRUD)
+│       │   ├── cliente.py            # Búsqueda + ficha + teléfono único
+│       │   ├── presupuesto.py        # Búsqueda compleja + unificados + convertir
+│       │   ├── orden_trabajo.py      # Números + estados
+│       │   ├── material.py           # Price history
+│       │   ├── stock_pileta.py       # Movimientos + descuento/restore
+│       │   ├── medicion.py, configuracion.py, presupuesto_online.py, dashboard.py
+│       ├── services/                 # Service Layer (lógica de negocio)
+│       │   ├── exceptions.py         # NotFoundError, ConflictError, ValidationError
+│       │   ├── presupuesto_service.py
+│       │   ├── orden_trabajo_service.py
+│       │   ├── cliente_service.py, material_service.py, stock_pileta_service.py
+│       │   ├── medicion_service.py, configuracion_service.py, dashboard_service.py
+│       │   ├── presupuesto_online_service.py
 │       │   ├── pdf_generator.py      # ReportLab PDFs
 │       │   ├── whatsapp_service.py
 │       │   └── email_service.py      # SMTP
+│       ├── routers/
+│       │   ├── depends.py            # get_service_or_404, handle_service_error
+│       │   ├── clientes.py           # Routers delgados (delegan en servicios)
+│       │   ├── presupuestos.py
+│       │   ├── presupuestos_online.py
+│       │   ├── ordenes_trabajo.py
+│       │   ├── materiales.py, stock_piletas.py, mediciones.py, reportes.py, dashboard.py
+│       │   └── configuracion.py
 │       └── utils/
-│           └── numeracion.py         # P-000001, A-000001
+│           ├── numeracion.py         # P-000001, A-000001 (compartida entre tablas)
+│           └── file_utils.py         # Manejo de uploads
 └── frontend/
     ├── package.json
     └── src/
         ├── index.js & index.css
         ├── App.js                    # React Router con Layout anidado
-        ├── services/api.js           # Axios → localhost:8000/api
+        ├── hooks/
+        │   └── useEntityForm.js      # Custom hook compartido (form state, handlers, cálculos)
+        ├── services/                 # Servicios modulares Axios
+        │   ├── api.js                # Hub de re-export (retrocompatible)
+        │   ├── clientes.js, presupuestos.js, presupuestosOnline.js
+        │   ├── ordenes.js, materiales.js, stockPiletas.js
+        │   ├── mediciones.js, configuracion.js, reportes.js, dashboard.js
         ├── utils/formatters.js       # Moneda, fecha, badges, constantes
         └── components/
             ├── Layout.js             # Sidebar acordeón (fondo blanco, botones rojos, auto-ocultable)
             ├── common/               # Modal, Loading, ConfirmDialog
-            ├── dashboard/Dashboard.js # Header rojo "afamar" + grilla 7 tarjetas + PRESUPUESTOS EN LÍNEA vertical
+            ├── dashboard/Dashboard.js # Header rojo "afamar" + grilla + PRESUPUESTOS EN LÍNEA
             ├── clientes/ClientesList.js & ClienteForm.js
             ├── presupuestos/
-            │   ├── PresupuestosList.js     # Lista: Presupuesto Local / Realizados, convertir, WhatsApp, Email
-            │   ├── PresupuestoForm.js      # Idéntico a OrdenForm (croquis, firma, pileta, dolar_dia, USD)
+            │   ├── PresupuestosList.js     # Lista unificada (local + online)
+            │   ├── PresupuestoForm.js      # Usa useEntityForm (588→876 líneas)
             │   ├── PresupuestosOnlineList.js
-            │   └── PresupuestoOnlineForm.js # Tabla 11 filas + 7 especiales + conversión + WhatsApp export
-            ├── ordenes/OrdenesList.js & OrdenForm.js
+            │   └── PresupuestoOnlineForm.js # Dinámico, 11+7 filas, pileta, convertir
+            ├── ordenes/OrdenesList.js & OrdenForm.js  # OrdenForm usa useEntityForm
             ├── materiales/MaterialesList.js & MaterialForm.js
             ├── stock/StockPiletas.js
             ├── reportes/Reportes.js
@@ -817,3 +846,68 @@ cd afamar/backend
 - `frontend/src/components/ordenes/OrdenForm.js` — refactorizado (588 líneas)
 - `frontend/src/components/presupuestos/PresupuestoForm.js` — refactorizado (876 líneas)
 - `AGENTS.md` — documentación actualizada
+
+## Sesión 19-Jun-2026 — Rama development, backend service layer + repos, frontend servicios modulares
+
+### Rama `development` creada
+- Nueva rama `development` para trabajar refactor profundo sin tocar `main`.
+- `main` queda estable con la versión funcional previa.
+
+### 1. Backend: Repository Pattern (Fase 1)
+- **`base.py`**: `BaseRepository` genérico con `get`, `get_all`, `create`, `update`, `delete`, `count`, `paginate`.
+- **Repositorios específicos** (9 total):
+  - `cliente.py` — búsqueda, ficha con historial, teléfono único
+  - `presupuesto.py` — búsqueda compleja, unificados, stock restore, convertir-a-orden
+  - `orden_trabajo.py` — próximos números, estados
+  - `material.py` — price history, búsqueda
+  - `stock_pileta.py` — movimientos, descuento/restore
+  - `medicion.py`, `configuracion.py`, `presupuesto_online.py`, `dashboard.py`
+- Cada repositorio encapsula consultas SQLAlchemy específicas de su dominio.
+
+### 2. Backend: Service Layer (Fase 2)
+- **`exceptions.py`**: Excepciones tipadas `NotFoundError`, `ConflictError`, `ValidationError`.
+- **Servicios** (9 total): `ClienteService`, `PresupuestoService`, `OrdenTrabajoService`, `MaterialService`, `StockPiletaService`, `MedicionService`, `ConfiguracionService`, `DashboardService`, `PresupuestoOnlineService`.
+- Cada servicio inyecta su repositorio, orquesta lógica de negocio, lanza excepciones tipadas.
+- `PresupuestoService` (~418 líneas): convertir a orden con deep clone, auto-cliente, restore stock, unificados.
+- `OrdenTrabajoService` (~206 líneas): transiciones de estado, descuento de stock, find-or-create cliente.
+
+### 3. Backend: Routers delgados (Fase 3+4)
+- **`depends.py`**: Helper `get_service_or_404` + `handle_service_error` para try/except uniforme.
+- Todos los routers refactorizados a endpoints delgados: inyectan servicio, delegan, devuelven respuesta.
+- Manejo de errores consistente: 404 (NotFoundError), 409 (ConflictError), 400 (ValidationError).
+- Sin lógica de negocio en routers — son meros adaptadores HTTP.
+
+### 4. Frontend: Servicios modulares (Fase 5)
+- `api.js` monolítico (~450 líneas) dividido en 10 archivos modulares:
+  - `clientes.js`, `presupuestos.js`, `presupuestosOnline.js`, `ordenes.js`, `materiales.js`, `stockPiletas.js`, `mediciones.js`, `configuracion.js`, `reportes.js`, `dashboard.js`
+- Cada servicio exporta funciones tipo `getClientes`, `createCliente`, etc. con Axios apuntando a `http://localhost:8000/api`.
+- `api.js` mantiene `export * from './...'` retrocompatible para no romper imports existentes.
+- Servicios retornan Pydantic models directamente (aprovechan `response_model` de FastAPI).
+
+### 5. Frontend: Custom hook `useEntityForm` (Fase 6)
+- (Documentado en sesión 18-Jun — creado en el mismo commit pero con sesión separada)
+
+### 6. Frontend: `PresupuestoList.js` convertido a servicios modulares
+- Migrado de imports de `api.js` a imports directos de `services/presupuestos.js`, `services/ordenes.js`, etc.
+
+### Backend probado
+- Todos los endpoints principales responden 200 OK:
+  - `GET /api/clientes`, `GET /api/presupuestos`, `GET /api/ordenes-trabajo`
+  - `GET /api/materiales`, `GET /api/stock-piletas`, `GET /api/dashboard`
+  - `GET /api/presupuestos/unificados`, `GET /api/presupuestos/next-numero`
+  - `POST /api/presupuestos/{id}/convertir-orden`
+
+### Push a remote
+- `git push --set-upstream origin development` — rama `development` vinculada y actualizada en origin.
+
+### Archivos relevantes
+- `backend/app/repositories/base.py` — BaseRepository genérico
+- `backend/app/repositories/presupuesto.py` — PresupuestoRepository (207 líneas)
+- `backend/app/repositories/cliente.py` — ClienteRepository (143 líneas)
+- `backend/app/services/presupuesto_service.py` — PresupuestoService (418 líneas)
+- `backend/app/services/orden_trabajo_service.py` — OrdenTrabajoService (206 líneas)
+- `backend/app/services/exceptions.py` — NotFoundError, ConflictError, ValidationError
+- `backend/app/routers/depends.py` — dependencias compartidas
+- `frontend/src/services/` — 10 servicios modulares
+- `frontend/src/services/api.js` — hub de re-export
+- `frontend/src/hooks/useEntityForm.js` — custom hook (614 líneas)
