@@ -782,3 +782,38 @@ cd afamar/backend
 ### Known issues
 - SQLite DB debe eliminarse manualmente cuando hay cambios de schema; recrear con `python seed.py`
 - Al agregar `sena_moneda` o `adicionales` a modelos existentes, se requiere ALTER TABLE o recreación de DB
+
+## Sesión 18-Jun-2026 — Custom hook `useEntityForm`, refactor OrdenForm/PresupuestoForm
+
+### 1. Custom hook `useEntityForm.js`
+- Creado `frontend/src/hooks/useEntityForm.js` (~614 líneas) encapsulando TODO el estado, handlers y lógica compartida entre OrdenForm y PresupuestoForm.
+- Parámetros: `entityType`, `services`, `defaultEstado`, `id`, `navigate`, `onLoaded`.
+- Retorna: form state, materiales/piletas/clientes, readOnly/hayUSD/hayAlternativas, todos los handlers (handleMaterialChange, handleDetalleChange, addMaterial/removeMaterial, addPileta/removePileta, handleSubmit, handleDelete, handleCambioEstadoAccion, handlePrint, etc.), setters (setForm, setSaving, setMenuOpen, etc.), buildPayload, CONCEPTOS_M2.
+- State inicial (INITIAL_FORM): 55 campos cubriendo datos de cliente, detalles fabricación, materiales, piletas, croquis, presupuesto, pagos, USD, aprobación, observaciones.
+- `calculateTotales` (useEffect con 9 dependencias): calcula subtotales ARS/USD, recargo financiero, seña intermoneda, saldos, comparativo forzado a $0.
+- `handleDetalleChange`: maneja cambio de concepto, material por fila, cálculo automático de M² y precio para ZÓCALO/FRENTE/OTRA.
+- `handleCambioEstadoAccion`: transiciones de estado con liquidación automática al pasar a ENTREGADO.
+
+### 2. OrdenForm.js refactorizado (1277 → 588 líneas, -54%)
+- Eliminados ~700 líneas de state/effects/handlers. Reemplazados por una sola llamada a `useEntityForm`.
+- JSX se mantiene idéntico (misma estructura, mismos estilos inline).
+- Servicios: `{ getOrden, createOrden, updateOrden, deleteOrden, getNextNumero, listPath: '/ordenes' }`.
+- `handleCambioEstadoAccion` heredado del hook para botones "Enviar a Taller" / "Finalizar Trabajo".
+
+### 3. PresupuestoForm.js refactorizado (1423 → 876 líneas, -39%)
+- Eliminados ~550 líneas de state/effects/handlers. Reemplazados por `useEntityForm`.
+- Preserva lógica específica: `ordenTrabajoNumero` state, `handleConvertirGuardar`, `handleGuardar` (menú tres puntos).
+- `onLoaded` callback extrae `orden_trabajo_numero` del response para mostrar el link a OT.
+- `buildPayload` expuesto por el hook; se reusa en handleSubmit, handleConvertirGuardar y handleGuardar.
+
+### 4. Hook modificado para PresupuestoForm
+- Parámetro `onLoaded` agregado (opcional, se invoca con `d` después de cargar datos).
+- Retorna `setSaving` y `buildPayload` (necesarios para PresupuestoForm).
+- `orden_trabajo_numero` agregado a `INITIAL_FORM`.
+- Lint: eliminada variable `dd` muerta en `handleSenaMonedaChange`.
+
+### Archivos relevantes
+- `frontend/src/hooks/useEntityForm.js` — hook nuevo (614 líneas)
+- `frontend/src/components/ordenes/OrdenForm.js` — refactorizado (588 líneas)
+- `frontend/src/components/presupuestos/PresupuestoForm.js` — refactorizado (876 líneas)
+- `AGENTS.md` — documentación actualizada

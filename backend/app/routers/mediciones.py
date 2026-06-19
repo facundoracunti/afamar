@@ -2,10 +2,16 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.database import get_db
-from app.models.medicion import Medicion as MedicionModel
 from app.schemas.medicion import MedicionCreate, MedicionUpdate, Medicion as MedicionSchema
+from app.services.medicion_service import MedicionService
+from app.services.exceptions import NotFoundError
 
 router = APIRouter()
+
+
+def _get_service(db: Session = Depends(get_db)):
+    return MedicionService(db)
+
 
 @router.get("/", response_model=List[MedicionSchema])
 def listar_mediciones(
@@ -13,49 +19,38 @@ def listar_mediciones(
     estado: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
-    db: Session = Depends(get_db)
+    service: MedicionService = Depends(_get_service),
 ):
-    query = db.query(MedicionModel)
-    if search:
-        query = query.filter(
-            MedicionModel.cliente_nombre.ilike(f"%{search}%") |
-            MedicionModel.cliente_telefono.ilike(f"%{search}%") |
-            MedicionModel.cliente_direccion.ilike(f"%{search}%")
-        )
-    if estado:
-        query = query.filter(MedicionModel.estado == estado)
-    return query.order_by(MedicionModel.id.desc()).offset(skip).limit(limit).all()
+    return service.listar(search, estado, skip, limit)
+
 
 @router.get("/{medicion_id}", response_model=MedicionSchema)
-def obtener_medicion(medicion_id: int, db: Session = Depends(get_db)):
-    medicion = db.query(MedicionModel).filter(MedicionModel.id == medicion_id).first()
-    if not medicion:
-        raise HTTPException(404, "Medición no encontrada")
-    return medicion
+def obtener_medicion(medicion_id: int, service: MedicionService = Depends(_get_service)):
+    try:
+        return service.obtener(medicion_id)
+    except NotFoundError as e:
+        raise HTTPException(404, str(e))
+
 
 @router.post("/", response_model=MedicionSchema, status_code=201)
-def crear_medicion(data: MedicionCreate, db: Session = Depends(get_db)):
-    medicion = MedicionModel(**data.model_dump())
-    db.add(medicion)
-    db.commit()
-    db.refresh(medicion)
-    return medicion
+def crear_medicion(data: MedicionCreate, service: MedicionService = Depends(_get_service)):
+    return service.crear(data.model_dump())
+
 
 @router.put("/{medicion_id}", response_model=MedicionSchema)
-def actualizar_medicion(medicion_id: int, data: MedicionUpdate, db: Session = Depends(get_db)):
-    medicion = db.query(MedicionModel).filter(MedicionModel.id == medicion_id).first()
-    if not medicion:
-        raise HTTPException(404, "Medición no encontrada")
-    for key, value in data.model_dump(exclude_unset=True).items():
-        setattr(medicion, key, value)
-    db.commit()
-    db.refresh(medicion)
-    return medicion
+def actualizar_medicion(
+    medicion_id: int, data: MedicionUpdate,
+    service: MedicionService = Depends(_get_service),
+):
+    try:
+        return service.actualizar(medicion_id, data.model_dump(exclude_unset=True))
+    except NotFoundError as e:
+        raise HTTPException(404, str(e))
+
 
 @router.delete("/{medicion_id}", status_code=204)
-def eliminar_medicion(medicion_id: int, db: Session = Depends(get_db)):
-    medicion = db.query(MedicionModel).filter(MedicionModel.id == medicion_id).first()
-    if not medicion:
-        raise HTTPException(404, "Medición no encontrada")
-    db.delete(medicion)
-    db.commit()
+def eliminar_medicion(medicion_id: int, service: MedicionService = Depends(_get_service)):
+    try:
+        service.eliminar(medicion_id)
+    except NotFoundError as e:
+        raise HTTPException(404, str(e))

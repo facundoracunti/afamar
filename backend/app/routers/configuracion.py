@@ -1,65 +1,47 @@
-import os
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from typing import List
 from app.database import get_db
-from app.models.configuracion import Configuracion
 from app.schemas.configuracion import ConfiguracionCreate, ConfiguracionUpdate, Configuracion as ConfiguracionSchema
-from app.config import get_settings
+from app.services.configuracion_service import ConfiguracionService
 
 router = APIRouter()
 
+
+def _get_service(db: Session = Depends(get_db)):
+    return ConfiguracionService(db)
+
+
 @router.get("/", response_model=List[ConfiguracionSchema])
-def listar_configuracion(db: Session = Depends(get_db)):
-    return db.query(Configuracion).all()
+def listar_config(service: ConfiguracionService = Depends(_get_service)):
+    return service.listar()
+
 
 @router.get("/{key}", response_model=ConfiguracionSchema)
-def obtener_config(key: str, db: Session = Depends(get_db)):
-    config = db.query(Configuracion).filter(Configuracion.key == key).first()
-    if not config:
-        raise HTTPException(404, "Configuración no encontrada")
-    return config
+def obtener_config(key: str, service: ConfiguracionService = Depends(_get_service)):
+    cfg = service.obtener(key)
+    if not cfg:
+        raise HTTPException(404, f"Configuración '{key}' no encontrada")
+    return cfg
+
 
 @router.post("/", response_model=ConfiguracionSchema, status_code=201)
-def crear_config(data: ConfiguracionCreate, db: Session = Depends(get_db)):
-    existente = db.query(Configuracion).filter(Configuracion.key == data.key).first()
-    if existente:
-        raise HTTPException(400, "La clave ya existe")
-    config = Configuracion(**data.model_dump())
-    db.add(config)
-    db.commit()
-    db.refresh(config)
-    return config
+def crear_config(
+    data: ConfiguracionCreate,
+    service: ConfiguracionService = Depends(_get_service),
+):
+    return service.actualizar(data.key, data.value)
+
 
 @router.put("/{key}", response_model=ConfiguracionSchema)
-def actualizar_config(key: str, data: ConfiguracionUpdate, db: Session = Depends(get_db)):
-    config = db.query(Configuracion).filter(Configuracion.key == key).first()
-    if not config:
-        config = Configuracion(key=key, value=data.value)
-        db.add(config)
-    else:
-        config.value = data.value
-    db.commit()
-    db.refresh(config)
-    return config
+def actualizar_config(
+    key: str, data: ConfiguracionUpdate,
+    service: ConfiguracionService = Depends(_get_service),
+):
+    return service.actualizar(key, data.value)
+
 
 @router.post("/upload-logo")
-async def upload_logo(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    settings = get_settings()
-    upload_dir = settings.UPLOAD_DIR
-    os.makedirs(upload_dir, exist_ok=True)
-
-    file_path = os.path.join(upload_dir, "logo.png")
-    content = await file.read()
-    with open(file_path, "wb") as f:
-        f.write(content)
-
-    config = db.query(Configuracion).filter(Configuracion.key == "logo").first()
-    if config:
-        config.value = f"{upload_dir}/logo.png"
-    else:
-        config = Configuracion(key="logo", value=f"{upload_dir}/logo.png")
-        db.add(config)
-    db.commit()
-
-    return {"message": "Logo subido correctamente", "path": f"{upload_dir}/logo.png"}
+def upload_logo(file: UploadFile = File(...), service: ConfiguracionService = Depends(_get_service)):
+    file_path = service.upload_logo(file)
+    return {"message": "Logo subido correctamente", "path": file_path}
