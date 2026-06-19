@@ -8,8 +8,8 @@ class OrdenTrabajo(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     numero = Column(String(20), unique=True, index=True)
-    # EN MEDICIÓN, EN EL TALLER, ENTREGADO
-    estado = Column(String(30), default="EN MEDICIÓN")
+    # MEDICION, TALLER, TERMINADA, ENTREGADA
+    estado = Column(String(30), default="MEDICION")
     # Presupuestado, Aprobado, Producción, Terminado, Entregado, Cancelado
 
     # Origen

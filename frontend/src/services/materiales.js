@@ -1,4 +1,4 @@
-﻿import api from './api';
+﻿import api from './apiClient';
 
 export const getMateriales = (params) => api.get('/materiales', { params });
 export const getMaterial = (id) => api.get(`/materiales/${id}`);

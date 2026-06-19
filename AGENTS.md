@@ -847,6 +847,58 @@ cd afamar/backend
 - `frontend/src/components/presupuestos/PresupuestoForm.js` — refactorizado (876 líneas)
 - `AGENTS.md` — documentación actualizada
 
+## Sesión 19-Jun-2026 (final) — Precisión 5 decimales, fix doble multiplicación, reestructuración de estados
+
+### 1. Precisión de m² a 5 decimales
+- **Frontend**: `useEntityForm.js`, `PresupuestoOnlineForm.js` — `Math.round(l*a * 10000)/10000` → `* 100000 / 100000` (5 decimales)
+- **Frontend display**: todos los `.toFixed(4)` → `.toFixed(5)` en `PresupuestoOnlineForm.js`, `OrdenForm.js` (comparativa), `CalculadoraPlaca.js`
+- **Backend `presupuesto_service.py`**: `_compute_total` ahora hace `m2 = round(largo * ancho, 5)` antes de multiplicar, y redondea dinero final con `round(area * precio_m2, 2)`
+
+### 2. Fix doble multiplicación de cantidad en conversión a orden
+- **Bug**: al convertir presupuesto online → orden, `precio` en `detalles_fabricacion` se guardaba como `subtotal` (que ya incluye `cantidad`), pero el resto del sistema hace `precio * cantidad` → doble multiplicación.
+- **Fix `presupuesto_online_service.py`**: para M² (LONGITUD/ZÓCALO/FRENTE): `precio = round(m2 * precio_unitario, 2)` (precio por pieza). Para TRAFOROS (es_unidad): `precio = precio_unitario` (precio por unidad). Para TERMINACION: `precio = subtotal` (cantidad=1).
+- **Fix `presupuesto_service.py`**: items legacy usan `(i.m2 or 0) * (i.precio_m2 or 0)` en vez de `i.subtotal`. Adicionales legacy usan `a.precio_unitario` en vez de `a.subtotal`.
+
+### 3. Reestructuración de estados de Órdenes de Trabajo
+- **Nuevos estados**: `MEDICION → TALLER → TERMINADA → ENTREGADA`
+- **Macro-estados para filtros**:
+  - *Activas*: `MEDICION + TALLER` (default en lista y sidebar)
+  - *Terminadas*: `TERMINADA` (lista en local para retiro)
+  - *Entregadas*: `ENTREGADA` (despachada al cliente)
+- **Archivos modificados backend** (7):
+  - `models/orden_trabajo.py` — default `MEDICION`
+  - `repositories/orden_trabajo.py` — filtro default `IN ("MEDICION","TALLER")`
+  - `repositories/cliente.py` — `IN ("TALLER","TERMINADA","ENTREGADA")`
+  - `services/dashboard_service.py` — todos los filtros actualizados
+  - `services/presupuesto_service.py` — default `MEDICION`
+  - `services/presupuesto_online_service.py` — default `MEDICION`
+- **Archivos modificados frontend** (7):
+  - `utils/formatters.js` — `estadosOrden = ['MEDICION','TALLER','TERMINADA','ENTREGADA']`, badges actualizados
+  - `hooks/useEntityForm.js` — readOnly incluye `TALLER/TERMINADA/ENTREGADA`, liquidación en `ENTREGADA`
+  - `components/ordenes/OrdenForm.js` — 3 botones de transición (MEDICION→TALLER→TERMINADA→ENTREGADA)
+  - `components/ordenes/OrdenesList.js` — dropdown con 3 opciones y valores correctos
+  - `components/Layout.js` — sidebar paths actualizados
+  - `components/dashboard/Dashboard.js` — cards actualizadas
+  - `components/ordenes/OrdenForm_test.js` — sincronizado
+
+### 4. Sidebar menú ÓRDENES reordenado
+- Nuevo orden: Nueva Orden → Ordenes Activas → Terminadas → Entregado
+- Dropdown en `/ordenes`: "Activas (En Medición / Taller)" | "Terminadas (En Local)" | "Entregadas"
+
+### 5. Fix circular dependency en servicios frontend
+- Creado `apiClient.js` con la instancia de axios (sin re-exports)
+- `api.js` ahora re-exporta default desde `apiClient` + named desde módulos
+- Todos los servicios modulares importan desde `apiClient` en vez de `api`, rompiendo la dependencia circular
+
+### NOTA: DB SQLite
+Los datos existentes tienen estados viejos (`EN MEDICIÓN`, `EN EL TALLER`, `ENTREGADO`). Recrear DB o ejecutar:
+```sql
+UPDATE ordenes_trabajo SET estado = 'MEDICION' WHERE estado = 'EN MEDICIÓN';
+UPDATE ordenes_trabajo SET estado = 'TALLER' WHERE estado = 'EN EL TALLER';
+UPDATE ordenes_trabajo SET estado = 'TERMINADA' WHERE estado = 'ENTREGADO'; -- si había entregadas como terminadas
+UPDATE ordenes_trabajo SET estado = 'ENTREGADA' WHERE estado = 'ENTREGADO'; -- si ya se actualizaron
+```
+
 ## Sesión 19-Jun-2026 — Rama development, backend service layer + repos, frontend servicios modulares
 
 ### Rama `development` creada

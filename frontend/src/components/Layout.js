@@ -27,9 +27,9 @@ const accordionGroups = [
     icon: ClipboardList,
     subItems: [
       { label: 'Nueva Orden', path: '/ordenes/nuevo', icon: Send },
-      { label: 'Órdenes Activas', path: '/ordenes', icon: ClipboardList },
-      { label: 'En Taller', path: '/ordenes?estado=EN+EL+TALLER', icon: Wrench },
-      { label: 'Entregadas', path: '/ordenes?estado=ENTREGADO', icon: Truck },
+      { label: 'Ordenes Activas', path: '/ordenes', icon: ClipboardList },
+      { label: 'Terminadas', path: '/ordenes?estado=TERMINADA', icon: Wrench },
+      { label: 'Entregado', path: '/ordenes?estado=ENTREGADA', icon: Truck },
     ],
   },
   {

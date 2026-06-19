@@ -1,4 +1,4 @@
-import api from './api';
+import api from './apiClient';
 
 export const getReportePresupuestos = (params) => api.get('/reportes/presupuestos', { params });
 export const getReporteOrdenes = (params) => api.get('/reportes/ordenes', { params });

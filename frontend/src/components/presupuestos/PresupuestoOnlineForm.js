@@ -125,7 +125,7 @@ export default function PresupuestoOnlineForm() {
         list[idx].subtotal = Math.round(la * mo * 100) / 100;
         list[idx].precio_unitario = Math.round(la * mo * 100) / 100;
       } else if (!list[idx].es_unidad) {
-        list[idx].m2 = Math.round(la * an * 10000) / 10000;
+        list[idx].m2 = Math.round(la * an * 100000) / 100000;
       }
     }
 
@@ -227,7 +227,7 @@ export default function PresupuestoOnlineForm() {
       itemsUsd.forEach((i) => {
         let t = `. ${i.detalle}`;
         if (i.es_unidad) t += ` | Cant: ${i.cantidad}`;
-        else if (i.m2 > 0) t += ` | ${i.largo}x${i.ancho} = ${i.m2.toFixed(4)} m2`;
+        else if (i.m2 > 0) t += ` | ${i.largo}x${i.ancho} = ${i.m2.toFixed(5)} m2`;
         t += ` | USD ${i.precio_unitario.toFixed(2)}/u = USD ${i.subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
         L.push(t);
       });
@@ -238,7 +238,7 @@ export default function PresupuestoOnlineForm() {
       itemsArs.forEach((i) => {
         let t = `. ${i.detalle}`;
         if (i.es_unidad) t += ` | Cant: ${i.cantidad}`;
-        else if (i.m2 > 0) t += ` | ${i.largo}x${i.ancho} = ${i.m2.toFixed(4)} m2`;
+        else if (i.m2 > 0) t += ` | ${i.largo}x${i.ancho} = ${i.m2.toFixed(5)} m2`;
         t += ` | $ ${i.precio_unitario.toFixed(2)}/u = $ ${i.subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
         L.push(t);
       });
@@ -334,7 +334,7 @@ export default function PresupuestoOnlineForm() {
                   </td>
                   <td style={cellStyle}><input type="number" step="any" style={inputStyle} value={item.largo || ''} onChange={(e) => updateItem(idx, 'largo', e.target.value, false)} /></td>
                   <td style={cellStyle}><input type="number" step="any" style={inputStyle} value={item.ancho || ''} onChange={(e) => updateItem(idx, 'ancho', e.target.value, false)} /></td>
-                  <td style={{ ...cellStyle, textAlign: 'center', fontWeight: 600 }}>{item.m2 > 0 ? item.m2.toFixed(4) : '-'}</td>
+                  <td style={{ ...cellStyle, textAlign: 'center', fontWeight: 600 }}>{item.m2 > 0 ? item.m2.toFixed(5) : '-'}</td>
                   <td style={cellStyle}><input type="number" style={inputStyle} value={item.cantidad} onChange={(e) => updateItem(idx, 'cantidad', e.target.value, false)} min="1" /></td>
                   <td style={cellStyle}>
                     <select style={selectStyle} value={item.moneda} onChange={(e) => updateItem(idx, 'moneda', e.target.value, false)} disabled={item.detalle !== 'LONGITUD' && item.detalle !== ''}>
@@ -412,7 +412,7 @@ export default function PresupuestoOnlineForm() {
                     ) : !item.es_unidad ? (<input type="number" step="any" style={inputStyle} value={item.ancho || ''} onChange={(e) => updateItem(idx, 'ancho', e.target.value, true)} placeholder="Altura" />) : null}
                   </td>
                   <td style={{ ...cellStyle, textAlign: 'center', fontWeight: 600, color: item.es_unidad ? '#b91c1c' : '#1e293b' }}>
-                    {item.detalle === 'TERMINACION' ? '$' + (item.precio_unitario || 0).toLocaleString('es-AR') : item.es_unidad ? 'U' : (item.m2 > 0 ? item.m2.toFixed(4) : '-')}
+                    {item.detalle === 'TERMINACION' ? '$' + (item.precio_unitario || 0).toLocaleString('es-AR') : item.es_unidad ? 'U' : (item.m2 > 0 ? item.m2.toFixed(5) : '-')}
                   </td>
                   <td style={cellStyle}><input type="number" style={inputStyle} value={item.cantidad} onChange={(e) => updateItem(idx, 'cantidad', e.target.value, true)} min="1" /></td>
                   <td style={cellStyle}>

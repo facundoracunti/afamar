@@ -105,7 +105,7 @@ class PresupuestoOnlineService:
                         "mano_de_obra": mano_de_obra if mano_de_obra else None,
                         "moneda": moneda,
                         "cantidad": cantidad,
-                        "precio": subtotal if subtotal else precio_unitario * cantidad,
+                        "precio": precio_unitario if precio_unitario else 0,
                     })
             elif detalle_str in ("ZOCALOS", "ZÓCALO"):
                 detalles_fabricacion.append({
@@ -119,7 +119,7 @@ class PresupuestoOnlineService:
                     "mano_de_obra": mano_de_obra if mano_de_obra else None,
                     "moneda": moneda,
                     "cantidad": cantidad,
-                    "precio": subtotal if subtotal else precio_unitario * cantidad,
+                    "precio": round(m2 * precio_unitario, 2) if (m2 and precio_unitario) else 0,
                 })
             elif detalle_str == "FRENTE":
                 detalles_fabricacion.append({
@@ -133,7 +133,7 @@ class PresupuestoOnlineService:
                     "mano_de_obra": mano_de_obra if mano_de_obra else None,
                     "moneda": moneda,
                     "cantidad": cantidad,
-                    "precio": subtotal if subtotal else precio_unitario * cantidad,
+                    "precio": round(m2 * precio_unitario, 2) if (m2 and precio_unitario) else 0,
                 })
             elif detalle_str in ("TERMINACION",):
                 detalles_fabricacion.append({
@@ -147,7 +147,7 @@ class PresupuestoOnlineService:
                     "mano_de_obra": mano_de_obra if mano_de_obra else None,
                     "moneda": moneda,
                     "cantidad": cantidad,
-                    "precio": subtotal if subtotal else precio_unitario * cantidad,
+                    "precio": subtotal if subtotal else round(largo * mano_de_obra, 2),
                 })
             elif detalle_str != "LONGITUD":
                 materiales.append({
@@ -195,7 +195,7 @@ class PresupuestoOnlineService:
             dolar_dia=p.dolar_dia or 1000,
             total_usd=p.total_neto_usd or 0,
             subtotal_usd=p.total_neto_usd or 0,
-            estado="EN MEDICIÓN",
+            estado="MEDICION",
             observaciones=f"Convertido desde presupuesto online {p.numero}",
         )
         p.estado = "CONVERTIDO A OT"

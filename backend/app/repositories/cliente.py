@@ -93,7 +93,7 @@ class ClienteRepository(BaseRepository[ClienteModel]):
             self.db.query(OrdenTrabajo.total)
             .filter(
                 OrdenTrabajo.cliente_id == cliente_id,
-                OrdenTrabajo.estado.in_(["EN EL TALLER", "ENTREGADO"]),
+                OrdenTrabajo.estado.in_(["TALLER", "TERMINADA", "ENTREGADA"]),
             )
             .all()
         )

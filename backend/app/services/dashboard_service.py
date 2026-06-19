@@ -21,37 +21,37 @@ class DashboardService:
             self.db.query(Presupuesto).filter(Presupuesto.estado == "Pendiente").count()
         )
         ordenes_en_medicion = (
-            self.db.query(OrdenTrabajo).filter(OrdenTrabajo.estado == "EN MEDICIÓN").count()
+            self.db.query(OrdenTrabajo).filter(OrdenTrabajo.estado == "MEDICION").count()
         )
         ordenes_en_taller = (
-            self.db.query(OrdenTrabajo).filter(OrdenTrabajo.estado == "EN EL TALLER").count()
+            self.db.query(OrdenTrabajo).filter(OrdenTrabajo.estado == "TALLER").count()
         )
         piletas_en_stock = (
             self.db.query(func.sum(StockPileta.cantidad)).scalar() or 0
         )
         trabajos_proxima_entrega = (
             self.db.query(OrdenTrabajo)
-            .filter(OrdenTrabajo.estado.in_(["EN MEDICIÓN", "EN EL TALLER"]))
+            .filter(OrdenTrabajo.estado.in_(["MEDICION", "TALLER"]))
             .count()
         )
         total_ordenes_activas = (
-            self.db.query(OrdenTrabajo).filter(OrdenTrabajo.estado != "ENTREGADO").count()
+            self.db.query(OrdenTrabajo).filter(OrdenTrabajo.estado.in_(["MEDICION", "TALLER"])).count()
         )
         total_presupuestos = self.db.query(Presupuesto).count()
         total_ordenes = self.db.query(OrdenTrabajo).count()
         total_ingresos = (
             self.db.query(func.sum(OrdenTrabajo.total))
-            .filter(OrdenTrabajo.estado == "ENTREGADO")
+            .filter(OrdenTrabajo.estado == "ENTREGADA")
             .scalar() or 0
         )
         total_pendiente_cobro = (
             self.db.query(func.sum(OrdenTrabajo.saldo_pendiente))
-            .filter(OrdenTrabajo.estado != "ENTREGADO")
+            .filter(OrdenTrabajo.estado.in_(["MEDICION", "TALLER", "TERMINADA"]))
             .scalar() or 0
         )
         ordenes_entregadas_mes = (
             self.db.query(OrdenTrabajo)
-            .filter(OrdenTrabajo.estado == "ENTREGADO", OrdenTrabajo.updated_at >= month_start)
+            .filter(OrdenTrabajo.estado == "ENTREGADA", OrdenTrabajo.updated_at >= month_start)
             .count()
         )
         presupuestos_aprobados_mes = (
@@ -78,7 +78,7 @@ class DashboardService:
 
         ordenes_recientes = (
             self.db.query(OrdenTrabajo)
-            .filter(OrdenTrabajo.estado != "ENTREGADO")
+            .filter(OrdenTrabajo.estado.in_(["MEDICION", "TALLER"]))
             .order_by(OrdenTrabajo.created_at.desc())
             .limit(10)
             .all()
@@ -95,7 +95,7 @@ class DashboardService:
 
         ordenes_entregadas = (
             self.db.query(OrdenTrabajo)
-            .filter(OrdenTrabajo.estado == "ENTREGADO", OrdenTrabajo.updated_at < dos_meses)
+            .filter(OrdenTrabajo.estado == "ENTREGADA", OrdenTrabajo.updated_at < dos_meses)
             .order_by(OrdenTrabajo.updated_at.desc())
             .all()
         )

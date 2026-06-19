@@ -117,7 +117,7 @@ export default function Dashboard() {
 
           {/* Fila 2 - Ancha */}
           <div className="dash-card" style={wideCardStyle} onClick={() => navigate('/ordenes')}>
-            <div style={{ fontSize: '1.4rem', fontWeight: 700 }}>ÓRDENES EN MEDICIÓN / TALLER</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 700 }}>ÓRDENES ACTIVAS</div>
             <div style={{ display: 'flex', gap: 32, fontSize: '0.95rem', fontWeight: 600, color: '#64748b', textTransform: 'none' }}>
               <span>En Medición: <strong style={{ color: '#1e293b' }}>{data?.total_ordenes_activas || 0}</strong></span>
               <span>Total Órdenes: <strong style={{ color: '#1e293b' }}>{data?.total_ordenes || 0}</strong></span>
@@ -126,7 +126,7 @@ export default function Dashboard() {
           </div>
 
           {/* Fila 3 */}
-          <div className="dash-card" style={cardStyle} onClick={() => navigate('/ordenes?estado=ENTREGADO')}>
+          <div className="dash-card" style={cardStyle} onClick={() => navigate('/ordenes?estado=ENTREGADA')}>
             <div>
               <div style={{ marginBottom: 8 }}><Truck size={28} color="#e51a24" /></div>
               ÓRDENES<br/>TERMINADAS P/ ENVÍO

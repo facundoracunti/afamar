@@ -1,4 +1,4 @@
-import api from './api';
+import api from './apiClient';
 
 export const getConfig = () => api.get('/configuracion');
 export const getConfigByKey = (key) => api.get(`/configuracion/${key}`);

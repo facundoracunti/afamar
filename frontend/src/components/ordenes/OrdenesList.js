@@ -69,9 +69,10 @@ export default function OrdenesList() {
             <Search size={18} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
             <input className="input" placeholder="Buscar por número o cliente..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ paddingLeft: 40 }} />
           </div>
-          <select className="input" style={{ width: 220 }} value={estado} onChange={(e) => setEstado(e.target.value)}>
-            <option value="">Activas</option>
-            {estadosOrden.map((e) => <option key={e} value={e}>{e}</option>)}
+          <select className="input" style={{ width: 260 }} value={estado} onChange={(e) => setEstado(e.target.value)}>
+            <option value="">Activas (En Medición / Taller)</option>
+            <option value="TERMINADA">Terminadas (En Local)</option>
+            <option value="ENTREGADA">Entregadas</option>
           </select>
         </div>
       </div>

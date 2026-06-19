@@ -30,7 +30,7 @@ export default function OrdenForm() {
     numero: '',
     cliente_nombre: '', cliente_telefono_orden: '', domicilio: '', email: '',
     fecha: new Date().toISOString().slice(0, 10),
-    estado: 'EN MEDICIÓN',
+    estado: 'MEDICION',
     material: '', material_precio_m2: 0, color_tipo: '', espesor: '', acabado: '', tipo_cambio: 1,
     bacha: '', anafe: '',
     croquis: [],
@@ -70,7 +70,7 @@ export default function OrdenForm() {
           domicilio: d.domicilio || '',
           email: d.email || '',
           fecha: d.fecha ? d.fecha.slice(0, 10) : new Date().toISOString().slice(0, 10),
-          estado: d.estado || 'EN MEDICIÓN',
+          estado: d.estado || 'MEDICION',
           material: d.material || '',
           material_precio_m2: d.material_precio_m2 || 0,
           tipo_cambio: d.tipo_cambio || 1,
@@ -288,7 +288,7 @@ export default function OrdenForm() {
       } else if (CONCEPTOS_M2.includes(d.concepto) && (field === 'concepto' || field === 'largo' || field === 'ancho' || field === 'moneda')) {
         const largo = Number(d.largo) || 0;
         const ancho = Number(d.ancho) || 0;
-        const m2 = Math.round((largo * ancho) * 10000) / 10000;
+        const m2 = Math.round((largo * ancho) * 100000) / 100000;
         list[idx].m2 = m2;
         const moneda = d.moneda || 'ARS';
         const pm2 = moneda === 'USD'
@@ -380,7 +380,7 @@ export default function OrdenForm() {
 
   if (loading) return <Loading />;
 
-  const readOnly = ['EN EL TALLER', 'ENTREGADO'].includes(form.estado);
+  const readOnly = ['TALLER', 'TERMINADA', 'ENTREGADA'].includes(form.estado);
 
   return (
     <div className="orden-form">
@@ -397,7 +397,7 @@ export default function OrdenForm() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', zIndex: 1, width: '100%' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <span style={{ fontSize: 22, fontWeight: 700 }}>Orden N° {form.numero || 'A-_____'}</span>
-            {!['EN MEDICIÓN'].includes(form.estado) && (
+            {!['MEDICION'].includes(form.estado) && (
               <span className={badgeClass(form.estado)} style={{ fontSize: 13, padding: '4px 14px' }}>{form.estado}</span>
             )}
           </div>
@@ -618,7 +618,7 @@ export default function OrdenForm() {
                       </button>
                     </td>
                   </tr>
-                  {form.estado === 'EN MEDICIÓN' && CONCEPTOS_M2.includes(d.concepto) && form.detalles_presupuestados[i]
+                  {form.estado === 'MEDICION' && CONCEPTOS_M2.includes(d.concepto) && form.detalles_presupuestados[i]
                     ? ((pres, real) => {
                         const dif = Math.round((real - pres) * 10000) / 10000;
                         return (
@@ -628,12 +628,12 @@ export default function OrdenForm() {
                             </td>
                             <td style={{ padding: '3px 8px' }}></td>
                             <td style={{ padding: '3px 8px', textAlign: 'center' }}>
-                              <span style={{ color: '#6b7280' }}>Orig: <strong>{pres.toFixed(4)}</strong></span>
+                              <span style={{ color: '#6b7280' }}>Orig: <strong>{pres.toFixed(5)}</strong></span>
                               <span style={{ margin: '0 6px', color: '#94a3b8' }}>|</span>
-                              <span style={{ color: '#1e40af' }}>Real: <strong>{real.toFixed(4)}</strong></span>
+                              <span style={{ color: '#1e40af' }}>Real: <strong>{real.toFixed(5)}</strong></span>
                               <span style={{ margin: '0 6px', color: '#94a3b8' }}>|</span>
                               <span style={{ color: dif > 0 ? '#16a34a' : dif < 0 ? '#dc2626' : '#6b7280', fontWeight: 700 }}>
-                                Δ {dif > 0 ? '+' : ''}{dif.toFixed(4)} m²
+                                Δ {dif > 0 ? '+' : ''}{dif.toFixed(5)} m²
                               </span>
                             </td>
                             <td style={{ padding: '3px 8px' }}></td>

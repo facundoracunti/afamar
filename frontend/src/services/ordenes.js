@@ -1,4 +1,4 @@
-import api from './api';
+import api from './apiClient';
 
 export const getOrdenes = (params) => api.get('/ordenes-trabajo', { params });
 export const getOrden = (id) => api.get(`/ordenes-trabajo/${id}`);

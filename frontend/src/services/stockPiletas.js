@@ -1,4 +1,4 @@
-import api from './api';
+import api from './apiClient';
 
 export const getPiletas = (params) => api.get('/stock-piletas', { params });
 export const getPileta = (id) => api.get(`/stock-piletas/${id}`);

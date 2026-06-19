@@ -28,7 +28,7 @@ class OrdenTrabajoRepository(BaseRepository[OrdenTrabajo]):
         if estado:
             query = query.filter(OrdenTrabajo.estado == estado)
         else:
-            query = query.filter(OrdenTrabajo.estado != "ENTREGADO")
+            query = query.filter(OrdenTrabajo.estado.in_(["MEDICION", "TALLER"]))
         if search:
             query = query.filter(
                 OrdenTrabajo.numero.ilike(f"%{search}%")

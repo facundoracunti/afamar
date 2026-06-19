@@ -1,4 +1,4 @@
-import api from './api';
+import api from './apiClient';
 
 export const getPresupuestos = (params) => api.get('/presupuestos', { params });
 export const getPresupuestosUnificados = (params) => api.get('/presupuestos/unificados', { params });

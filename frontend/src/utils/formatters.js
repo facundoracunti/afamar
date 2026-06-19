@@ -27,7 +27,7 @@ export const formatDateTime = (date) => {
 };
 
 export const estadosPresupuesto = ['Pendiente', 'Aprobado', 'Rechazado', 'Convertido'];
-export const estadosOrden = ['EN MEDICIÓN', 'EN EL TALLER', 'ENTREGADO'];
+export const estadosOrden = ['MEDICION', 'TALLER', 'TERMINADA', 'ENTREGADA'];
 export const estadosPresupuestoLocal = ['PENDIENTE', 'ENVIADO', 'APROBADO', 'RECHAZADO'];
 export const estadosMedicion = ['PENDIENTE', 'REALIZADA', 'CANCELADA'];
 export const categoriasMaterial = ['Granitos', 'Cuarzos', 'Sinterizados', 'Mármoles'];
@@ -48,9 +48,10 @@ export const badgeClass = (estado) => {
     'Entregado': 'badge-finished',
     'Cancelado': 'badge-rejected',
     'Convertido': 'badge-approved',
-    'EN MEDICIÓN': 'badge-pending',
-    'EN EL TALLER': 'badge-production',
-    'ENTREGADO': 'badge-finished',
+    'MEDICION': 'badge-pending',
+    'TALLER': 'badge-production',
+    'TERMINADA': 'badge-finished',
+    'ENTREGADA': 'badge-finished',
     'FINALIZADO': 'badge-finished',
     'PENDIENTE': 'badge-pending',
     'REALIZADA': 'badge-approved',

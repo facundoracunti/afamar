@@ -138,8 +138,7 @@ class PresupuestoService:
                     "concepto": i.sector,
                     "detalle": "",
                     "cantidad": i.cantidad or 1,
-                    "precio": i.subtotal
-                    or (i.m2 or 0) * (i.precio_m2 or 0),
+                    "precio": (i.m2 or 0) * (i.precio_m2 or 0),
                     "moneda": "ARS",
                     "m2": i.m2 or 0,
                     "largo": i.largo or 0,
@@ -154,7 +153,7 @@ class PresupuestoService:
                     "concepto": a.concepto,
                     "detalle": a.detalle or "",
                     "cantidad": a.cantidad or 1,
-                    "precio": a.subtotal or (a.precio_unitario or 0),
+                    "precio": (a.precio_unitario or 0),
                     "moneda": "ARS",
                     "m2": 0,
                     "largo": 0,
@@ -205,7 +204,7 @@ class PresupuestoService:
             fecha_aprobacion=presupuesto.fecha_aprobacion,
             observaciones=presupuesto.observaciones,
             observaciones_importantes=presupuesto.observaciones_importantes,
-            estado="EN MEDICIÓN",
+            estado="MEDICION",
         )
         presupuesto.estado = "CONVERTIDO A OT"
         orden.stock_descontado = True
@@ -345,11 +344,12 @@ class PresupuestoService:
             largo = float(m.get("largo", 0) or 0)
             ancho = float(m.get("ancho", 0) or 0)
             cantidad = float(m.get("cantidad", 1) or 1)
-            area = largo * ancho * cantidad
+            m2 = round(largo * ancho, 5)
+            area = m2 * cantidad
             if m.get("moneda") == "USD":
-                usd += area * float(m.get("precio_m2_usd", 0) or 0)
+                usd += round(area * float(m.get("precio_m2_usd", 0) or 0), 2)
             else:
-                ars += area * float(m.get("precio_m2", 0) or 0)
+                ars += round(area * float(m.get("precio_m2", 0) or 0), 2)
 
         for pt in (p.piletas or []):
             moneda = pt.get("moneda", "ARS") or "ARS"

@@ -44,7 +44,7 @@ export default function OrdenForm() {
   } = useEntityForm({
     entityType: 'orden',
     services: ordenServices,
-    defaultEstado: 'EN MEDICIÓN',
+    defaultEstado: 'MEDICION',
     id,
     navigate,
   });
@@ -69,19 +69,25 @@ export default function OrdenForm() {
             <span className={badgeClass(form.estado)} style={{ fontSize: 13, padding: '4px 14px' }}>{form.estado}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {form.estado === 'EN MEDICIÓN' && (
-            <button className="btn" onClick={() => handleCambioEstadoAccion('EN EL TALLER')} disabled={saving}
+          {form.estado === 'MEDICION' && (
+            <button className="btn" onClick={() => handleCambioEstadoAccion('TALLER')} disabled={saving}
               style={{ background: '#2563eb', color: '#fff', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
               🏭 Enviar a Taller
             </button>
           )}
-          {form.estado === 'EN EL TALLER' && (
-            <button className="btn" onClick={() => handleCambioEstadoAccion('ENTREGADO')} disabled={saving}
+          {form.estado === 'TALLER' && (
+            <button className="btn" onClick={() => handleCambioEstadoAccion('TERMINADA')} disabled={saving}
               style={{ background: '#059669', color: '#fff', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
               ✅ Finalizar Trabajo
             </button>
           )}
-          {form.estado === 'ENTREGADO' && (
+          {form.estado === 'TERMINADA' && (
+            <button className="btn" onClick={() => handleCambioEstadoAccion('ENTREGADA')} disabled={saving}
+              style={{ background: '#9333ea', color: '#fff', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+              🚚 Entregar al Cliente
+            </button>
+          )}
+          {form.estado === 'ENTREGADA' && (
             <span style={{ background: '#f3f4f6', color: '#6b7280', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', border: '1px solid #d1d5db', borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
               📦 Trabajo Entregado
             </span>
@@ -337,7 +343,7 @@ export default function OrdenForm() {
               <Plus size={14} /> Agregar concepto
             </button>
 
-            {form.estado === 'EN MEDICIÓN' && form.detalles_presupuestados.length > 0 && (
+            {form.estado === 'MEDICION' && form.detalles_presupuestados.length > 0 && (
               <div style={{ marginTop: 16, borderTop: '2px solid #1e40af', paddingTop: 12 }}>
                 <h4 style={{ fontSize: 14, fontWeight: 700, color: '#1e40af', marginBottom: 8 }}>📐 COMPARATIVA DE MEDICIÓN</h4>
                 <table className="table" style={{ fontSize: 12 }}>
@@ -356,15 +362,15 @@ export default function OrdenForm() {
                       if (!pres) return null;
                       const m2Ori = Number(pres.m2) || 0;
                       const m2Real = d.m2 || 0;
-                      const dif = Math.round((m2Real - m2Ori) * 10000) / 10000;
+                      const dif = Math.round((m2Real - m2Ori) * 100000) / 100000;
                       const difColor = dif > 0 ? '#16a34a' : dif < 0 ? '#dc2626' : '#6b7280';
                       return (
                         <tr key={'med_' + i}>
                           <td style={{ fontWeight: 600 }}>{d.concepto === 'OTRA' ? (d.detalle || 'OTRA') : d.concepto}</td>
-                          <td style={{ textAlign: 'center' }}>{m2Ori.toFixed(4)} m²</td>
-                          <td style={{ textAlign: 'center', fontWeight: 600 }}>{m2Real.toFixed(4)} m²</td>
+                          <td style={{ textAlign: 'center' }}>{m2Ori.toFixed(5)} m²</td>
+                          <td style={{ textAlign: 'center', fontWeight: 600 }}>{m2Real.toFixed(5)} m²</td>
                           <td style={{ textAlign: 'center', fontWeight: 700, color: difColor }}>
-                            {dif > 0 ? '+' : ''}{dif.toFixed(4)} m²
+                            {dif > 0 ? '+' : ''}{dif.toFixed(5)} m²
                           </td>
                         </tr>
                       );
@@ -372,15 +378,15 @@ export default function OrdenForm() {
                     {(form.materiales || []).filter((m) => Number(m.largo || 0) * Number(m.ancho || 0) > 0).map((m, i) => {
                       const m2Real = Number(m.largo || 0) * Number(m.ancho || 0) * (m.cantidad || 1);
                       const m2Pres = m.m2_presupuestado || 0;
-                      const dif = Math.round((m2Real - m2Pres) * 10000) / 10000;
+                      const dif = Math.round((m2Real - m2Pres) * 100000) / 100000;
                       const difColor = dif > 0 ? '#16a34a' : dif < 0 ? '#dc2626' : '#6b7280';
                       return (
                         <tr key={'mat_' + i}>
                           <td style={{ fontWeight: 600 }}>{m.nombre}</td>
-                          <td style={{ textAlign: 'center' }}>{m2Pres.toFixed(4)} m²</td>
-                          <td style={{ textAlign: 'center', fontWeight: 600 }}>{m2Real.toFixed(4)} m²</td>
+                          <td style={{ textAlign: 'center' }}>{m2Pres.toFixed(5)} m²</td>
+                          <td style={{ textAlign: 'center', fontWeight: 600 }}>{m2Real.toFixed(5)} m²</td>
                           <td style={{ textAlign: 'center', fontWeight: 700, color: difColor }}>
-                            {dif > 0 ? '+' : ''}{dif.toFixed(4)} m²
+                            {dif > 0 ? '+' : ''}{dif.toFixed(5)} m²
                           </td>
                         </tr>
                       );

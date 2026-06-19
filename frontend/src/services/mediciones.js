@@ -1,4 +1,4 @@
-import api from './api';
+import api from './apiClient';
 
 export const getMediciones = (params) => api.get('/mediciones', { params });
 export const getMedicion = (id) => api.get(`/mediciones/${id}`);

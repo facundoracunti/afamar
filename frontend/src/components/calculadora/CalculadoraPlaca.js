@@ -148,9 +148,9 @@ export default function CalculadoraPlaca() {
                   <td style={{ fontWeight: 600 }}>{i + 1}</td>
                   <td>{p.largo.toFixed(2)} m</td>
                   <td>{p.ancho.toFixed(2)} m</td>
-                  <td>{(p.largo * p.ancho).toFixed(4)}</td>
+                  <td>{(p.largo * p.ancho).toFixed(5)}</td>
                   <td>{p.cantidad}</td>
-                  <td style={{ fontWeight: 600 }}>{(p.largo * p.ancho * p.cantidad).toFixed(4)}</td>
+                  <td style={{ fontWeight: 600 }}>{(p.largo * p.ancho * p.cantidad).toFixed(5)}</td>
                   <td>
                     <button className="btn btn-danger" style={{ padding: '4px 8px' }} onClick={() => eliminarPieza(p.id)} title="Eliminar">
                       <Trash2 size={14} />
@@ -172,7 +172,7 @@ export default function CalculadoraPlaca() {
                   <td colSpan={4}></td>
                   <td style={{ fontWeight: 700, borderTop: '2px solid #e2e8f0' }}>TOTAL</td>
                   <td style={{ fontWeight: 700, borderTop: '2px solid #e2e8f0', color: '#1e40af' }}>
-                    {totalM2.toFixed(4)} m²
+                    {totalM2.toFixed(5)} m²
                   </td>
                   <td style={{ borderTop: '2px solid #e2e8f0' }}></td>
                 </tr>

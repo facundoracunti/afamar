@@ -76,7 +76,7 @@ export default function useEntityForm({
     setForm((prev) => ({ ...prev, [field]: value }));
   }, []);
 
-  const readOnly = ['EN EL TALLER', 'ENTREGADO', 'CONVERTIDO A OT', 'RECHAZADO'].includes(form.estado);
+  const readOnly = ['TALLER', 'TERMINADA', 'ENTREGADA', 'CONVERTIDO A OT', 'RECHAZADO'].includes(form.estado);
   const hayUSD = (form.materiales || []).some((m) => m.moneda === 'USD');
   const hayAlternativas = (form.materiales || []).some((m) => m.es_alternativa);
   const clientesFiltrados = clientes.filter((c) =>
@@ -397,7 +397,7 @@ export default function useEntityForm({
       } else if (CONCEPTOS_M2.includes(d.concepto) && (field === 'concepto' || field === 'largo' || field === 'ancho' || field === 'moneda' || field === 'material')) {
         const largo = Number(d.largo) || 0;
         const ancho = Number(d.ancho) || 0;
-        const m2 = Math.round((largo * ancho) * 10000) / 10000;
+        const m2 = Math.round((largo * ancho) * 100000) / 100000;
         list[idx].m2 = m2;
         const moneda = d.moneda || 'ARS';
         let pm2 = 0;
@@ -553,7 +553,7 @@ export default function useEntityForm({
     setSaving(true);
     try {
       const payload = { estado: nuevoEstado };
-      if (nuevoEstado === 'ENTREGADO') {
+      if (nuevoEstado === 'ENTREGADA') {
         payload.sena_recibida = Number(form.total);
         payload.sena_moneda = 'ARS';
         payload.saldo_pendiente = 0;
