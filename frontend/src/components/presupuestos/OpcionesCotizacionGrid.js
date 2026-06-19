@@ -1,6 +1,6 @@
 import React from 'react';
 
-const OpcionesCotizacionGrid = ({ alternativas, detalleTrabajosComunes, tipoCambio = 1000 }) => {
+const OpcionesCotizacionGrid = ({ alternativas, detalleTrabajosComunes, tipoCambio = 1000, presupuestoId, onConvertirAlternativa }) => {
   // Datos de contingencia por si las variables vienen vacías o corruptas
   const listaAlternativas = alternativas && alternativas.length > 0 ? alternativas : [
     { nombre: 'GRIS MARA', categoria: 'GRANITOS', moneda: 'ARS', costoMaterialBase: 180000, totalFinalARS: 390000, largo: 2.1, ancho: 2, cant: 1 },
@@ -149,6 +149,22 @@ const OpcionesCotizacionGrid = ({ alternativas, detalleTrabajosComunes, tipoCamb
                   )}
                 </div>
               </div>
+
+              {presupuestoId && onConvertirAlternativa && (
+                <button
+                  type="button"
+                  style={{
+                    marginTop: 10, width: '100%', padding: '8px 12px', fontSize: 12,
+                    fontWeight: 700, backgroundColor: '#059669', color: '#fff',
+                    border: 'none', borderRadius: 8, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  }}
+                  onClick={() => onConvertirAlternativa(idx)}
+                >
+                  <span style={{ fontSize: 14, lineHeight: 1 }}>+</span>
+                  Convertir Alternativa en OT
+                </button>
+              )}
 
             </div>
           );

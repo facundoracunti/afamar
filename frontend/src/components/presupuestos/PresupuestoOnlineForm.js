@@ -32,6 +32,7 @@ export default function PresupuestoOnlineForm() {
   const [nuevoEspecial, setNuevoEspecial] = useState('');
   const [matEspeciales, setMatEspeciales] = useState({});
   const [cliente, setCliente] = useState('');
+  const [telefono, setTelefono] = useState('');
   const [tipoObra, setTipoObra] = useState('');
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
   const [dolarDia, setDolarDia] = useState(1000);
@@ -53,6 +54,7 @@ export default function PresupuestoOnlineForm() {
       getPresupuestoOnline(id).then((res) => {
         const d = res.data;
         setCliente(d.cliente || '');
+        setTelefono(d.telefono || '');
         setTipoObra(d.tipo_obra || '');
         setFecha(d.fecha || new Date().toISOString().slice(0, 10));
         setDolarDia(d.dolar_dia ?? 1000);
@@ -191,7 +193,7 @@ export default function PresupuestoOnlineForm() {
       const cons = Math.round((ars + usd * Number(dolarDia)) * 100) / 100;
       const piletaItems = especiales.filter((e) => e.detalle === 'PILETA MOD' && e.pileta_id);
       const payload = {
-        cliente, tipo_obra: tipoObra, fecha,
+        cliente, telefono, tipo_obra: tipoObra, fecha,
         dolar_dia: Number(dolarDia),
         items: allItems,
         total_neto_ars: Math.round(ars * 100) / 100,
@@ -283,6 +285,10 @@ export default function PresupuestoOnlineForm() {
             <div className="form-group" style={{ flex: 1, minWidth: 180 }}>
               <label>CLIENTE / EMPRESA</label>
               <input className="input" value={cliente} onChange={(e) => setCliente(e.target.value)} placeholder="Nombre del cliente" />
+            </div>
+            <div className="form-group" style={{ flex: 1, minWidth: 180 }}>
+              <label>TELÉFONO (WhatsApp)</label>
+              <input className="input" value={telefono} onChange={(e) => setTelefono(e.target.value)} placeholder="Ej: 2215551234" />
             </div>
             <div className="form-group" style={{ flex: 1, minWidth: 180 }}>
               <label>TIPO DE OBRA</label>

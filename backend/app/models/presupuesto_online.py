@@ -11,6 +11,7 @@ class PresupuestoOnline(Base):
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
     cliente = Column(String(255))
+    telefono = Column(String(100))
     tipo_obra = Column(String(255))
     fecha = Column(String(50))
     estado = Column(String(30), default="ONLINE")

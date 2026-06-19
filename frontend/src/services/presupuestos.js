@@ -11,3 +11,4 @@ export const enviarPresupuestoWhatsApp = (id) => api.post(`/presupuestos/${id}/e
 export const enviarPresupuestoEmail = (id) => api.post(`/presupuestos/${id}/enviar-email`);
 export const getNextPresupuestoNumero = () => api.get('/presupuestos/next-numero');
 export const getPresupuestoPdf = (id) => `${api.defaults.baseURL}/presupuestos/${id}/pdf`;
+export const convertirAlternativaAOrden = (presupuestoId, idx) => api.post(`/presupuestos/${presupuestoId}/alternativas/${idx}/convertir-a-orden`);

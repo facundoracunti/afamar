@@ -18,6 +18,7 @@ class PresupuestoOnlineItem(BaseModel):
 
 class PresupuestoOnlineBase(BaseModel):
     cliente: Optional[str] = None
+    telefono: Optional[str] = None
     tipo_obra: Optional[str] = None
     fecha: Optional[str] = None
     estado: Optional[str] = "ONLINE"

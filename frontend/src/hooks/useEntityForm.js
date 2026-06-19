@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../services/api';
 
-const CONCEPTOS_M2 = ['LONGITUD', 'ZÓCALO', 'FRENTE'];
+const CONCEPTOS_M2 = ['ZÓCALO', 'FRENTE'];
 
 const TRAFORO_DETALLES = {
   'TRAFORO DE PILETA': 'APERTURA Y PEGADO DE PILETA',
@@ -417,7 +417,7 @@ export default function useEntityForm({
 
   const addDetalle = useCallback(() => {
     update('detalles_fabricacion', [...form.detalles_fabricacion, {
-      concepto: 'FRENTE', detalle: '', material: '', material_precio_m2: 0,
+      concepto: 'ZÓCALO', detalle: '', material: '', material_precio_m2: 0,
       largo: null, ancho: null, m2: 0, mano_de_obra: null, cantidad: 1, moneda: 'ARS', precio: 0,
     }]);
   }, [form.detalles_fabricacion, update]);
@@ -484,7 +484,15 @@ export default function useEntityForm({
     acabado: form.acabado,
     bacha: form.bacha,
     anafe: form.anafe,
-    croquis: form.croquis,
+    croquis: Array.isArray(form.croquis)
+      ? form.croquis.map((pag) => ({
+          ...pag,
+          dibujo: (pag.dibujo || pag.elementos || []).map((el) => {
+            const { seleccionado, ...rest } = el;
+            return rest;
+          }),
+        }))
+      : form.croquis,
     observaciones_diseno: form.observaciones_diseno,
     detalles_fabricacion: form.detalles_fabricacion,
     materiales: form.materiales,

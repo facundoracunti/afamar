@@ -222,6 +222,136 @@ class PresupuestoService:
             "presupuesto_numero": presupuesto.numero,
         }
 
+    def convertir_alternativa_a_orden(self, presupuesto_id: int, idx: int) -> dict:
+        presupuesto = self.repo.get(presupuesto_id)
+        if not presupuesto:
+            raise NotFoundError("Presupuesto", presupuesto_id)
+
+        materiales = presupuesto.materiales or []
+        if idx < 0 or idx >= len(materiales):
+            raise ConflictError("Índice de alternativa inválido")
+
+        alt = materiales[idx]
+        if not alt.get("es_alternativa"):
+            raise ConflictError("El material seleccionado no es una alternativa")
+
+        from app.repositories.stock_pileta import descontar_stock_piletas
+
+        dd = float(presupuesto.dolar_dia or 1000)
+        dd = dd if dd > 0 else 1000
+        m2 = float(alt.get("largo", 0) or 0) * float(alt.get("ancho", 0) or 0)
+        cantidad = float(alt.get("cantidad", 1) or 1)
+        area = m2 * cantidad
+
+        if alt.get("moneda") == "USD":
+            costo_mat_usd = round(area * float(alt.get("precio_m2_usd", 0) or 0), 2)
+            costo_mat_ars = round(costo_mat_usd * dd, 2)
+        else:
+            costo_mat_ars = round(area * float(alt.get("precio_m2", 0) or 0), 2)
+            costo_mat_usd = round(costo_mat_ars / dd, 2) if dd > 0 else 0
+
+        total_detalles_ars = 0.0
+        total_detalles_usd = 0.0
+        for d in (presupuesto.detalles_fabricacion or []):
+            p = float(d.get("precio", 0) or 0)
+            c = float(d.get("cantidad", 1) or 1)
+            if d.get("moneda") == "USD":
+                total_detalles_usd += p * c
+            else:
+                total_detalles_ars += p * c
+
+        total_piletas_ars = 0.0
+        total_piletas_usd = 0.0
+        for pt in (presupuesto.piletas or []):
+            p = float(pt.get("precio", 0) or 0)
+            c = float(pt.get("cantidad", 1) or 1)
+            if pt.get("moneda") == "USD":
+                total_piletas_usd += p * c
+            else:
+                total_piletas_ars += p * c
+
+        traslado = float(presupuesto.traslado or 0)
+
+        subtotal_ars = costo_mat_ars + total_detalles_ars + total_piletas_ars
+        subtotal_usd = costo_mat_usd + total_detalles_usd + total_piletas_usd
+        total_final = round(subtotal_ars + (subtotal_usd * dd) + traslado)
+
+        orden = OrdenTrabajo(
+            numero=generar_numero_orden(self.db),
+            presupuesto_id=presupuesto.id,
+            origen="Desde alternativa",
+            cliente_id=presupuesto.cliente_id,
+            cliente_nombre=presupuesto.cliente_nombre,
+            cliente_telefono_orden=presupuesto.cliente_telefono_orden,
+            fecha=presupuesto.fecha,
+            domicilio=presupuesto.domicilio,
+            email=presupuesto.email,
+            croquis=presupuesto.croquis,
+            material=alt.get("nombre", ""),
+            material_precio_m2=alt.get("precio_m2", 0),
+            tipo_cambio=presupuesto.tipo_cambio or 1000,
+            color_tipo=alt.get("color", ""),
+            acabado=presupuesto.acabado or "",
+            observaciones_diseno=presupuesto.observaciones_diseno or "",
+            detalles_fabricacion=presupuesto.detalles_fabricacion or [],
+            detalles_presupuestados=[
+                {
+                    "concepto": alt.get("nombre", "Alternativa"),
+                    "detalle": "",
+                    "material": alt.get("nombre", ""),
+                    "material_precio_m2": alt.get("precio_m2", 0),
+                    "m2": round(m2, 5),
+                    "cantidad": int(cantidad),
+                    "precio": costo_mat_ars,
+                    "moneda": "ARS",
+                },
+                *[
+                    {
+                        "concepto": d.get("concepto", ""),
+                        "detalle": d.get("detalle", ""),
+                        "material": d.get("material", ""),
+                        "material_precio_m2": d.get("material_precio_m2", 0),
+                        "m2": d.get("m2", 0),
+                        "cantidad": d.get("cantidad", 1),
+                        "precio": d.get("precio", 0),
+                        "moneda": d.get("moneda", "ARS"),
+                    }
+                    for d in (presupuesto.detalles_fabricacion or [])
+                ],
+            ],
+            materiales=[alt],
+            piletas=presupuesto.piletas or [],
+            pileta_id=presupuesto.pileta_id,
+            pileta_precio=presupuesto.pileta_precio or 0,
+            pileta_moneda=presupuesto.pileta_moneda or "ARS",
+            pileta_imagen=presupuesto.pileta_imagen or "",
+            prioridad=presupuesto.prioridad or "Normal",
+            subtotal=round(subtotal_ars),
+            traslado=traslado,
+            descuento=0,
+            total=total_final,
+            dolar_dia=presupuesto.dolar_dia or 1000,
+            subtotal_usd=round(subtotal_usd, 2),
+            traslado_usd=round(traslado / dd, 2) if dd > 0 else 0,
+            total_usd=round(total_final / dd, 2) if dd > 0 else 0,
+            observaciones=presupuesto.observaciones or "",
+            observaciones_importantes=presupuesto.observaciones_importantes or "",
+            estado="MEDICION",
+        )
+        orden.stock_descontado = True
+        self.db.add(orden)
+        self.db.flush()
+        descontar_stock_piletas(self.db, orden.piletas or [], orden.numero)
+        self.db.commit()
+        self.db.refresh(orden)
+
+        return {
+            "message": "Orden de trabajo creada desde alternativa",
+            "orden_id": orden.id,
+            "numero": orden.numero,
+            "alternativa_nombre": alt.get("nombre", ""),
+        }
+
     def generar_pdf(self, presupuesto_id: int) -> BytesIO:
         presupuesto = self.repo.get_loaded(presupuesto_id)
         if not presupuesto:

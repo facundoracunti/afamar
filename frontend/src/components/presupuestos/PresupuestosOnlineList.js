@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Trash2, Eye } from 'lucide-react';
+import { Plus, Search, Trash2, Eye, Send } from 'lucide-react';
 import { getPresupuestosOnline, deletePresupuestoOnline } from '../../services/api';
 import { formatDate } from '../../utils/formatters';
 import ConfirmDialog from '../common/ConfirmDialog';
@@ -22,6 +22,16 @@ export default function PresupuestosOnlineList() {
   };
 
   useEffect(() => { load(); }, [search]);
+
+  const enviarPorWhatsApp = (p) => {
+    const telefonoLimpio = (p.telefono || '').replace(/\D/g, '');
+    if (!telefonoLimpio) { alert('El presupuesto no tiene teléfono de WhatsApp'); return; }
+    const mensaje = `Hola *${p.cliente}*! Te pasamos la cotización de Afamar para tu obra (${p.tipo_obra || 'sin especificar'}).%0A%0A` +
+                    `Podés ver el detalle interactivo y las opciones disponibles ingresando acá:%0A` +
+                    `👉 https://afamar.com.ar/presupuesto-online/${p.id}%0A%0A` +
+                    `Cualquier duda nos avisás!`;
+    window.open(`https://wa.me/${telefonoLimpio}?text=${mensaje}`, '_blank');
+  };
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -81,6 +91,9 @@ export default function PresupuestosOnlineList() {
                     <td style={{ fontWeight: 700, color: '#dc2626' }}>$ {(p.total_consolidado || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <div style={{ display: 'flex', gap: 4 }}>
+                        <button className="btn btn-success" style={{ padding: '4px 6px' }} title="Enviar por WhatsApp" onClick={() => enviarPorWhatsApp(p)}>
+                          <Send size={14} />
+                        </button>
                         <button className="btn btn-outline" style={{ padding: '4px 6px' }} onClick={() => navigate(`/presupuestos-online/${p.id}`)}>
                           <Eye size={14} />
                         </button>

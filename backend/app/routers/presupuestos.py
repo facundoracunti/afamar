@@ -7,7 +7,7 @@ from app.schemas.presupuesto import (
     PresupuestoCreate, PresupuestoUpdate, Presupuesto as PresupuestoSchema,
 )
 from app.services.presupuesto_service import PresupuestoService
-from app.services.exceptions import NotFoundError, ConflictError
+from app.services.exceptions import NotFoundError, ConflictError, ValidationError
 from app.utils.numeracion import generar_numero_presupuesto
 
 router = APIRouter()
@@ -109,6 +109,20 @@ def descargar_pdf_presupuesto(
         )
     except NotFoundError as e:
         raise HTTPException(404, str(e))
+
+
+@router.post("/{presupuesto_id}/alternativas/{idx}/convertir-a-orden", status_code=201)
+def convertir_alternativa(
+    presupuesto_id: int,
+    idx: int,
+    service: PresupuestoService = Depends(_get_service),
+):
+    try:
+        return service.convertir_alternativa_a_orden(presupuesto_id, idx)
+    except NotFoundError as e:
+        raise HTTPException(404, str(e))
+    except (ConflictError, ValidationError) as e:
+        raise HTTPException(400, str(e))
 
 
 @router.post("/{presupuesto_id}/convertir-orden")

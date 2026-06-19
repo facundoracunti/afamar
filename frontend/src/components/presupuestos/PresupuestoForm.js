@@ -72,6 +72,23 @@ export default function PresupuestoForm() {
     }
   };
 
+  const handleConvertirAlternativa = async (idx) => {
+    if (!id) { alert('Primero guardá el presupuesto para poder convertir una alternativa.'); return; }
+    if (!window.confirm('¿Convertir esta alternativa en Orden de Trabajo? Se creará una nueva OT con el material de esta opción más los trabajos comunes.')) return;
+    setSaving(true);
+    try {
+      const { convertirAlternativaAOrden } = await import('../../services/api');
+      const res = await convertirAlternativaAOrden(id, idx);
+      if (res.status === 201) {
+        alert(`¡Orden ${res.data.numero} creada exitosamente desde alternativa "${res.data.alternativa_nombre}"!`);
+      }
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Error al convertir la alternativa');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleGuardar = async () => {
     setSaving(true);
     try {
@@ -673,16 +690,18 @@ export default function PresupuestoForm() {
 
                 {hayAlternativas && (
                   <OpcionesCotizacionGrid
-                    alternativas={matsAlt.map((mat) => {
+                    alternativas={matsAlt.map((mat, altIdx) => {
                       const dd2 = Number(form.dolar_dia) || 1;
                       const m2 = Number(mat.largo || 0) * Number(mat.ancho || 0) * (mat.cantidad || 1);
                       const costoMat = mat.moneda === 'USD' ? m2 * (mat.precio_m2_usd || 0) : m2 * (mat.precio_m2 || 0);
                       const costoMatArs = mat.moneda === 'USD' ? (dd2 > 0 ? costoMat * dd2 : 0) : costoMat;
                       const totalFinalARS = costoMatArs + sumatoriaAdicionalesARS;
-                      return { ...mat, costoMaterialBase: costoMat, totalFinalARS, cantidad: mat.cantidad || 1, largo: mat.largo || 0, ancho: mat.ancho || 0 };
+                      return { ...mat, idx: altIdx, costoMaterialBase: costoMat, totalFinalARS, cantidad: mat.cantidad || 1, largo: mat.largo || 0, ancho: mat.ancho || 0 };
                     })}
                     detalleTrabajosComunes={detalleTrabajosComunes}
                     tipoCambio={Number(form.dolar_dia) || 1}
+                    presupuestoId={id}
+                    onConvertirAlternativa={handleConvertirAlternativa}
                   />
                 )}
               </div>

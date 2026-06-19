@@ -262,7 +262,7 @@ export default function OrdenForm() {
     }));
   };
 
-  const CONCEPTOS_M2 = ['LONGITUD', 'ZÓCALO', 'FRENTE'];
+  const CONCEPTOS_M2 = ['ZÓCALO', 'FRENTE'];
 
   const TRAFORO_DETALLES = {
     'TRAFORO DE PILETA': 'APERTURA Y PEGADO DE PILETA',
@@ -301,7 +301,7 @@ export default function OrdenForm() {
   };
 
   const addDetalle = () => {
-    update('detalles_fabricacion', [...form.detalles_fabricacion, { concepto: 'LONGITUD', detalle: '', largo: 0, ancho: 0, m2: 0, mano_de_obra: 0, moneda: 'ARS', precio: 0 }]);
+    update('detalles_fabricacion', [...form.detalles_fabricacion, { concepto: 'ZÓCALO', detalle: '', largo: 0, ancho: 0, m2: 0, mano_de_obra: 0, moneda: 'ARS', precio: 0 }]);
   };
 
   const removeDetalle = (idx) => {
