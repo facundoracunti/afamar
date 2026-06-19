@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Eye, Save, Printer, MoreVertical, Copy, FileDown, Trash2, History, Plus, X, FileOutput } from 'lucide-react';
+import { Eye, Save, Printer, MoreVertical, Copy, FileDown, Trash2, History, Plus, X, FileOutput, Check } from 'lucide-react';
 import { getPresupuesto, createPresupuesto, updatePresupuesto, deletePresupuesto, getNextPresupuestoNumero, getMateriales, getPiletas, getClientes, convertirAOrden } from '../../services/api';
 import { formatCurrency, badgeClass, conceptosFabricacion } from '../../utils/formatters';
 import useEntityForm from '../../hooks/useEntityForm';
 import CroquisEditor from '../ordenes/CroquisEditor';
 import FirmaCanvas from '../ordenes/FirmaCanvas';
+import OpcionesCotizacionGrid from './OpcionesCotizacionGrid';
 import Loading from '../common/Loading';
 import ConfirmDialog from '../common/ConfirmDialog';
 
@@ -26,6 +27,7 @@ export default function PresupuestoForm() {
   const navigate = useNavigate();
 
   const [ordenTrabajoNumero, setOrdenTrabajoNumero] = useState(null);
+  const num = (v) => v === '' ? null : parseFloat(v);
 
   const {
     form, loading, saving, materiales, piletas, logoUrl,
@@ -82,6 +84,28 @@ export default function PresupuestoForm() {
     }
   };
 
+  const handleAprobar = async () => {
+    setSaving(true);
+    try {
+      const payload = buildPayload();
+      const aprobado = { ...payload, estado: 'APROBADO' };
+      if (['TARJETA DE CRÉDITO', 'TARJETA DE DÉBITO'].includes(form.forma_pago)) {
+        aprobado.sena_recibida = Number(form.total);
+        aprobado.saldo_pendiente = 0;
+        aprobado.saldo_pagado = true;
+        aprobado.sena_usd = Number(form.total_usd);
+        aprobado.saldo_pendiente_usd = 0;
+        aprobado.fecha_pago_saldo = new Date().toISOString().slice(0, 10);
+      }
+      await updatePresupuesto(id, aprobado);
+      setForm((prev) => ({ ...prev, ...aprobado, estado: 'APROBADO' }));
+    } catch (err) {
+      alert('Error al aprobar');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) return <Loading />;
 
   return (
@@ -113,13 +137,19 @@ export default function PresupuestoForm() {
                 style={{ background: '#059669', color: '#fff', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 20px', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 14 }}>
                 <FileOutput size={16} /> OT {ordenTrabajoNumero}
               </button>
-            ) : (
+            ) : form.estado === 'APROBADO' ? (
               <button type="button" className="btn" onClick={handleConvertirGuardar}
                 disabled={saving}
                 style={{ background: '#b91c1c', color: '#fff', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 20px', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 14 }}>
                 <FileOutput size={16} /> {saving ? 'CONVIRTIENDO...' : 'CONVERTIR A ORDEN'}
               </button>
-            )
+            ) : ['PENDIENTE', 'ENVIADO'].includes(form.estado) ? (
+              <button type="button" className="btn" onClick={handleAprobar}
+                disabled={saving}
+                style={{ background: '#2563eb', color: '#fff', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 20px', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 14 }}>
+                <Check size={16} /> {saving ? 'APROBANDO...' : 'APROBAR PRESUPUESTO'}
+              </button>
+            ) : null
           ) : (
             <button className="btn btn-primary" onClick={handleSubmit} disabled={saving} style={{ background: '#b91c1c', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 20px' }}>
               <Save size={16} /> {saving ? 'GUARDANDO...' : 'GUARDAR'}
@@ -245,17 +275,17 @@ export default function PresupuestoForm() {
                     <div>
                       <label style={{ fontSize: 11, color: '#4a5568', display: 'block', marginBottom: 2 }}>Cant.</label>
                       <input className="input" type="number" min="1" style={{ width: '100%', padding: '5px 6px', fontSize: 12 }}
-                        value={mat.cantidad || 1} onChange={(e) => updateMaterial(idx, 'cantidad', Number(e.target.value))} disabled={readOnly} />
+                        value={mat.cantidad || 1} onChange={(e) => updateMaterial(idx, 'cantidad', num(e.target.value))} disabled={readOnly} />
                     </div>
                     <div>
                       <label style={{ fontSize: 11, color: '#4a5568', display: 'block', marginBottom: 2 }}>Largo (mts)</label>
                       <input className="input" type="number" step="0.01" style={{ width: '100%', padding: '5px 6px', fontSize: 12 }}
-                        value={mat.largo || ''} onChange={(e) => updateMaterial(idx, 'largo', Number(e.target.value))} disabled={readOnly} />
+                        value={mat.largo || ''} onChange={(e) => updateMaterial(idx, 'largo', num(e.target.value))} disabled={readOnly} />
                     </div>
                     <div>
                       <label style={{ fontSize: 11, color: '#4a5568', display: 'block', marginBottom: 2 }}>Ancho (mts)</label>
                       <input className="input" type="number" step="0.01" style={{ width: '100%', padding: '5px 6px', fontSize: 12 }}
-                        value={mat.ancho || ''} onChange={(e) => updateMaterial(idx, 'ancho', Number(e.target.value))} disabled={readOnly} />
+                        value={mat.ancho || ''} onChange={(e) => updateMaterial(idx, 'ancho', num(e.target.value))} disabled={readOnly} />
                     </div>
                     <div>
                       <label style={{ fontSize: 11, color: '#4a5568', display: 'block', marginBottom: 2 }}>Precio M²</label>
@@ -266,7 +296,7 @@ export default function PresupuestoForm() {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f7fafc', padding: 10, borderRadius: 6 }}>
                     <div style={{ fontSize: 13, color: '#4a5568' }}>
-                      <span>Rendimiento: <strong style={{ color: '#2b6cb0' }}>{m2.toFixed(2)} m²</strong></span>
+                      <span>Rendimiento: <strong style={{ color: '#2b6cb0' }}>{m2.toFixed(3)} m²</strong></span>
                     </div>
                     <div style={{ fontSize: 15, fontWeight: 700, color: '#2f855a' }}>
                       Subtotal: {mat.moneda === 'USD' ? `USD ${subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}` : `$ ${subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}
@@ -324,18 +354,18 @@ export default function PresupuestoForm() {
                     <td>
                       {CONCEPTOS_M2.includes(d.concepto) ? (
                         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                          <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '30%' }} value={d.largo || ''} onChange={(e) => handleDetalleChange(i, 'largo', Number(e.target.value))} placeholder="Largo" disabled={readOnly} />
+                          <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '30%' }} value={d.largo ?? ''} onChange={(e) => handleDetalleChange(i, 'largo', num(e.target.value))} placeholder="Largo" disabled={readOnly} />
                           <span style={{ fontSize: 11, color: '#94a3b8' }}>×</span>
-                          <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '30%' }} value={d.ancho || ''} onChange={(e) => handleDetalleChange(i, 'ancho', Number(e.target.value))} placeholder="Ancho" disabled={readOnly} />
+                          <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '30%' }} value={d.ancho ?? ''} onChange={(e) => handleDetalleChange(i, 'ancho', num(e.target.value))} placeholder="Ancho" disabled={readOnly} />
                           <span style={{ fontSize: 11, fontWeight: 600, color: '#1e40af', whiteSpace: 'nowrap' }}>{d.m2 || 0} m²</span>
                         </div>
                       ) : d.concepto === 'OTRA' ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                           <input className="input" style={{ fontSize: 12, padding: '4px 8px' }} value={d.detalle} onChange={(e) => handleDetalleChange(i, 'detalle', e.target.value)} placeholder="DETALLES" disabled={readOnly} />
                           <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                            <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '35%' }} value={d.largo || ''} onChange={(e) => handleDetalleChange(i, 'largo', Number(e.target.value))} placeholder="Largo" disabled={readOnly} />
+                            <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '35%' }} value={d.largo ?? ''} onChange={(e) => handleDetalleChange(i, 'largo', num(e.target.value))} placeholder="Largo" disabled={readOnly} />
                             <span style={{ fontSize: 11, color: '#94a3b8' }}>×</span>
-                            <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '35%' }} value={d.mano_de_obra || ''} onChange={(e) => handleDetalleChange(i, 'mano_de_obra', Number(e.target.value))} placeholder="Mano de obra" disabled={readOnly} />
+                            <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '35%' }} value={d.mano_de_obra ?? ''} onChange={(e) => handleDetalleChange(i, 'mano_de_obra', num(e.target.value))} placeholder="Mano de obra" disabled={readOnly} />
                           </div>
                         </div>
                       ) : (
@@ -348,14 +378,14 @@ export default function PresupuestoForm() {
                       ) : d.concepto === 'OTRA' ? (
                         <span style={{ fontSize: 12, fontWeight: 600, color: d.moneda === 'USD' ? '#059669' : '#1e293b' }}>{d.moneda === 'USD' ? 'USD ' : '$'}{Number(d.precio || 0).toLocaleString('es-AR')}</span>
                       ) : ['TRAFORO DE PILETA', 'TRAFORO DE ANAFE', 'TRAFORO DE PILETA DE APOYO'].includes(d.concepto) ? (
-                        <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '100%' }} value={d.precio || ''} onChange={(e) => handleDetalleChange(i, 'precio', Number(e.target.value))} placeholder="0" disabled={readOnly} />
+                        <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '100%' }} value={d.precio || ''} onChange={(e) => handleDetalleChange(i, 'precio', num(e.target.value))} placeholder="0" disabled={readOnly} />
                       ) : (
                         <span style={{ fontSize: 12, color: '#94a3b8' }}>-</span>
                       )}
                     </td>
                     <td>
                       <input className="input" type="number" min="1" style={{ width: 45, fontSize: 12, padding: '4px 6px' }}
-                        value={d.cantidad || 1} onChange={(e) => handleDetalleChange(i, 'cantidad', Number(e.target.value))} disabled={readOnly} />
+                        value={d.cantidad || 1} onChange={(e) => handleDetalleChange(i, 'cantidad', num(e.target.value))} disabled={readOnly} />
                     </td>
                     <td>
                       <button type="button" className="btn btn-outline" style={{ padding: '2px 6px' }} onClick={() => removeDetalle(i)} disabled={readOnly}>
@@ -392,7 +422,7 @@ export default function PresupuestoForm() {
                   <div className="form-group" style={{ margin: 0, width: 70 }}>
                     <label style={{ fontSize: 11 }}>Cant.</label>
                     <input className="input" type="number" min="1" style={{ fontSize: 12, padding: '4px 6px' }}
-                      value={pt.cantidad || 1} onChange={(e) => updatePileta(idx, 'cantidad', Number(e.target.value))} disabled={readOnly} />
+                      value={pt.cantidad || 1} onChange={(e) => updatePileta(idx, 'cantidad', num(e.target.value))} disabled={readOnly} />
                   </div>
                   <div className="form-group" style={{ margin: 0, flex: 1 }}>
                     <label style={{ fontSize: 11 }}>Moneda</label>
@@ -411,7 +441,7 @@ export default function PresupuestoForm() {
                   <div className="form-group" style={{ margin: 0, flex: 2 }}>
                     <label style={{ fontSize: 11 }}>Precio</label>
                     <input className="input" type="number" step="0.01" style={{ fontSize: 12, padding: '4px 6px' }}
-                      value={pt.precio || ''} onChange={(e) => updatePileta(idx, 'precio', Number(e.target.value))} disabled={readOnly} />
+                      value={pt.precio || ''} onChange={(e) => updatePileta(idx, 'precio', num(e.target.value))} disabled={readOnly} />
                   </div>
                 </div>
               </div>
@@ -465,7 +495,7 @@ export default function PresupuestoForm() {
                         </div>
                         <div style={{ background: 'white', border: '1px solid #e2e8f0', padding: '4px 12px', borderRadius: 6, textAlign: 'center' }}>
                           <span style={{ display: 'block', fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>D&oacute;lar Ref.</span>
-                          <span style={{ fontSize: 12, fontWeight: 900, color: '#334155' }}>$ {dd2.toLocaleString('es-AR')}</span>
+                          <input type="number" style={{ width: 100, fontSize: 12, fontWeight: 900, color: '#334155', border: '1px solid #e2e8f0', borderRadius: 4, padding: '2px 6px', textAlign: 'center', background: '#fff' }} value={form.dolar_dia || ''} onChange={(e) => setForm({ ...form, dolar_dia: Number(e.target.value) || 0 })} />
                         </div>
                       </div>
                       {detalleTrabajosComunes.length > 0 ? (
@@ -506,7 +536,7 @@ export default function PresupuestoForm() {
                     const sub = m.moneda === 'ARS' ? m2 * (m.precio_m2 || 0) : (dd2 > 0 ? m2 * (m.precio_m2_usd || 0) * dd2 : 0);
                     return sub > 0 ? (
                       <div key={'ma' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>{m.nombre} ({m2.toFixed(2)} m²){(m.cantidad || 1) > 1 ? ` x${m.cantidad}` : ''}</span>
+                        <span>{m.nombre} ({m2.toFixed(3)} m²){(m.cantidad || 1) > 1 ? ` x${m.cantidad}` : ''}</span>
                         <span style={{ fontWeight: 600 }}>{formatCurrency(sub)}</span>
                       </div>
                     ) : null;
@@ -592,7 +622,7 @@ export default function PresupuestoForm() {
                     const sub = m.moneda === 'USD' ? m2 * (m.precio_m2_usd || 0) : (dd2 > 0 ? m2 * (m.precio_m2 || 0) / dd2 : 0);
                     return sub > 0 ? (
                       <div key={'mu' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>{m.nombre} ({m2.toFixed(2)} m²){(m.cantidad || 1) > 1 ? ` x${m.cantidad}` : ''}</span>
+                        <span>{m.nombre} ({m2.toFixed(3)} m²){(m.cantidad || 1) > 1 ? ` x${m.cantidad}` : ''}</span>
                         <span style={{ fontWeight: 600 }}>USD {sub.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                       </div>
                     ) : null;
@@ -642,94 +672,18 @@ export default function PresupuestoForm() {
                 )}
 
                 {hayAlternativas && (
-                <div style={{ borderTop: '2px solid #e2e8f0', marginTop: 24, paddingTop: 20 }}>
-                  <h3 style={{ fontSize: 11, fontWeight: 900, color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    OPCIONES DE COTIZACI&Oacute;N DISPONIBLES
-                  </h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 24 }}>
-                    {matsAlt.map((mat, idx) => {
-                      const letra = String.fromCharCode(65 + idx);
+                  <OpcionesCotizacionGrid
+                    alternativas={matsAlt.map((mat) => {
                       const dd2 = Number(form.dolar_dia) || 1;
                       const m2 = Number(mat.largo || 0) * Number(mat.ancho || 0) * (mat.cantidad || 1);
                       const costoMat = mat.moneda === 'USD' ? m2 * (mat.precio_m2_usd || 0) : m2 * (mat.precio_m2 || 0);
                       const costoMatArs = mat.moneda === 'USD' ? (dd2 > 0 ? costoMat * dd2 : 0) : costoMat;
                       const totalFinalARS = costoMatArs + sumatoriaAdicionalesARS;
-                      const tipoCambio = dd2;
-                      return (
-                        <div key={idx} style={{ background: 'white', border: '2px solid #dbeafe', borderRadius: 12, padding: 20, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}
-                             onMouseEnter={(e) => e.currentTarget.style.borderColor = '#3b82f6'}
-                             onMouseLeave={(e) => e.currentTarget.style.borderColor = '#dbeafe'}>
-                          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                              <span style={{ fontSize: 10, fontWeight: 900, padding: '4px 10px', background: '#eff6ff', color: '#1d4ed8', borderRadius: 999, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                ALTERNATIVA {letra}
-                              </span>
-                              <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 700 }}>
-                                Cant: {mat.cantidad || 1} &middot; &Aacute;rea: {m2.toFixed(2)} m&sup2;
-                              </span>
-                            </div>
-                            <h4 style={{ fontSize: 18, fontWeight: 900, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '-0.025em', margin: 0, lineHeight: 1.15 }}>{mat.nombre}</h4>
-                            <p style={{ fontSize: 11, color: '#64748b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '4px 0 16px 0' }}>
-                              Categor&iacute;a: {mat.categoria || 'Sinterizados'}
-                            </p>
-                            <div className="space-y-2 text-xs bg-slate-50/70 p-4 rounded-xl border border-slate-100 text-slate-600">
-                              <div className="flex justify-between font-semibold pb-1.5 border-b border-slate-200">
-                                <span className="text-[10px] tracking-wider text-slate-400 font-bold uppercase">Concepto</span>
-                                <span className="text-[10px] tracking-wider text-slate-400 font-bold uppercase">Subtotal</span>
-                              </div>
-                              <div className="flex justify-between items-start gap-3 pt-1">
-                                <span className="font-semibold text-slate-800 leading-tight">
-                                  Costo Material
-                                  <span className="block text-[11px] text-slate-500 font-medium mt-0.5">({mat.nombre})</span>
-                                </span>
-                                <span className="font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200 shadow-sm whitespace-nowrap">
-                                  {mat.moneda === 'USD'
-                                    ? `USD $${costoMat.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
-                                    : `$ ${costoMat.toLocaleString('es-AR')}`}
-                                </span>
-                              </div>
-                              {detalleTrabajosComunes.map((job, i) => {
-                                const esTarjetaUSD = mat.moneda === 'USD';
-                                const valorMostrar = esTarjetaUSD ? (job.total / tipoCambio) : job.total;
-                                return (
-                                  <div key={i} className="flex justify-between items-start gap-3 pt-1.5 border-t border-dashed border-slate-200">
-                                    <span className="text-slate-500 leading-tight">
-                                      {job.concepto}
-                                      {job.cant > 1 && (
-                                        <span className="inline-block ml-1 text-[10px] font-bold text-slate-600 bg-slate-200/70 px-1.5 py-0.5 rounded">
-                                          x{job.cant}
-                                        </span>
-                                      )}
-                                    </span>
-                                    <span className="font-semibold text-slate-800 whitespace-nowrap text-right">
-                                      {esTarjetaUSD
-                                        ? `USD $${valorMostrar.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                                        : `$ ${valorMostrar.toLocaleString('es-AR')}`
-                                      }
-                                    </span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                          <div className="bg-blue-600 rounded-xl p-4 text-center mt-5 shadow-md text-white">
-                            <span className="block text-[10px] font-bold text-blue-200 uppercase tracking-widest">
-                              TOTAL PRESUPUESTO
-                            </span>
-                            <span className="block text-2xl font-black tracking-tight mt-0.5">
-                              $ {Math.round(totalFinalARS).toLocaleString('es-AR')}
-                            </span>
-                            {mat.moneda === 'USD' && (
-                              <span className="block text-[11px] font-bold text-blue-100 mt-1.5 bg-blue-700/40 py-1 px-2 rounded-md border border-blue-500/30 inline-block">
-                                Ref. USD ${Number(totalFinalARS / tipoCambio).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
+                      return { ...mat, costoMaterialBase: costoMat, totalFinalARS, cantidad: mat.cantidad || 1, largo: mat.largo || 0, ancho: mat.ancho || 0 };
                     })}
-                  </div>
-                </div>
+                    detalleTrabajosComunes={detalleTrabajosComunes}
+                    tipoCambio={Number(form.dolar_dia) || 1}
+                  />
                 )}
               </div>
               );
@@ -805,7 +759,7 @@ export default function PresupuestoForm() {
                     <option value="TARJETA DE CRÉDITO">TARJETA DE CRÉDITO</option>
                   </select>
                   {form.forma_pago === 'TARJETA DE CRÉDITO' && (
-                    <select className="input" style={{ width: 160 }} value={form.cuotas || 1} onChange={(e) => update('cuotas', Number(e.target.value))} disabled={readOnly}>
+                    <select className="input" style={{ width: 160 }} value={form.cuotas || 1} onChange={(e) => update('cuotas', num(e.target.value))} disabled={readOnly}>
                       {Array.from({ length: 12 }, (_, i) => i + 1).map((c) => {
                         const pct = c <= 2 ? 0 : c * 5;
                         return <option key={c} value={c}>{c} cuota{c > 1 ? 's' : ''} ({pct}%)</option>;

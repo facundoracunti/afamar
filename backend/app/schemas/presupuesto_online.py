@@ -13,6 +13,8 @@ class PresupuestoOnlineItem(BaseModel):
     cantidad: int = 1
     precio_unitario: float = 0
     subtotal: float = 0
+    material: str = ""
+    pileta_id: Optional[int] = None
 
 class PresupuestoOnlineBase(BaseModel):
     cliente: Optional[str] = None

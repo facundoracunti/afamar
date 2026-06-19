@@ -72,12 +72,14 @@ class OrdenTrabajoService:
             payload["cliente_id"] = cliente_id
 
         nuevo_estado = payload.get("estado", orden.estado)
+        piletas = payload.get("piletas", orden.piletas or [])
+
+        if not orden.stock_descontado and piletas:
+            descontar_stock_piletas(self.db, piletas, orden.numero)
+            orden.stock_descontado = True
+
         if nuevo_estado != orden.estado:
-            piletas = payload.get("piletas", orden.piletas or [])
-            if nuevo_estado == "EN EL TALLER" and not orden.stock_descontado:
-                descontar_stock_piletas(self.db, piletas, orden.numero)
-                orden.stock_descontado = True
-            elif nuevo_estado == "CANCELADO" and orden.stock_descontado:
+            if nuevo_estado == "CANCELADO" and orden.stock_descontado:
                 restaurar_stock_piletas(self.db, piletas, orden.numero)
                 orden.stock_descontado = False
 

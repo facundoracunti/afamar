@@ -35,7 +35,7 @@ export const formasPago = ['Efectivo', 'Transferencia Bancaria', 'Tarjeta'];
 export const acabados = ['Pulido', 'Leather', 'Apomazado'];
 export const espesores = ['2 cm', '1.2 cm'];
 export const materialesOrden = ['Granito', 'Mármol', 'Cuarzo', 'Dekton', 'Sinterizado'];
-export const conceptosFabricacion = ['ZÓCALO', 'FRENTE', 'TRAFORO DE PILETA', 'TRAFORO DE ANAFE', 'TRAFORO DE PILETA DE APOYO', 'OTRA']; // OTRA permite escribir concepto personalizado
+export const conceptosFabricacion = ['LONGITUD', 'ZÓCALO', 'FRENTE', 'TRAFORO DE PILETA', 'TRAFORO DE ANAFE', 'TRAFORO DE PILETA DE APOYO', 'OTRA']; // OTRA permite escribir concepto personalizado
 
 export const badgeClass = (estado) => {
   const map = {

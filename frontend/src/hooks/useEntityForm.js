@@ -1,12 +1,20 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../services/api';
 
-const CONCEPTOS_M2 = ['ZÓCALO', 'FRENTE'];
+const CONCEPTOS_M2 = ['LONGITUD', 'ZÓCALO', 'FRENTE'];
 
 const TRAFORO_DETALLES = {
   'TRAFORO DE PILETA': 'APERTURA Y PEGADO DE PILETA',
   'TRAFORO DE ANAFE': 'APERTURA DE ANAFE',
   'TRAFORO DE PILETA DE APOYO': 'APERTURA PILETA DE APOYO',
+};
+const CONCEPTO_NORMALIZE = {
+  'APERTURA + PEGADO PILETA': 'TRAFORO DE PILETA',
+  'APERTURA Y PEGADO DE PILETA': 'TRAFORO DE PILETA',
+  'APERTURA ANAFE': 'TRAFORO DE ANAFE',
+  'APERTURA DE ANAFE': 'TRAFORO DE ANAFE',
+  'APERTURA PILETA APOYO': 'TRAFORO DE PILETA DE APOYO',
+  'APERTURA PILETA DE APOYO': 'TRAFORO DE PILETA DE APOYO',
 };
 
 const CONFIG_CUOTAS = {};
@@ -110,14 +118,21 @@ export default function useEntityForm({
           croquis: d.croquis || [],
           observaciones_diseno: d.observaciones_diseno || '',
           detalles_fabricacion: d.detalles_fabricacion?.length
-            ? d.detalles_fabricacion.map((df) => ({
-                ...df,
-                largo: df.largo || 0,
-                ancho: df.ancho || 0,
-                m2: df.m2 || 0,
-                mano_de_obra: df.mano_de_obra || 0,
-                precio: df.precio || 0,
-              }))
+            ? d.detalles_fabricacion.map((df) => {
+                const det = (df.detalle || '').toUpperCase();
+                const conTexto = (df.concepto || '').toUpperCase();
+                let concepto = df.concepto || '';
+                let detalle = df.detalle || '';
+                if (CONCEPTO_NORMALIZE[det] || CONCEPTO_NORMALIZE[conTexto]) {
+                  const norm = CONCEPTO_NORMALIZE[det] || CONCEPTO_NORMALIZE[conTexto];
+                  concepto = norm;
+                  detalle = TRAFORO_DETALLES[norm] || det;
+                } else if (CONCEPTO_NORMALIZE[conTexto]) {
+                  concepto = CONCEPTO_NORMALIZE[conTexto];
+                  detalle = TRAFORO_DETALLES[concepto] || det;
+                }
+                return { ...df, concepto, detalle, largo: df.largo ?? null, ancho: df.ancho ?? null, m2: df.m2 || 0, mano_de_obra: df.mano_de_obra ?? null, precio: df.precio || 0 };
+              })
             : [],
           detalles_presupuestados: d.detalles_presupuestados || [],
           materiales: (d.materiales || []).map((m) => ({
@@ -349,9 +364,6 @@ export default function useEntityForm({
   }, [form.traslado_usd]);
 
   const handleDetalleChange = useCallback((idx, field, value) => {
-    if (field === 'material' && value) {
-      addMaterial(value);
-    }
     setForm((prev) => {
       const list = [...prev.detalles_fabricacion];
       list[idx] = { ...list[idx], [field]: value };
@@ -406,7 +418,7 @@ export default function useEntityForm({
   const addDetalle = useCallback(() => {
     update('detalles_fabricacion', [...form.detalles_fabricacion, {
       concepto: 'FRENTE', detalle: '', material: '', material_precio_m2: 0,
-      largo: 0, ancho: 0, m2: 0, mano_de_obra: 0, cantidad: 1, moneda: 'ARS', precio: 0,
+      largo: null, ancho: null, m2: 0, mano_de_obra: null, cantidad: 1, moneda: 'ARS', precio: 0,
     }]);
   }, [form.detalles_fabricacion, update]);
 
@@ -509,6 +521,14 @@ export default function useEntityForm({
     setSaving(true);
     try {
       const payload = buildPayload();
+      if (['TARJETA DE CRÉDITO', 'TARJETA DE DÉBITO'].includes(form.forma_pago)) {
+        payload.sena_recibida = Number(form.total);
+        payload.saldo_pendiente = 0;
+        payload.saldo_pagado = true;
+        payload.sena_usd = Number(form.total_usd);
+        payload.saldo_pendiente_usd = 0;
+        payload.fecha_pago_saldo = new Date().toISOString().slice(0, 10);
+      }
       if (isEdit) {
         await services.update(id, payload);
       } else {
@@ -520,7 +540,7 @@ export default function useEntityForm({
     } finally {
       setSaving(false);
     }
-  }, [isEdit, id, buildPayload, services, navigate]);
+  }, [isEdit, id, buildPayload, services, navigate, form.forma_pago, form.total, form.total_usd]);
 
   const handleDelete = useCallback(async () => {
     if (!id) return;
@@ -541,6 +561,13 @@ export default function useEntityForm({
         payload.saldo_pendiente_usd = 0;
         payload.saldo_pagado = true;
         payload.fecha_pago_saldo = new Date().toISOString().slice(0, 10);
+      } else if (['TARJETA DE CRÉDITO', 'TARJETA DE DÉBITO'].includes(form.forma_pago)) {
+        payload.sena_recibida = Number(form.total);
+        payload.saldo_pendiente = 0;
+        payload.saldo_pagado = true;
+        payload.sena_usd = Number(form.total_usd);
+        payload.saldo_pendiente_usd = 0;
+        payload.fecha_pago_saldo = new Date().toISOString().slice(0, 10);
       }
       await services.update(id, payload);
       setForm((prev) => ({ ...prev, ...payload, estado: nuevoEstado }));
@@ -549,7 +576,7 @@ export default function useEntityForm({
     } finally {
       setSaving(false);
     }
-  }, [id, form.total, form.total_usd, services]);
+  }, [id, form.total, form.total_usd, form.forma_pago, services]);
 
   const handlePrint = useCallback(() => window.print(), []);
 

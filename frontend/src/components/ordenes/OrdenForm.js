@@ -24,6 +24,7 @@ const ordenServices = {
 export default function OrdenForm() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const num = (v) => v === '' ? null : parseFloat(v);
 
   const {
     form, loading, saving, materiales, piletas, logoUrl,
@@ -211,17 +212,17 @@ export default function OrdenForm() {
                     <div>
                       <label style={{ fontSize: 11, color: '#4a5568', display: 'block', marginBottom: 2 }}>Cant.</label>
                       <input className="input" type="number" min="1" style={{ width: '100%', padding: '5px 6px', fontSize: 12 }}
-                        value={mat.cantidad || 1} onChange={(e) => updateMaterial(idx, 'cantidad', Number(e.target.value))} disabled={readOnly} />
+                        value={mat.cantidad || 1} onChange={(e) => updateMaterial(idx, 'cantidad', num(e.target.value))} disabled={readOnly} />
                     </div>
                     <div>
                       <label style={{ fontSize: 11, color: '#4a5568', display: 'block', marginBottom: 2 }}>Largo (mts)</label>
                       <input className="input" type="number" step="0.01" style={{ width: '100%', padding: '5px 6px', fontSize: 12 }}
-                        value={mat.largo || ''} onChange={(e) => updateMaterial(idx, 'largo', Number(e.target.value))} disabled={readOnly} />
+                        value={mat.largo || ''} onChange={(e) => updateMaterial(idx, 'largo', num(e.target.value))} disabled={readOnly} />
                     </div>
                     <div>
                       <label style={{ fontSize: 11, color: '#4a5568', display: 'block', marginBottom: 2 }}>Ancho (mts)</label>
                       <input className="input" type="number" step="0.01" style={{ width: '100%', padding: '5px 6px', fontSize: 12 }}
-                        value={mat.ancho || ''} onChange={(e) => updateMaterial(idx, 'ancho', Number(e.target.value))} disabled={readOnly} />
+                        value={mat.ancho || ''} onChange={(e) => updateMaterial(idx, 'ancho', num(e.target.value))} disabled={readOnly} />
                     </div>
                     <div>
                       <label style={{ fontSize: 11, color: '#4a5568', display: 'block', marginBottom: 2 }}>Precio M²</label>
@@ -232,7 +233,7 @@ export default function OrdenForm() {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f7fafc', padding: 10, borderRadius: 6 }}>
                     <div style={{ fontSize: 13, color: '#4a5568' }}>
-                      <span>Rendimiento: <strong style={{ color: '#2b6cb0' }}>{m2.toFixed(2)} m²</strong></span>
+                      <span>Rendimiento: <strong style={{ color: '#2b6cb0' }}>{m2.toFixed(3)} m²</strong></span>
                     </div>
                     <div style={{ fontSize: 15, fontWeight: 700, color: '#2f855a' }}>
                       Subtotal: {mat.moneda === 'USD' ? `USD ${subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}` : `$ ${subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}
@@ -290,18 +291,18 @@ export default function OrdenForm() {
                     <td>
                       {CONCEPTOS_M2.includes(d.concepto) ? (
                         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                          <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '30%' }} value={d.largo || ''} onChange={(e) => handleDetalleChange(i, 'largo', Number(e.target.value))} placeholder="Largo" disabled={readOnly} />
+                          <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '30%' }} value={d.largo ?? ''} onChange={(e) => handleDetalleChange(i, 'largo', num(e.target.value))} placeholder="Largo" disabled={readOnly} />
                           <span style={{ fontSize: 11, color: '#94a3b8' }}>×</span>
-                          <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '30%' }} value={d.ancho || ''} onChange={(e) => handleDetalleChange(i, 'ancho', Number(e.target.value))} placeholder="Ancho" disabled={readOnly} />
+                          <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '30%' }} value={d.ancho ?? ''} onChange={(e) => handleDetalleChange(i, 'ancho', num(e.target.value))} placeholder="Ancho" disabled={readOnly} />
                           <span style={{ fontSize: 11, fontWeight: 600, color: '#1e40af', whiteSpace: 'nowrap' }}>{d.m2 || 0} m²</span>
                         </div>
                       ) : d.concepto === 'OTRA' ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                           <input className="input" style={{ fontSize: 12, padding: '4px 8px' }} value={d.detalle} onChange={(e) => handleDetalleChange(i, 'detalle', e.target.value)} placeholder="DETALLES" disabled={readOnly} />
                           <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                            <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '35%' }} value={d.largo || ''} onChange={(e) => handleDetalleChange(i, 'largo', Number(e.target.value))} placeholder="Largo" disabled={readOnly} />
+                            <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '35%' }} value={d.largo ?? ''} onChange={(e) => handleDetalleChange(i, 'largo', num(e.target.value))} placeholder="Largo" disabled={readOnly} />
                             <span style={{ fontSize: 11, color: '#94a3b8' }}>×</span>
-                            <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '35%' }} value={d.mano_de_obra || ''} onChange={(e) => handleDetalleChange(i, 'mano_de_obra', Number(e.target.value))} placeholder="Mano de obra" disabled={readOnly} />
+                            <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '35%' }} value={d.mano_de_obra ?? ''} onChange={(e) => handleDetalleChange(i, 'mano_de_obra', num(e.target.value))} placeholder="Mano de obra" disabled={readOnly} />
                           </div>
                         </div>
                       ) : (
@@ -314,14 +315,14 @@ export default function OrdenForm() {
                       ) : d.concepto === 'OTRA' ? (
                         <span style={{ fontSize: 12, fontWeight: 600, color: d.moneda === 'USD' ? '#059669' : '#1e293b' }}>{d.moneda === 'USD' ? 'USD ' : '$'}{Number(d.precio || 0).toLocaleString('es-AR')}</span>
                       ) : ['TRAFORO DE PILETA', 'TRAFORO DE ANAFE', 'TRAFORO DE PILETA DE APOYO'].includes(d.concepto) ? (
-                        <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '100%' }} value={d.precio || ''} onChange={(e) => handleDetalleChange(i, 'precio', Number(e.target.value))} placeholder="0" disabled={readOnly} />
+                        <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '100%' }} value={d.precio || ''} onChange={(e) => handleDetalleChange(i, 'precio', num(e.target.value))} placeholder="0" disabled={readOnly} />
                       ) : (
                         <span style={{ fontSize: 12, color: '#94a3b8' }}>-</span>
                       )}
                     </td>
                     <td>
                       <input className="input" type="number" min="1" style={{ width: 45, fontSize: 12, padding: '4px 6px' }}
-                        value={d.cantidad || 1} onChange={(e) => handleDetalleChange(i, 'cantidad', Number(e.target.value))} disabled={readOnly} />
+                        value={d.cantidad || 1} onChange={(e) => handleDetalleChange(i, 'cantidad', num(e.target.value))} disabled={readOnly} />
                     </td>
                     <td>
                       <button type="button" className="btn btn-outline" style={{ padding: '2px 6px' }} onClick={() => removeDetalle(i)} disabled={readOnly}>
@@ -411,7 +412,7 @@ export default function OrdenForm() {
                   <div className="form-group" style={{ margin: 0, width: 70 }}>
                     <label style={{ fontSize: 11 }}>Cant.</label>
                     <input className="input" type="number" min="1" style={{ fontSize: 12, padding: '4px 6px' }}
-                      value={pt.cantidad || 1} onChange={(e) => updatePileta(idx, 'cantidad', Number(e.target.value))} disabled={readOnly} />
+                      value={pt.cantidad || 1} onChange={(e) => updatePileta(idx, 'cantidad', num(e.target.value))} disabled={readOnly} />
                   </div>
                   <div className="form-group" style={{ margin: 0, flex: 1 }}>
                     <label style={{ fontSize: 11 }}>Moneda</label>
@@ -430,7 +431,7 @@ export default function OrdenForm() {
                   <div className="form-group" style={{ margin: 0, flex: 2 }}>
                     <label style={{ fontSize: 11 }}>Precio</label>
                     <input className="input" type="number" step="0.01" style={{ fontSize: 12, padding: '4px 6px' }}
-                      value={pt.precio || ''} onChange={(e) => updatePileta(idx, 'precio', Number(e.target.value))} disabled={readOnly} />
+                      value={pt.precio || ''} onChange={(e) => updatePileta(idx, 'precio', num(e.target.value))} disabled={readOnly} />
                   </div>
                 </div>
               </div>
@@ -470,7 +471,7 @@ export default function OrdenForm() {
                     const sub = m.moneda === 'ARS' ? m2 * (m.precio_m2 || 0) : (dd2 > 0 ? m2 * (m.precio_m2_usd || 0) * dd2 : 0);
                     return sub > 0 ? (
                       <div key={'ma' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>Material: {m.nombre} ({m2.toFixed(2)} m²){(m.cantidad || 1) > 1 ? ` x${m.cantidad}` : ''}</span>
+                        <span>Material: {m.nombre} ({m2.toFixed(3)} m²){(m.cantidad || 1) > 1 ? ` x${m.cantidad}` : ''}</span>
                         <span style={{ fontWeight: 600 }}>{formatCurrency(sub)}</span>
                       </div>
                     ) : null;
@@ -556,7 +557,7 @@ export default function OrdenForm() {
                     const sub = m.moneda === 'USD' ? m2 * (m.precio_m2_usd || 0) : (dd2 > 0 ? m2 * (m.precio_m2 || 0) / dd2 : 0);
                     return sub > 0 ? (
                       <div key={'mu' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>Material: {m.nombre} ({m2.toFixed(2)} m²){(m.cantidad || 1) > 1 ? ` x${m.cantidad}` : ''}</span>
+                        <span>Material: {m.nombre} ({m2.toFixed(3)} m²){(m.cantidad || 1) > 1 ? ` x${m.cantidad}` : ''}</span>
                         <span style={{ fontWeight: 600 }}>USD {sub.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                       </div>
                     ) : null;
@@ -626,7 +627,7 @@ export default function OrdenForm() {
                           <div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                               <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', padding: '2px 8px', background: '#dbeafe', color: '#1e40af', borderRadius: 4 }}>Alternativa {letra}</span>
-                              <span style={{ fontSize: 11, color: '#6b7280' }}>{mat.cantidad || 1} pza. ({m2.toFixed(2)} m²)</span>
+                              <span style={{ fontSize: 11, color: '#6b7280' }}>{mat.cantidad || 1} pza. ({m2.toFixed(3)} m²)</span>
                             </div>
                             <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', textTransform: 'uppercase', marginBottom: 2 }}>{mat.nombre}</div>
                             {mat.moneda === 'USD' && <div style={{ fontSize: 11, color: '#059669', fontWeight: 600, marginBottom: 8 }}>USD {costoMat.toFixed(2)}</div>}
@@ -733,7 +734,7 @@ export default function OrdenForm() {
                     <option value="TARJETA DE CRÉDITO">TARJETA DE CRÉDITO</option>
                   </select>
                   {form.forma_pago === 'TARJETA DE CRÉDITO' && (
-                    <select className="input" style={{ width: 160 }} value={form.cuotas || 1} onChange={(e) => update('cuotas', Number(e.target.value))} disabled={readOnly}>
+                    <select className="input" style={{ width: 160 }} value={form.cuotas || 1} onChange={(e) => update('cuotas', num(e.target.value))} disabled={readOnly}>
                       {Array.from({ length: 12 }, (_, i) => i + 1).map((c) => {
                         const pct = c <= 2 ? 0 : c * 5;
                         return <option key={c} value={c}>{c} cuota{c > 1 ? 's' : ''} ({pct}%)</option>;

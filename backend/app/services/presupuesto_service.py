@@ -326,6 +326,54 @@ class PresupuestoService:
             raise ConflictError(resultado["error"])
         return resultado
 
+    @staticmethod
+    def _compute_total(p) -> float:
+        ars = 0.0
+        usd = 0.0
+
+        for d in (p.detalles_fabricacion or []):
+            precio = float(d.get("precio", 0) or 0)
+            cantidad = float(d.get("cantidad", 1) or 1)
+            if d.get("moneda") == "USD":
+                usd += precio * cantidad
+            else:
+                ars += precio * cantidad
+
+        for m in (p.materiales or []):
+            if m.get("es_alternativa"):
+                continue
+            largo = float(m.get("largo", 0) or 0)
+            ancho = float(m.get("ancho", 0) or 0)
+            cantidad = float(m.get("cantidad", 1) or 1)
+            area = largo * ancho * cantidad
+            if m.get("moneda") == "USD":
+                usd += area * float(m.get("precio_m2_usd", 0) or 0)
+            else:
+                ars += area * float(m.get("precio_m2", 0) or 0)
+
+        for pt in (p.piletas or []):
+            moneda = pt.get("moneda", "ARS") or "ARS"
+            precio = float(pt.get("precio", 0) or 0)
+            cantidad = float(pt.get("cantidad", 1) or 1)
+            if moneda == "USD":
+                usd += precio * cantidad
+            else:
+                ars += precio * cantidad
+
+        dd = float(p.dolar_dia or 1000)
+        dd = dd if dd > 0 else 1000
+        subtotal = ars + (usd * dd) + 0.0
+        tr = float(p.traslado or 0)
+        total_base = max(0.0, subtotal + tr)
+
+        pct = 0
+        if p.forma_pago == "TARJETA DE CRÉDITO":
+            cuotas = int(p.cuotas or 1)
+            pct = 0 if cuotas <= 2 else cuotas * 5
+
+        recargo = round(total_base * pct / 100)
+        return round(total_base + recargo)
+
     def _to_schema(self, p) -> PresupuestoSchema:
         c = p.cliente
         ot = p.orden_trabajo
@@ -348,7 +396,7 @@ class PresupuestoService:
             tipo_cambio=p.tipo_cambio,
             subtotal_materiales=p.subtotal_materiales,
             subtotal_servicios=p.subtotal_servicios,
-            total=p.total,
+            total=self._compute_total(p),
             forma_pago=p.forma_pago,
             cuotas=p.cuotas,
             validez=p.validez,

@@ -137,9 +137,16 @@ export default function PresupuestosList() {
                     <td>{p.cliente_nombre || '-'}</td>
                     <td>{p.cliente_telefono || '-'}</td>
                     <td style={{ fontWeight: 500, textTransform: 'uppercase' }}>
-                      {p.materiales && p.materiales.length > 0
-                        ? [...new Set(p.materiales.map((m) => m.nombre.trim()))].join(' - ')
-                        : p.material || (p.tipo === 'online' ? 'Online' : '-')}
+                      {(() => {
+                        if (p.materiales && p.materiales.length > 0) return [...new Set(p.materiales.map((m) => m.nombre.trim()))].join(' - ');
+                        if (p.tipo === 'online' && p.items?.length) {
+                          const mats = p.items.filter((i) => i.detalle && i.detalle !== 'LONGITUD' && !['ZOCALOS', 'APERTURA + PEGADO PILETA', 'APERTURA PILETA APOYO', 'MENSULAS', 'APERTURA ANAFE', 'TERMINACION', 'PILETA MOD'].includes(i.detalle)).map((i) => i.detalle.trim());
+                          const zocMat = p.items.filter((i) => i.material).map((i) => i.material.trim());
+                          const all = [...new Set([...mats, ...zocMat])];
+                          return all.length ? all.join(' - ') : 'Online';
+                        }
+                        return p.material || '-';
+                      })()}
                     </td>
                     <td style={{ color: '#2d3748', fontSize: 13, lineHeight: 1.4, whiteSpace: 'normal', wordBreak: 'break-word' }}
                       title={p.observaciones_diseno || ''}>

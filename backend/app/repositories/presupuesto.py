@@ -199,6 +199,7 @@ class PresupuestoRepository(BaseRepository[Presupuesto]):
                     "saldo_pendiente": 0,
                     "observaciones_diseno": "",
                     "materiales": [],
+                    "items": o.items or [],
                 }
             )
         result.sort(

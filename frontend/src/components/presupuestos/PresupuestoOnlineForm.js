@@ -15,9 +15,10 @@ const TIPOS_ESPECIALES = [
   { detalle: 'TERMINACION', es_unidad: true },
   { detalle: 'PILETA MOD', es_unidad: true },
 ];
+const NOMBRES_ESPECIALES = new Set(TIPOS_ESPECIALES.map((t) => t.detalle));
 
 function emptyItem(detalle = 'LONGITUD', es_unidad = false) {
-  return { detalle, largo: 0, ancho: 0, m2: 0, es_unidad, moneda: 'ARS', mano_de_obra: 0, cantidad: 1, precio_unitario: 0, subtotal: 0 };
+  return { detalle, largo: 0, ancho: 0, m2: 0, es_unidad, moneda: 'ARS', mano_de_obra: 0, cantidad: 1, precio_unitario: 0, subtotal: 0, material: '', pileta_id: null };
 }
 
 export default function PresupuestoOnlineForm() {
@@ -39,8 +40,6 @@ export default function PresupuestoOnlineForm() {
   const [totalConsolidado, setTotalConsolidado] = useState(0);
   const [materiales, setMateriales] = useState([]);
   const [piletas, setPiletas] = useState([]);
-  const [piletaId, setPiletaId] = useState('');
-  const [piletaPrecio, setPiletaPrecio] = useState(0);
   const [numero, setNumero] = useState('');
 
   useEffect(() => { getMateriales({ limit: 500 }).then((r) => setMateriales(r.data)); }, []);
@@ -57,18 +56,29 @@ export default function PresupuestoOnlineForm() {
         setTipoObra(d.tipo_obra || '');
         setFecha(d.fecha || new Date().toISOString().slice(0, 10));
         setDolarDia(d.dolar_dia ?? 1000);
-        setPiletaId(d.pileta_id || '');
-        setPiletaPrecio(d.pileta_precio || 0);
         setNumero(d.numero || '');
         setTotalArs(d.total_neto_ars || 0);
         setTotalUsd(d.total_neto_usd || 0);
         setTotalConsolidado(d.total_consolidado || 0);
+        const toNum = (v) => v === '' || v === null || v === undefined ? 0 : Number(v);
         if (d.items?.length) {
-          const normales = d.items.filter((i) => !i.es_unidad);
-          const esp = d.items.filter((i) => i.es_unidad);
+          const normales = d.items.filter((i) => !i.es_unidad && !NOMBRES_ESPECIALES.has(i.detalle)).map((i) => ({ ...i, largo: toNum(i.largo), ancho: toNum(i.ancho), m2: toNum(i.m2), cantidad: Math.max(1, toNum(i.cantidad)), precio_unitario: toNum(i.precio_unitario), subtotal: toNum(i.subtotal), mano_de_obra: toNum(i.mano_de_obra) }));
+          const esp = d.items.filter((i) => i.es_unidad || NOMBRES_ESPECIALES.has(i.detalle)).map((i) => {
+            const e = { ...i, largo: toNum(i.largo), ancho: toNum(i.ancho), m2: toNum(i.m2), cantidad: Math.max(1, toNum(i.cantidad)), precio_unitario: toNum(i.precio_unitario), subtotal: toNum(i.subtotal), mano_de_obra: toNum(i.mano_de_obra) };
+            if (e.detalle === 'PILETA MOD' && !e.pileta_id && d.pileta_id) e.pileta_id = Number(d.pileta_id);
+            return e;
+          });
           setItems(normales.length ? normales : FILAS_INICIALES.map((f) => emptyItem(f.detalle, f.es_unidad)));
           setEspeciales(esp.length ? esp : ESPECIALES_INICIALES.map((e) => emptyItem(e.detalle, e.es_unidad)));
+          const matEsp = {};
+          esp.forEach((e, i) => { if (e.material) matEsp[i] = e.material; });
+          setMatEspeciales(matEsp);
+          recalcFrom([...normales, ...esp], d.dolar_dia ?? 1000);
         }
+        setLoading(false);
+      }).catch((err) => {
+        console.error('Error al cargar presupuesto online', err);
+        alert('Error al cargar el presupuesto');
         setLoading(false);
       });
     }
@@ -102,7 +112,10 @@ export default function PresupuestoOnlineForm() {
 
   const updateItem = (idx, field, value, isEspecial) => {
     const list = isEspecial ? [...especiales] : [...items];
-    list[idx] = { ...list[idx], [field]: value };
+    const num = (v) => v === '' || v === null || v === undefined ? 0 : Number(v);
+    const numericFields = ['largo', 'ancho', 'm2', 'mano_de_obra', 'cantidad', 'precio_unitario', 'subtotal'];
+    const parsed = numericFields.includes(field) ? num(value) : value;
+    list[idx] = { ...list[idx], [field]: parsed };
 
     if (field === 'largo' || field === 'ancho' || field === 'mano_de_obra') {
       const la = Number(list[idx].largo) || 0;
@@ -138,6 +151,7 @@ export default function PresupuestoOnlineForm() {
     const list = isEspecial ? [...especiales] : [...items];
     if (mat) {
       if (!isEspecial) list[idx].detalle = value;
+      if (isEspecial) list[idx].material = value;
       list[idx].moneda = mat.moneda || 'ARS';
       list[idx].precio_unitario = mat.moneda === 'USD' ? (mat.precio_m2_usd || 0) : (mat.precio_m2 || 0);
       const m2 = list[idx].m2 || 0;
@@ -155,7 +169,7 @@ export default function PresupuestoOnlineForm() {
     else { setItems(list); recalcFrom([...list, ...especiales]); }
   };
 
-  const recalcFrom = (all) => {
+  const recalcFrom = (all, ddOverride) => {
     let ars = 0, usd = 0;
     all.forEach((i) => {
       if (i.moneda === 'USD') usd += i.subtotal || 0;
@@ -163,7 +177,7 @@ export default function PresupuestoOnlineForm() {
     });
     setTotalArs(Math.round(ars * 100) / 100);
     setTotalUsd(Math.round(usd * 100) / 100);
-    const dd = Number(dolarDia);
+    const dd = ddOverride !== undefined ? ddOverride : Number(dolarDia);
     setTotalConsolidado(Math.round((ars + usd * dd) * 100) / 100);
   };
 
@@ -171,14 +185,23 @@ export default function PresupuestoOnlineForm() {
     e.preventDefault();
     setSaving(true);
     try {
+      const allItems = [...items, ...especiales];
+      let ars = 0, usd = 0;
+      allItems.forEach((i) => { if (i.moneda === 'USD') usd += Number(i.subtotal) || 0; else ars += Number(i.subtotal) || 0; });
+      const cons = Math.round((ars + usd * Number(dolarDia)) * 100) / 100;
+      const piletaItems = especiales.filter((e) => e.detalle === 'PILETA MOD' && e.pileta_id);
       const payload = {
         cliente, tipo_obra: tipoObra, fecha,
         dolar_dia: Number(dolarDia),
-        items: [...items, ...especiales],
-        total_neto_ars: totalArs, total_neto_usd: totalUsd, total_consolidado: totalConsolidado,
-        pileta_id: piletaId ? Number(piletaId) : null,
-        pileta_precio: Number(piletaPrecio) || 0,
+        items: allItems,
+        total_neto_ars: Math.round(ars * 100) / 100,
+        total_neto_usd: Math.round(usd * 100) / 100,
+        total_consolidado: cons,
+        pileta_id: piletaItems.length ? Number(piletaItems[0].pileta_id) : null,
+        pileta_precio: piletaItems.length ? (Number(piletaItems[0].precio_unitario) || 0) : 0,
       };
+      console.log('[PresupuestoOnlineForm] payload:', JSON.stringify(payload, null, 2));
+      console.log('[PresupuestoOnlineForm] items con pileta_id:', allItems.filter(i => i.pileta_id));
       if (isEdit) await updatePresupuestoOnline(id, payload);
       else await createPresupuestoOnline(payload);
       navigate('/presupuestos-online');
@@ -272,7 +295,7 @@ export default function PresupuestoOnlineForm() {
             <div className="form-group" style={{ width: 160 }}>
               <label style={{ fontWeight: 700, color: '#1e40af' }}>DOLAR DEL DIA</label>
               <input type="number" step="1" className="input" style={{ fontWeight: 700, color: '#1e40af', borderColor: '#93c5fd', textAlign: 'center', fontSize: 16 }}
-                value={dolarDia} onChange={(e) => setDolarDia(Number(e.target.value))} />
+                value={dolarDia} onChange={(e) => { const v = e.target.value; const nd = v === '' ? 0 : parseFloat(v) || 0; setDolarDia(nd); recalcFrom([...items, ...especiales], nd); }} />
             </div>
           </div>
         </div>
@@ -348,14 +371,12 @@ export default function PresupuestoOnlineForm() {
                     {item.detalle === 'PILETA MOD' ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                         <span style={{ fontWeight: 700, fontSize: 11, whiteSpace: 'nowrap' }}>PILETA MOD :</span>
-                        <select className="input" style={{ fontSize: 11, flex: 1 }} value={piletaId} onChange={(e) => {
+                        <select className="input" style={{ fontSize: 11, flex: 1 }} value={item.pileta_id || ''} onChange={(e) => {
                           const pid = e.target.value;
-                          setPiletaId(pid);
                           const p = piletas.find((x) => x.id === Number(pid));
                           const precio = p ? (p.precio || 0) : 0;
-                          setPiletaPrecio(precio);
                           const list = [...especiales];
-                          list[idx] = { ...list[idx], moneda: 'ARS', precio_unitario: precio, subtotal: Math.round((Number(list[idx].cantidad) || 1) * precio * 100) / 100 };
+                          list[idx] = { ...list[idx], pileta_id: Number(pid), moneda: 'ARS', precio_unitario: precio, subtotal: Math.round((Number(list[idx].cantidad) || 1) * precio * 100) / 100 };
                           setEspeciales(list);
                           recalcFrom([...items, ...list]);
                         }}>
@@ -399,13 +420,12 @@ export default function PresupuestoOnlineForm() {
                       const nuevoMoneda = e.target.value;
                       const list = [...especiales];
                       list[idx] = { ...list[idx], moneda: nuevoMoneda };
-                      if (item.detalle === 'PILETA MOD' && piletaId) {
-                        const p = piletas.find((x) => x.id === Number(piletaId));
+                      if (item.detalle === 'PILETA MOD' && item.pileta_id) {
+                        const p = piletas.find((x) => x.id === Number(item.pileta_id));
                         if (p) {
                           const nuevoPrecio = nuevoMoneda === 'USD' ? (p.precio_usd || 0) : (p.precio || 0);
                           list[idx].precio_unitario = nuevoPrecio;
                           list[idx].subtotal = Math.round((Number(list[idx].cantidad) || 1) * nuevoPrecio * 100) / 100;
-                          setPiletaPrecio(nuevoPrecio);
                         }
                       }
                       setEspeciales(list);
@@ -473,7 +493,9 @@ export default function PresupuestoOnlineForm() {
             <button type="button" className="btn" onClick={async () => {
               if (!window.confirm('¿Convertir a Orden de Trabajo? Se copiarán todos los ítems.')) return;
               try {
+                console.log('[PresupuestoOnlineForm] converting id:', id);
                 const res = await convertirOnlineAOrden(id);
+                console.log('[PresupuestoOnlineForm] convert result:', res.data);
                 alert(`Orden ${res.data.numero} creada.`);
                 navigate('/ordenes');
               } catch (err) { alert(err.response?.data?.detail || 'Error'); }
