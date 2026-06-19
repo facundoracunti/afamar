@@ -59,6 +59,7 @@ class PresupuestoOnlineService:
         materiales = []
         piletas = []
         detalles_fabricacion = []
+        detalles_presupuestados = []
 
         for i, item in enumerate(items):
             detalle_str = item.get("detalle", "LONGITUD") if isinstance(item, dict) else (item.detalle if hasattr(item, 'detalle') else "LONGITUD")
@@ -107,6 +108,12 @@ class PresupuestoOnlineService:
                         "cantidad": cantidad,
                         "precio": precio_unitario if precio_unitario else 0,
                     })
+                    detalles_presupuestados.append({
+                        "concepto": TRAFORO_MAP.get(detalle_str, "OTRA"),
+                        "detalle": detalle_str,
+                        "m2": m2,
+                        "material": material,
+                    })
             elif detalle_str in ("ZOCALOS", "ZÓCALO"):
                 detalles_fabricacion.append({
                     "concepto": "ZÓCALO",
@@ -120,6 +127,12 @@ class PresupuestoOnlineService:
                     "moneda": moneda,
                     "cantidad": cantidad,
                     "precio": round(m2 * precio_unitario, 2) if (m2 and precio_unitario) else 0,
+                })
+                detalles_presupuestados.append({
+                    "concepto": "ZÓCALO",
+                    "detalle": material,
+                    "m2": m2,
+                    "material": material,
                 })
             elif detalle_str == "FRENTE":
                 detalles_fabricacion.append({
@@ -135,6 +148,12 @@ class PresupuestoOnlineService:
                     "cantidad": cantidad,
                     "precio": round(m2 * precio_unitario, 2) if (m2 and precio_unitario) else 0,
                 })
+                detalles_presupuestados.append({
+                    "concepto": "FRENTE",
+                    "detalle": material,
+                    "m2": m2,
+                    "material": material,
+                })
             elif detalle_str in ("TERMINACION",):
                 detalles_fabricacion.append({
                     "concepto": "OTRA",
@@ -148,6 +167,12 @@ class PresupuestoOnlineService:
                     "moneda": moneda,
                     "cantidad": cantidad,
                     "precio": subtotal if subtotal else round(largo * mano_de_obra, 2),
+                })
+                detalles_presupuestados.append({
+                    "concepto": "OTRA",
+                    "detalle": "TERMINACION",
+                    "m2": m2,
+                    "material": "",
                 })
             elif detalle_str != "LONGITUD":
                 materiales.append({
@@ -190,6 +215,7 @@ class PresupuestoOnlineService:
             materiales=materiales,
             piletas=piletas,
             detalles_fabricacion=detalles_fabricacion,
+            detalles_presupuestados=detalles_presupuestados,
             total=p.total_consolidado or p.total_neto_ars or 0,
             subtotal=p.total_neto_ars or 0,
             dolar_dia=p.dolar_dia or 1000,

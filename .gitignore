@@ -1,5 +1,3 @@
-node_modules/
-Fragmento de código
 # =======================================================================
 # 🐍 PYTHON / FASTAPI (Backend)
 # =======================================================================
@@ -12,7 +10,7 @@ env/
 pyenv/
 .env-py/
 
-# Archivos de configuración local y credenciales (¡MUY IMPORTANTE!)
+# Archivos de configuración local y credenciales (¡MUY IMPORTANTES!)
 .env
 *.env
 .env.local
@@ -44,7 +42,7 @@ share/wheels/
 .installed.cfg
 *.egg
 
-# Base de datos local (por si usás SQLite para desarrollo)
+# Base de datos local (SQLite para desarrollo)
 *.db
 *.sqlite3
 
@@ -98,7 +96,7 @@ desktop.ini
 .LSOverride
 ._*
 
-# Editores de código (VS Code, JetBrains, Warp, etc.)
+# Editores de código (VS Code, JetBrains, etc.)
 .vscode/
 !.vscode/settings.json
 !.vscode/tasks.json
