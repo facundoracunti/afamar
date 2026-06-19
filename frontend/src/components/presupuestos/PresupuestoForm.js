@@ -792,6 +792,39 @@ export default function PresupuestoForm() {
                   {form.cuotas} cuotas mensuales fijas de {formatCurrency(Math.round((form.total || 0) / (form.cuotas || 1)))}
                 </div>
               )}
+              <div style={{ marginTop: 8, padding: '8px 10px', background: '#fffbe6', border: '1px solid #fde68a', borderRadius: 8 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: '#92400e', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
+                  🔒 Descuento Comercial (Solo Vendedor)
+                </label>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>%</span>
+                    <input type="number" className="input" style={{ width: 70, textAlign: 'right' }}
+                      placeholder="0" min="0" max="100"
+                      value={form.descuento_porcentaje || ''}
+                      onChange={(e) => {
+                        const val = Number(e.target.value) || 0;
+                        setForm({ ...form, descuento_porcentaje: val, descuento_monto_fijo: val > 0 ? 0 : form.descuento_monto_fijo });
+                      }}
+                      disabled={readOnly} />
+                  </div>
+                  <span style={{ fontSize: 12, color: '#9ca3af' }}>o</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>$</span>
+                    <input type="number" className="input" style={{ width: 100, textAlign: 'right' }}
+                      placeholder="Monto fijo"
+                      value={form.descuento_monto_fijo || ''}
+                      onChange={(e) => {
+                        const val = Number(e.target.value) || 0;
+                        setForm({ ...form, descuento_monto_fijo: val, descuento_porcentaje: val > 0 ? 0 : form.descuento_porcentaje });
+                      }}
+                      disabled={readOnly} />
+                  </div>
+                </div>
+                <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 4, fontStyle: 'italic' }}>
+                  Este descuento modifica el TOTAL ARS final pero no se muestra en el PDF del cliente.
+                </div>
+              </div>
               <div className="form-group" style={{ marginTop: 8 }}>
                 <label>Fecha de entrega estimada</label>
                 <input type="date" className="input" value={form.fecha_entrega} onChange={(e) => update('fecha_entrega', e.target.value)} disabled={readOnly} />

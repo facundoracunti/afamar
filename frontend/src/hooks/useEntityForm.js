@@ -43,6 +43,8 @@ const INITIAL_FORM = {
   materiales: [],
   piletas: [],
   orden_trabajo_numero: null,
+  descuento_porcentaje: 0,
+  descuento_monto_fijo: 0,
 };
 
 export default function useEntityForm({
@@ -165,6 +167,8 @@ export default function useEntityForm({
           fecha_aprobacion: d.fecha_aprobacion ? d.fecha_aprobacion.slice(0, 10) : '',
           observaciones: d.observaciones || '',
           observaciones_importantes: d.observaciones_importantes || '',
+          descuento_porcentaje: 0,
+          descuento_monto_fijo: d.descuento || 0,
         });
         onLoaded?.(d);
         setLoading(false);
@@ -221,8 +225,18 @@ export default function useEntityForm({
     const subtotal = arsTotal + (dd > 0 ? Math.round((usdTotal + matUsd) * dd * 100) / 100 : 0) + matArs + ppArs + (dd > 0 ? Math.round(ppUsd * dd * 100) / 100 : 0);
     const tr = Number(form.traslado) || 0;
     const totalBase = Math.max(0, subtotal + tr);
-    const recargoArs = Math.round(totalBase * pctRecargo / 100);
-    const total = totalBase + recargoArs;
+
+    const descPct = Number(form.descuento_porcentaje) || 0;
+    const descFijo = Number(form.descuento_monto_fijo) || 0;
+    let totalConDescuento = totalBase;
+    if (descPct > 0) {
+      totalConDescuento = Math.round(totalBase * (1 - descPct / 100));
+    } else if (descFijo > 0) {
+      totalConDescuento = Math.max(0, totalBase - descFijo);
+    }
+
+    const recargoArs = Math.round(totalConDescuento * pctRecargo / 100);
+    const total = totalConDescuento + recargoArs;
 
     const senaArs = Number(form.sena_recibida) || 0;
     const senaUsdVal = Number(form.sena_usd) || 0;
@@ -233,8 +247,14 @@ export default function useEntityForm({
     const tr_usd = Number(form.traslado_usd) || 0;
     const subtotal_usd = usdTotal + matUsd + ppUsd + (dd > 0 ? (arsTotal + matArs + ppArs) / dd : 0);
     const totalBaseUsd = Math.max(0, subtotal_usd + tr_usd);
-    const recargoUsd = Math.round(totalBaseUsd * pctRecargo / 100);
-    const total_usd = totalBaseUsd + recargoUsd;
+    let totalConDescuentoUsd = totalBaseUsd;
+    if (descPct > 0) {
+      totalConDescuentoUsd = totalBaseUsd * (1 - descPct / 100);
+    } else if (descFijo > 0 && dd > 0) {
+      totalConDescuentoUsd = Math.max(0, totalBaseUsd - descFijo / dd);
+    }
+    const recargoUsd = Math.round(totalConDescuentoUsd * pctRecargo / 100);
+    const total_usd = totalConDescuentoUsd + recargoUsd;
     const saldo_pendiente_usd = Math.max(0, total_usd - senaTotalUsd);
 
     const esComparativo = (form.materiales || []).some((m) => m.es_alternativa);
@@ -257,7 +277,7 @@ export default function useEntityForm({
     }));
   }, [form.detalles_fabricacion, form.traslado, form.piletas, form.materiales,
       form.sena_moneda, form.sena_recibida, form.traslado_usd, form.sena_usd,
-      form.dolar_dia, form.cuotas, form.forma_pago]);
+      form.dolar_dia, form.cuotas, form.forma_pago, form.descuento_porcentaje, form.descuento_monto_fijo]);
 
   // Cerrar menús al hacer click fuera
   useEffect(() => {
@@ -522,6 +542,14 @@ export default function useEntityForm({
     fecha_aprobacion: form.fecha_aprobacion ? new Date(form.fecha_aprobacion).toISOString() : null,
     observaciones: form.observaciones,
     observaciones_importantes: form.observaciones_importantes,
+    descuento:
+      Number(form.descuento_monto_fijo) > 0
+        ? Number(form.descuento_monto_fijo)
+        : Number(form.descuento_porcentaje) > 0
+          ? Number(form.descuento_porcentaje)
+          : 0,
+    descuento_porcentaje: Number(form.descuento_porcentaje) || 0,
+    descuento_monto_fijo: Number(form.descuento_monto_fijo) || 0,
   }), [form]);
 
   const handleSubmit = useCallback(async (e) => {
