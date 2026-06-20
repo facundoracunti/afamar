@@ -554,3 +554,178 @@ input::-webkit-inner-spin-button {
 input[type=number] {
   -moz-appearance: textfield;
 }
+
+/* =======================================================================
+   🖨️ PRINT STYLES — Clean client-facing document
+   ======================================================================= */
+@media print {
+  @page {
+    margin: 1.5cm;
+    size: A4 portrait;
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 12pt;
+    line-height: 1.5;
+  }
+
+  * {
+    background: #fff !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  /* Hide ALL buttons, navigation, and UI chrome */
+  button, .btn, .btn-primary, .btn-success, .btn-warning, .btn-danger, .btn-outline,
+  .sidebar, .sidebar-trigger, .menu-header, .menu-links, .submenu,
+  .navbar, header, footer,
+  .dropdown-menu, .dropdown-item,
+  .pin-btn {
+    display: none !important;
+  }
+
+  /* Convert inputs/selects/textareas to plain text */
+  input, select, textarea {
+    border: none !important;
+    background: transparent !important;
+    padding: 0 2px !important;
+    outline: none !important;
+    box-shadow: none !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    color: #000 !important;
+    font-family: inherit !important;
+    font-size: inherit !important;
+    font-weight: inherit !important;
+    width: auto !important;
+    display: inline !important;
+    min-height: unset !important;
+    height: auto !important;
+  }
+
+  select {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    background-image: none !important;
+    padding-right: 2px !important;
+  }
+
+  /* Hide the croquis toolbar (left side buttons) */
+  canvas + div,
+  [class*="croquis"] button,
+  div[style*="border-right"] button {
+    display: none !important;
+  }
+
+  /* Show canvas but remove events */
+  canvas {
+    max-width: 100% !important;
+    page-break-inside: avoid;
+    border: 1px solid #ccc !important;
+  }
+
+  /* Card styling for print */
+  .card {
+    border: 1px solid #ddd !important;
+    border-radius: 6px !important;
+    padding: 14px !important;
+    margin-bottom: 12px !important;
+    page-break-inside: avoid;
+    box-shadow: none !important;
+  }
+
+  .card:hover {
+    box-shadow: none !important;
+  }
+
+  .presupuesto-form, .orden-form,
+  .main-content {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .presupuesto-header, .orden-header {
+    border-bottom: 2px solid #000 !important;
+    margin-bottom: 16px !important;
+    padding-bottom: 12px !important;
+  }
+
+  /* Hide the Firma section */
+  .firma-canvas-section button {
+    display: none !important;
+  }
+
+  /* Force table borders for print */
+  table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+  }
+  th, td {
+    border: 1px solid #ddd !important;
+    padding: 6px 10px !important;
+    font-size: 11pt !important;
+  }
+  th {
+    background: #f5f5f5 !important;
+    font-weight: 700 !important;
+  }
+
+  /* Badges keep their color but without background */
+  .badge, .badge-pending, .badge-approved, .badge-rejected,
+  .badge-production, .badge-finished {
+    border: 1px solid #999 !important;
+    background: transparent !important;
+    color: #000 !important;
+    padding: 1px 8px !important;
+    font-size: 10pt !important;
+  }
+
+  /* Hide the "Alternativa" checkbox column */
+  input[type="checkbox"] {
+    display: none !important;
+  }
+
+  /* Ensure all text is visible */
+  .section-title {
+    font-size: 14pt !important;
+    font-weight: 700 !important;
+    border-bottom: 1px solid #000 !important;
+  }
+
+  .form-group {
+    margin-bottom: 8px !important;
+    page-break-inside: avoid;
+  }
+
+  .form-group label {
+    font-weight: 600 !important;
+    font-size: 10pt !important;
+    color: #555 !important;
+  }
+
+  /* Hide alternative material checkboxes and admin-only panels */
+  label:has(input[type="checkbox"]),
+  [class*="seccion"],
+  .saldo-pendiente-cobro-banner {
+    display: none !important;
+  }
+
+  /* Show grid values inline */
+  .grid-2, .grid-3, .grid-4, .orden-grid-4, .form-row {
+    display: block !important;
+  }
+
+  .grid-2 > *, .grid-3 > *, .grid-4 > *, .orden-grid-4 > *, .form-row > * {
+    display: inline-block !important;
+    width: 45% !important;
+    margin-right: 4% !important;
+    vertical-align: top !important;
+  }
+
+  /* Page break helpers */
+  .page-break {
+    page-break-before: always;
+  }
+}

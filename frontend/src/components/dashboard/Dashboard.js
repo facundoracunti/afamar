@@ -126,10 +126,10 @@ export default function Dashboard() {
           </div>
 
           {/* Fila 3 */}
-          <div className="dash-card" style={cardStyle} onClick={() => navigate('/ordenes?estado=ENTREGADA')}>
+          <div className="dash-card" style={cardStyle} onClick={() => navigate('/ordenes?estado=TERMINADA')}>
             <div>
               <div style={{ marginBottom: 8 }}><Truck size={28} color="#e51a24" /></div>
-              ÓRDENES<br/>TERMINADAS P/ ENVÍO
+              ÓRDENES<br/>TERMINADAS (EN LOCAL)
             </div>
           </div>
           <div className="dash-card" style={cardStyle} onClick={() => navigate('/stock-piletas')}>
