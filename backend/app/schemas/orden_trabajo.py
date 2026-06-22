@@ -49,6 +49,8 @@ class OrdenTrabajoBase(BaseModel):
     traslado: Optional[float] = 0
     instalacion: Optional[float] = 0
     descuento: Optional[float] = 0
+    descuento_porcentaje: Optional[float] = 0
+    descuento_monto_fijo: Optional[float] = 0
     total: Optional[float] = 0
     sena_recibida: Optional[float] = 0
     sena_moneda: Optional[str] = "ARS"
@@ -103,6 +105,8 @@ class OrdenTrabajoUpdate(BaseModel):
     traslado: Optional[float] = None
     instalacion: Optional[float] = None
     descuento: Optional[float] = None
+    descuento_porcentaje: Optional[float] = None
+    descuento_monto_fijo: Optional[float] = None
     total: Optional[float] = None
     sena_recibida: Optional[float] = None
     sena_moneda: Optional[str] = None

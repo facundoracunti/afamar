@@ -929,4 +929,26 @@ UPDATE ordenes_trabajo SET estado = 'ENTREGADA' WHERE estado = 'ENTREGADO'; -- s
 - Manejo de errores consistente: 404 (NotFoundError), 409 (ConflictError), 400 (ValidationError).
 - Sin lógica de negocio en routers — son meros adaptadores HTTP.
 
+## Sesión 22-Jun-2026 — Descuento split, validación condicional, tabla comparativa, 2D bin packing, fix croquis renombrar
+
+### 1. Bug descuento_porcentaje ↔ descuento_monto_fijo
+- **Causa**: `useEntityForm.js:171` cargaba `d.descuento || 0` siempre en `descuento_monto_fijo`. Backend tenía un solo `descuento` (Float) sin distinguir tipo.
+- **Fix backend**: Agregadas columnas `descuento_porcentaje` y `descuento_monto_fijo` (Float, default=0) en `models/presupuesto.py` y `models/orden_trabajo.py`. Agregados campos en schemas Pydantic (Base + Update) de ambos. Wireados en `_to_schema` y `convertir_a_orden` de ambos services.
+- **Fix frontend**: `useEntityForm.js:170-171` cambió a `d.descuento_porcentaje ?? 0` y `d.descuento_monto_fijo ?? 0`.
+- DB: ejecutar ALTER TABLE para agregar columnas en DB existente.
+
+### 2. Descuento condicional (solo EFECTIVO)
+- **PresupuestoForm.js**: Select forma_pago resetea descuentos al cambiar a != EFECTIVO. Bloque de descuento envuelto en `{form.forma_pago === 'EFECTIVO' && (...)}`.
+- **OrdenForm.js**: Mismo cambio replicado.
+
+### 3. Tabla comparativa de descuento en órdenes
+- **OrdenForm.js:732-764**: Bloque verde que se muestra si `form.descuento_porcentaje > 0`. Revierte el cálculo para obtener Precio Lista y muestra "Precio Lista (Original)" + "Descuento Aplicado: X% OFF (-$Monto)". Cartel ámbar si hay descuento guardado.
+
+### 4. Calculadora de Placa — 2D Bin Packing
+- **CalculadoraPlaca.js**: Reemplazado `Math.ceil(totalM2Bruto / plateArea)` por algoritmo Guillotine Cut (Best Area Fit). Ordena piezas por área descendente, prueba rotación 90°, coloca en rectángulos libres, abre nueva placa si no entra. Considera kerf de 3mm por lado.
+
+### 5. Fix renombrar página en CroquisEditor
+- **CroquisEditor.js:195-203**: `confirmarRenombrar` construía payload con `paginas` viejas del closure de `updateElementos`. Fix: arma payload directamente con el nombre nuevo y llama a `onChange(payload)`.
+- No requiere cambios en backend (croquis es JSON column, `normalizeToPages` ya lee `p.nombre`).
+
 

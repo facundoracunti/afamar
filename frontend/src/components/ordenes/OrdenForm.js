@@ -729,10 +729,49 @@ export default function OrdenForm() {
                   {form.cuotas} cuotas mensuales fijas de {formatCurrency(Math.round((form.total || 0) / (form.cuotas || 1)))}
                 </div>
               )}
+              {form.descuento_porcentaje > 0 && (() => {
+                const descPct = form.descuento_porcentaje || 0;
+                const recargoPct = form.recargo_pct || 0;
+                const totalActual = form.total || 0;
+
+                const totalSinRecargo = recargoPct > 0
+                  ? Math.round(totalActual / (1 + recargoPct / 100))
+                  : totalActual;
+
+                const precioBase = Math.round(totalSinRecargo / (1 - descPct / 100));
+
+                const precioLista = recargoPct > 0
+                  ? precioBase + Math.round(precioBase * recargoPct / 100)
+                  : precioBase;
+
+                const descuentoEnPesos = Math.round(precioLista * descPct / 100);
+
+                return (
+                <div style={{ marginTop: 12, padding: '10px 14px', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, fontSize: 13 }}>
+                  <div style={{ marginBottom: 8, padding: '6px 10px', background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 6, fontSize: 12, fontWeight: 700, color: '#92400e', textAlign: 'center' }}>
+                    📌 Este pedido se guardó con un <span style={{ fontSize: 14 }}>{descPct}%</span> de descuento aplicado
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0', borderBottom: '1px solid #dcfce7', fontWeight: 700, color: '#374151' }}>
+                    <span>Precio Lista (Original)</span>
+                    <span>{formatCurrency(precioLista)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0', fontWeight: 700, color: '#dc2626' }}>
+                    <span>Descuento Aplicado</span>
+                    <span>{descPct}% OFF (-{formatCurrency(descuentoEnPesos)})</span>
+                  </div>
+                </div>
+                );
+              })()}
               <div className="form-group" style={{ marginTop: 8 }}>
                 <label>Forma de pago</label>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-                  <select className="input" style={{ flex: 1 }} value={form.forma_pago} onChange={(e) => update('forma_pago', e.target.value)} disabled={readOnly}>
+                  <select className="input" style={{ flex: 1 }} value={form.forma_pago} onChange={(e) => {
+                    const newVal = e.target.value;
+                    update('forma_pago', newVal);
+                    if (newVal !== 'EFECTIVO') {
+                      setForm(prev => ({ ...prev, descuento_porcentaje: 0, descuento_monto_fijo: 0 }));
+                    }
+                  }} disabled={readOnly}>
                     <option value="">Seleccionar...</option>
                     <option value="EFECTIVO">EFECTIVO</option>
                     <option value="TRANSFERENCIA BANCARIA">TRANSFERENCIA BANCARIA</option>
@@ -749,6 +788,41 @@ export default function OrdenForm() {
                   )}
                 </div>
               </div>
+              {form.forma_pago === 'EFECTIVO' && (
+              <div style={{ marginTop: 8, padding: '8px 10px', background: '#fffbe6', border: '1px solid #fde68a', borderRadius: 8 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: '#92400e', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
+                  🔒 Descuento Comercial (Solo Vendedor)
+                </label>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>%</span>
+                    <input type="number" className="input" style={{ width: 70, textAlign: 'right' }}
+                      placeholder="0" min="0" max="100"
+                      value={form.descuento_porcentaje || ''}
+                      onChange={(e) => {
+                        const val = Number(e.target.value) || 0;
+                        setForm({ ...form, descuento_porcentaje: val, descuento_monto_fijo: val > 0 ? 0 : form.descuento_monto_fijo });
+                      }}
+                      disabled={readOnly} />
+                  </div>
+                  <span style={{ fontSize: 12, color: '#9ca3af' }}>o</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>$</span>
+                    <input type="number" className="input" style={{ width: 100, textAlign: 'right' }}
+                      placeholder="Monto fijo"
+                      value={form.descuento_monto_fijo || ''}
+                      onChange={(e) => {
+                        const val = Number(e.target.value) || 0;
+                        setForm({ ...form, descuento_monto_fijo: val, descuento_porcentaje: val > 0 ? 0 : form.descuento_porcentaje });
+                      }}
+                      disabled={readOnly} />
+                  </div>
+                </div>
+                <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 4, fontStyle: 'italic' }}>
+                  Este descuento modifica el TOTAL ARS final pero no se muestra en el PDF del cliente.
+                </div>
+              </div>
+              )}
               <div className="form-group" style={{ marginTop: 8 }}>
                 <label>Fecha de entrega estimada</label>
                 <input type="date" className="input" value={form.fecha_entrega} onChange={(e) => update('fecha_entrega', e.target.value)} disabled={readOnly} />

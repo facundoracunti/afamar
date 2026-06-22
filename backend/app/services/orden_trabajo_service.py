@@ -180,6 +180,8 @@ class OrdenTrabajoService:
             traslado=o.traslado,
             instalacion=o.instalacion,
             descuento=o.descuento,
+            descuento_porcentaje=o.descuento_porcentaje,
+            descuento_monto_fijo=o.descuento_monto_fijo,
             total=o.total,
             sena_recibida=o.sena_recibida,
             sena_moneda=o.sena_moneda,

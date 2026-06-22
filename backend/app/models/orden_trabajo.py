@@ -56,6 +56,8 @@ class OrdenTrabajo(Base):
     traslado = Column(Float, default=0)
     instalacion = Column(Float, default=0)
     descuento = Column(Float, default=0)
+    descuento_porcentaje = Column(Float, default=0)
+    descuento_monto_fijo = Column(Float, default=0)
     total = Column(Float, default=0)
     sena_recibida = Column(Float, default=0)
     sena_moneda = Column(String(5), default="ARS")

@@ -167,8 +167,8 @@ export default function useEntityForm({
           fecha_aprobacion: d.fecha_aprobacion ? d.fecha_aprobacion.slice(0, 10) : '',
           observaciones: d.observaciones || '',
           observaciones_importantes: d.observaciones_importantes || '',
-          descuento_porcentaje: 0,
-          descuento_monto_fijo: d.descuento || 0,
+          descuento_porcentaje: d.descuento_porcentaje ?? 0,
+          descuento_monto_fijo: d.descuento_monto_fijo ?? 0,
         });
         onLoaded?.(d);
         setLoading(false);

@@ -770,7 +770,13 @@ export default function PresupuestoForm() {
               <div className="form-group" style={{ marginTop: 8 }}>
                 <label>Forma de pago</label>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-                  <select className="input" style={{ flex: 1 }} value={form.forma_pago} onChange={(e) => update('forma_pago', e.target.value)} disabled={readOnly}>
+                  <select className="input" style={{ flex: 1 }} value={form.forma_pago} onChange={(e) => {
+                    const newVal = e.target.value;
+                    update('forma_pago', newVal);
+                    if (newVal !== 'EFECTIVO') {
+                      setForm(prev => ({ ...prev, descuento_porcentaje: 0, descuento_monto_fijo: 0 }));
+                    }
+                  }} disabled={readOnly}>
                     <option value="">Seleccionar...</option>
                     <option value="EFECTIVO">EFECTIVO</option>
                     <option value="TRANSFERENCIA BANCARIA">TRANSFERENCIA BANCARIA</option>
@@ -792,6 +798,7 @@ export default function PresupuestoForm() {
                   {form.cuotas} cuotas mensuales fijas de {formatCurrency(Math.round((form.total || 0) / (form.cuotas || 1)))}
                 </div>
               )}
+              {form.forma_pago === 'EFECTIVO' && (
               <div style={{ marginTop: 8, padding: '8px 10px', background: '#fffbe6', border: '1px solid #fde68a', borderRadius: 8 }}>
                 <label style={{ fontSize: 12, fontWeight: 700, color: '#92400e', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
                   🔒 Descuento Comercial (Solo Vendedor)
@@ -825,6 +832,7 @@ export default function PresupuestoForm() {
                   Este descuento modifica el TOTAL ARS final pero no se muestra en el PDF del cliente.
                 </div>
               </div>
+              )}
               <div className="form-group" style={{ marginTop: 8 }}>
                 <label>Fecha de entrega estimada</label>
                 <input type="date" className="input" value={form.fecha_entrega} onChange={(e) => update('fecha_entrega', e.target.value)} disabled={readOnly} />

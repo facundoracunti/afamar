@@ -195,8 +195,12 @@ export default function CroquisEditor({ croquis, onChange, readOnly = false }) {
   const confirmarRenombrar = (id) => {
     if (!nombreTemp.trim()) { setEditingNombre(null); return; }
     const newPages = paginas.map((p) => (p.id === id ? { ...p, nombre: nombreTemp.trim() } : p));
+    const payload = newPages.map((p) => ({
+      pagina_id: p.id, nombre: p.nombre, dibujo: p.elementos,
+    }));
+    onChange(payload);
+    setPaginas(newPages);
     setEditingNombre(null);
-    updateElementos(paginaActiva?.elementos || []);
   };
 
   const eliminarPagina = (id) => {
