@@ -33,6 +33,7 @@ export default function PresupuestoForm() {
     form, loading, saving, materiales, piletas, logoUrl,
     showClienteDropdown, menuOpen, deleteConfirm, showCroquis,
     readOnly, hayUSD, hayAlternativas, clientesFiltrados, isEdit,
+    modoUSD, toggleModoUSD,
     menuRef, clienteRef,
     setForm, setSaving,
     setMenuOpen, setDeleteConfirm, setShowClienteDropdown, setShowCroquis,
@@ -529,12 +530,24 @@ export default function PresupuestoForm() {
                       )}
                     </div>
                 </div>
-                ) : (
+                ) : (() => {
+                const mostrarUSDCol = hayUSD && !modoUSD;
+                return (
+                <div>
+                <div style={{ marginBottom: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <button type="button" onClick={toggleModoUSD} className="btn btn-sm"
+                    style={{ background: modoUSD ? '#059669' : '#f3f4f6', color: modoUSD ? '#fff' : '#374151', borderColor: modoUSD ? '#059669' : '#d1d5db', border: '1px solid', borderRadius: 6, padding: '3px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                    {modoUSD ? 'Mostrar en ARS' : 'Mostrar en USD'}
+                  </button>
+                </div>
                 <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              {/* Columna ARS */}
-              <div style={{ flex: hayUSD ? '1 1 280px' : '1 1 100%', fontSize: 13, lineHeight: 1.8 }}>
+              {(() => {
+              const dd = Number(form.dolar_dia);
+              const currencyLabel = modoUSD ? 'USD' : 'ARS';
+              return (
+              <div style={{ flex: mostrarUSDCol ? '1 1 280px' : '1 1 100%', fontSize: 13, lineHeight: 1.8 }}>
                 <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: 6, marginBottom: 6 }}>
-                  <span style={{ fontWeight: 700, color: '#6b7280' }}>SUBTOTALES (ARS)</span>
+                  <span style={{ fontWeight: 700, color: '#6b7280' }}>SUBTOTALES ({modoUSD ? 'USD' : 'ARS'})</span>
                 </div>
                 <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: 8, marginBottom: 8 }}>
                   {(form.detalles_fabricacion || []).filter((d) => Number(d.precio) > 0).map((d, i) => {
@@ -543,7 +556,7 @@ export default function PresupuestoForm() {
                     return (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span>{d.concepto === 'OTRA' ? (d.detalle || 'OTRA') : d.concepto}{d.material ? ` - ${d.material}` : ''}{d.m2 > 0 ? ` (${d.m2} m²)` : ''}{d.largo > 0 && d.concepto === 'OTRA' ? ` (${d.largo} m)` : ''}{(d.cantidad || 1) > 1 ? ` x${d.cantidad}` : ''}</span>
-                      <span style={{ fontWeight: 600 }}>{formatCurrency(precioArs * (d.cantidad || 1))}</span>
+                      <span style={{ fontWeight: 600 }}>{modoUSD && dd2 > 0 ? `USD ${(precioArs * (d.cantidad || 1) / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(precioArs * (d.cantidad || 1))}</span>
                     </div>
                     );
                   })}
@@ -554,7 +567,7 @@ export default function PresupuestoForm() {
                     return sub > 0 ? (
                       <div key={'ma' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span>{m.nombre} ({m2.toFixed(3)} m²){(m.cantidad || 1) > 1 ? ` x${m.cantidad}` : ''}</span>
-                        <span style={{ fontWeight: 600 }}>{formatCurrency(sub)}</span>
+                        <span style={{ fontWeight: 600 }}>{modoUSD && dd2 > 0 ? `USD ${(sub / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(sub)}</span>
                       </div>
                     ) : null;
                   })}
@@ -564,32 +577,32 @@ export default function PresupuestoForm() {
                     return (
                     <div key={'pa' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span>Pileta {pt.marca} - {pt.modelo}{pt.cantidad > 1 ? ` (x${pt.cantidad})` : ''}</span>
-                      <span style={{ fontWeight: 600 }}>{formatCurrency(precioArs * (pt.cantidad || 1))}</span>
+                      <span style={{ fontWeight: 600 }}>{modoUSD && dd2 > 0 ? `USD ${(precioArs * (pt.cantidad || 1) / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(precioArs * (pt.cantidad || 1))}</span>
                     </div>
                     );
                   })}
                 </div>
                 <div className="form-group" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <label style={{ margin: 0, fontWeight: 600 }}>Traslado</label>
+                  <label style={{ margin: 0, fontWeight: 600 }}>{modoUSD ? 'Traslado (USD)' : 'Traslado'}</label>
                   <input type="number" className="input" style={{ width: 130, textAlign: 'right' }}
-                    value={form.traslado}
-                    onChange={(e) => handleTrasladoChange(e.target.value, 'ars')}
+                    value={modoUSD && dd > 0 ? (form.traslado / dd).toFixed(2) : form.traslado}
+                    onChange={(e) => handleTrasladoChange(e.target.value, modoUSD ? 'usd' : 'ars')}
                     disabled={readOnly} />
                 </div>
                 {form.recargo_pct > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', fontSize: 12, color: '#c0392b' }}>
                   <span>Recargo financiero ({form.cuotas} cuotas - {form.recargo_pct}%)</span>
-                  <span style={{ fontWeight: 700 }}>+ {formatCurrency(form.recargo_ars || 0)}</span>
+                  <span style={{ fontWeight: 700 }}>{modoUSD && dd > 0 ? `USD ${(form.recargo_ars / dd).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(form.recargo_ars || 0)}</span>
                 </div>
                 )}
                 <div style={{ borderTop: form.recargo_pct > 0 ? '1px solid #e5e7eb' : '2px solid #e5e7eb', paddingTop: 6, marginBottom: 4 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 16, fontWeight: 700 }}>TOTAL ARS</span>
-                    <span style={{ fontSize: 18, fontWeight: 700, color: '#dc2626' }}>{formatCurrency(form.total)}</span>
+                    <span style={{ fontSize: 16, fontWeight: 700 }}>TOTAL {currencyLabel}</span>
+                    <span style={{ fontSize: 18, fontWeight: 700, color: modoUSD ? '#059669' : '#dc2626' }}>{modoUSD && dd > 0 ? `USD ${(form.total / dd).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(form.total)}</span>
                   </div>
                 </div>
                 <div className="form-group" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <label style={{ margin: 0 }}>Seña recibida</label>
+                  <label style={{ margin: 0 }}>{modoUSD ? 'Seña recibida (USD)' : 'Seña recibida'}</label>
                   <div style={{ display: 'flex', borderRadius: 6, border: '1px solid #d1d5db', overflow: 'hidden', width: 180 }}>
                     <select value={form.sena_moneda || 'ARS'} onChange={(e) => handleSenaMonedaChange(e.target.value)} disabled={readOnly}
                       style={{ background: '#f3f4f6', borderRight: '1px solid #d1d5db', padding: '4px 6px', fontSize: 12, fontWeight: 700, border: 'none', outline: 'none' }}>
@@ -602,7 +615,7 @@ export default function PresupuestoForm() {
                       disabled={readOnly} />
                   </div>
                 </div>
-                {hayUSD && (
+                {(mostrarUSDCol || modoUSD) && (
                 <div className="form-group" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
                   <label style={{ margin: 0, fontWeight: 700, fontSize: 14, color: '#1e40af' }}>DÓLAR DEL DÍA</label>
                   <input type="number" className="input" style={{ width: 130, textAlign: 'right', fontWeight: 700, color: '#1e40af', borderColor: '#93c5fd' }}
@@ -612,12 +625,12 @@ export default function PresupuestoForm() {
                 </div>
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-                  <span style={{ fontWeight: 600 }}>Saldo pendiente ARS</span>
-                  <span style={{ fontSize: 16, fontWeight: 700, color: '#1e40af' }}>{formatCurrency(form.saldo_pendiente)}</span>
+                  <span style={{ fontWeight: 600 }}>Saldo pendiente {currencyLabel}</span>
+                  <span style={{ fontSize: 16, fontWeight: 700, color: modoUSD ? '#059669' : '#1e40af' }}>{modoUSD && dd > 0 ? `USD ${(form.saldo_pendiente / dd).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(form.saldo_pendiente)}</span>
                 </div>
               </div>
-
-              {hayUSD && (
+              )})()}
+              {mostrarUSDCol && (
               <div style={{ flex: '1 1 280px', fontSize: 13, lineHeight: 1.8 }}>
                 <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: 6, marginBottom: 6 }}>
                   <span style={{ fontWeight: 700, color: '#6b7280' }}>SUBTOTALES (USD)</span>
@@ -686,7 +699,8 @@ export default function PresupuestoForm() {
               </div>
               )}
                 </div>
-                )}
+                </div>
+                ); })()}
 
                 {hayAlternativas && (
                   <OpcionesCotizacionGrid
@@ -702,6 +716,7 @@ export default function PresupuestoForm() {
                     tipoCambio={Number(form.dolar_dia) || 1}
                     presupuestoId={id}
                     onConvertirAlternativa={handleConvertirAlternativa}
+                    modoUSD={modoUSD}
                   />
                 )}
               </div>
@@ -752,12 +767,13 @@ export default function PresupuestoForm() {
                 </div>
               </div>
               <div style={{ marginTop: 12, padding: '10px 14px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                {(() => { const dd = Number(form.dolar_dia); const mostrarUSDCol = hayUSD && !modoUSD; return (
                 <div style={{ display: 'flex', justifyContent: 'space-around' }}>
                   <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>TOTAL ARS</div>
-                    <div style={{ fontSize: 22, fontWeight: 700, color: '#dc2626' }}>{formatCurrency(form.total)}</div>
+                    <div style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>TOTAL {modoUSD && dd > 0 ? 'USD' : 'ARS'}</div>
+                    <div style={{ fontSize: 22, fontWeight: 700, color: modoUSD ? '#059669' : '#dc2626' }}>{modoUSD && dd > 0 ? `USD ${(form.total / dd).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(form.total)}</div>
                   </div>
-                  {hayUSD && (
+                  {mostrarUSDCol && (
                   <div style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>TOTAL USD</div>
                     <div style={{ fontSize: 22, fontWeight: 700, color: '#059669' }}>
@@ -766,6 +782,7 @@ export default function PresupuestoForm() {
                   </div>
                   )}
                 </div>
+                ); })()}
               </div>
               <div className="form-group" style={{ marginTop: 8 }}>
                 <label>Forma de pago</label>

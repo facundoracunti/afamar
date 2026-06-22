@@ -929,6 +929,31 @@ UPDATE ordenes_trabajo SET estado = 'ENTREGADA' WHERE estado = 'ENTREGADO'; -- s
 - Manejo de errores consistente: 404 (NotFoundError), 409 (ConflictError), 400 (ValidationError).
 - Sin lógica de negocio en routers — son meros adaptadores HTTP.
 
+## Sesión 22-Jun-2026 (final) — Toggle USD en OrdenForm + PresupuestoForm + módulo comparativo
+
+### 1. Toggle USD en PRESUPUESTO panel (OrdenForm + PresupuestoForm)
+- Botón "Mostrar en USD" / "Mostrar en ARS" que alterna `modoUSD` state (hook)
+- Al activarse: divide subtotales, total, saldo pendiente por `dolar_dia` y muestra etiquetas USD
+- Traslado input: muestra valor convertido y onChange llama con 'usd' para persistencia correcta
+- Recargo, Seña, Saldo pendiente: convertidos visualmente sin alterar estado
+- DÓLAR DEL DÍA: visible siempre que `hayUSD || modoUSD`
+- Columna USD separada se oculta cuando modoUSD está activo (`mostrarUSDCol = hayUSD && !modoUSD`)
+- `currencyLabel` se renderiza como "USD" o "ARS" según el modo
+
+### 2. Toggle USD en módulo comparativo
+- **OrdenForm.js** (inline): comparative cards muestran Material/Trabajos+Traslado/Total en USD dividiendo por dolar_dia
+- **OpcionesCotizacionGrid.js**: acepta prop `modoUSD`. Cuando activo, todos los montos (costo material base, adicionales, total presupuesto) se muestran en USD. Se oculta la referencia "Ref. USD" cuando ya se muestra todo en USD.
+
+### 3. Backticks fijados (render literal en JSX)
+- `OpcionesCotizacionGrid.js:153`: `Ref. USD ${...}` → envuelto en template literal `{`Ref. USD $${...}`}`
+- `PresupuestoOnlineForm.js:485`: `(ARS + USD x ${...})` → envuelto en template literal
+
+### Archivos modificados
+- `frontend/src/components/ordenes/OrdenForm.js` — toggle USD + comparative USD
+- `frontend/src/components/presupuestos/PresupuestoForm.js` — toggle USD + IIFE scope fix
+- `frontend/src/components/presupuestos/OpcionesCotizacionGrid.js` — prop modoUSD + backtick fix
+- `frontend/src/components/presupuestos/PresupuestoOnlineForm.js` — backtick fix
+
 ## Sesión 22-Jun-2026 — Descuento split, validación condicional, tabla comparativa, 2D bin packing, fix croquis renombrar
 
 ### 1. Bug descuento_porcentaje ↔ descuento_monto_fijo

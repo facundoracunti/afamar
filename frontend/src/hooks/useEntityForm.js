@@ -68,6 +68,8 @@ export default function useEntityForm({
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [logoUrl, setLogoUrl] = useState('');
   const [showCroquis, setShowCroquis] = useState(false);
+  const [modoUSD, setModoUSD] = useState(false);
+  const toggleModoUSD = useCallback(() => setModoUSD((p) => !p), []);
 
   const menuRef = useRef(null);
   const clienteRef = useRef(null);
@@ -258,10 +260,30 @@ export default function useEntityForm({
     const saldo_pendiente_usd = Math.max(0, total_usd - senaTotalUsd);
 
     const esComparativo = (form.materiales || []).some((m) => m.es_alternativa);
-    const totalFinal = esComparativo ? 0 : total;
-    const totalUsdFinal = esComparativo ? 0 : total_usd;
-    const saldoFinal = esComparativo ? 0 : saldo;
-    const saldoUsdFinal = esComparativo ? 0 : saldo_pendiente_usd;
+    let totalFinal = total;
+    let totalUsdFinal = total_usd;
+    let saldoFinal = saldo;
+    let saldoUsdFinal = saldo_pendiente_usd;
+    if (esComparativo) {
+      const primeraAlt = (form.materiales || []).find((m) => m.es_alternativa);
+      if (primeraAlt) {
+        const dd2 = dd || 1;
+        const m2 = Number(primeraAlt.largo || 0) * Number(primeraAlt.ancho || 0) * (primeraAlt.cantidad || 1);
+        const precioMat = primeraAlt.moneda === 'USD' ? (primeraAlt.precio_m2_usd || 0) : (primeraAlt.precio_m2 || 0);
+        const costoMatArs = primeraAlt.moneda === 'USD' ? m2 * precioMat * dd2 : m2 * precioMat;
+        const fijosArs = arsTotal + (dd2 > 0 ? usdTotal * dd2 : 0) + ppArs + (dd2 > 0 ? ppUsd * dd2 : 0) + tr;
+        const totalAlt = Math.round(costoMatArs + fijosArs);
+        const totalAltConDesc = descPct > 0 ? Math.round(totalAlt * (1 - descPct / 100)) : (descFijo > 0 ? Math.max(0, totalAlt - descFijo) : totalAlt);
+        totalFinal = totalAltConDesc + (totalAltConDesc > 0 ? Math.round(totalAltConDesc * pctRecargo / 100) : 0);
+        const costoMatUsd = primeraAlt.moneda === 'USD' ? m2 * precioMat : m2 * precioMat / dd2;
+        const fijosUsd = usdTotal + (dd2 > 0 ? arsTotal / dd2 : 0) + ppUsd + (dd2 > 0 ? ppArs / dd2 : 0) + (dd2 > 0 ? tr / dd2 : 0);
+        const totalAltUsd = Math.round((costoMatUsd + fijosUsd) * 100) / 100;
+        const totalAltConDescUsd = descPct > 0 ? totalAltUsd * (1 - descPct / 100) : (descFijo > 0 && dd2 > 0 ? Math.max(0, totalAltUsd - descFijo / dd2) : totalAltUsd);
+        totalUsdFinal = totalAltConDescUsd + (totalAltConDescUsd > 0 ? Math.round(totalAltConDescUsd * pctRecargo / 100 * 100) / 100 : 0);
+        saldoFinal = Math.max(0, totalFinal - senaTotalArs);
+        saldoUsdFinal = Math.max(0, totalUsdFinal - senaTotalUsd);
+      }
+    }
 
     setForm((prev) => ({
       ...prev,
@@ -629,6 +651,9 @@ export default function useEntityForm({
     menuOpen,
     deleteConfirm,
     showCroquis,
+    modoUSD,
+    toggleModoUSD,
+    setModoUSD,
     readOnly,
     hayUSD,
     hayAlternativas,

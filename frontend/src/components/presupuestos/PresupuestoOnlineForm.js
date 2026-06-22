@@ -482,7 +482,7 @@ export default function PresupuestoOnlineForm() {
             )}
             <div style={{ textAlign: 'right', background: '#dc2626', color: 'white', padding: '10px 24px', borderRadius: 8 }}>
               <div style={{ fontSize: 12, fontWeight: 600 }}>TOTAL CONSOLIDADO</div>
-              {hayUSD && (<div style={{ fontSize: 14, fontWeight: 400, opacity: 0.8 }}>(ARS + USD x ${Number(dolarDia).toLocaleString('es-AR')})</div>)}
+              {hayUSD && (<div style={{ fontSize: 14, fontWeight: 400, opacity: 0.8 }}>{`(ARS + USD x $${Number(dolarDia).toLocaleString('es-AR')})`}</div>)}
               <div style={{ fontSize: 22, fontWeight: 800 }}>$ {totalConsolidado.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
             </div>
           </div>

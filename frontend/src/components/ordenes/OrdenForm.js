@@ -30,6 +30,7 @@ export default function OrdenForm() {
     form, loading, saving, materiales, piletas, logoUrl,
     showClienteDropdown, menuOpen, deleteConfirm, showCroquis,
     readOnly, hayUSD, hayAlternativas, clientesFiltrados,
+    modoUSD, toggleModoUSD,
     menuRef, clienteRef,
     setForm,
     setMenuOpen, setDeleteConfirm, setShowClienteDropdown, setShowCroquis,
@@ -446,19 +447,31 @@ export default function OrdenForm() {
 
           {/* Panel 3: Presupuesto */}
           <div className="card">
-            <h3 className="section-title">PRESUPUESTO</h3>
+            <div className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>PRESUPUESTO</span>
+              <button type="button" onClick={toggleModoUSD}
+                style={{
+                  padding: '4px 12px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', border: '1px solid',
+                  background: modoUSD ? '#059669' : '#f3f4f6', color: modoUSD ? '#fff' : '#374151', borderColor: modoUSD ? '#059669' : '#d1d5db',
+                }}>
+                {modoUSD ? 'Mostrar en ARS' : 'Mostrar en USD'}
+              </button>
+            </div>
 
             {(() => {
+              const dd = Number(form.dolar_dia) || 1;
+              const currencyLabel = modoUSD ? 'USD' : 'ARS';
+              const mostrarUSDCol = hayUSD && !modoUSD;
               const matsMain = hayAlternativas ? (form.materiales || []).filter((m) => !m.es_alternativa) : (form.materiales || []);
               const matsAlt = (form.materiales || []).filter((m) => m.es_alternativa);
 
               return (
               <div>
                 <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              {/* Columna ARS */}
-              <div style={{ flex: hayUSD ? '1 1 280px' : '1 1 100%', fontSize: 13, lineHeight: 1.8 }}>
+              {/* Columna principal */}
+              <div style={{ flex: mostrarUSDCol ? '1 1 280px' : '1 1 100%', fontSize: 13, lineHeight: 1.8 }}>
                 <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: 6, marginBottom: 6 }}>
-                  <span style={{ fontWeight: 700, color: '#6b7280' }}>SUBTOTALES (ARS)</span>
+                  <span style={{ fontWeight: 700, color: '#6b7280' }}>SUBTOTALES ({currencyLabel})</span>
                 </div>
                 <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: 8, marginBottom: 8 }}>
                   {(form.detalles_fabricacion || []).filter((d) => Number(d.precio) > 0).map((d, i) => {
@@ -467,7 +480,7 @@ export default function OrdenForm() {
                     return (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span>{d.concepto === 'OTRA' ? (d.detalle || 'OTRA') : d.concepto}{d.material ? ` - ${d.material}` : ''}{d.m2 > 0 ? ` (${d.m2} m²)` : ''}{d.largo > 0 && d.concepto === 'OTRA' ? ` (${d.largo} m)` : ''}{(d.cantidad || 1) > 1 ? ` x${d.cantidad}` : ''}</span>
-                      <span style={{ fontWeight: 600 }}>{formatCurrency(precioArs * (d.cantidad || 1))}</span>
+                      <span style={{ fontWeight: 600 }}>{modoUSD && dd2 > 0 ? `USD ${(precioArs * (d.cantidad || 1) / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(precioArs * (d.cantidad || 1))}</span>
                     </div>
                     );
                   })}
@@ -478,7 +491,7 @@ export default function OrdenForm() {
                     return sub > 0 ? (
                       <div key={'ma' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span>Material: {m.nombre} ({m2.toFixed(3)} m²){(m.cantidad || 1) > 1 ? ` x${m.cantidad}` : ''}</span>
-                        <span style={{ fontWeight: 600 }}>{formatCurrency(sub)}</span>
+                        <span style={{ fontWeight: 600 }}>{modoUSD && dd2 > 0 ? `USD ${(sub / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(sub)}</span>
                       </div>
                     ) : null;
                   })}
@@ -488,32 +501,32 @@ export default function OrdenForm() {
                     return (
                     <div key={'pa' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span>Pileta {pt.marca} - {pt.modelo}{pt.cantidad > 1 ? ` (x${pt.cantidad})` : ''}</span>
-                      <span style={{ fontWeight: 600 }}>{formatCurrency(precioArs * (pt.cantidad || 1))}</span>
+                      <span style={{ fontWeight: 600 }}>{modoUSD && dd2 > 0 ? `USD ${(precioArs * (pt.cantidad || 1) / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(precioArs * (pt.cantidad || 1))}</span>
                     </div>
                     );
                   })}
                 </div>
                 <div className="form-group" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <label style={{ margin: 0, fontWeight: 600 }}>Traslado</label>
+                  <label style={{ margin: 0, fontWeight: 600 }}>{modoUSD ? 'Traslado (USD)' : 'Traslado'}</label>
                   <input type="number" className="input" style={{ width: 130, textAlign: 'right' }}
-                    value={form.traslado}
-                    onChange={(e) => handleTrasladoChange(e.target.value, 'ars')}
+                    value={modoUSD && dd > 0 ? (form.traslado / dd).toFixed(2) : form.traslado}
+                    onChange={(e) => handleTrasladoChange(e.target.value, modoUSD ? 'usd' : 'ars')}
                     disabled={readOnly} />
                 </div>
                 {form.recargo_pct > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', fontSize: 12, color: '#c0392b' }}>
                   <span>Recargo financiero ({form.cuotas} cuotas - {form.recargo_pct}%)</span>
-                  <span style={{ fontWeight: 700 }}>+ {formatCurrency(form.recargo_ars || 0)}</span>
+                  <span style={{ fontWeight: 700 }}>{modoUSD && dd > 0 ? `USD ${(form.recargo_ars / dd).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(form.recargo_ars || 0)}</span>
                 </div>
                 )}
                 <div style={{ borderTop: form.recargo_pct > 0 ? '1px solid #e5e7eb' : '2px solid #e5e7eb', paddingTop: 6, marginBottom: 4 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 16, fontWeight: 700 }}>TOTAL ARS</span>
-                    <span style={{ fontSize: 18, fontWeight: 700, color: '#dc2626' }}>{formatCurrency(form.total)}</span>
+                    <span style={{ fontSize: 16, fontWeight: 700 }}>TOTAL {currencyLabel}</span>
+                    <span style={{ fontSize: 18, fontWeight: 700, color: modoUSD ? '#059669' : '#dc2626' }}>{modoUSD && dd > 0 ? `USD ${(form.total / dd).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(form.total)}</span>
                   </div>
                 </div>
                 <div className="form-group" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <label style={{ margin: 0 }}>Seña recibida</label>
+                  <label style={{ margin: 0 }}>{modoUSD ? 'Seña recibida (USD)' : 'Seña recibida'}</label>
                   <div style={{ display: 'flex', borderRadius: 6, border: '1px solid #d1d5db', overflow: 'hidden', width: 180 }}>
                     <select value={form.sena_moneda || 'ARS'} onChange={(e) => handleSenaMonedaChange(e.target.value)} disabled={readOnly}
                       style={{ background: '#f3f4f6', borderRight: '1px solid #d1d5db', padding: '4px 6px', fontSize: 12, fontWeight: 700, border: 'none', outline: 'none' }}>
@@ -526,7 +539,7 @@ export default function OrdenForm() {
                       disabled={readOnly} />
                   </div>
                 </div>
-                {hayUSD && (
+                {(mostrarUSDCol || modoUSD) && (
                 <div className="form-group" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
                   <label style={{ margin: 0, fontWeight: 700, fontSize: 14, color: '#1e40af' }}>DÓLAR DEL DÍA</label>
                   <input type="number" className="input" style={{ width: 130, textAlign: 'right', fontWeight: 700, color: '#1e40af', borderColor: '#93c5fd' }}
@@ -536,12 +549,12 @@ export default function OrdenForm() {
                 </div>
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-                  <span style={{ fontWeight: 600 }}>Saldo pendiente ARS</span>
-                  <span style={{ fontSize: 16, fontWeight: 700, color: '#1e40af' }}>{formatCurrency(form.saldo_pendiente)}</span>
+                  <span style={{ fontWeight: 600 }}>Saldo pendiente {currencyLabel}</span>
+                  <span style={{ fontSize: 16, fontWeight: 700, color: modoUSD ? '#059669' : '#1e40af' }}>{modoUSD && dd > 0 ? `USD ${(form.saldo_pendiente / dd).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(form.saldo_pendiente)}</span>
                 </div>
               </div>
 
-              {hayUSD && (
+              {mostrarUSDCol && (
               <div style={{ flex: '1 1 280px', fontSize: 13, lineHeight: 1.8 }}>
                 <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: 6, marginBottom: 6 }}>
                   <span style={{ fontWeight: 700, color: '#6b7280' }}>SUBTOTALES (USD)</span>
@@ -620,7 +633,7 @@ export default function OrdenForm() {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
                     {matsAlt.map((mat, idx) => {
                       const letra = String.fromCharCode(65 + idx);
-                      const dd2 = Number(form.dolar_dia) || 1;
+                      const dd2 = Number(form.dolar_dia);
                       const m2 = Number(mat.largo || 0) * Number(mat.ancho || 0) * (mat.cantidad || 1);
                       const costoMat = mat.moneda === 'USD' ? m2 * (mat.precio_m2_usd || 0) : m2 * (mat.precio_m2 || 0);
                       const costoMatArs = mat.moneda === 'USD' ? (dd2 > 0 ? costoMat * dd2 : 0) : costoMat;
@@ -628,6 +641,7 @@ export default function OrdenForm() {
                         + (form.piletas || []).reduce((s, pt) => s + (Number(pt.precio) || 0) * (pt.cantidad || 1), 0)
                         + (Number(form.traslado) || 0);
                       const totalArs = costoMatArs + fijosArsAlt;
+                      const mostrarUSDAlt = modoUSD && dd2 > 0;
                       return (
                         <div key={idx} style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12, background: '#fafafa', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                           <div>
@@ -640,17 +654,17 @@ export default function OrdenForm() {
                             <div style={{ borderTop: '1px dashed #d1d5db', paddingTop: 6, fontSize: 12, color: '#6b7280', marginBottom: 8 }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span>Material:</span>
-                                <span style={{ fontWeight: 600, color: '#374151' }}>$ {costoMatArs.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                                <span style={{ fontWeight: 600, color: '#374151' }}>{mostrarUSDAlt ? `USD ${(costoMatArs / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `$${costoMatArs.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}</span>
                               </div>
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span>Trabajos + Piletas + Traslado:</span>
-                                <span style={{ fontWeight: 600, color: '#374151' }}>$ {fijosArsAlt.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                                <span style={{ fontWeight: 600, color: '#374151' }}>{mostrarUSDAlt ? `USD ${(fijosArsAlt / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `$${fijosArsAlt.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}</span>
                               </div>
                             </div>
                           </div>
                           <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 8, textAlign: 'center', background: '#fff', borderRadius: 6, padding: 8 }}>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase' }}>Total alternativa</div>
-                            <div style={{ fontSize: 18, fontWeight: 900, color: '#dc2626' }}>$ {Math.round(totalArs).toLocaleString('es-AR')}</div>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase' }}>Total alternativa {mostrarUSDAlt ? '(USD)' : ''}</div>
+                            <div style={{ fontSize: 18, fontWeight: 900, color: '#dc2626' }}>{mostrarUSDAlt ? `USD ${(totalArs / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `$${Math.round(totalArs).toLocaleString('es-AR')}`}</div>
                           </div>
                         </div>
                       );
@@ -665,7 +679,6 @@ export default function OrdenForm() {
               );
             })()}
 
-            {!hayAlternativas && (
             <div>
             <div style={{ marginTop: 12, borderTop: '1px solid #e5e7eb', paddingTop: 12 }}>
               <div style={{ marginTop: 12, padding: '10px 14px', background: form.saldo_pagado ? '#d1fae5' : '#fef9c3', borderRadius: 8, border: `1px solid ${form.saldo_pagado ? '#6ee7b7' : '#fde68a'}` }}>
@@ -708,13 +721,14 @@ export default function OrdenForm() {
                   </button>
                 </div>
               </div>
+              {(() => { const dd = Number(form.dolar_dia); const currencyLabel = modoUSD && dd > 0 ? 'USD' : 'ARS'; const mostrarUSDCol = hayUSD && !modoUSD; return (
               <div style={{ marginTop: 12, padding: '10px 14px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-around' }}>
                   <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>TOTAL ARS</div>
-                    <div style={{ fontSize: 22, fontWeight: 700, color: '#dc2626' }}>{formatCurrency(form.total)}</div>
+                    <div style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>TOTAL {currencyLabel}</div>
+                    <div style={{ fontSize: 22, fontWeight: 700, color: modoUSD ? '#059669' : '#dc2626' }}>{modoUSD && dd > 0 ? `USD ${(form.total / dd).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(form.total)}</div>
                   </div>
-                  {hayUSD && (
+                  {mostrarUSDCol && (
                   <div style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>TOTAL USD</div>
                     <div style={{ fontSize: 22, fontWeight: 700, color: '#059669' }}>
@@ -724,6 +738,7 @@ export default function OrdenForm() {
                   )}
                 </div>
               </div>
+              ); })()}
               {form.recargo_pct > 0 && form.cuotas > 1 && (
                 <div style={{ fontSize: 12, color: '#c0392b', fontWeight: 600, marginTop: 8, marginBottom: 8, textAlign: 'center' }}>
                   {form.cuotas} cuotas mensuales fijas de {formatCurrency(Math.round((form.total || 0) / (form.cuotas || 1)))}
@@ -829,7 +844,6 @@ export default function OrdenForm() {
               </div>
             </div>
             </div>
-            )}
           </div>
 
           {/* Panel 4: Aprobación */}

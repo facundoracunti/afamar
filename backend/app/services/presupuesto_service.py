@@ -91,6 +91,71 @@ class PresupuestoService:
         self.repo.restore_stock(presupuesto)
         self.repo.delete(presupuesto_id)
 
+    def _filtrar_materiales_principales(self, materiales: list) -> list:
+        return [m for m in (materiales or []) if not m.get("es_alternativa")]
+
+    def _calcular_totales_orden(self, presupuesto, materiales_main) -> dict:
+        ars = 0.0
+        usd = 0.0
+
+        for d in (presupuesto.detalles_fabricacion or []):
+            precio = float(d.get("precio", 0) or 0)
+            cantidad = float(d.get("cantidad", 1) or 1)
+            if d.get("moneda") == "USD":
+                usd += precio * cantidad
+            else:
+                ars += precio * cantidad
+
+        for m in materiales_main:
+            largo = float(m.get("largo", 0) or 0)
+            ancho = float(m.get("ancho", 0) or 0)
+            cantidad = float(m.get("cantidad", 1) or 1)
+            m2 = round(largo * ancho, 5)
+            area = m2 * cantidad
+            if m.get("moneda") == "USD":
+                usd += round(area * float(m.get("precio_m2_usd", 0) or 0), 2)
+            else:
+                ars += round(area * float(m.get("precio_m2", 0) or 0), 2)
+
+        for pt in (presupuesto.piletas or []):
+            moneda = pt.get("moneda", "ARS") or "ARS"
+            precio = float(pt.get("precio", 0) or 0)
+            cantidad = float(pt.get("cantidad", 1) or 1)
+            if moneda == "USD":
+                usd += precio * cantidad
+            else:
+                ars += precio * cantidad
+
+        dd = float(presupuesto.dolar_dia or 1000)
+        dd = dd if dd > 0 else 1000
+        tr = float(presupuesto.traslado or 0)
+        subtotal = ars + round(usd * dd, 2) + tr
+        total_base = max(0.0, subtotal)
+
+        pct = 0
+        if presupuesto.forma_pago == "TARJETA DE CRÉDITO":
+            cuotas = int(presupuesto.cuotas or 1)
+            pct = 0 if cuotas <= 2 else cuotas * 5
+        recargo = round(total_base * pct / 100)
+        total_final = round(total_base + recargo)
+
+        subtotal_usd = usd + (round(ars / dd, 2) if dd > 0 else 0)
+        tr_usd = round(tr / dd, 2) if dd > 0 else 0
+        total_base_usd = max(0.0, subtotal_usd + tr_usd)
+        recargo_usd = round(total_base_usd * pct / 100, 2)
+        total_usd_val = round(total_base_usd + recargo_usd, 2)
+
+        return {
+            "subtotal": round(subtotal),
+            "subtotal_usd": round(subtotal_usd, 2),
+            "traslado": tr,
+            "traslado_usd": tr_usd,
+            "total": total_final,
+            "total_usd": total_usd_val,
+            "recargo": recargo,
+            "pct": pct,
+        }
+
     def convertir_a_orden(self, presupuesto_id: int) -> dict:
         presupuesto = self.repo.get(presupuesto_id)
         if not presupuesto:
@@ -112,6 +177,26 @@ class PresupuestoService:
 
         from app.repositories.stock_pileta import descontar_stock_piletas
 
+        # --- Filtrar alternativas y recalcular totales ---
+        todos_materiales = presupuesto.materiales or []
+        materiales_main = self._filtrar_materiales_principales(todos_materiales)
+        hay_alternativas = any(m.get("es_alternativa") for m in todos_materiales)
+
+        # Si no hay materiales principales pero sí alternativas, promover la primera
+        if not materiales_main and hay_alternativas:
+            primera_alt = next(m for m in todos_materiales if m.get("es_alternativa"))
+            materiales_main = [{**primera_alt, "es_alternativa": False}]
+            hay_alternativas = False
+
+        if materiales_main:
+            material_nombre = materiales_main[0].get("nombre", presupuesto.material or "")
+            material_precio_m2 = materiales_main[0].get("precio_m2", 0)
+        else:
+            material_nombre = presupuesto.material or ""
+            material_precio_m2 = presupuesto.material_precio_m2 or 0
+
+        totales = self._calcular_totales_orden(presupuesto, materiales_main)
+
         orden = OrdenTrabajo(
             numero=generar_numero_orden(self.db),
             presupuesto_id=presupuesto.id,
@@ -123,8 +208,8 @@ class PresupuestoService:
             domicilio=presupuesto.domicilio,
             email=presupuesto.email,
             croquis=presupuesto.croquis,
-            material=presupuesto.material,
-            material_precio_m2=presupuesto.material_precio_m2,
+            material=material_nombre,
+            material_precio_m2=material_precio_m2,
             tipo_cambio=presupuesto.tipo_cambio or 1000,
             color_tipo=presupuesto.color_tipo,
             espesor=presupuesto.espesor,
@@ -132,75 +217,35 @@ class PresupuestoService:
             bacha=presupuesto.bacha,
             anafe=presupuesto.anafe,
             observaciones_diseno=presupuesto.observaciones_diseno,
-            detalles_fabricacion=(presupuesto.detalles_fabricacion or [])
-            + [
-                {
-                    "concepto": i.sector,
-                    "detalle": "",
-                    "cantidad": i.cantidad or 1,
-                    "precio": (i.m2 or 0) * (i.precio_m2 or 0),
-                    "moneda": "ARS",
-                    "m2": i.m2 or 0,
-                    "largo": i.largo or 0,
-                    "ancho": i.ancho or 0,
-                    "material": "",
-                    "material_precio_m2": 0,
-                }
-                for i in (presupuesto.items or [])
-            ]
-            + [
-                {
-                    "concepto": a.concepto,
-                    "detalle": a.detalle or "",
-                    "cantidad": a.cantidad or 1,
-                    "precio": (a.precio_unitario or 0),
-                    "moneda": "ARS",
-                    "m2": 0,
-                    "largo": 0,
-                    "ancho": 0,
-                    "material": "",
-                    "material_precio_m2": 0,
-                }
-                for a in (presupuesto.adicionales or [])
-            ],
+            detalles_fabricacion=presupuesto.detalles_fabricacion or [],
             detalles_presupuestados=presupuesto.detalles_fabricacion or [],
-            materiales=presupuesto.materiales or [],
+            materiales=materiales_main,
             piletas=presupuesto.piletas or [],
-            adicionales=[
-                {
-                    "concepto": a.concepto,
-                    "detalle": a.detalle or "",
-                    "cantidad": a.cantidad or 1,
-                    "precio_unitario": a.precio_unitario or 0,
-                    "subtotal": a.subtotal or 0,
-                }
-                for a in (presupuesto.adicionales or [])
-            ],
             pileta_id=presupuesto.pileta_id,
             pileta_precio=presupuesto.pileta_precio or 0,
             pileta_moneda=presupuesto.pileta_moneda,
             pileta_imagen=presupuesto.pileta_imagen,
             prioridad=presupuesto.prioridad or "Normal",
-            subtotal=presupuesto.subtotal or 0,
-            traslado=presupuesto.traslado or 0,
+            subtotal=totales["subtotal"],
+            traslado=totales["traslado"],
             instalacion=presupuesto.instalacion or 0,
             descuento=presupuesto.descuento or 0,
             descuento_porcentaje=presupuesto.descuento_porcentaje or 0,
             descuento_monto_fijo=presupuesto.descuento_monto_fijo or 0,
-            total=presupuesto.total or 0,
+            total=totales["total"],
             sena_recibida=presupuesto.sena_recibida or 0,
             sena_moneda=presupuesto.sena_moneda or "ARS",
-            saldo_pendiente=presupuesto.saldo_pendiente or 0,
+            saldo_pendiente=max(0, totales["total"] - (presupuesto.sena_recibida or 0)),
             saldo_pagado=presupuesto.saldo_pagado or False,
             fecha_pago_saldo=presupuesto.fecha_pago_saldo,
             forma_pago=presupuesto.forma_pago,
             cuotas=presupuesto.cuotas or 1,
             dolar_dia=presupuesto.dolar_dia or 1000,
-            subtotal_usd=presupuesto.subtotal_usd or 0,
-            traslado_usd=presupuesto.traslado_usd or 0,
-            total_usd=presupuesto.total_usd or 0,
+            subtotal_usd=totales["subtotal_usd"],
+            traslado_usd=totales["traslado_usd"],
+            total_usd=totales["total_usd"],
             sena_usd=presupuesto.sena_usd or 0,
-            saldo_pendiente_usd=presupuesto.saldo_pendiente_usd or 0,
+            saldo_pendiente_usd=max(0, totales["total_usd"] - (presupuesto.sena_usd or 0)),
             fecha_entrega=presupuesto.fecha_entrega,
             firma_cliente=presupuesto.firma_cliente,
             fecha_aprobacion=presupuesto.fecha_aprobacion,
@@ -274,9 +319,14 @@ class PresupuestoService:
 
         traslado = float(presupuesto.traslado or 0)
 
-        subtotal_ars = costo_mat_ars + total_detalles_ars + total_piletas_ars
-        subtotal_usd = costo_mat_usd + total_detalles_usd + total_piletas_usd
-        total_final = round(subtotal_ars + (subtotal_usd * dd) + traslado)
+        # Material cost goes in ONE bucket based on its original currency
+        if alt.get("moneda") == "USD":
+            subtotal_ars = total_detalles_ars + total_piletas_ars
+            subtotal_usd = costo_mat_usd + total_detalles_usd + total_piletas_usd
+        else:
+            subtotal_ars = costo_mat_ars + total_detalles_ars + total_piletas_ars
+            subtotal_usd = total_detalles_usd + total_piletas_usd
+        total_final = round(subtotal_ars + round(subtotal_usd * dd, 2) + traslado)
 
         orden = OrdenTrabajo(
             numero=generar_numero_orden(self.db),

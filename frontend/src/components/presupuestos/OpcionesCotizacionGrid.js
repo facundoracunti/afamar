@@ -1,6 +1,6 @@
 import React from 'react';
 
-const OpcionesCotizacionGrid = ({ alternativas, detalleTrabajosComunes, tipoCambio = 1000, presupuestoId, onConvertirAlternativa }) => {
+const OpcionesCotizacionGrid = ({ alternativas, detalleTrabajosComunes, tipoCambio = 1000, presupuestoId, onConvertirAlternativa, modoUSD = false }) => {
   // Datos de contingencia por si las variables vienen vacías o corruptas
   const listaAlternativas = alternativas && alternativas.length > 0 ? alternativas : [
     { nombre: 'GRIS MARA', categoria: 'GRANITOS', moneda: 'ARS', costoMaterialBase: 180000, totalFinalARS: 390000, largo: 2.1, ancho: 2, cant: 1 },
@@ -91,9 +91,11 @@ const OpcionesCotizacionGrid = ({ alternativas, detalleTrabajosComunes, tipoCamb
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
                     <span style={{ fontSize: '13px', color: '#475569', fontWeight: '500' }}>Costo Material base:</span>
                     <span style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', backgroundColor: '#ffffff', border: '1px solid #cbd5e1', padding: '2px 8px', borderRadius: '4px', whiteSpace: 'nowrap' }}>
-                      {esTarjetaUSD 
-                        ? `USD $${Number(mat.costoMaterialBase).toLocaleString('en-US', { minimumFractionDigits: 2 })}` 
-                        : `$ ${Number(mat.costoMaterialBase).toLocaleString('es-AR')}`
+                      {modoUSD && tipoCambio > 0
+                        ? `USD $${Number(esTarjetaUSD ? mat.costoMaterialBase : mat.costoMaterialBase / tipoCambio).toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                        : esTarjetaUSD
+                          ? `USD $${Number(mat.costoMaterialBase).toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                          : `$ ${Number(mat.costoMaterialBase).toLocaleString('es-AR')}`
                       }
                     </span>
                   </div>
@@ -110,9 +112,11 @@ const OpcionesCotizacionGrid = ({ alternativas, detalleTrabajosComunes, tipoCamb
                           {job.concepto.replace('TRAFORO DE PILETA - ', '')}
                         </span>
                         <span style={{ fontSize: '12px', fontWeight: '600', color: '#334155', whiteSpace: 'nowrap', paddingLeft: '8px' }}>
-                          {esTarjetaUSD 
-                            ? `USD $${Number(valorAdicional).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                            : `$ ${Number(job.total).toLocaleString('es-AR')}`
+                          {modoUSD && tipoCambio > 0
+                            ? `USD $${Number(esTarjetaUSD ? job.total / tipoCambio : job.total / tipoCambio).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                            : esTarjetaUSD
+                              ? `USD $${Number(valorAdicional).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                              : `$ ${Number(job.total).toLocaleString('es-AR')}`
                           }
                         </span>
                       </div>
@@ -137,13 +141,16 @@ const OpcionesCotizacionGrid = ({ alternativas, detalleTrabajosComunes, tipoCamb
                   </span>
                   
                   <span style={{ display: 'block', fontSize: '24px', fontWeight: '900', letterSpacing: '-0.02em', marginTop: '2px' }}>
-                    $ {Math.round(mat.totalFinalARS).toLocaleString('es-AR')}
+                    {modoUSD && tipoCambio > 0
+                      ? `USD $${Number(mat.totalFinalARS / tipoCambio).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      : `$ ${Math.round(mat.totalFinalARS).toLocaleString('es-AR')}`
+                    }
                   </span>
 
-                  {esTarjetaUSD && (
+                  {modoUSD && tipoCambio > 0 ? null : esTarjetaUSD && (
                     <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.2)' }}>
                       <span style={{ display: 'inline-block', fontSize: '11px', fontWeight: '700', color: '#eff6ff', backgroundColor: 'rgba(29, 78, 216, 0.5)', padding: '2px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                        Ref. USD ${Number(mat.totalFinalARS / t_cambio).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {`Ref. USD $${Number(mat.totalFinalARS / t_cambio).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                       </span>
                     </div>
                   )}
