@@ -118,7 +118,11 @@
     padding: 8px 10px;
     background: #fff;
     border: 1px solid #e2e8f0;
-    page-break-inside: avoid;
+  }
+  .croquis-img {
+    display: block;
+    margin: 0 auto;
+    max-width: 85%;
   }
 
   /* ===== PAGO ===== */
@@ -256,57 +260,21 @@
 </thead>
 <tbody>
 
-{% for d in (detalles_fabricacion or []) %}
+{% for item in (items_ordenados or []) %}
 <tr>
-  <td>{{ d.concepto }}{% if d.detalle %} - {{ d.detalle }}{% endif %}</td>
-  <td>{{ d.largo or '-' }}</td>
-  <td>{{ d.ancho or '-' }}</td>
-  <td class="monto">{{ "%.4f"|format(d.m2 or 0) }}</td>
-  <td class="monto">{{ d.cantidad or 1 }}</td>
+  <td>{{ item.concepto }}{% if item.detalle %} - {{ item.detalle }}{% endif %}</td>
+  <td>{{ item.largo or '-' }}</td>
+  <td>{{ item.ancho or '-' }}</td>
+  <td class="monto">{{ "%.4f"|format(item.m2 or 0) }}</td>
+  <td class="monto">{{ item.cantidad or 1 }}</td>
   <td class="monto">
-    {% if d.moneda == 'USD' %}
-      USD {{ "%.2f"|format(d.precio or 0) }}
+    {% if item.moneda == 'USD' %}
+      USD {{ "%.2f"|format(item.precio or 0) }}
     {% else %}
-      $ {{ "{:,.0f}".format(d.precio or 0).replace(',','.') }}
+      $ {{ "{:,.0f}".format(item.precio or 0).replace(',','.') }}
     {% endif %}
   </td>
 </tr>
-{% endfor %}
-
-{% for p in (piletas or []) %}
-<tr>
-  <td>Pileta {{ p.marca }} {{ p.modelo }}</td>
-  <td>-</td>
-  <td>-</td>
-  <td class="monto">-</td>
-  <td class="monto">{{ p.cantidad or 1 }}</td>
-  <td class="monto">
-    {% if p.moneda == 'USD' %}
-      USD {{ "%.2f"|format(p.precio or 0) }}
-    {% else %}
-      $ {{ "{:,.0f}".format(p.precio or 0).replace(',','.') }}
-    {% endif %}
-  </td>
-</tr>
-{% endfor %}
-
-{% for m in (materiales or []) %}
-{% if not m.es_alternativa %}
-<tr>
-  <td>Material: {{ m.nombre }}</td>
-  <td>{{ m.largo or '-' }}</td>
-  <td>{{ m.ancho or '-' }}</td>
-  <td class="monto">{{ "%.4f"|format((m.largo or 0) * (m.ancho or 0) * (m.cantidad or 1)) }}</td>
-  <td class="monto">{{ m.cantidad or 1 }}</td>
-  <td class="monto">
-    {% if m.moneda == 'USD' %}
-      USD {{ "%.2f"|format((m.largo or 0) * (m.ancho or 0) * (m.cantidad or 1) * (m.precio_m2_usd or 0)) }}
-    {% else %}
-      $ {{ "{:,.0f}".format((m.largo or 0) * (m.ancho or 0) * (m.cantidad or 1) * (m.precio_m2 or 0)).replace(',','.') }}
-    {% endif %}
-  </td>
-</tr>
-{% endif %}
 {% endfor %}
 
 <!-- TOTALS -->
@@ -357,10 +325,14 @@
 <!-- ============================================================ -->
 <!-- CROQUIS                                                        -->
 <!-- ============================================================ -->
-{% if croquis_svg %}
-<div class="croquis-box no-break">
+{% if croquis_imagenes %}
+<div style="margin-bottom:10px;">
   <b style="font-size:8pt;color:#1e293b;display:block;margin-bottom:4px;">CROQUIS / DISE&Ntilde;O</b>
-  {{ croquis_svg }}
+  {% for img in croquis_imagenes %}
+  <div style="margin-bottom:20px;page-break-inside:avoid;">
+    <img src="{{ img }}" style="display:block;margin:0 auto;max-width:85%;">
+  </div>
+  {% endfor %}
 </div>
 {% endif %}
 

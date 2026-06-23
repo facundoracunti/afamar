@@ -93,7 +93,7 @@ export default function Dashboard() {
           <div
             className="dash-card"
             style={{ ...cardStyle, borderLeft: '6px solid #007bff', justifyContent: 'flex-start', padding: '30px 24px' }}
-            onClick={() => navigate('/ordenes')}
+            onClick={() => navigate('/caja/diaria')}
           >
             <div>
               <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4, textTransform: 'none', fontWeight: 400 }}>CAJA</div>

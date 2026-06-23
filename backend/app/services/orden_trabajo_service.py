@@ -6,12 +6,14 @@ from app.repositories.orden_trabajo import OrdenTrabajoRepository
 from app.repositories.cliente import ClienteRepository
 from app.repositories.stock_pileta import descontar_stock_piletas, restaurar_stock_piletas
 from app.models.stock_pileta import StockPileta, MovimientoPileta
+from app.models.caja import MovimientoCaja
 from app.schemas.orden_trabajo import OrdenTrabajo as OrdenTrabajoSchema
 from app.utils.numeracion import generar_numero_orden
 from app.services.exceptions import NotFoundError, ConflictError
 from app.services.pdf_html_service import generar_orden_pdf
+from app.services.caja_service import CajaService
 from app.config import get_settings
-from datetime import datetime
+from datetime import datetime, date
 
 
 class OrdenTrabajoService:
@@ -54,6 +56,7 @@ class OrdenTrabajoService:
 
         self.db.commit()
         self.db.refresh(orden)
+        self._crear_movimiento_caja(orden)
         return self._to_schema(orden)
 
     def actualizar(self, orden_id: int, data: dict) -> dict:
@@ -87,7 +90,54 @@ class OrdenTrabajoService:
             setattr(orden, key, value)
         self.db.commit()
         self.db.refresh(orden)
+        self._crear_movimiento_caja(orden)
         return self._to_schema(orden)
+
+    def _crear_movimiento_caja(self, orden):
+        sena = (orden.sena_recibida or 0)
+        if sena <= 0:
+            return
+
+        caja_svc = CajaService(self.db)
+
+        existing = self.db.query(MovimientoCaja).filter(
+            MovimientoCaja.orden_id == orden.id
+        ).first()
+        if existing:
+            old_caja_id = existing.caja_id
+            self.db.delete(existing)
+            self.db.commit()
+            if old_caja_id:
+                caja_svc.caja_repo.recalcular(old_caja_id)
+
+        moneda = (orden.sena_moneda or "ARS").upper()
+        prefix = "USD" if moneda == "USD" else "$"
+        total = orden.total or 0
+        saldo = orden.saldo_pendiente or 0
+
+        concepto = (
+            f"Orden: {orden.numero} | Cliente: {orden.cliente_nombre or ''} | "
+            f"Carpeta: {orden.numero} | Monto Total: {prefix}{total:,.0f} | "
+            f"Saldo Restante: {prefix}{saldo:,.0f}"
+        )
+
+        fecha = (
+            orden.fecha_aprobacion.date() if orden.fecha_aprobacion
+            else orden.fecha.date() if orden.fecha
+            else date.today()
+        )
+
+        caja_svc.crear_movimiento({
+            "fecha": fecha,
+            "tipo": "INGRESO",
+            "monto": sena,
+            "concepto": concepto,
+            "orden_id": orden.id,
+            "orden_numero": orden.numero,
+            "orden_total": total,
+            "cliente_nombre": orden.cliente_nombre or "",
+            "forma_pago": orden.forma_pago or "",
+        })
 
     def eliminar(self, orden_id: int) -> None:
         orden = self.repo.get(orden_id)
