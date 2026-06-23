@@ -44,6 +44,24 @@ class CajaService:
         movimientos = self.mov_repo.get_by_caja(caja.id)
         return self._to_dict(caja, movimientos)
 
+    def cerrar_caja(self, fecha: date, observaciones: Optional[str] = None) -> dict:
+        caja = self.caja_repo.get_or_create(fecha)
+        caja = self.caja_repo.recalcular(caja.id)
+        caja.cerrada = True
+        caja.observaciones = observaciones
+        self.caja_repo.db.commit()
+        self.caja_repo.db.refresh(caja)
+        movimientos = self.mov_repo.get_by_caja(caja.id)
+        return self._to_dict(caja, movimientos)
+
+    def obtener_historial(self) -> list:
+        cajas = self.caja_repo.get_cerradas()
+        result = []
+        for caja in cajas:
+            movimientos = self.mov_repo.get_by_caja(caja.id)
+            result.append(self._to_dict(caja, movimientos))
+        return result
+
     def _to_dict(self, caja, movimientos) -> dict:
         return {
             "id": caja.id,
@@ -54,6 +72,8 @@ class CajaService:
             "suma": caja.suma,
             "saldo_actual": caja.saldo_actual,
             "efectivo_real": caja.efectivo_real,
+            "cerrada": caja.cerrada,
+            "observaciones": caja.observaciones,
             "created_at": caja.created_at,
             "updated_at": caja.updated_at,
             "movimientos": [

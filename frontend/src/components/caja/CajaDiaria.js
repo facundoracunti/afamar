@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Trash2, Search, ArrowUpCircle, ArrowDownCircle, Wallet, Banknote } from 'lucide-react';
-import { getCajaDiaria, createMovimientoCaja, deleteMovimientoCaja, putSaldoAnterior, getOrdenes } from '../../services/api';
+import { Plus, Trash2, Search, ArrowUpCircle, ArrowDownCircle, Wallet, Banknote, Printer, Lock } from 'lucide-react';
+import { getCajaDiaria, createMovimientoCaja, deleteMovimientoCaja, putSaldoAnterior, getOrdenes, cerrarCaja } from '../../services/api';
 import Modal from '../common/Modal';
 import ConfirmDialog from '../common/ConfirmDialog';
 import Loading from '../common/Loading';
@@ -46,41 +46,48 @@ export default function CajaDiaria() {
     concepto: '', monto: '', tipo_egreso: 'Gasto',
   });
 
+  const [showCerrar, setShowCerrar] = useState(false);
+  const [cerrarObs, setCerrarObs] = useState('');
+  const [cerrada, setCerrada] = useState(false);
+
   const [ordenSearch, setOrdenSearch] = useState('');
   const [ordenResults, setOrdenResults] = useState([]);
   const [showOrdenSearch, setShowOrdenSearch] = useState(false);
-
-  const fetchPrevDaySaldo = useCallback(async (dateStr) => {
-    try {
-      const prev = new Date(dateStr);
-      prev.setDate(prev.getDate() - 1);
-      const prevStr = prev.toISOString().split('T')[0];
-      const res = await getCajaDiaria(prevStr);
-      if (res.data) {
-        setSaldoAnterior(res.data.saldo_actual || 0);
-      }
-    } catch {
-      // No previous day caja exists
-    }
-  }, []);
 
   const loadCaja = useCallback(async () => {
     setLoading(true);
     try {
       const res = await getCajaDiaria(fecha);
       if (res.data) {
+        const movs = res.data.movimientos || [];
         setSaldoAnterior(prev => res.data.saldo_anterior ?? prev);
-        setMovimientos(res.data.movimientos || []);
+        setMovimientos(movs);
+        setCerrada(res.data.cerrada || false);
+
+        // Si es caja nueva (saldo_anterior=0, vacía, sin cerrar), arrastra saldo del día anterior
+        if (!res.data.cerrada && movs.length === 0 && !res.data.saldo_anterior) {
+          const prev = new Date(fecha);
+          prev.setDate(prev.getDate() - 1);
+          const prevStr = prev.toISOString().split('T')[0];
+          try {
+            const prevRes = await getCajaDiaria(prevStr);
+            const prevSaldo = prevRes.data?.saldo_actual || 0;
+            if (prevSaldo) {
+              await putSaldoAnterior(fecha, prevSaldo);
+              setSaldoAnterior(prevSaldo);
+            }
+          } catch {
+            // No hay caja del día anterior
+          }
+        }
       }
     } catch {
       setMovimientos([]);
-      if (fecha === today) {
-        await fetchPrevDaySaldo(fecha);
-      }
+      setCerrada(false);
     } finally {
       setLoading(false);
     }
-  }, [fecha, today, fetchPrevDaySaldo]);
+  }, [fecha, today]);
 
   useEffect(() => { loadCaja(); }, [loadCaja]);
 
@@ -174,6 +181,19 @@ export default function CajaDiaria() {
     }
   };
 
+  const handleCerrarCaja = async () => {
+    try {
+      await cerrarCaja(fecha, cerrarObs || null);
+      setShowCerrar(false);
+      setCerrarObs('');
+      await loadCaja();
+    } catch {
+      alert('Error al cerrar la caja');
+    }
+  };
+
+  const handlePrint = () => window.print();
+
   const ingresos = movimientos.filter(m => m.tipo === 'INGRESO');
   const egresos = movimientos.filter(m => m.tipo === 'EGRESO');
 
@@ -194,29 +214,63 @@ export default function CajaDiaria() {
 
   return (
     <div>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700 }}>Caja Diaria</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <input
-            type="date"
-            className="input"
-            style={{ width: 180 }}
-            value={fecha}
-            onChange={(e) => setFecha(e.target.value)}
-          />
-          {!isToday && (
-            <button className="btn btn-outline" onClick={() => setFecha(today)}>Hoy</button>
-          )}
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          #print-area, #print-area * { visibility: visible; }
+          #print-area { position: absolute; left: 0; top: 0; width: 100%; }
+          .no-print { display: none !important; }
+          .print-only { display: block !important; }
+          .print-table th { background: #f1f5f9 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .print-card { border: 1px solid #000 !important; padding: 16px !important; margin-bottom: 12px !important; }
+          .print-total-card { border: 2px solid #000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+        .print-only { display: none; }
+      `}</style>
+      <div id="print-area">
+        {/* Print header (solo visible al imprimir) */}
+        <div className="print-only" style={{ textAlign: 'center', marginBottom: 20 }}>
+          <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>CIERRE DE CAJA</h1>
+          <p style={{ fontSize: 13, color: '#475569', margin: '4px 0 0' }}>Fecha: {fecha}</p>
+          <hr style={{ margin: '10px 0', border: 'none', borderTop: '2px solid #000' }} />
         </div>
-      </div>
 
-      {/* Saldo Anterior */}
-      <div className="card" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 16 }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+          <h1 className="no-print" style={{ fontSize: 24, fontWeight: 700 }}>Caja Diaria</h1>
+          <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input
+              type="date"
+              className="input"
+              style={{ width: 180 }}
+              value={fecha}
+              onChange={(e) => setFecha(e.target.value)}
+            />
+            {!isToday && (
+              <button className="btn btn-outline" onClick={() => setFecha(today)}>Hoy</button>
+            )}
+            {isToday && !cerrada && (
+              <button className="btn btn-danger" style={{ padding: '6px 14px', fontSize: 13 }}
+                onClick={() => setShowCerrar(true)}>
+                <Lock size={14} style={{ marginRight: 4 }} /> Cerrar Caja del Día
+              </button>
+            )}
+            {cerrada && (
+              <span className="badge badge-finished" style={{ fontSize: 13 }}>Cerrada</span>
+            )}
+            <button className="btn btn-outline no-print-keep" style={{ padding: '6px 14px', fontSize: 13 }}
+              onClick={handlePrint}>
+              <Printer size={14} style={{ marginRight: 4 }} /> Imprimir Reporte
+            </button>
+          </div>
+        </div>
+
+        {/* Saldo Anterior */}
+        <div className="card" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 16 }}>
         <Wallet size={22} style={{ color: '#64748b' }} />
         <span style={{ fontWeight: 600, fontSize: 15, color: '#475569' }}>Saldo Anterior:</span>
         {saldoAnteriorEdit ? (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div className="no-print" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <input
               className="input"
               type="number"
@@ -232,8 +286,8 @@ export default function CajaDiaria() {
         ) : (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontWeight: 700, fontSize: 20, color: '#1e293b' }}>{formatCurrency(saldoAnterior)}</span>
-            {isToday && (
-              <button className="btn btn-outline" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => setSaldoAnteriorEdit(true)}>Editar</button>
+            {!cerrada && (
+              <button className="btn btn-outline no-print" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => setSaldoAnteriorEdit(true)}>Editar</button>
             )}
           </div>
         )}
@@ -249,7 +303,8 @@ export default function CajaDiaria() {
                 <h3 style={{ fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, color: '#16a34a' }}>
                   <ArrowUpCircle size={20} /> Entradas (Ingresos)
                 </h3>
-                <button className="btn btn-success" style={{ padding: '6px 12px', fontSize: 13 }} onClick={() => setShowIngreso(true)}>
+                <button className="btn btn-success no-print" style={{ padding: '6px 12px', fontSize: 13 }}
+                  disabled={cerrada} onClick={() => setShowIngreso(true)}>
                   <Plus size={14} /> Agregar Ingreso
                 </button>
               </div>
@@ -263,7 +318,7 @@ export default function CajaDiaria() {
                       <th style={{ width: 110 }}>Saldo Restante</th>
                       <th style={{ width: 100 }}>Pago</th>
                       <th style={{ width: 90 }}>Carpeta</th>
-                      <th style={{ width: 40 }}></th>
+                      <th className="no-print" style={{ width: 40 }}></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -288,7 +343,7 @@ export default function CajaDiaria() {
                               <span className={`badge ${estadoCarpetaClass(m.estado_carpeta)}`}>{m.estado_carpeta}</span>
                             ) : '-'}
                           </td>
-                          <td>
+                          <td className="no-print">
                             <button className="btn" style={{ padding: '3px 6px', color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer' }}
                               onClick={() => setDeleteId(m.id)} title="Eliminar">
                               <Trash2 size={14} />
@@ -308,19 +363,20 @@ export default function CajaDiaria() {
                 <h3 style={{ fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, color: '#dc2626' }}>
                   <ArrowDownCircle size={20} /> Salidas (Egresos)
                 </h3>
-                <button className="btn btn-danger" style={{ padding: '6px 12px', fontSize: 13 }} onClick={() => setShowEgreso(true)}>
+                <button className="btn btn-danger no-print" style={{ padding: '6px 12px', fontSize: 13 }}
+                  disabled={cerrada} onClick={() => setShowEgreso(true)}>
                   <Plus size={14} /> Agregar Egreso
                 </button>
               </div>
               <div className="table-container" style={{ marginTop: 12 }}>
                 <table>
                   <thead>
-                    <tr>
-                      <th>Concepto</th>
-                      <th style={{ width: 110 }}>Monto</th>
-                      <th style={{ width: 90 }}>Tipo</th>
-                      <th style={{ width: 40 }}></th>
-                    </tr>
+                        <tr>
+                          <th>Concepto</th>
+                          <th style={{ width: 110 }}>Monto</th>
+                          <th style={{ width: 90 }}>Tipo</th>
+                          <th className="no-print" style={{ width: 40 }}></th>
+                        </tr>
                   </thead>
                   <tbody>
                     {egresos.length === 0 ? (
@@ -335,7 +391,7 @@ export default function CajaDiaria() {
                               {m.tipo_egreso || 'Gasto'}
                             </span>
                           </td>
-                          <td>
+                          <td className="no-print">
                             <button className="btn" style={{ padding: '3px 6px', color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer' }}
                               onClick={() => setDeleteId(m.id)} title="Eliminar">
                               <Trash2 size={14} />
@@ -379,6 +435,11 @@ export default function CajaDiaria() {
           </div>
         </>
       )}
+
+      <div className="print-only" style={{ textAlign: 'center', marginTop: 20, fontSize: 11, color: '#94a3b8' }}>
+        Reporte generado el {new Date().toLocaleDateString('es-AR')} a las {new Date().toLocaleTimeString('es-AR')}
+      </div>
+      </div>
 
       {/* Modal: Agregar Ingreso */}
       <Modal isOpen={showIngreso} onClose={() => setShowIngreso(false)} title="Agregar Ingreso" width="550px">
@@ -516,6 +577,27 @@ export default function CajaDiaria() {
         onConfirm={handleDeleteMov}
         title="Eliminar movimiento"
         message="¿Estás seguro de eliminar este movimiento de caja?" />
+
+      {/* Modal: Cerrar Caja */}
+      <Modal isOpen={showCerrar} onClose={() => { setShowCerrar(false); setCerrarObs(''); }} title="Cerrar Caja del Día" width="450px">
+        <p style={{ fontSize: 14, color: '#475569', marginBottom: 16 }}>
+          Al cerrar la caja se congelarán los totales del día <strong>{fecha}</strong>.
+          No se podrán agregar ni eliminar movimientos una vez cerrada.
+        </p>
+        <div className="form-group">
+          <label>Observaciones / Notas de la jornada (opcional)</label>
+          <textarea className="input" rows={4} style={{ resize: 'vertical' }}
+            placeholder="Ej: Cobros del día, incidencias, transferencias pendientes..."
+            value={cerrarObs}
+            onChange={(e) => setCerrarObs(e.target.value)} />
+        </div>
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 20 }}>
+          <button type="button" className="btn btn-outline" onClick={() => { setShowCerrar(false); setCerrarObs(''); }}>Cancelar</button>
+          <button type="button" className="btn btn-danger" onClick={handleCerrarCaja}>
+            <Lock size={14} style={{ marginRight: 4 }} /> Cerrar Caja
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }

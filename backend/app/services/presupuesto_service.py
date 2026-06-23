@@ -16,6 +16,7 @@ from app.schemas.presupuesto import (
 from app.utils.numeracion import generar_numero_presupuesto, generar_numero_orden
 from app.services.exceptions import NotFoundError, ConflictError
 from app.services.pdf_generator import PDFGenerator
+from app.services.pdf_html_service import generar_presupuesto_pdf
 from app.services.whatsapp_service import enviar_whatsapp, generar_mensaje_presupuesto
 from app.services.email_service import enviar_email
 from app.config import get_settings
@@ -418,11 +419,13 @@ class PresupuestoService:
         c = presupuesto.cliente
         data = {
             "numero": presupuesto.numero,
+            "fecha": presupuesto.fecha.isoformat() if presupuesto.fecha else None,
             "estado": presupuesto.estado,
             "cliente_nombre": c.nombre if c else presupuesto.cliente_nombre,
             "cliente_telefono": c.telefono if c else presupuesto.cliente_telefono_orden,
             "cliente_email": c.email if c else presupuesto.email,
-            "cliente_direccion": c.direccion if c else presupuesto.domicilio,
+            "domicilio": c.direccion if c else presupuesto.domicilio,
+            "email": c.email if c else presupuesto.email,
             "material": presupuesto.material,
             "material_precio_m2": presupuesto.material_precio_m2,
             "color_tipo": presupuesto.color_tipo,
@@ -431,12 +434,24 @@ class PresupuestoService:
             "bacha": presupuesto.bacha,
             "anafe": presupuesto.anafe,
             "detalles_fabricacion": presupuesto.detalles_fabricacion or [],
+            "materiales": presupuesto.materiales or [],
+            "piletas": presupuesto.piletas or [],
             "subtotal": presupuesto.subtotal or 0,
             "traslado": presupuesto.traslado or 0,
             "total": presupuesto.total or 0,
             "total_usd": presupuesto.total_usd or 0,
+            "dolar_dia": presupuesto.dolar_dia or 1,
+            "sena_recibida": presupuesto.sena_recibida or 0,
+            "saldo_pendiente": presupuesto.saldo_pendiente or 0,
+            "sena_moneda": presupuesto.sena_moneda or "ARS",
+            "descuento_porcentaje": presupuesto.descuento_porcentaje or 0,
+            "descuento_monto_fijo": presupuesto.descuento_monto_fijo or 0,
             "validez": presupuesto.validez or "7 días",
             "entrega_aproximada": presupuesto.entrega_aproximada or "7 a 10 días hábiles",
+            "forma_pago": presupuesto.forma_pago or "",
+            "cuotas": presupuesto.cuotas or 1,
+            "observaciones": presupuesto.observaciones or "",
+            "observaciones_importantes": presupuesto.observaciones_importantes or "",
             "items": [
                 {
                     "sector": i.sector,
@@ -460,11 +475,9 @@ class PresupuestoService:
                 for a in (presupuesto.adicionales or [])
             ],
             "condiciones_comerciales": presupuesto.condiciones_comerciales,
-            "forma_pago": presupuesto.forma_pago,
             "fecha_estimada_entrega": presupuesto.fecha_estimada_entrega,
-            "observaciones": presupuesto.observaciones,
         }
-        return PDFGenerator.generar_presupuesto(data, logo_path)
+        return generar_presupuesto_pdf(data, logo_path)
 
     def enviar_whatsapp(self, presupuesto_id: int) -> dict:
         presupuesto = self.repo.get(presupuesto_id)

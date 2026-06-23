@@ -19,3 +19,6 @@ export const deleteMovimientoCaja = (id) =>
 
 export const putSaldoAnterior = (fecha, saldo_anterior) =>
   api.put(`${BASE}/saldo-anterior`, { fecha, saldo_anterior });
+
+export const cerrarCaja = (fecha, observaciones) =>
+  api.post(`${BASE}/diaria/cerrar`, { fecha, observaciones });

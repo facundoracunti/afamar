@@ -52,6 +52,8 @@ class CajaDiariaResponse(BaseModel):
     suma: float
     saldo_actual: float
     efectivo_real: float
+    cerrada: bool = False
+    observaciones: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     movimientos: List[MovimientoCaja] = []
@@ -63,3 +65,8 @@ class CajaDiariaResponse(BaseModel):
 class SaldoAnteriorUpdate(BaseModel):
     fecha: date
     saldo_anterior: float
+
+
+class CerrarCajaRequest(BaseModel):
+    fecha: date
+    observaciones: Optional[str] = None

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, Date, ForeignKey, Float
+from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, Date, ForeignKey, Float
 from sqlalchemy.orm import relationship
 from app.database import Base
 import datetime
@@ -15,6 +15,8 @@ class CajaDiaria(Base):
     suma = Column(Float, default=0)
     saldo_actual = Column(Float, default=0)
     efectivo_real = Column(Float, default=0)
+    cerrada = Column(Boolean, default=False)
+    observaciones = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 

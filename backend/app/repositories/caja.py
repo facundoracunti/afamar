@@ -21,6 +21,14 @@ class CajaDiariaRepository(BaseRepository[CajaDiaria]):
             self.db.refresh(caja)
         return caja
 
+    def get_cerradas(self) -> List[CajaDiaria]:
+        return (
+            self.db.query(CajaDiaria)
+            .filter(CajaDiaria.cerrada == True)
+            .order_by(CajaDiaria.fecha.desc())
+            .all()
+        )
+
     def recalcular(self, caja_id: int) -> CajaDiaria:
         caja = self.get(caja_id)
         if not caja:
