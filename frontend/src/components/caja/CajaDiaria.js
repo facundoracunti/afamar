@@ -203,7 +203,7 @@ export default function CajaDiaria() {
   const saldoActualNum = suma - totalSalidas;
 
   const ingresosEfectivo = ingresos
-    .filter(m => m.forma_pago === 'Efectivo')
+    .filter(m => (m.forma_pago || '').toLowerCase() === 'efectivo')
     .reduce((s, m) => s + (m.monto || 0), 0);
   const totalTB = egresos
     .filter(m => m.tipo_egreso === 'Transferencia Banco')

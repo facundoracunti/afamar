@@ -18,10 +18,13 @@ class CajaService:
     def crear_movimiento(self, data: dict) -> dict:
         fecha = data.pop("fecha")
         caja = self.caja_repo.get_or_create(fecha)
-        orden_total = data.get("orden_total")
+        orden_total = data.get("orden_total", 0)
         monto = data.get("monto", 0)
-        if orden_total is not None and monto is not None:
-            data["saldo_restante"] = orden_total - monto
+        saldo_pendiente = data.pop("saldo_pendiente", None)
+        if saldo_pendiente is not None:
+            data["saldo_restante"] = max(0, saldo_pendiente)
+        elif orden_total is not None and monto is not None:
+            data["saldo_restante"] = max(0, orden_total - monto)
         movimiento = self.mov_repo.create_and_recalcular(caja.id, data)
         caja = self.caja_repo.recalcular(caja.id)
         movimientos = self.mov_repo.get_by_caja(caja.id)

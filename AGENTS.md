@@ -976,4 +976,22 @@ UPDATE ordenes_trabajo SET estado = 'ENTREGADA' WHERE estado = 'ENTREGADO'; -- s
 - **CroquisEditor.js:195-203**: `confirmarRenombrar` construía payload con `paginas` viejas del closure de `updateElementos`. Fix: arma payload directamente con el nombre nuevo y llama a `onChange(payload)`.
 - No requiere cambios en backend (croquis es JSON column, `normalizeToPages` ya lee `p.nombre`).
 
+## Sesión 23-Jun-2026 — Caja diaria: case‑sensitivity y saldo restante negativo
+
+### 1. CAJA DEL DÍA no reflejaba ingresos automáticos
+- **Causa raíz**: `forma_pago` se almacena como `"EFECTIVO"` (todo mayúsculas con tilde) tanto en `MovimientoCaja` como en `OrdenTrabajo`, pero el backend (`repositories/caja.py:50`) y el frontend (`CajaDiaria.js:206`) comparaban con `"Efectivo"` (solo primera mayúscula). Al no coincidir, `ingresosEfectivo = 0` y `efectivo_real = saldo_anterior`.
+- **Fix backend**: `repositories/caja.py:50` — `m.forma_pago == "Efectivo"` → `(m.forma_pago or "").lower() == "efectivo"`.
+- **Fix frontend**: `CajaDiaria.js:206` — `m.forma_pago === 'Efectivo'` → `(m.forma_pago || '').toLowerCase() === 'efectivo'`.
+
+### 2. Saldo restante negativo en movimientos de caja
+- **Causa**: `caja_service.py:24` calculaba `saldo_restante = orden_total - monto`. Cuando `total=0` y `seña=420000`, el resultado era `-420000`.
+- **Fix**: `caja_service.py:24-28` — ahora acepta `saldo_pendiente` opcional desde el caller; si se provee, lo usa con `max(0, saldo_pendiente)`. Si no, calcula `max(0, orden_total - monto)`.
+- **Fix caller**: `orden_trabajo_service.py:139` — pasa `"saldo_pendiente": saldo` al `crear_movimiento`.
+
+### 3. Archivos modificados
+- `backend/app/repositories/caja.py:50` — case‑insensitive forma_pago
+- `backend/app/services/caja_service.py:24-28` — max(0, ...) + saldo_pendiente
+- `backend/app/services/orden_trabajo_service.py:139` — pasa saldo_pendiente
+- `frontend/src/components/caja/CajaDiaria.js:206` — case‑insensitive forma_pago
+
 

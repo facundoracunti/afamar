@@ -135,6 +135,7 @@ class OrdenTrabajoService:
             "orden_id": orden.id,
             "orden_numero": orden.numero,
             "orden_total": total,
+            "saldo_pendiente": saldo,
             "cliente_nombre": orden.cliente_nombre or "",
             "forma_pago": orden.forma_pago or "",
         })

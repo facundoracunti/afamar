@@ -47,7 +47,7 @@ class CajaDiariaRepository(BaseRepository[CajaDiaria]):
 
         ingresos_efectivo = sum(
             m.monto for m in movs
-            if m.tipo == "INGRESO" and m.forma_pago == "Efectivo"
+            if m.tipo == "INGRESO" and (m.forma_pago or "").lower() == "efectivo"
         )
         total_tb = sum(
             m.monto for m in movs

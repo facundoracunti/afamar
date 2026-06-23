@@ -15,6 +15,7 @@ class PresupuestoOnlineItem(BaseModel):
     subtotal: float = 0
     material: str = ""
     pileta_id: Optional[int] = None
+    opcion: int = 0
 
 class PresupuestoOnlineBase(BaseModel):
     cliente: Optional[str] = None
