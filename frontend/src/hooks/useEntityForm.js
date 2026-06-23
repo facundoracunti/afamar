@@ -636,7 +636,13 @@ export default function useEntityForm({
     }
   }, [id, form.total, form.total_usd, form.forma_pago, services]);
 
-  const handlePrint = useCallback(() => window.print(), []);
+  const handlePrint = useCallback(() => {
+    if (id && services.getPdfUrl) {
+      window.open(services.getPdfUrl(id), '_blank');
+    } else {
+      window.print();
+    }
+  }, [id, services]);
 
   return {
     // State

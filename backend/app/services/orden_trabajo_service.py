@@ -9,7 +9,7 @@ from app.models.stock_pileta import StockPileta, MovimientoPileta
 from app.schemas.orden_trabajo import OrdenTrabajo as OrdenTrabajoSchema
 from app.utils.numeracion import generar_numero_orden
 from app.services.exceptions import NotFoundError, ConflictError
-from app.services.pdf_generator import PDFGenerator
+from app.services.pdf_html_service import generar_orden_pdf
 from app.config import get_settings
 from datetime import datetime
 
@@ -129,19 +129,38 @@ class OrdenTrabajoService:
         data = {
             "numero": orden.numero,
             "estado": orden.estado,
+            "fecha": orden.fecha.isoformat() if orden.fecha else None,
+            "prioridad": orden.prioridad or "",
             "cliente_nombre": orden.cliente_nombre or (c.nombre if c else None),
             "cliente_telefono": orden.cliente_telefono_orden or (c.telefono if c else None),
+            "domicilio": orden.domicilio or (c.direccion if c else None),
+            "email": orden.email or (c.email if c else None),
             "material": orden.material,
             "color_tipo": orden.color_tipo,
             "espesor": orden.espesor,
-            "sena_recibida": orden.sena_recibida,
-            "saldo_pendiente": orden.saldo_pendiente,
-            "prioridad": orden.prioridad,
-            "fecha_entrega": orden.fecha_entrega,
-            "fecha_aprobacion": orden.fecha_aprobacion,
+            "acabado": orden.acabado,
+            "fecha_entrega": orden.fecha_entrega.isoformat() if orden.fecha_entrega else None,
+            "detalles_fabricacion": orden.detalles_fabricacion or [],
+            "materiales": orden.materiales or [],
+            "piletas": orden.piletas or [],
+            "croquis": orden.croquis or [],
+            "subtotal": orden.subtotal or 0,
+            "traslado": orden.traslado or 0,
+            "total": orden.total or 0,
+            "total_usd": orden.total_usd or 0,
+            "dolar_dia": orden.dolar_dia or 1,
+            "sena_recibida": orden.sena_recibida or 0,
+            "saldo_pendiente": orden.saldo_pendiente or 0,
+            "sena_moneda": orden.sena_moneda or "ARS",
+            "descuento_porcentaje": orden.descuento_porcentaje or 0,
+            "descuento_monto_fijo": orden.descuento_monto_fijo or 0,
+            "forma_pago": orden.forma_pago or "",
+            "cuotas": orden.cuotas or 1,
+            "observaciones": orden.observaciones or "",
+            "observaciones_importantes": orden.observaciones_importantes or "",
             "firma_cliente": orden.firma_cliente,
         }
-        return PDFGenerator.generar_orden_trabajo(data, logo_path)
+        return generar_orden_pdf(data, logo_path)
 
     def _to_schema(self, o) -> OrdenTrabajoSchema:
         c = o.cliente

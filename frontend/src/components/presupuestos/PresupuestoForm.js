@@ -19,6 +19,7 @@ const presupuestoServices = {
   getMateriales: getMateriales,
   getPiletas: getPiletas,
   getClientes: getClientes,
+  getPdfUrl: getPresupuestoPdf,
   listPath: '/presupuestos',
 };
 
@@ -158,7 +159,7 @@ export default function PresupuestoForm() {
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button className="btn btn-outline" onClick={() => window.open(getPresupuestoPdf(id), '_blank')} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <Eye size={16} /> VISTA PREVIA PDF
           </button>
           {isEdit ? (
@@ -200,7 +201,7 @@ export default function PresupuestoForm() {
                 <div className="dropdown-item" onClick={() => { setMenuOpen(false); alert('Duplicar presupuesto'); }}>
                   <Copy size={16} /> Duplicar
                 </div>
-                <div className="dropdown-item" onClick={() => { setMenuOpen(false); alert('Exportar PDF'); }}>
+                <div className="dropdown-item" onClick={() => { setMenuOpen(false); window.open(getPresupuestoPdf(id), '_blank'); }}>
                   <FileDown size={16} /> Exportar PDF
                 </div>
                 <div className="dropdown-item" onClick={() => { setMenuOpen(false); handleGuardar(); }}>

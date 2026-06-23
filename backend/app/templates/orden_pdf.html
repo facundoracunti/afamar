@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: A4; margin: 14mm 12mm 16mm 12mm; }
+  * { margin: 0; padding: 0; }
+  body {
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 8.5pt;
+    line-height: 1.4;
+    color: #1a1a1a;
+  }
+
+  table { border-collapse: collapse; width: 100%; }
+  td { vertical-align: top; padding: 2px 4px; }
+
+  /* ===== HEADER ===== */
+  .header-table { width: 100%; margin-bottom: 8px; }
+  .header-table td { padding: 0; }
+  .header-brand {
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 22pt;
+    font-weight: bold;
+    color: #1a1a1a;
+  }
+  .header-brand small {
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 7pt;
+    color: #64748b;
+    display: block;
+  }
+  .header-title {
+    font-size: 12pt;
+    font-weight: bold;
+    color: #c0392b;
+    text-align: center;
+  }
+  .header-numero {
+    font-size: 15pt;
+    font-weight: bold;
+    color: #c0392b;
+    text-align: center;
+  }
+  .header-estado {
+    font-size: 7pt;
+    color: #64748b;
+    text-align: center;
+  }
+  .header-contact {
+    font-size: 7pt;
+    color: #64748b;
+    text-align: right;
+    line-height: 1.5;
+  }
+  .header-divider {
+    border: none;
+    border-top: 2px solid #c0392b;
+    margin-bottom: 10px;
+  }
+
+  /* ===== CLIENTE ===== */
+  .cliente-table { width: 100%; margin-bottom: 8px; }
+  .cliente-table td { font-size: 8pt; padding: 1px 4px; }
+  .cliente-label { font-weight: bold; white-space: nowrap; }
+  .cliente-divider {
+    border: none;
+    border-top: 1px solid #e2e8f0;
+    margin-bottom: 10px;
+  }
+
+  /* ===== INFO BOX ===== */
+  .info-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    padding: 8px 10px;
+    margin-bottom: 10px;
+  }
+  .info-grid { width: 100%; }
+  .info-grid td {
+    font-size: 8pt;
+    padding: 2px 8px;
+    vertical-align: top;
+  }
+  .info-label {
+    color: #475569;
+    font-weight: bold;
+    white-space: nowrap;
+  }
+  .info-value { font-weight: bold; color: #0f172a; }
+
+  /* ===== SINGLE TABLE (identical to presupuesto) ===== */
+  .single-table { width: 100%; margin-bottom: 10px; border-collapse: collapse; }
+  .single-table th {
+    background: #f1f5f9;
+    font-size: 7pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    color: #64748b;
+    padding: 4px 6px;
+    border: 1px solid #e2e8f0;
+    text-align: left;
+  }
+  .single-table td {
+    font-size: 7.5pt;
+    padding: 3px 6px;
+    border: 1px solid #e2e8f0;
+  }
+  .single-table .monto { font-weight: bold; text-align: right; white-space: nowrap; }
+  .single-table .subtotal-row td { border-top: 2px solid #e2e8f0; font-weight: bold; }
+  .single-table .total-row td { border-top: 2px solid #c0392b; font-weight: bold; font-size: 8.5pt; }
+  .single-table .total-row .monto { color: #c0392b; font-size: 9pt; }
+  .single-table .sena-row td { font-size: 7pt; color: #059669; }
+
+  /* ===== CROQUIS ===== */
+  .croquis-box {
+    margin-bottom: 10px;
+    padding: 8px 10px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    page-break-inside: avoid;
+  }
+
+  /* ===== PAGO ===== */
+  .pago-info {
+    font-size: 7pt;
+    margin-bottom: 8px;
+  }
+  .pago-info b { text-transform: uppercase; }
+
+  /* ===== OBSERVACIONES ===== */
+  .obs-box {
+    margin-bottom: 8px;
+    padding: 6px 10px;
+    background: #fff9f9;
+    border: 1px solid #f5c6cb;
+  }
+  .obs-title {
+    font-size: 7pt;
+    font-weight: bold;
+    color: #c0392b;
+    margin-bottom: 2px;
+  }
+  .obs-text {
+    font-size: 7pt;
+    color: #c0392b;
+  }
+
+  /* ===== FOOTER LEGAL ===== */
+  .footer-legal {
+    margin-top: 14px;
+    padding: 8px 10px;
+    background: #fff9f9;
+    border: 1px solid #f5c6cb;
+    font-size: 7pt;
+    color: #c0392b;
+    line-height: 1.6;
+  }
+  .footer-legal b {
+    font-size: 7.5pt;
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  /* ===== FIRMAS ===== */
+  .firmas-table { width: 100%; margin-top: 24px; }
+  .firmas-table td { text-align: center; padding: 0 20px; }
+  .firma-linea { border-top: 1px solid #1a1a1a; margin-bottom: 4px; }
+  .firma-cargo { font-size: 6.5pt; color: #475569; font-weight: bold; }
+
+  .no-break { page-break-inside: avoid; }
+  .page-break { page-break-before: always; }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!-- HEADER                                                        -->
+<!-- ============================================================ -->
+<table class="header-table">
+<tr>
+  <td style="width:180px;">
+    <div class="header-brand">
+      afamar
+      <small>MÁRMOLES & GRANITOS</small>
+    </div>
+    <div class="header-contact" style="margin-top:6px;">
+      Calle 49 N° 845, La Plata, Bs. As.<br>
+      Tel: 0221-457-9935<br>
+      info@afamar.com.ar
+    </div>
+  </td>
+  <td style="text-align:center;">
+    <div class="header-title">ORDEN DE TRABAJO</div>
+    <div class="header-numero">{{ numero }}</div>
+    <div class="header-estado">{{ estado }}{% if prioridad %} | {{ prioridad }}{% endif %}</div>
+  </td>
+  <td style="width:140px;text-align:right;">
+    {% if logo_base64 %}
+    <img src="data:image/png;base64,{{ logo_base64 }}" style="max-height:50px;max-width:120px;">
+    {% endif %}
+  </td>
+</tr>
+</table>
+<hr class="header-divider">
+
+<!-- ============================================================ -->
+<!-- CLIENTE                                                       -->
+<!-- ============================================================ -->
+<table class="cliente-table">
+<tr>
+  <td style="width:50%;"><span class="cliente-label">Cliente:</span> {{ cliente_nombre }}</td>
+  <td><span class="cliente-label">Teléfono:</span> {{ cliente_telefono }}</td>
+</tr>
+<tr>
+  {% if domicilio %}<td><span class="cliente-label">Domicilio:</span> {{ domicilio }}</td>{% endif %}
+  {% if email %}<td><span class="cliente-label">Email:</span> {{ email }}</td>{% endif %}
+  <td><span class="cliente-label">Fecha:</span> {{ fecha }}</td>
+</tr>
+</table>
+<hr class="cliente-divider">
+
+<!-- ============================================================ -->
+<!-- INFO BOX                                                      -->
+<!-- ============================================================ -->
+<div class="info-box no-break">
+  <table class="info-grid">
+    <tr>
+      <td class="info-label">Color:</td>
+      <td class="info-value">{{ color_tipo or "-" }}</td>
+      <td class="info-label">Espesor:</td>
+      <td class="info-value">{{ espesor or "-" }}</td>
+    </tr>
+    <tr>
+      <td class="info-label">Acabado:</td>
+      <td class="info-value">{{ acabado or "-" }}</td>
+      <td class="info-label">Entrega:</td>
+      <td class="info-value">{{ fecha_entrega or "-" }}</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ============================================================ -->
+<!-- SINGLE TABLE                                                  -->
+<!-- ============================================================ -->
+<table class="single-table no-break">
+<thead>
+<tr>
+  <th style="width:30%;">Concepto</th>
+  <th style="width:12%;">Largo</th>
+  <th style="width:12%;">Ancho</th>
+  <th style="width:10%;">m&sup2;</th>
+  <th style="width:8%;">Cant.</th>
+  <th style="width:28%;">Precio</th>
+</tr>
+</thead>
+<tbody>
+
+{% for d in (detalles_fabricacion or []) %}
+<tr>
+  <td>{{ d.concepto }}{% if d.detalle %} - {{ d.detalle }}{% endif %}</td>
+  <td>{{ d.largo or '-' }}</td>
+  <td>{{ d.ancho or '-' }}</td>
+  <td class="monto">{{ "%.4f"|format(d.m2 or 0) }}</td>
+  <td class="monto">{{ d.cantidad or 1 }}</td>
+  <td class="monto">
+    {% if d.moneda == 'USD' %}
+      USD {{ "%.2f"|format(d.precio or 0) }}
+    {% else %}
+      $ {{ "{:,.0f}".format(d.precio or 0).replace(',','.') }}
+    {% endif %}
+  </td>
+</tr>
+{% endfor %}
+
+{% for p in (piletas or []) %}
+<tr>
+  <td>Pileta {{ p.marca }} {{ p.modelo }}</td>
+  <td>-</td>
+  <td>-</td>
+  <td class="monto">-</td>
+  <td class="monto">{{ p.cantidad or 1 }}</td>
+  <td class="monto">
+    {% if p.moneda == 'USD' %}
+      USD {{ "%.2f"|format(p.precio or 0) }}
+    {% else %}
+      $ {{ "{:,.0f}".format(p.precio or 0).replace(',','.') }}
+    {% endif %}
+  </td>
+</tr>
+{% endfor %}
+
+{% for m in (materiales or []) %}
+{% if not m.es_alternativa %}
+<tr>
+  <td>Material: {{ m.nombre }}</td>
+  <td>{{ m.largo or '-' }}</td>
+  <td>{{ m.ancho or '-' }}</td>
+  <td class="monto">{{ "%.4f"|format((m.largo or 0) * (m.ancho or 0) * (m.cantidad or 1)) }}</td>
+  <td class="monto">{{ m.cantidad or 1 }}</td>
+  <td class="monto">
+    {% if m.moneda == 'USD' %}
+      USD {{ "%.2f"|format((m.largo or 0) * (m.ancho or 0) * (m.cantidad or 1) * (m.precio_m2_usd or 0)) }}
+    {% else %}
+      $ {{ "{:,.0f}".format((m.largo or 0) * (m.ancho or 0) * (m.cantidad or 1) * (m.precio_m2 or 0)).replace(',','.') }}
+    {% endif %}
+  </td>
+</tr>
+{% endif %}
+{% endfor %}
+
+<!-- TOTALS -->
+<tr class="subtotal-row">
+  <td colspan="5" style="text-align:right;">Subtotal</td>
+  <td class="monto">$ {{ "{:,.0f}".format(subtotal or 0).replace(',','.') }}</td>
+</tr>
+{% if traslado %}
+<tr>
+  <td colspan="5" style="text-align:right;">Traslado</td>
+  <td class="monto">$ {{ "{:,.0f}".format(traslado).replace(',','.') }}</td>
+</tr>
+{% endif %}
+{% if descuento_porcentaje and descuento_porcentaje > 0 %}
+<tr>
+  <td colspan="5" style="text-align:right;color:#059669;">Descuento {{ descuento_porcentaje }}%</td>
+  <td class="monto" style="color:#059669;">- $ {{ "{:,.0f}".format(((subtotal or 0) + (traslado or 0)) * descuento_porcentaje / 100).replace(',','.') }}</td>
+</tr>
+{% endif %}
+<tr class="total-row">
+  <td colspan="5" style="text-align:right;">TOTAL</td>
+  <td class="monto">$ {{ "{:,.0f}".format(total or 0).replace(',','.') }}</td>
+</tr>
+{% if sena_recibida and sena_recibida > 0 %}
+<tr class="sena-row">
+  <td colspan="5" style="text-align:right;">Se&ntilde;a</td>
+  <td class="monto">$ {{ "{:,.0f}".format(sena_recibida).replace(',','.') }}</td>
+</tr>
+<tr class="sena-row">
+  <td colspan="5" style="text-align:right;">Saldo pendiente</td>
+  <td class="monto">$ {{ "{:,.0f}".format(saldo_pendiente or 0).replace(',','.') }}</td>
+</tr>
+{% endif %}
+{% if total_usd and total_usd > 0 %}
+<tr>
+  <td colspan="5" style="text-align:right;font-size:6.5pt;color:#059669;">Referencia USD</td>
+  <td class="monto" style="font-size:6.5pt;color:#059669;">USD {{ "%.2f"|format(total_usd) }}</td>
+</tr>
+{% endif %}
+
+</tbody>
+</table>
+
+{% if forma_pago %}
+<div class="pago-info"><b>Forma de pago:</b> {{ forma_pago }}{% if cuotas and cuotas > 1 %} ({{ cuotas }} cuotas){% endif %}</div>
+{% endif %}
+
+<!-- ============================================================ -->
+<!-- CROQUIS                                                        -->
+<!-- ============================================================ -->
+{% if croquis_svg %}
+<div class="croquis-box no-break">
+  <b style="font-size:8pt;color:#1e293b;display:block;margin-bottom:4px;">CROQUIS / DISE&Ntilde;O</b>
+  {{ croquis_svg }}
+</div>
+{% endif %}
+
+<!-- ============================================================ -->
+<!-- OBSERVACIONES                                                 -->
+<!-- ============================================================ -->
+{% if observaciones or observaciones_importantes %}
+<div class="obs-box no-break">
+  <div class="obs-title">OBSERVACIONES</div>
+  {% if observaciones_importantes %}
+  <div class="obs-text">{{ observaciones_importantes }}</div>
+  {% endif %}
+  {% if observaciones %}
+  <div style="font-size:7pt;color:#475569;margin-top:2px;">{{ observaciones }}</div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- ============================================================ -->
+<!-- PIE DE PÁGINA                                                -->
+<!-- ============================================================ -->
+<div class="footer-legal no-break">
+  <b>CONDICIONES COMERCIALES</b>
+  &bull; NO REALIZAMOS COLOCACIONES.<br>
+  &bull; ENV&Iacute;OS SIN CARGO (RADIO LA PLATA). DESCARGA A CUENTA DEL CLIENTE.<br>
+  &bull; LA MERCADER&Iacute;A CON SALDO PENDIENTE NO SE ENTREGA (SIN EXCEPCI&Oacute;N).<br>
+  &bull; Nota: D&iacute;as de lluvia no se reparten pedidos.
+</div>
+
+<!-- ============================================================ -->
+<!-- FIRMAS                                                        -->
+<!-- ============================================================ -->
+<table class="firmas-table no-break">
+<tr>
+  <td style="width:50%;">
+    <div class="firma-linea">&nbsp;</div>
+    <div class="firma-cargo">AFAMAR<br>Responsable</div>
+  </td>
+  <td>
+    <div class="firma-linea">&nbsp;</div>
+    <div class="firma-cargo">CLIENTE CONFORME<br>Firma y aclaraci&oacute;n</div>
+  </td>
+</tr>
+</table>
+
+</body>
+</html>

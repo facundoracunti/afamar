@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Eye, Save, Printer, MoreVertical, Copy, FileDown, Trash2, History, Plus, X } from 'lucide-react';
-import { getOrden, createOrden, updateOrden, deleteOrden, getNextNumero, getMateriales, getPiletas, getClientes } from '../../services/api';
+import { getOrden, createOrden, updateOrden, deleteOrden, getNextNumero, getMateriales, getPiletas, getClientes, getOrdenPdf } from '../../services/api';
 import { formatCurrency, badgeClass, conceptosFabricacion } from '../../utils/formatters';
 import useEntityForm from '../../hooks/useEntityForm';
 import CroquisEditor from './CroquisEditor';
@@ -18,6 +18,7 @@ const ordenServices = {
   getMateriales: getMateriales,
   getPiletas: getPiletas,
   getClientes: getClientes,
+  getPdfUrl: getOrdenPdf,
   listPath: '/ordenes',
 };
 
