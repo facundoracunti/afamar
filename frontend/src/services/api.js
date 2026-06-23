@@ -11,3 +11,4 @@ export * from './stockPiletas';
 export * from './mediciones';
 export * from './configuracion';
 export * from './reportes';
+export * from './caja';

@@ -18,6 +18,8 @@ import Configuracion from './components/configuracion/Configuracion';
 import MedicionesList from './components/mediciones/MedicionesList';
 import MedicionForm from './components/mediciones/MedicionForm';
 import CalculadoraPlaca from './components/calculadora/CalculadoraPlaca';
+import CajaDiaria from './components/caja/CajaDiaria';
+import CajaHistorial from './components/caja/CajaHistorial';
 
 function App() {
   return (
@@ -45,6 +47,8 @@ function App() {
           <Route path="mediciones/nuevo" element={<MedicionForm />} />
           <Route path="mediciones/:id" element={<MedicionForm />} />
           <Route path="calculadora" element={<CalculadoraPlaca />} />
+          <Route path="caja/diaria" element={<CajaDiaria />} />
+          <Route path="caja/historial" element={<CajaHistorial />} />
           <Route path="reportes" element={<Reportes />} />
           <Route path="configuracion" element={<Configuracion />} />
         </Route>

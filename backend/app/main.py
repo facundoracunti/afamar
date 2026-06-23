@@ -4,7 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.config import get_settings
 from app.database import engine, Base
-from app.routers import clientes, presupuestos, ordenes_trabajo, materiales, stock_piletas, reportes, configuracion, dashboard, mediciones, presupuestos_online
+import app.models  # noqa: F401 — ensure all models are loaded for create_all
+from app.routers import clientes, presupuestos, ordenes_trabajo, materiales, stock_piletas, reportes, configuracion, dashboard, mediciones, presupuestos_online, caja
 
 settings = get_settings()
 
@@ -33,6 +34,7 @@ app.include_router(reportes.router, prefix="/api/reportes", tags=["Reportes"])
 app.include_router(configuracion.router, prefix="/api/configuracion", tags=["Configuración"])
 app.include_router(mediciones.router, prefix="/api/mediciones", tags=["Mediciones"])
 app.include_router(presupuestos_online.router, prefix="/api/presupuestos-online", tags=["Presupuestos Online"])
+app.include_router(caja.router, prefix="/api/caja", tags=["Caja"])
 
 @app.get("/api/health")
 def health():
