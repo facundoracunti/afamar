@@ -47,6 +47,53 @@ def _format_date(d):
     return d.strftime("%d/%m/%Y")
 
 
+def _simplificar_concepto(texto):
+    """Abrevia nombres largos de conceptos para el PDF.
+    Ordenado de más específico a menos específico."""
+    if not texto:
+        return ""
+    m = texto.upper().strip()
+    # Normalizar acentos para matching
+    m_norm = m.replace("É","E").replace("Í","I").replace("Ó","O").replace("Ú","U").replace("Ñ","N")
+    # -- Detalles de fabricacion --
+    if "LONGITUD" in m_norm:
+        return "Longitud"
+    if "FRENTE" in m_norm:
+        return "Frente"
+    if "ZOCALO" in m_norm:
+        return "Zócalo"
+    # -- Traforos / extras (específicos primero) --
+    if "APOYO" in m_norm and "PILETA" in m_norm:
+        return "Traforo de Apoyo"
+    if "PILETA" in m_norm and "APERTURA" in m_norm and "PEGADO" in m_norm:
+        return "Traforo de Pileta"
+    if "PILETA" in m_norm and ("APERTURA" in m_norm or "PEGADO" in m_norm):
+        return "Traforo de Pileta"
+    if "PILETA" in m_norm and "TRAFORO" in m_norm:
+        return "Traforo de Pileta"
+    if "ANAFE" in m_norm:
+        return "Traforo de Anafe"
+    if "MENSULA" in m_norm:
+        return "Ménsulas"
+    if "TERMINACI" in m_norm:
+        return "Terminación"
+    return texto
+
+
+def _preparar_data(data):
+    """Pre-process data for the template: shorten concepts, clean up."""
+    data = dict(data)
+    for d in data.get("detalles_fabricacion", []):
+        if d.get("concepto"):
+            d["concepto"] = _simplificar_concepto(d["concepto"])
+        if d.get("detalle"):
+            d["detalle"] = _simplificar_concepto(d["detalle"])
+    for d in data.get("items", []):
+        if d.get("sector"):
+            d["sector"] = _simplificar_concepto(d["sector"])
+    return data
+
+
 def _render_pdf(html_string: str) -> BytesIO:
     """Convert HTML to PDF using xhtml2pdf (pisa)."""
     result = BytesIO()
@@ -65,6 +112,7 @@ def generar_presupuesto_pdf(data: dict, logo_path: str = None) -> BytesIO:
     """Render the presupuesto HTML template and convert to PDF via xhtml2pdf."""
 
     template = _env.get_template("presupuesto_pdf.html")
+    data = _preparar_data(data)
 
     hoy = datetime.now().strftime("%d/%m/%Y")
     dd = data.get("dolar_dia") or 1

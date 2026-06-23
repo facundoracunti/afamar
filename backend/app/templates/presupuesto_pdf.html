@@ -90,97 +90,110 @@
   .resumen-label { color: #475569; }
   .resumen-valor { font-weight: bold; }
 
-  /* ===== OPCIONES GRID ===== */
+  /* ===== OPCIONES EN COLUMNAS ===== */
   .opciones-title {
     font-size: 9pt;
     font-weight: bold;
     color: #c0392b;
     text-transform: uppercase;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
   }
-  .opciones-table { width: 100%; margin-bottom: 14px; }
-  .opciones-table td { padding: 0; vertical-align: top; }
+  .opciones-table { width: 100%; }
+  .opciones-table td { padding: 0 6px; }
+  .opciones-table td:first-child { padding-left: 0; }
+  .opciones-table td:last-child { padding-right: 0; }
 
-  .opcion-card {
+  .card-alt {
+    background: #f8fafc;
     border: 1px solid #e2e8f0;
-    padding: 10px;
-    margin: 0 4px;
+    padding: 12px 14px;
+    page-break-inside: avoid;
   }
-  .opcion-card-ars { border-top: 5px solid #3b82f6; }
-  .opcion-card-usd { border-top: 5px solid #f59e0b; }
+  .card-alt-ars { border-top: 4px solid #3b82f6; }
+  .card-alt-usd { border-top: 4px solid #f59e0b; }
 
-  .opcion-header {
-    margin-bottom: 6px;
-  }
-  .opcion-badge {
-    font-size: 6pt;
+  .card-alt-header td { padding: 0 0 6px 0; }
+  .badge-alt {
+    font-size: 6.5pt;
     font-weight: bold;
-    padding: 2px 6px;
+    padding: 2px 8px;
     text-transform: uppercase;
     white-space: nowrap;
   }
-  .opcion-badge-ars { background: #dbeafe; color: #1d4ed8; }
-  .opcion-badge-usd { background: #fef3c7; color: #b45309; }
-  .opcion-m2 {
+  .badge-alt-ars { background: #dbeafe; color: #1d4ed8; }
+  .badge-alt-usd { background: #fef3c7; color: #b45309; }
+  .card-alt-m2 {
     font-size: 7pt;
-    color: #94a3b8;
+    color: #64748b;
     font-weight: bold;
     text-align: right;
+    white-space: nowrap;
   }
-  .opcion-nombre {
-    font-size: 13pt;
+  .card-alt-nombre {
+    font-size: 12pt;
     font-weight: 900;
     color: #0f172a;
     text-transform: uppercase;
+    margin-bottom: 1px;
   }
-  .opcion-categoria {
-    font-size: 6pt;
+  .card-alt-categoria {
+    font-size: 6.5pt;
     font-weight: bold;
     color: #94a3b8;
     text-transform: uppercase;
     margin-bottom: 8px;
   }
 
-  .opcion-desglose {
-    background: #f8fafc;
-    border: 1px solid #f1f5f9;
-    padding: 6px 8px;
+  .desglose-box {
+    background: #fff;
+    border: 1px solid #e2e8f0;
   }
+  .desglose-inner { width: 100%; }
   .desglose-th {
-    font-size: 6pt;
+    font-size: 6.5pt;
     font-weight: bold;
     color: #94a3b8;
     text-transform: uppercase;
     border-bottom: 1px solid #e2e8f0;
-    padding-bottom: 3px;
+    padding: 5px 8px;
   }
-  .desglose-fila td { font-size: 7.5pt; padding: 4px 0; }
-  .desglose-fila-first td { border: none; }
-  .desglose-fila td { border-top: 1px dashed #e2e8f0; }
-  .desglose-label { color: #475569; }
-  .desglose-valor { font-weight: bold; text-align: right; white-space: nowrap; }
-  .desglose-valor-usd { font-weight: bold; text-align: right; white-space: nowrap; color: #059669; }
+  .desglose-th-c { width: 72%; padding-left: 8px; }
+  .desglose-th-m { width: 28%; text-align: right; padding-right: 8px; }
+  .desglose-fila td {
+    font-size: 8pt;
+    padding: 5px 8px;
+    border-top: 1px dashed #e2e8f0;
+    line-height: 1.2;
+  }
+  .desglose-fila:first-child td { border-top: none; }
+  .desglose-label { color: #334155; }
+  .desglose-valor {
+    font-weight: bold;
+    text-align: right;
+    white-space: nowrap;
+  }
+  .desglose-valor-usd { color: #059669; }
 
-  .opcion-total-box {
+  .total-box {
     margin-top: 8px;
     background: #2563eb;
-    padding: 8px;
+    padding: 8px 10px;
     text-align: center;
     color: #fff;
   }
-  .opcion-total-label {
+  .total-label {
     font-size: 6pt;
     font-weight: bold;
     text-transform: uppercase;
     color: #bfdbfe;
   }
-  .opcion-total-monto {
-    font-size: 16pt;
+  .total-monto {
+    font-size: 14pt;
     font-weight: 900;
     display: block;
     margin-top: 2px;
   }
-  .opcion-sena-nota {
+  .total-sena {
     font-size: 6pt;
     color: #bfdbfe;
     display: block;
@@ -188,6 +201,8 @@
     padding-top: 3px;
     border-top: 1px solid rgba(255,255,255,0.2);
   }
+
+  .gap-row td { height: 12px; border: none; padding: 0; }
 
   /* ===== SINGLE TABLE ===== */
   .single-table { width: 100%; margin-bottom: 10px; border-collapse: collapse; }
@@ -287,7 +302,7 @@
   </td>
   <td style="width:140px;text-align:right;">
     {% if logo_base64 %}
-    <img src="data:image/png;base64,{{ logo_base64 }}" style="max-height:50px;max-width:120px;margin-bottom:4px;">
+    <img src="data:image/png;base64,{{ logo_base64 }}" style="max-height:50px;max-width:120px;">
     {% endif %}
   </td>
 </tr>
@@ -346,18 +361,19 @@
 {% endif %}
 
 <!-- ============================================================ -->
-<!-- OPCIONES COMPARATIVAS                                        -->
+<!-- OPCIONES COMPARATIVAS (columnas paralelas)                   -->
 <!-- ============================================================ -->
 {% set alternativas = (materiales or []) | selectattr("es_alternativa", "equalto", True) | list %}
-
 {% set dd = dolar_dia or 1 %}
 
 {% if alternativas|length > 0 %}
 <div class="no-break">
   <div class="opciones-title">Opciones de Cotización</div>
 
+  <table class="opciones-table">
   {% for alt in alternativas %}
   {% set idx = loop.index0 %}
+  {% if loop.first or idx % 2 == 0 %}<tr>{% endif %}
   {% set es_usd = alt.moneda == 'USD' %}
   {% set m2 = (alt.largo or 0) * (alt.ancho or 0) * (alt.cantidad or 1) %}
 
@@ -378,36 +394,32 @@
     {% set fijos = fijos + (a.subtotal or 0) %}
   {% endfor %}
 
-  {% set total_alt = (costo_mat + fijos) | round %}
-  {% if not es_usd %}
-    {% set total_alt = (costo_mat + fijos) | round %}
-  {% else %}
+  {% if es_usd %}
     {% set total_alt = (costo_mat * dd + fijos) | round %}
+  {% else %}
+    {% set total_alt = (costo_mat + fijos) | round %}
   {% endif %}
 
-  {% if loop.first %}<table class="opciones-table"><tr>{% endif %}
-  <td style="width:33%;">
+  <td style="width:50%;">
 
-  <div class="opcion-card {{ 'opcion-card-usd' if es_usd else 'opcion-card-ars' }}">
-    <table style="width:100%;">
-    <tr>
-      <td>
-        <span class="opcion-badge {{ 'opcion-badge-usd' if es_usd else 'opcion-badge-ars' }}">Alternativa {{ 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[idx] }}</span>
-      </td>
-      <td style="text-align:right;">
-        <span class="opcion-m2">{{ "%.2f"|format(m2) }} m&sup2;</span>
-      </td>
-    </tr>
-    </table>
+  <div class="card-alt {{ 'card-alt-usd' if es_usd else 'card-alt-ars' }}">
 
-    <div class="opcion-nombre">{{ alt.nombre }}</div>
-    <div class="opcion-categoria">{{ alt.categoria }}</div>
+    <table class="card-alt-header"><tr>
+      <td><span class="badge-alt {{ 'badge-alt-usd' if es_usd else 'badge-alt-ars' }}">Alternativa {{ 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[idx] }}</span></td>
+      <td style="text-align:right;"><span class="card-alt-m2">{{ "%.2f"|format(m2) }} m&sup2;</span></td>
+    </tr></table>
 
-    <div class="opcion-desglose">
-      <table style="width:100%;">
-      <tr><td class="desglose-th" style="width:65%;">Concepto</td><td class="desglose-th" style="text-align:right;">Subtotal</td></tr>
+    <div class="card-alt-nombre">{{ alt.nombre }}</div>
+    <div class="card-alt-categoria">{{ alt.categoria }}</div>
 
-      <tr class="desglose-fila desglose-fila-first">
+    <div class="desglose-box">
+    <table class="desglose-inner">
+      <tr>
+        <td class="desglose-th desglose-th-c">Concepto</td>
+        <td class="desglose-th desglose-th-m">Subtotal</td>
+      </tr>
+
+      <tr class="desglose-fila">
         <td class="desglose-label">Costo Material base:</td>
         <td class="desglose-valor {{ 'desglose-valor-usd' if es_usd else '' }}">
           {% if es_usd %}
@@ -459,22 +471,23 @@
         <td class="desglose-valor">$ {{ "{:,.0f}".format(traslado or 0).replace(',','.') }}</td>
       </tr>
       {% endif %}
-      </table>
+    </table>
     </div>
 
-    <div class="opcion-total-box">
-      <span class="opcion-total-label">TOTAL Alternativa {{ 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[idx] }}</span>
-      <span class="opcion-total-monto">$ {{ "{:,.0f}".format(total_alt).replace(',','.') }}</span>
-      <span class="opcion-sena-nota">Se&ntilde;a 50%: $ {{ "{:,.0f}".format((total_alt / 2)|round).replace(',','.') }}</span>
+    <div class="total-box">
+      <span class="total-label">TOTAL Alternativa {{ 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[idx] }}</span>
+      <span class="total-monto">$ {{ "{:,.0f}".format(total_alt).replace(',','.') }}</span>
+      <span class="total-sena">Se&ntilde;a 50%: $ {{ "{:,.0f}".format((total_alt / 2)|round).replace(',','.') }}</span>
       {% if es_usd and dd %}
-      <span class="opcion-sena-nota" style="border-top:none;font-size:5.5pt;">Ref. USD {{ "%.2f"|format((total_alt / dd)) }}</span>
+      <span class="total-sena" style="border-top:none;">Ref. USD {{ "%.2f"|format((total_alt / dd)) }}</span>
       {% endif %}
     </div>
   </div>
 
   </td>
-  {% if loop.last %}</tr></table>{% elif (idx + 1) % 3 == 0 %}</tr><tr>{% endif %}
+  {% if loop.last %}</tr>{% elif idx % 2 == 1 %}</tr><tr class="gap-row"><td colspan="2">&nbsp;</td></tr><tr>{% endif %}
   {% endfor %}
+  </table>
 </div>
 
 <!-- ============================================================ -->

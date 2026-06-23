@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Eye, Save, Printer, MoreVertical, Copy, FileDown, Trash2, History, Plus, X, FileOutput, Check } from 'lucide-react';
-import { getPresupuesto, createPresupuesto, updatePresupuesto, deletePresupuesto, getNextPresupuestoNumero, getMateriales, getPiletas, getClientes, convertirAOrden } from '../../services/api';
+import { Eye, Save, Printer, MoreVertical, Copy, FileDown, Trash2, History, Plus, X, FileOutput, Check, Send } from 'lucide-react';
+import { getPresupuesto, createPresupuesto, updatePresupuesto, deletePresupuesto, getNextPresupuestoNumero, getMateriales, getPiletas, getClientes, convertirAOrden, getPresupuestoPdf } from '../../services/api';
 import { formatCurrency, badgeClass, conceptosFabricacion } from '../../utils/formatters';
 import useEntityForm from '../../hooks/useEntityForm';
 import CroquisEditor from '../ordenes/CroquisEditor';
@@ -124,6 +124,18 @@ export default function PresupuestoForm() {
     }
   };
 
+  const handleEnviarWhatsApp = () => {
+    const telefono = (form.cliente_telefono_orden || '').replace(/[^\d]/g, '');
+    const nombre = form.cliente_nombre || '';
+    const pdfUrl = getPresupuestoPdf(id);
+    const saludo = nombre ? `Hola ${nombre}! ` : '';
+    const mensaje = `${saludo}Te enviamos el presupuesto formal de AFAMAR Mármoles & Granitos. Podés revisarlo e imprimirlo desde el siguiente link: ${pdfUrl}`;
+    const whatsappUrl = telefono
+      ? `https://api.whatsapp.com/send?phone=${telefono}&text=${encodeURIComponent(mensaje)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
+    window.open(whatsappUrl, '_blank');
+  };
+
   if (loading) return <Loading />;
 
   return (
@@ -173,6 +185,9 @@ export default function PresupuestoForm() {
               <Save size={16} /> {saving ? 'GUARDANDO...' : 'GUARDAR'}
             </button>
           )}
+          <button className="btn btn-success" onClick={handleEnviarWhatsApp} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', fontSize: 13 }}>
+            <Send size={16} /> WhatsApp
+          </button>
           <button className="btn btn-outline" onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <Printer size={16} /> IMPRIMIR
           </button>

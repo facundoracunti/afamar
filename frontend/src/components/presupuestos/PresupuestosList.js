@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Search, Trash2, FileDown, FileOutput, Eye, Send, Mail } from 'lucide-react';
-import { getPresupuestosUnificados, deletePresupuesto, deletePresupuestoOnline, updatePresupuesto, convertirAOrden, convertirOnlineAOrden, getPresupuestoPdf, enviarPresupuestoWhatsApp, enviarPresupuestoEmail } from '../../services/api';
+import { getPresupuestosUnificados, deletePresupuesto, deletePresupuestoOnline, updatePresupuesto, convertirAOrden, convertirOnlineAOrden, getPresupuestoPdf, enviarPresupuestoEmail } from '../../services/api';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import ConfirmDialog from '../common/ConfirmDialog';
 import Loading from '../common/Loading';
@@ -65,13 +65,16 @@ export default function PresupuestosList() {
     }
   };
 
-  const handleEnviarWhatsApp = async (id) => {
-    try {
-      await enviarPresupuestoWhatsApp(id);
-      alert('WhatsApp enviado correctamente');
-    } catch (err) {
-      alert(err.response?.data?.detail || 'Error al enviar WhatsApp');
-    }
+  const handleEnviarWhatsApp = (presupuesto) => {
+    const telefono = (presupuesto.cliente_telefono || '').replace(/[^\d]/g, '');
+    const nombre = presupuesto.cliente_nombre || '';
+    const pdfUrl = getPresupuestoPdf(presupuesto.id);
+    const saludo = nombre ? `Hola ${nombre}! ` : '';
+    const mensaje = `${saludo}Te enviamos el presupuesto formal de AFAMAR Mármoles & Granitos. Podés revisarlo e imprimirlo desde el siguiente link: ${pdfUrl}`;
+    const whatsappUrl = telefono
+      ? `https://api.whatsapp.com/send?phone=${telefono}&text=${encodeURIComponent(mensaje)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
+    window.open(whatsappUrl, '_blank');
   };
 
   const handleEnviarEmail = async (id) => {
@@ -201,7 +204,7 @@ export default function PresupuestosList() {
                           <button className="btn btn-outline" style={{ padding: '3px 8px', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }} onClick={() => window.open(getPresupuestoPdf(p.id), '_blank')}>
                             <FileDown size={12} /> PDF
                           </button>
-                          <button className="btn btn-success" style={{ padding: '3px 8px', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }} onClick={() => handleEnviarWhatsApp(p.id)}>
+                          <button className="btn btn-success" style={{ padding: '3px 8px', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }} onClick={() => handleEnviarWhatsApp(p)}>
                             <Send size={12} /> WhatsApp
                           </button>
                           <button className="btn btn-outline" style={{ padding: '3px 8px', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }} onClick={() => handleEnviarEmail(p.id)}>
