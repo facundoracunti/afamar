@@ -721,13 +721,13 @@ export default function PresupuestoForm() {
 
                 {hayAlternativas && (
                   <OpcionesCotizacionGrid
-                    alternativas={matsAlt.map((mat, altIdx) => {
+                    alternativas={matsAlt.map((mat: MaterialEnForm, altIdx: number) => {
                       const dd2 = Number(form.dolar_dia) || 1;
                       const m2 = Number(mat.largo || 0) * Number(mat.ancho || 0) * (mat.cantidad || 1);
                       const costoMat = mat.moneda === 'USD' ? m2 * (mat.precio_m2_usd || 0) : m2 * (mat.precio_m2 || 0);
                       const costoMatArs = mat.moneda === 'USD' ? (dd2 > 0 ? costoMat * dd2 : 0) : costoMat;
                       const totalFinalARS = costoMatArs + sumatoriaAdicionalesARS;
-                      return { ...mat, idx: altIdx, costoMaterialBase: costoMat, totalFinalARS, cantidad: mat.cantidad || 1, largo: mat.largo || 0, ancho: mat.ancho || 0 };
+                      return { nombre: mat.nombre || '', categoria: mat.categoria || '', moneda: mat.moneda || 'ARS', costoMaterialBase: costoMat, totalFinalARS, largo: Number(mat.largo || 0), ancho: Number(mat.ancho || 0), cant: mat.cantidad || 1 };
                     })}
                     detalleTrabajosComunes={detalleTrabajosComunes}
                     tipoCambio={Number(form.dolar_dia) || 1}

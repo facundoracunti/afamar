@@ -3,16 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Edit, Trash2 } from 'lucide-react';
 import { getMateriales, deleteMaterial, getConfig } from '../../services/api';
 import { categoriasMaterial } from '../../utils/formatters';
+import type { Material } from '../../types/material';
+import type { Configuracion } from '../../types/configuracion';
 import ConfirmDialog from '../common/ConfirmDialog';
 import Loading from '../common/Loading';
 
 export default function MaterialesList() {
-  const [data, setData] = useState([]);
+  const [data, setData] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [categoria, setCategoria] = useState('');
   const [tipoCambio, setTipoCambio] = useState(1);
-  const [deleteId, setDeleteId] = useState(null);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
   const navigate = useNavigate();
 
   const load = () => {
@@ -21,9 +23,9 @@ export default function MaterialesList() {
       getMateriales({ search: search || undefined, categoria: categoria || undefined }),
       getConfig()
     ]).then(([matRes, cfgRes]) => {
-      setData(matRes.data);
-      const cfgMap = {};
-      cfgRes.data.forEach((c) => { cfgMap[c.key] = c.value; });
+      setData(matRes.data as Material[]);
+      const cfgMap: Record<string, string> = {};
+      (cfgRes.data as Configuracion[]).forEach((c) => { cfgMap[c.key] = c.value; });
       setTipoCambio(Number(cfgMap.tipo_cambio) || 1);
       setLoading(false);
     });
@@ -32,7 +34,7 @@ export default function MaterialesList() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [search, categoria]);
 
-  const calcularUsd = (precioArs) => tipoCambio > 0 ? (precioArs / tipoCambio) : 0;
+  const calcularUsd = (precioArs: number) => tipoCambio > 0 ? (precioArs / tipoCambio) : 0;
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -80,7 +82,7 @@ export default function MaterialesList() {
                 </tr>
               </thead>
               <tbody>
-                {data.map((m) => {
+                {data.map((m: Material) => {
                   const moneda = m.moneda || 'ARS';
                   const precio = moneda === 'USD' ? (m.precio_m2_usd || 0) : (m.precio_m2 || 0);
                   return (

@@ -109,3 +109,19 @@ export interface PresupuestoPayload {
   descuento_porcentaje: number;
   descuento_monto_fijo: number;
 }
+
+export interface PresupuestoUnificado {
+  tipo: string;
+  id: number;
+  numero: string;
+  orden_trabajo_numero?: string;
+  fecha: string;
+  cliente_nombre?: string;
+  cliente_telefono?: string;
+  materiales?: Array<{ nombre: string }>;
+  items?: Array<{ detalle: string; material?: string }>;
+  material?: string;
+  observaciones_diseno?: string;
+  total: number;
+  estado: string;
+}

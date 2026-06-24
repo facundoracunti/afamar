@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from app.database import get_db
 from app.schemas.presupuesto_online import (
     PresupuestoOnlineCreate, PresupuestoOnlineUpdate,
@@ -54,8 +54,12 @@ def eliminar(id: int, service: PresupuestoOnlineService = Depends(_get_service))
 
 
 @router.post("/{id}/convertir-orden")
-def convertir_a_orden(id: int, service: PresupuestoOnlineService = Depends(_get_service)):
+def convertir_a_orden(
+    id: int,
+    opcion: Optional[int] = Query(None),
+    service: PresupuestoOnlineService = Depends(_get_service),
+):
     try:
-        return service.convertir_a_orden(id)
+        return service.convertir_a_orden(id, opcion=opcion)
     except NotFoundError as e:
         raise HTTPException(404, str(e))

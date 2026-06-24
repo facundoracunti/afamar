@@ -7,6 +7,7 @@ export type {
   MaterialEnForm,
   PiletaEnForm,
   PresupuestoPayload,
+  PresupuestoUnificado,
 } from './presupuesto';
 export type { OrdenTrabajoPayload } from './orden';
 export type {

@@ -4,23 +4,24 @@ import { getPiletas, createPileta, updatePileta, deletePileta, getMovimientos, c
 import Modal from '../common/Modal';
 import ConfirmDialog from '../common/ConfirmDialog';
 import Loading from '../common/Loading';
+import type { StockPileta, MovimientoPileta } from '../../types/stockPileta';
 
 export default function StockPiletas() {
-  const [data, setData] = useState([]);
+  const [data, setData] = useState<StockPileta[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
-  const [showMov, setShowMov] = useState(null);
-  const [movimientos, setMovimientos] = useState([]);
-  const [deleteId, setDeleteId] = useState(null);
-  const [editItem, setEditItem] = useState(null);
+  const [showMov, setShowMov] = useState<StockPileta | null>(null);
+  const [movimientos, setMovimientos] = useState<MovimientoPileta[]>([]);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [editItem, setEditItem] = useState<StockPileta | null>(null);
 
-  const [form, setForm] = useState({ marca: '', modelo: '', descripcion: '', material: '', cantidad: 0, precio: 0, precio_usd: 0 });
-  const [movForm, setMovForm] = useState({ tipo: 'Ingreso', cantidad: 1, descripcion: '' });
+  const [form, setForm] = useState<{ marca: string; modelo: string; descripcion: string; material: string; cantidad: number; precio: number; precio_usd: number }>({ marca: '', modelo: '', descripcion: '', material: '', cantidad: 0, precio: 0, precio_usd: 0 });
+  const [movForm, setMovForm] = useState<{ tipo: string; cantidad: number; descripcion: string }>({ tipo: 'Ingreso', cantidad: 1, descripcion: '' });
 
   const load = () => {
     setLoading(true);
-    getPiletas({ search: search || undefined }).then((res) => {
+    getPiletas({ search: search || undefined }).then((res: { data: StockPileta[] }) => {
       setData(res.data);
       setLoading(false);
     });
@@ -29,7 +30,7 @@ export default function StockPiletas() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [search]);
 
-  const handleOpenForm = (item = null) => {
+  const handleOpenForm = (item: StockPileta | null = null) => {
     if (item) {
       setEditItem(item);
       setForm({ marca: item.marca, modelo: item.modelo, descripcion: item.descripcion || '', material: item.material || '', cantidad: item.cantidad, precio: item.precio || 0, precio_usd: item.precio_usd || 0 });
@@ -40,7 +41,7 @@ export default function StockPiletas() {
     setShowForm(true);
   };
 
-  const handleSave = async (e) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (editItem) {
@@ -50,7 +51,7 @@ export default function StockPiletas() {
       }
       setShowForm(false);
       load();
-    } catch (err) {
+    } catch (err: unknown) {
       alert('Error al guardar');
     }
   };
@@ -62,14 +63,14 @@ export default function StockPiletas() {
     load();
   };
 
-  const handleOpenMov = async (pileta) => {
+  const handleOpenMov = async (pileta: StockPileta) => {
     setShowMov(pileta);
     const res = await getMovimientos(pileta.id);
     setMovimientos(res.data);
     setMovForm({ tipo: 'Ingreso', cantidad: 1, descripcion: '' });
   };
 
-  const handleAddMov = async (e) => {
+  const handleAddMov = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!showMov) return;
     try {
@@ -78,7 +79,7 @@ export default function StockPiletas() {
       setMovimientos(res.data);
       load();
       setMovForm({ tipo: 'Ingreso', cantidad: 1, descripcion: '' });
-    } catch (err) {
+    } catch (err: unknown) {
       alert('Error al registrar movimiento');
     }
   };
@@ -213,7 +214,7 @@ export default function StockPiletas() {
                   <td><span className={`badge ${m.tipo === 'Ingreso' ? 'badge-approved' : 'badge-rejected'}`}>{m.tipo}</span></td>
                   <td style={{ fontWeight: 600 }}>{m.cantidad}</td>
                   <td>{m.descripcion || '-'}</td>
-                  <td>{new Date(m.created_at).toLocaleDateString('es-AR')}</td>
+                  <td>{new Date(m.created_at || '').toLocaleDateString('es-AR')}</td>
                 </tr>
               ))}
               {movimientos.length === 0 && (

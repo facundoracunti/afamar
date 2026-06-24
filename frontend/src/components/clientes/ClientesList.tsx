@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import type { Cliente } from '../../types/cliente';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Edit, Trash2 } from 'lucide-react';
 import { getClientes, deleteCliente } from '../../services/api';
@@ -6,16 +7,16 @@ import ConfirmDialog from '../common/ConfirmDialog';
 import Loading from '../common/Loading';
 
 export default function ClientesList() {
-  const [clientes, setClientes] = useState([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [deleteId, setDeleteId] = useState(null);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
   const navigate = useNavigate();
 
   const load = () => {
     setLoading(true);
     getClientes({ search: search || undefined }).then((res) => {
-      setClientes(res.data);
+      setClientes(res.data as Cliente[]);
       setLoading(false);
     });
   };
@@ -30,7 +31,7 @@ export default function ClientesList() {
     load();
   };
 
-  const formatDate = (d) => {
+  const formatDate = (d: string | null | undefined): string => {
     if (!d) return '-';
     const date = new Date(d);
     return date.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });

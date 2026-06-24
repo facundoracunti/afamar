@@ -41,12 +41,12 @@ class PresupuestoOnlineService:
         if not self.repo.delete(id):
             raise NotFoundError("Presupuesto online", id)
 
-    def convertir_a_orden(self, id: int) -> dict:
+    def convertir_a_orden(self, id: int, opcion: Optional[int] = None) -> dict:
         p = self.repo.get(id)
         if not p:
             raise NotFoundError("Presupuesto online", id)
 
-        print(f"[convertir_a_orden] PresupuestoOnline #{id}: pileta_id={p.pileta_id}, estado={p.estado}, items_count={len(p.items or [])}")
+        print(f"[convertir_a_orden] PresupuestoOnline #{id}: pileta_id={p.pileta_id}, estado={p.estado}, items_count={len(p.items or [])}, opcion={opcion}")
 
         fecha_dt = None
         if p.fecha:
@@ -56,6 +56,27 @@ class PresupuestoOnlineService:
                 pass
 
         items = p.items or []
+
+        # Filter by option index if specified
+        if opcion is not None:
+            items = [
+                it for it in items
+                if int(it.get("opcion", 0) if isinstance(it, dict) else getattr(it, 'opcion', 0)) == opcion
+            ]
+            print(f"[convertir_a_orden] Filtered to opcion={opcion}: {len(items)} items")
+
+        # Recalculate totals from (possibly filtered) items
+        ars_total = 0.0
+        usd_total = 0.0
+        for it in items:
+            moneda_item = it.get("moneda", "ARS") if isinstance(it, dict) else getattr(it, 'moneda', "ARS")
+            subtotal_item = float(it.get("subtotal", 0) or 0) if isinstance(it, dict) else float(getattr(it, 'subtotal', 0) or 0)
+            if moneda_item == "USD":
+                usd_total += subtotal_item
+            else:
+                ars_total += subtotal_item
+        ars_total = round(ars_total, 2)
+        usd_total = round(usd_total, 2)
         materiales = []
         piletas = []
         detalles_fabricacion = []
@@ -190,8 +211,8 @@ class PresupuestoOnlineService:
                     "es_alternativa": False,
                 })
 
-        # Top-level pileta_id fallback (if not already from items)
-        if p.pileta_id and not any(pl.get("pileta_id") == p.pileta_id for pl in piletas):
+        # Top-level pileta_id fallback (only when converting all options, not a single one)
+        if opcion is None and p.pileta_id and not any(pl.get("pileta_id") == p.pileta_id for pl in piletas):
             pt = self.db.query(StockPileta).filter(StockPileta.id == p.pileta_id).first()
             if pt:
                 print(f"[convertir_a_orden] Top-level fallback pileta_id={p.pileta_id} ({pt.marca} {pt.modelo})")
@@ -207,6 +228,8 @@ class PresupuestoOnlineService:
 
         print(f"[convertir_a_orden] piletas final={piletas}")
 
+        opcion_label = f" (Opción {opcion + 1})" if opcion is not None else ""
+
         orden = OrdenTrabajo(
             numero=generar_numero_orden(self.db),
             origen="Desde presupuesto online",
@@ -216,13 +239,13 @@ class PresupuestoOnlineService:
             piletas=piletas,
             detalles_fabricacion=detalles_fabricacion,
             detalles_presupuestados=detalles_presupuestados,
-            total=p.total_consolidado or p.total_neto_ars or 0,
-            subtotal=p.total_neto_ars or 0,
+            total=ars_total + usd_total * (float(p.dolar_dia or 1000)),
+            subtotal=ars_total,
             dolar_dia=p.dolar_dia or 1000,
-            total_usd=p.total_neto_usd or 0,
-            subtotal_usd=p.total_neto_usd or 0,
+            total_usd=usd_total,
+            subtotal_usd=usd_total,
             estado="MEDICION",
-            observaciones=f"Convertido desde presupuesto online {p.numero}",
+            observaciones=f"Convertido desde presupuesto online {p.numero}{opcion_label}",
         )
         p.estado = "CONVERTIDO A OT"
         orden.stock_descontado = True

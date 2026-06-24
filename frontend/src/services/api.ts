@@ -11,7 +11,7 @@ export {
 export {
   getPresupuestosOnline, getPresupuestoOnline,
   createPresupuestoOnline, updatePresupuestoOnline, deletePresupuestoOnline,
-  convertirOnlineAOrden,
+  convertirOnlineAOrden, convertirOnlineAOrdenOpcion,
 } from './presupuestosOnline';
 export {
   getOrdenes, getOrden, createOrden, updateOrden, deleteOrden,

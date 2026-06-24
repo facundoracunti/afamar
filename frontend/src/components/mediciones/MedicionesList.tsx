@@ -2,22 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Eye, Trash2 } from 'lucide-react';
 import { getMediciones, deleteMedicion } from '../../services/api';
-import { estadosMedicion, badgeClass } from '../../utils/formatters';
-import { formatDate } from '../../utils/formatters';
+import { estadosMedicion, badgeClass, formatDate } from '../../utils/formatters';
+import type { Medicion } from '../../types/medicion';
 import ConfirmDialog from '../common/ConfirmDialog';
 import Loading from '../common/Loading';
 
 export default function MedicionesList() {
-  const [data, setData] = useState([]);
+  const [data, setData] = useState<Medicion[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [estadoFiltro, setEstadoFiltro] = useState('');
-  const [deleteId, setDeleteId] = useState(null);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
   const navigate = useNavigate();
 
-  const load = () => {
+  const load = (): void => {
     setLoading(true);
-    getMediciones({ search: search || undefined, estado: estadoFiltro || undefined }).then((res) => {
+    getMediciones({ search: search || undefined, estado: estadoFiltro || undefined }).then((res: { data: Medicion[] }) => {
       setData(res.data);
       setLoading(false);
     });
@@ -26,7 +26,7 @@ export default function MedicionesList() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [search, estadoFiltro]);
 
-  const handleDelete = async () => {
+  const handleDelete = async (): Promise<void> => {
     if (!deleteId) return;
     await deleteMedicion(deleteId);
     setDeleteId(null);
@@ -45,12 +45,12 @@ export default function MedicionesList() {
       <div className="card" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ position: 'relative', flex: 1, minWidth: 250 }}>
-            <Search size={18} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-            <input className="input" placeholder="Buscar por cliente, teléfono o dirección..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ paddingLeft: 40 }} />
+            <Search size={18} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' } as React.CSSProperties} />
+            <input className="input" placeholder="Buscar por cliente, teléfono o dirección..." value={search} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)} style={{ paddingLeft: 40 }} />
           </div>
-          <select className="input" style={{ width: 180 }} value={estadoFiltro} onChange={(e) => setEstadoFiltro(e.target.value)}>
+          <select className="input" style={{ width: 180 }} value={estadoFiltro} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEstadoFiltro(e.target.value)}>
             <option value="">Todos los estados</option>
-            {estadosMedicion.map((e) => <option key={e} value={e}>{e}</option>)}
+            {estadosMedicion.map((e: string) => <option key={e} value={e}>{e}</option>)}
           </select>
         </div>
       </div>
@@ -71,14 +71,14 @@ export default function MedicionesList() {
                 </tr>
               </thead>
               <tbody>
-                {data.map((m) => (
+                {data.map((m: Medicion) => (
                   <tr key={m.id}>
                     <td style={{ fontWeight: 600 }}>{m.cliente_nombre}</td>
                     <td>{m.cliente_telefono || '-'}</td>
                     <td>{m.cliente_direccion || '-'}</td>
                     <td>{formatDate(m.fecha_programada)}</td>
                     <td>{m.hora_programada || '-'}</td>
-                    <td><span className={badgeClass(m.estado)}>{m.estado}</span></td>
+                    <td><span className={badgeClass(m.estado || '')}>{m.estado}</span></td>
                     <td>
                       <div style={{ display: 'flex', gap: 6 }}>
                         <button className="btn btn-outline" style={{ padding: '4px 8px' }} onClick={() => navigate(`/mediciones/${m.id}`)}>

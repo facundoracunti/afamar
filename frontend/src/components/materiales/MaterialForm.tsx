@@ -3,6 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Save } from 'lucide-react';
 import { getMaterial, createMaterial, updateMaterial, getConfig } from '../../services/api';
 import { categoriasMaterial } from '../../utils/formatters';
+import type { MaterialFormData } from '../../types/material';
+import type { Configuracion } from '../../types/configuracion';
 import Loading from '../common/Loading';
 
 export default function MaterialForm() {
@@ -12,15 +14,15 @@ export default function MaterialForm() {
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [tipoCambio, setTipoCambio] = useState(1);
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<MaterialFormData>({
     nombre: '', categoria: '', color: '', espesor_disponible: '',
     precio_m2: 0, precio_m2_usd: 0, moneda: 'ARS', proveedor: '', stock_disponible: 0, observaciones: '',
   });
 
   useEffect(() => {
     getConfig().then((res) => {
-      const map = {};
-      res.data.forEach((c) => { map[c.key] = c.value; });
+      const map: Record<string, string> = {};
+      (res.data as Configuracion[]).forEach((c) => { map[c.key] = c.value; });
       setTipoCambio(Number(map.tipo_cambio) || 1);
     });
     if (id) {
@@ -39,36 +41,37 @@ export default function MaterialForm() {
     }
   }, [id]);
 
-  const handlePrecioArsChange = (value) => {
+  const handlePrecioArsChange = (value: number) => {
     const ars = Number(value) || 0;
     const usd = form.moneda === 'ARS' ? (tipoCambio > 0 ? ars / tipoCambio : 0) : form.precio_m2_usd;
     setForm({ ...form, precio_m2: ars, precio_m2_usd: form.moneda === 'ARS' ? usd : form.precio_m2_usd });
   };
 
-  const handlePrecioUsdChange = (value) => {
+  const handlePrecioUsdChange = (value: number) => {
     const usd = Number(value) || 0;
     const ars = form.moneda === 'USD' ? (tipoCambio > 0 ? usd * tipoCambio : 0) : form.precio_m2;
     setForm({ ...form, precio_m2_usd: usd, precio_m2: form.moneda === 'USD' ? ars : form.precio_m2 });
   };
 
-  const handleMonedaChange = (moneda) => {
-    if (moneda === 'ARS') {
+  const handleMonedaChange = (moneda: string) => {
+    const m = moneda as 'ARS' | 'USD';
+    if (m === 'ARS') {
       const usd = tipoCambio > 0 ? form.precio_m2 / tipoCambio : 0;
-      setForm({ ...form, moneda, precio_m2_usd: usd });
+      setForm({ ...form, moneda: m, precio_m2_usd: usd });
     } else {
       const ars = tipoCambio > 0 ? form.precio_m2_usd * tipoCambio : 0;
-      setForm({ ...form, moneda, precio_m2: ars });
+      setForm({ ...form, moneda: m, precio_m2: ars });
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
       if (isEdit) {
-        await updateMaterial(id, form);
+        await updateMaterial(id as string, form as unknown as Record<string, unknown>);
       } else {
-        await createMaterial(form);
+        await createMaterial(form as unknown as Record<string, unknown>);
       }
       navigate('/materiales');
     } catch (err) {

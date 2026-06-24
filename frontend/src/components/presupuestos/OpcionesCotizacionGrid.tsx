@@ -1,26 +1,49 @@
 import React from 'react';
 
-const OpcionesCotizacionGrid = ({ alternativas, detalleTrabajosComunes, tipoCambio = 1000, presupuestoId, onConvertirAlternativa, modoUSD = false }) => {
-  // Datos de contingencia por si las variables vienen vacías o corruptas
-  const listaAlternativas = alternativas && alternativas.length > 0 ? alternativas : [
+interface Alternativa {
+  nombre: string;
+  categoria: string;
+  moneda: string;
+  costoMaterialBase: number;
+  totalFinalARS: number;
+  largo: number;
+  ancho: number;
+  cant: number;
+}
+
+interface TrabajoComun {
+  concepto: string;
+  total: number;
+}
+
+interface Props {
+  alternativas?: Alternativa[];
+  detalleTrabajosComunes?: TrabajoComun[];
+  tipoCambio?: number;
+  presupuestoId?: number | string;
+  onConvertirAlternativa?: (idx: number) => void;
+  modoUSD?: boolean;
+}
+
+const OpcionesCotizacionGrid = ({ alternativas, detalleTrabajosComunes, tipoCambio = 1000, presupuestoId, onConvertirAlternativa, modoUSD = false }: Props) => {
+  const listaAlternativas: Alternativa[] = alternativas && alternativas.length > 0 ? alternativas : [
     { nombre: 'GRIS MARA', categoria: 'GRANITOS', moneda: 'ARS', costoMaterialBase: 180000, totalFinalARS: 390000, largo: 2.1, ancho: 2, cant: 1 },
     { nombre: 'TAJ MAHAL', categoria: 'SINTERIZADOS', moneda: 'USD', costoMaterialBase: 350, totalFinalARS: 560000, largo: 2.1, ancho: 2, cant: 1 }
   ];
 
-  const listaTrabajos = detalleTrabajosComunes && detalleTrabajosComunes.length > 0 ? detalleTrabajosComunes : [
+  const listaTrabajos: TrabajoComun[] = detalleTrabajosComunes && detalleTrabajosComunes.length > 0 ? detalleTrabajosComunes : [
     { concepto: 'TRAFORO DE PILETA - APERTURA Y PEGADO DE PILETA', total: 60000 },
     { concepto: 'Pileta JOHNSON e 44', total: 150000 }
   ];
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', marginTop: '24px', width: '100%' }}>
-      <h3 style={{ fontSize: '12px', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '16px' }}>
+    <div style={{ fontFamily: 'system-ui, sans-serif', marginTop: '24px', width: '100%' } as React.CSSProperties}>
+      <h3 style={{ fontSize: '12px', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '16px' } as React.CSSProperties}>
         Opciones de Cotización Disponibles
       </h3>
       
-      {/* CONTENEDOR DE DOS COLUMNAS - SEPARA LAS TARJETAS */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
-        {listaAlternativas.map((mat, idx) => {
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' } as React.CSSProperties}>
+        {listaAlternativas.map((mat: Alternativa, idx: number) => {
           const esTarjetaUSD = mat.moneda === 'USD';
           const t_cambio = tipoCambio || 1000;
 
@@ -37,9 +60,8 @@ const OpcionesCotizacionGrid = ({ alternativas, detalleTrabajosComunes, tipoCamb
                 flexDirection: 'column',
                 justifyContent: 'space-between',
                 position: 'relative'
-              }}
+              } as React.CSSProperties}
             >
-              {/* Barra superior de color decorativa */}
               <div style={{
                 position: 'absolute',
                 top: 0,
@@ -49,11 +71,10 @@ const OpcionesCotizacionGrid = ({ alternativas, detalleTrabajosComunes, tipoCamb
                 backgroundColor: esTarjetaUSD ? '#f59e0b' : '#3b82f6',
                 borderTopLeftRadius: '16px',
                 borderTopRightRadius: '16px'
-              }} />
+              } as React.CSSProperties} />
 
               <div>
-                {/* Encabezado interno de la alternativa */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' } as React.CSSProperties}>
                   <span style={{
                     fontSize: '10px',
                     fontWeight: '900',
@@ -62,35 +83,31 @@ const OpcionesCotizacionGrid = ({ alternativas, detalleTrabajosComunes, tipoCamb
                     backgroundColor: esTarjetaUSD ? '#fef3c7' : '#dbeafe',
                     color: esTarjetaUSD ? '#b45309' : '#1d4ed8',
                     textTransform: 'uppercase'
-                  }}>
+                  } as React.CSSProperties}>
                     Alternativa {String.fromCharCode(65 + idx)}
                   </span>
-                  <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: '700' }}>
+                  <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: '700' } as React.CSSProperties}>
                     {mat.cant || 1} pza. ({Number(mat.largo * mat.ancho || 1.216).toFixed(2)} m²)
                   </span>
                 </div>
 
-                {/* Título del Material */}
-                <h4 style={{ fontSize: '20px', fontWeight: '900', color: '#0f172a', margin: '0 0 4px 0', textTransform: 'uppercase' }}>
+                <h4 style={{ fontSize: '20px', fontWeight: '900', color: '#0f172a', margin: '0 0 4px 0', textTransform: 'uppercase' } as React.CSSProperties}>
                   {mat.nombre}
                 </h4>
-                <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '20px' }}>
+                <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '20px' } as React.CSSProperties}>
                   {mat.categoria}
                 </div>
 
-                {/* CUADRO GRIS DE DESGLOSE (TABULADO LIMPIO) */}
-                <div style={{ backgroundColor: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: '12px', padding: '16px' }}>
+                <div style={{ backgroundColor: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: '12px', padding: '16px' } as React.CSSProperties}>
                   
-                  {/* Títulos de columnas */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '8px', borderBottom: '1px solid #e2e8f0', fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '8px', borderBottom: '1px solid #e2e8f0', fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase' } as React.CSSProperties}>
                     <span>Concepto</span>
                     <span>Subtotal</span>
                   </div>
 
-                  {/* Fila: Costo del Material Base */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
-                    <span style={{ fontSize: '13px', color: '#475569', fontWeight: '500' }}>Costo Material base:</span>
-                    <span style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', backgroundColor: '#ffffff', border: '1px solid #cbd5e1', padding: '2px 8px', borderRadius: '4px', whiteSpace: 'nowrap' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' } as React.CSSProperties}>
+                    <span style={{ fontSize: '13px', color: '#475569', fontWeight: '500' } as React.CSSProperties}>Costo Material base:</span>
+                    <span style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', backgroundColor: '#ffffff', border: '1px solid #cbd5e1', padding: '2px 8px', borderRadius: '4px', whiteSpace: 'nowrap' } as React.CSSProperties}>
                       {modoUSD && tipoCambio > 0
                         ? `USD $${Number(esTarjetaUSD ? mat.costoMaterialBase : mat.costoMaterialBase / tipoCambio).toLocaleString('en-US', { minimumFractionDigits: 2 })}`
                         : esTarjetaUSD
@@ -100,18 +117,17 @@ const OpcionesCotizacionGrid = ({ alternativas, detalleTrabajosComunes, tipoCamb
                     </span>
                   </div>
 
-                  {/* Filas: Adicionales y Piletas */}
-                  {listaTrabajos.map((job, i) => {
+                  {listaTrabajos.map((job: TrabajoComun, i: number) => {
                     const valorAdicional = esTarjetaUSD ? (job.total / t_cambio) : job.total;
                     return (
                       <div 
                         key={i} 
-                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', paddingTop: '12px', borderTop: '1px dashed #e2e8f0' }}
+                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', paddingTop: '12px', borderTop: '1px dashed #e2e8f0' } as React.CSSProperties}
                       >
-                        <span style={{ fontSize: '12px', color: '#64748b', maxWidth: '65%', textTransform: 'uppercase', lineHeight: '1.2' }}>
+                        <span style={{ fontSize: '12px', color: '#64748b', maxWidth: '65%', textTransform: 'uppercase', lineHeight: '1.2' } as React.CSSProperties}>
                           {job.concepto.replace('TRAFORO DE PILETA - ', '')}
                         </span>
-                        <span style={{ fontSize: '12px', fontWeight: '600', color: '#334155', whiteSpace: 'nowrap', paddingLeft: '8px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: '600', color: '#334155', whiteSpace: 'nowrap', paddingLeft: '8px' } as React.CSSProperties}>
                           {modoUSD && tipoCambio > 0
                             ? `USD $${Number(esTarjetaUSD ? job.total / tipoCambio : job.total / tipoCambio).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                             : esTarjetaUSD
@@ -126,8 +142,7 @@ const OpcionesCotizacionGrid = ({ alternativas, detalleTrabajosComunes, tipoCamb
                 </div>
               </div>
 
-              {/* BOTÓN AZUL PREMIUM DEL GRAN TOTAL */}
-              <div style={{ marginTop: '24px' }}>
+              <div style={{ marginTop: '24px' } as React.CSSProperties}>
                 <div style={{
                   backgroundColor: '#2563eb',
                   borderRadius: '12px',
@@ -135,12 +150,12 @@ const OpcionesCotizacionGrid = ({ alternativas, detalleTrabajosComunes, tipoCamb
                   textAlign: 'center',
                   boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.2)',
                   color: '#ffffff'
-                }}>
-                  <span style={{ display: 'block', fontSize: '9px', fontWeight: '800', color: '#bfdbfe', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                } as React.CSSProperties}>
+                  <span style={{ display: 'block', fontSize: '9px', fontWeight: '800', color: '#bfdbfe', textTransform: 'uppercase', letterSpacing: '0.1em' } as React.CSSProperties}>
                     TOTAL PRESUPUESTO
                   </span>
                   
-                  <span style={{ display: 'block', fontSize: '24px', fontWeight: '900', letterSpacing: '-0.02em', marginTop: '2px' }}>
+                  <span style={{ display: 'block', fontSize: '24px', fontWeight: '900', letterSpacing: '-0.02em', marginTop: '2px' } as React.CSSProperties}>
                     {modoUSD && tipoCambio > 0
                       ? `USD $${Number(mat.totalFinalARS / tipoCambio).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                       : `$ ${Math.round(mat.totalFinalARS).toLocaleString('es-AR')}`
@@ -148,8 +163,8 @@ const OpcionesCotizacionGrid = ({ alternativas, detalleTrabajosComunes, tipoCamb
                   </span>
 
                   {modoUSD && tipoCambio > 0 ? null : esTarjetaUSD && (
-                    <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.2)' }}>
-                      <span style={{ display: 'inline-block', fontSize: '11px', fontWeight: '700', color: '#eff6ff', backgroundColor: 'rgba(29, 78, 216, 0.5)', padding: '2px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.2)' } as React.CSSProperties}>
+                      <span style={{ display: 'inline-block', fontSize: '11px', fontWeight: '700', color: '#eff6ff', backgroundColor: 'rgba(29, 78, 216, 0.5)', padding: '2px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)' } as React.CSSProperties}>
                         {`Ref. USD $${Number(mat.totalFinalARS / t_cambio).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                       </span>
                     </div>
@@ -165,10 +180,10 @@ const OpcionesCotizacionGrid = ({ alternativas, detalleTrabajosComunes, tipoCamb
                     fontWeight: 700, backgroundColor: '#059669', color: '#fff',
                     border: 'none', borderRadius: 8, cursor: 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                  }}
+                  } as React.CSSProperties}
                   onClick={() => onConvertirAlternativa(idx)}
                 >
-                  <span style={{ fontSize: 14, lineHeight: 1 }}>+</span>
+                  <span style={{ fontSize: 14, lineHeight: 1 } as React.CSSProperties}>+</span>
                   Convertir Alternativa en OT
                 </button>
               )}

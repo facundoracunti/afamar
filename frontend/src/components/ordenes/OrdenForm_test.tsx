@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Eye, Save, Printer, MoreVertical, Copy, FileDown, Trash2, History, Plus, X, Upload } from 'lucide-react';

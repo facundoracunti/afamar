@@ -1,5 +1,11 @@
 import type { FabricacionDetalle, MaterialEnForm, PiletaEnForm } from './presupuesto';
 
+export interface ConvertirOpcionResponse {
+  message: string;
+  orden_id: number;
+  numero: string;
+}
+
 export interface OrdenTrabajoPayload {
   cliente_nombre: string;
   cliente_telefono_orden: string;

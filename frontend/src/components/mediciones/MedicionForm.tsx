@@ -3,18 +3,19 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Save, X, Plus } from 'lucide-react';
 import { getMedicion, createMedicion, updateMedicion } from '../../services/api';
 import { estadosMedicion } from '../../utils/formatters';
+import type { Medicion, MedicionFormData } from '../../types/medicion';
 import Loading from '../common/Loading';
 
 export default function MedicionForm() {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const isEdit = !!id;
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
-  const [fotosPreview, setFotosPreview] = useState([]);
-  const fileInputRef = useRef(null);
+  const [fotosPreview, setFotosPreview] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<MedicionFormData>({
     cliente_nombre: '',
     cliente_telefono: '',
     cliente_direccion: '',
@@ -28,13 +29,13 @@ export default function MedicionForm() {
 
   useEffect(() => {
     if (id) {
-      getMedicion(id).then((res) => {
+      getMedicion(id).then((res: { data: Medicion }) => {
         const d = res.data;
         setForm({
           cliente_nombre: d.cliente_nombre || '',
           cliente_telefono: d.cliente_telefono || '',
           cliente_direccion: d.cliente_direccion || '',
-          fecha_programada: d.fecha_programada ? d.fecha_programada.slice(0, 10) : '',
+          fecha_programada: d.fecha_programada ? d.fecha_programada.split('T')[0] : '',
           hora_programada: d.hora_programada || '',
           observaciones: d.observaciones || '',
           croquis: d.croquis || [],
@@ -47,18 +48,18 @@ export default function MedicionForm() {
     }
   }, [id]);
 
-  const handleChange = (field) => (e) => {
+  const handleChange = (field: keyof MedicionFormData) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setForm({ ...form, [field]: e.target.value });
   };
 
-  const handleFileSelect = (e) => {
-    const files = Array.from(e.target.files);
-    const readers = files.map((file) => new Promise((resolve) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    const files = Array.from(e.target.files as FileList);
+    const readers = files.map((file) => new Promise<string>((resolve) => {
       const reader = new FileReader();
-      reader.onload = (ev) => resolve(ev.target.result);
+      reader.onload = (ev: ProgressEvent<FileReader>) => resolve(ev.target?.result as string);
       reader.readAsDataURL(file);
     }));
-    Promise.all(readers).then((base64s) => {
+    Promise.all(readers).then((base64s: string[]) => {
       const newFotos = [...form.fotos, ...base64s];
       setForm({ ...form, fotos: newFotos });
       setFotosPreview(newFotos);
@@ -66,13 +67,13 @@ export default function MedicionForm() {
     e.target.value = '';
   };
 
-  const handleRemoveFoto = (index) => {
-    const newFotos = form.fotos.filter((_, i) => i !== index);
+  const handleRemoveFoto = (index: number): void => {
+    const newFotos = form.fotos.filter((_: string, i: number) => i !== index);
     setForm({ ...form, fotos: newFotos });
     setFotosPreview(newFotos);
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setSaving(true);
     try {
@@ -81,12 +82,12 @@ export default function MedicionForm() {
         fecha_programada: form.fecha_programada ? new Date(form.fecha_programada).toISOString() : null,
       };
       if (isEdit) {
-        await updateMedicion(id, payload);
+        await updateMedicion(id as string, payload);
       } else {
         await createMedicion(payload);
       }
       navigate('/mediciones');
-    } catch (err) {
+    } catch (err: unknown) {
       alert('Error al guardar');
     } finally {
       setSaving(false);
@@ -116,7 +117,7 @@ export default function MedicionForm() {
           <div className="form-group">
             <label>Estado</label>
             <select className="input" value={form.estado} onChange={handleChange('estado')}>
-              {estadosMedicion.map((e) => <option key={e} value={e}>{e}</option>)}
+              {estadosMedicion.map((e: string) => <option key={e} value={e}>{e}</option>)}
             </select>
           </div>
 
@@ -130,12 +131,12 @@ export default function MedicionForm() {
               onChange={handleFileSelect}
               style={{ display: 'none' }}
             />
-            <button type="button" className="btn btn-outline" onClick={() => fileInputRef.current.click()}>
+            <button type="button" className="btn btn-outline" onClick={() => fileInputRef.current?.click()}>
               <Plus size={16} /> Agregar fotos
             </button>
             {fotosPreview.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
-                {fotosPreview.map((foto, idx) => (
+                {fotosPreview.map((foto: string, idx: number) => (
                   <div key={idx} style={{ position: 'relative', width: 100, height: 100 }}>
                     <img src={foto} alt={`Foto ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} />
                     <button
@@ -155,7 +156,7 @@ export default function MedicionForm() {
             )}
           </div>
 
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24 }}>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24 } as React.CSSProperties}>
             <button type="button" className="btn btn-outline" onClick={() => navigate('/mediciones')}>Cancelar</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
               <Save size={16} /> {saving ? 'Guardando...' : (isEdit ? 'Actualizar' : 'Crear Medición')}

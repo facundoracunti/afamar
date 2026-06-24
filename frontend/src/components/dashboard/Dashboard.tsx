@@ -1,24 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, DollarSign, FileText, ClipboardList, PackageOpen, Globe, Truck } from 'lucide-react';
+import type { DashboardData } from '../../types/dashboard';
 import { getDashboard } from '../../services/api';
 import Loading from '../common/Loading';
 import { formatCurrency } from '../../utils/formatters';
 
 export default function Dashboard() {
-  const [data, setData] = useState(null);
+  const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
     getDashboard()
-      .then((res) => setData(res.data))
+      .then((res) => setData(res.data as DashboardData))
+      .catch((err: unknown) => console.error(err))
       .finally(() => setLoading(false));
   }, []);
 
   if (loading) return <Loading />;
 
-  const cardStyle = {
+  const cardStyle: React.CSSProperties = {
     background: '#fff',
     borderRadius: 4,
     padding: '30px 20px',
@@ -37,7 +39,7 @@ export default function Dashboard() {
     transition: 'transform 0.2s, box-shadow 0.2s',
   };
 
-  const wideCardStyle = {
+  const wideCardStyle: React.CSSProperties = {
     ...cardStyle,
     gridColumn: 'span 3',
     minHeight: 180,
@@ -46,7 +48,7 @@ export default function Dashboard() {
     gap: 8,
   };
 
-  const tallCardStyle = {
+  const tallCardStyle: React.CSSProperties = {
     ...cardStyle,
     height: '100%',
     flexDirection: 'column',
@@ -148,7 +150,7 @@ export default function Dashboard() {
 
         {/* Bloque derecho - PRESUPUESTOS EN LÍNEA */}
         <div className="dash-card" style={tallCardStyle} onClick={() => navigate('/presupuestos-online/nuevo')}>
-          <Globe size={36} color="#e51a24" style={{ marginBottom: 16 }} />
+          <Globe size={36} color="#e51a24" style={{ marginBottom: 16 } as React.CSSProperties} />
           <span>PRESUPUESTOS</span>
           <span>EN LÍNEA</span>
         </div>

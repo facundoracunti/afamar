@@ -5,16 +5,16 @@ import { ArrowUpCircle, ArrowDownCircle, Calendar, FileText } from 'lucide-react
 import Loading from '../common/Loading';
 
 export default function CajaHistorial() {
-  const [cajas, setCajas] = useState([]);
+  const [cajas, setCajas] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
     (async () => {
       try {
         const res = await getCajaHistorial();
         setCajas(res.data || []);
-      } catch {
+      } catch (err: unknown) {
         setCajas([]);
       } finally {
         setLoading(false);
@@ -53,19 +53,19 @@ export default function CajaHistorial() {
                     </tr>
                   </thead>
                   <tbody>
-                    {cajas.map((c) => (
-                      <tr key={c.id}
-                        onClick={() => setSelected(selected?.id === c.id ? null : c)}
-                        style={{ cursor: 'pointer', background: selected?.id === c.id ? '#f0fdf4' : undefined }}>
-                        <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>{c.fecha}</td>
-                        <td>{formatCurrency(c.saldo_anterior)}</td>
-                        <td style={{ color: '#16a34a', fontWeight: 600 }}>{formatCurrency(c.total_ingresos)}</td>
-                        <td style={{ color: '#dc2626', fontWeight: 600 }}>{formatCurrency(c.total_salidas)}</td>
-                        <td style={{ fontWeight: 700 }}>{formatCurrency(c.saldo_actual)}</td>
-                        <td style={{ fontWeight: 700, color: '#16a34a' }}>{formatCurrency(c.efectivo_real)}</td>
+                    {cajas.map((c: Record<string, unknown>) => (
+                      <tr key={c.id as number}
+                        onClick={() => setSelected((selected?.id as number) === (c.id as number) ? null : c)}
+                        style={{ cursor: 'pointer', background: (selected?.id as number) === (c.id as number) ? '#f0fdf4' : undefined }}>
+                        <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>{c.fecha as string}</td>
+                        <td>{formatCurrency(c.saldo_anterior as number)}</td>
+                        <td style={{ color: '#16a34a', fontWeight: 600 }}>{formatCurrency(c.total_ingresos as number)}</td>
+                        <td style={{ color: '#dc2626', fontWeight: 600 }}>{formatCurrency(c.total_salidas as number)}</td>
+                        <td style={{ fontWeight: 700 }}>{formatCurrency(c.saldo_actual as number)}</td>
+                        <td style={{ fontWeight: 700, color: '#16a34a' }}>{formatCurrency(c.efectivo_real as number)}</td>
                         <td>
                           <button className="btn" style={{ padding: '4px 8px', background: 'none', border: 'none', cursor: 'pointer' }}
-                            onClick={(e) => { e.stopPropagation(); setSelected(selected?.id === c.id ? null : c); }}>
+                            onClick={(e: React.MouseEvent) => { e.stopPropagation(); setSelected((selected?.id as number) === (c.id as number) ? null : c); }}>
                             <FileText size={16} />
                           </button>
                         </td>
@@ -81,37 +81,37 @@ export default function CajaHistorial() {
           {selected && (
             <div>
               <div className="card" style={{ marginBottom: 16 }}>
-                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Detalle — {selected.fecha}</h3>
-                {selected.observaciones && (
+                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Detalle — {selected.fecha as string}</h3>
+                {(selected.observaciones as string) && (
                   <div style={{ padding: '10px 14px', background: '#fefce8', borderRadius: 8, marginBottom: 12, fontSize: 13, border: '1px solid #fde68a' }}>
-                    <strong>Observaciones:</strong> {selected.observaciones}
+                    <strong>Observaciones:</strong> {selected.observaciones as string}
                   </div>
                 )}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 14 }}>
                   <div>
                     <span style={{ color: '#64748b' }}>Saldo Anterior:</span>{' '}
-                    <strong>{formatCurrency(selected.saldo_anterior)}</strong>
+                    <strong>{formatCurrency(selected.saldo_anterior as number)}</strong>
                   </div>
                   <div>
                     <span style={{ color: '#64748b' }}>Saldo Actual:</span>{' '}
-                    <strong>{formatCurrency(selected.saldo_actual)}</strong>
+                    <strong>{formatCurrency(selected.saldo_actual as number)}</strong>
                   </div>
                   <div style={{ color: '#16a34a' }}>
                     <ArrowUpCircle size={14} style={{ marginRight: 4 }} />
-                    Ingresos: <strong>{formatCurrency(selected.total_ingresos)}</strong>
+                    Ingresos: <strong>{formatCurrency(selected.total_ingresos as number)}</strong>
                   </div>
                   <div style={{ color: '#dc2626' }}>
                     <ArrowDownCircle size={14} style={{ marginRight: 4 }} />
-                    Egresos: <strong>{formatCurrency(selected.total_salidas)}</strong>
+                    Egresos: <strong>{formatCurrency(selected.total_salidas as number)}</strong>
                   </div>
                   <div style={{ color: '#16a34a', fontWeight: 700, gridColumn: '1 / -1' }}>
-                    Efectivo Real: {formatCurrency(selected.efectivo_real)}
+                    Efectivo Real: {formatCurrency(selected.efectivo_real as number)}
                   </div>
                 </div>
               </div>
 
               {/* Movimientos del día seleccionado */}
-              {selected.movimientos && selected.movimientos.length > 0 && (
+              {(selected.movimientos as Record<string, unknown>[]) && (selected.movimientos as Record<string, unknown>[]).length > 0 && (
                 <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                   <h3 style={{ fontSize: 14, fontWeight: 700, padding: '12px 16px 0' }}>Movimientos</h3>
                   <div className="table-container" style={{ marginTop: 8 }}>
@@ -125,18 +125,18 @@ export default function CajaHistorial() {
                         </tr>
                       </thead>
                       <tbody>
-                        {selected.movimientos.map((m) => (
-                          <tr key={m.id}>
+                        {(selected.movimientos as Record<string, unknown>[]).map((m: Record<string, unknown>) => (
+                          <tr key={m.id as number}>
                             <td>
-                              <span className={`badge ${m.tipo === 'INGRESO' ? 'badge-approved' : 'badge-rejected'}`}>
-                                {m.tipo === 'INGRESO' ? 'Entrada' : 'Salida'}
+                              <span className={`badge ${(m.tipo as string) === 'INGRESO' ? 'badge-approved' : 'badge-rejected'}`}>
+                                {(m.tipo as string) === 'INGRESO' ? 'Entrada' : 'Salida'}
                               </span>
                             </td>
-                            <td>{m.concepto || '-'}</td>
-                            <td style={{ fontWeight: 600, color: m.tipo === 'INGRESO' ? '#16a34a' : '#dc2626' }}>
-                              {formatCurrency(m.monto)}
+                            <td>{(m.concepto as string) || '-'}</td>
+                            <td style={{ fontWeight: 600, color: (m.tipo as string) === 'INGRESO' ? '#16a34a' : '#dc2626' }}>
+                              {formatCurrency(m.monto as number)}
                             </td>
-                            <td>{m.forma_pago || m.tipo_egreso || '-'}</td>
+                            <td>{(m.forma_pago as string) || (m.tipo_egreso as string) || '-'}</td>
                           </tr>
                         ))}
                       </tbody>

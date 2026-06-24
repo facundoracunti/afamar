@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Save, Upload } from 'lucide-react';
 import api, { getConfig, updateConfig, uploadLogo } from '../../services/api';
+import type { Configuracion } from '../../types/configuracion';
 import Loading from '../common/Loading';
 
 const CONFIG_KEYS = [
@@ -19,17 +20,17 @@ const CONFIG_KEYS = [
 ];
 
 export default function Configuracion() {
-  const [config, setConfig] = useState({});
+  const [config, setConfig] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
-  const [logoFile, setLogoFile] = useState(null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     getConfig().then((res) => {
-      const map = {};
-      res.data.forEach((c) => { map[c.key] = c.value; });
+      const map: Record<string, string> = {};
+      (res.data as Configuracion[]).forEach((c: Configuracion) => { map[c.key] = c.value; });
       setConfig(map);
       setLoading(false);
     }).catch(() => {
@@ -45,11 +46,11 @@ export default function Configuracion() {
       await uploadLogo(logoFile);
       setMessage('Logo subido correctamente');
       const res = await getConfig();
-      const map = {};
-      res.data.forEach((c) => { map[c.key] = c.value; });
+      const map: Record<string, string> = {};
+      (res.data as Configuracion[]).forEach((c: Configuracion) => { map[c.key] = c.value; });
       setConfig(map);
       setLogoFile(null);
-    } catch (err) {
+    } catch (err: unknown) {
       setMessage('Error al subir logo');
     } finally {
       setUploading(false);
@@ -68,7 +69,7 @@ export default function Configuracion() {
       });
       await Promise.all(promises);
       setMessage('Configuración guardada correctamente');
-    } catch (err) {
+    } catch (err: unknown) {
       setMessage('Error al guardar configuración');
     } finally {
       setSaving(false);
@@ -91,7 +92,7 @@ export default function Configuracion() {
           {config.logo && (
             <div style={{ marginBottom: 8 }}>
               <img
-                src={`${api.defaults.baseURL.replace('/api', '')}/${config.logo}`}
+                src={`${(api.defaults.baseURL || '').replace('/api', '')}/${config.logo}`}
                 alt="Logo"
                 style={{ maxHeight: 80, borderRadius: 4, border: '1px solid #e2e8f0' }}
               />
@@ -102,7 +103,7 @@ export default function Configuracion() {
               className="input"
               type="file"
               accept="image/*"
-              onChange={(e) => setLogoFile(e.target.files[0])}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLogoFile(e.target.files?.[0] || null)}
               style={{ flex: 1 }}
             />
             <button className="btn btn-primary" onClick={handleUploadLogo} disabled={uploading || !logoFile}>
@@ -120,14 +121,14 @@ export default function Configuracion() {
                   className="input"
                   rows={3}
                   value={config[item.key] || ''}
-                  onChange={(e) => setConfig({ ...config, [item.key]: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setConfig({ ...config, [item.key]: e.target.value })}
                 />
               ) : (
                 <input
                   className="input"
                   type={item.type}
                   value={config[item.key] || ''}
-                  onChange={(e) => setConfig({ ...config, [item.key]: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfig({ ...config, [item.key]: e.target.value })}
                 />
               )}
             </div>
