@@ -1144,6 +1144,43 @@ npm run build
 - `frontend/src/services/api.ts` — re-export
 - `frontend/src/types/orden.ts` — ConvertirOpcionResponse
 
+## Sesión 25-Jun-2026 — Runtime config via envsubst + nginx proxy + dockerización
+
+### 1. Runtime API_URL via config.template.js → config.js → envsubst
+- **Problema**: `apiClient.ts` usaba `import.meta.env.VITE_API_URL` (build-time), forzando a rebuildear la imagen Docker por cada cambio de API_URL.
+- **Solución**: La URL de la API se lee en runtime desde `window.APP_CONFIG.API_URL`, inyectado via `envsubst` al arrancar el contenedor.
+- **`public/config.template.js`**: Simplificado — solo contiene `window.APP_CONFIG = { API_URL: "$API_URL" }`.
+- **`index.html`**: Ya tenía `<script src="/config.js"></script>` antes del `#root` (sin cambios).
+- **`Dockerfile`**: El `CMD` hace `envsubst '$API_URL' < config.template.js > config.js && nginx -g 'daemon off;'`. Solo `$API_URL` se sustituye (las otras variables legacy se eliminaron del template).
+- **`src/vite-env.d.ts`**: Agregada la interfaz `AppConfig` y `Window.APP_CONFIG?` para TypeScript strict.
+- **`src/services/apiClient.ts`**: `import.meta.env.VITE_API_URL` → `window.APP_CONFIG?.API_URL || '/api'`.
+
+### 2. API internal-only (nginx reverse proxy)
+- **`nginx.conf`** (sin cambios): `location ^~ /api/ { proxy_pass http://backend:8000; ... }` — todo el tráfico `/api/` va al backend vía Docker network.
+- **`docker-compose.yml`**: Backend ya no publica puerto host (`ports` eliminado). Solo accesible internamente via nginx proxy.
+- El frontend expone `80:80` (antes `5173:80` que era puerto de dev de Vite, no de nginx).
+
+### 3. Docker fixes
+- **`frontend/Dockerfile`**: Bugfix `--from=builder /bo-frontend/dist` → `/frontend/dist`.
+- **`docker-compose.yml`**: `API_URL` default `/api` (antes `/api/v1` que no coincidía con el backend). Healthcheck `localhost:80` (antes `localhost:5173`). `WEB_PORT` default `80` (antes `5173`).
+- Red `infra-net` externa se mantiene.
+
+### 4. Flujo completo en producción
+1. `docker-compose up --build`
+2. Nginx arranca → `envsubst` reemplaza `$API_URL` por `/api` en `config.js`
+3. Nginx sirve `/config.js` con `Cache-Control: no-store`
+4. Browser carga `index.html` → `<script src="/config.js">` → `window.APP_CONFIG.API_URL = "/api"`
+5. `apiClient.ts` lee `window.APP_CONFIG?.API_URL || '/api'` → crea Axios con `baseURL: '/api'`
+6. Cualquier request a `/api/...` → nginx hace `proxy_pass http://backend:8000`
+7. Backend FastAPI escucha en `backend:8000`, devuelve respuesta
+
+### Archivos modificados
+- `frontend/public/config.template.js` — simplificado (solo API_URL)
+- `frontend/src/vite-env.d.ts` — Window + AppConfig types
+- `frontend/src/services/apiClient.ts` — runtime config en vez de import.meta.env
+- `frontend/Dockerfile` — fix path builder
+- `docker-compose.yml` — API internal, puertos corregidos, API_URL default
+
 ## Directivas de TypeScript Estricto y Arquitectura Obligatoria
 
 Como IA de desarrollo encargada del backend y frontend de Afamar, me comprometo a cumplir estrictamente con las siguientes reglas en cada intervención:
