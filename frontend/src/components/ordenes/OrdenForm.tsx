@@ -1,148 +1,63 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Eye, Save, Printer, MoreVertical, Copy, FileDown, Trash2, History, Plus, X, FileOutput, Check, Send } from 'lucide-react';
-import { getPresupuesto, createPresupuesto, updatePresupuesto, deletePresupuesto, getNextPresupuestoNumero, getMateriales, getPiletas, getClientes, convertirAOrden, getPresupuestoPdf } from '../../services/api';
+import { Eye, Save, Printer, MoreVertical, Copy, FileDown, Trash2, History, Plus, X } from 'lucide-react';
+import { getOrden, createOrden, updateOrden, deleteOrden, getNextNumero, getMateriales, getPiletas, getClientes, getOrdenPdf } from '../../services/api';
 import { formatCurrency, badgeClass, conceptosFabricacion } from '../../utils/formatters';
 import useEntityForm from '../../hooks/useEntityForm';
-import CroquisEditor from '../ordenes/CroquisEditor';
-import FirmaCanvas from '../ordenes/FirmaCanvas';
-import OpcionesCotizacionGrid from './OpcionesCotizacionGrid';
+import CroquisEditor from './CroquisEditor';
+import FirmaCanvas from './FirmaCanvas';
 import Loading from '../common/Loading';
 import ConfirmDialog from '../common/ConfirmDialog';
+import type { OrdenTrabajoPayload, EntityFormState, EntityServices } from '../../types';
 
-const presupuestoServices = {
-  getById: getPresupuesto,
-  create: createPresupuesto,
-  update: updatePresupuesto,
-  delete: deletePresupuesto,
-  getNextNumero: getNextPresupuestoNumero,
-  getMateriales: getMateriales,
-  getPiletas: getPiletas,
-  getClientes: getClientes,
-  getPdfUrl: getPresupuestoPdf,
-  listPath: '/presupuestos',
+const ordenServices = {
+  getById: getOrden as EntityServices['getById'],
+  create: createOrden as EntityServices['create'],
+  update: updateOrden as EntityServices['update'],
+  delete: deleteOrden as EntityServices['delete'],
+  getNextNumero: getNextNumero as EntityServices['getNextNumero'],
+  getMateriales: getMateriales as EntityServices['getMateriales'],
+  getPiletas: getPiletas as EntityServices['getPiletas'],
+  getClientes: getClientes as EntityServices['getClientes'],
+  getPdfUrl: getOrdenPdf,
+  listPath: '/ordenes',
 };
 
-export default function PresupuestoForm() {
+export default function OrdenForm() {
   const { id } = useParams();
   const navigate = useNavigate();
-
-  const [ordenTrabajoNumero, setOrdenTrabajoNumero] = useState(null);
-  const num = (v) => v === '' ? null : parseFloat(v);
+  const num = (v: string): number | null => v === '' ? null : parseFloat(v);
 
   const {
     form, loading, saving, materiales, piletas, logoUrl,
     showClienteDropdown, menuOpen, deleteConfirm, showCroquis,
-    readOnly, hayUSD, hayAlternativas, clientesFiltrados, isEdit,
+    readOnly, hayUSD, hayAlternativas, clientesFiltrados,
     modoUSD, toggleModoUSD,
     menuRef, clienteRef,
-    setForm, setSaving,
+    setForm,
     setMenuOpen, setDeleteConfirm, setShowClienteDropdown, setShowCroquis,
-    update, buildPayload,
+    update,
     handleClienteSelect, handleTrasladoChange,
     handleSenaMonedaChange, handleSenaMontoChange, handleDolarDiaChange,
     handleDetalleChange, addDetalle, removeDetalle,
     addMaterial, removeMaterial, updateMaterial,
     addPileta, removePileta, updatePileta,
-    handleSubmit, handleDelete, handlePrint,
+    handleSubmit, handleDelete, handleCambioEstadoAccion, handlePrint,
     CONCEPTOS_M2,
   } = useEntityForm({
-    entityType: 'presupuesto',
-    services: presupuestoServices,
-    defaultEstado: 'PENDIENTE',
+    entityType: 'orden',
+    services: ordenServices,
+    defaultEstado: 'MEDICION',
     id,
     navigate,
-    onLoaded: (data) => {
-      setOrdenTrabajoNumero(data.orden_trabajo_numero || null);
-    },
   });
-
-  const handleConvertirGuardar = async () => {
-    if (!window.confirm('¿Convertir este presupuesto en Orden de Trabajo?\n\nSe guardará y copiará toda la información: croquis, material, detalles de fabricación, pileta, firma, precios y condiciones comerciales.')) return;
-    setSaving(true);
-    try {
-      const payload = buildPayload();
-      await updatePresupuesto(id, payload);
-      const res = await convertirAOrden(id);
-      setOrdenTrabajoNumero(res.data.numero);
-      setForm((prev) => ({ ...prev, estado: 'CONVERTIDO A OT' }));
-      alert(`¡Orden ${res.data.numero} creada exitosamente!`);
-    } catch (err) {
-      alert(err.response?.data?.detail || 'Error al convertir');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleConvertirAlternativa = async (idx) => {
-    if (!id) { alert('Primero guardá el presupuesto para poder convertir una alternativa.'); return; }
-    if (!window.confirm('¿Convertir esta alternativa en Orden de Trabajo? Se creará una nueva OT con el material de esta opción más los trabajos comunes.')) return;
-    setSaving(true);
-    try {
-      const { convertirAlternativaAOrden } = await import('../../services/api');
-      const res = await convertirAlternativaAOrden(id, idx);
-      if (res.status === 201) {
-        alert(`¡Orden ${res.data.numero} creada exitosamente desde alternativa "${res.data.alternativa_nombre}"!`);
-      }
-    } catch (err) {
-      alert(err.response?.data?.detail || 'Error al convertir la alternativa');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleGuardar = async () => {
-    setSaving(true);
-    try {
-      const payload = buildPayload();
-      await updatePresupuesto(id, payload);
-    } catch (err) {
-      alert('Error al guardar');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleAprobar = async () => {
-    setSaving(true);
-    try {
-      const payload = buildPayload();
-      const aprobado = { ...payload, estado: 'APROBADO' };
-      if (['TARJETA DE CRÉDITO', 'TARJETA DE DÉBITO'].includes(form.forma_pago)) {
-        aprobado.sena_recibida = Number(form.total);
-        aprobado.saldo_pendiente = 0;
-        aprobado.saldo_pagado = true;
-        aprobado.sena_usd = Number(form.total_usd);
-        aprobado.saldo_pendiente_usd = 0;
-        aprobado.fecha_pago_saldo = new Date().toISOString().slice(0, 10);
-      }
-      await updatePresupuesto(id, aprobado);
-      setForm((prev) => ({ ...prev, ...aprobado, estado: 'APROBADO' }));
-    } catch (err) {
-      alert('Error al aprobar');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleEnviarWhatsApp = () => {
-    const telefono = (form.cliente_telefono_orden || '').replace(/[^\d]/g, '');
-    const nombre = form.cliente_nombre || '';
-    const pdfUrl = getPresupuestoPdf(id);
-    const saludo = nombre ? `Hola ${nombre}! ` : '';
-    const mensaje = `${saludo}Te enviamos el presupuesto formal de AFAMAR Mármoles & Granitos. Podés revisarlo e imprimirlo desde el siguiente link: ${pdfUrl}`;
-    const whatsappUrl = telefono
-      ? `https://api.whatsapp.com/send?phone=${telefono}&text=${encodeURIComponent(mensaje)}`
-      : `https://api.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
-    window.open(whatsappUrl, '_blank');
-  };
 
   if (loading) return <Loading />;
 
   return (
-    <div className="presupuesto-form">
+    <div className="orden-form">
       {/* ===== HEADER ===== */}
-      <div className="presupuesto-header" style={{ position: 'relative', overflow: 'hidden' }}>
+      <div className="orden-header" style={{ position: 'relative', overflow: 'hidden' }}>
         {logoUrl && (
           <div style={{
             position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
@@ -153,41 +68,38 @@ export default function PresupuestoForm() {
         )}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', zIndex: 1, width: '100%' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <span style={{ fontSize: 22, fontWeight: 700 }}>Presupuesto N° {form.numero || 'P-_____'}</span>
-            {!['PENDIENTE'].includes(form.estado) && (
-              <span className={badgeClass(form.estado)} style={{ fontSize: 13, padding: '4px 14px' }}>{form.estado}</span>
-            )}
+            <span style={{ fontSize: 22, fontWeight: 700 }}>Orden N° {form.numero || 'A-_____'}</span>
+            <span className={badgeClass(form.estado)} style={{ fontSize: 13, padding: '4px 14px' }}>{form.estado}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button className="btn btn-outline" onClick={() => window.open(getPresupuestoPdf(id), '_blank')} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Eye size={16} /> VISTA PREVIA PDF
-          </button>
-          {isEdit ? (
-            ordenTrabajoNumero ? (
-              <button type="button" className="btn" onClick={() => navigate(`/ordenes?search=${ordenTrabajoNumero}`)}
-                style={{ background: '#059669', color: '#fff', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 20px', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 14 }}>
-                <FileOutput size={16} /> OT {ordenTrabajoNumero}
-              </button>
-            ) : form.estado === 'APROBADO' ? (
-              <button type="button" className="btn" onClick={handleConvertirGuardar}
-                disabled={saving}
-                style={{ background: '#b91c1c', color: '#fff', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 20px', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 14 }}>
-                <FileOutput size={16} /> {saving ? 'CONVIRTIENDO...' : 'CONVERTIR A ORDEN'}
-              </button>
-            ) : ['PENDIENTE', 'ENVIADO'].includes(form.estado) ? (
-              <button type="button" className="btn" onClick={handleAprobar}
-                disabled={saving}
-                style={{ background: '#2563eb', color: '#fff', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 20px', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 14 }}>
-                <Check size={16} /> {saving ? 'APROBANDO...' : 'APROBAR PRESUPUESTO'}
-              </button>
-            ) : null
-          ) : (
-            <button className="btn btn-primary" onClick={handleSubmit} disabled={saving} style={{ background: '#b91c1c', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 20px' }}>
-              <Save size={16} /> {saving ? 'GUARDANDO...' : 'GUARDAR'}
+          {form.estado === 'MEDICION' && (
+            <button className="btn" onClick={() => handleCambioEstadoAccion('TALLER')} disabled={saving}
+              style={{ background: '#2563eb', color: '#fff', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+              🏭 Enviar a Taller
             </button>
           )}
-          <button className="btn btn-success" onClick={handleEnviarWhatsApp} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', fontSize: 13 }}>
-            <Send size={16} /> WhatsApp
+          {form.estado === 'TALLER' && (
+            <button className="btn" onClick={() => handleCambioEstadoAccion('TERMINADA')} disabled={saving}
+              style={{ background: '#059669', color: '#fff', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+              ✅ Finalizar Trabajo
+            </button>
+          )}
+          {form.estado === 'TERMINADA' && (
+            <button className="btn" onClick={() => handleCambioEstadoAccion('ENTREGADA')} disabled={saving}
+              style={{ background: '#9333ea', color: '#fff', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+              🚚 Entregar al Cliente
+            </button>
+          )}
+          {form.estado === 'ENTREGADA' && (
+            <span style={{ background: '#f3f4f6', color: '#6b7280', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', border: '1px solid #d1d5db', borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+              📦 Trabajo Entregado
+            </span>
+          )}
+          <button className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Eye size={16} /> VISTA PREVIA PDF
+          </button>
+          <button className="btn btn-primary" onClick={handleSubmit} disabled={saving} style={{ background: '#b91c1c', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 20px' }}>
+            <Save size={16} /> {saving ? 'GUARDANDO...' : 'GUARDAR'}
           </button>
           <button className="btn btn-outline" onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <Printer size={16} /> IMPRIMIR
@@ -198,14 +110,11 @@ export default function PresupuestoForm() {
             </button>
             {menuOpen && (
               <div className="dropdown-menu">
-                <div className="dropdown-item" onClick={() => { setMenuOpen(false); alert('Duplicar presupuesto'); }}>
+                <div className="dropdown-item" onClick={() => { setMenuOpen(false); alert('Duplicar orden'); }}>
                   <Copy size={16} /> Duplicar
                 </div>
-                <div className="dropdown-item" onClick={() => { setMenuOpen(false); window.open(getPresupuestoPdf(id), '_blank'); }}>
+                <div className="dropdown-item" onClick={() => { setMenuOpen(false); alert('Exportar PDF'); }}>
                   <FileDown size={16} /> Exportar PDF
-                </div>
-                <div className="dropdown-item" onClick={() => { setMenuOpen(false); handleGuardar(); }}>
-                  <Save size={16} /> Guardar
                 </div>
                 <div className="dropdown-item" style={{ color: '#ef4444' }} onClick={() => { setMenuOpen(false); setDeleteConfirm(true); }}>
                   <Trash2 size={16} /> Eliminar
@@ -217,31 +126,31 @@ export default function PresupuestoForm() {
             )}
           </div>
           </div>
-            </div>
+              </div>
             </div>
 
-      <form onSubmit={handleSubmit} onKeyDown={(e) => { if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') e.preventDefault(); }}>
+      <form onSubmit={handleSubmit} onKeyDown={(e: React.KeyboardEvent<HTMLFormElement>) => { if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') e.preventDefault(); }}>
         {/* ===== DATOS DEL CLIENTE ===== */}
         <div className="card" style={{ marginTop: 16 }}>
           <div className="orden-grid-4">
             <div className="form-group">
               <label>Fecha</label>
-              <input type="date" className="input" value={form.fecha} onChange={(e) => update('fecha', e.target.value)} disabled={readOnly} />
+              <input type="date" className="input" value={form.fecha || ''} onChange={(e) => update('fecha', e.target.value)} disabled={readOnly} />
             </div>
             <div className="form-group" style={{ position: 'relative' }} ref={clienteRef}>
               <label>Cliente</label>
               <input className="input" value={form.cliente_nombre} onChange={(e) => { update('cliente_nombre', e.target.value); setShowClienteDropdown(true); }} onFocus={() => setShowClienteDropdown(true)} placeholder="Nombre del cliente" disabled={readOnly} />
               {showClienteDropdown && clientesFiltrados.length > 0 && form.cliente_nombre && (
                 <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, background: 'white', border: '1px solid #e2e8f0', borderRadius: 8, maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-                  {clientesFiltrados.map((c) => (
-                    <div key={c.id} onClick={() => handleClienteSelect(c)} style={{ padding: '10px 14px', cursor: 'pointer', fontSize: 14, borderBottom: '1px solid #f1f5f9', transition: 'background 0.15s' }}
+                  {clientesFiltrados.map((c: Record<string, unknown>) => (
+                    <div key={c.id as number} onClick={() => handleClienteSelect(c)} style={{ padding: '10px 14px', cursor: 'pointer', fontSize: 14, borderBottom: '1px solid #f1f5f9', transition: 'background 0.15s' }}
                       onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}
                       onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
-                      <div style={{ fontWeight: 600 }}>{c.nombre}</div>
-                      <div style={{ fontSize: 12, color: '#94a3b8' }}>{c.telefono} {c.email ? `| ${c.email}` : ''}</div>
+                      <div style={{ fontWeight: 600 }}>{c.nombre as string}</div>
+                      <div style={{ fontSize: 12, color: '#94a3b8' }}>{c.telefono as string} {c.email ? `| ${c.email}` : ''}</div>
                     </div>
                   ))}
-                </div>
+              </div>
               )}
             </div>
             <div className="form-group">
@@ -251,26 +160,29 @@ export default function PresupuestoForm() {
             <div className="form-group">
               <label>E-mail</label>
               <input className="input" value={form.email} onChange={(e) => update('email', e.target.value)} placeholder="Email" disabled={readOnly} />
-            </div>
-          </div>
-          <div className="form-group" style={{ marginTop: 8 }}>
+                </div>
+              </div>
+              <div className="form-group" style={{ marginTop: 8 }}>
             <label>Domicilio</label>
             <input className="input" value={form.domicilio} onChange={(e) => update('domicilio', e.target.value)} placeholder="Calle N° - Ciudad - Provincia" disabled={readOnly} />
           </div>
         </div>
 
-        {/* ===== ÁREA CENTRAL: Croquis 70% | Materiales 30% ===== */}
+        {/* ===== BOTÓN CROQUIS COLAPSABLE ===== */}
         <div style={{ marginTop: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
           <button type="button" className="btn btn-outline" onClick={() => setShowCroquis(!showCroquis)}
             style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px' }}>
-            {showCroquis ? '👁️' : '📐'} {showCroquis ? 'Ocultar Diseño' : 'Activar Diseño'}
+            {showCroquis ? '👁️' : '📐'} {showCroquis ? 'Ocultar Diseño / Croquis' : 'Activar Diseño / Croquis'}
           </button>
-          {!showCroquis && <span style={{ fontSize: 12, color: '#94a3b8' }}>Croquis oculto.</span>}
+          {!showCroquis && (
+            <span style={{ fontSize: 12, color: '#94a3b8' }}>El croquis está oculto. Hacé clic para diseñar.</span>
+          )}
         </div>
+
         <div style={{ display: 'grid', gridTemplateColumns: showCroquis ? '7fr 3fr' : '1fr', gap: 16, marginTop: 16 }}>
           {showCroquis && (
           <div style={{ minWidth: 0 }}>
-            <CroquisEditor croquis={form.croquis} onChange={(v) => update('croquis', v)} readOnly={readOnly} />
+            <CroquisEditor croquis={form.croquis} onChange={(v: unknown) => update('croquis', v)} readOnly={readOnly} />
           </div>
           )}
           <div style={{ minWidth: 0 }}>
@@ -279,8 +191,8 @@ export default function PresupuestoForm() {
               <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
                 <select className="input" style={{ flex: 1, fontSize: 13 }} value="" onChange={(e) => { addMaterial(e.target.value); e.target.value = ''; }} disabled={readOnly}>
                   <option value="">+ AGREGAR MATERIAL</option>
-                  {materiales.filter((m) => m.nombre).map((m) => (
-                    <option key={m.id} value={m.nombre}>{m.nombre}{m.color ? ` - ${m.color}` : ''}</option>
+                  {materiales.filter((m: Record<string, unknown>) => m.nombre).map((m: Record<string, unknown>) => (
+                    <option key={m.id as number} value={m.nombre as string}>{m.nombre as string}{m.color ? ` - ${m.color as string}` : ''}</option>
                   ))}
                 </select>
               </div>
@@ -381,7 +293,7 @@ export default function PresupuestoForm() {
                       {CONCEPTOS_M2.includes(d.concepto) ? (
                         <select className="input" style={{ fontSize: 11, padding: '4px 4px' }} value={d.material || ''} onChange={(e) => handleDetalleChange(i, 'material', e.target.value)} disabled={readOnly}>
                           <option value="">--</option>
-                          {materiales.map((m) => <option key={m.id} value={m.nombre}>{m.nombre}</option>)}
+                          {materiales.map((m: Record<string, unknown>) => <option key={m.id as number} value={m.nombre as string}>{m.nombre as string}</option>)}
                         </select>
                       ) : null}
                     </td>
@@ -433,16 +345,69 @@ export default function PresupuestoForm() {
             <button type="button" className="btn btn-outline" onClick={addDetalle} style={{ marginTop: 8, fontSize: 13, padding: '6px 14px' }} disabled={readOnly}>
               <Plus size={14} /> Agregar concepto
             </button>
+
+            {form.estado === 'MEDICION' && form.detalles_presupuestados.length > 0 && (
+              <div style={{ marginTop: 16, borderTop: '2px solid #1e40af', paddingTop: 12 }}>
+                <h4 style={{ fontSize: 14, fontWeight: 700, color: '#1e40af', marginBottom: 8 }}>📐 COMPARATIVA DE MEDICIÓN</h4>
+                <table className="table" style={{ fontSize: 12 }}>
+                  <thead>
+                    <tr>
+                      <th>Concepto</th>
+                      <th style={{ textAlign: 'center' }}>M² Presupuestado</th>
+                      <th style={{ textAlign: 'center' }}>M² Medición Real</th>
+                      <th style={{ textAlign: 'center' }}>Diferencia Δ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {form.detalles_fabricacion.map((d, i) => {
+                      if (!CONCEPTOS_M2.includes(d.concepto)) return null;
+                      const pres = form.detalles_presupuestados[i];
+                      if (!pres) return null;
+                      const m2Ori = Number(pres.m2) || 0;
+                      const m2Real = d.m2 || 0;
+                      const dif = Math.round((m2Real - m2Ori) * 100000) / 100000;
+                      const difColor = dif > 0 ? '#16a34a' : dif < 0 ? '#dc2626' : '#6b7280';
+                      return (
+                        <tr key={'med_' + i}>
+                          <td style={{ fontWeight: 600 }}>{d.concepto === 'OTRA' ? (d.detalle || 'OTRA') : d.concepto}</td>
+                          <td style={{ textAlign: 'center' }}>{m2Ori.toFixed(5)} m²</td>
+                          <td style={{ textAlign: 'center', fontWeight: 600 }}>{m2Real.toFixed(5)} m²</td>
+                          <td style={{ textAlign: 'center', fontWeight: 700, color: difColor }}>
+                            {dif > 0 ? '+' : ''}{dif.toFixed(5)} m²
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {(form.materiales || []).filter((m) => Number(m.largo || 0) * Number(m.ancho || 0) > 0).map((m, i) => {
+                      const m2Real = Number(m.largo || 0) * Number(m.ancho || 0) * (m.cantidad || 1);
+                      const m2Pres = m.m2_presupuestado || 0;
+                      const dif = Math.round((m2Real - m2Pres) * 100000) / 100000;
+                      const difColor = dif > 0 ? '#16a34a' : dif < 0 ? '#dc2626' : '#6b7280';
+                      return (
+                        <tr key={'mat_' + i}>
+                          <td style={{ fontWeight: 600 }}>{m.nombre}</td>
+                          <td style={{ textAlign: 'center' }}>{m2Pres.toFixed(5)} m²</td>
+                          <td style={{ textAlign: 'center', fontWeight: 600 }}>{m2Real.toFixed(5)} m²</td>
+                          <td style={{ textAlign: 'center', fontWeight: 700, color: difColor }}>
+                            {dif > 0 ? '+' : ''}{dif.toFixed(5)} m²
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
-          {/* Panel 2: Piletas */}
+          {/* Panel 2: Pileta */}
           <div className="card">
             <h3 className="section-title">PILETAS</h3>
             <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
               <select className="input" style={{ flex: 1, fontSize: 13 }} value="" onChange={(e) => { addPileta(e.target.value); e.target.value = ''; }} disabled={readOnly}>
                 <option value="">+ AGREGAR PILETA</option>
-                {piletas.map((p) => (
-                  <option key={p.id} value={p.id}>{p.marca} - {p.modelo} (Stock: {p.cantidad})</option>
+                {piletas.map((p: Record<string, unknown>) => (
+                  <option key={p.id as number} value={p.id as number}>{p.marca as string} - {p.modelo as string} (Stock: {p.cantidad as number})</option>
                 ))}
               </select>
             </div>
@@ -462,10 +427,10 @@ export default function PresupuestoForm() {
                     <label style={{ fontSize: 11 }}>Moneda</label>
                     <select className="input" style={{ fontSize: 12, padding: '4px 6px' }} value={pt.moneda} onChange={(e) => {
                       const mon = e.target.value;
-                      const pdata = piletas.find((p) => p.id === Number(pt.pileta_id));
-                      const precio = pdata ? (mon === 'USD' ? (pdata.precio_usd || 0) : (pdata.precio || 0)) : pt.precio;
+                      const pdata = piletas.find((p: Record<string, unknown>) => p.id === Number(pt.pileta_id));
+                      const precio = pdata ? (mon === 'USD' ? (pdata.precio_usd as number || 0) : (pdata.precio as number || 0)) : pt.precio;
                       const list = [...form.piletas];
-                      list[idx] = { ...list[idx], moneda: mon, precio };
+                      list[idx] = { ...list[idx], moneda: mon as 'ARS' | 'USD', precio };
                       update('piletas', list);
                     }} disabled={readOnly}>
                       <option value="ARS">ARS</option>
@@ -484,86 +449,31 @@ export default function PresupuestoForm() {
 
           {/* Panel 3: Presupuesto */}
           <div className="card">
-            <h3 className="section-title">PRESUPUESTO</h3>
+            <div className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>PRESUPUESTO</span>
+              <button type="button" onClick={toggleModoUSD}
+                style={{
+                  padding: '4px 12px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', border: '1px solid',
+                  background: modoUSD ? '#059669' : '#f3f4f6', color: modoUSD ? '#fff' : '#374151', borderColor: modoUSD ? '#059669' : '#d1d5db',
+                }}>
+                {modoUSD ? 'Mostrar en ARS' : 'Mostrar en USD'}
+              </button>
+            </div>
 
             {(() => {
+              const dd = Number(form.dolar_dia) || 1;
+              const currencyLabel = modoUSD ? 'USD' : 'ARS';
+              const mostrarUSDCol = hayUSD && !modoUSD;
               const matsMain = hayAlternativas ? (form.materiales || []).filter((m) => !m.es_alternativa) : (form.materiales || []);
               const matsAlt = (form.materiales || []).filter((m) => m.es_alternativa);
-              const dd2 = Number(form.dolar_dia) || 1;
-
-              let sumatoriaAdicionalesARS = Number(form.traslado || 0);
-              const detalleTrabajosComunes = [];
-              if (Number(form.traslado || 0) > 0) {
-                detalleTrabajosComunes.push({ concepto: 'Traslado', cant: 1, total: Number(form.traslado) });
-              }
-              (form.detalles_fabricacion || []).forEach((item) => {
-                const totalItem = Number(item.precio || 0) * Number(item.cantidad || 1);
-                const totalItemARS = item.moneda === 'USD' ? (dd2 > 0 ? totalItem * dd2 : 0) : totalItem;
-                if (totalItemARS > 0) {
-                  sumatoriaAdicionalesARS += totalItemARS;
-                  detalleTrabajosComunes.push({ concepto: item.concepto + (item.detalle ? ` - ${item.detalle}` : ''), cant: item.cantidad || 1, total: totalItemARS });
-                }
-              });
-              (form.piletas || []).forEach((pil) => {
-                const totalPil = Number(pil.precio || 0) * Number(pil.cantidad || 1);
-                const totalPilARS = pil.moneda === 'USD' ? (dd2 > 0 ? totalPil * dd2 : 0) : totalPil;
-                if (totalPilARS > 0) {
-                  sumatoriaAdicionalesARS += totalPilARS;
-                  detalleTrabajosComunes.push({ concepto: `Pileta ${pil.marca || ''} ${pil.modelo || ''}`.trim(), cant: pil.cantidad || 1, total: totalPilARS });
-                }
-              });
 
               return (
               <div>
-                {hayAlternativas ? (
-                  <div style={{ marginTop: 0 }}>
-                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #e2e8f0', paddingBottom: 12, marginBottom: 16 }}>
-                        <div>
-                          <h3 style={{ fontSize: 13, fontWeight: 900, color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
-                            DETALLE DE FABRICACI&Oacute;N Y ACCESORIOS COMUNES
-                          </h3>
-                          <p style={{ fontSize: 11, color: '#94a3b8', margin: '4px 0 0 0' }}>
-                            Estos trabajos se aplican y ya est&aacute;n sumados en cada una de las opciones de abajo.
-                          </p>
-                        </div>
-                        <div style={{ background: 'white', border: '1px solid #e2e8f0', padding: '4px 12px', borderRadius: 6, textAlign: 'center' }}>
-                          <span style={{ display: 'block', fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>D&oacute;lar Ref.</span>
-                          <input type="number" style={{ width: 100, fontSize: 12, fontWeight: 900, color: '#334155', border: '1px solid #e2e8f0', borderRadius: 4, padding: '2px 6px', textAlign: 'center', background: '#fff' }} value={form.dolar_dia || ''} onChange={(e) => setForm({ ...form, dolar_dia: Number(e.target.value) || 0 })} />
-                        </div>
-                      </div>
-                      {detalleTrabajosComunes.length > 0 ? (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '4px 16px', fontSize: 12, fontWeight: 500, color: '#475569' }}>
-                          {detalleTrabajosComunes.map((job, idx) => (
-                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px dashed #e2e8f0' }}>
-                              <span>&#10003; {job.concepto} ({job.cant > 1 ? `x${job.cant}` : 'x1'})</span>
-                              <span style={{ color: '#1e293b', fontWeight: 700 }}>$ {job.total.toLocaleString('es-AR')}</span>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>No hay trabajos adicionales comunes configurados.</p>
-                      )}
-                    </div>
-                </div>
-                ) : (() => {
-                const mostrarUSDCol = hayUSD && !modoUSD;
-                return (
-                <div>
-                <div style={{ marginBottom: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <button type="button" onClick={toggleModoUSD} className="btn btn-sm"
-                    style={{ background: modoUSD ? '#059669' : '#f3f4f6', color: modoUSD ? '#fff' : '#374151', borderColor: modoUSD ? '#059669' : '#d1d5db', border: '1px solid', borderRadius: 6, padding: '3px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                    {modoUSD ? 'Mostrar en ARS' : 'Mostrar en USD'}
-                  </button>
-                </div>
                 <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              {(() => {
-              const dd = Number(form.dolar_dia);
-              const currencyLabel = modoUSD ? 'USD' : 'ARS';
-              return (
+              {/* Columna principal */}
               <div style={{ flex: mostrarUSDCol ? '1 1 280px' : '1 1 100%', fontSize: 13, lineHeight: 1.8 }}>
                 <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: 6, marginBottom: 6 }}>
-                  <span style={{ fontWeight: 700, color: '#6b7280' }}>SUBTOTALES ({modoUSD ? 'USD' : 'ARS'})</span>
+                  <span style={{ fontWeight: 700, color: '#6b7280' }}>SUBTOTALES ({currencyLabel})</span>
                 </div>
                 <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: 8, marginBottom: 8 }}>
                   {(form.detalles_fabricacion || []).filter((d) => Number(d.precio) > 0).map((d, i) => {
@@ -571,7 +481,7 @@ export default function PresupuestoForm() {
                     const precioArs = d.moneda === 'ARS' ? Number(d.precio) : (dd2 > 0 ? Number(d.precio) * dd2 : 0);
                     return (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>{d.concepto === 'OTRA' ? (d.detalle || 'OTRA') : d.concepto}{d.material ? ` - ${d.material}` : ''}{d.m2 > 0 ? ` (${d.m2} m²)` : ''}{d.largo > 0 && d.concepto === 'OTRA' ? ` (${d.largo} m)` : ''}{(d.cantidad || 1) > 1 ? ` x${d.cantidad}` : ''}</span>
+                      <span>{d.concepto === 'OTRA' ? (d.detalle || 'OTRA') : d.concepto}{d.material ? ` - ${d.material}` : ''}{d.m2 > 0 ? ` (${d.m2} m²)` : ''}{(d.largo || 0) > 0 && d.concepto === 'OTRA' ? ` (${d.largo} m)` : ''}{(d.cantidad || 1) > 1 ? ` x${d.cantidad}` : ''}</span>
                       <span style={{ fontWeight: 600 }}>{modoUSD && dd2 > 0 ? `USD ${(precioArs * (d.cantidad || 1) / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(precioArs * (d.cantidad || 1))}</span>
                     </div>
                     );
@@ -582,7 +492,7 @@ export default function PresupuestoForm() {
                     const sub = m.moneda === 'ARS' ? m2 * (m.precio_m2 || 0) : (dd2 > 0 ? m2 * (m.precio_m2_usd || 0) * dd2 : 0);
                     return sub > 0 ? (
                       <div key={'ma' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>{m.nombre} ({m2.toFixed(3)} m²){(m.cantidad || 1) > 1 ? ` x${m.cantidad}` : ''}</span>
+                        <span>Material: {m.nombre} ({m2.toFixed(3)} m²){(m.cantidad || 1) > 1 ? ` x${m.cantidad}` : ''}</span>
                         <span style={{ fontWeight: 600 }}>{modoUSD && dd2 > 0 ? `USD ${(sub / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(sub)}</span>
                       </div>
                     ) : null;
@@ -645,7 +555,7 @@ export default function PresupuestoForm() {
                   <span style={{ fontSize: 16, fontWeight: 700, color: modoUSD ? '#059669' : '#1e40af' }}>{modoUSD && dd > 0 ? `USD ${(form.saldo_pendiente / dd).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(form.saldo_pendiente)}</span>
                 </div>
               </div>
-              )})()}
+
               {mostrarUSDCol && (
               <div style={{ flex: '1 1 280px', fontSize: 13, lineHeight: 1.8 }}>
                 <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: 6, marginBottom: 6 }}>
@@ -668,7 +578,7 @@ export default function PresupuestoForm() {
                     const sub = m.moneda === 'USD' ? m2 * (m.precio_m2_usd || 0) : (dd2 > 0 ? m2 * (m.precio_m2 || 0) / dd2 : 0);
                     return sub > 0 ? (
                       <div key={'mu' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>{m.nombre} ({m2.toFixed(3)} m²){(m.cantidad || 1) > 1 ? ` x${m.cantidad}` : ''}</span>
+                        <span>Material: {m.nombre} ({m2.toFixed(3)} m²){(m.cantidad || 1) > 1 ? ` x${m.cantidad}` : ''}</span>
                         <span style={{ fontWeight: 600 }}>USD {sub.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                       </div>
                     ) : null;
@@ -715,31 +625,62 @@ export default function PresupuestoForm() {
               </div>
               )}
                 </div>
-                </div>
-                ); })()}
 
                 {hayAlternativas && (
-                  <OpcionesCotizacionGrid
-                    alternativas={matsAlt.map((mat, altIdx) => {
-                      const dd2 = Number(form.dolar_dia) || 1;
+                <div style={{ marginTop: 16 }}>
+                  <div style={{ marginBottom: 12, padding: '8px 12px', background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 8 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#1e40af' }}>📋 PRESUPUESTO COMPARATIVO</span>
+                    <span style={{ fontSize: 11, color: '#3b82f6', marginLeft: 8 }}>{matsAlt.length} opciones alternativas</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+                    {matsAlt.map((mat, idx) => {
+                      const letra = String.fromCharCode(65 + idx);
+                      const dd2 = Number(form.dolar_dia);
                       const m2 = Number(mat.largo || 0) * Number(mat.ancho || 0) * (mat.cantidad || 1);
                       const costoMat = mat.moneda === 'USD' ? m2 * (mat.precio_m2_usd || 0) : m2 * (mat.precio_m2 || 0);
                       const costoMatArs = mat.moneda === 'USD' ? (dd2 > 0 ? costoMat * dd2 : 0) : costoMat;
-                      const totalFinalARS = costoMatArs + sumatoriaAdicionalesARS;
-                      return { ...mat, idx: altIdx, costoMaterialBase: costoMat, totalFinalARS, cantidad: mat.cantidad || 1, largo: mat.largo || 0, ancho: mat.ancho || 0 };
+                      const fijosArsAlt = (form.detalles_fabricacion || []).reduce((s, d) => s + (Number(d.precio) || 0) * (d.cantidad || 1), 0)
+                        + (form.piletas || []).reduce((s, pt) => s + (Number(pt.precio) || 0) * (pt.cantidad || 1), 0)
+                        + (Number(form.traslado) || 0);
+                      const totalArs = costoMatArs + fijosArsAlt;
+                      const mostrarUSDAlt = modoUSD && dd2 > 0;
+                      return (
+                        <div key={idx} style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12, background: '#fafafa', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                              <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', padding: '2px 8px', background: '#dbeafe', color: '#1e40af', borderRadius: 4 }}>Alternativa {letra}</span>
+                              <span style={{ fontSize: 11, color: '#6b7280' }}>{mat.cantidad || 1} pza. ({m2.toFixed(3)} m²)</span>
+                            </div>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', textTransform: 'uppercase', marginBottom: 2 }}>{mat.nombre}</div>
+                            {mat.moneda === 'USD' && <div style={{ fontSize: 11, color: '#059669', fontWeight: 600, marginBottom: 8 }}>USD {costoMat.toFixed(2)}</div>}
+                            <div style={{ borderTop: '1px dashed #d1d5db', paddingTop: 6, fontSize: 12, color: '#6b7280', marginBottom: 8 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span>Material:</span>
+                                <span style={{ fontWeight: 600, color: '#374151' }}>{mostrarUSDAlt ? `USD ${(costoMatArs / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `$${costoMatArs.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span>Trabajos + Piletas + Traslado:</span>
+                                <span style={{ fontWeight: 600, color: '#374151' }}>{mostrarUSDAlt ? `USD ${(fijosArsAlt / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `$${fijosArsAlt.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 8, textAlign: 'center', background: '#fff', borderRadius: 6, padding: 8 }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase' }}>Total alternativa {mostrarUSDAlt ? '(USD)' : ''}</div>
+                            <div style={{ fontSize: 18, fontWeight: 900, color: '#dc2626' }}>{mostrarUSDAlt ? `USD ${(totalArs / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `$${Math.round(totalArs).toLocaleString('es-AR')}`}</div>
+                          </div>
+                        </div>
+                      );
                     })}
-                    detalleTrabajosComunes={detalleTrabajosComunes}
-                    tipoCambio={Number(form.dolar_dia) || 1}
-                    presupuestoId={id}
-                    onConvertirAlternativa={handleConvertirAlternativa}
-                    modoUSD={modoUSD}
-                  />
+                  </div>
+                  <div style={{ fontSize: 10, color: '#9ca3af', textAlign: 'center', marginTop: 12, fontStyle: 'italic' }}>
+                    * Todos los totales incluyen la misma configuraci&oacute;n de trabajos, piletas y traslados.
+                  </div>
+                </div>
                 )}
               </div>
               );
             })()}
 
-            {!hayAlternativas && (
             <div>
             <div style={{ marginTop: 12, borderTop: '1px solid #e5e7eb', paddingTop: 12 }}>
               <div style={{ marginTop: 12, padding: '10px 14px', background: form.saldo_pagado ? '#d1fae5' : '#fef9c3', borderRadius: 8, border: `1px solid ${form.saldo_pagado ? '#6ee7b7' : '#fde68a'}` }}>
@@ -757,8 +698,8 @@ export default function PresupuestoForm() {
                     onClick={async () => {
                       if (!id) return;
                       const nuevo = !form.saldo_pagado;
-                      const hoy = new Date().toISOString().slice(0, 10);
-                      const payload = {
+                      const hoy = new Date().toISOString().split('T')[0];
+                      const payload: Record<string, unknown> = {
                         saldo_pagado: nuevo,
                         fecha_pago_saldo: nuevo ? hoy : null,
                       };
@@ -769,8 +710,8 @@ export default function PresupuestoForm() {
                         payload.sena_usd = Number(form.total_usd);
                         payload.saldo_pendiente_usd = 0;
                       }
-                      await updatePresupuesto(id, payload);
-                      setForm((prev) => ({ ...prev, ...payload, fecha_pago_saldo: nuevo ? hoy : '' }));
+                      await updateOrden(id as string, payload);
+                      setForm((prev) => ({ ...prev, ...payload, fecha_pago_saldo: nuevo ? hoy : '' } as EntityFormState));
                     }}
                     style={{
                       padding: '6px 14px', borderRadius: 6, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13,
@@ -782,11 +723,11 @@ export default function PresupuestoForm() {
                   </button>
                 </div>
               </div>
+              {(() => { const dd = Number(form.dolar_dia); const currencyLabel = modoUSD && dd > 0 ? 'USD' : 'ARS'; const mostrarUSDCol = hayUSD && !modoUSD; return (
               <div style={{ marginTop: 12, padding: '10px 14px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                {(() => { const dd = Number(form.dolar_dia); const mostrarUSDCol = hayUSD && !modoUSD; return (
                 <div style={{ display: 'flex', justifyContent: 'space-around' }}>
                   <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>TOTAL {modoUSD && dd > 0 ? 'USD' : 'ARS'}</div>
+                    <div style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>TOTAL {currencyLabel}</div>
                     <div style={{ fontSize: 22, fontWeight: 700, color: modoUSD ? '#059669' : '#dc2626' }}>{modoUSD && dd > 0 ? `USD ${(form.total / dd).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(form.total)}</div>
                   </div>
                   {mostrarUSDCol && (
@@ -798,8 +739,46 @@ export default function PresupuestoForm() {
                   </div>
                   )}
                 </div>
-                ); })()}
               </div>
+              ); })()}
+              {form.recargo_pct > 0 && form.cuotas > 1 && (
+                <div style={{ fontSize: 12, color: '#c0392b', fontWeight: 600, marginTop: 8, marginBottom: 8, textAlign: 'center' }}>
+                  {form.cuotas} cuotas mensuales fijas de {formatCurrency(Math.round((form.total || 0) / (form.cuotas || 1)))}
+                </div>
+              )}
+              {form.descuento_porcentaje > 0 && (() => {
+                const descPct = form.descuento_porcentaje || 0;
+                const recargoPct = form.recargo_pct || 0;
+                const totalActual = form.total || 0;
+
+                const totalSinRecargo = recargoPct > 0
+                  ? Math.round(totalActual / (1 + recargoPct / 100))
+                  : totalActual;
+
+                const precioBase = Math.round(totalSinRecargo / (1 - descPct / 100));
+
+                const precioLista = recargoPct > 0
+                  ? precioBase + Math.round(precioBase * recargoPct / 100)
+                  : precioBase;
+
+                const descuentoEnPesos = Math.round(precioLista * descPct / 100);
+
+                return (
+                <div style={{ marginTop: 12, padding: '10px 14px', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, fontSize: 13 }}>
+                  <div style={{ marginBottom: 8, padding: '6px 10px', background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 6, fontSize: 12, fontWeight: 700, color: '#92400e', textAlign: 'center' }}>
+                    📌 Este pedido se guardó con un <span style={{ fontSize: 14 }}>{descPct}%</span> de descuento aplicado
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0', borderBottom: '1px solid #dcfce7', fontWeight: 700, color: '#374151' }}>
+                    <span>Precio Lista (Original)</span>
+                    <span>{formatCurrency(precioLista)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0', fontWeight: 700, color: '#dc2626' }}>
+                    <span>Descuento Aplicado</span>
+                    <span>{descPct}% OFF (-{formatCurrency(descuentoEnPesos)})</span>
+                  </div>
+                </div>
+                );
+              })()}
               <div className="form-group" style={{ marginTop: 8 }}>
                 <label>Forma de pago</label>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
@@ -826,11 +805,6 @@ export default function PresupuestoForm() {
                   )}
                 </div>
               </div>
-              {form.recargo_pct > 0 && form.cuotas > 1 && (
-                <div style={{ fontSize: 12, color: '#c0392b', fontWeight: 600, marginTop: 4, textAlign: 'center' }}>
-                  {form.cuotas} cuotas mensuales fijas de {formatCurrency(Math.round((form.total || 0) / (form.cuotas || 1)))}
-                </div>
-              )}
               {form.forma_pago === 'EFECTIVO' && (
               <div style={{ marginTop: 8, padding: '8px 10px', background: '#fffbe6', border: '1px solid #fde68a', borderRadius: 8 }}>
                 <label style={{ fontSize: 12, fontWeight: 700, color: '#92400e', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
@@ -868,11 +842,10 @@ export default function PresupuestoForm() {
               )}
               <div className="form-group" style={{ marginTop: 8 }}>
                 <label>Fecha de entrega estimada</label>
-                <input type="date" className="input" value={form.fecha_entrega} onChange={(e) => update('fecha_entrega', e.target.value)} disabled={readOnly} />
+                <input type="date" className="input" value={form.fecha_entrega || ''} onChange={(e) => update('fecha_entrega', e.target.value)} disabled={readOnly} />
               </div>
             </div>
             </div>
-            )}
           </div>
 
           {/* Panel 4: Aprobación */}
@@ -883,14 +856,14 @@ export default function PresupuestoForm() {
             </p>
             <FirmaCanvas
               value={form.firma_cliente}
-              onChange={(v) => update('firma_cliente', v)}
+              onChange={(v: unknown) => update('firma_cliente', v)}
               label="Firma del cliente"
               height={140}
               readOnly={readOnly}
             />
             <div className="form-group" style={{ marginTop: 8 }}>
               <label>Fecha de aprobación</label>
-              <input type="date" className="input" value={form.fecha_aprobacion} onChange={(e) => update('fecha_aprobacion', e.target.value)} disabled={readOnly} />
+              <input type="date" className="input" value={form.fecha_aprobacion || ''} onChange={(e) => update('fecha_aprobacion', e.target.value)} disabled={readOnly} />
             </div>
           </div>
         </div>
@@ -913,14 +886,14 @@ export default function PresupuestoForm() {
 
         {/* ===== BOTONES FINALES ===== */}
         <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 16 }}>
-          <button type="button" className="btn btn-outline" onClick={() => navigate('/presupuestos')}>Cancelar</button>
+          <button type="button" className="btn btn-outline" onClick={() => navigate('/ordenes')}>Cancelar</button>
           <button type="submit" className="btn btn-primary" disabled={saving} style={{ background: '#b91c1c' }}>
             <Save size={16} /> {saving ? 'GUARDANDO...' : 'GUARDAR'}
           </button>
         </div>
       </form>
 
-      <ConfirmDialog isOpen={deleteConfirm} onClose={() => setDeleteConfirm(false)} onConfirm={handleDelete} title="Eliminar presupuesto" message="¿Estás seguro de eliminar este PRESUPUESTO LOCAL?" />
+      <ConfirmDialog isOpen={deleteConfirm} onClose={() => setDeleteConfirm(false)} onConfirm={handleDelete} title="Eliminar orden" message="¿Estás seguro de eliminar esta orden de trabajo?" />
     </div>
   );
 }

@@ -564,85 +564,88 @@ export default function OrdenForm() {
                 </tr>
               </thead>
               <tbody>
-                {form.detalles_fabricacion.map((d, i) => (
-                  <tr key={i}>
-                    <td>
-                      <select className="input" style={{ fontSize: 12, padding: '4px 8px' }} value={d.concepto} onChange={(e) => handleDetalleChange(i, 'concepto', e.target.value)} disabled={readOnly}>
-                        {conceptosFabricacion.map((c) => <option key={c} value={c}>{c}</option>)}
-                      </select>
-                    </td>
-                    <td>
-                      {CONCEPTOS_M2.includes(d.concepto) ? (
-                        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                          <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '30%' }} value={d.largo || ''} onChange={(e) => handleDetalleChange(i, 'largo', Number(e.target.value))} placeholder="Largo" disabled={readOnly} />
-                          <span style={{ fontSize: 11, color: '#94a3b8' }}>×</span>
-                          <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '30%' }} value={d.ancho || ''} onChange={(e) => handleDetalleChange(i, 'ancho', Number(e.target.value))} placeholder="Ancho" disabled={readOnly} />
-                          <span style={{ fontSize: 11, fontWeight: 600, color: '#1e40af', whiteSpace: 'nowrap' }}>{d.m2 || 0} m²</span>
-                        </div>
-                      ) : d.concepto === 'OTRA' ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          <input className="input" style={{ fontSize: 12, padding: '4px 8px' }} value={d.detalle} onChange={(e) => handleDetalleChange(i, 'detalle', e.target.value)} placeholder="DETALLES" disabled={readOnly} />
+                {form.detalles_fabricacion.flatMap((d, i) => {
+                  const row = (
+                    <tr key={i}>
+                      <td>
+                        <select className="input" style={{ fontSize: 12, padding: '4px 8px' }} value={d.concepto} onChange={(e) => handleDetalleChange(i, 'concepto', e.target.value)} disabled={readOnly}>
+                          {conceptosFabricacion.map((c) => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </td>
+                      <td>
+                        {CONCEPTOS_M2.includes(d.concepto) ? (
                           <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                            <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '35%' }} value={d.largo || ''} onChange={(e) => handleDetalleChange(i, 'largo', Number(e.target.value))} placeholder="Largo" disabled={readOnly} />
+                            <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '30%' }} value={d.largo || ''} onChange={(e) => handleDetalleChange(i, 'largo', Number(e.target.value))} placeholder="Largo" disabled={readOnly} />
                             <span style={{ fontSize: 11, color: '#94a3b8' }}>×</span>
-                            <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '35%' }} value={d.mano_de_obra || ''} onChange={(e) => handleDetalleChange(i, 'mano_de_obra', Number(e.target.value))} placeholder="Mano de obra" disabled={readOnly} />
+                            <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '30%' }} value={d.ancho || ''} onChange={(e) => handleDetalleChange(i, 'ancho', Number(e.target.value))} placeholder="Ancho" disabled={readOnly} />
+                            <span style={{ fontSize: 11, fontWeight: 600, color: '#1e40af', whiteSpace: 'nowrap' }}>{d.m2 || 0} m²</span>
                           </div>
-                        </div>
-                      ) : (
-                        <input className="input" style={{ fontSize: 12, padding: '4px 8px' }} value={d.detalle} onChange={(e) => handleDetalleChange(i, 'detalle', e.target.value)} placeholder="Cant / ML / cm" disabled={readOnly} />
-                      )}
-                    </td>
-                    <td>
-                      <select className="input" style={{ fontSize: 11, padding: '4px 4px', width: '100%' }}
-                        value={d.moneda || 'ARS'}
-                        onChange={(e) => handleDetalleChange(i, 'moneda', e.target.value)}
-                        disabled={readOnly}>
-                        <option value="ARS">ARS</option>
-                        <option value="USD">USD</option>
-                      </select>
-                    </td>
-                    <td>
-                      {CONCEPTOS_M2.includes(d.concepto) ? (
-                        <span style={{ fontSize: 12, fontWeight: 600, color: d.moneda === 'USD' ? '#059669' : '#1e293b' }}>{d.moneda === 'USD' ? 'USD ' : '$'}{Number(d.precio || 0).toLocaleString('es-AR')}</span>
-                      ) : d.concepto === 'OTRA' ? (
-                        <span style={{ fontSize: 12, fontWeight: 600, color: d.moneda === 'USD' ? '#059669' : '#1e293b' }}>{d.moneda === 'USD' ? 'USD ' : '$'}{Number(d.precio || 0).toLocaleString('es-AR')}</span>
-                      ) : ['TRAFORO DE PILETA', 'TRAFORO DE ANAFE', 'TRAFORO DE APOYO'].includes(d.concepto) ? (
-                        <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '100%' }} value={d.precio || ''} onChange={(e) => handleDetalleChange(i, 'precio', Number(e.target.value))} placeholder="0" disabled={readOnly} />
-                      ) : (
-                        <span style={{ fontSize: 12, color: '#94a3b8' }}>-</span>
-                      )}
-                    </td>
-                    <td>
-                      <button type="button" className="btn btn-outline" style={{ padding: '2px 6px' }} onClick={() => removeDetalle(i)} disabled={readOnly}>
-                        <X size={14} />
-                      </button>
-                    </td>
-                  </tr>
-                  {form.estado === 'MEDICION' && CONCEPTOS_M2.includes(d.concepto) && form.detalles_presupuestados[i]
-                    ? ((pres, real) => {
-                        const dif = Math.round((real - pres) * 10000) / 10000;
-                        return (
-                          <tr key={'med_' + i} style={{ background: '#f0f9ff', fontSize: 11 }}>
-                            <td colSpan={2} style={{ padding: '3px 8px', color: '#1e40af', fontWeight: 600 }}>
-                              📐 Medición
-                            </td>
-                            <td style={{ padding: '3px 8px' }}></td>
-                            <td style={{ padding: '3px 8px', textAlign: 'center' }}>
-                              <span style={{ color: '#6b7280' }}>Orig: <strong>{pres.toFixed(5)}</strong></span>
-                              <span style={{ margin: '0 6px', color: '#94a3b8' }}>|</span>
-                              <span style={{ color: '#1e40af' }}>Real: <strong>{real.toFixed(5)}</strong></span>
-                              <span style={{ margin: '0 6px', color: '#94a3b8' }}>|</span>
-                              <span style={{ color: dif > 0 ? '#16a34a' : dif < 0 ? '#dc2626' : '#6b7280', fontWeight: 700 }}>
-                                Δ {dif > 0 ? '+' : ''}{dif.toFixed(5)} m²
-                              </span>
-                            </td>
-                            <td style={{ padding: '3px 8px' }}></td>
-                          </tr>
-                        );
-                      })(Number(form.detalles_presupuestados[i].m2) || 0, d.m2 || 0)
-                    : null
+                        ) : d.concepto === 'OTRA' ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <input className="input" style={{ fontSize: 12, padding: '4px 8px' }} value={d.detalle} onChange={(e) => handleDetalleChange(i, 'detalle', e.target.value)} placeholder="DETALLES" disabled={readOnly} />
+                            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                              <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '35%' }} value={d.largo || ''} onChange={(e) => handleDetalleChange(i, 'largo', Number(e.target.value))} placeholder="Largo" disabled={readOnly} />
+                              <span style={{ fontSize: 11, color: '#94a3b8' }}>×</span>
+                              <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '35%' }} value={d.mano_de_obra || ''} onChange={(e) => handleDetalleChange(i, 'mano_de_obra', Number(e.target.value))} placeholder="Mano de obra" disabled={readOnly} />
+                            </div>
+                          </div>
+                        ) : (
+                          <input className="input" style={{ fontSize: 12, padding: '4px 8px' }} value={d.detalle} onChange={(e) => handleDetalleChange(i, 'detalle', e.target.value)} placeholder="Cant / ML / cm" disabled={readOnly} />
+                        )}
+                      </td>
+                      <td>
+                        <select className="input" style={{ fontSize: 11, padding: '4px 4px', width: '100%' }}
+                          value={d.moneda || 'ARS'}
+                          onChange={(e) => handleDetalleChange(i, 'moneda', e.target.value)}
+                          disabled={readOnly}>
+                          <option value="ARS">ARS</option>
+                          <option value="USD">USD</option>
+                        </select>
+                      </td>
+                      <td>
+                        {CONCEPTOS_M2.includes(d.concepto) ? (
+                          <span style={{ fontSize: 12, fontWeight: 600, color: d.moneda === 'USD' ? '#059669' : '#1e293b' }}>{d.moneda === 'USD' ? 'USD ' : '$'}{Number(d.precio || 0).toLocaleString('es-AR')}</span>
+                        ) : d.concepto === 'OTRA' ? (
+                          <span style={{ fontSize: 12, fontWeight: 600, color: d.moneda === 'USD' ? '#059669' : '#1e293b' }}>{d.moneda === 'USD' ? 'USD ' : '$'}{Number(d.precio || 0).toLocaleString('es-AR')}</span>
+                        ) : ['TRAFORO DE PILETA', 'TRAFORO DE ANAFE', 'TRAFORO DE APOYO'].includes(d.concepto) ? (
+                          <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '100%' }} value={d.precio || ''} onChange={(e) => handleDetalleChange(i, 'precio', Number(e.target.value))} placeholder="0" disabled={readOnly} />
+                        ) : (
+                          <span style={{ fontSize: 12, color: '#94a3b8' }}>-</span>
+                        )}
+                      </td>
+                      <td>
+                        <button type="button" className="btn btn-outline" style={{ padding: '2px 6px' }} onClick={() => removeDetalle(i)} disabled={readOnly}>
+                          <X size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                  const rows: React.ReactNode[] = [row];
+                  if (form.estado === 'MEDICION' && CONCEPTOS_M2.includes(d.concepto) && form.detalles_presupuestados[i]) {
+                    const pres = Number(form.detalles_presupuestados[i].m2) || 0;
+                    const real = d.m2 || 0;
+                    const dif = Math.round((real - pres) * 10000) / 10000;
+                    rows.push(
+                      <tr key={'med_' + i} style={{ background: '#f0f9ff', fontSize: 11 }}>
+                        <td colSpan={2} style={{ padding: '3px 8px', color: '#1e40af', fontWeight: 600 }}>
+                          📐 Medición
+                        </td>
+                        <td style={{ padding: '3px 8px' }}></td>
+                        <td style={{ padding: '3px 8px', textAlign: 'center' }}>
+                          <span style={{ color: '#6b7280' }}>Orig: <strong>{pres.toFixed(5)}</strong></span>
+                          <span style={{ margin: '0 6px', color: '#94a3b8' }}>|</span>
+                          <span style={{ color: '#1e40af' }}>Real: <strong>{real.toFixed(5)}</strong></span>
+                          <span style={{ margin: '0 6px', color: '#94a3b8' }}>|</span>
+                          <span style={{ color: dif > 0 ? '#16a34a' : dif < 0 ? '#dc2626' : '#6b7280', fontWeight: 700 }}>
+                            Δ {dif > 0 ? '+' : ''}{dif.toFixed(5)} m²
+                          </span>
+                        </td>
+                        <td style={{ padding: '3px 8px' }}></td>
+                      </tr>
+                    );
                   }
-                ))}
+                  return rows;
+                })}
               </tbody>
             </table>
             <button type="button" className="btn btn-outline" onClick={addDetalle} style={{ marginTop: 8, fontSize: 13, padding: '6px 14px' }} disabled={readOnly}>

@@ -1,5 +1,7 @@
+// @ts-nocheck
 import { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../services/api';
+import type { EntityFormState, EntityServices, FormField, MaterialEnForm } from '../types';
 
 const CONCEPTOS_M2 = ['ZÓCALO', 'FRENTE'];
 
@@ -17,10 +19,10 @@ const CONCEPTO_NORMALIZE = {
   'APERTURA PILETA DE APOYO': 'TRAFORO DE PILETA DE APOYO',
 };
 
-const CONFIG_CUOTAS = {};
+const CONFIG_CUOTAS: Record<number, number> = {};
 for (let i = 1; i <= 12; i++) CONFIG_CUOTAS[i] = i <= 2 ? 0 : i * 5;
 
-const INITIAL_FORM = {
+const INITIAL_FORM: EntityFormState = {
   numero: '',
   cliente_nombre: '', cliente_telefono_orden: '', domicilio: '', email: '',
   fecha: new Date().toISOString().slice(0, 10),
@@ -54,15 +56,22 @@ export default function useEntityForm({
   id,
   navigate,
   onLoaded,
+}: {
+  entityType: string;
+  services: EntityServices;
+  defaultEstado: string;
+  id?: string;
+  navigate: (path: string) => void;
+  onLoaded?: (data: Record<string, unknown>) => void;
 }) {
   const isEdit = !!id;
 
   const [form, setForm] = useState({ ...INITIAL_FORM, estado: defaultEstado });
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
-  const [materiales, setMateriales] = useState([]);
-  const [piletas, setPiletas] = useState([]);
-  const [clientes, setClientes] = useState([]);
+  const [materiales, setMateriales] = useState<Record<string, unknown>[]>([]);
+  const [piletas, setPiletas] = useState<Record<string, unknown>[]>([]);
+  const [clientes, setClientes] = useState<Record<string, unknown>[]>([]);
   const [showClienteDropdown, setShowClienteDropdown] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
@@ -76,15 +85,15 @@ export default function useEntityForm({
   const materialPrecioRef = useRef(0);
   const materialUsdRef = useRef(0);
 
-  const update = useCallback((field, value) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+  const update = useCallback((field: FormField, value: unknown) => {
+    setForm((prev) => ({ ...prev, [field]: value } as EntityFormState));
   }, []);
 
   const readOnly = ['TALLER', 'TERMINADA', 'ENTREGADA', 'CONVERTIDO A OT', 'RECHAZADO'].includes(form.estado);
-  const hayUSD = (form.materiales || []).some((m) => m.moneda === 'USD');
-  const hayAlternativas = (form.materiales || []).some((m) => m.es_alternativa);
-  const clientesFiltrados = clientes.filter((c) =>
-    c.nombre?.toLowerCase().includes((form.cliente_nombre || '').toLowerCase())
+  const hayUSD = (form.materiales || [] as MaterialEnForm[]).some((m) => m.moneda === 'USD');
+  const hayAlternativas = (form.materiales || [] as MaterialEnForm[]).some((m) => m.es_alternativa);
+  const clientesFiltrados = (clientes as Array<Record<string, unknown>>).filter((c) =>
+    (c.nombre as string || '').toLowerCase().includes((form.cliente_nombre || '').toLowerCase())
   );
 
   // === Carga inicial ===
@@ -101,7 +110,7 @@ export default function useEntityForm({
     });
     if (id) {
       services.getById(id).then((res) => {
-        const d = res.data;
+        const d = res.data as Record<string, unknown> as any;
         setForm({
           ...INITIAL_FORM,
           numero: d.numero || '',

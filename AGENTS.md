@@ -2,7 +2,7 @@
 
 ## Stack
 - **Backend:** Python 3.14+, FastAPI, SQLAlchemy, SQLite
-- **Frontend:** React 18, React Router 6, Axios, Recharts, Lucide React
+- **Frontend:** React 18, React Router 6, Vite 6, Axios, Recharts, Lucide React
 
 ## Estructura del proyecto
 ```
@@ -69,33 +69,36 @@ afamar/
 │           ├── numeracion.py         # P-000001, A-000001 (compartida entre tablas)
 │           └── file_utils.py         # Manejo de uploads
 └── frontend/
-    ├── package.json
+    ├── vite.config.js
+    ├── index.html                    # Vite entry point
+    ├── .env                          # VITE_API_URL=http://localhost:8000/api
     └── src/
-        ├── index.js & index.css
-        ├── App.js                    # React Router con Layout anidado
+        ├── main.jsx & index.css
+        ├── App.jsx                   # React Router con Layout anidado
         ├── hooks/
-        │   └── useEntityForm.js      # Custom hook compartido (form state, handlers, cálculos)
+        │   └── useEntityForm.jsx     # Custom hook compartido (form state, handlers, cálculos)
         ├── services/                 # Servicios modulares Axios
-        │   ├── api.js                # Hub de re-export (retrocompatible)
-        │   ├── clientes.js, presupuestos.js, presupuestosOnline.js
-        │   ├── ordenes.js, materiales.js, stockPiletas.js
-        │   ├── mediciones.js, configuracion.js, reportes.js, dashboard.js
-        ├── utils/formatters.js       # Moneda, fecha, badges, constantes
+        │   ├── apiClient.jsx         # Axios instance con import.meta.env.VITE_API_URL
+        │   ├── api.jsx               # Hub de re-export (retrocompatible)
+        │   ├── clientes.jsx, presupuestos.jsx, presupuestosOnline.jsx
+        │   ├── ordenes.jsx, materiales.jsx, stockPiletas.jsx
+        │   ├── mediciones.jsx, configuracion.jsx, reportes.jsx, dashboard.jsx
+        ├── utils/formatters.jsx      # Moneda, fecha, badges, constantes
         └── components/
-            ├── Layout.js             # Sidebar acordeón (fondo blanco, botones rojos, auto-ocultable)
+            ├── Layout.jsx            # Sidebar acordeón (fondo blanco, botones rojos, auto-ocultable)
             ├── common/               # Modal, Loading, ConfirmDialog
-            ├── dashboard/Dashboard.js # Header rojo "afamar" + grilla + PRESUPUESTOS EN LÍNEA
-            ├── clientes/ClientesList.js & ClienteForm.js
+            ├── dashboard/Dashboard.jsx # Header rojo "afamar" + grilla + PRESUPUESTOS EN LÍNEA
+            ├── clientes/ClientesList.jsx & ClienteForm.jsx
             ├── presupuestos/
-            │   ├── PresupuestosList.js     # Lista unificada (local + online)
-            │   ├── PresupuestoForm.js      # Usa useEntityForm (588→876 líneas)
-            │   ├── PresupuestosOnlineList.js
-            │   └── PresupuestoOnlineForm.js # Dinámico, 11+7 filas, pileta, convertir
-            ├── ordenes/OrdenesList.js & OrdenForm.js  # OrdenForm usa useEntityForm
-            ├── materiales/MaterialesList.js & MaterialForm.js
-            ├── stock/StockPiletas.js
-            ├── reportes/Reportes.js
-            └── configuracion/Configuracion.js
+            │   ├── PresupuestosList.jsx    # Lista unificada (local + online)
+            │   ├── PresupuestoForm.jsx     # Usa useEntityForm (588→876 líneas)
+            │   ├── PresupuestosOnlineList.jsx
+            │   └── PresupuestoOnlineForm.jsx # Dinámico, 11+7 filas, pileta, convertir
+            ├── ordenes/OrdenesList.jsx & OrdenForm.jsx  # OrdenForm usa useEntityForm
+            ├── materiales/MaterialesList.jsx & MaterialForm.jsx
+            ├── stock/StockPiletas.jsx
+            ├── reportes/Reportes.jsx
+            └── configuracion/Configuracion.jsx
 ```
 
 ## Estado actual
@@ -217,9 +220,10 @@ cd afamar/backend
 .\venv\Scripts\activate
 uvicorn app.main:app --reload --port 8000
 
-# Terminal 2 - Frontend
+# Terminal 2 - Frontend (Vite)
 cd afamar/frontend
-npm start
+npm run dev          # Dev server en http://localhost:5173
+npm run build        # Producción
 
 # Recrear DB (borrar afamar.db y ejecutar seed con backend corriendo)
 cd afamar/backend
@@ -993,5 +997,135 @@ UPDATE ordenes_trabajo SET estado = 'ENTREGADA' WHERE estado = 'ENTREGADO'; -- s
 - `backend/app/services/caja_service.py:24-28` — max(0, ...) + saldo_pendiente
 - `backend/app/services/orden_trabajo_service.py:139` — pasa saldo_pendiente
 - `frontend/src/components/caja/CajaDiaria.js:206` — case‑insensitive forma_pago
+
+## Sesión 24-Jun-2026 — CRA → Vite migration, PresupuestoForm date-input null fixes
+
+### 1. CRA → Vite migration
+- **Causa**: `npm run dev` no existía — proyecto usaba `react-scripts` bajo CRA. Vite era necesario para mejor DX y builds.
+- **Created file**: `frontend/vite.config.js` — React plugin + proxy `/api` → `localhost:8000`
+- **Created file**: `frontend/index.html` — Vite entry point, `<script type="module" src="/src/main.jsx">`
+- **Updated**: `frontend/package.json` — replaced `react-scripts` with `vite ^6.4.3`, `@vitejs/plugin-react ^4.3.4`; added `"type": "module"`; scripts: `dev`→`vite`, `start`→`vite`, `build`→`vite build`, `preview`→`vite preview`
+- **Renamed**: `src/index.js` → `src/main.jsx`, `src/App.js` → `src/App.jsx`
+- **Renamed**: All 43 `.js` files in `src/` to `.jsx` (Vite production build requires explicit JSX extension)
+- **Removed**: `react-scripts` dependency; ran `npm install`
+
+### 2. `process.env` → `import.meta.env`
+- `src/services/apiClient.jsx:3`: `process.env.REACT_APP_API_URL` → `import.meta.env.VITE_API_URL`
+- Created `frontend/.env` with `VITE_API_URL=http://localhost:8000/api`
+
+### 3. Backend CORS
+- `backend/app/main.py` has `allow_origins=["*"]` (wildcard)
+- `ProxyHeadersMiddleware` fix: `trusted_ips` → `trusted_hosts` (correct parameter name)
+
+### 4. React Router future flags
+- `App.jsx` `<BrowserRouter>`: added `future={{ v7_startTransition: true, v7_relativeSplatPath: true }}`
+
+### 5. PresupuestoForm.jsx date-input null fixes
+- **Warnings** in console: `'value' prop on 'input' should not be null`, `specified value does not conform to required format`, `controlled input to be uncontrolled`
+- **Fix**: Added `|| ''` fallback on 3 date inputs in PresupuestoForm.jsx (lines 229, 871, 893) and OrdenForm.jsx (lines 137, 844, 865)
+- Root cause: initial state `fecha_entrega: ''`, `fecha_aprobacion: ''` from hook becomes null during edge cases
+- `useEntityForm.jsx` already handles date slicing on API responses
+
+### 6. Known issues
+- No TypeScript applied on disk — project remains pure JavaScript (`.jsx`)
+- Build verified: `npm run dev` starts (port 5173), `npm run build` succeeds (~9.5s)
+- DB SQLite must be recreated manually when schema changes
+
+### Comandos de ejecución actualizados
+```bash
+# Terminal 1 - Backend
+cd afamar/backend
+.\venv\Scripts\activate
+uvicorn app.main:app --reload --port 8000
+
+# Terminal 2 - Frontend (Vite)
+cd afamar/frontend
+npm run dev
+# Build production:
+npm run build
+```
+
+## Sesión 24-Jun-2026 (tarde) — TypeScript strict migration: PresupuestoForm + OrdenForm
+
+### Contexto
+- Todo el frontend fue convertido de `.jsx` a `.tsx` pero los archivos tenían tipos implícitos `any`/`unknown`.
+- Enfoque: arreglar los tipos **sin** agregar `@ts-nocheck` a los archivos objetivo.
+- `useEntityForm.ts` mantiene `@ts-nocheck` (~700 líneas de lógica compleja con tipos dinámicos).
+- `tsconfig.json` tiene `strict: true`.
+
+### Errores corregidos en `src/types/form.ts` (archivo base de tipos)
+- **`ApiPromise` duplicado**: había dos definiciones (una genérica `Promise<{data: T}>` y una plana `Promise<Record<string, any>>`). Eliminada la genérica.
+- **`EntityServices.delete`**: cambiado de `Promise<void>` a `ApiPromise` porque Axios siempre devuelve `AxiosResponse`.
+- **`EntityServices.getNextNumero`**: cambiado de `Promise<{data: {numero: string}}>` a `ApiPromise` por consistencia.
+- **`UseEntityFormReturn.materiales`/`piletas`/`clientes`**: cambiados de `unknown[]` a `Record<string, unknown>[]` para permitir acceso por propiedad.
+
+### Errores corregidos en `src/hooks/useEntityForm.ts` (archivo con @ts-nocheck)
+- `useState<unknown[]>([])` → `useState<Record<string, unknown>[]>([])` para los 3 estados (materiales, piletas, clientes). Esto permite que los callers accedan a `.id`, `.nombre`, etc. sin errores de tipo.
+
+### Errores corregidos en PresupuestoForm.tsx
+1. **`EntityServices` no importado**: agregado al import types.
+2. **`services` object sin tipo**: declarado como `const presupuestoServices: EntityServices` con casts `as EntityServices['...']`.
+3. **`id` string|undefined en funciones**: agregados 5 casts `id as string` en llamadas a `updatePresupuesto`, `convertirAOrden`, `getPresupuestoPdf`.
+4. **`PresupuestoPayload` no cabe en `Record<string, unknown>`**: cast doble `as unknown as Record<string, unknown>`.
+5. **`m` y `p` unknown en map/filter/find**: tipados como `(m: Record<string, unknown>) =>` y propiedades casteadas (`m.id as number`, `m.nombre as string`, etc.).
+6. **`moneda: mon` incompatible**: tipado como `mon as 'ARS' | 'USD'`.
+7. **`d.largo` possibly null**: agregado `|| 0` en la comparación `(d.largo || 0) > 0`.
+8. **`(v) => ...` implícito any**: tipado en callbacks de CroquisEditor/FirmaCanvas como `(v: unknown) =>`.
+9. **`clientesFiltrados.map((c) => ...)` con c unknown**: tipado `(c: Record<string, unknown>) =>` con propiedades casteadas.
+10. **`setForm((prev) => ({...prev, ...aprobado}))` setStateAction mismatch**: casteado el retorno `as EntityFormState`.
+
+### Errores corregidos en OrdenForm.tsx
+- Mismos patrones que PresupuestoForm: imports, services type, id cast, m/p typing, moneda cast, d.largo null, v type, clientesFiltrados, setForm cast.
+- `(v) =>` en CroquisEditor cambiado a `(v: unknown)`.
+
+### Estado actual
+- `PresupuestoForm.tsx`: **0 errores**
+- `OrdenForm.tsx`: **0 errores**
+- `form.ts`: **0 errores**
+- `useEntityForm.ts`: **0 errores reportados** (por `@ts-nocheck`)
+- Resto del proyecto: ~876 errores (PresupuestoOnlineForm, ClienteForm, MaterialForm, MedicionForm, CajaDiaria, etc.)
+
+### Archivos modificados
+- `frontend/src/types/form.ts` — ApiPromise, EntityServices, UseEntityFormReturn
+- `frontend/src/hooks/useEntityForm.ts` — useState tipos
+- `frontend/src/components/presupuestos/PresupuestoForm.tsx` — ~25 fixes
+- `frontend/src/components/ordenes/OrdenForm.tsx` — ~15 fixes
+```
+
+## Sesión 24-Jun-2026 (noche) — Missing exports: formatters, reportes, caja
+
+### 1. `categoriasMaterial` faltante en formatters.ts
+- **Error**: `MaterialesList.tsx` y `MaterialForm.tsx` importaban `categoriasMaterial` de `formatters.ts` pero no estaba exportado.
+- **Fix**: Agregado `export const categoriasMaterial: string[] = ['Granitos', 'Cuarzos', 'Sinterizados', 'Mármoles']` (valores extraídos del seed.py).
+- **Adicional**: `estadosMedicion` también faltaba, agregado como `['PENDIENTE', 'CONFIRMADA', 'REALIZADA', 'CANCELADA']`.
+
+### 2. Funciones de reportes faltantes en api.ts
+- **Error**: `Reportes.tsx` importaba `getReportePresupuestos`, `getReporteOrdenes`, `getVentasMensuales`, `getMaterialesMasUsados` pero api.ts exportaba con nombres distintos (`getPresupuestosReport`, etc.).
+- **Fix**: Agregadas las 4 funciones en `reportes.ts` apuntando a los endpoints correctos del backend (`/reportes/presupuestos`, `/reportes/ordenes`, `/reportes/ventas-mensuales`, `/reportes/materiales-mas-usados`). Parámetros `params?` hechos opcionales. Re-exportadas en `api.ts`.
+
+### 3. Funciones de caja faltantes en api.ts
+- **Error**: `CajaDiaria.tsx` importaba `cerrarCaja`, `putSaldoAnterior` (y `CajaHistorial.tsx` importaba `getCajaHistorial`) sin estar exportados.
+- **Fix**: Agregadas en `caja.ts`:
+  - `cerrarCaja(fecha, observaciones?)` → `POST /caja/diaria/cerrar`
+  - `putSaldoAnterior(fecha, saldo_anterior)` → `PUT /caja/saldo-anterior`
+  - `getCajaHistorial()` → `GET /caja/historial`
+- **Refactor tipado**: Todas las funciones de `caja.ts` recibieron return type explícito `ApiResponse<T>` (desde `types/api.ts`) en lugar de inferencia `AxiosPromise<any>`, cumpliendo la directiva de no usar `any`.
+
+### 4. Archivos modificados
+- `frontend/src/utils/formatters.ts` — categoriasMaterial, estadosMedicion
+- `frontend/src/services/reportes.ts` — 4 nuevas funciones + params opcionales
+- `frontend/src/services/api.ts` — re-exports de reportes y caja
+- `frontend/src/services/caja.ts` — 3 nuevas funciones + tipado completo sin any
+
+## Directivas de TypeScript Estricto y Arquitectura Obligatoria
+
+Como IA de desarrollo encargada del backend y frontend de Afamar, me comprometo a cumplir estrictamente con las siguientes reglas en cada intervención:
+
+1. **Prohibido JavaScript:** No se permite el uso de extensiones `.js` o `.jsx`. Todos los componentes de React deben ser estrictamente **`.tsx`** y los archivos de servicios o lógica **`.ts`**.
+2. **Tipado Estricto de Extremo a Extremo:** Queda terminantemente prohibido usar `any`. Cada función, parámetro recibido, retorno de métodos de Axios y estado de React debe poseer un tipado explícito y real.
+3. **Prohibidos los tipos 'never' implícitos:** No se permiten soluciones parciales que "no bloqueen el navegador en desarrollo" pero rompan el compilador de TypeScript. Al inicializar estados como `useState(null)`, se debe tipar de forma genérica con la interfaz correspondiente (ej: `useState<MiInterface | null>(null)`) para evitar la inferencia a tipo `never`.
+4. **Estructura y Modularidad en `/types`:** Toda interfaz de entidades (Material, Presupuesto, Orden, Caja, Cliente) debe declararse en su archivo correspondiente dentro de `frontend/src/types/` e importarse en los componentes. No se deben declarar interfaces locales sueltas si representan entidades globales del sistema.
+5. **Formateo Seguro de Inputs de Fecha:** Para evitar fallas en inputs nativos de tipo fecha, se debe interceptar siempre la string de fecha ISO larga proveniente de la API limpiándola con `.split('T')[0]` y protegiéndola contra nulos con `|| ''` para mantener estables los componentes controlados.
+```
 
 
