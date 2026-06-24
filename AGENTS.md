@@ -1117,6 +1117,33 @@ npm run build
 - `frontend/src/services/api.ts` — re-exports de reportes y caja
 - `frontend/src/services/caja.ts` — 3 nuevas funciones + tipado completo sin any
 
+## Sesión 24-Jun-2026 (final) — Per-option especiales state fix + conversión selectiva por opción
+
+### 1. Bug: estado de accesorios (CORTES Y ACCESORIOS) compartido entre pestañas
+- **Causa**: `especiales` y `matEspeciales` eran estados globales del componente (`useState` en el nivel superior), no por opción. Al cambiar material en ZÓCALOS de Opción 3, se mutaba el mismo array que veían Opción 1 y 2.
+- **Fix**: Movidos `especiales: PresupuestoOnlineItemLocal[]` y `matEspeciales: Record<number, string>` dentro de la interfaz `OpcionTab`. Cada pestaña ahora tiene su propio array independiente.
+- **`PresupuestoOnlineForm.tsx`**: Eliminados los estados globales `especiales` y `matEspeciales`. Todas las funciones mutan `opciones[activeOpcion].especiales` vía `setOpciones` callback. Se agregó un `useEffect` que auto-recalcula totales cuando cambian `opciones`, `activeOpcion` o `dolarDia`, reemplazando los llamados inline a `recalcFrom`.
+- **Loading desde API**: Al editar, los items se agrupan por `opcion`; cada grupo separa normales y especiales. Items legacy con `opcion: -1` se asignan a opción 0 (backward compatible).
+- **Saving**: Cada opción guarda sus items + especiales con el `opcion` de su tab. `handleSubmit` hace `flatMap` de todas las tabs para obtener el `allItems`.
+- **`addOpcion`**: Copia especiales de la tab activa con deep clone, para que cada nueva opción arranque independiente.
+- **Totales por pestaña**: `computeTabTotal` ahora suma items + especiales de cada tab.
+
+### 2. Conversión selectiva por opción (Aprobar y Convertir en Orden)
+- **Backend `routers/presupuestos_online.py`**: Endpoint `POST /{id}/convertir-orden` acepta query param opcional `?opcion=N`.
+- **Backend `services/presupuesto_online_service.py`**: `convertir_a_orden(id, opcion=None)` filtra items por `opcion`, recalcula `ars_total`/`usd_total`/consolidado desde los items filtrados. El fallback de `pileta_id` del nivel superior solo se usa cuando no hay filtro de opción. `observaciones` incluye `(Opción N)`.
+- **Frontend `types/orden.ts`**: Nueva interfaz `ConvertirOpcionResponse` (message, orden_id, numero).
+- **Frontend `services/presupuestosOnline.ts`**: Nueva función `convertirOnlineAOrdenOpcion(id, opcion)` con tipado estricto.
+- **Frontend `services/api.ts`**: Re-export de `convertirOnlineAOrdenOpcion`.
+- **Frontend `PresupuestoOnlineForm.tsx`**: Estado `convertingOpcion: number | null`. Handler `handleConvertirOpcion(opcionIdx)` con confirmación → API → navegación a `/ordenes`. Botón verde `✔ Aprobar y Convertir` por pestaña (solo en modo edición), se deshabilita durante la conversión.
+
+### Archivos modificados
+- `backend/app/routers/presupuestos_online.py` — opcion Query param
+- `backend/app/services/presupuesto_online_service.py` — filtrado por opcion, recálculo de totales, condicional pileta fallback
+- `frontend/src/components/presupuestos/PresupuestoOnlineForm.tsx` — especiales en OpcionTab, useEffect auto-recalculo, botón + handler convertir por opción
+- `frontend/src/services/presupuestosOnline.ts` — convertirOnlineAOrdenOpcion
+- `frontend/src/services/api.ts` — re-export
+- `frontend/src/types/orden.ts` — ConvertirOpcionResponse
+
 ## Directivas de TypeScript Estricto y Arquitectura Obligatoria
 
 Como IA de desarrollo encargada del backend y frontend de Afamar, me comprometo a cumplir estrictamente con las siguientes reglas en cada intervención:
