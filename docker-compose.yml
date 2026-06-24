@@ -20,7 +20,7 @@ services:
     image: frontend:latest
     container_name: frontend
     environment:
-      - API_URL=${API_URL:-/api}
+      - API_URL=/api
     depends_on:
       - backend
     healthcheck:
