@@ -1273,6 +1273,51 @@ src/
 - `formatCurrency()` reemplazado por `<CurrencyDisplay>` en PresupuestosList, OrdenesList, CajaHistorial, Dashboard (import no usado).
 - Inline formatCurrency en OrdenForm/PresupuestoForm (modoUSD condicional) se dejaron como están por su lógica compleja.
 
+## Sesión 25-Jun-2026 (post-refactor) — Auth system + route restructuring + CSP + fix navigate paths
+
+### 1. Sistema de autenticación (backend + frontend)
+- **Backend**: `models/user.py` (User SQLAlchemy), `schemas/auth.py` (LoginRequest, TokenResponse), `services/auth_service.py` (AuthService con verify_password + create_access_token usando python-jose + passlib), `routers/auth.py` (POST /api/auth/login), `core/dependencies.py` (get_current_user via Bearer token).
+- **Backend `main.py`**: registrado auth router, seed de admin (`admin`/`admin123`) via startup event.
+- **Frontend**: `types/auth.ts` (User, LoginCredentials, AuthContextType), `context/AuthContext.tsx` (AuthProvider con login/logout + localStorage token + jwt-decode), `components/auth/ProtectedRoute.tsx` (redirect a /login si no autenticado).
+- **Frontend `services/apiClient.ts`**: request interceptor agrega Bearer token, response interceptor 401 → logout y redirect a /login.
+- **Frontend `main.tsx`**: envuelto con `<AuthProvider>`.
+
+### 2. Route restructuring (App.tsx + MainLayout)
+- Rutas reorganizadas: `/` → PublicPage, `/login` → LoginPage, `/admin/*` → todas las rutas CRUD protegidas con `<ProtectedRoute>`.
+- `MainLayout.tsx`: sidebar paths con prefijo `PREFIX = '/admin'`, logout button con username en la parte inferior.
+- `pages/PublicPage.tsx` + CSS: página pública replicada de la referencia existente.
+- `pages/LoginPage.tsx` + CSS: formulario de login con gradient fallbacks.
+- `components/ui/Container.tsx`: componente utilitario creado.
+
+### 3. CSP meta tag en index.html
+- `frontend/index.html`: agregado `<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">` en `<head>`.
+
+### 4. Fix de 35+ navigate() paths rotos (sin prefijo /admin)
+- **Causa**: al mover componentes a `pages/` y agregar `/admin/*` en el router, todos los `navigate()` internos seguían apuntando a las rutas viejas sin prefijo.
+- **Archivos corregidos** (15 archivos, ~35 calls):
+  - `DashboardPage.tsx` — 7 card paths (caja/diaria, presupuestos/nuevo, ordenes/nuevo, etc.)
+  - `ClientesListPage.tsx` — /clientes/nuevo, /clientes/$id (2)
+  - `ClienteFormPage.tsx` — /clientes (submit + cancel), /ordenes/$id (3)
+  - `MaterialesListPage.tsx` — /materiales/nuevo, /materiales/$id (2)
+  - `MaterialFormPage.tsx` — /materiales (submit + cancel)
+  - `OrdenesListPage.tsx` — /ordenes/nuevo, /ordenes/$id (2)
+  - `OrdenFormPage.tsx` — listPath, cancel (2)
+  - `OrdenFormPage_test.tsx` — submit, delete, cancel (3)
+  - `MedicionesListPage.tsx` — /mediciones/nuevo, /mediciones/$id (2)
+  - `MedicionFormPage.tsx` — /mediciones (submit + cancel)
+  - `PresupuestosListPage.tsx` — /presupuestos/nuevo, convertir paths, ver/OT link (6)
+  - `PresupuestoFormPage.tsx` — listPath, cancel (/ordenes?search=...) (2)
+  - `PresupuestosOnlineListPage.tsx` — back, nuevo, view x2 (4)
+  - `PresupuestoOnlineFormPage.tsx` — convertir x2, submit, cancel (4)
+- Build verificado: `npm run build` → 0 errores.
+
+### Rutas actuales en App.tsx
+Todas las rutas CRUD están bajo `<Route path="admin" element={<MainLayout />}>`:
+`index` → Dashboard, `clientes[/nuevo/:id]`, `presupuestos[/nuevo/:id]`, `presupuestos-online[/nuevo/:id]`, `ordenes[/nuevo/:id]`, `materiales[/nuevo/:id]`, `stock-piletas`, `mediciones[/nuevo/:id]`, `calculadora`, `caja/diaria`, `caja/historial`, `reportes`, `configuracion`.
+
+### Convención importante
+Todo `navigate()` dentro de páginas protegidas debe usar el prefijo `/admin/` (ej: `navigate('/admin/presupuestos/nuevo')`). El sidebar ya lo maneja via `PREFIX`.
+
 ## Directivas de TypeScript Estricto y Arquitectura Obligatoria
 
 Como IA de desarrollo encargada del backend y frontend de Afamar, me comprometo a cumplir estrictamente con las siguientes reglas en cada intervención:
