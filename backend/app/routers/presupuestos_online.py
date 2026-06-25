@@ -16,7 +16,7 @@ def _get_service(db: Session = Depends(get_db)):
     return PresupuestoOnlineService(db)
 
 
-@router.get("/", response_model=List[PresupuestoOnlineSchema])
+@router.get("", response_model=List[PresupuestoOnlineSchema])
 def listar(service: PresupuestoOnlineService = Depends(_get_service)):
     return service.listar()
 
@@ -29,7 +29,7 @@ def obtener(id: int, service: PresupuestoOnlineService = Depends(_get_service)):
         raise HTTPException(404, str(e))
 
 
-@router.post("/", response_model=PresupuestoOnlineSchema, status_code=201)
+@router.post("", response_model=PresupuestoOnlineSchema, status_code=201)
 def crear(data: PresupuestoOnlineCreate, service: PresupuestoOnlineService = Depends(_get_service)):
     return service.crear(data.model_dump())
 

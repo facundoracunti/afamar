@@ -13,7 +13,7 @@ def _get_service(db: Session = Depends(get_db)):
     return ClienteService(db)
 
 
-@router.get("/", response_model=List[ClienteList])
+@router.get("", response_model=List[ClienteList])
 def listar_clientes(
     search: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
@@ -31,7 +31,7 @@ def obtener_cliente(cliente_id: int, service: ClienteService = Depends(_get_serv
         raise HTTPException(404, str(e))
 
 
-@router.post("/", response_model=ClienteSchema, status_code=201)
+@router.post("", response_model=ClienteSchema, status_code=201)
 def crear_cliente(data: ClienteCreate, service: ClienteService = Depends(_get_service)):
     try:
         result = service.crear(

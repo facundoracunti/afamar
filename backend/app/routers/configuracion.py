@@ -12,7 +12,7 @@ def _get_service(db: Session = Depends(get_db)):
     return ConfiguracionService(db)
 
 
-@router.get("/", response_model=List[ConfiguracionSchema])
+@router.get("", response_model=List[ConfiguracionSchema])
 def listar_config(service: ConfiguracionService = Depends(_get_service)):
     return service.listar()
 
@@ -25,7 +25,7 @@ def obtener_config(key: str, service: ConfiguracionService = Depends(_get_servic
     return cfg
 
 
-@router.post("/", response_model=ConfiguracionSchema, status_code=201)
+@router.post("", response_model=ConfiguracionSchema, status_code=201)
 def crear_config(
     data: ConfiguracionCreate,
     service: ConfiguracionService = Depends(_get_service),

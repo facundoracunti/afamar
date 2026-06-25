@@ -13,7 +13,7 @@ def _get_service(db: Session = Depends(get_db)):
     return MedicionService(db)
 
 
-@router.get("/", response_model=List[MedicionSchema])
+@router.get("", response_model=List[MedicionSchema])
 def listar_mediciones(
     search: Optional[str] = Query(None),
     estado: Optional[str] = Query(None),
@@ -32,7 +32,7 @@ def obtener_medicion(medicion_id: int, service: MedicionService = Depends(_get_s
         raise HTTPException(404, str(e))
 
 
-@router.post("/", response_model=MedicionSchema, status_code=201)
+@router.post("", response_model=MedicionSchema, status_code=201)
 def crear_medicion(data: MedicionCreate, service: MedicionService = Depends(_get_service)):
     return service.crear(data.model_dump())
 

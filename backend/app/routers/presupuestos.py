@@ -17,7 +17,7 @@ def _get_service(db: Session = Depends(get_db)):
     return PresupuestoService(db)
 
 
-@router.get("/", response_model=List[PresupuestoSchema])
+@router.get("", response_model=List[PresupuestoSchema])
 def listar_presupuestos(
     search: Optional[str] = Query(None),
     estado: Optional[str] = Query(None),
@@ -56,7 +56,7 @@ def obtener_presupuesto(
         raise HTTPException(404, str(e))
 
 
-@router.post("/", response_model=PresupuestoSchema, status_code=201)
+@router.post("", response_model=PresupuestoSchema, status_code=201)
 def crear_presupuesto(
     data: PresupuestoCreate,
     service: PresupuestoService = Depends(_get_service),

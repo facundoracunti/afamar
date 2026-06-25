@@ -16,7 +16,7 @@ def _get_service(db: Session = Depends(get_db)):
     return StockPiletaService(db)
 
 
-@router.get("/", response_model=List[StockPiletaSchema])
+@router.get("", response_model=List[StockPiletaSchema])
 def listar_piletas(
     search: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
@@ -34,7 +34,7 @@ def obtener_pileta(pileta_id: int, service: StockPiletaService = Depends(_get_se
         raise HTTPException(404, str(e))
 
 
-@router.post("/", response_model=StockPiletaSchema, status_code=201)
+@router.post("", response_model=StockPiletaSchema, status_code=201)
 def crear_pileta(data: StockPiletaCreate, service: StockPiletaService = Depends(_get_service)):
     return service.crear(data.model_dump())
 

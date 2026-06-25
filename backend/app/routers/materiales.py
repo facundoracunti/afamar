@@ -14,7 +14,7 @@ def _get_service(db: Session = Depends(get_db)):
     return MaterialService(db)
 
 
-@router.get("/", response_model=List[MaterialSchema])
+@router.get("", response_model=List[MaterialSchema])
 def listar_materiales(
     categoria: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
@@ -33,7 +33,7 @@ def obtener_material(material_id: int, service: MaterialService = Depends(_get_s
         raise HTTPException(404, str(e))
 
 
-@router.post("/", response_model=MaterialSchema, status_code=201)
+@router.post("", response_model=MaterialSchema, status_code=201)
 def crear_material(data: MaterialCreate, service: MaterialService = Depends(_get_service)):
     return service.crear(data.model_dump())
 

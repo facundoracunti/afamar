@@ -15,7 +15,7 @@ def _get_service(db: Session = Depends(get_db)):
     return OrdenTrabajoService(db)
 
 
-@router.get("/", response_model=List[OrdenTrabajoSchema])
+@router.get("", response_model=List[OrdenTrabajoSchema])
 def listar_ordenes(
     search: Optional[str] = Query(None),
     estado: Optional[str] = Query(None),
@@ -61,7 +61,7 @@ def descargar_pdf_orden(
         raise HTTPException(404, str(e))
 
 
-@router.post("/", response_model=OrdenTrabajoSchema, status_code=201)
+@router.post("", response_model=OrdenTrabajoSchema, status_code=201)
 def crear_orden(
     data: OrdenTrabajoCreate,
     service: OrdenTrabajoService = Depends(_get_service),
