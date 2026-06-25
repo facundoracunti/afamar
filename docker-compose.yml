@@ -19,6 +19,8 @@ services:
       context: ./frontend
     image: frontend:latest
     container_name: frontend
+    environment:
+      - API_URL=/api
     depends_on:
       - backend
     healthcheck:
