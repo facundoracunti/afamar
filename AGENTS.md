@@ -1144,7 +1144,7 @@ npm run build
 - `frontend/src/services/api.ts` — re-export
 - `frontend/src/types/orden.ts` — ConvertirOpcionResponse
 
-## Sesión 25-Jun-2026 — Runtime config via envsubst + nginx proxy + dockerización
+## Sesión 25-Jun-2026 (mañana) — Runtime config via envsubst + nginx proxy + dockerización
 
 ### 1. Runtime API_URL via config.template.js → config.js → envsubst
 - **Problema**: `apiClient.ts` usaba `import.meta.env.VITE_API_URL` (build-time), forzando a rebuildear la imagen Docker por cada cambio de API_URL.
@@ -1180,6 +1180,34 @@ npm run build
 - `frontend/src/services/apiClient.ts` — runtime config en vez de import.meta.env
 - `frontend/Dockerfile` — fix path builder
 - `docker-compose.yml` — API internal, puertos corregidos, API_URL default
+
+## Sesión 25-Jun-2026 (noche) — Fix Mixed Content: trailing slashes en routers
+
+### Problema
+- Frontend en HTTPS pide `/api/dashboard` (sin trailing slash)
+- Backend define rutas como `@router.get("/")` → con prefix queda `/api/dashboard/` (con trailing slash)
+- FastAPI/Starlette redirige 307 de `/api/dashboard` → `/api/dashboard/`
+- La redirect usa el scheme de la request (`http` porque nginx proxy_passea como HTTP)
+- Browser bloquea la redirect por **Mixed Content** (HTTP redirect en página HTTPS)
+
+### Fix
+- Cambiados todos los `@router.get("/")` → `@router.get("")` y `@router.post("/")` → `@router.post("")` en los 9 routers que tenían rutas raíz
+- Esto elimina el trailing slash, la request matchea directo sin redirect
+
+### Archivos modificados (9)
+- `backend/app/routers/clientes.py` — GET + POST
+- `backend/app/routers/configuracion.py` — GET + POST
+- `backend/app/routers/dashboard.py` — GET
+- `backend/app/routers/materiales.py` — GET + POST
+- `backend/app/routers/mediciones.py` — GET + POST
+- `backend/app/routers/ordenes_trabajo.py` — GET + POST
+- `backend/app/routers/presupuestos.py` — GET + POST
+- `backend/app/routers/presupuestos_online.py` — GET + POST
+- `backend/app/routers/stock_piletas.py` — GET + POST
+
+### Commit
+- `b60d6e52` — "Fix trailing slashes in router paths to prevent redirect Mixed Content"
+- Push a `origin/development`
 
 ## Directivas de TypeScript Estricto y Arquitectura Obligatoria
 
