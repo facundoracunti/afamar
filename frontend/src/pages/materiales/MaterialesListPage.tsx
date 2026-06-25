@@ -98,7 +98,7 @@ export default function MaterialesList() {
                     <td>{m.stock_disponible || 0}</td>
                     <td>
                       <div style={{ display: 'flex', gap: 6 }}>
-                        <button className="btn btn-outline" style={{ padding: '4px 8px' }} onClick={() => navigate(`/materiales/${m.id}`)}>
+                        <button className="btn btn-outline" style={{ padding: '4px 8px' }} onClick={() => navigate(`/admin/materiales/${m.id}`)}>
                           <Edit size={14} />
                         </button>
                         <button className="btn btn-danger" style={{ padding: '4px 8px' }} onClick={() => setDeleteId(m.id)}>

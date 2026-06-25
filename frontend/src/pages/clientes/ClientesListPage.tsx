@@ -72,7 +72,7 @@ export default function ClientesList() {
               </thead>
               <tbody>
                 {clientes.map((c) => (
-                  <tr key={c.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/clientes/${c.id}`)}>
+                  <tr key={c.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/admin/clientes/${c.id}`)}>
                     <td style={{ color: '#94a3b8', fontSize: 13 }}>{c.id}</td>
                     <td style={{ fontWeight: 600 }}>{c.nombre}</td>
                     <td>{c.telefono || '-'}</td>
@@ -83,7 +83,7 @@ export default function ClientesList() {
                     <td style={{ fontSize: 13, color: '#64748b' }}>{formatDate(c.created_at)}</td>
                     <td>
                       <div style={{ display: 'flex', gap: 6 }} onClick={(e) => e.stopPropagation()}>
-                        <button className="btn btn-outline" style={{ padding: '4px 8px' }} onClick={() => navigate(`/clientes/${c.id}`)}>
+                        <button className="btn btn-outline" style={{ padding: '4px 8px' }} onClick={() => navigate(`/admin/clientes/${c.id}`)}>
                           <Edit size={14} />
                         </button>
                         <button className="btn btn-danger" style={{ padding: '4px 8px' }} onClick={() => setDeleteId(c.id)}>

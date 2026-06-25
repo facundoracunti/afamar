@@ -169,7 +169,7 @@ export default function PresupuestoForm() {
           </button>
           {isEdit ? (
             ordenTrabajoNumero ? (
-              <button type="button" className="btn" onClick={() => navigate(`/ordenes?search=${ordenTrabajoNumero}`)}
+              <button type="button" className="btn" onClick={() => navigate(`/admin/ordenes?search=${ordenTrabajoNumero}`)}
                 style={{ background: '#059669', color: '#fff', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 20px', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 14 }}>
                 <FileOutput size={16} /> OT {ordenTrabajoNumero}
               </button>

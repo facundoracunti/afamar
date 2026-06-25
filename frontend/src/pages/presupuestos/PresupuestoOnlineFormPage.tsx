@@ -487,7 +487,7 @@ export default function PresupuestoOnlineForm() {
       };
       if (isEdit) await updatePresupuestoOnline(id as string, payload);
       else await createPresupuestoOnline(payload);
-      navigate('/presupuestos-online');
+      navigate('/admin/presupuestos-online');
     } catch (err: unknown) { alert('Error al guardar'); }
     finally { setSaving(false); }
   };

@@ -97,7 +97,7 @@ export default function OrdenesList() {
               </thead>
               <tbody>
                 {data.map((o: Record<string, unknown>) => (
-                  <tr key={o.id as number} style={{ cursor: 'pointer' } as React.CSSProperties} onClick={() => navigate(`/ordenes/${o.id as number}`)}>
+                  <tr key={o.id as number} style={{ cursor: 'pointer' } as React.CSSProperties} onClick={() => navigate(`/admin/ordenes/${o.id as number}`)}>
                     <td style={{ fontWeight: 600, fontFamily: 'monospace' } as React.CSSProperties}>{(o as Record<string, unknown>).numero as string}</td>
                     <td>{(o as Record<string, unknown>).cliente_nombre as string || '-'}</td>
                     <td><EstadoBadge estado={(o as Record<string, unknown>).estado as string} /></td>

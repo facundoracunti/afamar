@@ -82,7 +82,7 @@ export default function MedicionesList() {
                     <td><EstadoBadge estado={m.estado || ''} /></td>
                     <td>
                       <div style={{ display: 'flex', gap: 6 }}>
-                        <button className="btn btn-outline" style={{ padding: '4px 8px' }} onClick={() => navigate(`/mediciones/${m.id}`)}>
+                        <button className="btn btn-outline" style={{ padding: '4px 8px' }} onClick={() => navigate(`/admin/mediciones/${m.id}`)}>
                           <Eye size={14} />
                         </button>
                         <button className="btn btn-danger" style={{ padding: '4px 8px' }} onClick={() => setDeleteId(m.id)}>
