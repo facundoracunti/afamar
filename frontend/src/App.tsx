@@ -1,31 +1,31 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Layout from './components/Layout';
-import Dashboard from './components/dashboard/Dashboard';
-import ClientesList from './components/clientes/ClientesList';
-import ClienteForm from './components/clientes/ClienteForm';
-import PresupuestosList from './components/presupuestos/PresupuestosList';
-import PresupuestoForm from './components/presupuestos/PresupuestoForm';
-import PresupuestosOnlineList from './components/presupuestos/PresupuestosOnlineList';
-import PresupuestoOnlineForm from './components/presupuestos/PresupuestoOnlineForm';
-import OrdenesList from './components/ordenes/OrdenesList';
-import OrdenForm from './components/ordenes/OrdenForm';
-import MaterialesList from './components/materiales/MaterialesList';
-import MaterialForm from './components/materiales/MaterialForm';
-import StockPiletas from './components/stock/StockPiletas';
-import Reportes from './components/reportes/Reportes';
-import Configuracion from './components/configuracion/Configuracion';
-import MedicionesList from './components/mediciones/MedicionesList';
-import MedicionForm from './components/mediciones/MedicionForm';
-import CalculadoraPlaca from './components/calculadora/CalculadoraPlaca';
-import CajaDiaria from './components/caja/CajaDiaria';
-import CajaHistorial from './components/caja/CajaHistorial';
+import MainLayout from './layouts/MainLayout';
+import Dashboard from './pages/DashboardPage';
+import ClientesList from './pages/clientes/ClientesListPage';
+import ClienteForm from './pages/clientes/ClienteFormPage';
+import PresupuestosList from './pages/presupuestos/PresupuestosListPage';
+import PresupuestoForm from './pages/presupuestos/PresupuestoFormPage';
+import PresupuestosOnlineList from './pages/presupuestos/PresupuestosOnlineListPage';
+import PresupuestoOnlineForm from './pages/presupuestos/PresupuestoOnlineFormPage';
+import OrdenesList from './pages/ordenes/OrdenesListPage';
+import OrdenForm from './pages/ordenes/OrdenFormPage';
+import MaterialesList from './pages/materiales/MaterialesListPage';
+import MaterialForm from './pages/materiales/MaterialFormPage';
+import StockPiletas from './pages/stock/StockPiletasPage';
+import Reportes from './pages/reportes/ReportesPage';
+import Configuracion from './pages/configuracion/ConfiguracionPage';
+import MedicionesList from './pages/mediciones/MedicionesListPage';
+import MedicionForm from './pages/mediciones/MedicionFormPage';
+import CalculadoraPlaca from './pages/calculadora/CalculadoraPage';
+import CajaDiaria from './pages/caja/CajaDiariaPage';
+import CajaHistorial from './pages/caja/CajaHistorialPage';
 
 function App() {
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
-        <Route path="/" element={<Layout />}>
+        <Route path="/" element={<MainLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="clientes" element={<ClientesList />} />
           <Route path="clientes/nuevo" element={<ClienteForm />} />

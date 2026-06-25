@@ -73,32 +73,47 @@ afamar/
     ├── index.html                    # Vite entry point
     ├── .env                          # VITE_API_URL=http://localhost:8000/api
     └── src/
-        ├── main.jsx & index.css
-        ├── App.jsx                   # React Router con Layout anidado
+        ├── main.tsx & index.css
+        ├── App.tsx                    # React Router con Layout anidado, importa desde pages/
+        ├── layouts/
+        │   └── MainLayout.tsx        # Sidebar acordeón (antes components/Layout.tsx)
+        ├── pages/                    # Route-level components, ensamblan subcomponentes
+        │   ├── DashboardPage.tsx
+        │   ├── clientes/ClientesListPage.tsx & ClienteFormPage.tsx
+        │   ├── presupuestos/
+        │   │   ├── PresupuestosListPage.tsx    # Lista unificada (local + online)
+        │   │   ├── PresupuestoFormPage.tsx     # Usa useEntityForm (927 líneas)
+        │   │   ├── PresupuestosOnlineListPage.tsx
+        │   │   └── PresupuestoOnlineFormPage.tsx
+        │   ├── ordenes/OrdenesListPage.tsx & OrdenFormPage.tsx
+        │   ├── materiales/MaterialesListPage.tsx & MaterialFormPage.tsx
+        │   ├── stock/StockPiletasPage.tsx
+        │   ├── mediciones/MedicionesListPage.tsx & MedicionFormPage.tsx
+        │   ├── reportes/ReportesPage.tsx
+        │   ├── configuracion/ConfiguracionPage.tsx
+        │   ├── calculadora/CalculadoraPage.tsx
+        │   └── caja/CajaDiariaPage.tsx & CajaHistorialPage.tsx
+        ├── components/               # Solo componentes reutilizables, sin páginas
+        │   ├── ui/                   # Generic UI primitives
+        │   │   ├── Modal.tsx
+        │   │   ├── Loading.tsx
+        │   │   └── ConfirmDialog.tsx
+        │   ├── croquis/
+        │   │   └── CroquisEditor.tsx   # Compartido entre OrdenForm y PresupuestoForm
+        │   ├── firma/
+        │   │   └── FirmaCanvas.tsx     # Compartido entre OrdenForm y PresupuestoForm
+        │   └── presupuesto/
+        │       └── OpcionesCotizacionGrid.tsx
         ├── hooks/
-        │   └── useEntityForm.jsx     # Custom hook compartido (form state, handlers, cálculos)
+        │   └── useEntityForm.ts      # Custom hook compartido (671 líneas, @ts-nocheck)
         ├── services/                 # Servicios modulares Axios
-        │   ├── apiClient.jsx         # Axios instance con import.meta.env.VITE_API_URL
-        │   ├── api.jsx               # Hub de re-export (retrocompatible)
-        │   ├── clientes.jsx, presupuestos.jsx, presupuestosOnline.jsx
-        │   ├── ordenes.jsx, materiales.jsx, stockPiletas.jsx
-        │   ├── mediciones.jsx, configuracion.jsx, reportes.jsx, dashboard.jsx
-        ├── utils/formatters.jsx      # Moneda, fecha, badges, constantes
-        └── components/
-            ├── Layout.jsx            # Sidebar acordeón (fondo blanco, botones rojos, auto-ocultable)
-            ├── common/               # Modal, Loading, ConfirmDialog
-            ├── dashboard/Dashboard.jsx # Header rojo "afamar" + grilla + PRESUPUESTOS EN LÍNEA
-            ├── clientes/ClientesList.jsx & ClienteForm.jsx
-            ├── presupuestos/
-            │   ├── PresupuestosList.jsx    # Lista unificada (local + online)
-            │   ├── PresupuestoForm.jsx     # Usa useEntityForm (588→876 líneas)
-            │   ├── PresupuestosOnlineList.jsx
-            │   └── PresupuestoOnlineForm.jsx # Dinámico, 11+7 filas, pileta, convertir
-            ├── ordenes/OrdenesList.jsx & OrdenForm.jsx  # OrdenForm usa useEntityForm
-            ├── materiales/MaterialesList.jsx & MaterialForm.jsx
-            ├── stock/StockPiletas.jsx
-            ├── reportes/Reportes.jsx
-            └── configuracion/Configuracion.jsx
+        │   ├── apiClient.ts
+        │   ├── api.ts                # Hub de re-export
+        │   └── clientes.ts, presupuestos.ts, presupuestosOnline.ts, etc.
+        ├── types/                    # Interfaces por entidad
+        │   ├── form.ts, api.ts, cliente.ts, presupuesto.ts, orden.ts, etc.
+        └── utils/
+            └── formatters.ts
 ```
 
 ## Estado actual
@@ -1208,6 +1223,52 @@ npm run build
 ### Commit
 - `b60d6e52` — "Fix trailing slashes in router paths to prevent redirect Mixed Content"
 - Push a `origin/development`
+
+## Sesión 25-Jun-2026 (final) — Refactor frontend: pages/, layouts/, components/ organizados
+
+### Cambios
+1. **`pages/` creado** — Todos los componentes de ruta (Dashboard, lists, forms) movidos de `components/` a `pages/`. Cada subdirectorio por dominio: `pages/clientes/`, `pages/presupuestos/`, `pages/ordenes/`, etc. Los archivos se renombraron con sufijo `Page` (ej: `ClientesList` → `ClientesListPage`).
+2. **`layouts/` creado** — `components/Layout.tsx` movido a `layouts/MainLayout.tsx`.
+3. **Componentes compartidos reubicados**:
+   - `CroquisEditor` → `components/croquis/CroquisEditor.tsx` (usado por OrdenForm + PresupuestoForm)
+   - `FirmaCanvas` → `components/firma/FirmaCanvas.tsx` (usado por OrdenForm + PresupuestoForm)
+   - `OpcionesCotizacionGrid` → `components/presupuesto/OpcionesCotizacionGrid.tsx`
+4. **`common/` renombrado conceptualmente a `ui/`** (sigue en `components/ui/`) con Modal, Loading, ConfirmDialog.
+5. **Código muerto eliminado**: `ConsultorMateriales.tsx` no se importaba en ningún lado.
+6. **`App.tsx` actualizado** — Todos los imports apuntan a `pages/` y `layouts/`.
+7. **Build verificado** — `npm run build` exitoso, 0 errores.
+
+### Estructura resultante
+```
+src/
+├── App.tsx
+├── layouts/MainLayout.tsx
+├── pages/           ← solo páginas (componentes de ruta)
+│   ├── DashboardPage.tsx
+│   ├── clientes/    ClientesListPage, ClienteFormPage
+│   ├── presupuestos/ PresupuestosListPage, PresupuestoFormPage, OnlineList, OnlineForm
+│   ├── ordenes/     OrdenesListPage, OrdenFormPage
+│   ├── materiales/  MaterialesListPage, MaterialFormPage
+│   ├── stock/       StockPiletasPage
+│   ├── mediciones/  MedicionesListPage, MedicionFormPage
+│   ├── reportes/    ReportesPage
+│   ├── configuracion/ ConfiguracionPage
+│   ├── calculadora/ CalculadoraPage
+│   └── caja/        CajaDiariaPage, CajaHistorialPage
+├── components/      ← solo componentes reutilizables
+│   ├── ui/          Modal, Loading, ConfirmDialog
+│   ├── croquis/     CroquisEditor
+│   ├── firma/       FirmaCanvas
+│   └── presupuesto/ OpcionesCotizacionGrid
+├── hooks/           useEntityForm
+├── services/        apiClient, api, entidades modulares
+├── types/           interfaces por entidad
+└── utils/           formatters
+```
+
+### Pendiente (próxima sesión)
+- Dividir componentes grandes: PresupuestoFormPage (927 líneas), OrdenFormPage (899 líneas), PresupuestoOnlineFormPage (850 líneas), CajaDiariaPage (567 líneas)
+- Extraer subcomponentes reutilizables (MaterialCard, PiletaCard, PaymentSection, FabricacionTable, CroquisPanel, ComparativeGrid, etc.)
 
 ## Directivas de TypeScript Estricto y Arquitectura Obligatoria
 
