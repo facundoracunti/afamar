@@ -1266,9 +1266,12 @@ src/
 └── utils/           formatters
 ```
 
-### Pendiente (próxima sesión)
-- Dividir componentes grandes: PresupuestoFormPage (927 líneas), OrdenFormPage (899 líneas), PresupuestoOnlineFormPage (850 líneas), CajaDiariaPage (567 líneas)
-- Extraer subcomponentes reutilizables (MaterialCard, PiletaCard, PaymentSection, FabricacionTable, CroquisPanel, ComparativeGrid, etc.)
+### Extraído (esta sesión)
+- **MaterialCard/PiletaCard**: extraídos de ambos formularios (~−80 líneas c/u). Props tipadas, build 0 errores.
+- **Badge/EstadoBadge/CurrencyDisplay**: componentes UI creados y migrados en 6 páginas.
+- `badgeClass()` eliminado de `formatters.ts` — reemplazado por `<EstadoBadge>` en ClienteForm, MedicionesList, OrdenesList, PresupuestoForm, OrdenForm, OrdenForm_test.
+- `formatCurrency()` reemplazado por `<CurrencyDisplay>` en PresupuestosList, OrdenesList, CajaHistorial, Dashboard (import no usado).
+- Inline formatCurrency en OrdenForm/PresupuestoForm (modoUSD condicional) se dejaron como están por su lógica compleja.
 
 ## Directivas de TypeScript Estricto y Arquitectura Obligatoria
 

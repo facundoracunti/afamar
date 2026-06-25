@@ -49,10 +49,10 @@ export default function PresupuestosOnlineList() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <h1 style={{ fontSize: 24, fontWeight: 700 }}>PRESUPUESTOS EN LÍNEA</h1>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-outline" onClick={() => navigate('/presupuestos')}>
+          <button className="btn btn-outline" onClick={() => navigate('/admin/presupuestos')}>
             ← PRESUPUESTOS LOCAL
           </button>
-          <button className="btn btn-primary" onClick={() => navigate('/presupuestos-online/nuevo')}>
+          <button className="btn btn-primary" onClick={() => navigate('/admin/presupuestos-online/nuevo')}>
             <Plus size={16} /> Nuevo Presupuesto Online
           </button>
         </div>
@@ -85,7 +85,7 @@ export default function PresupuestosOnlineList() {
               </thead>
               <tbody>
                 {data.map((p: Record<string, unknown>) => (
-                  <tr key={p.id as number} style={{ cursor: 'pointer' }} onClick={() => navigate(`/presupuestos-online/${p.id as number}`)}>
+                  <tr key={p.id as number} style={{ cursor: 'pointer' }} onClick={() => navigate(`/admin/presupuestos-online/${p.id as number}`)}>
                     <td style={{ fontWeight: 600, fontFamily: 'monospace' }}>{p.numero as string}</td>
                     <td>{(p.cliente as string) || '-'}</td>
                     <td>{(p.tipo_obra as string) || '-'}</td>
@@ -98,7 +98,7 @@ export default function PresupuestosOnlineList() {
                         <button className="btn btn-success" style={{ padding: '4px 6px' }} title="Enviar por WhatsApp" onClick={() => enviarPorWhatsApp(p)}>
                           <Send size={14} />
                         </button>
-                        <button className="btn btn-outline" style={{ padding: '4px 6px' }} onClick={() => navigate(`/presupuestos-online/${p.id as number}`)}>
+                        <button className="btn btn-outline" style={{ padding: '4px 6px' }} onClick={() => navigate(`/admin/presupuestos-online/${p.id as number}`)}>
                           <Eye size={14} />
                         </button>
                         <button className="btn btn-danger" style={{ padding: '4px 6px' }} onClick={() => setDeleteId(p.id as number)}>

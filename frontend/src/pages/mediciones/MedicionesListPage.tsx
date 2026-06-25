@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Eye, Trash2 } from 'lucide-react';
 import { getMediciones, deleteMedicion } from '../../services/api';
-import { estadosMedicion, badgeClass, formatDate } from '../../utils/formatters';
+import { estadosMedicion, formatDate } from '../../utils/formatters';
+import EstadoBadge from '../../components/ui/EstadoBadge';
 import type { Medicion } from '../../types/medicion';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Loading from '../../components/common/Loading';
@@ -37,7 +38,7 @@ export default function MedicionesList() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <h1 style={{ fontSize: 24, fontWeight: 700 }}>Agenda de Mediciones</h1>
-        <button className="btn btn-primary" onClick={() => navigate('/mediciones/nuevo')}>
+        <button className="btn btn-primary" onClick={() => navigate('/admin/mediciones/nuevo')}>
           <Plus size={16} /> Nueva Medición
         </button>
       </div>
@@ -78,7 +79,7 @@ export default function MedicionesList() {
                     <td>{m.cliente_direccion || '-'}</td>
                     <td>{formatDate(m.fecha_programada)}</td>
                     <td>{m.hora_programada || '-'}</td>
-                    <td><span className={badgeClass(m.estado || '')}>{m.estado}</span></td>
+                    <td><EstadoBadge estado={m.estado || ''} /></td>
                     <td>
                       <div style={{ display: 'flex', gap: 6 }}>
                         <button className="btn btn-outline" style={{ padding: '4px 8px' }} onClick={() => navigate(`/mediciones/${m.id}`)}>

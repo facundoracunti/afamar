@@ -86,7 +86,7 @@ export default function MedicionForm() {
       } else {
         await createMedicion(payload);
       }
-      navigate('/mediciones');
+      navigate('/admin/mediciones');
     } catch (err: unknown) {
       alert('Error al guardar');
     } finally {
@@ -157,7 +157,7 @@ export default function MedicionForm() {
           </div>
 
           <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24 } as React.CSSProperties}>
-            <button type="button" className="btn btn-outline" onClick={() => navigate('/mediciones')}>Cancelar</button>
+            <button type="button" className="btn btn-outline" onClick={() => navigate('/admin/mediciones')}>Cancelar</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
               <Save size={16} /> {saving ? 'Guardando...' : (isEdit ? 'Actualizar' : 'Crear Medición')}
             </button>

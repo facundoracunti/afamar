@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { FileText, ClipboardList, DollarSign, Calendar, ArrowRight } from 'lucide-react';
 import { getCliente, createCliente, updateCliente } from '../../services/api';
 import Loading from '../../components/common/Loading';
-import { badgeClass } from '../../utils/formatters';
+import EstadoBadge from '../../components/ui/EstadoBadge';
 
 export default function ClienteForm() {
   const { id } = useParams();
@@ -50,7 +50,7 @@ export default function ClienteForm() {
       } else {
         await createCliente(cliente);
       }
-      navigate('/clientes');
+      navigate('/admin/clientes');
     } catch (err: unknown) {
       const apiErr = err as Record<string, unknown>;
       const response = apiErr.response as Record<string, unknown> | undefined;
@@ -101,7 +101,7 @@ export default function ClienteForm() {
             </div>
 
             <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24 }}>
-              <button type="button" className="btn btn-outline" onClick={() => navigate('/clientes')}>Cancelar</button>
+              <button type="button" className="btn btn-outline" onClick={() => navigate('/admin/clientes')}>Cancelar</button>
               <button type="submit" className="btn btn-primary" disabled={saving}>
                 {saving ? 'Guardando...' : (isEdit ? 'Actualizar' : 'Crear Cliente')}
               </button>
@@ -145,11 +145,11 @@ export default function ClienteForm() {
                     <div
                       key={o.numero as string}
                       style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#f8fafc', borderRadius: 6, cursor: 'pointer' }}
-                      onClick={() => navigate(`/ordenes/${o.id as number}`)}
+                      onClick={() => navigate(`/admin/ordenes/${o.id as number}`)}
                     >
                       <div>
                         <span style={{ fontWeight: 600, fontSize: 14 }}>{o.numero as string}</span>
-                        <span className={badgeClass(o.estado as string)} style={{ marginLeft: 8, fontSize: 11, padding: '2px 8px' }}>{o.estado as string}</span>
+                        <EstadoBadge estado={o.estado as string} style={{ marginLeft: 8 }} />
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         <span style={{ fontWeight: 600, fontSize: 13 }}>

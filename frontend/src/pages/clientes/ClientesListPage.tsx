@@ -41,7 +41,7 @@ export default function ClientesList() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <h1 style={{ fontSize: 24, fontWeight: 700 }}>Clientes</h1>
-        <button className="btn btn-primary" onClick={() => navigate('/clientes/nuevo')}>
+        <button className="btn btn-primary" onClick={() => navigate('/admin/clientes/nuevo')}>
           <Plus size={16} /> Nuevo Cliente
         </button>
       </div>

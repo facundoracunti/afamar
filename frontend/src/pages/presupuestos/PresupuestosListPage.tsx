@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Search, Trash2, FileDown, FileOutput, Eye, Send, Mail } from 'lucide-react';
 import { getPresupuestosUnificados, deletePresupuesto, deletePresupuestoOnline, updatePresupuesto, convertirAOrden, convertirOnlineAOrden, getPresupuestoPdf, enviarPresupuestoEmail } from '../../services/api';
-import { formatCurrency, formatDate } from '../../utils/formatters';
+import { formatDate } from '../../utils/formatters';
+import CurrencyDisplay from '../../components/ui/CurrencyDisplay';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Loading from '../../components/common/Loading';
 import type { PresupuestoUnificado } from '../../types/presupuesto';
@@ -50,7 +51,7 @@ export default function PresupuestosList() {
     if (!window.confirm('¿Convertir este presupuesto online en Orden de Trabajo? Se copiarán todos los ítems.')) return;
     try {
       const res = await convertirOnlineAOrden(id as string);
-      navigate(`/ordenes/${(res.data as Record<string, unknown>).orden_id as string}`);
+      navigate(`/admin/ordenes/${(res.data as Record<string, unknown>).orden_id as string}`);
     } catch (err: unknown) {
       const error = err as { response?: { data?: { detail?: string } } };
       alert(error.response?.data?.detail || 'Error al convertir');
@@ -61,7 +62,7 @@ export default function PresupuestosList() {
     if (!window.confirm('¿Convertir este presupuesto en Orden de Trabajo?\n\nSe copiará toda la información: material, croquis, firma, detalles de fabricación, pileta, precios y condiciones comerciales.')) return;
     try {
       const res = await convertirAOrden(id as string);
-      navigate(`/ordenes/${(res.data as Record<string, unknown>).orden_id as string}`);
+      navigate(`/admin/ordenes/${(res.data as Record<string, unknown>).orden_id as string}`);
     } catch (err: unknown) {
       const error = err as { response?: { data?: { detail?: string } } };
       alert(error.response?.data?.detail || 'Error al convertir');
@@ -94,7 +95,7 @@ export default function PresupuestosList() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 } as React.CSSProperties}>
         <h1 style={{ fontSize: 24, fontWeight: 700 } as React.CSSProperties}>PRESUPUESTOS LOCAL / WHATSAPP</h1>
-        <button className="btn btn-primary" onClick={() => navigate('/presupuestos/nuevo')}>
+        <button className="btn btn-primary" onClick={() => navigate('/admin/presupuestos/nuevo')}>
           <Plus size={16} /> Nuevo Presupuesto Local
         </button>
       </div>
@@ -131,7 +132,7 @@ export default function PresupuestosList() {
               </thead>
               <tbody>
                 {data.map((p: PresupuestoUnificado) => (
-                  <tr key={p.tipo + '-' + p.id} style={{ cursor: 'pointer' } as React.CSSProperties} onClick={() => navigate(p.tipo === 'online' ? `/presupuestos-online/${p.id}` : `/presupuestos/${p.id}`)}>
+                  <tr key={p.tipo + '-' + p.id} style={{ cursor: 'pointer' } as React.CSSProperties} onClick={() => navigate(p.tipo === 'online' ? `/admin/presupuestos-online/${p.id}` : `/admin/presupuestos/${p.id}`)}>
                     <td style={{ fontWeight: 600, fontFamily: 'monospace' } as React.CSSProperties}>
                       {p.numero}
                       {p.orden_trabajo_numero && (
@@ -162,7 +163,7 @@ export default function PresupuestosList() {
                         return txt.length > 60 ? txt.slice(0, 60) + '...' : (txt || '-');
                       })()}
                     </td>
-                    <td style={{ fontWeight: 600 } as React.CSSProperties}>{formatCurrency(p.total)}</td>
+                    <td style={{ fontWeight: 600 } as React.CSSProperties}><CurrencyDisplay value={p.total} style={{ fontWeight: 600 }} /></td>
                     <td>
                       {p.estado === 'CONVERTIDO A OT' ? (
                         <span style={{ background: '#d1fae5', color: '#065f46', padding: '4px 12px', borderRadius: 50, fontSize: 12, fontWeight: 700, display: 'inline-block' } as React.CSSProperties}>CONCRETADO</span>
@@ -175,7 +176,7 @@ export default function PresupuestosList() {
                     <td onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 5 } as React.CSSProperties}>
                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' } as React.CSSProperties}>
-                          <button className="btn btn-outline" style={{ padding: '3px 8px', fontSize: 11 } as React.CSSProperties} onClick={() => navigate(p.tipo === 'online' ? `/presupuestos-online/${p.id}` : `/presupuestos/${p.id}`)}>
+                          <button className="btn btn-outline" style={{ padding: '3px 8px', fontSize: 11 } as React.CSSProperties} onClick={() => navigate(p.tipo === 'online' ? `/admin/presupuestos-online/${p.id}` : `/admin/presupuestos/${p.id}`)}>
                             <Eye size={12} /> Ver
                           </button>
                           {p.tipo !== 'online' && p.estado === 'PENDIENTE' && (
@@ -194,7 +195,7 @@ export default function PresupuestosList() {
                             </button>
                           )}
                           {p.tipo !== 'online' && p.estado === 'CONVERTIDO A OT' && p.orden_trabajo_numero && (
-                            <button className="btn btn-outline" style={{ padding: '3px 8px', fontSize: 11, color: '#059669', borderColor: '#059669' } as React.CSSProperties} onClick={() => navigate(`/ordenes?search=${p.orden_trabajo_numero}`)}>
+                            <button className="btn btn-outline" style={{ padding: '3px 8px', fontSize: 11, color: '#059669', borderColor: '#059669' } as React.CSSProperties} onClick={() => navigate(`/admin/ordenes?search=${p.orden_trabajo_numero}`)}>
                               OT {p.orden_trabajo_numero}
                             </button>
                           )}

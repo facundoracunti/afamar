@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, ChevronDown, LayoutDashboard, FileText, ClipboardList, Users, Box, Bath, Calendar, Calculator, BarChart3, Settings, Globe, Send, Wrench, Clock, Truck, DollarSign, Receipt, History, type LucideIcon } from 'lucide-react';
+import { Menu, ChevronDown, LayoutDashboard, FileText, ClipboardList, Users, Box, Bath, Calendar, Calculator, BarChart3, Settings, Globe, Send, Wrench, Clock, Truck, DollarSign, Receipt, History, LogOut, type LucideIcon } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 interface AccordionSubItem {
   label: string;
@@ -16,12 +17,14 @@ interface AccordionGroup {
   subItems?: AccordionSubItem[] | null;
 }
 
+const PREFIX = '/admin';
+
 const accordionGroups: AccordionGroup[] = [
   {
     key: 'dashboard',
     label: 'INICIO',
     icon: LayoutDashboard,
-    path: '/',
+    path: `${PREFIX}`,
     subItems: null,
   },
   {
@@ -29,10 +32,10 @@ const accordionGroups: AccordionGroup[] = [
     label: 'PRESUPUESTOS',
     icon: FileText,
     subItems: [
-      { label: 'Presupuesto Local', path: '/presupuestos/nuevo', icon: FileText },
-      { label: 'Presupuesto en línea', path: '/presupuestos-online/nuevo', icon: Globe },
-      { label: 'Presupuesto Local / WhatsApp', path: '/presupuestos', icon: FileText },
-      { label: 'Presupuestos Realizados', path: '/presupuestos?estado=CONVERTIDO+A+OT', icon: Clock },
+      { label: 'Presupuesto Local', path: `${PREFIX}/presupuestos/nuevo`, icon: FileText },
+      { label: 'Presupuesto en línea', path: `${PREFIX}/presupuestos-online/nuevo`, icon: Globe },
+      { label: 'Presupuesto Local / WhatsApp', path: `${PREFIX}/presupuestos`, icon: FileText },
+      { label: 'Presupuestos Realizados', path: `${PREFIX}/presupuestos?estado=CONVERTIDO+A+OT`, icon: Clock },
     ],
   },
   {
@@ -40,10 +43,10 @@ const accordionGroups: AccordionGroup[] = [
     label: 'ÓRDENES DE TRABAJO',
     icon: ClipboardList,
     subItems: [
-      { label: 'Nueva Orden', path: '/ordenes/nuevo', icon: Send },
-      { label: 'Ordenes Activas', path: '/ordenes', icon: ClipboardList },
-      { label: 'Terminadas', path: '/ordenes?estado=TERMINADA', icon: Wrench },
-      { label: 'Entregado', path: '/ordenes?estado=ENTREGADA', icon: Truck },
+      { label: 'Nueva Orden', path: `${PREFIX}/ordenes/nuevo`, icon: Send },
+      { label: 'Ordenes Activas', path: `${PREFIX}/ordenes`, icon: ClipboardList },
+      { label: 'Terminadas', path: `${PREFIX}/ordenes?estado=TERMINADA`, icon: Wrench },
+      { label: 'Entregado', path: `${PREFIX}/ordenes?estado=ENTREGADA`, icon: Truck },
     ],
   },
   {
@@ -51,9 +54,9 @@ const accordionGroups: AccordionGroup[] = [
     label: 'HERRAMIENTAS / STOCK',
     icon: Box,
     subItems: [
-      { label: 'Stock de Piletas', path: '/stock-piletas', icon: Bath },
-      { label: 'Materiales', path: '/materiales', icon: Box },
-      { label: 'Calculadora', path: '/calculadora', icon: Calculator },
+      { label: 'Stock de Piletas', path: `${PREFIX}/stock-piletas`, icon: Bath },
+      { label: 'Materiales', path: `${PREFIX}/materiales`, icon: Box },
+      { label: 'Calculadora', path: `${PREFIX}/calculadora`, icon: Calculator },
     ],
   },
   {
@@ -61,8 +64,8 @@ const accordionGroups: AccordionGroup[] = [
     label: 'CAJA',
     icon: DollarSign,
     subItems: [
-      { label: 'Caja Diaria', path: '/caja/diaria', icon: Receipt },
-      { label: 'Copia de Caja', path: '/caja/historial', icon: History },
+      { label: 'Caja Diaria', path: `${PREFIX}/caja/diaria`, icon: Receipt },
+      { label: 'Copia de Caja', path: `${PREFIX}/caja/historial`, icon: History },
     ],
   },
   {
@@ -70,22 +73,22 @@ const accordionGroups: AccordionGroup[] = [
     label: 'AGENDA',
     icon: Calendar,
     subItems: [
-      { label: 'Clientes', path: '/clientes', icon: Users },
-      { label: 'Mediciones', path: '/mediciones', icon: Calendar },
+      { label: 'Clientes', path: `${PREFIX}/clientes`, icon: Users },
+      { label: 'Mediciones', path: `${PREFIX}/mediciones`, icon: Calendar },
     ],
   },
   {
     key: 'reportes',
     label: 'REPORTES',
     icon: BarChart3,
-    path: '/reportes',
+    path: `${PREFIX}/reportes`,
     subItems: null,
   },
   {
     key: 'config',
     label: 'CONFIGURACIÓN',
     icon: Settings,
-    path: '/configuracion',
+    path: `${PREFIX}/configuracion`,
     subItems: null,
   },
 ];
@@ -97,6 +100,7 @@ export default function Layout() {
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, logout } = useAuth();
 
   useEffect(() => {
     localStorage.setItem('sidebarPinned', String(isPinned));
@@ -204,6 +208,20 @@ export default function Layout() {
             </li>
           ))}
         </ul>
+
+        <div style={{ padding: "1rem", borderTop: "1px solid #e2e8f0", marginTop: "auto" }}>
+          <div style={{ fontSize: 12, color: "#718096", marginBottom: 8 }}>
+            {user?.full_name || user?.username}
+          </div>
+          <button
+            onClick={() => { logout(); navigate("/login"); }}
+            className="menu-btn"
+            style={{ width: "100%", justifyContent: "flex-start", gap: 8, color: "#e53e3e" }}
+          >
+            <LogOut size={16} />
+            <span>Cerrar sesión</span>
+          </button>
+        </div>
       </aside>
 
       <div className="main-content" style={{ marginLeft: mainShift, transition: 'margin-left 0.3s ease-in-out' } as React.CSSProperties}>

@@ -4,14 +4,32 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from app.config import get_settings
-from app.database import engine, Base
+from app.database import engine, Base, SessionLocal
 import app.models  # noqa: F401 — ensure all models are loaded for create_all
-from app.routers import clientes, presupuestos, ordenes_trabajo, materiales, stock_piletas, reportes, configuracion, dashboard, mediciones, presupuestos_online, caja
+from app.models.user import User
+from app.routers import clientes, presupuestos, ordenes_trabajo, materiales, stock_piletas, reportes, configuracion, dashboard, mediciones, presupuestos_online, caja, auth
+from app.services.auth_service import hash_password
 
 settings = get_settings()
 
 Base.metadata.create_all(bind=engine)
 os.makedirs("uploads", exist_ok=True)
+
+# Seed admin user if none exists
+db = SessionLocal()
+try:
+    if not db.query(User).first():
+        db.add(User(
+            username="admin",
+            email="admin@afamar.com.ar",
+            hashed_password=hash_password("admin123"),
+            full_name="Administrador",
+            is_admin=True,
+            is_active=True,
+        ))
+        db.commit()
+finally:
+    db.close()
 
 app = FastAPI(title=settings.APP_NAME, version=settings.VERSION)
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
@@ -26,6 +44,7 @@ app.add_middleware(
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads") if os.path.exists("uploads") else None
 
+app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"])
 app.include_router(clientes.router, prefix="/api/clientes", tags=["Clientes"])
 app.include_router(presupuestos.router, prefix="/api/presupuestos", tags=["Presupuestos"])

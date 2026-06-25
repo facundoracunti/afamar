@@ -47,7 +47,7 @@ export default function MaterialesList() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <h1 style={{ fontSize: 24, fontWeight: 700 }}>Materiales</h1>
-        <button className="btn btn-primary" onClick={() => navigate('/materiales/nuevo')}>
+        <button className="btn btn-primary" onClick={() => navigate('/admin/materiales/nuevo')}>
           <Plus size={16} /> Nuevo Material
         </button>
       </div>

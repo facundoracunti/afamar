@@ -2,13 +2,17 @@ import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Eye, Save, Printer, MoreVertical, Copy, FileDown, Trash2, History, Plus, X, FileOutput, Check, Send } from 'lucide-react';
 import { getPresupuesto, createPresupuesto, updatePresupuesto, deletePresupuesto, getNextPresupuestoNumero, getMateriales, getPiletas, getClientes, convertirAOrden, getPresupuestoPdf } from '../../services/api';
-import { formatCurrency, badgeClass, conceptosFabricacion } from '../../utils/formatters';
+import { formatCurrency, conceptosFabricacion } from '../../utils/formatters';
+import EstadoBadge from '../../components/ui/EstadoBadge';
 import useEntityForm from '../../hooks/useEntityForm';
 import CroquisEditor from '../../components/croquis/CroquisEditor';
 import FirmaCanvas from '../../components/firma/FirmaCanvas';
 import OpcionesCotizacionGrid from '../../components/presupuesto/OpcionesCotizacionGrid';
 import Loading from '../../components/common/Loading';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
+import MaterialCard from '../../components/materiales/MaterialCard';
+import PiletaCard from '../../components/materiales/PiletaCard';
+import FabricacionTable from '../../components/presupuesto/FabricacionTable';
 import type { PresupuestoPayload, MaterialEnForm, EntityFormState, EntityServices } from '../../types';
 
 const presupuestoServices: EntityServices = {
@@ -21,7 +25,7 @@ const presupuestoServices: EntityServices = {
   getPiletas: getPiletas as EntityServices['getPiletas'],
   getClientes: getClientes as EntityServices['getClientes'],
   getPdfUrl: getPresupuestoPdf,
-  listPath: '/presupuestos',
+  listPath: '/admin/presupuestos',
 };
 
 export default function PresupuestoForm() {
@@ -156,7 +160,7 @@ export default function PresupuestoForm() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <span style={{ fontSize: 22, fontWeight: 700 }}>Presupuesto N° {form.numero || 'P-_____'}</span>
             {!['PENDIENTE'].includes(form.estado) && (
-              <span className={badgeClass(form.estado)} style={{ fontSize: 13, padding: '4px 14px' }}>{form.estado}</span>
+              <EstadoBadge estado={form.estado} style={{ fontSize: 13, padding: '4px 14px' }} />
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -286,60 +290,9 @@ export default function PresupuestoForm() {
                 </select>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: 16 }}>
-              {(form.materiales || []).map((mat, idx) => {
-                const m2 = Number(mat.largo || 0) * Number(mat.ancho || 0) * (mat.cantidad || 1);
-                const subtotal = m2 * (mat.moneda === 'USD' ? (mat.precio_m2_usd || 0) : (mat.precio_m2 || 0));
-                return (
-                <div key={idx} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <div>
-                      <span style={{ fontSize: 16, fontWeight: 700, textTransform: 'uppercase', color: '#1a202c' }}>{mat.nombre}</span>
-                      <span style={{ marginLeft: 8, fontSize: 12, color: '#718096', background: '#edf2f7', padding: '2px 8px', borderRadius: 4 }}>{mat.categoria}</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <label style={{ fontSize: 11, color: '#4a5568', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <input type="checkbox" checked={mat.es_alternativa || false}
-                          onChange={(e) => updateMaterial(idx, 'es_alternativa', e.target.checked)}
-                          disabled={readOnly} style={{ width: 14, height: 14 }} />
-                        <span>Alternativa</span>
-                      </label>
-                      <button type="button" onClick={() => removeMaterial(idx)} style={{ color: '#e53e3e', background: 'none', border: 'none', cursor: 'pointer', fontSize: 18 }} disabled={readOnly}>✕</button>
-                    </div>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
-                    <div>
-                      <label style={{ fontSize: 11, color: '#4a5568', display: 'block', marginBottom: 2 }}>Cant.</label>
-                      <input className="input" type="number" min="1" style={{ width: '100%', padding: '5px 6px', fontSize: 12 }}
-                        value={mat.cantidad || 1} onChange={(e) => updateMaterial(idx, 'cantidad', num(e.target.value))} disabled={readOnly} />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 11, color: '#4a5568', display: 'block', marginBottom: 2 }}>Largo (mts)</label>
-                      <input className="input" type="number" step="0.01" style={{ width: '100%', padding: '5px 6px', fontSize: 12 }}
-                        value={mat.largo || ''} onChange={(e) => updateMaterial(idx, 'largo', num(e.target.value))} disabled={readOnly} />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 11, color: '#4a5568', display: 'block', marginBottom: 2 }}>Ancho (mts)</label>
-                      <input className="input" type="number" step="0.01" style={{ width: '100%', padding: '5px 6px', fontSize: 12 }}
-                        value={mat.ancho || ''} onChange={(e) => updateMaterial(idx, 'ancho', num(e.target.value))} disabled={readOnly} />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 11, color: '#4a5568', display: 'block', marginBottom: 2 }}>Precio M²</label>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: mat.moneda === 'USD' ? '#059669' : '#1e293b', padding: '5px 6px' }}>
-                        {mat.moneda === 'USD' ? `USD ${(mat.precio_m2_usd || 0).toLocaleString('es-AR')}` : `$ ${(mat.precio_m2 || 0).toLocaleString('es-AR')}`}
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f7fafc', padding: 10, borderRadius: 6 }}>
-                    <div style={{ fontSize: 13, color: '#4a5568' }}>
-                      <span>Rendimiento: <strong style={{ color: '#2b6cb0' }}>{m2.toFixed(3)} m²</strong></span>
-                    </div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: '#2f855a' }}>
-                      Subtotal: {mat.moneda === 'USD' ? `USD ${subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}` : `$ ${subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}
-                    </div>
-                  </div>
-                </div>
-                );
-              })}
+              {(form.materiales || []).map((mat, idx) => (
+                <MaterialCard key={idx} mat={mat} idx={idx} readOnly={readOnly} updateMaterial={updateMaterial} removeMaterial={removeMaterial} num={num} />
+              ))}
               </div>
               {(form.materiales || []).length === 0 && (
                 <div style={{ padding: 16, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
@@ -358,82 +311,7 @@ export default function PresupuestoForm() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
           {/* Panel 1: Detalle de Fabricación y Adicionales */}
           <div className="card">
-            <h3 className="section-title">DETALLE DE FABRICACIÓN Y ADICIONALES</h3>
-            <table className="table" style={{ fontSize: 13 }}>
-              <thead>
-                <tr>
-                  <th>Concepto</th>
-                  <th>Material</th>
-                  <th>Detalle</th>
-                  <th style={{ width: 100 }}>Precio</th>
-                  <th style={{ width: 50 }}>Cant</th>
-                  <th style={{ width: 30 }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {form.detalles_fabricacion.map((d, i) => (
-                  <tr key={i}>
-                    <td>
-                      <select className="input" style={{ fontSize: 12, padding: '4px 8px' }} value={d.concepto} onChange={(e) => handleDetalleChange(i, 'concepto', e.target.value)} disabled={readOnly}>
-                        {conceptosFabricacion.map((c) => <option key={c} value={c}>{c}</option>)}
-                      </select>
-                    </td>
-                    <td>
-                      {CONCEPTOS_M2.includes(d.concepto) ? (
-                        <select className="input" style={{ fontSize: 11, padding: '4px 4px' }} value={d.material || ''} onChange={(e) => handleDetalleChange(i, 'material', e.target.value)} disabled={readOnly}>
-                          <option value="">--</option>
-                          {materiales.map((m: Record<string, unknown>) => <option key={m.id as number} value={m.nombre as string}>{m.nombre as string}</option>)}
-                        </select>
-                      ) : null}
-                    </td>
-                    <td>
-                      {CONCEPTOS_M2.includes(d.concepto) ? (
-                        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                          <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '30%' }} value={d.largo ?? ''} onChange={(e) => handleDetalleChange(i, 'largo', num(e.target.value))} placeholder="Largo" disabled={readOnly} />
-                          <span style={{ fontSize: 11, color: '#94a3b8' }}>×</span>
-                          <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '30%' }} value={d.ancho ?? ''} onChange={(e) => handleDetalleChange(i, 'ancho', num(e.target.value))} placeholder="Ancho" disabled={readOnly} />
-                          <span style={{ fontSize: 11, fontWeight: 600, color: '#1e40af', whiteSpace: 'nowrap' }}>{d.m2 || 0} m²</span>
-                        </div>
-                      ) : d.concepto === 'OTRA' ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          <input className="input" style={{ fontSize: 12, padding: '4px 8px' }} value={d.detalle} onChange={(e) => handleDetalleChange(i, 'detalle', e.target.value)} placeholder="DETALLES" disabled={readOnly} />
-                          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                            <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '35%' }} value={d.largo ?? ''} onChange={(e) => handleDetalleChange(i, 'largo', num(e.target.value))} placeholder="Largo" disabled={readOnly} />
-                            <span style={{ fontSize: 11, color: '#94a3b8' }}>×</span>
-                            <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '35%' }} value={d.mano_de_obra ?? ''} onChange={(e) => handleDetalleChange(i, 'mano_de_obra', num(e.target.value))} placeholder="Mano de obra" disabled={readOnly} />
-                          </div>
-                        </div>
-                      ) : (
-                        <input className="input" style={{ fontSize: 12, padding: '4px 8px' }} value={d.detalle} onChange={(e) => handleDetalleChange(i, 'detalle', e.target.value)} placeholder="Cant / ML / cm" disabled={readOnly} />
-                      )}
-                    </td>
-                    <td>
-                      {CONCEPTOS_M2.includes(d.concepto) ? (
-                        <span style={{ fontSize: 12, fontWeight: 600, color: d.moneda === 'USD' ? '#059669' : '#1e293b' }}>{d.moneda === 'USD' ? 'USD ' : '$'}{Number(d.precio || 0).toLocaleString('es-AR')}</span>
-                      ) : d.concepto === 'OTRA' ? (
-                        <span style={{ fontSize: 12, fontWeight: 600, color: d.moneda === 'USD' ? '#059669' : '#1e293b' }}>{d.moneda === 'USD' ? 'USD ' : '$'}{Number(d.precio || 0).toLocaleString('es-AR')}</span>
-                      ) : ['TRAFORO DE PILETA', 'TRAFORO DE ANAFE', 'TRAFORO DE PILETA DE APOYO'].includes(d.concepto) ? (
-                        <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '100%' }} value={d.precio || ''} onChange={(e) => handleDetalleChange(i, 'precio', num(e.target.value))} placeholder="0" disabled={readOnly} />
-                      ) : (
-                        <span style={{ fontSize: 12, color: '#94a3b8' }}>-</span>
-                      )}
-                    </td>
-                    <td>
-                      <input className="input" type="number" min="1" style={{ width: 45, fontSize: 12, padding: '4px 6px' }}
-                        value={d.cantidad || 1} onChange={(e) => handleDetalleChange(i, 'cantidad', num(e.target.value))} disabled={readOnly} />
-                    </td>
-                    <td>
-                      <button type="button" className="btn btn-outline" style={{ padding: '2px 6px' }} onClick={() => removeDetalle(i)} disabled={readOnly}>
-                        <X size={14} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <button type="button" className="btn btn-outline" onClick={addDetalle} style={{ marginTop: 8, fontSize: 13, padding: '6px 14px' }} disabled={readOnly}>
-              <Plus size={14} /> Agregar concepto
-            </button>
+            <FabricacionTable detalles={form.detalles_fabricacion} readOnly={readOnly} handleDetalleChange={handleDetalleChange} addDetalle={addDetalle} removeDetalle={removeDetalle} materiales={materiales} CONCEPTOS_M2={CONCEPTOS_M2} conceptosFabricacion={conceptosFabricacion} num={num} />
           </div>
 
           {/* Panel 2: Piletas */}
@@ -448,38 +326,7 @@ export default function PresupuestoForm() {
               </select>
             </div>
             {(form.piletas || []).map((pt, idx) => (
-              <div key={idx} style={{ marginBottom: 8, padding: 10, background: '#f8fafc', borderRadius: 6, border: '1px solid #e2e8f0' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <span style={{ fontWeight: 700, fontSize: 14 }}>{pt.marca} - {pt.modelo}</span>
-                  <button type="button" onClick={() => removePileta(idx)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 16 }} disabled={readOnly}>✕</button>
-                </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-                  <div className="form-group" style={{ margin: 0, width: 70 }}>
-                    <label style={{ fontSize: 11 }}>Cant.</label>
-                    <input className="input" type="number" min="1" style={{ fontSize: 12, padding: '4px 6px' }}
-                      value={pt.cantidad || 1} onChange={(e) => updatePileta(idx, 'cantidad', num(e.target.value))} disabled={readOnly} />
-                  </div>
-                  <div className="form-group" style={{ margin: 0, flex: 1 }}>
-                    <label style={{ fontSize: 11 }}>Moneda</label>
-                    <select className="input" style={{ fontSize: 12, padding: '4px 6px' }} value={pt.moneda} onChange={(e) => {
-                      const mon = e.target.value;
-                      const pdata = piletas.find((p: Record<string, unknown>) => p.id === Number(pt.pileta_id));
-                      const precio = pdata ? (mon === 'USD' ? (pdata.precio_usd as number || 0) : (pdata.precio as number || 0)) : pt.precio;
-                      const list = [...form.piletas];
-                      list[idx] = { ...list[idx], moneda: mon as 'ARS' | 'USD', precio };
-                      update('piletas', list);
-                    }} disabled={readOnly}>
-                      <option value="ARS">ARS</option>
-                      <option value="USD">USD</option>
-                    </select>
-                  </div>
-                  <div className="form-group" style={{ margin: 0, flex: 2 }}>
-                    <label style={{ fontSize: 11 }}>Precio</label>
-                    <input className="input" type="number" step="0.01" style={{ fontSize: 12, padding: '4px 6px' }}
-                      value={pt.precio || ''} onChange={(e) => updatePileta(idx, 'precio', num(e.target.value))} disabled={readOnly} />
-                  </div>
-                </div>
-              </div>
+              <PiletaCard key={idx} pt={pt} idx={idx} piletas={piletas} readOnly={readOnly} updatePileta={updatePileta} removePileta={removePileta} formPiletas={form.piletas} update={update} num={num} />
             ))}
           </div>
 
@@ -914,7 +761,7 @@ export default function PresupuestoForm() {
 
         {/* ===== BOTONES FINALES ===== */}
         <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 16 }}>
-          <button type="button" className="btn btn-outline" onClick={() => navigate('/presupuestos')}>Cancelar</button>
+          <button type="button" className="btn btn-outline" onClick={() => navigate('/admin/presupuestos')}>Cancelar</button>
           <button type="submit" className="btn btn-primary" disabled={saving} style={{ background: '#b91c1c' }}>
             <Save size={16} /> {saving ? 'GUARDANDO...' : 'GUARDAR'}
           </button>

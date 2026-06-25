@@ -73,7 +73,7 @@ export default function MaterialForm() {
       } else {
         await createMaterial(form as unknown as Record<string, unknown>);
       }
-      navigate('/materiales');
+      navigate('/admin/materiales');
     } catch (err) {
       alert('Error al guardar');
     } finally {
@@ -130,7 +130,7 @@ export default function MaterialForm() {
           <div className="form-group"><label>Observaciones</label><textarea className="input" rows={3} value={form.observaciones} onChange={(e) => setForm({ ...form, observaciones: e.target.value })} /></div>
 
           <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24 }}>
-            <button type="button" className="btn btn-outline" onClick={() => navigate('/materiales')}>Cancelar</button>
+            <button type="button" className="btn btn-outline" onClick={() => navigate('/admin/materiales')}>Cancelar</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
               <Save size={16} /> {saving ? 'Guardando...' : (isEdit ? 'Actualizar' : 'Crear Material')}
             </button>

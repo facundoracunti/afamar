@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getCajaHistorial } from '../../services/api';
-import { formatCurrency } from '../../utils/formatters';
+import CurrencyDisplay from '../../components/ui/CurrencyDisplay';
 import { ArrowUpCircle, ArrowDownCircle, Calendar, FileText } from 'lucide-react';
 import Loading from '../../components/common/Loading';
 
@@ -58,11 +58,11 @@ export default function CajaHistorial() {
                         onClick={() => setSelected((selected?.id as number) === (c.id as number) ? null : c)}
                         style={{ cursor: 'pointer', background: (selected?.id as number) === (c.id as number) ? '#f0fdf4' : undefined }}>
                         <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>{c.fecha as string}</td>
-                        <td>{formatCurrency(c.saldo_anterior as number)}</td>
-                        <td style={{ color: '#16a34a', fontWeight: 600 }}>{formatCurrency(c.total_ingresos as number)}</td>
-                        <td style={{ color: '#dc2626', fontWeight: 600 }}>{formatCurrency(c.total_salidas as number)}</td>
-                        <td style={{ fontWeight: 700 }}>{formatCurrency(c.saldo_actual as number)}</td>
-                        <td style={{ fontWeight: 700, color: '#16a34a' }}>{formatCurrency(c.efectivo_real as number)}</td>
+                        <td><CurrencyDisplay value={c.saldo_anterior as number} /></td>
+                        <td style={{ color: '#16a34a', fontWeight: 600 }}><CurrencyDisplay value={c.total_ingresos as number} style={{ color: '#16a34a', fontWeight: 600 }} /></td>
+                        <td style={{ color: '#dc2626', fontWeight: 600 }}><CurrencyDisplay value={c.total_salidas as number} style={{ color: '#dc2626', fontWeight: 600 }} /></td>
+                        <td style={{ fontWeight: 700 }}><CurrencyDisplay value={c.saldo_actual as number} style={{ fontWeight: 700 }} /></td>
+                        <td style={{ fontWeight: 700, color: '#16a34a' }}><CurrencyDisplay value={c.efectivo_real as number} style={{ fontWeight: 700, color: '#16a34a' }} /></td>
                         <td>
                           <button className="btn" style={{ padding: '4px 8px', background: 'none', border: 'none', cursor: 'pointer' }}
                             onClick={(e: React.MouseEvent) => { e.stopPropagation(); setSelected((selected?.id as number) === (c.id as number) ? null : c); }}>
@@ -90,22 +90,22 @@ export default function CajaHistorial() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 14 }}>
                   <div>
                     <span style={{ color: '#64748b' }}>Saldo Anterior:</span>{' '}
-                    <strong>{formatCurrency(selected.saldo_anterior as number)}</strong>
+                    <CurrencyDisplay value={selected.saldo_anterior as number} />
                   </div>
                   <div>
                     <span style={{ color: '#64748b' }}>Saldo Actual:</span>{' '}
-                    <strong>{formatCurrency(selected.saldo_actual as number)}</strong>
+                    <CurrencyDisplay value={selected.saldo_actual as number} />
                   </div>
                   <div style={{ color: '#16a34a' }}>
                     <ArrowUpCircle size={14} style={{ marginRight: 4 }} />
-                    Ingresos: <strong>{formatCurrency(selected.total_ingresos as number)}</strong>
+                    Ingresos: <CurrencyDisplay value={selected.total_ingresos as number} style={{ color: '#16a34a' }} />
                   </div>
                   <div style={{ color: '#dc2626' }}>
                     <ArrowDownCircle size={14} style={{ marginRight: 4 }} />
-                    Egresos: <strong>{formatCurrency(selected.total_salidas as number)}</strong>
+                    Egresos: <CurrencyDisplay value={selected.total_salidas as number} style={{ color: '#dc2626' }} />
                   </div>
                   <div style={{ color: '#16a34a', fontWeight: 700, gridColumn: '1 / -1' }}>
-                    Efectivo Real: {formatCurrency(selected.efectivo_real as number)}
+                    Efectivo Real: <CurrencyDisplay value={selected.efectivo_real as number} style={{ color: '#16a34a', fontWeight: 700 }} />
                   </div>
                 </div>
               </div>
@@ -134,7 +134,7 @@ export default function CajaHistorial() {
                             </td>
                             <td>{(m.concepto as string) || '-'}</td>
                             <td style={{ fontWeight: 600, color: (m.tipo as string) === 'INGRESO' ? '#16a34a' : '#dc2626' }}>
-                              {formatCurrency(m.monto as number)}
+                              <CurrencyDisplay value={m.monto as number} style={{ fontWeight: 600, color: (m.tipo as string) === 'INGRESO' ? '#16a34a' : '#dc2626' }} />
                             </td>
                             <td>{(m.forma_pago as string) || (m.tipo_egreso as string) || '-'}</td>
                           </tr>

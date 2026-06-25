@@ -4,7 +4,6 @@ import { Plus, DollarSign, FileText, ClipboardList, PackageOpen, Globe, Truck } 
 import type { DashboardData } from '../types/dashboard';
 import { getDashboard } from '../services/api';
 import Loading from '../components/common/Loading';
-import { formatCurrency } from '../utils/formatters';
 
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -24,37 +23,37 @@ export default function Dashboard() {
   const cards = [
     {
       icon: DollarSign, label: 'CAJA', value: `$${data.total_ingresos?.toLocaleString() || '0'}`,
-      color: '#2563eb', path: '/caja/diaria',
+      color: '#2563eb', path: '/admin/caja/diaria',
       description: 'Total de ingresos registrados'
     },
     {
       icon: FileText, label: 'NUEVO PRESUPUESTO', value: '',
-      color: '#059669', path: '/presupuestos/nuevo',
+      color: '#059669', path: '/admin/presupuestos/nuevo',
       description: 'Crear un nuevo presupuesto'
     },
     {
       icon: ClipboardList, label: 'NUEVA ORDEN', value: '',
-      color: '#dc2626', path: '/ordenes/nuevo',
+      color: '#dc2626', path: '/admin/ordenes/nuevo',
       description: 'Crear una nueva orden de trabajo'
     },
     {
       icon: PackageOpen, label: 'ÓRDENES EN MEDICIÓN / TALLER', value: `${data.total_ordenes_activas || 0}`,
-      color: '#d97706', path: '/ordenes',
+      color: '#d97706', path: '/admin/ordenes',
       description: `${data.ordenes_en_medicion || 0} en medición · ${data.ordenes_en_taller || 0} en taller`
     },
     {
       icon: Truck, label: 'ÓRDENES TERMINADAS P/ ENVÍO', value: `${data.ordenes_terminadas || 0}`,
-      color: '#7c3aed', path: '/ordenes?estado=TERMINADA',
+      color: '#7c3aed', path: '/admin/ordenes?estado=TERMINADA',
       description: 'Listas para retirar'
     },
     {
       icon: Globe, label: 'PRESUPUESTOS EN LÍNEA', value: `${data.presupuestos_online?.length || 0}`,
-      color: '#0891b2', path: '/presupuestos-online',
+      color: '#0891b2', path: '/admin/presupuestos-online',
       description: 'Pendientes de revisión'
     },
     {
       icon: PackageOpen, label: 'STOCK DE PILETAS', value: '',
-      color: '#be185d', path: '/stock-piletas',
+      color: '#be185d', path: '/admin/stock-piletas',
       description: 'Gestionar stock de piletas'
     },
   ];

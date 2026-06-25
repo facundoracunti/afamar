@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Save, Plus, Trash2, FileOutput } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { getPresupuestoOnline, createPresupuestoOnline, updatePresupuestoOnline, getMateriales, getPiletas, getNextPresupuestoNumero, convertirOnlineAOrden, convertirOnlineAOrdenOpcion } from '../../services/api';
 import Loading from '../../components/common/Loading';
+import PresupuestoOnlineHeader from '../../components/presupuesto/PresupuestoOnlineHeader';
+import PresupuestoOnlineTotals from '../../components/presupuesto/PresupuestoOnlineTotals';
+import PresupuestoOnlineFooter from '../../components/presupuesto/PresupuestoOnlineFooter';
 import type { Material } from '../../types/material';
 import type { StockPileta } from '../../types/stockPileta';
 import type { ConvertirOpcionResponse } from '../../types/orden';
@@ -436,11 +439,27 @@ export default function PresupuestoOnlineForm() {
       const res = await convertirOnlineAOrdenOpcion(id as string, opcionIdx);
       const data: ConvertirOpcionResponse = res.data;
       alert(`Orden ${data.numero} creada a partir de ${opciones[opcionIdx]?.nombre}.`);
-      navigate('/ordenes');
+      navigate('/admin/ordenes');
     } catch (err: unknown) {
       alert('Error al convertir la opción a orden de trabajo.');
     } finally {
       setConvertingOpcion(null);
+    }
+  };
+
+  const handleWhatsApp = () => {
+    navigator.clipboard.writeText(generarWhatsApp());
+    alert('Copiado! Pegalo en WhatsApp.');
+  };
+
+  const handleConvertirAll = async () => {
+    if (!window.confirm('¿Convertir a Orden de Trabajo? Se copiarán todos los ítems.')) return;
+    try {
+      const res = await convertirOnlineAOrden(id as string);
+      alert(`Orden ${(res.data as Record<string, unknown>).numero} creada.`);
+      navigate('/admin/ordenes');
+    } catch {
+      alert('Error');
     }
   };
 
@@ -555,35 +574,19 @@ export default function PresupuestoOnlineForm() {
       </div>
 
       <form onSubmit={handleSubmit}>
-        <div className="card" style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: '#b91c1c', marginBottom: 12 }}>
-            AFAMAR - MARMOLES & GRANITOS - LA PLATA, BS AS
-            {numero && <span style={{ marginLeft: 16, fontSize: 18, color: '#c0392b' }}>PRESUPUESTO N {numero}</span>}
-          </div>
-          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-            <div className="form-group" style={{ flex: 1, minWidth: 180 }}>
-              <label>CLIENTE / EMPRESA</label>
-              <input className="input" value={cliente} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCliente(e.target.value)} placeholder="Nombre del cliente" />
-            </div>
-            <div className="form-group" style={{ flex: 1, minWidth: 180 }}>
-              <label>TELÉFONO (WhatsApp)</label>
-              <input className="input" value={telefono} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTelefono(e.target.value)} placeholder="Ej: 2215551234" />
-            </div>
-            <div className="form-group" style={{ flex: 1, minWidth: 180 }}>
-              <label>TIPO DE OBRA</label>
-              <input className="input" value={tipoObra} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTipoObra(e.target.value)} placeholder="Ej: Cocina, Bano" />
-            </div>
-            <div className="form-group" style={{ width: 140 }}>
-              <label>FECHA</label>
-              <input type="date" className="input" value={fecha} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFecha(e.target.value)} />
-            </div>
-            <div className="form-group" style={{ width: 160 }}>
-              <label style={{ fontWeight: 700, color: '#1e40af' }}>DOLAR DEL DIA</label>
-              <input type="number" step="1" className="input" style={{ fontWeight: 700, color: '#1e40af', borderColor: '#93c5fd', textAlign: 'center', fontSize: 16 } as React.CSSProperties}
-                value={dolarDia} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { const v = e.target.value; const nd = v === '' ? 0 : parseFloat(v) || 0; setDolarDia(nd); }} />
-            </div>
-          </div>
-        </div>
+        <PresupuestoOnlineHeader
+          numero={numero}
+          cliente={cliente}
+          telefono={telefono}
+          tipoObra={tipoObra}
+          fecha={fecha}
+          dolarDia={dolarDia}
+          onClienteChange={setCliente}
+          onTelefonoChange={setTelefono}
+          onTipoObraChange={setTipoObra}
+          onFechaChange={setFecha}
+          onDolarDiaChange={(v: number) => setDolarDia(v)}
+        />
 
         <div className="card" style={{ marginBottom: 16, overflowX: 'auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
@@ -851,49 +854,21 @@ export default function PresupuestoOnlineForm() {
           </table>
         </div>
 
-        <div className="card" style={{ marginBottom: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 13, color: '#64748b' }}>TOTAL NETO ARS</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: '#1e293b' }}>$ {totalArs.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
-            </div>
-            {hayUSD && (
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 13, color: '#64748b' }}>TOTAL NETO USD</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: '#059669' }}>USD {totalUsd.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
-            </div>
-            )}
-            <div style={{ textAlign: 'right', background: '#dc2626', color: 'white', padding: '10px 24px', borderRadius: 8 }}>
-              <div style={{ fontSize: 12, fontWeight: 600 }}>TOTAL CONSOLIDADO</div>
-              {hayUSD && (<div style={{ fontSize: 14, fontWeight: 400, opacity: 0.8 }}>{`(ARS + USD x $${Number(dolarDia).toLocaleString('es-AR')})`}</div>)}
-              <div style={{ fontSize: 22, fontWeight: 800 }}>$ {totalConsolidado.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
-            </div>
-          </div>
-        </div>
+        <PresupuestoOnlineTotals
+          totalArs={totalArs}
+          totalUsd={totalUsd}
+          totalConsolidado={totalConsolidado}
+          dolarDia={dolarDia}
+          hayUSD={hayUSD}
+        />
 
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-          <button type="button" className="btn btn-success" onClick={() => { navigator.clipboard.writeText(generarWhatsApp()); alert('Copiado! Pegalo en WhatsApp.'); }}
-            style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-            Exportar para WhatsApp
-          </button>
-          <button type="button" className="btn btn-outline" onClick={() => navigate('/presupuestos-online')}>Cancelar</button>
-          {isEdit && (
-            <button type="button" className="btn" onClick={async () => {
-              if (!window.confirm('¿Convertir a Orden de Trabajo? Se copiarán todos los ítems.')) return;
-              try {
-                const res = await convertirOnlineAOrden(id as string);
-                alert(`Orden ${(res.data as Record<string, unknown>).numero} creada.`);
-                navigate('/ordenes');
-              } catch (err: unknown) { alert('Error'); }
-            }} style={{ background: '#b91c1c', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, padding: '8px 20px', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <FileOutput size={16} /> CONVERTIR A OT
-            </button>
-          )}
-          <button type="submit" className="btn btn-primary" disabled={saving} style={{ background: '#b91c1c' }}>
-            <Save size={16} /> {saving ? 'GUARDANDO...' : 'GUARDAR'}
-          </button>
-        </div>
+        <PresupuestoOnlineFooter
+          onWhatsApp={handleWhatsApp}
+          onCancel={() => navigate('/admin/presupuestos-online')}
+          isEdit={isEdit}
+          onConvertirAll={handleConvertirAll}
+          saving={saving}
+        />
       </form>
     </div>
   );

@@ -3,7 +3,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Eye, Save, Printer, MoreVertical, Copy, FileDown, Trash2, History, Plus, X, Upload } from 'lucide-react';
 import api, { getOrden, createOrden, updateOrden, deleteOrden, getMateriales, getPiletas, getClientes, getNextNumero, getConfig } from '../../services/api';
-import { formatCurrency, badgeClass, espesores, acabados, conceptosFabricacion } from '../../utils/formatters';
+import { formatCurrency, espesores, acabados, conceptosFabricacion } from '../../utils/formatters';
+import EstadoBadge from '../../components/ui/EstadoBadge';
 import CroquisEditor from '../../components/croquis/CroquisEditor';
 import FirmaCanvas from '../../components/firma/FirmaCanvas';
 import Loading from '../../components/common/Loading';
@@ -362,7 +363,7 @@ export default function OrdenForm() {
         await createOrden(payload);
       }
 
-      navigate('/ordenes');
+      navigate('/admin/ordenes');
     } catch (err) {
       alert('Error al guardar');
     } finally {
@@ -372,7 +373,7 @@ export default function OrdenForm() {
 
   const handleDelete = async () => {
     await deleteOrden(id);
-    navigate('/ordenes');
+    navigate('/admin/ordenes');
   };
 
   const handlePrint = () => window.print();
@@ -399,7 +400,7 @@ export default function OrdenForm() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <span style={{ fontSize: 22, fontWeight: 700 }}>Orden N° {form.numero || 'A-_____'}</span>
             {!['MEDICION'].includes(form.estado) && (
-              <span className={badgeClass(form.estado)} style={{ fontSize: 13, padding: '4px 14px' }}>{form.estado}</span>
+              <EstadoBadge estado={form.estado} style={{ fontSize: 13, padding: '4px 14px' }} />
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -937,7 +938,7 @@ export default function OrdenForm() {
 
         {/* ===== BOTONES FINALES ===== */}
         <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 16 }}>
-          <button type="button" className="btn btn-outline" onClick={() => navigate('/ordenes')}>Cancelar</button>
+          <button type="button" className="btn btn-outline" onClick={() => navigate('/admin/ordenes')}>Cancelar</button>
           <button type="submit" className="btn btn-primary" disabled={saving} style={{ background: '#b91c1c' }}>
             <Save size={16} /> {saving ? 'GUARDANDO...' : 'GUARDAR'}
           </button>

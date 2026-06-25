@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Search, Trash2, ChevronRight, ChevronLeft, FileDown } from 'lucide-react';
 import { getOrdenes, deleteOrden, updateOrden, getOrdenPdf } from '../../services/api';
-import { formatCurrency, formatDate, badgeClass, estadosOrden } from '../../utils/formatters';
+import { formatDate, estadosOrden } from '../../utils/formatters';
+import CurrencyDisplay from '../../components/ui/CurrencyDisplay';
+import EstadoBadge from '../../components/ui/EstadoBadge';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Loading from '../../components/common/Loading';
 
@@ -58,7 +60,7 @@ export default function OrdenesList() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 } as React.CSSProperties}>
         <h1 style={{ fontSize: 24, fontWeight: 700 } as React.CSSProperties}>Órdenes de Trabajo</h1>
-        <button className="btn btn-primary" onClick={() => navigate('/ordenes/nuevo')}>
+        <button className="btn btn-primary" onClick={() => navigate('/admin/ordenes/nuevo')}>
           <Plus size={16} /> Nueva Orden
         </button>
       </div>
@@ -98,10 +100,10 @@ export default function OrdenesList() {
                   <tr key={o.id as number} style={{ cursor: 'pointer' } as React.CSSProperties} onClick={() => navigate(`/ordenes/${o.id as number}`)}>
                     <td style={{ fontWeight: 600, fontFamily: 'monospace' } as React.CSSProperties}>{(o as Record<string, unknown>).numero as string}</td>
                     <td>{(o as Record<string, unknown>).cliente_nombre as string || '-'}</td>
-                    <td><span className={badgeClass((o as Record<string, unknown>).estado as string)}>{(o as Record<string, unknown>).estado as string}</span></td>
-                    <td style={{ fontWeight: 600 } as React.CSSProperties}>{formatCurrency((o as Record<string, unknown>).total as number)}</td>
-                    <td>{formatCurrency((o as Record<string, unknown>).sena_recibida as number)}</td>
-                    <td style={{ fontWeight: 600 } as React.CSSProperties}>{formatCurrency((o as Record<string, unknown>).saldo_pendiente as number)}</td>
+                    <td><EstadoBadge estado={(o as Record<string, unknown>).estado as string} /></td>
+                    <td style={{ fontWeight: 600 } as React.CSSProperties}><CurrencyDisplay value={(o as Record<string, unknown>).total as number} style={{ fontWeight: 600 }} /></td>
+                    <td><CurrencyDisplay value={(o as Record<string, unknown>).sena_recibida as number} /></td>
+                    <td style={{ fontWeight: 600 } as React.CSSProperties}><CurrencyDisplay value={(o as Record<string, unknown>).saldo_pendiente as number} style={{ fontWeight: 600 }} /></td>
                     <td>{formatDate((o as Record<string, unknown>).fecha_entrega as string)}</td>
                     <td onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                       <div style={{ display: 'flex', gap: 4 } as React.CSSProperties}>
