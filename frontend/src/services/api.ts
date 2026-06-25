@@ -5,7 +5,7 @@ export { getClientes, getCliente, createCliente, updateCliente, deleteCliente } 
 export {
   getPresupuestos, getPresupuestosUnificados, getPresupuesto,
   createPresupuesto, updatePresupuesto, deletePresupuesto,
-  convertirAOrden, enviarPresupuestoWhatsApp, enviarPresupuestoEmail,
+  convertirAOrden, enviarPresupuestoEmail,
   getNextPresupuestoNumero, getPresupuestoPdf, convertirAlternativaAOrden,
 } from './presupuestos';
 export {
@@ -30,13 +30,12 @@ export {
 } from './mediciones';
 export { getConfig, getConfigByKey, updateConfig, uploadLogo } from './configuracion';
 export {
-  getPresupuestosReport, getOrdenesReport, getMaterialesReport,
   getReportePresupuestos, getReporteOrdenes,
   getVentasMensuales, getMaterialesMasUsados,
 } from './reportes';
 export {
-  getMovimientos as getMovimientosCaja, crearMovimiento as crearMovimientoCaja,
-  createMovimientoCaja, actualizarMovimiento, eliminarMovimiento,
-  deleteMovimientoCaja, getCajaDiaria, abrirCaja, cerrarCaja, putSaldoAnterior,
+  crearMovimiento as crearMovimientoCaja,
+  createMovimientoCaja, eliminarMovimiento,
+  deleteMovimientoCaja, getCajaDiaria, cerrarCaja, putSaldoAnterior,
   getCajaHistorial,
 } from './caja';
