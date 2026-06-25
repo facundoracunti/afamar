@@ -1,16 +1,20 @@
-// @ts-nocheck
 import { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../services/api';
-import type { EntityFormState, EntityServices, FormField, MaterialEnForm } from '../types';
+import type { EntityFormState, EntityServices, FormField, MaterialEnForm, PiletaEnForm } from '../types';
+import type { Material } from '../types/material';
+import type { StockPileta } from '../types/stockPileta';
+import type { Cliente } from '../types/cliente';
+import { useCalculosPresupuesto } from './useCalculosPresupuesto';
 
 const CONCEPTOS_M2 = ['ZÓCALO', 'FRENTE'];
 
-const TRAFORO_DETALLES = {
+const TRAFORO_DETALLES: Record<string, string> = {
   'TRAFORO DE PILETA': 'APERTURA Y PEGADO DE PILETA',
   'TRAFORO DE ANAFE': 'APERTURA DE ANAFE',
   'TRAFORO DE PILETA DE APOYO': 'APERTURA PILETA DE APOYO',
 };
-const CONCEPTO_NORMALIZE = {
+
+const CONCEPTO_NORMALIZE: Record<string, string> = {
   'APERTURA + PEGADO PILETA': 'TRAFORO DE PILETA',
   'APERTURA Y PEGADO DE PILETA': 'TRAFORO DE PILETA',
   'APERTURA ANAFE': 'TRAFORO DE ANAFE',
@@ -18,9 +22,6 @@ const CONCEPTO_NORMALIZE = {
   'APERTURA PILETA APOYO': 'TRAFORO DE PILETA DE APOYO',
   'APERTURA PILETA DE APOYO': 'TRAFORO DE PILETA DE APOYO',
 };
-
-const CONFIG_CUOTAS: Record<number, number> = {};
-for (let i = 1; i <= 12; i++) CONFIG_CUOTAS[i] = i <= 2 ? 0 : i * 5;
 
 const INITIAL_FORM: EntityFormState = {
   numero: '',
@@ -47,6 +48,9 @@ const INITIAL_FORM: EntityFormState = {
   orden_trabajo_numero: null,
   descuento_porcentaje: 0,
   descuento_monto_fijo: 0,
+  recargo_ars: 0,
+  recargo_usd: 0,
+  recargo_pct: 0,
 };
 
 export default function useEntityForm({
@@ -66,76 +70,79 @@ export default function useEntityForm({
 }) {
   const isEdit = !!id;
 
-  const [form, setForm] = useState({ ...INITIAL_FORM, estado: defaultEstado });
-  const [loading, setLoading] = useState(isEdit);
-  const [saving, setSaving] = useState(false);
-  const [materiales, setMateriales] = useState<Record<string, unknown>[]>([]);
-  const [piletas, setPiletas] = useState<Record<string, unknown>[]>([]);
-  const [clientes, setClientes] = useState<Record<string, unknown>[]>([]);
-  const [showClienteDropdown, setShowClienteDropdown] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState(false);
-  const [logoUrl, setLogoUrl] = useState('');
-  const [showCroquis, setShowCroquis] = useState(false);
-  const [modoUSD, setModoUSD] = useState(false);
-  const toggleModoUSD = useCallback(() => setModoUSD((p) => !p), []);
+  const [form, setForm] = useState<EntityFormState>({ ...INITIAL_FORM, estado: defaultEstado });
+  const [loading, setLoading] = useState<boolean>(isEdit);
+  const [saving, setSaving] = useState<boolean>(false);
+  const [materiales, setMateriales] = useState<Material[]>([]);
+  const [piletas, setPiletas] = useState<StockPileta[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [showClienteDropdown, setShowClienteDropdown] = useState<boolean>(false);
+  const [menuOpen, setMenuOpen] = useState<boolean>(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<boolean>(false);
+  const [logoUrl, setLogoUrl] = useState<string>('');
+  const [showCroquis, setShowCroquis] = useState<boolean>(false);
+  const [modoUSD, setModoUSD] = useState<boolean>(false);
+  const toggleModoUSD = useCallback(() => setModoUSD((p: boolean) => !p), []);
 
-  const menuRef = useRef(null);
-  const clienteRef = useRef(null);
-  const materialPrecioRef = useRef(0);
-  const materialUsdRef = useRef(0);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const clienteRef = useRef<HTMLDivElement | null>(null);
+  const materialPrecioRef = useRef<number>(0);
+  const materialUsdRef = useRef<number>(0);
 
   const update = useCallback((field: FormField, value: unknown) => {
-    setForm((prev) => ({ ...prev, [field]: value } as EntityFormState));
+    setForm((prev: EntityFormState) => ({ ...prev, [field]: value } as EntityFormState));
   }, []);
 
   const readOnly = ['TALLER', 'TERMINADA', 'ENTREGADA', 'CONVERTIDO A OT', 'RECHAZADO'].includes(form.estado);
-  const hayUSD = (form.materiales || [] as MaterialEnForm[]).some((m) => m.moneda === 'USD');
-  const hayAlternativas = (form.materiales || [] as MaterialEnForm[]).some((m) => m.es_alternativa);
-  const clientesFiltrados = (clientes as Array<Record<string, unknown>>).filter((c) =>
-    (c.nombre as string || '').toLowerCase().includes((form.cliente_nombre || '').toLowerCase())
+  const hayUSD = (form.materiales || []).some((m: MaterialEnForm) => m.moneda === 'USD');
+  const hayAlternativas = (form.materiales || []).some((m: MaterialEnForm) => m.es_alternativa);
+  const clientesFiltrados = clientes.filter((c: Cliente) =>
+    (c.nombre || '').toLowerCase().includes((form.cliente_nombre || '').toLowerCase())
   );
+
+  useCalculosPresupuesto(form, setForm);
 
   // === Carga inicial ===
   useEffect(() => {
-    services.getMateriales({ limit: 500 }).then((res) => setMateriales(res.data));
-    services.getPiletas().then((res) => setPiletas(res.data));
-    services.getClientes({ limit: 500 }).then((res) => setClientes(res.data));
+    services.getMateriales({ limit: 500 }).then((res: Record<string, unknown>) => setMateriales(res.data as Material[]));
+    services.getPiletas().then((res: Record<string, unknown>) => setPiletas(res.data as StockPileta[]));
+    services.getClientes({ limit: 500 }).then((res: Record<string, unknown>) => setClientes(res.data as Cliente[]));
     api.get('/configuracion').then((res) => {
-      const logo = res.data.find((c) => c.key === 'logo');
+      const configs = (res as unknown as Record<string, unknown>).data as Array<Record<string, unknown>>;
+      const logo = configs.find((c: Record<string, unknown>) => c.key === 'logo');
       if (logo?.value) {
         const base = (api.defaults.baseURL || 'http://localhost:8000/api').replace('/api', '');
-        setLogoUrl(`${base}/${logo.value}`);
+        setLogoUrl(`${base}/${logo.value as string}`);
       }
     });
     if (id) {
-      services.getById(id).then((res) => {
-        const d = res.data as Record<string, unknown> as any;
+      services.getById(id).then((res: Record<string, unknown>) => {
+        const d = res.data as Record<string, unknown>;
         setForm({
           ...INITIAL_FORM,
-          numero: d.numero || '',
-          cliente_nombre: d.cliente_nombre || '',
-          cliente_telefono_orden: d.cliente_telefono_orden || '',
-          domicilio: d.domicilio || '',
-          email: d.email || '',
-          fecha: d.fecha ? d.fecha.slice(0, 10) : new Date().toISOString().slice(0, 10),
-          estado: d.estado || defaultEstado,
-          material: d.material || '',
-          material_precio_m2: d.material_precio_m2 || 0,
-          tipo_cambio: d.tipo_cambio || 1,
-          color_tipo: d.color_tipo || '',
-          espesor: d.espesor || '',
-          acabado: d.acabado || '',
-          bacha: d.bacha || '',
-          anafe: d.anafe || '',
-          croquis: d.croquis || [],
-          observaciones_diseno: d.observaciones_diseno || '',
-          detalles_fabricacion: d.detalles_fabricacion?.length
-            ? d.detalles_fabricacion.map((df) => {
-                const det = (df.detalle || '').toUpperCase();
-                const conTexto = (df.concepto || '').toUpperCase();
-                let concepto = df.concepto || '';
-                let detalle = df.detalle || '';
+          numero: (d.numero as string) || '',
+          cliente_nombre: (d.cliente_nombre as string) || '',
+          cliente_telefono_orden: (d.cliente_telefono_orden as string) || '',
+          domicilio: (d.domicilio as string) || '',
+          email: (d.email as string) || '',
+          fecha: d.fecha ? (d.fecha as string).slice(0, 10) : new Date().toISOString().slice(0, 10),
+          estado: (d.estado as string) || defaultEstado,
+          material: (d.material as string) || '',
+          material_precio_m2: (d.material_precio_m2 as number) || 0,
+          tipo_cambio: (d.tipo_cambio as number) || 1,
+          color_tipo: (d.color_tipo as string) || '',
+          espesor: (d.espesor as string) || '',
+          acabado: (d.acabado as string) || '',
+          bacha: (d.bacha as string) || '',
+          anafe: (d.anafe as string) || '',
+          croquis: (d.croquis as unknown[]) || [],
+          observaciones_diseno: (d.observaciones_diseno as string) || '',
+          detalles_fabricacion: (d.detalles_fabricacion as Array<Record<string, unknown>>)?.length
+            ? (d.detalles_fabricacion as Array<Record<string, unknown>>).map((df: Record<string, unknown>) => {
+                const det = ((df.detalle as string) || '').toUpperCase();
+                const conTexto = ((df.concepto as string) || '').toUpperCase();
+                let concepto = (df.concepto as string) || '';
+                let detalle = (df.detalle as string) || '';
                 if (CONCEPTO_NORMALIZE[det] || CONCEPTO_NORMALIZE[conTexto]) {
                   const norm = CONCEPTO_NORMALIZE[det] || CONCEPTO_NORMALIZE[conTexto];
                   concepto = norm;
@@ -144,43 +151,43 @@ export default function useEntityForm({
                   concepto = CONCEPTO_NORMALIZE[conTexto];
                   detalle = TRAFORO_DETALLES[concepto] || det;
                 }
-                return { ...df, concepto, detalle, largo: df.largo ?? null, ancho: df.ancho ?? null, m2: df.m2 || 0, mano_de_obra: df.mano_de_obra ?? null, precio: df.precio || 0 };
+                return { ...df, concepto, detalle, largo: (df.largo as number) ?? null, ancho: (df.ancho as number) ?? null, m2: (df.m2 as number) || 0, mano_de_obra: (df.mano_de_obra as number) ?? null, precio: (df.precio as number) || 0 };
               })
             : [],
-          detalles_presupuestados: d.detalles_presupuestados || [],
-          materiales: (d.materiales || []).map((m) => ({
+          detalles_presupuestados: (d.detalles_presupuestados as Array<Record<string, unknown>>) || [],
+          materiales: ((d.materiales as Array<Record<string, unknown>>) || []).map((m: Record<string, unknown>) => ({
             ...m,
-            m2_presupuestado: m.m2_presupuestado || (Number(m.largo || 0) * Number(m.ancho || 0) * (m.cantidad || 1)),
+            m2_presupuestado: (m.m2_presupuestado as number) || (Number(m.largo || 0) * Number(m.ancho || 0) * ((m.cantidad as number) || 1)),
           })),
-          piletas: d.piletas || [],
-          pileta_id: d.pileta_id || '',
-          pileta_precio: d.pileta_precio || 0,
-          pileta_moneda: d.pileta_moneda || 'ARS',
-          pileta_imagen: d.pileta_imagen || '',
-          subtotal: d.subtotal || 0,
-          traslado: d.traslado || 0,
-          total: d.total || 0,
-          sena_recibida: d.sena_recibida || 0,
-          sena_moneda: d.sena_moneda || 'ARS',
-          saldo_pendiente: d.saldo_pendiente || 0,
-          forma_pago: d.forma_pago || '',
-          cuotas: d.cuotas || 1,
-          saldo_pagado: d.saldo_pagado || false,
-          fecha_pago_saldo: d.fecha_pago_saldo ? d.fecha_pago_saldo.slice(0, 10) : '',
-          dolar_dia: d.dolar_dia ?? 1000,
-          subtotal_usd: d.subtotal_usd || 0,
-          traslado_usd: d.traslado_usd || 0,
-          total_usd: d.total_usd || 0,
-          sena_usd: d.sena_usd || 0,
-          saldo_pendiente_usd: d.saldo_pendiente_usd || 0,
-          fecha_entrega: d.fecha_entrega ? d.fecha_entrega.slice(0, 10) : '',
-          firma_cliente: d.firma_cliente || null,
-          fecha_aprobacion: d.fecha_aprobacion ? d.fecha_aprobacion.slice(0, 10) : '',
-          observaciones: d.observaciones || '',
-          observaciones_importantes: d.observaciones_importantes || '',
-          descuento_porcentaje: d.descuento_porcentaje ?? 0,
-          descuento_monto_fijo: d.descuento_monto_fijo ?? 0,
-        });
+          piletas: (d.piletas as Array<Record<string, unknown>>) || [],
+          pileta_id: (d.pileta_id as string) || '',
+          pileta_precio: (d.pileta_precio as number) || 0,
+          pileta_moneda: (d.pileta_moneda as string) || 'ARS',
+          pileta_imagen: (d.pileta_imagen as string) || '',
+          subtotal: (d.subtotal as number) || 0,
+          traslado: (d.traslado as number) || 0,
+          total: (d.total as number) || 0,
+          sena_recibida: (d.sena_recibida as number) || 0,
+          sena_moneda: (d.sena_moneda as string) || 'ARS',
+          saldo_pendiente: (d.saldo_pendiente as number) || 0,
+          forma_pago: (d.forma_pago as string) || '',
+          cuotas: (d.cuotas as number) || 1,
+          saldo_pagado: (d.saldo_pagado as boolean) || false,
+          fecha_pago_saldo: d.fecha_pago_saldo ? (d.fecha_pago_saldo as string).slice(0, 10) : '',
+          dolar_dia: (d.dolar_dia as number) ?? 1000,
+          subtotal_usd: (d.subtotal_usd as number) || 0,
+          traslado_usd: (d.traslado_usd as number) || 0,
+          total_usd: (d.total_usd as number) || 0,
+          sena_usd: (d.sena_usd as number) || 0,
+          saldo_pendiente_usd: (d.saldo_pendiente_usd as number) || 0,
+          fecha_entrega: d.fecha_entrega ? (d.fecha_entrega as string).slice(0, 10) : '',
+          firma_cliente: (d.firma_cliente as string) || null,
+          fecha_aprobacion: d.fecha_aprobacion ? (d.fecha_aprobacion as string).slice(0, 10) : '',
+          observaciones: (d.observaciones as string) || '',
+          observaciones_importantes: (d.observaciones_importantes as string) || '',
+          descuento_porcentaje: (d.descuento_porcentaje as number) ?? 0,
+          descuento_monto_fijo: (d.descuento_monto_fijo as number) ?? 0,
+        } as unknown as EntityFormState);
         onLoaded?.(d);
         setLoading(false);
       });
@@ -190,8 +197,8 @@ export default function useEntityForm({
   // Número automático
   useEffect(() => {
     if (!isEdit && services.getNextNumero) {
-      services.getNextNumero().then((res) => {
-        setForm((prev) => ({ ...prev, numero: res.data.numero }));
+      services.getNextNumero().then((res: Record<string, unknown>) => {
+        setForm((prev: EntityFormState) => ({ ...prev, numero: (res.data as Record<string, unknown>).numero as string }));
       }).catch(() => {});
     }
   }, [isEdit]);
@@ -199,136 +206,32 @@ export default function useEntityForm({
   // Sincronizar materialPrecioRef
   useEffect(() => {
     if (isEdit && materiales.length > 0 && form.material) {
-      const foundMat = materiales.find((mat) => mat.nombre === form.material);
+      const foundMat = materiales.find((mat: Material) => mat.nombre === form.material);
       if (foundMat) {
         materialUsdRef.current = foundMat.precio_m2_usd || 0;
       }
     }
   }, [materiales, isEdit, form.material]);
 
-  // === Cálculo de totales ===
-  useEffect(() => {
-    materialPrecioRef.current = form.material_precio_m2;
-    const arsTotal = (form.detalles_fabricacion || []).reduce(
-      (sum, d) => sum + ((d.moneda === 'USD') ? 0 : (Number(d.precio) || 0) * (d.cantidad || 1)),
-      0
-    );
-    const usdTotal = (form.detalles_fabricacion || []).reduce(
-      (sum, d) => sum + ((d.moneda === 'USD') ? (Number(d.precio) || 0) * (d.cantidad || 1) : 0),
-      0
-    );
-    const dd = Number(form.dolar_dia);
-    const ppArs = (form.piletas || [])
-      .filter((pt) => (pt.moneda || 'ARS') !== 'USD')
-      .reduce((sum, pt) => sum + (pt.precio || 0) * (pt.cantidad || 1), 0);
-    const ppUsd = (form.piletas || [])
-      .filter((pt) => (pt.moneda || 'ARS') === 'USD')
-      .reduce((sum, pt) => sum + (pt.precio || 0) * (pt.cantidad || 1), 0);
-    const matsMain = (form.materiales || []).filter((m) => !m.es_alternativa);
-    const matArs = matsMain
-      .filter((m) => m.moneda !== 'USD')
-      .reduce((sum, m) => sum + (Number(m.largo || 0) * Number(m.ancho || 0) * (m.cantidad || 1) * (m.precio_m2 || 0)), 0);
-    const matUsd = matsMain
-      .filter((m) => m.moneda === 'USD')
-      .reduce((sum, m) => sum + (Number(m.largo || 0) * Number(m.ancho || 0) * (m.cantidad || 1) * (m.precio_m2_usd || 0)), 0);
-
-    const pctRecargo = form.forma_pago === 'TARJETA DE CRÉDITO' ? (CONFIG_CUOTAS[form.cuotas] || 0) : 0;
-    const subtotal = arsTotal + (dd > 0 ? Math.round((usdTotal + matUsd) * dd * 100) / 100 : 0) + matArs + ppArs + (dd > 0 ? Math.round(ppUsd * dd * 100) / 100 : 0);
-    const tr = Number(form.traslado) || 0;
-    const totalBase = Math.max(0, subtotal + tr);
-
-    const descPct = Number(form.descuento_porcentaje) || 0;
-    const descFijo = Number(form.descuento_monto_fijo) || 0;
-    let totalConDescuento = totalBase;
-    if (descPct > 0) {
-      totalConDescuento = Math.round(totalBase * (1 - descPct / 100));
-    } else if (descFijo > 0) {
-      totalConDescuento = Math.max(0, totalBase - descFijo);
-    }
-
-    const recargoArs = Math.round(totalConDescuento * pctRecargo / 100);
-    const total = totalConDescuento + recargoArs;
-
-    const senaArs = Number(form.sena_recibida) || 0;
-    const senaUsdVal = Number(form.sena_usd) || 0;
-    const senaTotalArs = senaArs + (dd > 0 ? senaUsdVal * dd : 0);
-    const senaTotalUsd = senaUsdVal + (dd > 0 ? senaArs / dd : 0);
-    const saldo = Math.max(0, total - senaTotalArs);
-
-    const tr_usd = Number(form.traslado_usd) || 0;
-    const subtotal_usd = usdTotal + matUsd + ppUsd + (dd > 0 ? (arsTotal + matArs + ppArs) / dd : 0);
-    const totalBaseUsd = Math.max(0, subtotal_usd + tr_usd);
-    let totalConDescuentoUsd = totalBaseUsd;
-    if (descPct > 0) {
-      totalConDescuentoUsd = totalBaseUsd * (1 - descPct / 100);
-    } else if (descFijo > 0 && dd > 0) {
-      totalConDescuentoUsd = Math.max(0, totalBaseUsd - descFijo / dd);
-    }
-    const recargoUsd = Math.round(totalConDescuentoUsd * pctRecargo / 100);
-    const total_usd = totalConDescuentoUsd + recargoUsd;
-    const saldo_pendiente_usd = Math.max(0, total_usd - senaTotalUsd);
-
-    const esComparativo = (form.materiales || []).some((m) => m.es_alternativa);
-    let totalFinal = total;
-    let totalUsdFinal = total_usd;
-    let saldoFinal = saldo;
-    let saldoUsdFinal = saldo_pendiente_usd;
-    if (esComparativo) {
-      const primeraAlt = (form.materiales || []).find((m) => m.es_alternativa);
-      if (primeraAlt) {
-        const dd2 = dd || 1;
-        const m2 = Number(primeraAlt.largo || 0) * Number(primeraAlt.ancho || 0) * (primeraAlt.cantidad || 1);
-        const precioMat = primeraAlt.moneda === 'USD' ? (primeraAlt.precio_m2_usd || 0) : (primeraAlt.precio_m2 || 0);
-        const costoMatArs = primeraAlt.moneda === 'USD' ? m2 * precioMat * dd2 : m2 * precioMat;
-        const fijosArs = arsTotal + (dd2 > 0 ? usdTotal * dd2 : 0) + ppArs + (dd2 > 0 ? ppUsd * dd2 : 0) + tr;
-        const totalAlt = Math.round(costoMatArs + fijosArs);
-        const totalAltConDesc = descPct > 0 ? Math.round(totalAlt * (1 - descPct / 100)) : (descFijo > 0 ? Math.max(0, totalAlt - descFijo) : totalAlt);
-        totalFinal = totalAltConDesc + (totalAltConDesc > 0 ? Math.round(totalAltConDesc * pctRecargo / 100) : 0);
-        const costoMatUsd = primeraAlt.moneda === 'USD' ? m2 * precioMat : m2 * precioMat / dd2;
-        const fijosUsd = usdTotal + (dd2 > 0 ? arsTotal / dd2 : 0) + ppUsd + (dd2 > 0 ? ppArs / dd2 : 0) + (dd2 > 0 ? tr / dd2 : 0);
-        const totalAltUsd = Math.round((costoMatUsd + fijosUsd) * 100) / 100;
-        const totalAltConDescUsd = descPct > 0 ? totalAltUsd * (1 - descPct / 100) : (descFijo > 0 && dd2 > 0 ? Math.max(0, totalAltUsd - descFijo / dd2) : totalAltUsd);
-        totalUsdFinal = totalAltConDescUsd + (totalAltConDescUsd > 0 ? Math.round(totalAltConDescUsd * pctRecargo / 100 * 100) / 100 : 0);
-        saldoFinal = Math.max(0, totalFinal - senaTotalArs);
-        saldoUsdFinal = Math.max(0, totalUsdFinal - senaTotalUsd);
-      }
-    }
-
-    setForm((prev) => ({
-      ...prev,
-      subtotal,
-      total: totalFinal,
-      recargo_ars: recargoArs,
-      recargo_usd: recargoUsd,
-      recargo_pct: pctRecargo,
-      saldo_pendiente: saldoFinal,
-      subtotal_usd,
-      total_usd: totalUsdFinal,
-      saldo_pendiente_usd: saldoUsdFinal,
-    }));
-  }, [form.detalles_fabricacion, form.traslado, form.piletas, form.materiales,
-      form.sena_moneda, form.sena_recibida, form.traslado_usd, form.sena_usd,
-      form.dolar_dia, form.cuotas, form.forma_pago, form.descuento_porcentaje, form.descuento_monto_fijo]);
-
   // Cerrar menús al hacer click fuera
   useEffect(() => {
-    const handleClick = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
-      if (clienteRef.current && !clienteRef.current.contains(e.target)) setShowClienteDropdown(false);
+    const handleClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+      if (clienteRef.current && !clienteRef.current.contains(e.target as Node)) setShowClienteDropdown(false);
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
   // === Handlers ===
-  const handleMaterialChange = useCallback((nombre) => {
-    const m = materiales.find((mat) => mat.nombre === nombre);
+  const handleMaterialChange = useCallback((nombre: string) => {
+    const m = materiales.find((mat: Material) => mat.nombre === nombre);
     if (m) {
       const currency = m.moneda || 'ARS';
       const usdPrice = m.precio_m2_usd || 0;
       const arsPrice = m.precio_m2 || 0;
       materialUsdRef.current = usdPrice;
-      setForm((prev) => {
+      setForm((prev: EntityFormState) => {
         const tc = prev.dolar_dia ?? 1000;
         const pm2 = currency === 'USD' ? Math.round(usdPrice * tc * 100) / 100 : arsPrice;
         materialPrecioRef.current = pm2;
@@ -340,53 +243,53 @@ export default function useEntityForm({
           material_precio_m2: pm2,
           detalles_fabricacion: (prev.detalles_fabricacion || []).map((d) => {
             if (CONCEPTOS_M2.includes(d.concepto) && d.m2 > 0) {
-              return { ...d, moneda: currency, precio: Math.round(d.m2 * pm2 * 100) / 100 };
+              return { ...d, moneda: currency as 'ARS' | 'USD', precio: Math.round(d.m2 * pm2 * 100) / 100 };
             }
-            return { ...d, moneda: currency };
+            return { ...d, moneda: currency as 'ARS' | 'USD' };
           }),
-        };
+        } as EntityFormState;
       });
     } else {
       materialUsdRef.current = 0;
-      setForm((prev) => ({ ...prev, material: nombre, material_precio_m2: 0 }));
+      setForm((prev: EntityFormState) => ({ ...prev, material: nombre, material_precio_m2: 0 }));
     }
   }, [materiales]);
 
-  const handleClienteSelect = useCallback((c) => {
-    setForm((prev) => ({
+  const handleClienteSelect = useCallback((c: Record<string, unknown>) => {
+    setForm((prev: EntityFormState) => ({
       ...prev,
-      cliente_nombre: c.nombre,
-      cliente_telefono_orden: c.telefono || '',
-      email: c.email || '',
-      domicilio: c.direccion || '',
+      cliente_nombre: c.nombre as string,
+      cliente_telefono_orden: (c.telefono as string) || '',
+      email: (c.email as string) || '',
+      domicilio: (c.direccion as string) || '',
     }));
     setShowClienteDropdown(false);
   }, []);
 
-  const handlePiletaImagen = useCallback((e) => {
+  const handlePiletaImagen = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => update('pileta_imagen', ev.target.result);
+    reader.onload = (ev: ProgressEvent<FileReader>) => update('pileta_imagen', ev.target?.result);
     reader.readAsDataURL(file);
   }, [update]);
 
-  const handleTrasladoChange = useCallback((value, source) => {
+  const handleTrasladoChange = useCallback((value: string, source: 'ars' | 'usd') => {
     const dd = Number(form.dolar_dia);
     if (source === 'usd') {
       const usd = Number(value) || 0;
       const ars = Math.round(usd * dd * 100) / 100;
-      setForm((prev) => ({ ...prev, traslado_usd: usd, traslado: ars }));
+      setForm((prev: EntityFormState) => ({ ...prev, traslado_usd: usd, traslado: ars }));
     } else {
       const ars = Number(value) || 0;
       const usd = dd > 0 ? Math.round((ars / dd) * 100) / 100 : 0;
-      setForm((prev) => ({ ...prev, traslado: ars, traslado_usd: usd }));
+      setForm((prev: EntityFormState) => ({ ...prev, traslado: ars, traslado_usd: usd }));
     }
   }, [form.dolar_dia]);
 
-  const handleSenaMonedaChange = useCallback((moneda) => {
+  const handleSenaMonedaChange = useCallback((moneda: string) => {
     const current = Number(form.sena_recibida || form.sena_usd || 0);
-    setForm((prev) => ({
+    setForm((prev: EntityFormState) => ({
       ...prev,
       sena_moneda: moneda,
       sena_recibida: moneda === 'ARS' ? current : 0,
@@ -394,46 +297,46 @@ export default function useEntityForm({
     }));
   }, [form.dolar_dia, form.sena_recibida, form.sena_usd]);
 
-  const handleSenaMontoChange = useCallback((value) => {
+  const handleSenaMontoChange = useCallback((value: string) => {
     const val = Number(value) || 0;
     const moneda = form.sena_moneda || 'ARS';
-    setForm((prev) => ({
+    setForm((prev: EntityFormState) => ({
       ...prev,
       sena_recibida: moneda === 'ARS' ? val : 0,
       sena_usd: moneda === 'USD' ? val : 0,
     }));
   }, [form.sena_moneda]);
 
-  const handleDolarDiaChange = useCallback((value) => {
+  const handleDolarDiaChange = useCallback((value: string) => {
     const dd = Number(value);
     const tr_usd = Number(form.traslado_usd) || 0;
-    setForm((prev) => ({
+    setForm((prev: EntityFormState) => ({
       ...prev,
       dolar_dia: dd,
       traslado: Math.round(tr_usd * dd * 100) / 100,
     }));
   }, [form.traslado_usd]);
 
-  const handleDetalleChange = useCallback((idx, field, value) => {
-    setForm((prev) => {
+  const handleDetalleChange = useCallback((idx: number, field: string, value: unknown) => {
+    setForm((prev: EntityFormState) => {
       const list = [...prev.detalles_fabricacion];
-      list[idx] = { ...list[idx], [field]: value };
+      list[idx] = { ...list[idx], [field]: value } as typeof list[number];
       if (field === 'concepto' && value !== 'OTRA') {
         list[idx].concepto_personalizado = '';
       }
-      if (field === 'concepto' && TRAFORO_DETALLES[value]) {
-        list[idx].detalle = TRAFORO_DETALLES[value];
+      if (field === 'concepto' && TRAFORO_DETALLES[value as string]) {
+        list[idx].detalle = TRAFORO_DETALLES[value as string];
       }
       const d = list[idx];
 
       if (field === 'material') {
-        const mat = materiales.find((m) => m.nombre === value);
+        const mat = materiales.find((m: Material) => m.nombre === value);
         if (mat) {
-          list[idx].material = value;
+          list[idx].material = value as string;
           list[idx].moneda = mat.moneda || 'ARS';
           list[idx].material_precio_m2 = mat.moneda === 'USD' ? (mat.precio_m2_usd || 0) : (mat.precio_m2 || 0);
           if (CONCEPTOS_M2.includes(d.concepto) && d.m2 > 0) {
-            list[idx].precio = Math.round(d.m2 * list[idx].material_precio_m2 * 100) / 100;
+            list[idx].precio = Math.round(d.m2 * (list[idx].material_precio_m2 || 0) * 100) / 100;
           }
         } else {
           list[idx].material = '';
@@ -453,7 +356,7 @@ export default function useEntityForm({
         const moneda = d.moneda || 'ARS';
         let pm2 = 0;
         if (d.material) {
-          const mat = materiales.find((m) => m.nombre === d.material);
+          const mat = materiales.find((m: Material) => m.nombre === d.material);
           if (mat) {
             pm2 = moneda === 'USD' ? (mat.precio_m2_usd || 0) : (mat.precio_m2 || 0);
           }
@@ -469,58 +372,58 @@ export default function useEntityForm({
   const addDetalle = useCallback(() => {
     update('detalles_fabricacion', [...form.detalles_fabricacion, {
       concepto: 'ZÓCALO', detalle: '', material: '', material_precio_m2: 0,
-      largo: null, ancho: null, m2: 0, mano_de_obra: null, cantidad: 1, moneda: 'ARS', precio: 0,
+      largo: null, ancho: null, m2: 0, mano_de_obra: null, cantidad: 1, moneda: 'ARS' as const, precio: 0,
     }]);
   }, [form.detalles_fabricacion, update]);
 
-  const removeDetalle = useCallback((idx) => {
+  const removeDetalle = useCallback((idx: number) => {
     if (form.detalles_fabricacion.length <= 1) return;
-    update('detalles_fabricacion', form.detalles_fabricacion.filter((_, i) => i !== idx));
+    update('detalles_fabricacion', form.detalles_fabricacion.filter((_: unknown, i: number) => i !== idx));
   }, [form.detalles_fabricacion, update]);
 
-  const addMaterial = useCallback((nombre) => {
+  const addMaterial = useCallback((nombre: string) => {
     if (!nombre) return;
-    const mat = materiales.find((m) => m.nombre === nombre);
+    const mat = materiales.find((m: Material) => m.nombre === nombre);
     if (!mat) return;
     update('materiales', [...(form.materiales || []), {
       nombre: mat.nombre, categoria: mat.categoria || '', color: mat.color || '',
       precio_m2: mat.precio_m2 || 0, precio_m2_usd: mat.precio_m2_usd || 0,
       moneda: mat.moneda || 'ARS', cantidad: 1, m2_utilizados: 0, m2_presupuestado: 0,
       largo: 0, ancho: 0, es_alternativa: false,
-    }]);
+    } as MaterialEnForm]);
   }, [materiales, form.materiales, update]);
 
-  const removeMaterial = useCallback((idx) => {
-    update('materiales', form.materiales.filter((_, i) => i !== idx));
+  const removeMaterial = useCallback((idx: number) => {
+    update('materiales', form.materiales.filter((_: unknown, i: number) => i !== idx));
   }, [form.materiales, update]);
 
-  const updateMaterial = useCallback((idx, field, value) => {
+  const updateMaterial = useCallback((idx: number, field: string, value: unknown) => {
     const list = [...form.materiales];
-    list[idx] = { ...list[idx], [field]: value };
+    (list[idx] as unknown as Record<string, unknown>)[field] = value;
     update('materiales', list);
   }, [form.materiales, update]);
 
-  const addPileta = useCallback((pid) => {
+  const addPileta = useCallback((pid: string) => {
     if (!pid) return;
-    const pt = piletas.find((p) => p.id === Number(pid));
+    const pt = piletas.find((p: StockPileta) => p.id === Number(pid));
     if (!pt) return;
     update('piletas', [...(form.piletas || []), {
       pileta_id: pt.id, marca: pt.marca, modelo: pt.modelo,
-      precio: pt.precio || 0, moneda: 'ARS', imagen: '', cantidad: 1,
-    }]);
+      precio: pt.precio || 0, moneda: 'ARS' as const, imagen: '', cantidad: 1,
+    } as PiletaEnForm]);
   }, [piletas, form.piletas, update]);
 
-  const removePileta = useCallback((idx) => {
-    update('piletas', form.piletas.filter((_, i) => i !== idx));
+  const removePileta = useCallback((idx: number) => {
+    update('piletas', form.piletas.filter((_: unknown, i: number) => i !== idx));
   }, [form.piletas, update]);
 
-  const updatePileta = useCallback((idx, field, value) => {
+  const updatePileta = useCallback((idx: number, field: string, value: unknown) => {
     const list = [...form.piletas];
-    list[idx] = { ...list[idx], [field]: value };
+    (list[idx] as unknown as Record<string, unknown>)[field] = value;
     update('piletas', list);
   }, [form.piletas, update]);
 
-  const buildPayload = useCallback(() => ({
+  const buildPayload = useCallback((): Record<string, unknown> => ({
     cliente_nombre: form.cliente_nombre,
     cliente_telefono_orden: form.cliente_telefono_orden,
     domicilio: form.domicilio,
@@ -536,13 +439,16 @@ export default function useEntityForm({
     bacha: form.bacha,
     anafe: form.anafe,
     croquis: Array.isArray(form.croquis)
-      ? form.croquis.map((pag) => ({
-          ...pag,
-          dibujo: (pag.dibujo || pag.elementos || []).map((el) => {
-            const { seleccionado, ...rest } = el;
-            return rest;
-          }),
-        }))
+      ? form.croquis.map((pag: unknown) => {
+          const p = pag as Record<string, unknown>;
+          return {
+            ...p,
+            dibujo: ((p.dibujo || p.elementos) as Array<Record<string, unknown>> || []).map((el: Record<string, unknown>) => {
+              const { seleccionado, ...rest } = el;
+              return rest;
+            }),
+          };
+        })
       : form.croquis,
     observaciones_diseno: form.observaciones_diseno,
     detalles_fabricacion: form.detalles_fabricacion,
@@ -583,7 +489,7 @@ export default function useEntityForm({
     descuento_monto_fijo: Number(form.descuento_monto_fijo) || 0,
   }), [form]);
 
-  const handleSubmit = useCallback(async (e) => {
+  const handleSubmit = useCallback(async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setSaving(true);
     try {
@@ -597,12 +503,12 @@ export default function useEntityForm({
         payload.fecha_pago_saldo = new Date().toISOString().slice(0, 10);
       }
       if (isEdit) {
-        await services.update(id, payload);
+        await services.update(id as string, payload);
       } else {
         await services.create(payload);
       }
       navigate(services.listPath);
-    } catch (err) {
+    } catch {
       alert('Error al guardar');
     } finally {
       setSaving(false);
@@ -615,11 +521,11 @@ export default function useEntityForm({
     navigate(services.listPath);
   }, [id, services, navigate]);
 
-  const handleCambioEstadoAccion = useCallback(async (nuevoEstado) => {
+  const handleCambioEstadoAccion = useCallback(async (nuevoEstado: string) => {
     if (!id) return;
     setSaving(true);
     try {
-      const payload = { estado: nuevoEstado };
+      const payload: Record<string, unknown> = { estado: nuevoEstado };
       if (nuevoEstado === 'ENTREGADA') {
         payload.sena_recibida = Number(form.total);
         payload.sena_moneda = 'ARS';
@@ -636,9 +542,9 @@ export default function useEntityForm({
         payload.saldo_pendiente_usd = 0;
         payload.fecha_pago_saldo = new Date().toISOString().slice(0, 10);
       }
-      await services.update(id, payload);
-      setForm((prev) => ({ ...prev, ...payload, estado: nuevoEstado }));
-    } catch (err) {
+      await services.update(id as string, payload);
+      setForm((prev: EntityFormState) => ({ ...prev, ...payload, estado: nuevoEstado }));
+    } catch {
       alert('Error al cambiar estado');
     } finally {
       setSaving(false);
@@ -654,13 +560,12 @@ export default function useEntityForm({
   }, [id, services]);
 
   return {
-    // State
     form,
     loading,
     saving,
-    materiales,
-    piletas,
-    clientes,
+    materiales: materiales as unknown as Record<string, unknown>[],
+    piletas: piletas as unknown as Record<string, unknown>[],
+    clientes: clientes as unknown as Record<string, unknown>[],
     logoUrl,
     showClienteDropdown,
     menuOpen,
@@ -672,15 +577,14 @@ export default function useEntityForm({
     readOnly,
     hayUSD,
     hayAlternativas,
-    clientesFiltrados,
+    clientesFiltrados: clientesFiltrados as unknown[],
     isEdit,
     menuRef,
     clienteRef,
     materialPrecioRef,
     materialUsdRef,
-    materialesAgrupados: materiales.filter((m) => m.nombre),
+    materialesAgrupados: materiales.filter((m: Material) => m.nombre) as unknown[],
     CONCEPTOS_M2,
-    // Setters
     setForm,
     setLoading,
     setSaving,
@@ -689,7 +593,6 @@ export default function useEntityForm({
     setShowClienteDropdown,
     setShowCroquis,
     update,
-    // Handlers
     handleMaterialChange,
     handleClienteSelect,
     handlePiletaImagen,
@@ -710,7 +613,6 @@ export default function useEntityForm({
     handleDelete,
     handleCambioEstadoAccion,
     handlePrint,
-    // Utils
     buildPayload,
   };
 }

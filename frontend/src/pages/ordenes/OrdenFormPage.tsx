@@ -6,12 +6,17 @@ import { formatCurrency, conceptosFabricacion } from '../../utils/formatters';
 import EstadoBadge from '../../components/ui/EstadoBadge';
 import useEntityForm from '../../hooks/useEntityForm';
 import CroquisEditor from '../../components/croquis/CroquisEditor';
-import FirmaCanvas from '../../components/firma/FirmaCanvas';
+import PresupuestoPanel from '../../components/presupuesto/PresupuestoPanel';
 import Loading from '../../components/common/Loading';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import MaterialCard from '../../components/materiales/MaterialCard';
 import PiletaCard from '../../components/materiales/PiletaCard';
 import FabricacionTable from '../../components/presupuesto/FabricacionTable';
+import ClienteSection from '../../components/ordenes/ClienteSection';
+import AprobacionSection from '../../components/ordenes/AprobacionSection';
+import ObservacionesSection from '../../components/ordenes/ObservacionesSection';
+import FormHeader from '../../components/ordenes/FormHeader';
+import FormFooter from '../../components/ordenes/FormFooter';
 import type { OrdenTrabajoPayload, EntityFormState, EntityServices } from '../../types';
 
 const ordenServices = {
@@ -58,24 +63,161 @@ export default function OrdenForm() {
 
   if (loading) return <Loading />;
 
+  const matsMain = hayAlternativas ? (form.materiales || []).filter((m) => !m.es_alternativa) : (form.materiales || []);
+  const matsAlt = (form.materiales || []).filter((m) => m.es_alternativa);
+
+  const handleConfirmarPago = async () => {
+    if (!id) return;
+    const nuevo = !form.saldo_pagado;
+    const hoy = new Date().toISOString().split('T')[0];
+    const payload: Record<string, unknown> = {
+      saldo_pagado: nuevo,
+      fecha_pago_saldo: nuevo ? hoy : null,
+    };
+    if (nuevo) {
+      payload.sena_recibida = Number(form.total);
+      payload.sena_moneda = 'ARS';
+      payload.saldo_pendiente = 0;
+      payload.sena_usd = Number(form.total_usd);
+      payload.saldo_pendiente_usd = 0;
+    }
+    await updateOrden(id as string, payload);
+    setForm((prev) => ({ ...prev, ...payload, fecha_pago_saldo: nuevo ? hoy : '' } as EntityFormState));
+  };
+
+  const alternativasGrid = hayAlternativas ? (
+    <div style={{ marginTop: 16 }}>
+      <div style={{ marginBottom: 12, padding: '8px 12px', background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 8 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: '#1e40af' }}>📋 PRESUPUESTO COMPARATIVO</span>
+        <span style={{ fontSize: 11, color: '#3b82f6', marginLeft: 8 }}>{matsAlt.length} opciones alternativas</span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+        {matsAlt.map((mat, idx) => {
+          const letra = String.fromCharCode(65 + idx);
+          const dd2 = Number(form.dolar_dia);
+          const m2 = Number(mat.largo || 0) * Number(mat.ancho || 0) * (mat.cantidad || 1);
+          const costoMat = mat.moneda === 'USD' ? m2 * (mat.precio_m2_usd || 0) : m2 * (mat.precio_m2 || 0);
+          const costoMatArs = mat.moneda === 'USD' ? (dd2 > 0 ? costoMat * dd2 : 0) : costoMat;
+          const fijosArsAlt = (form.detalles_fabricacion || []).reduce((s: number, d) => s + (Number(d.precio) || 0) * (d.cantidad || 1), 0)
+            + (form.piletas || []).reduce((s: number, pt) => s + (Number(pt.precio) || 0) * (pt.cantidad || 1), 0)
+            + (Number(form.traslado) || 0);
+          const totalArs = costoMatArs + fijosArsAlt;
+          const mostrarUSDAlt = modoUSD && dd2 > 0;
+          return (
+            <div key={idx} style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12, background: '#fafafa', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', padding: '2px 8px', background: '#dbeafe', color: '#1e40af', borderRadius: 4 }}>Alternativa {letra}</span>
+                  <span style={{ fontSize: 11, color: '#6b7280' }}>{mat.cantidad || 1} pza. ({m2.toFixed(3)} m²)</span>
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', textTransform: 'uppercase', marginBottom: 2 }}>{mat.nombre as string}</div>
+                {mat.moneda === 'USD' && <div style={{ fontSize: 11, color: '#059669', fontWeight: 600, marginBottom: 8 }}>USD {costoMat.toFixed(2)}</div>}
+                <div style={{ borderTop: '1px dashed #d1d5db', paddingTop: 6, fontSize: 12, color: '#6b7280', marginBottom: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Material:</span>
+                    <span style={{ fontWeight: 600, color: '#374151' }}>{mostrarUSDAlt ? `USD ${(costoMatArs / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `$${costoMatArs.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Trabajos + Piletas + Traslado:</span>
+                    <span style={{ fontWeight: 600, color: '#374151' }}>{mostrarUSDAlt ? `USD ${(fijosArsAlt / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `$${fijosArsAlt.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}</span>
+                  </div>
+                </div>
+              </div>
+              <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 8, textAlign: 'center', background: '#fff', borderRadius: 6, padding: 8 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase' }}>Total alternativa {mostrarUSDAlt ? '(USD)' : ''}</div>
+                <div style={{ fontSize: 18, fontWeight: 900, color: '#dc2626' }}>{mostrarUSDAlt ? `USD ${(totalArs / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `$${Math.round(totalArs).toLocaleString('es-AR')}`}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ fontSize: 10, color: '#9ca3af', textAlign: 'center', marginTop: 12, fontStyle: 'italic' }}>
+        * Todos los totales incluyen la misma configuraci&oacute;n de trabajos, piletas y traslados.
+      </div>
+    </div>
+  ) : null;
+
+  const descuentoBlock = (
+    <>
+      {form.descuento_porcentaje > 0 && (() => {
+        const descPct = form.descuento_porcentaje || 0;
+        const recargoPct = form.recargo_pct || 0;
+        const totalActual = form.total || 0;
+        const totalSinRecargo = recargoPct > 0 ? Math.round(totalActual / (1 + recargoPct / 100)) : totalActual;
+        const precioBase = Math.round(totalSinRecargo / (1 - descPct / 100));
+        const precioLista = recargoPct > 0 ? precioBase + Math.round(precioBase * recargoPct / 100) : precioBase;
+        const descuentoEnPesos = Math.round(precioLista * descPct / 100);
+        return (
+          <div style={{ marginTop: 12, padding: '10px 14px', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, fontSize: 13 }}>
+            <div style={{ marginBottom: 8, padding: '6px 10px', background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 6, fontSize: 12, fontWeight: 700, color: '#92400e', textAlign: 'center' }}>
+              📌 Este pedido se guard&oacute; con un <span style={{ fontSize: 14 }}>{descPct}%</span> de descuento aplicado
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0', borderBottom: '1px solid #dcfce7', fontWeight: 700, color: '#374151' }}>
+              <span>Precio Lista (Original)</span>
+              <span>{formatCurrency(precioLista)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0', fontWeight: 700, color: '#dc2626' }}>
+              <span>Descuento Aplicado</span>
+              <span>{descPct}% OFF (-{formatCurrency(descuentoEnPesos)})</span>
+            </div>
+          </div>
+        );
+      })()}
+      {form.forma_pago === 'EFECTIVO' && (
+        <div style={{ marginTop: 8, padding: '8px 10px', background: '#fffbe6', border: '1px solid #fde68a', borderRadius: 8 }}>
+          <label style={{ fontSize: 12, fontWeight: 700, color: '#92400e', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
+            &#128274; Descuento Comercial (Solo Vendedor)
+          </label>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>%</span>
+              <input type="number" className="input" style={{ width: 70, textAlign: 'right' }}
+                placeholder="0" min="0" max="100"
+                value={form.descuento_porcentaje || ''}
+                onChange={(e) => {
+                  const val = Number(e.target.value) || 0;
+                  setForm({ ...form, descuento_porcentaje: val, descuento_monto_fijo: val > 0 ? 0 : form.descuento_monto_fijo });
+                }}
+                disabled={readOnly} />
+            </div>
+            <span style={{ fontSize: 12, color: '#9ca3af' }}>o</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>$</span>
+              <input type="number" className="input" style={{ width: 100, textAlign: 'right' }}
+                placeholder="Monto fijo"
+                value={form.descuento_monto_fijo || ''}
+                onChange={(e) => {
+                  const val = Number(e.target.value) || 0;
+                  setForm({ ...form, descuento_monto_fijo: val, descuento_porcentaje: val > 0 ? 0 : form.descuento_porcentaje });
+                }}
+                disabled={readOnly} />
+            </div>
+          </div>
+          <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 4, fontStyle: 'italic' }}>
+            Este descuento modifica el TOTAL ARS final pero no se muestra en el PDF del cliente.
+          </div>
+        </div>
+      )}
+    </>
+  );
+
   return (
     <div className="orden-form">
-      {/* ===== HEADER ===== */}
-      <div className="orden-header" style={{ position: 'relative', overflow: 'hidden' }}>
-        {logoUrl && (
-          <div style={{
-            position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
-            opacity: 0.10, pointerEvents: 'none', zIndex: 0,
-          }}>
-            <img src={logoUrl} alt="Logo AFAMAR" style={{ height: 90, width: 'auto', objectFit: 'contain' }} />
-          </div>
-        )}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', zIndex: 1, width: '100%' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <span style={{ fontSize: 22, fontWeight: 700 }}>Orden N° {form.numero || 'A-_____'}</span>
-            <EstadoBadge estado={form.estado} style={{ fontSize: 13, padding: '4px 14px' }} />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <FormHeader
+          className="orden-header"
+          title={`Orden N° ${form.numero || 'A-_____'}`}
+          badge={<EstadoBadge estado={form.estado} style={{ fontSize: 13, padding: '4px 14px' }} />}
+          logoUrl={logoUrl}
+          menuOpen={menuOpen}
+          menuRef={menuRef}
+          setMenuOpen={setMenuOpen}
+          menuItems={[
+            { label: 'Duplicar', icon: <Copy size={16} />, onClick: () => { setMenuOpen(false); alert('Duplicar orden'); } },
+            { label: 'Exportar PDF', icon: <FileDown size={16} />, onClick: () => { setMenuOpen(false); alert('Exportar PDF'); } },
+            { label: 'Eliminar', icon: <Trash2 size={16} />, onClick: () => { setMenuOpen(false); setDeleteConfirm(true); }, danger: true },
+            { label: 'Historial', icon: <History size={16} />, onClick: () => { setMenuOpen(false); alert('Historial de cambios'); } },
+          ]}
+        >
           {form.estado === 'MEDICION' && (
             <button className="btn" onClick={() => handleCambioEstadoAccion('TALLER')} disabled={saving}
               style={{ background: '#2563eb', color: '#fff', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
@@ -108,69 +250,19 @@ export default function OrdenForm() {
           <button className="btn btn-outline" onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <Printer size={16} /> IMPRIMIR
           </button>
-          <div ref={menuRef} style={{ position: 'relative' }}>
-            <button className="btn btn-outline" onClick={() => setMenuOpen(!menuOpen)} style={{ padding: '8px 10px' }}>
-              <MoreVertical size={18} />
-            </button>
-            {menuOpen && (
-              <div className="dropdown-menu">
-                <div className="dropdown-item" onClick={() => { setMenuOpen(false); alert('Duplicar orden'); }}>
-                  <Copy size={16} /> Duplicar
-                </div>
-                <div className="dropdown-item" onClick={() => { setMenuOpen(false); alert('Exportar PDF'); }}>
-                  <FileDown size={16} /> Exportar PDF
-                </div>
-                <div className="dropdown-item" style={{ color: '#ef4444' }} onClick={() => { setMenuOpen(false); setDeleteConfirm(true); }}>
-                  <Trash2 size={16} /> Eliminar
-                </div>
-                <div className="dropdown-item" onClick={() => { setMenuOpen(false); alert('Historial de cambios'); }}>
-                  <History size={16} /> Historial
-                </div>
-              </div>
-            )}
-          </div>
-          </div>
-              </div>
-            </div>
-
+        </FormHeader>
+ 
       <form onSubmit={handleSubmit} onKeyDown={(e: React.KeyboardEvent<HTMLFormElement>) => { if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') e.preventDefault(); }}>
-        {/* ===== DATOS DEL CLIENTE ===== */}
-        <div className="card" style={{ marginTop: 16 }}>
-          <div className="orden-grid-4">
-            <div className="form-group">
-              <label>Fecha</label>
-              <input type="date" className="input" value={form.fecha || ''} onChange={(e) => update('fecha', e.target.value)} disabled={readOnly} />
-            </div>
-            <div className="form-group" style={{ position: 'relative' }} ref={clienteRef}>
-              <label>Cliente</label>
-              <input className="input" value={form.cliente_nombre} onChange={(e) => { update('cliente_nombre', e.target.value); setShowClienteDropdown(true); }} onFocus={() => setShowClienteDropdown(true)} placeholder="Nombre del cliente" disabled={readOnly} />
-              {showClienteDropdown && clientesFiltrados.length > 0 && form.cliente_nombre && (
-                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, background: 'white', border: '1px solid #e2e8f0', borderRadius: 8, maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-                  {clientesFiltrados.map((c: Record<string, unknown>) => (
-                    <div key={c.id as number} onClick={() => handleClienteSelect(c)} style={{ padding: '10px 14px', cursor: 'pointer', fontSize: 14, borderBottom: '1px solid #f1f5f9', transition: 'background 0.15s' }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
-                      <div style={{ fontWeight: 600 }}>{c.nombre as string}</div>
-                      <div style={{ fontSize: 12, color: '#94a3b8' }}>{c.telefono as string} {c.email ? `| ${c.email}` : ''}</div>
-                    </div>
-                  ))}
-              </div>
-              )}
-            </div>
-            <div className="form-group">
-              <label>Teléfono</label>
-              <input className="input" value={form.cliente_telefono_orden} onChange={(e) => update('cliente_telefono_orden', e.target.value)} placeholder="Teléfono" disabled={readOnly} />
-            </div>
-            <div className="form-group">
-              <label>E-mail</label>
-              <input className="input" value={form.email} onChange={(e) => update('email', e.target.value)} placeholder="Email" disabled={readOnly} />
-                </div>
-              </div>
-              <div className="form-group" style={{ marginTop: 8 }}>
-            <label>Domicilio</label>
-            <input className="input" value={form.domicilio} onChange={(e) => update('domicilio', e.target.value)} placeholder="Calle N° - Ciudad - Provincia" disabled={readOnly} />
-          </div>
-        </div>
+        <ClienteSection
+          form={form}
+          readOnly={readOnly}
+          update={update as (field: string, value: unknown) => void}
+          clienteRef={clienteRef}
+          showClienteDropdown={showClienteDropdown}
+          setShowClienteDropdown={setShowClienteDropdown}
+          clientesFiltrados={clientesFiltrados}
+          handleClienteSelect={handleClienteSelect}
+        />
 
         {/* ===== BOTÓN CROQUIS COLAPSABLE ===== */}
         <div style={{ marginTop: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -202,7 +294,7 @@ export default function OrdenForm() {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: 16 }}>
               {(form.materiales || []).map((mat, idx) => (
-                <MaterialCard key={idx} mat={mat} idx={idx} readOnly={readOnly} updateMaterial={updateMaterial} removeMaterial={removeMaterial} num={num} />
+                <MaterialCard key={idx} mat={mat as unknown as Record<string, unknown>} idx={idx} readOnly={readOnly} updateMaterial={updateMaterial} removeMaterial={removeMaterial} num={num as (v: unknown) => number} />
               ))}
               </div>
               {(form.materiales || []).length === 0 && (
@@ -222,7 +314,7 @@ export default function OrdenForm() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
           {/* Panel 1: Detalle de Fabricación y Adicionales */}
           <div className="card">
-            <FabricacionTable detalles={form.detalles_fabricacion} readOnly={readOnly} handleDetalleChange={handleDetalleChange} addDetalle={addDetalle} removeDetalle={removeDetalle} materiales={materiales} CONCEPTOS_M2={CONCEPTOS_M2} conceptosFabricacion={conceptosFabricacion} num={num} />
+            <FabricacionTable detalles={form.detalles_fabricacion as unknown as Record<string, unknown>[]} readOnly={readOnly} handleDetalleChange={handleDetalleChange} addDetalle={addDetalle} removeDetalle={removeDetalle} materiales={materiales} CONCEPTOS_M2={CONCEPTOS_M2} conceptosFabricacion={conceptosFabricacion} num={num as (v: unknown) => number} />
 
             {form.estado === 'MEDICION' && form.detalles_presupuestados.length > 0 && (
               <div style={{ marginTop: 16, borderTop: '2px solid #1e40af', paddingTop: 12 }}>
@@ -290,454 +382,40 @@ export default function OrdenForm() {
               </select>
             </div>
             {(form.piletas || []).map((pt, idx) => (
-              <PiletaCard key={idx} pt={pt} idx={idx} piletas={piletas} readOnly={readOnly} updatePileta={updatePileta} removePileta={removePileta} formPiletas={form.piletas} update={update} num={num} />
+              <PiletaCard key={idx} pt={pt as unknown as Record<string, unknown>} idx={idx} piletas={piletas} readOnly={readOnly} updatePileta={updatePileta} removePileta={removePileta} formPiletas={form.piletas as unknown as Record<string, unknown>[]} update={update as (field: string, value: unknown) => void} num={num as (v: unknown) => number} />
             ))}
           </div>
 
-          {/* Panel 3: Presupuesto */}
-          <div className="card">
-            <div className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>PRESUPUESTO</span>
-              <button type="button" onClick={toggleModoUSD}
-                style={{
-                  padding: '4px 12px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', border: '1px solid',
-                  background: modoUSD ? '#059669' : '#f3f4f6', color: modoUSD ? '#fff' : '#374151', borderColor: modoUSD ? '#059669' : '#d1d5db',
-                }}>
-                {modoUSD ? 'Mostrar en ARS' : 'Mostrar en USD'}
-              </button>
-            </div>
+          <PresupuestoPanel
+            form={form}
+            modoUSD={modoUSD}
+            toggleModoUSD={toggleModoUSD}
+            hayUSD={hayUSD}
+            hayAlternativas={hayAlternativas}
+            readOnly={readOnly}
+            saving={saving}
+            handleTrasladoChange={handleTrasladoChange}
+            handleSenaMonedaChange={handleSenaMonedaChange}
+            handleSenaMontoChange={handleSenaMontoChange}
+            handleDolarDiaChange={handleDolarDiaChange}
+            setForm={setForm}
+            update={update as (field: string, value: unknown) => void}
+            num={num as (v: unknown) => number}
+            hidePaymentSection={hayAlternativas}
+            alternativasTop={null}
+            alternativasGrid={alternativasGrid}
+            descuentoBlock={descuentoBlock}
+            onConfirmarPago={handleConfirmarPago}
+            mostrarToggleTitle={true}
+            mostrarToggleColumns={false}
+          />
 
-            {(() => {
-              const dd = Number(form.dolar_dia) || 1;
-              const currencyLabel = modoUSD ? 'USD' : 'ARS';
-              const mostrarUSDCol = hayUSD && !modoUSD;
-              const matsMain = hayAlternativas ? (form.materiales || []).filter((m) => !m.es_alternativa) : (form.materiales || []);
-              const matsAlt = (form.materiales || []).filter((m) => m.es_alternativa);
-
-              return (
-              <div>
-                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              {/* Columna principal */}
-              <div style={{ flex: mostrarUSDCol ? '1 1 280px' : '1 1 100%', fontSize: 13, lineHeight: 1.8 }}>
-                <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: 6, marginBottom: 6 }}>
-                  <span style={{ fontWeight: 700, color: '#6b7280' }}>SUBTOTALES ({currencyLabel})</span>
-                </div>
-                <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: 8, marginBottom: 8 }}>
-                  {(form.detalles_fabricacion || []).filter((d) => Number(d.precio) > 0).map((d, i) => {
-                    const dd2 = Number(form.dolar_dia);
-                    const precioArs = d.moneda === 'ARS' ? Number(d.precio) : (dd2 > 0 ? Number(d.precio) * dd2 : 0);
-                    return (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>{d.concepto === 'OTRA' ? (d.detalle || 'OTRA') : d.concepto}{d.material ? ` - ${d.material}` : ''}{d.m2 > 0 ? ` (${d.m2} m²)` : ''}{(d.largo || 0) > 0 && d.concepto === 'OTRA' ? ` (${d.largo} m)` : ''}{(d.cantidad || 1) > 1 ? ` x${d.cantidad}` : ''}</span>
-                      <span style={{ fontWeight: 600 }}>{modoUSD && dd2 > 0 ? `USD ${(precioArs * (d.cantidad || 1) / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(precioArs * (d.cantidad || 1))}</span>
-                    </div>
-                    );
-                  })}
-                  {(matsMain || []).map((m, i) => {
-                    const dd2 = Number(form.dolar_dia);
-                    const m2 = Number(m.largo || 0) * Number(m.ancho || 0) * (m.cantidad || 1);
-                    const sub = m.moneda === 'ARS' ? m2 * (m.precio_m2 || 0) : (dd2 > 0 ? m2 * (m.precio_m2_usd || 0) * dd2 : 0);
-                    return sub > 0 ? (
-                      <div key={'ma' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>Material: {m.nombre} ({m2.toFixed(3)} m²){(m.cantidad || 1) > 1 ? ` x${m.cantidad}` : ''}</span>
-                        <span style={{ fontWeight: 600 }}>{modoUSD && dd2 > 0 ? `USD ${(sub / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(sub)}</span>
-                      </div>
-                    ) : null;
-                  })}
-                  {(form.piletas || []).map((pt, i) => {
-                    const dd2 = Number(form.dolar_dia);
-                    const precioArs = (pt.moneda || 'ARS') === 'ARS' ? (pt.precio || 0) : (dd2 > 0 ? (pt.precio || 0) * dd2 : 0);
-                    return (
-                    <div key={'pa' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>Pileta {pt.marca} - {pt.modelo}{pt.cantidad > 1 ? ` (x${pt.cantidad})` : ''}</span>
-                      <span style={{ fontWeight: 600 }}>{modoUSD && dd2 > 0 ? `USD ${(precioArs * (pt.cantidad || 1) / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(precioArs * (pt.cantidad || 1))}</span>
-                    </div>
-                    );
-                  })}
-                </div>
-                <div className="form-group" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <label style={{ margin: 0, fontWeight: 600 }}>{modoUSD ? 'Traslado (USD)' : 'Traslado'}</label>
-                  <input type="number" className="input" style={{ width: 130, textAlign: 'right' }}
-                    value={modoUSD && dd > 0 ? (form.traslado / dd).toFixed(2) : form.traslado}
-                    onChange={(e) => handleTrasladoChange(e.target.value, modoUSD ? 'usd' : 'ars')}
-                    disabled={readOnly} />
-                </div>
-                {form.recargo_pct > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', fontSize: 12, color: '#c0392b' }}>
-                  <span>Recargo financiero ({form.cuotas} cuotas - {form.recargo_pct}%)</span>
-                  <span style={{ fontWeight: 700 }}>{modoUSD && dd > 0 ? `USD ${(form.recargo_ars / dd).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(form.recargo_ars || 0)}</span>
-                </div>
-                )}
-                <div style={{ borderTop: form.recargo_pct > 0 ? '1px solid #e5e7eb' : '2px solid #e5e7eb', paddingTop: 6, marginBottom: 4 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 16, fontWeight: 700 }}>TOTAL {currencyLabel}</span>
-                    <span style={{ fontSize: 18, fontWeight: 700, color: modoUSD ? '#059669' : '#dc2626' }}>{modoUSD && dd > 0 ? `USD ${(form.total / dd).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(form.total)}</span>
-                  </div>
-                </div>
-                <div className="form-group" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <label style={{ margin: 0 }}>{modoUSD ? 'Seña recibida (USD)' : 'Seña recibida'}</label>
-                  <div style={{ display: 'flex', borderRadius: 6, border: '1px solid #d1d5db', overflow: 'hidden', width: 180 }}>
-                    <select value={form.sena_moneda || 'ARS'} onChange={(e) => handleSenaMonedaChange(e.target.value)} disabled={readOnly}
-                      style={{ background: '#f3f4f6', borderRight: '1px solid #d1d5db', padding: '4px 6px', fontSize: 12, fontWeight: 700, border: 'none', outline: 'none' }}>
-                      <option value="ARS">ARS</option>
-                      <option value="USD">USD</option>
-                    </select>
-                    <input type="number" className="input" style={{ flex: 1, textAlign: 'right', borderRadius: 0, border: 'none' }}
-                      value={form.sena_moneda === 'USD' ? form.sena_usd : form.sena_recibida}
-                      onChange={(e) => handleSenaMontoChange(e.target.value)}
-                      disabled={readOnly} />
-                  </div>
-                </div>
-                {(mostrarUSDCol || modoUSD) && (
-                <div className="form-group" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-                  <label style={{ margin: 0, fontWeight: 700, fontSize: 14, color: '#1e40af' }}>DÓLAR DEL DÍA</label>
-                  <input type="number" className="input" style={{ width: 130, textAlign: 'right', fontWeight: 700, color: '#1e40af', borderColor: '#93c5fd' }}
-                    value={form.dolar_dia}
-                    onChange={(e) => handleDolarDiaChange(e.target.value)}
-                    disabled={readOnly} />
-                </div>
-                )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-                  <span style={{ fontWeight: 600 }}>Saldo pendiente {currencyLabel}</span>
-                  <span style={{ fontSize: 16, fontWeight: 700, color: modoUSD ? '#059669' : '#1e40af' }}>{modoUSD && dd > 0 ? `USD ${(form.saldo_pendiente / dd).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(form.saldo_pendiente)}</span>
-                </div>
-              </div>
-
-              {mostrarUSDCol && (
-              <div style={{ flex: '1 1 280px', fontSize: 13, lineHeight: 1.8 }}>
-                <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: 6, marginBottom: 6 }}>
-                  <span style={{ fontWeight: 700, color: '#6b7280' }}>SUBTOTALES (USD)</span>
-                </div>
-                <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: 8, marginBottom: 8 }}>
-                  {(form.detalles_fabricacion || []).filter((d) => Number(d.precio) > 0).map((d, i) => {
-                    const dd2 = Number(form.dolar_dia);
-                    const precioUsd = d.moneda === 'USD' ? Number(d.precio) : (dd2 > 0 ? Number(d.precio) / dd2 : 0);
-                    return (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>{d.concepto === 'OTRA' ? (d.detalle || 'OTRA') : d.concepto}{d.material ? ` - ${d.material}` : ''}{d.m2 > 0 ? ` (${d.m2} m²)` : ''}{(d.cantidad || 1) > 1 ? ` x${d.cantidad}` : ''}</span>
-                      <span style={{ fontWeight: 600 }}>USD {(precioUsd * (d.cantidad || 1)).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                    </div>
-                    );
-                  })}
-                  {(matsMain || []).map((m, i) => {
-                    const dd2 = Number(form.dolar_dia);
-                    const m2 = Number(m.largo || 0) * Number(m.ancho || 0) * (m.cantidad || 1);
-                    const sub = m.moneda === 'USD' ? m2 * (m.precio_m2_usd || 0) : (dd2 > 0 ? m2 * (m.precio_m2 || 0) / dd2 : 0);
-                    return sub > 0 ? (
-                      <div key={'mu' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>Material: {m.nombre} ({m2.toFixed(3)} m²){(m.cantidad || 1) > 1 ? ` x${m.cantidad}` : ''}</span>
-                        <span style={{ fontWeight: 600 }}>USD {sub.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
-                      </div>
-                    ) : null;
-                  })}
-                  {(form.piletas || []).map((pt, i) => {
-                    const dd2 = Number(form.dolar_dia);
-                    const precioUsd = (pt.moneda || 'ARS') === 'USD' ? (pt.precio || 0) : (dd2 > 0 ? (pt.precio || 0) / dd2 : 0);
-                    return (
-                    <div key={'pu' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>Pileta {pt.marca} - {pt.modelo}{pt.cantidad > 1 ? ` (x${pt.cantidad})` : ''}</span>
-                      <span style={{ fontWeight: 600 }}>USD {(precioUsd * (pt.cantidad || 1)).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
-                    </div>
-                    );
-                  })}
-                </div>
-                <div className="form-group" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <label style={{ margin: 0, fontWeight: 600 }}>Traslado (USD)</label>
-                  <input type="number" className="input" style={{ width: 130, textAlign: 'right' }}
-                    value={form.traslado_usd}
-                    onChange={(e) => handleTrasladoChange(e.target.value, 'usd')}
-                    disabled={readOnly} />
-                </div>
-                <div style={{ borderTop: '2px solid #e5e7eb', paddingTop: 6, marginBottom: 4 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 16, fontWeight: 700 }}>TOTAL USD</span>
-                    <span style={{ fontSize: 18, fontWeight: 700, color: '#059669' }}>
-                      USD {form.total_usd.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                </div>
-                <div className="form-group" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <label style={{ margin: 0 }}>Seña recibida (USD)</label>
-                  <input type="number" className="input" style={{ width: 130, textAlign: 'right' }}
-                    value={form.sena_usd}
-                    onChange={(e) => handleSenaMontoChange(e.target.value)}
-                    disabled={readOnly} />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-                  <span style={{ fontWeight: 600 }}>Saldo pendiente USD</span>
-                  <span style={{ fontSize: 16, fontWeight: 700, color: '#059669' }}>
-                    USD {form.saldo_pendiente_usd.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-              </div>
-              )}
-                </div>
-
-                {hayAlternativas && (
-                <div style={{ marginTop: 16 }}>
-                  <div style={{ marginBottom: 12, padding: '8px 12px', background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 8 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#1e40af' }}>📋 PRESUPUESTO COMPARATIVO</span>
-                    <span style={{ fontSize: 11, color: '#3b82f6', marginLeft: 8 }}>{matsAlt.length} opciones alternativas</span>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
-                    {matsAlt.map((mat, idx) => {
-                      const letra = String.fromCharCode(65 + idx);
-                      const dd2 = Number(form.dolar_dia);
-                      const m2 = Number(mat.largo || 0) * Number(mat.ancho || 0) * (mat.cantidad || 1);
-                      const costoMat = mat.moneda === 'USD' ? m2 * (mat.precio_m2_usd || 0) : m2 * (mat.precio_m2 || 0);
-                      const costoMatArs = mat.moneda === 'USD' ? (dd2 > 0 ? costoMat * dd2 : 0) : costoMat;
-                      const fijosArsAlt = (form.detalles_fabricacion || []).reduce((s, d) => s + (Number(d.precio) || 0) * (d.cantidad || 1), 0)
-                        + (form.piletas || []).reduce((s, pt) => s + (Number(pt.precio) || 0) * (pt.cantidad || 1), 0)
-                        + (Number(form.traslado) || 0);
-                      const totalArs = costoMatArs + fijosArsAlt;
-                      const mostrarUSDAlt = modoUSD && dd2 > 0;
-                      return (
-                        <div key={idx} style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12, background: '#fafafa', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                          <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                              <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', padding: '2px 8px', background: '#dbeafe', color: '#1e40af', borderRadius: 4 }}>Alternativa {letra}</span>
-                              <span style={{ fontSize: 11, color: '#6b7280' }}>{mat.cantidad || 1} pza. ({m2.toFixed(3)} m²)</span>
-                            </div>
-                            <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', textTransform: 'uppercase', marginBottom: 2 }}>{mat.nombre}</div>
-                            {mat.moneda === 'USD' && <div style={{ fontSize: 11, color: '#059669', fontWeight: 600, marginBottom: 8 }}>USD {costoMat.toFixed(2)}</div>}
-                            <div style={{ borderTop: '1px dashed #d1d5db', paddingTop: 6, fontSize: 12, color: '#6b7280', marginBottom: 8 }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span>Material:</span>
-                                <span style={{ fontWeight: 600, color: '#374151' }}>{mostrarUSDAlt ? `USD ${(costoMatArs / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `$${costoMatArs.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}</span>
-                              </div>
-                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span>Trabajos + Piletas + Traslado:</span>
-                                <span style={{ fontWeight: 600, color: '#374151' }}>{mostrarUSDAlt ? `USD ${(fijosArsAlt / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `$${fijosArsAlt.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}</span>
-                              </div>
-                            </div>
-                          </div>
-                          <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 8, textAlign: 'center', background: '#fff', borderRadius: 6, padding: 8 }}>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase' }}>Total alternativa {mostrarUSDAlt ? '(USD)' : ''}</div>
-                            <div style={{ fontSize: 18, fontWeight: 900, color: '#dc2626' }}>{mostrarUSDAlt ? `USD ${(totalArs / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `$${Math.round(totalArs).toLocaleString('es-AR')}`}</div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div style={{ fontSize: 10, color: '#9ca3af', textAlign: 'center', marginTop: 12, fontStyle: 'italic' }}>
-                    * Todos los totales incluyen la misma configuraci&oacute;n de trabajos, piletas y traslados.
-                  </div>
-                </div>
-                )}
-              </div>
-              );
-            })()}
-
-            <div>
-            <div style={{ marginTop: 12, borderTop: '1px solid #e5e7eb', paddingTop: 12 }}>
-              <div style={{ marginTop: 12, padding: '10px 14px', background: form.saldo_pagado ? '#d1fae5' : '#fef9c3', borderRadius: 8, border: `1px solid ${form.saldo_pagado ? '#6ee7b7' : '#fde68a'}` }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <span style={{ fontWeight: 600, fontSize: 13, color: form.saldo_pagado ? '#065f46' : '#92400e' }}>
-                      {form.saldo_pagado ? '✓ Saldo cobrado' : '⏳ Saldo pendiente de cobro'}
-                    </span>
-                    {form.saldo_pagado && form.fecha_pago_saldo && (
-                      <div style={{ fontSize: 11, color: '#065f46', marginTop: 2 }}>Fecha: {form.fecha_pago_saldo}</div>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (!id) return;
-                      const nuevo = !form.saldo_pagado;
-                      const hoy = new Date().toISOString().split('T')[0];
-                      const payload: Record<string, unknown> = {
-                        saldo_pagado: nuevo,
-                        fecha_pago_saldo: nuevo ? hoy : null,
-                      };
-                      if (nuevo) {
-                        payload.sena_recibida = Number(form.total);
-                        payload.sena_moneda = 'ARS';
-                        payload.saldo_pendiente = 0;
-                        payload.sena_usd = Number(form.total_usd);
-                        payload.saldo_pendiente_usd = 0;
-                      }
-                      await updateOrden(id as string, payload);
-                      setForm((prev) => ({ ...prev, ...payload, fecha_pago_saldo: nuevo ? hoy : '' } as EntityFormState));
-                    }}
-                    style={{
-                      padding: '6px 14px', borderRadius: 6, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13,
-                      background: form.saldo_pagado ? '#ef4444' : '#059669', color: 'white',
-                    }}
-                    disabled={saving}
-                  >
-                    {form.saldo_pagado ? 'Deshacer' : '✓ Confirmar pago'}
-                  </button>
-                </div>
-              </div>
-              {(() => { const dd = Number(form.dolar_dia); const currencyLabel = modoUSD && dd > 0 ? 'USD' : 'ARS'; const mostrarUSDCol = hayUSD && !modoUSD; return (
-              <div style={{ marginTop: 12, padding: '10px 14px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-around' }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>TOTAL {currencyLabel}</div>
-                    <div style={{ fontSize: 22, fontWeight: 700, color: modoUSD ? '#059669' : '#dc2626' }}>{modoUSD && dd > 0 ? `USD ${(form.total / dd).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(form.total)}</div>
-                  </div>
-                  {mostrarUSDCol && (
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>TOTAL USD</div>
-                    <div style={{ fontSize: 22, fontWeight: 700, color: '#059669' }}>
-                      USD {form.total_usd.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                    </div>
-                  </div>
-                  )}
-                </div>
-              </div>
-              ); })()}
-              {form.recargo_pct > 0 && form.cuotas > 1 && (
-                <div style={{ fontSize: 12, color: '#c0392b', fontWeight: 600, marginTop: 8, marginBottom: 8, textAlign: 'center' }}>
-                  {form.cuotas} cuotas mensuales fijas de {formatCurrency(Math.round((form.total || 0) / (form.cuotas || 1)))}
-                </div>
-              )}
-              {form.descuento_porcentaje > 0 && (() => {
-                const descPct = form.descuento_porcentaje || 0;
-                const recargoPct = form.recargo_pct || 0;
-                const totalActual = form.total || 0;
-
-                const totalSinRecargo = recargoPct > 0
-                  ? Math.round(totalActual / (1 + recargoPct / 100))
-                  : totalActual;
-
-                const precioBase = Math.round(totalSinRecargo / (1 - descPct / 100));
-
-                const precioLista = recargoPct > 0
-                  ? precioBase + Math.round(precioBase * recargoPct / 100)
-                  : precioBase;
-
-                const descuentoEnPesos = Math.round(precioLista * descPct / 100);
-
-                return (
-                <div style={{ marginTop: 12, padding: '10px 14px', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, fontSize: 13 }}>
-                  <div style={{ marginBottom: 8, padding: '6px 10px', background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 6, fontSize: 12, fontWeight: 700, color: '#92400e', textAlign: 'center' }}>
-                    📌 Este pedido se guardó con un <span style={{ fontSize: 14 }}>{descPct}%</span> de descuento aplicado
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0', borderBottom: '1px solid #dcfce7', fontWeight: 700, color: '#374151' }}>
-                    <span>Precio Lista (Original)</span>
-                    <span>{formatCurrency(precioLista)}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0', fontWeight: 700, color: '#dc2626' }}>
-                    <span>Descuento Aplicado</span>
-                    <span>{descPct}% OFF (-{formatCurrency(descuentoEnPesos)})</span>
-                  </div>
-                </div>
-                );
-              })()}
-              <div className="form-group" style={{ marginTop: 8 }}>
-                <label>Forma de pago</label>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-                  <select className="input" style={{ flex: 1 }} value={form.forma_pago} onChange={(e) => {
-                    const newVal = e.target.value;
-                    update('forma_pago', newVal);
-                    if (newVal !== 'EFECTIVO') {
-                      setForm(prev => ({ ...prev, descuento_porcentaje: 0, descuento_monto_fijo: 0 }));
-                    }
-                  }} disabled={readOnly}>
-                    <option value="">Seleccionar...</option>
-                    <option value="EFECTIVO">EFECTIVO</option>
-                    <option value="TRANSFERENCIA BANCARIA">TRANSFERENCIA BANCARIA</option>
-                    <option value="TARJETA DE DÉBITO">TARJETA DE DÉBITO</option>
-                    <option value="TARJETA DE CRÉDITO">TARJETA DE CRÉDITO</option>
-                  </select>
-                  {form.forma_pago === 'TARJETA DE CRÉDITO' && (
-                    <select className="input" style={{ width: 160 }} value={form.cuotas || 1} onChange={(e) => update('cuotas', num(e.target.value))} disabled={readOnly}>
-                      {Array.from({ length: 12 }, (_, i) => i + 1).map((c) => {
-                        const pct = c <= 2 ? 0 : c * 5;
-                        return <option key={c} value={c}>{c} cuota{c > 1 ? 's' : ''} ({pct}%)</option>;
-                      })}
-                    </select>
-                  )}
-                </div>
-              </div>
-              {form.forma_pago === 'EFECTIVO' && (
-              <div style={{ marginTop: 8, padding: '8px 10px', background: '#fffbe6', border: '1px solid #fde68a', borderRadius: 8 }}>
-                <label style={{ fontSize: 12, fontWeight: 700, color: '#92400e', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
-                  🔒 Descuento Comercial (Solo Vendedor)
-                </label>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>%</span>
-                    <input type="number" className="input" style={{ width: 70, textAlign: 'right' }}
-                      placeholder="0" min="0" max="100"
-                      value={form.descuento_porcentaje || ''}
-                      onChange={(e) => {
-                        const val = Number(e.target.value) || 0;
-                        setForm({ ...form, descuento_porcentaje: val, descuento_monto_fijo: val > 0 ? 0 : form.descuento_monto_fijo });
-                      }}
-                      disabled={readOnly} />
-                  </div>
-                  <span style={{ fontSize: 12, color: '#9ca3af' }}>o</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>$</span>
-                    <input type="number" className="input" style={{ width: 100, textAlign: 'right' }}
-                      placeholder="Monto fijo"
-                      value={form.descuento_monto_fijo || ''}
-                      onChange={(e) => {
-                        const val = Number(e.target.value) || 0;
-                        setForm({ ...form, descuento_monto_fijo: val, descuento_porcentaje: val > 0 ? 0 : form.descuento_porcentaje });
-                      }}
-                      disabled={readOnly} />
-                  </div>
-                </div>
-                <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 4, fontStyle: 'italic' }}>
-                  Este descuento modifica el TOTAL ARS final pero no se muestra en el PDF del cliente.
-                </div>
-              </div>
-              )}
-              <div className="form-group" style={{ marginTop: 8 }}>
-                <label>Fecha de entrega estimada</label>
-                <input type="date" className="input" value={form.fecha_entrega || ''} onChange={(e) => update('fecha_entrega', e.target.value)} disabled={readOnly} />
-              </div>
-            </div>
-            </div>
-          </div>
-
-          {/* Panel 4: Aprobación */}
-          <div className="card">
-            <h3 className="section-title">APROBACIÓN DEL CLIENTE</h3>
-            <p style={{ fontSize: 13, color: '#475569', marginBottom: 12 }}>
-              El cliente aprueba el diseño y presupuesto.
-            </p>
-            <FirmaCanvas
-              value={form.firma_cliente}
-              onChange={(v: unknown) => update('firma_cliente', v)}
-              label="Firma del cliente"
-              height={140}
-              readOnly={readOnly}
-            />
-            <div className="form-group" style={{ marginTop: 8 }}>
-              <label>Fecha de aprobación</label>
-              <input type="date" className="input" value={form.fecha_aprobacion || ''} onChange={(e) => update('fecha_aprobacion', e.target.value)} disabled={readOnly} />
-            </div>
-          </div>
+          <AprobacionSection form={form} readOnly={readOnly} update={update as (field: string, value: unknown) => void} />
         </div>
 
-        {/* ===== OBSERVACIONES IMPORTANTES ===== */}
-        <div className="card" style={{ marginTop: 16, background: '#f9fafb', border: '1px solid #b91c1c' }}>
-          <h3 className="section-title" style={{ color: '#b91c1c' }}>OBSERVACIONES IMPORTANTES PARA EL CLIENTE</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 14, color: '#374151', marginBottom: 12 }}>
-            <div>✓ No se realizan instalaciones.</div>
-            <div>✓ No se realizan entregas con lluvia.</div>
-            <div>✓ La descarga se realiza al pie del camión.</div>
-            <div>✓ Debe haber personas para descargar.</div>
-            <div>✓ El traslado lo realiza únicamente el fletero.</div>
-          </div>
-          <div className="form-group">
-            <label style={{ fontWeight: 600 }}>Observaciones adicionales</label>
-            <textarea className="input" rows={3} value={form.observaciones_importantes} onChange={(e) => update('observaciones_importantes', e.target.value)} placeholder="Agregar observaciones adicionales..." disabled={readOnly} />
-          </div>
-        </div>
+        <ObservacionesSection form={form} readOnly={readOnly} update={update as (field: string, value: unknown) => void} />
 
-        {/* ===== BOTONES FINALES ===== */}
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 16 }}>
-          <button type="button" className="btn btn-outline" onClick={() => navigate('/admin/ordenes')}>Cancelar</button>
-          <button type="submit" className="btn btn-primary" disabled={saving} style={{ background: '#b91c1c' }}>
-            <Save size={16} /> {saving ? 'GUARDANDO...' : 'GUARDAR'}
-          </button>
-        </div>
+        <FormFooter saving={saving} onCancel={() => navigate('/admin/ordenes')} />
       </form>
 
       <ConfirmDialog isOpen={deleteConfirm} onClose={() => setDeleteConfirm(false)} onConfirm={handleDelete} title="Eliminar orden" message="¿Estás seguro de eliminar esta orden de trabajo?" />

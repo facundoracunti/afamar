@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import MainLayout from './layouts/MainLayout';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import Dashboard from './pages/DashboardPage';
@@ -24,12 +24,31 @@ import CalculadoraPlaca from './pages/calculadora/CalculadoraPage';
 import CajaDiaria from './pages/caja/CajaDiariaPage';
 import CajaHistorial from './pages/caja/CajaHistorialPage';
 
+function PresupuestoRedirect() {
+  const splat = useParams()['*'];
+  return <Navigate to={splat ? `/admin/presupuestos/${splat}` : '/admin/presupuestos'} replace />;
+}
+function OrdenRedirect() {
+  const splat = useParams()['*'];
+  return <Navigate to={splat ? `/admin/ordenes/${splat}` : '/admin/ordenes'} replace />;
+}
+function POnlineRedirect() {
+  const splat = useParams()['*'];
+  return <Navigate to={splat ? `/admin/presupuestos-online/${splat}` : '/admin/presupuestos-online'} replace />;
+}
+
 function App() {
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
         <Route index element={<PublicPage />} />
         <Route path="login" element={<LoginPage />} />
+        <Route path="presupuestos/*" element={<PresupuestoRedirect />} />
+        <Route path="ordenes/*" element={<OrdenRedirect />} />
+        <Route path="presupuestos-online/*" element={<POnlineRedirect />} />
+        <Route path="stock-piletas" element={<Navigate to="/admin/stock-piletas" replace />} />
+        <Route path="caja/diaria" element={<Navigate to="/admin/caja/diaria" replace />} />
+        <Route path="caja" element={<Navigate to="/admin/caja/diaria" replace />} />
         <Route element={<ProtectedRoute />}>
           <Route path="admin" element={<MainLayout />}>
             <Route index element={<Dashboard />} />
