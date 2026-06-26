@@ -1,7 +1,7 @@
 # AFAMAR - Mármoles & Granitos
 
 ## Stack
-- **Backend:** Python 3.14+, FastAPI, SQLAlchemy, SQLite
+- **Backend:** Python 3.14+, FastAPI, SQLAlchemy, Alembic, SQLite
 - **Frontend:** React 18, React Router 6, Vite 6, Axios, Recharts, Lucide React
 
 ## Estructura del proyecto
@@ -1317,6 +1317,42 @@ Todas las rutas CRUD están bajo `<Route path="admin" element={<MainLayout />}>`
 
 ### Convención importante
 Todo `navigate()` dentro de páginas protegidas debe usar el prefijo `/admin/` (ej: `navigate('/admin/presupuestos/nuevo')`). El sidebar ya lo maneja via `PREFIX`.
+
+## Sesión 26-Jun-2026 — Drag/selection fixes croquis + Alembic setup + seed_admin
+
+### 1. Croquis: drag no funcionaba en rects grandes y textos congelados
+- **Causa raíz drag roto**: `handleMouseDown` en `CanvasArea.tsx` llamaba `setSid()` en el mismo evento que iniciaba el drag de Konva. La re-renderización de React montaba el Transformer y mataba el drag antes de arrancar.
+- **Fix CanvasArea.tsx**: Separó selección (`onClick`) de drag (`onMouseDown`).
+  - `handleStageClick` (Stage onClick): solo deselecciona al clicar espacio vacío.
+  - `handleShapeSelect` (prop): llama `setSid(id)`, se dispara via `onClick`/`onTap` del shape individual.
+  - `handleMouseDown` (Stage onMouseDown): ya no interfiere con tool `'select'` (return early).
+- **Fix RectangleShape.tsx**: `fill={element.fill || 'transparent'}` — sin fill, Konva solo detecta clicks en el trazo del borde. Con `'transparent'` como fallback, toda la superficie es cliqueable.
+- **Fix TextShape.tsx**: Envuelto en `<Group>` con `<Rect transparent>` para hit detection + `<Text listening={false}>`. `rotation`, `id`, `draggable` y eventos drag/transform en el Group. Width/height estimados para cubrir el área del texto.
+- **Fix useCroquisState.ts**: `updateElementPosition` cambiado de `offsetX/offsetY` (se sumaban como offset → posición se duplicaba y el elemento desaparecía) a `absX/absY` (se asignan como posición absoluta de Konva).
+- **Archivos**: `CanvasArea.tsx`, `RectangleShape.tsx`, `TextShape.tsx`, `LineShape.tsx`, `useCroquisState.ts`
+
+### 2. Alembic instalado y configurado
+- Instalado `alembic>=1.18.0`, agregado a `requirements.txt`.
+- `alembic init alembic` → creado `alembic/` + `alembic.ini`.
+- `alembic.ini`: `sqlalchemy.url = sqlite:///./afamar.db`.
+- `alembic/env.py`: `import app.models`, `target_metadata = Base.metadata`.
+- Agregados `User` y `PresupuestoOnline` faltantes a `app/models/__init__.py`.
+- Generada migración inicial vacía (`alembic revision --autogenerate -m "initial"`) porque la DB ya tenía todas las tablas via `create_all`. Luego `alembic stamp head`.
+
+### 3. Script seed_admin.py
+- Creado `backend/seed_admin.py` (SQLAlchemy directo, no HTTP).
+- Usuario: `admin` / `admin123` / `admin@afamar.com.ar`.
+- `python seed_admin.py` — crea si no existe.
+- `python seed_admin.py --force` — resetea password aunque exista.
+
+### Comandos Alembic útiles
+```bash
+python -m alembic revision --autogenerate -m "descripcion"   # Nueva migración
+python -m alembic upgrade head                                 # Aplicar migraciones
+python -m alembic downgrade -1                                 # Revertir última
+python -m alembic history                                      # Ver historial
+python seed_admin.py                                           # Sembrar admin
+```
 
 ## Directivas de TypeScript Estricto y Arquitectura Obligatoria
 

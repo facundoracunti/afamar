@@ -7,10 +7,12 @@
     "axios": "^1.7.2",
     "html2canvas": "^1.4.1",
     "jspdf": "^2.5.1",
+    "konva": "^9.3.22",
     "lucide-react": "^0.395.0",
     "react": "^18.3.1",
     "react-beautiful-dnd": "^13.1.1",
     "react-dom": "^18.3.1",
+    "react-konva": "^18.2.16",
     "react-router-dom": "^6.23.1",
     "recharts": "^2.12.7",
     "signature_pad": "^5.0.3"

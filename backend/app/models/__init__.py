@@ -7,3 +7,5 @@ from app.models.configuracion import Configuracion
 from app.models.price_history import PriceHistory
 from .medicion import Medicion
 from .caja import CajaDiaria, MovimientoCaja
+from .user import User
+from .presupuesto_online import PresupuestoOnline
