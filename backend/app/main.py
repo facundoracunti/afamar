@@ -9,8 +9,6 @@ from app.database import engine, Base
 import app.models  # noqa: F401 — ensure all models are loaded for create_all
 
 settings = get_settings()
-
-Base.metadata.create_all(bind=engine)
 os.makedirs("uploads", exist_ok=True)
 
 app = FastAPI(title=settings.APP_NAME, version=settings.VERSION)
@@ -78,8 +76,17 @@ app.include_router(trabajos_realizados.router, prefix="/api/trabajos-realizados"
 
 
 @app.on_event("startup")
-def seed_admin_on_startup():
-    """Idempotent admin seed — runs after the app is ready, not at module level."""
+def on_startup():
+    """Initialize schema and seed admin user."""
+    # Development: let SQLAlchemy create tables for quick iteration.
+    # Production: Alembic is the sole schema manager (ENV=production).
+    if settings.ENV != "production":
+        Base.metadata.create_all(bind=engine)
+
+    _seed_admin_if_empty()
+
+
+def _seed_admin_if_empty():
     from app.database import SessionLocal
     from app.models.user import User
     from app.services.auth_service import hash_password

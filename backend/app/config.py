@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7
     UPLOAD_DIR: str = "uploads"
+    ENV: str = "development"
     
     # WhatsApp
     WHATSAPP_API_URL: str = ""
