@@ -12,6 +12,7 @@ class MaterialBase(BaseModel):
     moneda: Optional[str] = "ARS"
     proveedor: Optional[str] = None
     stock_disponible: Optional[int] = 0
+    foto: Optional[str] = None
     observaciones: Optional[str] = None
 
 class MaterialCreate(MaterialBase):
@@ -27,6 +28,7 @@ class MaterialUpdate(BaseModel):
     moneda: Optional[str] = None
     proveedor: Optional[str] = None
     stock_disponible: Optional[int] = None
+    foto: Optional[str] = None
     observaciones: Optional[str] = None
 
 class Material(MaterialBase):

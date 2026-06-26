@@ -23,6 +23,8 @@ import MedicionForm from './pages/mediciones/MedicionFormPage';
 import CalculadoraPlaca from './pages/calculadora/CalculadoraPage';
 import CajaDiaria from './pages/caja/CajaDiariaPage';
 import CajaHistorial from './pages/caja/CajaHistorialPage';
+import TrabajosRealizadosList from './pages/trabajosRealizados/TrabajosRealizadosListPage';
+import TrabajosRealizadosForm from './pages/trabajosRealizados/TrabajosRealizadosFormPage';
 
 function PresupuestoRedirect() {
   const splat = useParams()['*'];
@@ -76,6 +78,9 @@ function App() {
             <Route path="caja/historial" element={<CajaHistorial />} />
             <Route path="reportes" element={<Reportes />} />
             <Route path="configuracion" element={<Configuracion />} />
+            <Route path="trabajos-realizados" element={<TrabajosRealizadosList />} />
+            <Route path="trabajos-realizados/nuevo" element={<TrabajosRealizadosForm />} />
+            <Route path="trabajos-realizados/:id" element={<TrabajosRealizadosForm />} />
           </Route>
         </Route>
       </Routes>

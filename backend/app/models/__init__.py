@@ -9,3 +9,4 @@ from .medicion import Medicion
 from .caja import CajaDiaria, MovimientoCaja
 from .user import User
 from .presupuesto_online import PresupuestoOnline
+from .trabajo_realizado import TrabajoRealizado

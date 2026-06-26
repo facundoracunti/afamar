@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Save } from 'lucide-react';
-import { getMaterial, createMaterial, updateMaterial, getConfig } from '../../services/api';
+import { Save, Camera, Trash2 } from 'lucide-react';
+import { getMaterial, createMaterial, updateMaterial, getConfig, uploadMaterialFoto } from '../../services/api';
 import { categoriasMaterial } from '../../utils/formatters';
-import type { MaterialFormData } from '../../types/material';
+import type { MaterialFormData, Material } from '../../types/material';
 import type { Configuracion } from '../../types/configuracion';
 import Loading from '../../components/common/Loading';
 
@@ -18,6 +18,10 @@ export default function MaterialForm() {
     nombre: '', categoria: '', color: '', espesor_disponible: '',
     precio_m2: 0, precio_m2_usd: 0, moneda: 'ARS', proveedor: '', stock_disponible: 0, observaciones: '',
   });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fotoPreview, setFotoPreview] = useState<string | null>(null);
+  const [existingFoto, setExistingFoto] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     getConfig().then((res) => {
@@ -27,7 +31,7 @@ export default function MaterialForm() {
     });
     if (id) {
       getMaterial(id).then((res) => {
-        const d = res.data;
+        const d = res.data as Material;
         setForm({
           nombre: d.nombre || '', categoria: d.categoria || '', color: d.color || '',
           espesor_disponible: d.espesor_disponible || '',
@@ -36,10 +40,32 @@ export default function MaterialForm() {
           proveedor: d.proveedor || '',
           stock_disponible: d.stock_disponible || 0, observaciones: d.observaciones || '',
         });
+        if (d.foto) setExistingFoto(d.foto);
         setLoading(false);
       });
     }
   }, [id]);
+
+  useEffect(() => {
+    return () => {
+      if (fotoPreview) URL.revokeObjectURL(fotoPreview);
+    };
+  }, [fotoPreview]);
+
+  const handleFotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (fotoPreview) URL.revokeObjectURL(fotoPreview);
+    setSelectedFile(file);
+    setFotoPreview(URL.createObjectURL(file));
+  };
+
+  const handleRemoveFoto = () => {
+    if (fotoPreview) URL.revokeObjectURL(fotoPreview);
+    setSelectedFile(null);
+    setFotoPreview(null);
+    if (fileRef.current) fileRef.current.value = '';
+  };
 
   const handlePrecioArsChange = (value: number) => {
     const ars = Number(value) || 0;
@@ -68,10 +94,16 @@ export default function MaterialForm() {
     e.preventDefault();
     setSaving(true);
     try {
+      let materialId: string | number;
       if (isEdit) {
         await updateMaterial(id as string, form as unknown as Record<string, unknown>);
+        materialId = id as string;
       } else {
-        await createMaterial(form as unknown as Record<string, unknown>);
+        const res = await createMaterial(form as unknown as Record<string, unknown>);
+        materialId = (res.data as Material).id;
+      }
+      if (selectedFile) {
+        await uploadMaterialFoto(materialId, selectedFile);
       }
       navigate('/admin/materiales');
     } catch (err) {
@@ -82,6 +114,8 @@ export default function MaterialForm() {
   };
 
   if (loading) return <Loading />;
+
+  const displayUrl = fotoPreview || (existingFoto ? `/${existingFoto}` : null);
 
   return (
     <div>
@@ -128,6 +162,36 @@ export default function MaterialForm() {
             <div className="form-group"><label>Stock disponible</label><input className="input" type="number" min="0" value={form.stock_disponible} onChange={(e) => setForm({ ...form, stock_disponible: Number(e.target.value) })} /></div>
           </div>
           <div className="form-group"><label>Observaciones</label><textarea className="input" rows={3} value={form.observaciones} onChange={(e) => setForm({ ...form, observaciones: e.target.value })} /></div>
+
+          <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 20, marginTop: 20 }}>
+            <label style={{ fontWeight: 600, display: 'block', marginBottom: 12 }}>Foto del Material</label>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={handleFotoSelect}
+            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              {displayUrl ? (
+                <div style={{ position: 'relative', width: 140, height: 140, borderRadius: 8, overflow: 'hidden', border: '1px solid #e2e8f0', flexShrink: 0 }}>
+                  <img src={displayUrl} alt="Vista previa" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <button type="button" onClick={handleRemoveFoto}
+                    style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: 4, color: '#fff', cursor: 'pointer', padding: '2px 4px', display: 'flex', alignItems: 'center' }}>
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ) : (
+                <div style={{ width: 140, height: 140, borderRadius: 8, border: '2px dashed #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, background: '#f8fafc' }}>
+                  <Camera size={32} color="#94a3b8" />
+                </div>
+              )}
+              <button type="button" className="btn btn-outline" onClick={() => fileRef.current?.click()}>
+                <Camera size={16} /> {existingFoto || fotoPreview ? 'Cambiar Foto' : 'Seleccionar Foto'}
+              </button>
+            </div>
+            {selectedFile && <p style={{ fontSize: 12, color: '#64748b', marginTop: 8 }}>{selectedFile.name}</p>}
+          </div>
 
           <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24 }}>
             <button type="button" className="btn btn-outline" onClick={() => navigate('/admin/materiales')}>Cancelar</button>

@@ -6,3 +6,11 @@ export const createMaterial = (data: Record<string, unknown>) => api.post('/mate
 export const updateMaterial = (id: number | string, data: Record<string, unknown>) => api.put(`/materiales/${id}`, data);
 export const deleteMaterial = (id: number | string) => api.delete(`/materiales/${id}`);
 export const getPriceHistory = (id: number | string) => api.get(`/materiales/${id}/price-history`);
+
+export const uploadMaterialFoto = (id: number | string, file: File) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return api.post(`/materiales/${id}/upload-foto`, formData, {
+    headers: { 'Content-Type': undefined },
+  });
+};

@@ -4,6 +4,13 @@ import { Container } from "../components/ui/Container";
 import Modal from "../components/common/Modal";
 import apiClient from "../services/apiClient";
 
+
+interface PortfolioItem {
+  id: number;
+  titulo: string;
+  foto?: string;
+}
+
 const slides = [
   {
     title: "Transformamos tus espacios",
@@ -45,22 +52,18 @@ const materials = [
   },
 ];
 
-const fallbackPortfolio = [
-  { image: "/assets/portfolio/portfolio-details-1.jpg" },
-];
-
 export default function PublicPage() {
   const [activeSlide, setActiveSlide] = useState(0);
   const [modalImg, setModalImg] = useState<string | null>(null);
-  const [portfolioItems, setPortfolioItems] = useState<{ image: string }[]>(fallbackPortfolio);
+  const [portfolioItems, setPortfolioItems] = useState<PortfolioItem[]>([]);
   const [portfolioLoading, setPortfolioLoading] = useState(true);
 
   useEffect(() => {
     setPortfolioLoading(true);
-    apiClient.get("/presupuestos-online?limit=12").then(() => {
-      setPortfolioItems(fallbackPortfolio);
+    apiClient.get("/trabajos-realizados").then((res) => {
+      setPortfolioItems(res.data || []);
     }).catch(() => {
-      setPortfolioItems(fallbackPortfolio);
+      setPortfolioItems([]);
     }).finally(() => setPortfolioLoading(false));
   }, []);
 
@@ -204,16 +207,19 @@ export default function PublicPage() {
             <div className={styles.portfolio__grid}>
               {portfolioItems.map((item, i) => (
                 <div
-                  key={i}
+                  key={item.id}
                   className={styles.portfolio__card}
-                  style={{ background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" }}
-                  onClick={() => setModalImg(item.image)}
+                  style={item.foto
+                    ? { backgroundImage: `url(/${item.foto})` }
+                    : { background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" }
+                  }
+                  onClick={() => item.foto && setModalImg(`/${item.foto}`)}
                   role="button"
                   tabIndex={0}
-                  onKeyDown={(e) => { if (e.key === "Enter") setModalImg(item.image); }}
+                  onKeyDown={(e) => { if (e.key === "Enter" && item.foto) setModalImg(`/${item.foto}`); }}
                 >
                   <div className={styles.portfolio__overlay}>
-                    <span>Trabajo {i + 1}</span>
+                    <span>{item.titulo}</span>
                   </div>
                 </div>
               ))}
@@ -221,9 +227,15 @@ export default function PublicPage() {
           )}
 
           <Modal isOpen={!!modalImg} onClose={() => setModalImg(null)} title="Producto">
-            <div style={{ padding: "2rem", textAlign: "center", color: "#666" }}>
-              <p>Imagen no disponible</p>
-            </div>
+            {modalImg && (
+              <div style={{ padding: "1rem", textAlign: "center" }}>
+                <img
+                  src={modalImg}
+                  alt="Producto"
+                  style={{ maxWidth: "100%", maxHeight: "70vh", borderRadius: "8px" }}
+                />
+              </div>
+            )}
           </Modal>
         </Container>
       </section>

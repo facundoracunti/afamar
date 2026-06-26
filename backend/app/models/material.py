@@ -15,5 +15,6 @@ class Material(Base):
     moneda = Column(String(5), default="ARS")  # ARS o USD
     proveedor = Column(String(255))
     stock_disponible = Column(Integer, default=0)
+    foto = Column(String(512), nullable=True)
     observaciones = Column(Text)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)

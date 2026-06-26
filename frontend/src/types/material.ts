@@ -9,6 +9,7 @@ export interface Material {
   moneda: 'ARS' | 'USD';
   proveedor?: string;
   stock_disponible?: number;
+  foto?: string;
   observaciones?: string;
   created_at?: string;
 }

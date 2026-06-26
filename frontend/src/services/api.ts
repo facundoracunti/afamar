@@ -19,7 +19,7 @@ export {
 } from './ordenes';
 export {
   getMateriales, getMaterial, createMaterial, updateMaterial, deleteMaterial,
-  getPriceHistory,
+  getPriceHistory, uploadMaterialFoto,
 } from './materiales';
 export {
   getPiletas, getPileta, createPileta, updatePileta, deletePileta,
@@ -29,6 +29,11 @@ export {
   getMediciones, getMedicion, createMedicion, updateMedicion, deleteMedicion,
 } from './mediciones';
 export { getConfig, getConfigByKey, updateConfig, uploadLogo } from './configuracion';
+export {
+  getTrabajosRealizados, getTrabajoRealizado,
+  createTrabajoRealizado, updateTrabajoRealizado, deleteTrabajoRealizado,
+  uploadTrabajoFoto,
+} from './trabajosRealizados';
 export {
   getReportePresupuestos, getReporteOrdenes,
   getVentasMensuales, getMaterialesMasUsados,

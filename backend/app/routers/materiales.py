@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.database import get_db
 from app.models.material import Material
 from app.schemas.material import MaterialCreate, MaterialUpdate, Material as MaterialSchema, PriceHistorySchema
 from app.services.material_service import MaterialService
-from app.services.exceptions import NotFoundError
+from app.services.exceptions import NotFoundError, ValidationError
 
 router = APIRouter()
 
@@ -60,3 +60,18 @@ def eliminar_material(material_id: int, service: MaterialService = Depends(_get_
 @router.get("/{material_id}/price-history", response_model=List[PriceHistorySchema])
 def price_history(material_id: int, service: MaterialService = Depends(_get_service)):
     return service.price_history(material_id)
+
+
+@router.post("/{material_id}/upload-foto", response_model=MaterialSchema)
+def upload_foto(
+    material_id: int,
+    file: UploadFile = File(...),
+    service: MaterialService = Depends(_get_service),
+):
+    try:
+        service.upload_foto(material_id, file)
+        return service.obtener(material_id)
+    except NotFoundError as e:
+        raise HTTPException(404, str(e))
+    except ValidationError as e:
+        raise HTTPException(400, str(e))

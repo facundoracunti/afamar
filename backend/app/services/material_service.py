@@ -1,7 +1,13 @@
+import os
+import uuid
 from typing import Optional, List
 from sqlalchemy.orm import Session
+from fastapi import UploadFile
 from app.repositories.material import MaterialRepository
-from app.services.exceptions import NotFoundError
+from app.services.exceptions import NotFoundError, ValidationError
+from app.config import get_settings
+
+ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 
 class MaterialService:
@@ -51,3 +57,34 @@ class MaterialService:
 
     def price_history(self, material_id: int):
         return self.repo.get_price_history(material_id)
+
+    def upload_foto(self, material_id: int, file: UploadFile) -> str:
+        if file.content_type not in ALLOWED_MIME_TYPES:
+            raise ValidationError("Formato de archivo no permitido. Use jpg, png o webp.")
+
+        material = self.repo.get(material_id)
+        if not material:
+            raise NotFoundError("Material", material_id)
+
+        if material.foto:
+            old_path = os.path.join(
+                get_settings().UPLOAD_DIR, "materiales", os.path.basename(material.foto)
+            )
+            if os.path.exists(old_path):
+                os.remove(old_path)
+
+        target_dir = os.path.join(get_settings().UPLOAD_DIR, "materiales")
+        os.makedirs(target_dir, exist_ok=True)
+
+        ext = os.path.splitext(file.filename or "foto.jpg")[1]
+        unique_name = f"material_{material_id}_{uuid.uuid4().hex[:8]}{ext}"
+        relative_path = f"uploads/materiales/{unique_name}"
+
+        content = file.file.read()
+        with open(os.path.join(get_settings().UPLOAD_DIR, "materiales", unique_name), "wb") as f:
+            f.write(content)
+
+        material.foto = relative_path
+        self.repo.db.commit()
+        self.repo.db.refresh(material)
+        return relative_path
