@@ -7,6 +7,9 @@ import CurrencyDisplay from '../../components/ui/CurrencyDisplay';
 import EstadoBadge from '../../components/ui/EstadoBadge';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Loading from '../../components/common/Loading';
+import styles from './WorkOrdersListPage.module.css';
+
+const s = styles as unknown as Record<string, string>;
 
 export default function OrdenesList() {
   const [searchParams] = useSearchParams();
@@ -57,26 +60,36 @@ export default function OrdenesList() {
   };
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 } as React.CSSProperties}>
-        <h1 style={{ fontSize: 24, fontWeight: 700 } as React.CSSProperties}>Órdenes de Trabajo</h1>
-        <button className="btn btn-primary" onClick={() => navigate('/admin/ordenes/nuevo')}>
-          <Plus size={16} /> Nueva Orden
-        </button>
+    <div className={s['workOrders']}>
+      <div className={s['workOrders__header']}>
+        <h1 className={s['workOrders__title']}>Ordenes de Trabajo</h1>
+        <div className={s['workOrders__actions'] || ''}>
+          <button className="btn btn-primary" onClick={() => navigate('/admin/work-orders/new')}>
+            <Plus size={16} /> Nueva Orden
+          </button>
+        </div>
       </div>
 
-      <div className="card" style={{ marginBottom: 16 } as React.CSSProperties}>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' } as React.CSSProperties}>
-          <div style={{ position: 'relative', flex: 1, minWidth: 250 } as React.CSSProperties}>
-            <Search size={18} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' } as React.CSSProperties} />
-            <input className="input" placeholder="Buscar por número o cliente..." value={search} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)} style={{ paddingLeft: 40 } as React.CSSProperties} />
-          </div>
-          <select className="input" style={{ width: 260 } as React.CSSProperties} value={estado} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEstado(e.target.value)}>
-            <option value="">Activas (En Medición / Taller)</option>
-            <option value="TERMINADA">Terminadas (En Local)</option>
-            <option value="ENTREGADA">Entregadas</option>
-          </select>
+      <div className={s['workOrders__filters']}>
+        <div className={s['workOrders__search'] || ''}>
+          <Search size={18} color="#94a3b8" />
+          <input
+            className="input"
+            placeholder="Buscar por numero o cliente..."
+            value={search}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
+          />
         </div>
+        <select
+          className="input"
+          style={{ width: 260 }}
+          value={estado}
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEstado(e.target.value)}
+        >
+          <option value="">Activas (En Medicion / Taller)</option>
+          <option value="TERMINADA">Terminadas (En Local)</option>
+          <option value="ENTREGADA">Entregadas</option>
+        </select>
       </div>
 
       {loading ? <Loading /> : (

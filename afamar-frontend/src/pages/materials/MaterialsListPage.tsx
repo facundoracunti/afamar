@@ -7,8 +7,11 @@ import type { Material } from '../../types/material';
 import type { Configuracion } from '../../types/configuracion';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Loading from '../../components/common/Loading';
+import styles from './MaterialsListPage.module.css';
 
-export default function MaterialesList() {
+const s = styles as unknown as Record<string, string>;
+
+export default function MaterialsList() {
   const [data, setData] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -21,20 +24,22 @@ export default function MaterialesList() {
     setLoading(true);
     Promise.all([
       getMateriales({ search: search || undefined, categoria: categoria || undefined }),
-      getConfig()
+      getConfig(),
     ]).then(([matRes, cfgRes]) => {
       setData(matRes.data as Material[]);
       const cfgMap: Record<string, string> = {};
-      (cfgRes.data as Configuracion[]).forEach((c) => { cfgMap[c.key] = c.value; });
+      (cfgRes.data as Configuracion[]).forEach((c) => {
+        cfgMap[c.key] = c.value;
+      });
       setTipoCambio(Number(cfgMap.tipo_cambio) || 1);
       setLoading(false);
     });
   };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { load(); }, [search, categoria]);
-
-  const calcularUsd = (precioArs: number) => tipoCambio > 0 ? (precioArs / tipoCambio) : 0;
+  useEffect(() => {
+    load();
+  }, [search, categoria]);
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -44,81 +49,132 @@ export default function MaterialesList() {
   };
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700 }}>Materiales</h1>
-        <button className="btn btn-primary" onClick={() => navigate('/admin/materiales/nuevo')}>
-          <Plus size={16} /> Nuevo Material
-        </button>
-      </div>
-
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ position: 'relative', flex: 1, minWidth: 250 }}>
-            <Search size={18} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-            <input className="input" placeholder="Buscar material..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ paddingLeft: 40 }} />
-          </div>
-          <select className="input" style={{ width: 180 }} value={categoria} onChange={(e) => setCategoria(e.target.value)}>
-            <option value="">Todas las categorías</option>
-            {categoriasMaterial.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
+    <div className={s['materials']}>
+      <div className={s['materials__header']}>
+        <h1 className={s['materials__title']}>Materiales</h1>
+        <div className={s['materials__toolbar']}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => navigate('/admin/materials/new')}
+          >
+            <Plus size={16} /> Nuevo Material
+          </button>
         </div>
       </div>
 
-      {loading ? <Loading /> : (
-        <div className="card">
-          <div className="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Nombre</th>
-                  <th>Categoría</th>
-                  <th>Color</th>
-                  <th>Espesor</th>
-                  <th style={{ textAlign: 'right' }}>Precio M²</th>
-                  <th>Proveedor</th>
-                  <th>Stock</th>
-                  <th style={{ width: 100 }}>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.map((m: Material) => {
-                  const moneda = m.moneda || 'ARS';
-                  const precio = moneda === 'USD' ? (m.precio_m2_usd || 0) : (m.precio_m2 || 0);
-                  return (
+      <div className={s['materials__toolbar']}>
+        <div className={s['materials__search']}>
+          <Search size={18} color="#94a3b8" />
+          <input
+            className="input"
+            placeholder="Buscar material..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <select
+          className="input"
+          style={{ width: 200 }}
+          value={categoria}
+          onChange={(e) => setCategoria(e.target.value)}
+        >
+          <option value="">Todas las categorias</option>
+          {categoriasMaterial.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {loading ? (
+        <Loading />
+      ) : (
+        <div className={s['materials__table']}>
+          <table>
+            <thead>
+              <tr>
+                <th className={s['materials__th']}>Nombre</th>
+                <th className={s['materials__th']}>Categoria</th>
+                <th className={s['materials__th']}>Color</th>
+                <th className={s['materials__th']}>Espesor</th>
+                <th className={s['materials__th'] + ' ' + s['materials__td--right']}>Precio M2</th>
+                <th className={s['materials__th']}>Proveedor</th>
+                <th className={s['materials__th']}>Stock</th>
+                <th className={s['materials__th']}>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((m: Material) => {
+                const moneda = m.moneda || 'ARS';
+                const precio =
+                  moneda === 'USD' ? m.precio_m2_usd || 0 : m.precio_m2 || 0;
+                return (
                   <tr key={m.id}>
-                    <td style={{ fontWeight: 600 }}>{m.nombre}</td>
-                    <td><span className="badge badge-approved">{m.categoria}</span></td>
-                    <td>{m.color || '-'}</td>
-                    <td>{m.espesor_disponible || '-'}</td>
-                    <td style={{ fontWeight: 700, textAlign: 'right', color: moneda === 'USD' ? '#059669' : '#111' }}>
-                      {moneda === 'USD' ? `USD ${precio.toLocaleString('es-AR', { minimumFractionDigits: 2 })}` : `$ ${precio.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}
+                    <td className={s['materials__td']} style={{ fontWeight: 600 }}>
+                      {m.nombre}
                     </td>
-                    <td>{m.proveedor || '-'}</td>
-                    <td>{m.stock_disponible || 0}</td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button className="btn btn-outline" style={{ padding: '4px 8px' }} onClick={() => navigate(`/admin/materiales/${m.id}`)}>
+                    <td className={s['materials__td']}>
+                      <span className="badge badge-approved">{m.categoria}</span>
+                    </td>
+                    <td className={s['materials__td']}>{m.color || '-'}</td>
+                    <td className={s['materials__td']}>{m.espesor_disponible || '-'}</td>
+                    <td
+                      className={s['materials__td'] + ' ' + s['materials__td--right']}
+                      style={{
+                        fontWeight: 700,
+                        color: moneda === 'USD' ? '#059669' : '#111',
+                      }}
+                    >
+                      {moneda === 'USD'
+                        ? `USD ${precio.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
+                        : `$ ${precio.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}
+                    </td>
+                    <td className={s['materials__td']}>{m.proveedor || '-'}</td>
+                    <td className={s['materials__td']}>{m.stock_disponible || 0}</td>
+                    <td className={s['materials__td']}>
+                      <div className={s['materials__cell-actions']}>
+                        <button
+                          type="button"
+                          className="btn btn-outline"
+                          style={{ padding: '4px 8px' }}
+                          onClick={() => navigate(`/admin/materials/${m.id}`)}
+                        >
                           <Edit size={14} />
                         </button>
-                        <button className="btn btn-danger" style={{ padding: '4px 8px' }} onClick={() => setDeleteId(m.id)}>
+                        <button
+                          type="button"
+                          className="btn btn-danger"
+                          style={{ padding: '4px 8px' }}
+                          onClick={() => setDeleteId(m.id)}
+                        >
                           <Trash2 size={14} />
                         </button>
                       </div>
                     </td>
                   </tr>
-                  );
-                })}
-                {data.length === 0 && (
-                  <tr><td colSpan={9} style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>No hay materiales registrados</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                );
+              })}
+              {data.length === 0 && (
+                <tr>
+                  <td colSpan={8} className={s['materials__empty']}>
+                    No hay materiales registrados
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       )}
 
-      <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={handleDelete} title="Eliminar material" message="¿Estás seguro?" />
+      <ConfirmDialog
+        isOpen={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        onConfirm={handleDelete}
+        title="Eliminar material"
+        message="Estas seguro?"
+      />
     </div>
   );
 }

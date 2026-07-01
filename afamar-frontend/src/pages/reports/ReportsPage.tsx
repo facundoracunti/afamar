@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { getReportePresupuestos, getReporteOrdenes, getVentasMensuales, getMaterialesMasUsados } from '../../services/api';
 import Loading from '../../components/common/Loading';
+import styles from './ReportsPage.module.css';
+
+const s = styles as unknown as Record<string, string>;
 
 const COLORS = ['#3b82f6', '#22c55e', '#ef4444', '#f59e0b', '#8b5cf6', '#06b6d4'];
 
@@ -38,10 +41,12 @@ export default function Reportes() {
   ];
 
   return (
-    <div>
-      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>Reportes</h1>
+    <div className={s['reports']}>
+      <div className={s['reports__header']}>
+        <h1 className={s['reports__title']}>Reportes</h1>
+      </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
+      <div className={s['reports__filters']}>
         {tabs.map((t) => (
           <button
             key={t.key}

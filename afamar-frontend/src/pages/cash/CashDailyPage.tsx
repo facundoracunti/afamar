@@ -10,6 +10,9 @@ import CajaTotalCards from '../../components/caja/CajaTotalCards';
 import IngresoModal from '../../components/caja/IngresoModal';
 import EgresoModal from '../../components/caja/EgresoModal';
 import CerrarCajaModal from '../../components/caja/CerrarCajaModal';
+import styles from './CashDailyPage.module.css';
+
+const s = styles as unknown as Record<string, string>;
 
 export default function CajaDiaria() {
   const today = new Date().toISOString().split('T')[0];
@@ -134,7 +137,7 @@ export default function CajaDiaria() {
   const isToday = fecha === today;
 
   return (
-    <div>
+    <div className={s['cash']}>
       <style>{`
         @media print {
           body * { visibility: hidden; }

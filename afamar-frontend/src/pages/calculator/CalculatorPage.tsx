@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { Grid3x3, Trash2, Plus, RotateCcw } from 'lucide-react';
+import styles from './CalculatorPage.module.css';
+
+const s = styles as unknown as Record<string, string>;
 
 interface Pieza {
   id: number;
@@ -121,9 +124,9 @@ export default function CalculadoraPlaca() {
   };
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 } as React.CSSProperties}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 10 } as React.CSSProperties}>
+    <div className={s['calculator']}>
+      <div className={s['calculator__header']}>
+        <h1 className={s['calculator__title']}>
           <Grid3x3 size={24} /> Calculadora de Placa
         </h1>
         {piezas.length > 0 && (

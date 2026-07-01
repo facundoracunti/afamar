@@ -5,6 +5,9 @@ import Modal from '../../components/common/Modal';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Loading from '../../components/common/Loading';
 import type { StockPileta, MovimientoPileta } from '../../types/stockPileta';
+import styles from './PoolStockPage.module.css';
+
+const s = styles as unknown as Record<string, string>;
 
 export default function StockPiletas() {
   const [data, setData] = useState<StockPileta[]>([]);
@@ -85,18 +88,23 @@ export default function StockPiletas() {
   };
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700 }}>Stock de Piletas</h1>
+    <div className={s['poolStock']}>
+      <div className={s['poolStock__header']}>
+        <h1 className={s['poolStock__title']}>Stock de Piletas</h1>
         <button className="btn btn-primary" onClick={() => handleOpenForm()}>
           <Plus size={16} /> Nueva Pileta
         </button>
       </div>
 
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div style={{ position: 'relative', maxWidth: 400 }}>
-          <Search size={18} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-          <input className="input" placeholder="Buscar por marca o modelo..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ paddingLeft: 40 }} />
+      <div className={s['poolStock__card']} style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <div className={s['poolStock__search'] || ''}>
+          <Search size={18} color="#94a3b8" />
+          <input
+            className="input"
+            placeholder="Buscar por marca o modelo..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
       </div>
 
