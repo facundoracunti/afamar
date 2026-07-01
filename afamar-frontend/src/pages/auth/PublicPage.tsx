@@ -18,8 +18,8 @@ const slides = [
     gradient: "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)",
   },
   {
-    title: "Calidad y diseÃ±o",
-    subtitle: "MÃ¡s de 15 aÃ±os de experiencia en el mercado de La Plata",
+    title: "Calidad y diseño",
+    subtitle: "Más de 15 años de experiencia en el mercado de La Plata",
     gradient: "linear-gradient(135deg, #2c3e50 0%, #3498db 100%)",
   },
   {
@@ -32,22 +32,22 @@ const slides = [
 const materials = [
   {
     name: "Neolith",
-    desc: "Neolith es una piedra sinterizada. Es la evoluciÃ³n de un porcelanato o cerÃ¡mica tradicional. Su composiciÃ³n es 100 % natural, de la mÃ¡s alta calidad y pureza, unidos a un proceso de prensado y cocciÃ³n de Ãºltima tecnologÃ­a, logran un producto con impresionantes caracterÃ­sticas.",
+    desc: "Neolith es una piedra sinterizada. Es la evolución de un porcelanato o cerámica tradicional. Su composición es 100 % natural, de la más alta calidad y pureza, unidos a un proceso de prensado y cocción de última tecnología, logran un producto con impresionantes características.",
     gradient: "linear-gradient(135deg, #2c3e50 0%, #3498db 100%)",
   },
   {
     name: "Silestone",
-    desc: "Silestone estÃ¡ compuesto en un 94% de Cuarzo Natural triturado, resina de poliÃ©ster, pigmentos y aditivos. Este aglomerado le proporciona una dureza y una resistencia extraordinarias que, unido a la protecciÃ³n antibacterias, le dotan de unas cualidades de higiene magnÃ­ficas, bellos y variados colores, extraordinarias texturas, y unas altas prestaciones.",
+    desc: "Silestone está compuesto en un 94% de Cuarzo Natural triturado, resina de poliéster, pigmentos y aditivos. Este aglomerado le proporciona una dureza y una resistencia extraordinarias que, unido a la protección antibacterias, le dotan de unas cualidades de higiene magníficas, bellos y variados colores, extraordinarias texturas, y unas altas prestaciones.",
     gradient: "linear-gradient(135deg, #1a1a2e 0%, #e94560 100%)",
   },
   {
     name: "Granito",
-    desc: "El granito es una roca Ã­gnea granular de color claro compuesta principalmente por al menos 20% de cuarzo y hasta 65% de feldespato alcalino en volumen, con cantidades menores de mica y minerales anfÃ­boles. Se produce al solidificarse lentamente y a muy alta presiÃ³n.",
+    desc: "El granito es una roca ígnea granular de color claro compuesta principalmente por al menos 20% de cuarzo y hasta 65% de feldespato alcalino en volumen, con cantidades menores de mica y minerales anfíboles. Se produce al solidificarse lentamente y a muy alta presión.",
     gradient: "linear-gradient(135deg, #4a4a4a 0%, #8e8e8e 100%)",
   },
   {
-    name: "MÃ¡rmol",
-    desc: "El mÃ¡rmol es una roca metamÃ³rfica compacta formada a partir de rocas calizas que, sometidas a elevadas temperaturas y presiones, por largos perÃ­odos de tiempo alcanzando un alto grado de cristalizaciÃ³n. El componente bÃ¡sico del mÃ¡rmol es el carbonato cÃ¡lcico, cuyo contenido supera el 90%; los demÃ¡s componentes, considerados impurezas, son los que dan gran variedad de colores en los mÃ¡rmoles y definen sus caracterÃ­sticas fÃ­sicas.",
+    name: "Mármol",
+    desc: "El mármol es una roca metamórfica compacta formada a partir de rocas calizas que, sometidas a elevadas temperaturas y presiones, por largos períodos de tiempo alcanzando un alto grado de cristalización. El componente básico del mármol es el carbonato cálcico, cuyo contenido supera el 90%; los demás componentes, considerados impurezas, son los que dan gran variedad de colores en los mármoles y definen sus características físicas.",
     gradient: "linear-gradient(135deg, #d4c5a9 0%, #f5efe0 100%)",
   },
 ];
@@ -140,7 +140,7 @@ export default function PublicPage() {
       <section id="materiales" className={`${styles.section} ${styles.materials}`}>
         <Container>
           <h2 className={styles.section__title}>Materiales que utilizamos</h2>
-          <p className={styles.section__subtitle}>Trabajamos con marcas registradas Neolith y Silestone. Original. Y toda la gama de granitos y mÃ¡rmoles nacionales e importados.</p>
+          <p className={styles.section__subtitle}>Trabajamos con marcas registradas Neolith y Silestone. Original. Y toda la gama de granitos y mármoles nacionales e importados.</p>
           <div className={styles.materials__grid}>
             {materials.map((m, i) => (
               <div key={i} className={styles.material__card}>
@@ -157,15 +157,15 @@ export default function PublicPage() {
           <div className={styles.materials__extra}>
             <div className={styles.materials__extraBlock}>
               <h3 className={styles.materials__extraTitle}>Trabajos</h3>
-              <p>Mesadas, hogares, revestimiento de frentes, marmetas para pisos, diseÃ±os especiales.</p>
-              <p><strong>Rapidez en la confecciÃ³n</strong></p>
-              <p><strong>MediciÃ³n:</strong> Nuestro personal se encarga de medir y asesorar en la obra, viendo si todo lo que se querÃ­a hacer, se puede hacer y como realizarlo.</p>
+              <p>Mesadas, hogares, revestimiento de frentes, marmetas para pisos, diseños especiales.</p>
+              <p><strong>Rapidez en la confección</strong></p>
+              <p><strong>Medición:</strong> Nuestro personal se encarga de medir y asesorar en la obra, viendo si todo lo que se quería hacer, se puede hacer y como realizarlo.</p>
               <p><strong>Medidas y entregas sin cargo.</strong></p>
             </div>
             <div className={styles.materials__extraBlock}>
               <h3 className={styles.materials__extraTitle}>Servicios</h3>
-              <p><strong>AtenciÃ³n personalizada:</strong> Si quiere visitarnos puede pedir una cita y la atenderemos en nuestro showroom.</p>
-              <p><strong>Asesoramiento:</strong> CuÃ©ntanos sus ideas, nosotros te aconsejamos que nuestros mejores materiales, texturas y terminaciones.</p>
+              <p><strong>Atención personalizada:</strong> Si quiere visitarnos puede pedir una cita y la atenderemos en nuestro showroom.</p>
+              <p><strong>Asesoramiento:</strong> Cuéntanos sus ideas, nosotros te aconsejamos que nuestros mejores materiales, texturas y terminaciones.</p>
               <p><strong>Presupuesto:</strong> Una vez definidos todos los detalles le realizamos un presupuesto pormenorizado.</p>
             </div>
           </div>
@@ -174,19 +174,19 @@ export default function PublicPage() {
 
       <section id="about" className={`${styles.section} ${styles.about}`}>
         <Container>
-          <h2 className={styles.section__title}>QuiÃ©nes Somos</h2>
-          <p className={styles.section__subtitle}>ConocÃ© nuestra historia</p>
+          <h2 className={styles.section__title}>Quiénes Somos</h2>
+          <p className={styles.section__subtitle}>Conocé nuestra historia</p>
           <div className={styles.about__content}>
             <p>
-              En <strong>AFAMAR</strong> somos una empresa familiar con mÃ¡s de 15 aÃ±os de trayectoria en la ciudad de La Plata.
-              Nos especializamos en la fabricaciÃ³n e instalaciÃ³n de mesadas, cubiertas y revestimientos en granito, cuarzo,
-              mÃ¡rmol y sinterizados de alta calidad.
+              En <strong>AFAMAR</strong> somos una empresa familiar con más de 15 años de trayectoria en la ciudad de La Plata.
+              Nos especializamos en la fabricación e instalación de mesadas, cubiertas y revestimientos en granito, cuarzo,
+              mármol y sinterizados de alta calidad.
             </p>
             <br />
             <p>
-              Trabajamos con tecnologÃ­a de vanguardia y un equipo de profesionales altamente capacitados para brindar
+              Trabajamos con tecnología de vanguardia y un equipo de profesionales altamente capacitados para brindar
               soluciones a medida para cada proyecto. Nuestro compromiso es la excelencia en cada detalle, desde la
-              selecciÃ³n de materiales hasta la instalaciÃ³n final.
+              selección de materiales hasta la instalación final.
             </p>
             <br />
             <p>
@@ -247,7 +247,7 @@ export default function PublicPage() {
           <div className={styles.contact__grid}>
             <div className={styles.contact__map}>
               <iframe
-                title="UbicaciÃ³n AFAMAR"
+                title="Ubicación AFAMAR"
                 src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3271.0538151506666!2d-57.95915052357695!3d-34.92289157369655!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x95a2e8a5b3b3b3b3%3A0x3b3b3b3b3b3b3b3b!2sAv.%2072%201438%2C%20La%20Plata%2C%20Provincia%20de%20Buenos%20Aires!5e0!3m2!1ses!2sar!4v1"
                 allowFullScreen
                 loading="lazy"
@@ -272,7 +272,7 @@ export default function PublicPage() {
                 <span className={styles.contact__icon}>ðŸ•</span>
                 <span>
                   Lunes a Viernes de 08:00 a 18:00 hs.<br />
-                  SÃ¡bado de 08:00 a 13:00 hs.
+                  Sábado de 08:00 a 13:00 hs.
                 </span>
               </div>
               <div className={styles.contact__item}>
