@@ -1,0 +1,252 @@
+import logging
+from datetime import date
+from typing import Optional
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi.responses import Response
+from sqlalchemy.orm import Session
+
+from app.db.database import SessionLocal
+from app.api.dependencies import get_current_user, get_db
+from app.core.exceptions import NotFoundError
+from app.utils.responses import PaginationInfo, created, success
+from app.models.online_budget import OnlineBudget
+from app.models.setting import Setting
+from app.schemas.budget import BudgetCreate, BudgetResponse, BudgetUpdate
+from app.services.budget import BudgetService
+from app.services.email import send_budget_email
+from app.services.pdf_html import build_budget_pdf_data, generate_budget_pdf
+
+logger = logging.getLogger(__name__)
+
+
+def _email_budget_background(budget_id: int) -> None:
+    db = SessionLocal()
+    try:
+        service = BudgetService(db)
+        budget = service.get_by_id(budget_id)
+        if not budget or not budget.client or not budget.client.email:
+            logger.warning("Budget %s or client email not found for background email", budget_id)
+            return
+        budget_data, client_dict, company, terms = _prepare_budget_payload(budget, db)
+        pdf_data = build_budget_pdf_data(budget_data, client_dict, company, terms)
+        pdf_bytes = generate_budget_pdf(pdf_data, logo_path=company.get("company_logo")).read()
+        company_name = company.get("company_name") or "AFAMAR"
+        send_budget_email(budget.client.email, pdf_bytes, budget.number, company_name=company_name)
+    except Exception:
+        logger.exception("Background email failed for budget %s", budget_id)
+    finally:
+        db.close()
+
+router = APIRouter(dependencies=[Depends(get_current_user)])
+
+
+@router.get("")
+def list_budgets(
+    skip: int = 0,
+    limit: int = 100,
+    status: str | None = None,
+    client_id: int | None = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    db: Session = Depends(get_db),
+):
+    service = BudgetService(db)
+    items = service.list_filtered(status, client_id, date_from, date_to, skip, limit)
+    total = service.repo.list_filtered_count(status, client_id, date_from, date_to)
+    return success(items, PaginationInfo(total=total, skip=skip, limit=limit))
+
+
+@router.get("/search")
+def search_budgets(q: str = Query(min_length=1), db: Session = Depends(get_db)):
+    service = BudgetService(db)
+    return success(service.search(q))
+
+
+@router.get("/unified")
+def list_unified_budgets(
+    q: str | None = Query(None),
+    status: str | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    from app.models.client import Client
+    from app.services.budget import BudgetService
+
+    service = BudgetService(db)
+    locales = service.repo.db.query(service.repo.model)
+    onlines = db.query(OnlineBudget).all()
+
+    if status:
+        locales = locales.filter(service.repo.model.status == status)
+    else:
+        locales = locales.filter(service.repo.model.status != "APPROVED")
+
+    if q:
+        locales = locales.outerjoin(Client).filter(
+            service.repo.model.number.ilike(f"%{q}%")
+            | Client.name.ilike(f"%{q}%")
+            | Client.phone.ilike(f"%{q}%")
+            | service.repo.model.snapshot_name.ilike(f"%{q}%")
+            | service.repo.model.material.ilike(f"%{q}%")
+        )
+        onlines = [
+            o for o in onlines
+            if q.lower() in (o.number or "").lower()
+            or q.lower() in (o.client_name or "").lower()
+        ]
+
+    locales = locales.order_by(service.repo.model.id.desc()).all()
+    locales = list({p.id: p for p in locales}.values())
+
+    result = []
+    for p in locales:
+        c = p.client
+        result.append({
+            "id": p.id,
+            "tipo": "local",
+            "number": p.number,
+            "date": str(p.date) if p.date else None,
+            "client_name": p.snapshot_name or (c.name if c else None),
+            "client_phone": p.snapshot_phone or (c.phone if c else None),
+            "material": p.material,
+            "total": p.total or 0,
+            "total_usd": p.total_usd or 0,
+            "status": p.status,
+            "work_order_number": p.work_order.number if p.work_order else None,
+            "created_at": str(p.created_at),
+            "deposit_received": p.deposit_received or 0,
+            "balance_due": p.balance_due or 0,
+            "design_observations": p.design_observations or "",
+        })
+    for o in onlines:
+        result.append({
+            "id": o.id,
+            "tipo": "online",
+            "number": o.number,
+            "date": str(o.date) if o.date else None,
+            "client_name": o.client_name,
+            "client_phone": None,
+            "material": None,
+            "total": o.total_net_ars or 0,
+            "total_usd": o.total_net_usd or 0,
+            "status": o.status or "ONLINE",
+            "work_order_number": None,
+            "created_at": str(o.created_at),
+            "deposit_received": 0,
+            "balance_due": 0,
+            "design_observations": "",
+        })
+    result.sort(key=lambda x: x.get("created_at") or "", reverse=True)
+    return success(result)
+
+
+@router.get("/next-number")
+def next_budget_number(db: Session = Depends(get_db)):
+    from app.services.budget import BudgetService
+    service = BudgetService(db)
+    last = service.repo.get_last_number()
+    from app.utils.numbering import generate_budget_number
+    return success({"number": generate_budget_number(last)})
+
+
+@router.get("/{budget_id}")
+def get_budget(budget_id: int, db: Session = Depends(get_db)):
+    service = BudgetService(db)
+    budget = service.get_by_id(budget_id)
+    if not budget:
+        raise NotFoundError("Budget")
+    return success(budget)
+
+
+@router.post("", status_code=201)
+def create_budget(data: BudgetCreate, db: Session = Depends(get_db)):
+    service = BudgetService(db)
+    return created(service.create(data.model_dump()))
+
+
+@router.put("/{budget_id}")
+def update_budget(budget_id: int, data: BudgetUpdate, db: Session = Depends(get_db)):
+    service = BudgetService(db)
+    budget = service.update(budget_id, data.model_dump(exclude_unset=True))
+    if not budget:
+        raise NotFoundError("Budget")
+    return success(budget)
+
+
+@router.delete("/{budget_id}", status_code=204)
+def delete_budget(budget_id: int, db: Session = Depends(get_db)):
+    service = BudgetService(db)
+    if not service.delete(budget_id):
+        raise NotFoundError("Budget")
+
+
+def _load_settings(db: Session) -> dict:
+    rows = db.query(Setting).all()
+    return {row.key: row.value for row in rows}
+
+
+_COMPANY_KEYS = ["company_name", "company_address", "company_phone", "company_email", "company_logo", "pdf_footer"]
+_TERMS_KEYS = ["budget_terms", "delivery_terms", "warranty_text", "observaciones_automaticas"]
+
+
+def _build_company_and_terms(settings_data: dict) -> tuple[dict, dict]:
+    company = {k: settings_data.get(k, "") for k in _COMPANY_KEYS}
+    terms = {k: settings_data.get(k, "") for k in _TERMS_KEYS}
+    return company, terms
+
+
+def _prepare_budget_payload(budget, db: Session) -> tuple[dict, dict, dict, dict]:
+    budget_data = BudgetResponse.model_validate(budget).model_dump(mode="json")
+    client = budget.client
+    client_dict = {
+        "name": client.name,
+        "phone": client.phone,
+        "email": client.email,
+        "address": client.address,
+    }
+    settings_data = _load_settings(db)
+    company, terms = _build_company_and_terms(settings_data)
+    return budget_data, client_dict, company, terms
+
+
+@router.post("/{budget_id}/alternatives/{idx}/convert-to-work-order", status_code=201)
+def convert_alternative_to_work_order(budget_id: int, idx: int, db: Session = Depends(get_db)):
+    service = BudgetService(db)
+    try:
+        work_order = service.convert_alternative_to_work_order(budget_id, idx)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return created(work_order)
+
+
+@router.get("/{budget_id}/pdf")
+def download_budget_pdf(budget_id: int, db: Session = Depends(get_db)):
+    service = BudgetService(db)
+    budget = service.get_by_id(budget_id)
+    if not budget:
+        raise NotFoundError("Budget")
+
+    budget_data, client_dict, company, terms = _prepare_budget_payload(budget, db)
+    pdf_data = build_budget_pdf_data(budget_data, client_dict, company, terms)
+    pdf_bytes = generate_budget_pdf(pdf_data, logo_path=company.get("company_logo")).read()
+
+    return Response(
+        pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="presupuesto_{budget.number}.pdf"'},
+    )
+
+
+@router.post("/{budget_id}/send-email")
+def email_budget(budget_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    service = BudgetService(db)
+    budget = service.get_by_id(budget_id)
+    if not budget:
+        raise NotFoundError("Budget")
+
+    client = budget.client
+    if not client.email:
+        raise HTTPException(status_code=400, detail="El cliente no tiene email registrado")
+
+    background_tasks.add_task(_email_budget_background, budget_id)
+    return success({"message": "Enviando email en segundo plano"})

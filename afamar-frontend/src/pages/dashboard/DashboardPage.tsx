@@ -1,0 +1,115 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { DollarSign, FileText, ClipboardList, PackageOpen, Globe, Truck, type LucideIcon } from 'lucide-react';
+import type { DashboardData } from '../../types/dashboard';
+import { getDashboard } from '../../services/api';
+import Loading from '../../components/common/Loading';
+import styles from './DashboardPage.module.css';
+
+const s = styles as unknown as Record<string, string>;
+
+type Tone = 'accent' | 'danger' | 'success' | 'warning' | 'info';
+
+interface CardDef {
+  icon: LucideIcon;
+  label: string;
+  value?: string;
+  color: string;
+  path?: string;
+  description: string;
+  tone: Tone;
+  span?: { col?: number; row?: number };
+}
+
+export default function Dashboard() {
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    getDashboard()
+      .then((res) => {
+        setData(res.data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  if (loading) return <Loading />;
+  if (!data) return <div className={s['dashboard__error']}>Error al cargar el dashboard</div>;
+
+  const ing = (data.total_ingresos ?? 0).toLocaleString();
+  const pendiente = (data.total_pendiente_cobro ?? 0).toLocaleString();
+  const activas = data.total_ordenes_activas ?? 0;
+  const terminadas = data.ordenes_terminadas ?? 0;
+  const online = data.presupuestos_online ?? 0;
+  const medicion = data.ordenes_en_medicion ?? 0;
+  const taller = data.ordenes_en_taller ?? 0;
+
+  const cards: CardDef[] = [
+    { icon: DollarSign, label: 'CAJA', value: '$' + ing, color: '#2563eb', tone: 'accent', path: '/admin/cash', description: 'Total de ingresos registrados' },
+    { icon: FileText, label: 'NUEVO PRESUPUESTO', color: '#059669', tone: 'success', path: '/admin/budgets/new', description: 'Crear un nuevo presupuesto' },
+    { icon: ClipboardList, label: 'NUEVA ORDEN', color: '#dc2626', tone: 'danger', path: '/admin/work-orders/new', description: 'Crear una nueva orden de trabajo' },
+    { icon: PackageOpen, label: 'ORDENES EN MEDICION / TALLER', value: String(activas), color: '#d97706', tone: 'warning', path: '/admin/work-orders', description: medicion + ' en medicion - ' + taller + ' en taller', span: { col: 2 } },
+    { icon: Truck, label: 'ORDENES TERMINADAS P/ ENVIO', value: String(terminadas), color: '#7c3aed', tone: 'info', path: '/admin/work-orders?estado=FINISHED', description: 'Listas para retirar', span: { col: 2 } },
+    { icon: Globe, label: 'PRESUPUESTOS EN LINEA', value: String(online), color: '#0891b2', tone: 'info', path: '/admin/online-budgets', description: 'Pendientes de revision', span: { row: 2 } },
+    { icon: PackageOpen, label: 'STOCK DE PILETAS', color: '#be185d', tone: 'info', path: '/admin/pool-stock', description: 'Gestionar stock de piletas' },
+  ];
+
+  return (
+    <div className={s['dashboard']}>
+      <header className={s['dashboard__header']}>
+        <div>
+          <h1 className={s['dashboard__title']}>afamar</h1>
+          <p className={s['dashboard__subtitle']}>Panel de control</p>
+        </div>
+      </header>
+
+      <div className={s['dashboard__grid']}>
+        {cards.map((card) => (
+          <article
+            key={card.label}
+            className={s['dashboard__card'] + ' ' + (s['dashboard__card--' + card.tone] || '')}
+            onClick={() => card.path && navigate(card.path)}
+            style={
+              card.span && card.span.col
+                ? { gridColumn: 'span ' + card.span.col }
+                : card.span && card.span.row
+                  ? { gridRow: 'span ' + card.span.row }
+                  : undefined
+            }
+          >
+            <div className={s['dashboard__card-icon']} style={{ backgroundColor: card.color }}>
+              <card.icon size={20} color="#fff" />
+            </div>
+            <span className={s['dashboard__card-label']}>{card.label}</span>
+            {card.value && <span className={s['dashboard__card-value']}>{card.value}</span>}
+            <span className={s['dashboard__card-desc']}>{card.description}</span>
+          </article>
+        ))}
+      </div>
+
+      <section className={s['dashboard__metrics']}>
+        <h2 className={s['dashboard__metrics-title']}>Metricas</h2>
+        <div className={s['dashboard__metrics-grid']}>
+          <div className={s['dashboard__metric']}>
+            <div className={s['dashboard__metric-label']}>Total presupuestos</div>
+            <div className={s['dashboard__metric-value']}>{String(data.total_presupuestos ?? 0)}</div>
+          </div>
+          <div className={s['dashboard__metric']}>
+            <div className={s['dashboard__metric-label']}>Total ordenes</div>
+            <div className={s['dashboard__metric-value']}>{String(data.total_ordenes ?? 0)}</div>
+          </div>
+          <div className={s['dashboard__metric']}>
+            <div className={s['dashboard__metric-label']}>Ingresos</div>
+            <div className={s['dashboard__metric-value']}>{'$' + ing}</div>
+          </div>
+          <div className={s['dashboard__metric']}>
+            <div className={s['dashboard__metric-label']}>Pendiente cobro</div>
+            <div className={s['dashboard__metric-value']}>{'$' + pendiente}</div>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}

@@ -1,0 +1,5 @@
+window.APP_CONFIG = {
+  API_URL: "$API_URL",
+  ENVIRONMENT: "$ENVIRONMENT",
+  LOG_LEVEL: "$LOG_LEVEL"
+};

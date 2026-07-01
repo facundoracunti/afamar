@@ -1,0 +1,52 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --color-primary: #1a1a2e;
+  --color-primary-light: #2d2d4a;
+  --color-danger: #dc2626;
+  --color-danger-text: #c0392b;
+  --color-success: #27ae60;
+  --color-info: #2980b9;
+  --color-text: #333;
+  --color-text-secondary: #666;
+  --color-text-light: #888;
+  --color-border: #ccc;
+  --color-bg: #f5f5f5;
+  --color-bg-white: #fff;
+  --color-bg-card: #fff;
+  --color-state-bg: #fff;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md: 0 2px 8px rgba(0,0,0,0.15);
+  --shadow-lg: 0 4px 20px rgba(0,0,0,0.15);
+  --font-xs: 0.8rem;
+  --font-sm: 0.85rem;
+  --font-md: 0.9rem;
+  --font-lg: 1rem;
+  --font-xl: 1.5rem;
+  --spacing-xs: 0.3rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 0.75rem;
+  --spacing-lg: 1rem;
+  --spacing-xl: 1.5rem;
+  --spacing-2xl: 2rem;
+}
+
+body {
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  color: var(--color-primary);
+  background: var(--color-bg);
+}
+
+a { color: inherit; }
+table { border-spacing: 0; }

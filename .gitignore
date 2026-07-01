@@ -1,116 +1,79 @@
-# =======================================================================
-# 🐍 PYTHON / FASTAPI (Backend)
-# =======================================================================
-
-# Entornos virtuales (Virtual Environments)
-.venv/
-venv/
-ENV/
-env/
-pyenv/
-.env-py/
-
-# Archivos de configuración local y credenciales (¡MUY IMPORTANTES!)
-.env
-*.env
-.env.local
-.env.*.local
-
-# Caché de Python
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-
-# Distribución / Paquetes
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/wheels/
-*.egg-info/
-.installed.cfg
+*.so
+.Python
 *.egg
+*.egg-info
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.mypy_cache/
 
-# Base de datos local (SQLite para desarrollo)
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# Database
 *.db
+*.db-journal
 *.sqlite3
 
-# Logs del Backend
+# Logs
 *.log
+logs/
 
+# Uploads (keep folder, ignore contents)
+uploads/*
+!uploads/.gitkeep
+!uploads/materiales/
+!uploads/logos/
+!uploads/product_photos/
+!uploads/materiales/.gitkeep
+!uploads/logos/.gitkeep
+!uploads/product_photos/.gitkeep
+seed/product_photos/*
+!seed/product_photos/.gitkeep
+!seed/product_photos/*.jpg
 
-# =======================================================================
-# ⚛️ REACT / NODE (Frontend)
-# =======================================================================
+# Environment
+.env
+.env.local
+.env.*.local
+*.envrc
 
-# Dependencias (Nunca subir esta carpeta, es pesadísima)
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Node
 node_modules/
-jspm_packages/
-
-# Carpetas de producción / Compilación (Build outputs)
-dist/
-.next/
-out/
-build/
-
-# Logs de Node / npm / yarn
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+.pnpm-debug.log*
 
-# Caché de herramientas de Frontend (Vite, Next, Turbo, etc.)
-.turbo/
-.eslintcache
-.stylelintcache
-.vite/
-.parcel-cache
+# Build outputs
+dist/
+build/
+.cache/
+*.tsbuildinfo
 
+# Frontend test artifacts
+coverage/
+.nyc_output/
 
-# =======================================================================
-# 💻 ARCHIVOS DEL SISTEMA OPERATIVO / EDITORES
-# =======================================================================
+# Docker
+docker-compose.override.yml
 
-# Windows
-Thumbs.db
-Thumbs.db:encryptable
-ehthumbs.db
-ehthumbs_vista.db
-desktop.ini
-
-# macOS
+# OS
 .DS_Store
-.AppleDouble
-.LSOverride
-._*
-
-# Editores de código (VS Code, JetBrains, etc.)
-.vscode/
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-.idea/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.swp
-
-
-# =======================================================================
-# 🐳 DOCKER (Opcional)
-# =======================================================================
-.dockerignore
+desktop.ini

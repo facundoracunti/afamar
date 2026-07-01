@@ -1,0 +1,113 @@
+/* LoginPage — BEM
+   .login                 block
+   .login__container      outer container
+   .login__card           card with form
+   .login__logo           logo/header
+   .login__form           form
+   .login__field          individual field
+   .login__error          error message
+   .login__submit         submit button
+*/
+
+.login {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  padding: 16px;
+}
+
+.login__card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+  padding: 36px;
+  width: 100%;
+  max-width: 380px;
+}
+
+.login__logo {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.login__title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 32px;
+  font-weight: 700;
+  color: #1a202c;
+  letter-spacing: 2px;
+  margin: 0;
+}
+
+.login__subtitle {
+  font-size: 13px;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
+.login__form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.login__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.login__field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #4a5568;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.login__field input {
+  border: 1px solid #cbd5e0;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 14px;
+  transition: border-color 0.15s ease;
+}
+
+.login__field input:focus {
+  outline: none;
+  border-color: #b91c1c;
+  box-shadow: 0 0 0 3px rgba(185, 28, 28, 0.12);
+}
+
+.login__error {
+  background: #fef2f2;
+  color: #991b1b;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.login__submit {
+  background: #b91c1c;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.login__submit:hover:not(:disabled) {
+  background: #991b1b;
+}
+
+.login__submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

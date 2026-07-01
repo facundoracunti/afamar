@@ -1,0 +1,112 @@
+/* ClientsListPage — BEM
+   .clients                    block
+   .clients__header            page header
+   .clients__title              page title
+   .clients__actions            action buttons
+   .clients__search             search box wrapper
+   .clients__table              table wrapper
+   .clients__table-row          single row
+   .clients__table-row--alt     alternating row
+   .clients__cell               table cell
+   .clients__cell-actions       actions cell
+   .clients__empty              empty state
+   .clients__loading            loading state
+*/
+
+.clients {
+  padding: 24px;
+  display: grid;
+  gap: 16px;
+}
+
+.clients__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.clients__title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0;
+}
+
+.clients__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.clients__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  max-width: 400px;
+}
+
+.clients__search input {
+  border: none;
+  outline: none;
+  flex: 1;
+  font-size: 14px;
+  padding: 4px;
+}
+
+.clients__table {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.clients__table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.clients__table th {
+  background: #f8fafc;
+  text-align: left;
+  padding: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #4a5568;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.clients__table td {
+  padding: 12px;
+  font-size: 14px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1a202c;
+}
+
+.clients__table tr:hover td {
+  background: #fef3f3;
+}
+
+.clients__table tr:last-child td {
+  border-bottom: none;
+}
+
+.clients__cell-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.clients__empty,
+.clients__loading {
+  padding: 48px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 14px;
+}

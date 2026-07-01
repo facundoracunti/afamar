@@ -1,0 +1,19 @@
+.errorBoundary {
+  padding: 2rem;
+  text-align: center;
+}
+
+.errorBoundary__message {
+  color: var(--color-text-light);
+  margin-top: 8px;
+}
+
+.errorBoundary__retry {
+  margin-top: 12px;
+  padding: 8px 20px;
+  background: var(--color-primary);
+  color: var(--color-bg-white);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}

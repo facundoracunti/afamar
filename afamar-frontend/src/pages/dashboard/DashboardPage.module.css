@@ -1,0 +1,168 @@
+/* DashboardPage — BEM
+   .dashboard                 block
+   .dashboard__header         header
+   .dashboard__title          title
+   .dashboard__grid           grid of cards
+   .dashboard__card           single card
+   .dashboard__card--active   active/clickable modifier
+   .dashboard__card-icon      icon container
+   .dashboard__card-label     card label
+   .dashboard__card-value     card value
+   .dashboard__card-desc      card description
+   .dashboard__metrics        metrics section
+   .dashboard__metric         single metric
+   .dashboard__loading        loading state
+   .dashboard__error          error state
+*/
+
+.dashboard {
+  padding: 24px;
+  display: grid;
+  gap: 16px;
+}
+
+.dashboard__header {
+  background: linear-gradient(135deg, #e51a24 0%, #b91c1c 100%);
+  color: #fff;
+  padding: 28px 32px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dashboard__title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 36px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: 1px;
+}
+
+.dashboard__subtitle {
+  margin: 4px 0 0;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.dashboard__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.dashboard__card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  text-decoration: none;
+  color: inherit;
+}
+
+.dashboard__card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+}
+
+.dashboard__card--accent {
+  border-left: 4px solid #2563eb;
+}
+
+.dashboard__card--danger {
+  border-left: 4px solid #dc2626;
+}
+
+.dashboard__card--success {
+  border-left: 4px solid #16a34a;
+}
+
+.dashboard__card-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.dashboard__card-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: #6b7280;
+  text-transform: uppercase;
+}
+
+.dashboard__card-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1a202c;
+}
+
+.dashboard__card-desc {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.dashboard__metrics {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.dashboard__metrics-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 12px;
+  color: #1a202c;
+}
+
+.dashboard__metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.dashboard__metric {
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border-left: 3px solid #e51a24;
+}
+
+.dashboard__metric-label {
+  font-size: 11px;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-weight: 600;
+}
+
+.dashboard__metric-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a202c;
+  margin-top: 2px;
+}
+
+.dashboard__loading,
+.dashboard__error {
+  padding: 32px;
+  text-align: center;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.dashboard__error {
+  color: #dc2626;
+  background: #fef2f2;
+  border-radius: 8px;
+}

@@ -1,0 +1,23 @@
+.errorBlock {
+  text-align: center;
+  padding: 3rem 1rem;
+  background: var(--color-state-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.errorBlock__message {
+  color: var(--color-danger-text);
+  font-size: 0.95rem;
+  margin-bottom: 1rem;
+}
+
+.errorBlock__retry {
+  padding: 0.5rem 1.25rem;
+  background: var(--color-primary);
+  color: var(--color-bg-white);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-sm);
+  cursor: pointer;
+}

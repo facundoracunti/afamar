@@ -1,0 +1,32 @@
+.badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.badge--pending,
+.badge--PENDIENTE {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.badge--approved,
+.badge--budgeted,
+.badge--REALIZADO {
+  background: #d4edda;
+  color: #155724;
+}
+
+.badge--rejected,
+.badge--CANCELADO {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.badge--in_production {
+  background: #cce5ff;
+  color: #004085;
+}

@@ -1,0 +1,90 @@
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import MainLayout from './layouts/MainLayout';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import DashboardPage from './pages/dashboard/DashboardPage';
+import PublicPage from './pages/auth/PublicPage';
+import LoginPage from './pages/auth/LoginPage';
+import ClientsListPage from './pages/clients/ClientsListPage';
+import ClientFormPage from './pages/clients/ClientFormPage';
+import BudgetsListPage from './pages/budgets/BudgetsListPage';
+import BudgetFormPage from './pages/budgets/BudgetFormPage';
+import OnlineBudgetsListPage from './pages/online-budgets/OnlineBudgetsListPage';
+import OnlineBudgetFormPage from './pages/online-budgets/OnlineBudgetFormPage';
+import WorkOrdersListPage from './pages/work-orders/WorkOrdersListPage';
+import WorkOrderFormPage from './pages/work-orders/WorkOrderFormPage';
+import MaterialsListPage from './pages/materials/MaterialsListPage';
+import MaterialFormPage from './pages/materials/MaterialFormPage';
+import PoolStockPage from './pages/pool-stock/PoolStockPage';
+import ReportsPage from './pages/reports/ReportsPage';
+import ConfigurationPage from './pages/configuration/ConfigurationPage';
+import MeasurementsListPage from './pages/measurements/MeasurementsListPage';
+import MeasurementFormPage from './pages/measurements/MeasurementFormPage';
+import CalculatorPage from './pages/calculator/CalculatorPage';
+import CashDailyPage from './pages/cash/CashDailyPage';
+import CashHistoryPage from './pages/cash/CashHistoryPage';
+
+function OldPresupuestoRedirect() {
+  const splat = useParams()['*'];
+  return <Navigate to={splat ? `/admin/budgets/${splat}` : '/admin/budgets'} replace />;
+}
+function OldOrdenRedirect() {
+  const splat = useParams()['*'];
+  return <Navigate to={splat ? `/admin/work-orders/${splat}` : '/admin/work-orders'} replace />;
+}
+function OldPOnlineRedirect() {
+  const splat = useParams()['*'];
+  return <Navigate to={splat ? `/admin/online-budgets/${splat}` : '/admin/online-budgets'} replace />;
+}
+
+function App() {
+  return (
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <AuthProvider>
+        <Routes>
+          <Route index element={<PublicPage />} />
+          <Route path="login" element={<LoginPage />} />
+          {/* Backward-compat redirects from Spanish paths */}
+          <Route path="presupuestos/*" element={<OldPresupuestoRedirect />} />
+          <Route path="ordenes/*" element={<OldOrdenRedirect />} />
+          <Route path="presupuestos-online/*" element={<OldPOnlineRedirect />} />
+          <Route path="stock-piletas" element={<Navigate to="/admin/pool-stock" replace />} />
+          <Route path="caja/diaria" element={<Navigate to="/admin/cash" replace />} />
+          <Route path="caja" element={<Navigate to="/admin/cash" replace />} />
+          <Route element={<ProtectedRoute />}>
+            <Route path="admin" element={<MainLayout />}>
+              <Route index element={<DashboardPage />} />
+              <Route path="clients" element={<ClientsListPage />} />
+              <Route path="clients/new" element={<ClientFormPage />} />
+              <Route path="clients/:id" element={<ClientFormPage />} />
+              <Route path="budgets" element={<BudgetsListPage />} />
+              <Route path="budgets/new" element={<BudgetFormPage />} />
+              <Route path="budgets/:id" element={<BudgetFormPage />} />
+              <Route path="online-budgets" element={<OnlineBudgetsListPage />} />
+              <Route path="online-budgets/new" element={<OnlineBudgetFormPage />} />
+              <Route path="online-budgets/:id" element={<OnlineBudgetFormPage />} />
+              <Route path="work-orders" element={<WorkOrdersListPage />} />
+              <Route path="work-orders/new" element={<WorkOrderFormPage />} />
+              <Route path="work-orders/:id" element={<WorkOrderFormPage />} />
+              <Route path="materials" element={<MaterialsListPage />} />
+              <Route path="materials/new" element={<MaterialFormPage />} />
+              <Route path="materials/:id" element={<MaterialFormPage />} />
+              <Route path="pool-stock" element={<PoolStockPage />} />
+              <Route path="measurements" element={<MeasurementsListPage />} />
+              <Route path="measurements/new" element={<MeasurementFormPage />} />
+              <Route path="measurements/:id" element={<MeasurementFormPage />} />
+              <Route path="calculator" element={<CalculatorPage />} />
+              <Route path="cash" element={<CashDailyPage />} />
+              <Route path="cash/history" element={<CashHistoryPage />} />
+              <Route path="reports" element={<ReportsPage />} />
+              <Route path="configuration" element={<ConfigurationPage />} />
+            </Route>
+          </Route>
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
+  );
+}
+
+export default App;
