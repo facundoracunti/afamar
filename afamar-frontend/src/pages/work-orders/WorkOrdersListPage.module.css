@@ -1,0 +1,161 @@
+/* WorkOrdersListPage — BEM */
+.workOrders {
+  padding: 24px;
+  display: grid;
+  gap: 16px;
+}
+
+.workOrders__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.workOrders__title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0;
+}
+
+.workOrders__viewToggle {
+  display: inline-flex;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.workOrders__viewBtn {
+  padding: 6px 14px;
+  background: #fff;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: #4a5568;
+  transition: background 0.15s ease;
+}
+
+.workOrders__viewBtn--active {
+  background: #b91c1c;
+  color: #fff;
+}
+
+.workOrders__filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.workOrders__table {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.workOrders__table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.workOrders__th {
+  background: #f8fafc;
+  text-align: left;
+  padding: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #4a5568;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.workOrders__td {
+  padding: 12px;
+  font-size: 14px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1a202c;
+  vertical-align: middle;
+}
+
+.workOrders__td--right { text-align: right; }
+.workOrders__td--center { text-align: center; }
+.workOrders__cell-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.workOrders__empty {
+  padding: 48px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.workOrders__kanban {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  overflow-x: auto;
+}
+
+.workOrders__column {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+  min-height: 200px;
+}
+
+.workOrders__columnHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #4a5568;
+  margin-bottom: 12px;
+}
+
+.workOrders__card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease;
+}
+
+.workOrders__card:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.06);
+}
+
+.workOrders__cardNumber {
+  font-weight: 700;
+  color: #b91c1c;
+  font-size: 13px;
+}
+
+.workOrders__cardClient {
+  font-size: 13px;
+  color: #1a202c;
+  margin: 4px 0;
+}
+
+.workOrders__cardTotal {
+  font-size: 12px;
+  color: #4a5568;
+  font-weight: 600;
+}

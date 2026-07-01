@@ -1,0 +1,132 @@
+/* MaterialsListPage — BEM
+   .materials                  block
+   .materials__header          page header
+   .materials__title           page title
+   .materials__toolbar          toolbar (search + new)
+   .materials__search          search input wrapper
+   .materials__table           table wrapper
+   .materials__th              table header cell
+   .materials__td              table data cell
+   .materials__cell-image      image cell
+   .materials__cell-actions    actions cell
+   .materials__empty           empty state
+*/
+
+.materials {
+  padding: 24px;
+  display: grid;
+  gap: 16px;
+}
+
+.materials__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.materials__title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0;
+}
+
+.materials__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.materials__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  min-width: 260px;
+  flex: 1;
+  max-width: 480px;
+}
+
+.materials__search input {
+  border: none;
+  outline: none;
+  flex: 1;
+  font-size: 14px;
+  padding: 4px;
+}
+
+.materials__table {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.materials__table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.materials__th {
+  background: #f8fafc;
+  text-align: left;
+  padding: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #4a5568;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.materials__td {
+  padding: 12px;
+  font-size: 14px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1a202c;
+  vertical-align: middle;
+}
+
+.materials__td--right {
+  text-align: right;
+}
+
+.materials__td--center {
+  text-align: center;
+}
+
+.materials__cell-image {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.materials__cell-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.materials__cell-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.materials__empty {
+  padding: 48px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 14px;
+}
