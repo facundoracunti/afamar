@@ -8,11 +8,13 @@ import {
   convertBudgetToWorkOrder,
   getBudgetPdf,
   sendBudgetEmail,
+  mapBudgetStatusToApi,
 } from '@/api/resources/budgets';
 import {
   deleteOnlineBudget,
   convertOnlineBudgetToWorkOrder,
 } from '@/api/resources/onlineBudgets';
+import { useList, useDelete } from '../../api/hooks';
 import { formatDate } from '../../utils/formatters';
 import CurrencyDisplay from '../../components/ui/CurrencyDisplay';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
@@ -22,11 +24,11 @@ import styles from './BudgetsListPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
 
+const BUDGETS_KEY = ['budgets', 'unified'] as const;
+
 export default function PresupuestosList() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [data, setData] = useState<PresupuestoUnificado[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [estado, setEstado] = useState(searchParams.get('estado') || '');
   const [deleteId, setDeleteId] = useState<string | number | null>(null);
@@ -37,29 +39,32 @@ export default function PresupuestosList() {
     setEstado(e);
   }, [searchParams]);
 
-  const load = () => {
-    setLoading(true);
-    getBudgetsUnified({ search: search || undefined, estado: estado || undefined }).then((res) => {
-      setData(res.data as PresupuestoUnificado[]);
-      setLoading(false);
-    });
-  };
+  const { items: data, loading, load } = useList<PresupuestoUnificado>(
+    [...BUDGETS_KEY, search, estado],
+    async () => {
+      const res = await getBudgetsUnified({ search: search || undefined, estado: estado || undefined });
+      return (res.data as PresupuestoUnificado[]) || [];
+    }
+  );
 
-  useEffect(() => {
-    load();
-  }, [search, estado]);
+  const deleteMutation = useDelete<unknown, string | number>(
+    BUDGETS_KEY,
+    async (id) => {
+      if (deleteTipo === 'online') await deleteOnlineBudget(id as string);
+      else await deleteBudget(id as string);
+    },
+    { invalidateKeys: [BUDGETS_KEY] }
+  );
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    if (deleteTipo === 'online') await deleteOnlineBudget(deleteId as string);
-    else await deleteBudget(deleteId as string);
+    await deleteMutation.mutateAsync(deleteId);
     setDeleteId(null);
     setDeleteTipo(null);
-    load();
   };
 
   const handleCambiarEstado = async (id: string | number, nuevoEstado: string) => {
-    await updateBudget(id as string, { estado: nuevoEstado } as Record<string, unknown>);
+    await updateBudget(id as string, mapBudgetStatusToApi(nuevoEstado));
     load();
   };
 

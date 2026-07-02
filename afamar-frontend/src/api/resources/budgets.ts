@@ -15,3 +15,13 @@ export const previewBudgetPdf = (data: Record<string, unknown>) =>
   http.post('/budgets/preview-pdf', data, { responseType: 'blob' });
 export const convertAlternativeToWorkOrder = (budgetId: number | string, idx: number) =>
   http.post(`/budgets/${budgetId}/alternatives/${idx}/convert-to-work-order`);
+
+export const mapBudgetStatusToApi = (status: string): Record<string, unknown> => ({
+  status: {
+    'PENDIENTE': 'PENDING',
+    'ENVIADO': 'ONLINE',
+    'APROBADO': 'APPROVED',
+    'RECHAZADO': 'REJECTED',
+    'CONVERTIDO A OT': 'CONVERTED_TO_OT',
+  }[status] || status,
+});

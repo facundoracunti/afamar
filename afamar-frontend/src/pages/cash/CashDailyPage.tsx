@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Printer, Lock } from 'lucide-react';
 import { getDailyCash, createCashMovement, deleteCashMovement, setPreviousBalance, closeDailyCash } from '@/api/resources/cash';
+import { useGet } from '../../api/hooks';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Loading from '../../components/common/Loading';
 import SaldoAnteriorCard from '../../components/caja/SaldoAnteriorCard';
@@ -19,7 +20,6 @@ export default function CajaDiaria() {
   const [fecha, setFecha] = useState<string>(today);
   const [saldoAnterior, setSaldoAnterior] = useState<number>(0);
   const [movimientos, setMovimientos] = useState<Record<string, unknown>[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
   const [saldoAnteriorEdit, setSaldoAnteriorEdit] = useState<boolean>(false);
 
   const [showIngreso, setShowIngreso] = useState<boolean>(false);
@@ -29,47 +29,27 @@ export default function CajaDiaria() {
   const [showCerrar, setShowCerrar] = useState<boolean>(false);
   const [cerrada, setCerrada] = useState<boolean>(false);
 
-  const loadCaja = useCallback(async () => {
-    setLoading(true);
-    try {
+  const { data: cajaData, loading, load: loadCaja } = useGet<Record<string, unknown>>(
+    ['cash', 'daily', fecha],
+    async () => {
       const res = await getDailyCash(fecha);
-      if (res.data) {
-        const movs = (res.data.movements as Record<string, unknown>[]) || [];
-        setSaldoAnterior(prev => (res.data.previous_balance as number) ?? prev);
-        setMovimientos(movs);
-        setCerrada((res.data.is_closed as boolean) || false);
-
-        if (!(res.data.is_closed as boolean) && movs.length === 0 && !res.data.previous_balance) {
-          const prev = new Date(fecha);
-          prev.setDate(prev.getDate() - 1);
-          const prevStr = prev.toISOString().split('T')[0];
-          try {
-            const prevRes = await getDailyCash(prevStr);
-            const prevSaldo = (prevRes.data?.current_balance as number) || 0;
-            if (prevSaldo) {
-              await setPreviousBalance(fecha, prevSaldo);
-              setSaldoAnterior(prevSaldo);
-            }
-          } catch {
-            // No hay caja del día anterior
-          }
-        }
-      }
-    } catch {
-      setMovimientos([]);
-      setCerrada(false);
-    } finally {
-      setLoading(false);
+      return (res.data as Record<string, unknown>) || {};
     }
-  }, [fecha, today]);
+  );
 
-  useEffect(() => { loadCaja(); }, [loadCaja]);
+  useEffect(() => {
+    if (!cajaData) return;
+    const movs = (cajaData.movements as Record<string, unknown>[]) || [];
+    setSaldoAnterior((cajaData.previous_balance as number) ?? 0);
+    setMovimientos(movs);
+    setCerrada((cajaData.is_closed as boolean) || false);
+  }, [cajaData]);
 
   const handleSaveSaldoAnterior = async () => {
     try {
       await setPreviousBalance(fecha, saldoAnterior);
       setSaldoAnteriorEdit(false);
-      await loadCaja();
+      loadCaja();
     } catch {
       alert('Error al guardar saldo anterior');
     }

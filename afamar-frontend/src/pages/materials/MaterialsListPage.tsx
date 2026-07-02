@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Edit, Trash2 } from 'lucide-react';
 import { getMaterials, deleteMaterial } from '@/api/resources/materials';
 import { getSettings } from '@/api/resources/settings';
+import { useList, useDelete } from '../../api/hooks';
 import { categoriasMaterial } from '../../utils/formatters';
 import type { Material } from '../../types/material';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
@@ -11,40 +12,33 @@ import styles from './MaterialsListPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
 
+const MATERIALS_KEY = ['materials'] as const;
+const SETTINGS_KEY = ['settings'] as const;
+
 export default function MaterialsList() {
-  const [data, setData] = useState<Material[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [categoria, setCategoria] = useState('');
-  const [tipoCambio, setTipoCambio] = useState(1);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const navigate = useNavigate();
 
-  const load = () => {
-    setLoading(true);
-    Promise.all([
-      getMaterials({ search: search || undefined, categoria: categoria || undefined }),
-      getSettings(),
-    ]).then(([matRes, cfgRes]) => {
-      setData(matRes.data as Material[]);
-      const cfgData = (cfgRes as unknown as { data: Record<string, unknown> }).data || {};
-      const cfgMap: Record<string, string> = {};
-      Object.entries(cfgData).forEach(([k, v]) => { cfgMap[k] = String(v ?? ''); });
-      setTipoCambio(Number(cfgMap.tipo_cambio) || 1);
-      setLoading(false);
-    });
-  };
+  const { items: data, loading } = useList<Material>(
+    [...MATERIALS_KEY, search, categoria],
+    async () => {
+      const res = await getMaterials({ search: search || undefined, categoria: categoria || undefined });
+      return (res.data as Material[]) || [];
+    }
+  );
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    load();
-  }, [search, categoria]);
+  const deleteMutation = useDelete<unknown, number>(
+    MATERIALS_KEY,
+    async (id) => { await deleteMaterial(id); },
+    { invalidateKeys: [MATERIALS_KEY] }
+  );
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    await deleteMaterial(deleteId);
+    await deleteMutation.mutateAsync(deleteId);
     setDeleteId(null);
-    load();
   };
 
   return (

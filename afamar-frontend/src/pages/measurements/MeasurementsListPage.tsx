@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Eye, Trash2 } from 'lucide-react';
 import { getMeasurements, deleteMeasurement } from '@/api/resources/measurements';
+import { useList, useDelete } from '../../api/hooks';
 import { estadosMedicion, formatDate } from '../../utils/formatters';
 import EstadoBadge from '../../components/ui/EstadoBadge';
 import type { Medicion } from '../../types/medicion';
@@ -11,30 +12,32 @@ import styles from './MeasurementsListPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
 
+const MEASUREMENTS_KEY = ['measurements'] as const;
+
 export default function MedicionesList() {
-  const [data, setData] = useState<Medicion[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [estadoFiltro, setEstadoFiltro] = useState('');
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const navigate = useNavigate();
 
-  const load = (): void => {
-    setLoading(true);
-    getMeasurements({ search: search || undefined, estado: estadoFiltro || undefined }).then((res: { data: Medicion[] }) => {
-      setData(res.data);
-      setLoading(false);
-    });
-  };
+  const { items: data, loading } = useList<Medicion>(
+    [...MEASUREMENTS_KEY, search, estadoFiltro],
+    async () => {
+      const res = await getMeasurements({ search: search || undefined, estado: estadoFiltro || undefined });
+      return (res.data as Medicion[]) || [];
+    }
+  );
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { load(); }, [search, estadoFiltro]);
+  const deleteMutation = useDelete<unknown, number>(
+    MEASUREMENTS_KEY,
+    async (id) => { await deleteMeasurement(id); },
+    { invalidateKeys: [MEASUREMENTS_KEY] }
+  );
 
   const handleDelete = async (): Promise<void> => {
     if (!deleteId) return;
-    await deleteMeasurement(deleteId);
+    await deleteMutation.mutateAsync(deleteId);
     setDeleteId(null);
-    load();
   };
 
   return (

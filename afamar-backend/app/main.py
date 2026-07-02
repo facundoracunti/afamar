@@ -53,6 +53,12 @@ async def lifespan(app: FastAPI):
         logger.error("Database check: %s", msg)
         raise RuntimeError(msg)
     run_migrations()
+    try:
+        from scripts.seed_materials import seed_materials, seed_default_settings
+        seed_default_settings()
+        seed_materials()
+    except Exception as exc:
+        logger.warning("Material seed failed: %s", exc)
     yield
 
 

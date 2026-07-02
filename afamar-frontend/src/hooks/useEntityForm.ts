@@ -5,53 +5,15 @@ import type { Material } from '../types/material';
 import type { StockPileta } from '../types/stockPileta';
 import type { Cliente } from '../types/cliente';
 import { useCalculosPresupuesto } from './useCalculosPresupuesto';
-
-const CONCEPTOS_M2 = ['ZÓCALO', 'FRENTE'];
-
-const TRAFORO_DETALLES: Record<string, string> = {
-  'TRAFORO DE PILETA': 'APERTURA Y PEGADO DE PILETA',
-  'TRAFORO DE ANAFE': 'APERTURA DE ANAFE',
-  'TRAFORO DE PILETA DE APOYO': 'APERTURA PILETA DE APOYO',
-};
-
-const CONCEPTO_NORMALIZE: Record<string, string> = {
-  'APERTURA + PEGADO PILETA': 'TRAFORO DE PILETA',
-  'APERTURA Y PEGADO DE PILETA': 'TRAFORO DE PILETA',
-  'APERTURA ANAFE': 'TRAFORO DE ANAFE',
-  'APERTURA DE ANAFE': 'TRAFORO DE ANAFE',
-  'APERTURA PILETA APOYO': 'TRAFORO DE PILETA DE APOYO',
-  'APERTURA PILETA DE APOYO': 'TRAFORO DE PILETA DE APOYO',
-};
-
-const INITIAL_FORM: EntityFormState = {
-  numero: '',
-  cliente_nombre: '', cliente_telefono_orden: '', domicilio: '', email: '',
-  fecha: new Date().toISOString().slice(0, 10),
-  estado: '',
-  material: '', material_precio_m2: 0, color_tipo: '', espesor: '', acabado: '', tipo_cambio: 1,
-  bacha: '', anafe: '',
-  croquis: [],
-  observaciones_diseno: '',
-  detalles_fabricacion: [],
-  pileta_id: '', pileta_imagen: '', pileta_precio: 0, pileta_moneda: 'ARS',
-  subtotal: 0, traslado: 0, total: 0,
-  sena_recibida: 0, sena_moneda: 'ARS', saldo_pendiente: 0, forma_pago: '', saldo_pagado: false, fecha_pago_saldo: '',
-  dolar_dia: 1000,
-  cuotas: 1,
-  subtotal_usd: 0, traslado_usd: 0, total_usd: 0, sena_usd: 0, saldo_pendiente_usd: 0,
-  fecha_entrega: '',
-  firma_cliente: null, fecha_aprobacion: '',
-  observaciones: '', observaciones_importantes: '',
-  detalles_presupuestados: [],
-  materiales: [],
-  piletas: [],
-  orden_trabajo_numero: null,
-  descuento_porcentaje: 0,
-  descuento_monto_fijo: 0,
-  recargo_ars: 0,
-  recargo_usd: 0,
-  recargo_pct: 0,
-};
+import {
+  INITIAL_FORM,
+  CONCEPTOS_M2,
+  TRAFORO_DETALLES,
+  buildPayload,
+  mapApiToForm,
+  addMaterialToList,
+  addPiletaToList,
+} from './entityFormHelpers';
 
 export default function useEntityForm({
   entityType,
@@ -82,7 +44,7 @@ export default function useEntityForm({
   const [logoUrl, setLogoUrl] = useState<string>('');
   const [showCroquis, setShowCroquis] = useState<boolean>(false);
   const [modoUSD, setModoUSD] = useState<boolean>(false);
-  const toggleModoUSD = useCallback(() => setModoUSD((p: boolean) => !p), []);
+  const toggleModoUSD = useCallback(() => setModoUSD((p) => !p), []);
 
   const menuRef = useRef<HTMLDivElement | null>(null);
   const clienteRef = useRef<HTMLDivElement | null>(null);
@@ -90,19 +52,18 @@ export default function useEntityForm({
   const materialUsdRef = useRef<number>(0);
 
   const update = useCallback((field: FormField, value: unknown) => {
-    setForm((prev: EntityFormState) => ({ ...prev, [field]: value } as EntityFormState));
+    setForm((prev) => ({ ...prev, [field]: value } as EntityFormState));
   }, []);
 
   const readOnly = ['TALLER', 'TERMINADA', 'ENTREGADA', 'CONVERTIDO A OT', 'RECHAZADO'].includes(form.estado);
   const hayUSD = (form.materiales || []).some((m: MaterialEnForm) => m.moneda === 'USD');
   const hayAlternativas = (form.materiales || []).some((m: MaterialEnForm) => m.es_alternativa);
-  const clientesFiltrados = clientes.filter((c: Cliente) =>
+  const clientesFiltrados = clientes.filter((c) =>
     (c.nombre || '').toLowerCase().includes((form.cliente_nombre || '').toLowerCase())
   );
 
   useCalculosPresupuesto(form, setForm);
 
-  // === Carga inicial ===
   useEffect(() => {
     services.getMateriales({ limit: 500 }).then((res: Record<string, unknown>) => setMateriales(res.data as Material[]));
     services.getPiletas().then((res: Record<string, unknown>) => setPiletas(res.data as StockPileta[]));
@@ -114,106 +75,32 @@ export default function useEntityForm({
         const base = (api.defaults.baseURL || '').replace(/\/api\/v\d+$/, '').replace(/\/api$/, '');
         setLogoUrl(`${base}${logoValue.startsWith('/') ? '' : '/'}${logoValue}`);
       }
-    }).catch(() => { /* ignore — logo is optional */ });
+    }).catch(() => { /* logo is optional */ });
+
+    if (!isEdit && services.getNextNumero) {
+      services.getNextNumero().then((res: Record<string, unknown>) => {
+        setForm((prev) => ({ ...prev, numero: (res.data as Record<string, unknown>).number as string }));
+      }).catch(() => {});
+    }
     if (id) {
       services.getById(id).then((res: Record<string, unknown>) => {
         const d = res.data as Record<string, unknown>;
-        setForm({
-          ...INITIAL_FORM,
-          numero: (d.numero as string) || '',
-          cliente_nombre: (d.cliente_nombre as string) || '',
-          cliente_telefono_orden: (d.cliente_telefono_orden as string) || '',
-          domicilio: (d.domicilio as string) || '',
-          email: (d.email as string) || '',
-          fecha: d.fecha ? (d.fecha as string).slice(0, 10) : new Date().toISOString().slice(0, 10),
-          estado: (d.estado as string) || defaultEstado,
-          material: (d.material as string) || '',
-          material_precio_m2: (d.material_precio_m2 as number) || 0,
-          tipo_cambio: (d.tipo_cambio as number) || 1,
-          color_tipo: (d.color_tipo as string) || '',
-          espesor: (d.espesor as string) || '',
-          acabado: (d.acabado as string) || '',
-          bacha: (d.bacha as string) || '',
-          anafe: (d.anafe as string) || '',
-          croquis: (d.croquis as unknown[]) || [],
-          observaciones_diseno: (d.observaciones_diseno as string) || '',
-          detalles_fabricacion: (d.detalles_fabricacion as Array<Record<string, unknown>>)?.length
-            ? (d.detalles_fabricacion as Array<Record<string, unknown>>).map((df: Record<string, unknown>) => {
-                const det = ((df.detalle as string) || '').toUpperCase();
-                const conTexto = ((df.concepto as string) || '').toUpperCase();
-                let concepto = (df.concepto as string) || '';
-                let detalle = (df.detalle as string) || '';
-                if (CONCEPTO_NORMALIZE[det] || CONCEPTO_NORMALIZE[conTexto]) {
-                  const norm = CONCEPTO_NORMALIZE[det] || CONCEPTO_NORMALIZE[conTexto];
-                  concepto = norm;
-                  detalle = TRAFORO_DETALLES[norm] || det;
-                } else if (CONCEPTO_NORMALIZE[conTexto]) {
-                  concepto = CONCEPTO_NORMALIZE[conTexto];
-                  detalle = TRAFORO_DETALLES[concepto] || det;
-                }
-                return { ...df, concepto, detalle, largo: (df.largo as number) ?? null, ancho: (df.ancho as number) ?? null, m2: (df.m2 as number) || 0, mano_de_obra: (df.mano_de_obra as number) ?? null, precio: (df.precio as number) || 0 };
-              })
-            : [],
-          detalles_presupuestados: (d.detalles_presupuestados as Array<Record<string, unknown>>) || [],
-          materiales: ((d.materiales as Array<Record<string, unknown>>) || []).map((m: Record<string, unknown>) => ({
-            ...m,
-            m2_presupuestado: (m.m2_presupuestado as number) || (Number(m.largo || 0) * Number(m.ancho || 0) * ((m.cantidad as number) || 1)),
-          })),
-          piletas: (d.piletas as Array<Record<string, unknown>>) || [],
-          pileta_id: (d.pileta_id as string) || '',
-          pileta_precio: (d.pileta_precio as number) || 0,
-          pileta_moneda: (d.pileta_moneda as string) || 'ARS',
-          pileta_imagen: (d.pileta_imagen as string) || '',
-          subtotal: (d.subtotal as number) || 0,
-          traslado: (d.traslado as number) || 0,
-          total: (d.total as number) || 0,
-          sena_recibida: (d.sena_recibida as number) || 0,
-          sena_moneda: (d.sena_moneda as string) || 'ARS',
-          saldo_pendiente: (d.saldo_pendiente as number) || 0,
-          forma_pago: (d.forma_pago as string) || '',
-          cuotas: (d.cuotas as number) || 1,
-          saldo_pagado: (d.saldo_pagado as boolean) || false,
-          fecha_pago_saldo: d.fecha_pago_saldo ? (d.fecha_pago_saldo as string).slice(0, 10) : '',
-          dolar_dia: (d.dolar_dia as number) ?? 1000,
-          subtotal_usd: (d.subtotal_usd as number) || 0,
-          traslado_usd: (d.traslado_usd as number) || 0,
-          total_usd: (d.total_usd as number) || 0,
-          sena_usd: (d.sena_usd as number) || 0,
-          saldo_pendiente_usd: (d.saldo_pendiente_usd as number) || 0,
-          fecha_entrega: d.fecha_entrega ? (d.fecha_entrega as string).slice(0, 10) : '',
-          firma_cliente: (d.firma_cliente as string) || null,
-          fecha_aprobacion: d.fecha_aprobacion ? (d.fecha_aprobacion as string).slice(0, 10) : '',
-          observaciones: (d.observaciones as string) || '',
-          observaciones_importantes: (d.observaciones_importantes as string) || '',
-          descuento_porcentaje: (d.descuento_porcentaje as number) ?? 0,
-          descuento_monto_fijo: (d.descuento_monto_fijo as number) ?? 0,
-        } as unknown as EntityFormState);
+        setForm(mapApiToForm(d, defaultEstado));
         onLoaded?.(d);
         setLoading(false);
       });
     }
-  }, [id]);
+  }, [id, isEdit]);
 
-  // Número automático
-  useEffect(() => {
-    if (!isEdit && services.getNextNumero) {
-      services.getNextNumero().then((res: Record<string, unknown>) => {
-        setForm((prev: EntityFormState) => ({ ...prev, numero: (res.data as Record<string, unknown>).number as string }));
-      }).catch(() => {});
-    }
-  }, [isEdit]);
-
-  // Sincronizar materialPrecioRef
   useEffect(() => {
     if (isEdit && materiales.length > 0 && form.material) {
-      const foundMat = materiales.find((mat: Material) => mat.nombre === form.material);
+      const foundMat = materiales.find((mat) => mat.nombre === form.material);
       if (foundMat) {
         materialUsdRef.current = foundMat.precio_m2_usd || 0;
       }
     }
   }, [materiales, isEdit, form.material]);
 
-  // Cerrar menús al hacer click fuera
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
@@ -223,15 +110,14 @@ export default function useEntityForm({
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  // === Handlers ===
   const handleMaterialChange = useCallback((nombre: string) => {
-    const m = materiales.find((mat: Material) => mat.nombre === nombre);
+    const m = materiales.find((mat) => mat.nombre === nombre);
     if (m) {
       const currency = m.moneda || 'ARS';
       const usdPrice = m.precio_m2_usd || 0;
       const arsPrice = m.precio_m2 || 0;
       materialUsdRef.current = usdPrice;
-      setForm((prev: EntityFormState) => {
+      setForm((prev) => {
         const tc = prev.dolar_dia ?? 1000;
         const pm2 = currency === 'USD' ? Math.round(usdPrice * tc * 100) / 100 : arsPrice;
         materialPrecioRef.current = pm2;
@@ -251,12 +137,12 @@ export default function useEntityForm({
       });
     } else {
       materialUsdRef.current = 0;
-      setForm((prev: EntityFormState) => ({ ...prev, material: nombre, material_precio_m2: 0 }));
+      setForm((prev) => ({ ...prev, material: nombre, material_precio_m2: 0 }));
     }
   }, [materiales]);
 
   const handleClienteSelect = useCallback((c: Record<string, unknown>) => {
-    setForm((prev: EntityFormState) => ({
+    setForm((prev) => ({
       ...prev,
       cliente_nombre: c.nombre as string,
       cliente_telefono_orden: (c.telefono as string) || '',
@@ -279,17 +165,17 @@ export default function useEntityForm({
     if (source === 'usd') {
       const usd = Number(value) || 0;
       const ars = Math.round(usd * dd * 100) / 100;
-      setForm((prev: EntityFormState) => ({ ...prev, traslado_usd: usd, traslado: ars }));
+      setForm((prev) => ({ ...prev, traslado_usd: usd, traslado: ars }));
     } else {
       const ars = Number(value) || 0;
       const usd = dd > 0 ? Math.round((ars / dd) * 100) / 100 : 0;
-      setForm((prev: EntityFormState) => ({ ...prev, traslado: ars, traslado_usd: usd }));
+      setForm((prev) => ({ ...prev, traslado: ars, traslado_usd: usd }));
     }
   }, [form.dolar_dia]);
 
   const handleSenaMonedaChange = useCallback((moneda: string) => {
     const current = Number(form.sena_recibida || form.sena_usd || 0);
-    setForm((prev: EntityFormState) => ({
+    setForm((prev) => ({
       ...prev,
       sena_moneda: moneda,
       sena_recibida: moneda === 'ARS' ? current : 0,
@@ -300,7 +186,7 @@ export default function useEntityForm({
   const handleSenaMontoChange = useCallback((value: string) => {
     const val = Number(value) || 0;
     const moneda = form.sena_moneda || 'ARS';
-    setForm((prev: EntityFormState) => ({
+    setForm((prev) => ({
       ...prev,
       sena_recibida: moneda === 'ARS' ? val : 0,
       sena_usd: moneda === 'USD' ? val : 0,
@@ -310,7 +196,7 @@ export default function useEntityForm({
   const handleDolarDiaChange = useCallback((value: string) => {
     const dd = Number(value);
     const tr_usd = Number(form.traslado_usd) || 0;
-    setForm((prev: EntityFormState) => ({
+    setForm((prev) => ({
       ...prev,
       dolar_dia: dd,
       traslado: Math.round(tr_usd * dd * 100) / 100,
@@ -318,7 +204,7 @@ export default function useEntityForm({
   }, [form.traslado_usd]);
 
   const handleDetalleChange = useCallback((idx: number, field: string, value: unknown) => {
-    setForm((prev: EntityFormState) => {
+    setForm((prev) => {
       const list = [...prev.detalles_fabricacion];
       list[idx] = { ...list[idx], [field]: value } as typeof list[number];
       if (field === 'concepto' && value !== 'OTRA') {
@@ -330,7 +216,7 @@ export default function useEntityForm({
       const d = list[idx];
 
       if (field === 'material') {
-        const mat = materiales.find((m: Material) => m.nombre === value);
+        const mat = materiales.find((m) => m.nombre === value);
         if (mat) {
           list[idx].material = value as string;
           list[idx].moneda = mat.moneda || 'ARS';
@@ -356,7 +242,7 @@ export default function useEntityForm({
         const moneda = d.moneda || 'ARS';
         let pm2 = 0;
         if (d.material) {
-          const mat = materiales.find((m: Material) => m.nombre === d.material);
+          const mat = materiales.find((m) => m.nombre === d.material);
           if (mat) {
             pm2 = moneda === 'USD' ? (mat.precio_m2_usd || 0) : (mat.precio_m2 || 0);
           }
@@ -378,23 +264,16 @@ export default function useEntityForm({
 
   const removeDetalle = useCallback((idx: number) => {
     if (form.detalles_fabricacion.length <= 1) return;
-    update('detalles_fabricacion', form.detalles_fabricacion.filter((_: unknown, i: number) => i !== idx));
+    update('detalles_fabricacion', form.detalles_fabricacion.filter((_, i) => i !== idx));
   }, [form.detalles_fabricacion, update]);
 
   const addMaterial = useCallback((nombre: string) => {
-    if (!nombre) return;
-    const mat = materiales.find((m: Material) => m.nombre === nombre);
-    if (!mat) return;
-    update('materiales', [...(form.materiales || []), {
-      nombre: mat.nombre, categoria: mat.categoria || '', color: mat.color || '',
-      precio_m2: mat.precio_m2 || 0, precio_m2_usd: mat.precio_m2_usd || 0,
-      moneda: mat.moneda || 'ARS', cantidad: 1, m2_utilizados: 0, m2_presupuestado: 0,
-      largo: 0, ancho: 0, es_alternativa: false,
-    } as MaterialEnForm]);
-  }, [materiales, form.materiales, update]);
+    const list = addMaterialToList(form, materiales, nombre);
+    if (list) update('materiales', list);
+  }, [form, materiales, update]);
 
   const removeMaterial = useCallback((idx: number) => {
-    update('materiales', form.materiales.filter((_: unknown, i: number) => i !== idx));
+    update('materiales', form.materiales.filter((_, i) => i !== idx));
   }, [form.materiales, update]);
 
   const updateMaterial = useCallback((idx: number, field: string, value: unknown) => {
@@ -404,17 +283,12 @@ export default function useEntityForm({
   }, [form.materiales, update]);
 
   const addPileta = useCallback((pid: string) => {
-    if (!pid) return;
-    const pt = piletas.find((p: StockPileta) => p.id === Number(pid));
-    if (!pt) return;
-    update('piletas', [...(form.piletas || []), {
-      pileta_id: pt.id, marca: pt.marca, modelo: pt.modelo,
-      precio: pt.precio || 0, moneda: 'ARS' as const, imagen: '', cantidad: 1,
-    } as PiletaEnForm]);
-  }, [piletas, form.piletas, update]);
+    const list = addPiletaToList(form, piletas, pid);
+    if (list) update('piletas', list);
+  }, [form, piletas, update]);
 
   const removePileta = useCallback((idx: number) => {
-    update('piletas', form.piletas.filter((_: unknown, i: number) => i !== idx));
+    update('piletas', form.piletas.filter((_, i) => i !== idx));
   }, [form.piletas, update]);
 
   const updatePileta = useCallback((idx: number, field: string, value: unknown) => {
@@ -423,77 +297,11 @@ export default function useEntityForm({
     update('piletas', list);
   }, [form.piletas, update]);
 
-  const buildPayload = useCallback((): Record<string, unknown> => ({
-    cliente_nombre: form.cliente_nombre,
-    cliente_telefono_orden: form.cliente_telefono_orden,
-    domicilio: form.domicilio,
-    email: form.email,
-    fecha: form.fecha ? new Date(form.fecha).toISOString() : null,
-    estado: form.estado,
-    material: form.material,
-    material_precio_m2: Number(form.material_precio_m2) || 0,
-    tipo_cambio: Number(form.tipo_cambio) || 1000,
-    color_tipo: form.color_tipo,
-    espesor: form.espesor,
-    acabado: form.acabado,
-    bacha: form.bacha,
-    anafe: form.anafe,
-    croquis: Array.isArray(form.croquis)
-      ? form.croquis.map((pag: unknown) => {
-          const p = pag as Record<string, unknown>;
-          return {
-            ...p,
-            dibujo: ((p.dibujo || p.elementos) as Array<Record<string, unknown>> || []).map((el: Record<string, unknown>) => {
-              const { seleccionado, ...rest } = el;
-              return rest;
-            }),
-          };
-        })
-      : form.croquis,
-    observaciones_diseno: form.observaciones_diseno,
-    detalles_fabricacion: form.detalles_fabricacion,
-    materiales: form.materiales,
-    pileta_id: form.pileta_id ? Number(form.pileta_id) : undefined,
-    pileta_precio: Number(form.pileta_precio) || 0,
-    pileta_moneda: form.pileta_moneda || 'ARS',
-    pileta_imagen: form.pileta_imagen,
-    piletas: form.piletas,
-    subtotal: Number(form.subtotal),
-    traslado: Number(form.traslado),
-    total: Number(form.total),
-    sena_recibida: Number(form.sena_recibida),
-    sena_moneda: form.sena_moneda || 'ARS',
-    saldo_pendiente: Number(form.saldo_pendiente),
-    dolar_dia: Number(form.dolar_dia),
-    subtotal_usd: Number(form.subtotal_usd),
-    traslado_usd: Number(form.traslado_usd),
-    total_usd: Number(form.total_usd),
-    sena_usd: Number(form.sena_usd),
-    saldo_pendiente_usd: Number(form.saldo_pendiente_usd),
-    forma_pago: form.forma_pago,
-    cuotas: form.cuotas || 1,
-    saldo_pagado: form.saldo_pagado || false,
-    fecha_pago_saldo: form.fecha_pago_saldo || null,
-    fecha_entrega: form.fecha_entrega ? new Date(form.fecha_entrega).toISOString() : null,
-    firma_cliente: form.firma_cliente,
-    fecha_aprobacion: form.fecha_aprobacion ? new Date(form.fecha_aprobacion).toISOString() : null,
-    observaciones: form.observaciones,
-    observaciones_importantes: form.observaciones_importantes,
-    descuento:
-      Number(form.descuento_monto_fijo) > 0
-        ? Number(form.descuento_monto_fijo)
-        : Number(form.descuento_porcentaje) > 0
-          ? Number(form.descuento_porcentaje)
-          : 0,
-    descuento_porcentaje: Number(form.descuento_porcentaje) || 0,
-    descuento_monto_fijo: Number(form.descuento_monto_fijo) || 0,
-  }), [form]);
-
   const handleSubmit = useCallback(async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setSaving(true);
     try {
-      const payload = buildPayload();
+      const payload = buildPayload(form);
       if (['TARJETA DE CRÉDITO', 'TARJETA DE DÉBITO'].includes(form.forma_pago)) {
         payload.sena_recibida = Number(form.total);
         payload.saldo_pendiente = 0;
@@ -513,7 +321,7 @@ export default function useEntityForm({
     } finally {
       setSaving(false);
     }
-  }, [isEdit, id, buildPayload, services, navigate, form.forma_pago, form.total, form.total_usd]);
+  }, [isEdit, id, services, navigate, form]);
 
   const handleDelete = useCallback(async () => {
     if (!id) return;
@@ -543,7 +351,7 @@ export default function useEntityForm({
         payload.fecha_pago_saldo = new Date().toISOString().slice(0, 10);
       }
       await services.update(id as string, payload);
-      setForm((prev: EntityFormState) => ({ ...prev, ...payload, estado: nuevoEstado }));
+      setForm((prev) => ({ ...prev, ...payload, estado: nuevoEstado }));
     } catch {
       alert('Error al cambiar estado');
     } finally {
@@ -560,59 +368,27 @@ export default function useEntityForm({
   }, [id, services]);
 
   return {
-    form,
-    loading,
-    saving,
+    form, loading, saving,
     materiales: materiales as unknown as Record<string, unknown>[],
     piletas: piletas as unknown as Record<string, unknown>[],
     clientes: clientes as unknown as Record<string, unknown>[],
     logoUrl,
-    showClienteDropdown,
-    menuOpen,
-    deleteConfirm,
-    showCroquis,
-    modoUSD,
-    toggleModoUSD,
-    setModoUSD,
-    readOnly,
-    hayUSD,
-    hayAlternativas,
-    clientesFiltrados: clientesFiltrados as unknown[],
+    showClienteDropdown, menuOpen, deleteConfirm, showCroquis,
+    modoUSD, toggleModoUSD, setModoUSD,
+    readOnly, hayUSD, hayAlternativas, clientesFiltrados: clientesFiltrados as unknown[],
     isEdit,
-    menuRef,
-    clienteRef,
-    materialPrecioRef,
-    materialUsdRef,
-    materialesAgrupados: materiales.filter((m: Material) => m.nombre) as unknown[],
+    menuRef, clienteRef, materialPrecioRef, materialUsdRef,
+    materialesAgrupados: materiales.filter((m) => m.nombre) as unknown[],
     CONCEPTOS_M2,
-    setForm,
-    setLoading,
-    setSaving,
-    setMenuOpen,
-    setDeleteConfirm,
-    setShowClienteDropdown,
-    setShowCroquis,
+    setForm, setLoading, setSaving,
+    setMenuOpen, setDeleteConfirm, setShowClienteDropdown, setShowCroquis,
     update,
-    handleMaterialChange,
-    handleClienteSelect,
-    handlePiletaImagen,
-    handleTrasladoChange,
-    handleSenaMonedaChange,
-    handleSenaMontoChange,
-    handleDolarDiaChange,
-    handleDetalleChange,
-    addDetalle,
-    removeDetalle,
-    addMaterial,
-    removeMaterial,
-    updateMaterial,
-    addPileta,
-    removePileta,
-    updatePileta,
-    handleSubmit,
-    handleDelete,
-    handleCambioEstadoAccion,
-    handlePrint,
-    buildPayload,
+    handleMaterialChange, handleClienteSelect, handlePiletaImagen,
+    handleTrasladoChange, handleSenaMonedaChange, handleSenaMontoChange, handleDolarDiaChange,
+    handleDetalleChange, addDetalle, removeDetalle,
+    addMaterial, removeMaterial, updateMaterial,
+    addPileta, removePileta, updatePileta,
+    handleSubmit, handleDelete, handleCambioEstadoAccion, handlePrint,
+    buildPayload: () => buildPayload(form),
   };
 }

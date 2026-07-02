@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getOnlineBudget, createOnlineBudget, updateOnlineBudget, convertOnlineBudgetToWorkOrder, convertOnlineBudgetToWorkOrderOption } from '@/api/resources/onlineBudgets';
+import { getOnlineBudget, createOnlineBudget, updateOnlineBudget, convertOnlineBudgetToWorkOrder, convertOnlineBudgetToWorkOrderOption, mapOnlineBudgetToApi } from '@/api/resources/onlineBudgets';
 import { getMaterials } from '@/api/resources/materials';
 import { getPoolStock } from '@/api/resources/poolStock';
 import { getNextBudgetNumber } from '@/api/resources/budgets';
@@ -175,7 +175,7 @@ export default function PresupuestoOnlineForm() {
       allItems.forEach((i: PresupuestoOnlineItemLocal) => { if (i.moneda === 'USD') usd += Number(i.subtotal) || 0; else ars += Number(i.subtotal) || 0; });
       const cons = Math.round((ars + usd * Number(dolarDia)) * 100) / 100;
       const piletaItems = opciones.flatMap((tab: OpcionTab) => tab.especiales).filter((e: PresupuestoOnlineItemLocal) => e.detalle === 'PILETA MOD' && e.pileta_id);
-      const payload: Record<string, unknown> = {
+      const rawPayload: Record<string, unknown> = {
         cliente, telefono, tipo_obra: tipoObra, fecha,
         dolar_dia: Number(dolarDia),
         items: allItems,
@@ -185,6 +185,7 @@ export default function PresupuestoOnlineForm() {
         pileta_id: piletaItems.length ? Number(piletaItems[0].pileta_id) : null,
         pileta_precio: piletaItems.length ? (Number(piletaItems[0].precio_unitario) || 0) : 0,
       };
+      const payload = mapOnlineBudgetToApi(rawPayload);
       if (isEdit) await updateOnlineBudget(id as string, payload);
       else await createOnlineBudget(payload);
       navigate('/admin/online-budgets');

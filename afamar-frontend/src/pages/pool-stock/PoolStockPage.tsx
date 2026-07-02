@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, PackagePlus, PackageMinus, Trash2 } from 'lucide-react';
 import { getPoolStock, createPool, updatePool, deletePool, getPoolMovements, createPoolMovement } from '@/api/resources/poolStock';
+import { useList, useDelete } from '../../api/hooks';
 import Modal from '../../components/common/Modal';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Loading from '../../components/common/Loading';
@@ -9,9 +10,9 @@ import styles from './PoolStockPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
 
+const POOL_STOCK_KEY = ['pool-stock'] as const;
+
 export default function StockPiletas() {
-  const [data, setData] = useState<StockPileta[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [showMov, setShowMov] = useState<StockPileta | null>(null);
@@ -22,16 +23,19 @@ export default function StockPiletas() {
   const [form, setForm] = useState<{ marca: string; modelo: string; descripcion: string; material: string; cantidad: number; precio: number; precio_usd: number }>({ marca: '', modelo: '', descripcion: '', material: '', cantidad: 0, precio: 0, precio_usd: 0 });
   const [movForm, setMovForm] = useState<{ tipo: string; cantidad: number; descripcion: string }>({ tipo: 'Ingreso', cantidad: 1, descripcion: '' });
 
-  const load = () => {
-    setLoading(true);
-    getPoolStock({ search: search || undefined }).then((res: { data: StockPileta[] }) => {
-      setData(res.data);
-      setLoading(false);
-    });
-  };
+  const { items: data, loading, load } = useList<StockPileta>(
+    [...POOL_STOCK_KEY, search],
+    async () => {
+      const res = await getPoolStock({ search: search || undefined });
+      return (res.data as StockPileta[]) || [];
+    }
+  );
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { load(); }, [search]);
+  const deleteMutation = useDelete<unknown, number>(
+    POOL_STOCK_KEY,
+    async (id) => { await deletePool(id); },
+    { invalidateKeys: [POOL_STOCK_KEY] }
+  );
 
   const handleOpenForm = (item: StockPileta | null = null) => {
     if (item) {
@@ -61,9 +65,8 @@ export default function StockPiletas() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    await deletePool(deleteId);
+    await deleteMutation.mutateAsync(deleteId);
     setDeleteId(null);
-    load();
   };
 
   const handleOpenMov = async (pileta: StockPileta) => {

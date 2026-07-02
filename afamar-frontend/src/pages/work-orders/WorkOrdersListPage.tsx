@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Search, Trash2, ChevronRight, ChevronLeft, FileDown } from 'lucide-react';
-import { getWorkOrders, deleteWorkOrder, updateWorkOrder, getWorkOrderPdf } from '@/api/resources/workOrders';
+import { getWorkOrders, deleteWorkOrder, updateWorkOrder, getWorkOrderPdf, mapWorkOrderStatusToApi } from '@/api/resources/workOrders';
+import { useList, useDelete } from '../../api/hooks';
 import { formatDate, estadosOrden } from '../../utils/formatters';
 import CurrencyDisplay from '../../components/ui/CurrencyDisplay';
 import EstadoBadge from '../../components/ui/EstadoBadge';
@@ -11,11 +12,11 @@ import styles from './WorkOrdersListPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
 
+const WORK_ORDERS_KEY = ['work-orders'] as const;
+
 export default function OrdenesList() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [data, setData] = useState<Record<string, unknown>[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState<string>(searchParams.get('search') || '');
   const [estado, setEstado] = useState<string>(searchParams.get('estado') || '');
   const [deleteId, setDeleteId] = useState<number | string | null>(null);
@@ -25,28 +26,30 @@ export default function OrdenesList() {
     setEstado(searchParams.get('estado') || '');
   }, [searchParams]);
 
-  const load = () => {
-    setLoading(true);
-    getWorkOrders({ search: search || undefined, estado: estado || undefined }).then((res) => {
-      setData(res.data);
-      setLoading(false);
-    });
-  };
+  const { items: data, loading, load } = useList<Record<string, unknown>>(
+    [...WORK_ORDERS_KEY, search, estado],
+    async () => {
+      const res = await getWorkOrders({ search: search || undefined, estado: estado || undefined });
+      return (res.data as Record<string, unknown>[]) || [];
+    }
+  );
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { load(); }, [search, estado]);
+  const deleteMutation = useDelete<unknown, number | string>(
+    WORK_ORDERS_KEY,
+    async (id) => { await deleteWorkOrder(id); },
+    { invalidateKeys: [WORK_ORDERS_KEY] }
+  );
 
   const handleDelete = async () => {
     if (deleteId === null) return;
-    await deleteWorkOrder(deleteId);
+    await deleteMutation.mutateAsync(deleteId);
     setDeleteId(null);
-    load();
   };
 
   const avanzarEstado = async (o: Record<string, unknown>) => {
     const idx = estadosOrden.indexOf(o.estado as string);
     if (idx < estadosOrden.length - 1) {
-      await updateWorkOrder(o.id as string, { estado: estadosOrden[idx + 1] });
+      await updateWorkOrder(o.id as string, mapWorkOrderStatusToApi(estadosOrden[idx + 1]));
       load();
     }
   };
@@ -54,7 +57,7 @@ export default function OrdenesList() {
   const retrocederEstado = async (o: Record<string, unknown>) => {
     const idx = estadosOrden.indexOf(o.estado as string);
     if (idx > 0) {
-      await updateWorkOrder(o.id as string, { estado: estadosOrden[idx - 1] });
+      await updateWorkOrder(o.id as string, mapWorkOrderStatusToApi(estadosOrden[idx - 1]));
       load();
     }
   };

@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Trash2, Eye, Send } from 'lucide-react';
 import { getOnlineBudgets, deleteOnlineBudget } from '@/api/resources/onlineBudgets';
+import { useList, useDelete } from '../../api/hooks';
 import { formatDate } from '../../utils/formatters';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Loading from '../../components/common/Loading';
@@ -9,22 +10,26 @@ import styles from './OnlineBudgetsListPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
 
+const ONLINE_BUDGETS_KEY = ['online-budgets'] as const;
+
 export default function PresupuestosOnlineList() {
   const navigate = useNavigate();
-  const [data, setData] = useState<Record<string, unknown>[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
-  const load = () => {
-    setLoading(true);
-    getOnlineBudgets({ search: search || undefined }).then((res: { data: Record<string, unknown>[] }) => {
-      setData(res.data);
-      setLoading(false);
-    });
-  };
+  const { items: data, loading } = useList<Record<string, unknown>>(
+    [...ONLINE_BUDGETS_KEY, search],
+    async () => {
+      const res = await getOnlineBudgets({ search: search || undefined });
+      return (res.data as Record<string, unknown>[]) || [];
+    }
+  );
 
-  useEffect(() => { load(); }, [search]);
+  const deleteMutation = useDelete<unknown, number>(
+    ONLINE_BUDGETS_KEY,
+    async (id) => { await deleteOnlineBudget(id); },
+    { invalidateKeys: [ONLINE_BUDGETS_KEY] }
+  );
 
   const enviarPorWhatsApp = (p: Record<string, unknown>) => {
     const telefonoLimpio = ((p.telefono as string) || '').replace(/\D/g, '');
@@ -39,9 +44,8 @@ export default function PresupuestosOnlineList() {
   const handleDelete = async () => {
     if (!deleteId) return;
     try {
-      await deleteOnlineBudget(deleteId);
+      await deleteMutation.mutateAsync(deleteId);
       setDeleteId(null);
-      load();
     } catch (err: unknown) {
       console.error(err);
     }

@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Edit, Trash2 } from 'lucide-react';
 import { getClients, deleteClient } from '@/api/resources/clients';
+import { useList, useDelete } from '../../api/hooks';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Loading from '../../components/common/Loading';
 import styles from './ClientsListPage.module.css';
@@ -20,29 +21,33 @@ interface Client {
   created_at?: string | null;
 }
 
+const CLIENTS_KEY = ['clients'] as const;
+
 export default function ClientsList() {
-  const [clients, setClients] = useState<Client[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const navigate = useNavigate();
 
-  const load = () => {
-    setLoading(true);
-    getClients({ search: search || undefined }).then((res) => {
-      setClients((res.data as Client[]) || []);
-      setLoading(false);
-    });
-  };
+  const { items: clients, loading } = useList<Client>(
+    [...CLIENTS_KEY, search],
+    async () => {
+      const res = await getClients({ search: search || undefined });
+      return (res.data as Client[]) || [];
+    }
+  );
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { load(); }, [search]);
+  const deleteMutation = useDelete<unknown, number>(
+    CLIENTS_KEY,
+    async (id) => {
+      await deleteClient(id);
+    },
+    { invalidateKeys: [CLIENTS_KEY] }
+  );
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    await deleteClient(deleteId);
+    await deleteMutation.mutateAsync(deleteId);
     setDeleteId(null);
-    load();
   };
 
   const formatDate = (d: string | null | undefined): string => {

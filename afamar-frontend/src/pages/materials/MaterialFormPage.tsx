@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Save, Camera, Trash2 } from 'lucide-react';
-import { getMaterial, createMaterial, updateMaterial, uploadMaterialPhoto } from '@/api/resources/materials';
+import { getMaterial, createMaterial, updateMaterial, uploadMaterialPhoto, primeMaterialCategoryMap, getMaterialCategories } from '@/api/resources/materials';
 import { getSettings } from '@/api/resources/settings';
 import { categoriasMaterial } from '../../utils/formatters';
 import type { MaterialFormData, Material } from '../../types/material';
@@ -17,6 +17,7 @@ export default function MaterialForm() {
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [tipoCambio, setTipoCambio] = useState(1);
+  const [categorias, setCategorias] = useState<{ id: number; name: string }[]>([]);
   const [form, setForm] = useState<MaterialFormData>({
     nombre: '', categoria: '', color: '', espesor_disponible: '',
     precio_m2: 0, precio_m2_usd: 0, moneda: 'ARS', proveedor: '', stock_disponible: 0, observaciones: '',
@@ -27,6 +28,11 @@ export default function MaterialForm() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    primeMaterialCategoryMap();
+    getMaterialCategories().then((res) => {
+      const list = (res as unknown as { data: Array<{ id: number; name: string }> }).data || [];
+      setCategorias(list);
+    });
     getSettings().then((res) => {
       const map: Record<string, string> = {};
       const data = (res as unknown as { data: Record<string, unknown> }).data || {};
@@ -136,7 +142,10 @@ export default function MaterialForm() {
               <label className={s['material-form__label']}>Categoría</label>
               <select className="input" value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })}>
                 <option value="">Seleccionar...</option>
-                {categoriasMaterial.map((c) => <option key={c} value={c}>{c}</option>)}
+                {categorias.length > 0
+                  ? categorias.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)
+                  : categoriasMaterial.map((c) => <option key={c} value={c}>{c}</option>)
+                }
               </select>
             </div>
           </div>
