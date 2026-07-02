@@ -53,6 +53,7 @@ export interface EntityFormState {
   recargo_ars: number;
   recargo_usd: number;
   recargo_pct: number;
+  snapshot?: Record<string, unknown>;
 }
 
 export type FormField = keyof EntityFormState;

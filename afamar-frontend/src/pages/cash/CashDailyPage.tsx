@@ -34,18 +34,18 @@ export default function CajaDiaria() {
     try {
       const res = await getDailyCash(fecha);
       if (res.data) {
-        const movs = (res.data.movimientos as Record<string, unknown>[]) || [];
-        setSaldoAnterior(prev => (res.data.saldo_anterior as number) ?? prev);
+        const movs = (res.data.movements as Record<string, unknown>[]) || [];
+        setSaldoAnterior(prev => (res.data.previous_balance as number) ?? prev);
         setMovimientos(movs);
-        setCerrada((res.data.cerrada as boolean) || false);
+        setCerrada((res.data.is_closed as boolean) || false);
 
-        if (!(res.data.cerrada as boolean) && movs.length === 0 && !res.data.saldo_anterior) {
+        if (!(res.data.is_closed as boolean) && movs.length === 0 && !res.data.previous_balance) {
           const prev = new Date(fecha);
           prev.setDate(prev.getDate() - 1);
           const prevStr = prev.toISOString().split('T')[0];
           try {
             const prevRes = await getDailyCash(prevStr);
-            const prevSaldo = (prevRes.data?.saldo_actual as number) || 0;
+            const prevSaldo = (prevRes.data?.current_balance as number) || 0;
             if (prevSaldo) {
               await setPreviousBalance(fecha, prevSaldo);
               setSaldoAnterior(prevSaldo);
@@ -77,7 +77,7 @@ export default function CajaDiaria() {
 
   const handleAddIngreso = async (data: Record<string, unknown>) => {
     try {
-      await createCashMovement({ ...data, fecha });
+      await createCashMovement({ ...data, date: fecha });
       setShowIngreso(false);
       await loadCaja();
     } catch {
@@ -87,7 +87,7 @@ export default function CajaDiaria() {
 
   const handleAddEgreso = async (data: Record<string, unknown>) => {
     try {
-      await createCashMovement({ ...data, fecha });
+      await createCashMovement({ ...data, date: fecha });
       setShowEgreso(false);
       await loadCaja();
     } catch {
@@ -106,9 +106,9 @@ export default function CajaDiaria() {
     }
   };
 
-  const handleCerrarCaja = async (observaciones: string) => {
+  const handleCerrarCaja = async (notes: string) => {
     try {
-      await closeDailyCash(fecha, observaciones || undefined);
+      await closeDailyCash(fecha, notes || undefined);
       setShowCerrar(false);
       await loadCaja();
     } catch {
@@ -118,20 +118,20 @@ export default function CajaDiaria() {
 
   const handlePrint = () => window.print();
 
-  const ingresos = movimientos.filter((m: Record<string, unknown>) => m.tipo === 'INGRESO');
-  const egresos = movimientos.filter((m: Record<string, unknown>) => m.tipo === 'EGRESO');
+  const ingresos = movimientos.filter((m: Record<string, unknown>) => m.type === 'INCOME');
+  const egresos = movimientos.filter((m: Record<string, unknown>) => m.type === 'EXPENSE');
 
-  const totalIngresos = ingresos.reduce((s: number, m: Record<string, unknown>) => s + ((m.monto as number) || 0), 0);
-  const totalSalidas = egresos.reduce((s: number, m: Record<string, unknown>) => s + ((m.monto as number) || 0), 0);
+  const totalIngresos = ingresos.reduce((s: number, m: Record<string, unknown>) => s + ((m.amount as number) || 0), 0);
+  const totalSalidas = egresos.reduce((s: number, m: Record<string, unknown>) => s + ((m.amount as number) || 0), 0);
   const suma = (saldoAnterior || 0) + totalIngresos;
   const saldoActualNum = suma - totalSalidas;
 
   const ingresosEfectivo = ingresos
-    .filter((m: Record<string, unknown>) => ((m.forma_pago as string) || '').toLowerCase() === 'efectivo')
-    .reduce((s: number, m: Record<string, unknown>) => s + ((m.monto as number) || 0), 0);
+    .filter((m: Record<string, unknown>) => ((m.payment_method as string) || '').toUpperCase() === 'CASH')
+    .reduce((s: number, m: Record<string, unknown>) => s + ((m.amount as number) || 0), 0);
   const totalTB = egresos
-    .filter((m: Record<string, unknown>) => (m.tipo_egreso as string) === 'Transferencia Banco')
-    .reduce((s: number, m: Record<string, unknown>) => s + ((m.monto as number) || 0), 0);
+    .filter((m: Record<string, unknown>) => (m.expense_type as string) === 'BANK_TRANSFER')
+    .reduce((s: number, m: Record<string, unknown>) => s + ((m.amount as number) || 0), 0);
   const efectivoReal = (saldoAnterior || 0) + ingresosEfectivo - (totalSalidas - totalTB);
 
   const isToday = fecha === today;

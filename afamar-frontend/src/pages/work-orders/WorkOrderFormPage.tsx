@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Eye, Save, Printer, MoreVertical, Copy, FileDown, Trash2, History, Plus, X } from 'lucide-react';
+import { Eye, Save, Printer, MoreVertical, Copy, FileDown, Trash2, History } from 'lucide-react';
 import { getWorkOrder, createWorkOrder, updateWorkOrder, deleteWorkOrder, getNextWorkOrderNumber, getWorkOrderPdf } from '@/api/resources/workOrders';
 import { getMaterials } from '@/api/resources/materials';
 import { getPoolStock } from '@/api/resources/poolStock';
@@ -12,15 +12,16 @@ import CroquisEditor from '../../components/croquis/CroquisEditor';
 import PresupuestoPanel from '../../components/presupuesto/PresupuestoPanel';
 import Loading from '../../components/common/Loading';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
-import MaterialCard from '../../components/materiales/MaterialCard';
-import PiletaCard from '../../components/materiales/PiletaCard';
-import FabricacionTable from '../../components/presupuesto/FabricacionTable';
-import ClienteSection from '../../components/ordenes/ClienteSection';
 import AprobacionSection from '../../components/ordenes/AprobacionSection';
-import ObservacionesSection from '../../components/ordenes/ObservacionesSection';
 import FormHeader from '../../components/ordenes/FormHeader';
 import FormFooter from '../../components/ordenes/FormFooter';
-import type { OrdenTrabajoPayload, EntityFormState, EntityServices } from '../../types';
+import WorkOrderFormBasic from './WorkOrderFormBasic';
+import WorkOrderFormSpecs from './WorkOrderFormSpecs';
+import WorkOrderFormItemsGrid from './WorkOrderFormItemsGrid';
+import WorkOrderFormFinancial from './WorkOrderFormFinancial';
+import WorkOrderFormObservations from './WorkOrderFormObservations';
+import WorkOrderFormSnapshot from './WorkOrderFormSnapshot';
+import type { OrdenTrabajoPayload, EntityFormState, EntityServices, MaterialEnForm } from '../../types';
 import styles from './WorkOrderFormPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -209,54 +210,54 @@ export default function OrdenForm() {
 
   return (
     <div className={s['work-order-form']}>
-        <FormHeader
-          className="orden-header"
-          title={`Orden N° ${form.numero || 'A-_____'}`}
-          badge={<EstadoBadge estado={form.estado} style={{ fontSize: 13, padding: '4px 14px' }} />}
-          logoUrl={logoUrl}
-          menuOpen={menuOpen}
-          menuRef={menuRef}
-          setMenuOpen={setMenuOpen}
-          menuItems={[
-            { label: 'Duplicar', icon: <Copy size={16} />, onClick: () => { setMenuOpen(false); alert('Duplicar orden'); } },
-            { label: 'Exportar PDF', icon: <FileDown size={16} />, onClick: () => { setMenuOpen(false); alert('Exportar PDF'); } },
-            { label: 'Eliminar', icon: <Trash2 size={16} />, onClick: () => { setMenuOpen(false); setDeleteConfirm(true); }, danger: true },
-            { label: 'Historial', icon: <History size={16} />, onClick: () => { setMenuOpen(false); alert('Historial de cambios'); } },
-          ]}
-        >
-          {form.estado === 'MEDICION' && (
-            <button className={s['work-order-form__btn-measurement']} onClick={() => handleCambioEstadoAccion('TALLER')} disabled={saving}>
-              🏭 Enviar a Taller
-            </button>
-          )}
-          {form.estado === 'TALLER' && (
-            <button className={s['work-order-form__btn-workshop']} onClick={() => handleCambioEstadoAccion('TERMINADA')} disabled={saving}>
-              ✅ Finalizar Trabajo
-            </button>
-          )}
-          {form.estado === 'TERMINADA' && (
-            <button className={s['work-order-form__btn-delivery']} onClick={() => handleCambioEstadoAccion('ENTREGADA')} disabled={saving}>
-              🚚 Entregar al Cliente
-            </button>
-          )}
-          {form.estado === 'ENTREGADA' && (
-            <span className={s['work-order-form__badge-delivered']}>
-              📦 Trabajo Entregado
-            </span>
-          )}
-          <button className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Eye size={16} /> VISTA PREVIA PDF
+      <FormHeader
+        className="orden-header"
+        title={`Orden N° ${form.numero || 'A-_____'}`}
+        badge={<EstadoBadge estado={form.estado} style={{ fontSize: 13, padding: '4px 14px' }} />}
+        logoUrl={logoUrl}
+        menuOpen={menuOpen}
+        menuRef={menuRef}
+        setMenuOpen={setMenuOpen}
+        menuItems={[
+          { label: 'Duplicar', icon: <Copy size={16} />, onClick: () => { setMenuOpen(false); alert('Duplicar orden'); } },
+          { label: 'Exportar PDF', icon: <FileDown size={16} />, onClick: () => { setMenuOpen(false); alert('Exportar PDF'); } },
+          { label: 'Eliminar', icon: <Trash2 size={16} />, onClick: () => { setMenuOpen(false); setDeleteConfirm(true); }, danger: true },
+          { label: 'Historial', icon: <History size={16} />, onClick: () => { setMenuOpen(false); alert('Historial de cambios'); } },
+        ]}
+      >
+        {form.estado === 'MEDICION' && (
+          <button className={s['work-order-form__btn-measurement']} onClick={() => handleCambioEstadoAccion('TALLER')} disabled={saving}>
+            🏭 Enviar a Taller
           </button>
-          <button className={`btn btn-primary ${s['work-order-form__btn-save']}`} onClick={handleSubmit} disabled={saving}>
-            <Save size={16} /> {saving ? 'GUARDANDO...' : 'GUARDAR'}
+        )}
+        {form.estado === 'TALLER' && (
+          <button className={s['work-order-form__btn-workshop']} onClick={() => handleCambioEstadoAccion('TERMINADA')} disabled={saving}>
+            ✅ Finalizar Trabajo
           </button>
-          <button className="btn btn-outline" onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Printer size={16} /> IMPRIMIR
+        )}
+        {form.estado === 'TERMINADA' && (
+          <button className={s['work-order-form__btn-delivery']} onClick={() => handleCambioEstadoAccion('ENTREGADA')} disabled={saving}>
+            🚚 Entregar al Cliente
           </button>
-        </FormHeader>
- 
+        )}
+        {form.estado === 'ENTREGADA' && (
+          <span className={s['work-order-form__badge-delivered']}>
+            📦 Trabajo Entregado
+          </span>
+        )}
+        <button className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Eye size={16} /> VISTA PREVIA PDF
+        </button>
+        <button className={`btn btn-primary ${s['work-order-form__btn-save']}`} onClick={handleSubmit} disabled={saving}>
+          <Save size={16} /> {saving ? 'GUARDANDO...' : 'GUARDAR'}
+        </button>
+        <button className="btn btn-outline" onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Printer size={16} /> IMPRIMIR
+        </button>
+      </FormHeader>
+
       <form onSubmit={handleSubmit} onKeyDown={(e: React.KeyboardEvent<HTMLFormElement>) => { if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') e.preventDefault(); }}>
-        <ClienteSection
+        <WorkOrderFormBasic
           form={form}
           readOnly={readOnly}
           update={update as (field: string, value: unknown) => void}
@@ -267,128 +268,41 @@ export default function OrdenForm() {
           handleClienteSelect={handleClienteSelect}
         />
 
-        {/* ===== BOTÓN CROQUIS COLAPSABLE ===== */}
-        <div className={s['work-order-form__header']}>
-          <button type="button" className={`btn btn-outline ${s['work-order-form__header-toggle']}`} onClick={() => setShowCroquis(!showCroquis)}>
-            {showCroquis ? '👁️' : '📐'} {showCroquis ? 'Ocultar Diseño / Croquis' : 'Activar Diseño / Croquis'}
-          </button>
-          {!showCroquis && (
-            <span className={s['work-order-form__header-hint']}>El croquis está oculto. Hacé clic para diseñar.</span>
-          )}
-        </div>
+        <WorkOrderFormSnapshot form={form} readOnly={readOnly} />
 
         <div className={`${s['work-order-form__layout']}${showCroquis ? '' : ' ' + s['work-order-form__layout--no-croquis']}`}>
           {showCroquis && (
-          <div className={s['work-order-form__croquis']}>
-            <CroquisEditor croquis={form.croquis} onChange={(v: unknown) => update('croquis', v)} readOnly={readOnly} />
-          </div>
+            <div className={s['work-order-form__croquis']}>
+              <CroquisEditor croquis={form.croquis} onChange={(v: unknown) => update('croquis', v)} readOnly={readOnly} />
+            </div>
           )}
           <div className={s['work-order-form__right']}>
-            <div className="card" style={{ height: '100%' }}>
-              <h3 className="section-title">MATERIALES</h3>
-              <div className={s['work-order-form__add-row']}>
-                <select className="input" value="" onChange={(e) => { addMaterial(e.target.value); e.target.value = ''; }} disabled={readOnly}>
-                  <option value="">+ AGREGAR MATERIAL</option>
-                  {materiales.filter((m: Record<string, unknown>) => m.nombre).map((m: Record<string, unknown>) => (
-                    <option key={m.id as number} value={m.nombre as string}>{m.nombre as string}{m.color ? ` - ${m.color as string}` : ''}</option>
-                  ))}
-                </select>
-              </div>
-              <div className={s['work-order-form__materials-grid']}>
-              {(form.materiales || []).map((mat, idx) => (
-                <MaterialCard key={idx} mat={mat as unknown as Record<string, unknown>} idx={idx} readOnly={readOnly} updateMaterial={updateMaterial} removeMaterial={removeMaterial} num={num as (v: unknown) => number} />
-              ))}
-              </div>
-              {(form.materiales || []).length === 0 && (
-                <div className={s['work-order-form__materials-empty']}>
-                  Sin materiales agregados. Usá "+ AGREGAR MATERIAL" para sumar.
-                </div>
-              )}
-              <div className={s['work-order-form__obs']}>
-                <label>Observaciones del diseño</label>
-                <textarea className="input" rows={4} value={form.observaciones_diseno} onChange={(e) => update('observaciones_diseno', e.target.value)} placeholder="Zócalo de 7 cm. Frente de 4 cm. Incluye 3 perforaciones..." disabled={readOnly} />
-              </div>
-            </div>
+            <WorkOrderFormSpecs
+              form={form}
+              readOnly={readOnly}
+              materiales={materiales}
+              addMaterial={addMaterial}
+              updateMaterial={updateMaterial}
+              removeMaterial={removeMaterial}
+              update={update}
+              num={num}
+            />
           </div>
         </div>
 
-        {/* ===== SECCIÓN INFERIOR: 4 paneles ===== */}
         <div className={s['work-order-form__bottom']}>
-          {/* Panel 1: Detalle de Fabricación y Adicionales */}
-          <div className="card">
-            <FabricacionTable detalles={form.detalles_fabricacion as unknown as Record<string, unknown>[]} readOnly={readOnly} handleDetalleChange={handleDetalleChange} addDetalle={addDetalle} removeDetalle={removeDetalle} materiales={materiales} CONCEPTOS_M2={CONCEPTOS_M2} conceptosFabricacion={conceptosFabricacion} num={num as (v: unknown) => number} />
+          <WorkOrderFormItemsGrid
+            form={form}
+            readOnly={readOnly}
+            materiales={materiales}
+            CONCEPTOS_M2={CONCEPTOS_M2}
+            num={num}
+            handleDetalleChange={handleDetalleChange}
+            addDetalle={addDetalle}
+            removeDetalle={removeDetalle}
+          />
 
-            {form.estado === 'MEDICION' && form.detalles_presupuestados.length > 0 && (
-              <div className={s['work-order-form__comparative']}>
-                <h4 className={s['work-order-form__comparative-title']}>📐 COMPARATIVA DE MEDICIÓN</h4>
-                <table className={`table ${s['work-order-form__comparative-table']}`}>
-                  <thead>
-                    <tr>
-                      <th>Concepto</th>
-                      <th style={{ textAlign: 'center' }}>M² Presupuestado</th>
-                      <th style={{ textAlign: 'center' }}>M² Medición Real</th>
-                      <th style={{ textAlign: 'center' }}>Diferencia Δ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {form.detalles_fabricacion.map((d, i) => {
-                      if (!CONCEPTOS_M2.includes(d.concepto)) return null;
-                      const pres = form.detalles_presupuestados[i];
-                      if (!pres) return null;
-                      const m2Ori = Number(pres.m2) || 0;
-                      const m2Real = d.m2 || 0;
-                      const dif = Math.round((m2Real - m2Ori) * 100000) / 100000;
-                      const difColor = dif > 0 ? '#16a34a' : dif < 0 ? '#dc2626' : '#6b7280';
-                      return (
-                        <tr key={'med_' + i}>
-                          <td style={{ fontWeight: 600 }}>{d.concepto === 'OTRA' ? (d.detalle || 'OTRA') : d.concepto}</td>
-                          <td style={{ textAlign: 'center' }}>{m2Ori.toFixed(5)} m²</td>
-                          <td style={{ textAlign: 'center', fontWeight: 600 }}>{m2Real.toFixed(5)} m²</td>
-                          <td style={{ textAlign: 'center', fontWeight: 700, color: difColor }}>
-                            {dif > 0 ? '+' : ''}{dif.toFixed(5)} m²
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {(form.materiales || []).filter((m) => Number(m.largo || 0) * Number(m.ancho || 0) > 0).map((m, i) => {
-                      const m2Real = Number(m.largo || 0) * Number(m.ancho || 0) * (m.cantidad || 1);
-                      const m2Pres = m.m2_presupuestado || 0;
-                      const dif = Math.round((m2Real - m2Pres) * 100000) / 100000;
-                      const difColor = dif > 0 ? '#16a34a' : dif < 0 ? '#dc2626' : '#6b7280';
-                      return (
-                        <tr key={'mat_' + i}>
-                          <td style={{ fontWeight: 600 }}>{m.nombre}</td>
-                          <td style={{ textAlign: 'center' }}>{m2Pres.toFixed(5)} m²</td>
-                          <td style={{ textAlign: 'center', fontWeight: 600 }}>{m2Real.toFixed(5)} m²</td>
-                          <td style={{ textAlign: 'center', fontWeight: 700, color: difColor }}>
-                            {dif > 0 ? '+' : ''}{dif.toFixed(5)} m²
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {/* Panel 2: Pileta */}
-          <div className="card">
-            <h3 className="section-title">PILETAS</h3>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-              <select className="input" style={{ flex: 1, fontSize: 13 }} value="" onChange={(e) => { addPileta(e.target.value); e.target.value = ''; }} disabled={readOnly}>
-                <option value="">+ AGREGAR PILETA</option>
-                {piletas.map((p: Record<string, unknown>) => (
-                  <option key={p.id as number} value={p.id as number}>{p.marca as string} - {p.modelo as string} (Stock: {p.cantidad as number})</option>
-                ))}
-              </select>
-            </div>
-            {(form.piletas || []).map((pt, idx) => (
-              <PiletaCard key={idx} pt={pt as unknown as Record<string, unknown>} idx={idx} piletas={piletas} readOnly={readOnly} updatePileta={updatePileta} removePileta={removePileta} formPiletas={form.piletas as unknown as Record<string, unknown>[]} update={update as (field: string, value: unknown) => void} num={num as (v: unknown) => number} />
-            ))}
-          </div>
-
-          <PresupuestoPanel
+          <WorkOrderFormFinancial
             form={form}
             modoUSD={modoUSD}
             toggleModoUSD={toggleModoUSD}
@@ -402,12 +316,15 @@ export default function OrdenForm() {
             handleDolarDiaChange={handleDolarDiaChange}
             setForm={setForm}
             update={update as (field: string, value: unknown) => void}
-            num={num as (v: unknown) => number}
-            hidePaymentSection={hayAlternativas}
-            alternativasTop={null}
+            num={num}
+            piletas={piletas}
+            addPileta={addPileta}
+            updatePileta={updatePileta}
+            removePileta={removePileta}
             alternativasGrid={alternativasGrid}
             descuentoBlock={descuentoBlock}
             onConfirmarPago={handleConfirmarPago}
+            handleConfirmarPago={handleConfirmarPago}
             mostrarToggleTitle={true}
             mostrarToggleColumns={false}
           />
@@ -415,7 +332,13 @@ export default function OrdenForm() {
           <AprobacionSection form={form} readOnly={readOnly} update={update as (field: string, value: unknown) => void} />
         </div>
 
-        <ObservacionesSection form={form} readOnly={readOnly} update={update as (field: string, value: unknown) => void} />
+        <WorkOrderFormObservations
+          form={form}
+          readOnly={readOnly}
+          showCroquis={showCroquis}
+          setShowCroquis={setShowCroquis}
+          update={update}
+        />
 
         <FormFooter saving={saving} onCancel={() => navigate('/admin/work-orders')} />
       </form>

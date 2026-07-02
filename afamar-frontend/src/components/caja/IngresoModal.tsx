@@ -13,7 +13,7 @@ interface Props {
 
 export default function IngresoModal({ isOpen, onClose, onSubmit }: Props) {
   const [ingresoForm, setIngresoForm] = useState<Record<string, unknown>>({
-    monto: '', forma_pago: 'Efectivo', estado_carpeta: 'Medición',
+    monto: '', forma_pago: 'CASH', estado_carpeta: 'MEASUREMENT',
     orden_numero: '', cliente_nombre: '', orden_id: null, orden_total: null,
   });
   const [ordenSearch, setOrdenSearch] = useState<string>('');
@@ -46,10 +46,10 @@ export default function IngresoModal({ isOpen, onClose, onSubmit }: Props) {
 
   const mapEstadoCarpeta = (estado: string): string => {
     const map: Record<string, string> = {
-      'MEDICION': 'Medición',
-      'TALLER': 'Taller',
-      'TERMINADA': 'Terminada',
-      'ENTREGADA': 'Entregada',
+      'MEASUREMENT': 'MEASUREMENT',
+      'WORKSHOP': 'WORKSHOP',
+      'FINISHED': 'FINISHED',
+      'DELIVERED': 'DELIVERED',
     };
     return map[estado] || estado;
   };
@@ -58,23 +58,23 @@ export default function IngresoModal({ isOpen, onClose, onSubmit }: Props) {
     e.preventDefault();
     if (!ingresoForm.monto || Number(ingresoForm.monto) <= 0) return;
     await onSubmit({
-      fecha: '',
-      tipo: 'INGRESO',
-      monto: Number(ingresoForm.monto),
-      concepto: ingresoForm.orden_numero
+      date: '',
+      type: 'INCOME',
+      amount: Number(ingresoForm.monto),
+      description: ingresoForm.orden_numero
         ? `Pago ${ingresoForm.orden_numero} - ${ingresoForm.cliente_nombre}`
         : `Ingreso manual - ${(ingresoForm.cliente_nombre as string) || ''}`,
-      forma_pago: ingresoForm.forma_pago,
-      estado_carpeta: mapEstadoCarpeta(ingresoForm.estado_carpeta as string),
-      orden_id: ingresoForm.orden_id,
-      orden_numero: ingresoForm.orden_numero,
-      orden_total: ingresoForm.orden_total,
-      cliente_nombre: ingresoForm.cliente_nombre,
+      payment_method: ingresoForm.forma_pago,
+      folder_status: mapEstadoCarpeta(ingresoForm.estado_carpeta as string),
+      order_id: ingresoForm.orden_id,
+      order_number: ingresoForm.orden_numero,
+      order_total: ingresoForm.orden_total,
+      client_name: ingresoForm.cliente_nombre,
     });
   };
 
   const resetForm = () => {
-    setIngresoForm({ monto: '', forma_pago: 'Efectivo', estado_carpeta: 'Medición', orden_numero: '', cliente_nombre: '', orden_id: null, orden_total: null });
+    setIngresoForm({ monto: '', forma_pago: 'CASH', estado_carpeta: 'MEASUREMENT', orden_numero: '', cliente_nombre: '', orden_id: null, orden_total: null });
     setOrdenSearch('');
     setOrdenResults([]);
     setShowOrdenSearch(false);

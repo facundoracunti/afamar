@@ -39,7 +39,7 @@
 |---|-------|----------|
 | 1 | ~~Migrar 4 form pages a BEM (BudgetForm, WorkOrderForm, ClientForm, MaterialForm)~~ ✅ | — |
 | 2 | ~~Renombrar types a inglés (`Cliente`→`Client`, etc.) manteniendo aliases~~ ✅ | — |
-| 3 | Extraer subcomponentes de `BudgetForm`/`WorkOrderForm` (la referencia lo hace en 6 cada uno) | ~3-4 h |
+| 3 | ~~Extraer subcomponentes de `BudgetForm`/`WorkOrderForm` (6 cada uno)~~ ✅ | — |
 | 4 | ~~Crear seed de reference data (`budget_statuses`, `work_order_statuses`, `payment_methods`, etc.)~~ ✅ | — |
 | 5 | ~~Migrar pages sin BEM module (OnlineBudgets, Measurements, Configuration)~~ ✅ | — |
 | 6 | Tests E2E con Playwright | ~2-3 h |

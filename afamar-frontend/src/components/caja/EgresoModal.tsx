@@ -17,11 +17,11 @@ export default function EgresoModal({ isOpen, onClose, onSubmit }: Props) {
     e.preventDefault();
     if (!egresoForm.monto || Number(egresoForm.monto) <= 0) return;
     await onSubmit({
-      fecha: '',
-      tipo: 'EGRESO',
-      monto: Number(egresoForm.monto),
-      concepto: egresoForm.concepto as string,
-      tipo_egreso: egresoForm.tipo_egreso as string,
+      date: '',
+      type: 'EXPENSE',
+      amount: Number(egresoForm.monto),
+      description: egresoForm.concepto as string,
+      expense_type: egresoForm.tipo_egreso as string,
     });
   };
 

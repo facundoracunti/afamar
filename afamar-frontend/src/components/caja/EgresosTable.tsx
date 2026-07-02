@@ -37,11 +37,11 @@ export default function EgresosTable({ egresos, cerrada, onDelete, onAdd }: Prop
             ) : (
               egresos.map((m: Record<string, unknown>) => (
                 <tr key={m.id as number}>
-                  <td>{(m.concepto as string) || '-'}</td>
-                  <td style={{ fontWeight: 600, color: '#dc2626' } as React.CSSProperties}>{formatCurrency(m.monto as number)}</td>
+                  <td>{(m.description as string) || '-'}</td>
+                  <td style={{ fontWeight: 600, color: '#dc2626' } as React.CSSProperties}>{formatCurrency(m.amount as number)}</td>
                   <td>
-                    <span className={`badge ${(m.tipo_egreso as string) === 'Gasto' ? 'badge-rejected' : 'badge-production'}`}>
-                      {(m.tipo_egreso as string) || 'Gasto'}
+                    <span className={`badge ${(m.expense_type as string) === 'GENERAL' ? 'badge-rejected' : 'badge-production'}`}>
+                      {(m.expense_type as string) || 'GENERAL'}
                     </span>
                   </td>
                   <td className="no-print">

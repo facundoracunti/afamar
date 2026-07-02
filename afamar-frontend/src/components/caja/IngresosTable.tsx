@@ -41,20 +41,20 @@ export default function IngresosTable({ ingresos, cerrada, onDelete, onAdd }: Pr
             ) : (
               ingresos.map((m: Record<string, unknown>) => (
                 <tr key={m.id as number}>
-                  <td style={{ fontFamily: 'monospace', fontWeight: 600 } as React.CSSProperties}>{(m.orden_numero as string) || '-'}</td>
-                  <td>{(m.cliente_nombre as string) || '-'}</td>
-                  <td style={{ fontWeight: 600, color: '#16a34a' } as React.CSSProperties}>{formatCurrency(m.monto as number)}</td>
-                  <td style={{ fontWeight: 600, color: (m.saldo_restante as number) > 0 ? '#dc2626' : '#94a3b8' } as React.CSSProperties}>
-                    {m.saldo_restante !== null && m.saldo_restante !== undefined ? formatCurrency(m.saldo_restante as number) : '-'}
+                  <td style={{ fontFamily: 'monospace', fontWeight: 600 } as React.CSSProperties}>{(m.order_number as string) || '-'}</td>
+                  <td>{(m.client_name as string) || '-'}</td>
+                  <td style={{ fontWeight: 600, color: '#16a34a' } as React.CSSProperties}>{formatCurrency(m.amount as number)}</td>
+                  <td style={{ fontWeight: 600, color: (m.remaining_balance as number) > 0 ? '#dc2626' : '#94a3b8' } as React.CSSProperties}>
+                    {m.remaining_balance !== null && m.remaining_balance !== undefined ? formatCurrency(m.remaining_balance as number) : '-'}
                   </td>
                   <td>
-                    <span className={`badge ${(m.forma_pago as string) === 'Efectivo' ? 'badge-approved' : (m.forma_pago as string) === 'Transferencia' ? 'badge-production' : 'badge-pending'}`}>
-                      {(m.forma_pago as string) || '-'}
+                    <span className={`badge ${(m.payment_method as string) === 'CASH' ? 'badge-approved' : (m.payment_method as string) === 'TRANSFER' ? 'badge-production' : 'badge-pending'}`}>
+                      {(m.payment_method as string) || '-'}
                     </span>
                   </td>
                   <td>
-                    {m.estado_carpeta ? (
-                      <span className={`badge ${estadoCarpetaClass(m.estado_carpeta as string)}`}>{(m.estado_carpeta as string)}</span>
+                    {m.folder_status ? (
+                      <span className={`badge ${estadoCarpetaClass(m.folder_status as string)}`}>{(m.folder_status as string)}</span>
                     ) : '-'}
                   </td>
                   <td className="no-print">

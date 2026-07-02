@@ -15,6 +15,14 @@
 - **Status/Payment/Priority enums:** English en DB, Spanish en UI via `t(key)` en `src/utils/translate.ts`
 - **Tests:** pytest (backend), vitest (frontend — instalado, no usado aún)
 
+## Cash module (reciente: Spanish→English field names)
+
+- **Root cause:** `/api/v1/cash/daily?date=...` → backend espera `?query_date=...`. Fix: `date`→`query_date` in `cash.ts`.
+- **Request/Response fields:** todo el módulo caja (`CashDailyPage`, `CashHistoryPage`, `IngresoModal`, `EgresoModal`, `IngresosTable`, `EgresosTable`, `cajaUtils`) migrado de Spanish a English para coincidir con schemas backend.
+- **Values:** `FORMAS_PAGO` ahora `['CASH','TRANSFER','CREDIT_CARD']`, `TIPOS_EGRESO` ahora `['GENERAL','BANK_TRANSFER']`, movement types `'INCOME'`/`'EXPENSE'`.
+- **`closeDailyCash`:** body `{ date, notes }` (antes `{ date, observations }`).
+- **Movement create:** body `{ date, type, amount, description, payment_method, ... }` (antes `{ fecha, tipo, monto, concepto, forma_pago, ... }`).
+
 ## Status enums (English values, en DB)
 
 - **Budgets:** `PENDING`, `ONLINE`, `APPROVED`, `REJECTED`, `CONVERTED_TO_OT`
@@ -162,7 +170,7 @@ Con `baseURL: '/api/v1'` en `http.ts`, el path completo es `/api/v1/clients`, et
 
 ✅ Migrados (18 pages — todos): `auth/LoginPage`, `home/HomePage`, `dashboard/DashboardPage`, `clients/ClientsListPage`, `clients/ClientFormPage`, `budgets/BudgetsListPage`, `budgets/BudgetFormPage`, `materials/MaterialsListPage`, `materials/MaterialFormPage`, `work-orders/WorkOrdersListPage`, `work-orders/WorkOrderFormPage`, `pool-stock/PoolStockPage`, `cash/CashDailyPage`, `calculator/CalculatorPage`, `reports/ReportsPage`, `configuration/ConfigurationPage`, `measurements/MeasurementsListPage`, `measurements/MeasurementFormPage`, `online-budgets/OnlineBudgetsListPage`, `online-budgets/OnlineBudgetFormPage`
 
-Próxima fase: descomponer los forms en subcomponentes (la referencia lo hace en 6 cada uno).
+✅ Forms descompuestos: `BudgetFormPage` → 6 subcomponentes (`BudgetFormClient`, `BudgetFormSpecs`, `BudgetFormItems`, `BudgetFormAdicionales`, `BudgetFormFinancial`, `BudgetFormObservations`). `WorkOrderFormPage` → 6 subcomponentes (`WorkOrderFormBasic`, `WorkOrderFormSpecs`, `WorkOrderFormItemsGrid`, `WorkOrderFormFinancial`, `WorkOrderFormObservations`, `WorkOrderFormSnapshot`).
 
 ## TypeScript helpers (legacy)
 
@@ -230,7 +238,7 @@ DB_MAX_OVERFLOW=10
 
 1. **Migrar form pages a BEM** (~2-3h): BudgetForm, WorkOrderForm, ClientForm, MaterialForm ✅
 2. **Renombrar types a inglés** (~1h): Cliente→Client, Presupuesto→Quote, etc. Mantener aliases. ✅
-3. **Descomponer forms** (~3-4h): extraer 6 subcomponentes de BudgetForm y WorkOrderForm.
+3. **Descomponer forms** (~3-4h): extraer 6 subcomponentes de BudgetForm y WorkOrderForm. ✅
 4. **Crear seed de reference data** (~1h): statuses, payment_methods, etc. ✅
 5. **Migrar pages sin BEM** (~30 min): OnlineBudgets, Measurements, Configuration. ✅
 6. **Tests E2E con Playwright** (~2-3h).
@@ -260,14 +268,10 @@ fa6c583b                       "Refactor frontend structure..."
 c98228c5 (origin/refactor)     "feat: migrate 6 list pages to BEM/CSS Modules"
 25e57a56 (origin/refactor)     "feat: add BEM/CSS Modules for 7 list pages"
 f83f8b95 (origin/refactor)     "refactor: complete English naming + BEM foundation"
+f04f740a (origin/refactor)     "feat: complete BEM migration, API consolidation, type renaming, and cleanup"
 ```
 
-## Commits locales sin pushear (2)
-
-```
-5985a2ca fix: repair UTF-8 corruption in Spanish text
-7600a594 docs: update AGENTS.md and PLAN.md for refactor state
-```
+## Commits locales sin pushear (0 — al día con origin/refactor)
 
 ## Para crear PR
 

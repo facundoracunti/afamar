@@ -57,12 +57,12 @@ export default function CajaHistorial() {
                       <tr key={c.id as number}
                         onClick={() => setSelected((selected?.id as number) === (c.id as number) ? null : c)}
                         style={{ cursor: 'pointer', background: (selected?.id as number) === (c.id as number) ? '#f0fdf4' : undefined }}>
-                        <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>{c.fecha as string}</td>
-                        <td><CurrencyDisplay value={c.saldo_anterior as number} /></td>
-                        <td style={{ color: '#16a34a', fontWeight: 600 }}><CurrencyDisplay value={c.total_ingresos as number} style={{ color: '#16a34a', fontWeight: 600 }} /></td>
-                        <td style={{ color: '#dc2626', fontWeight: 600 }}><CurrencyDisplay value={c.total_salidas as number} style={{ color: '#dc2626', fontWeight: 600 }} /></td>
-                        <td style={{ fontWeight: 700 }}><CurrencyDisplay value={c.saldo_actual as number} style={{ fontWeight: 700 }} /></td>
-                        <td style={{ fontWeight: 700, color: '#16a34a' }}><CurrencyDisplay value={c.efectivo_real as number} style={{ fontWeight: 700, color: '#16a34a' }} /></td>
+                        <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>{c.date as string}</td>
+                        <td><CurrencyDisplay value={c.previous_balance as number} /></td>
+                        <td style={{ color: '#16a34a', fontWeight: 600 }}><CurrencyDisplay value={c.total_income as number} style={{ color: '#16a34a', fontWeight: 600 }} /></td>
+                        <td style={{ color: '#dc2626', fontWeight: 600 }}><CurrencyDisplay value={c.total_expenses as number} style={{ color: '#dc2626', fontWeight: 600 }} /></td>
+                        <td style={{ fontWeight: 700 }}><CurrencyDisplay value={c.current_balance as number} style={{ fontWeight: 700 }} /></td>
+                        <td style={{ fontWeight: 700, color: '#16a34a' }}><CurrencyDisplay value={c.real_cash as number} style={{ fontWeight: 700, color: '#16a34a' }} /></td>
                         <td>
                           <button className="btn" style={{ padding: '4px 8px', background: 'none', border: 'none', cursor: 'pointer' }}
                             onClick={(e: React.MouseEvent) => { e.stopPropagation(); setSelected((selected?.id as number) === (c.id as number) ? null : c); }}>
@@ -81,37 +81,37 @@ export default function CajaHistorial() {
           {selected && (
             <div>
               <div className="card" style={{ marginBottom: 16 }}>
-                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Detalle — {selected.fecha as string}</h3>
-                {(selected.observaciones as string) && (
+                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Detalle — {selected.date as string}</h3>
+                {(selected.notes as string) && (
                   <div style={{ padding: '10px 14px', background: '#fefce8', borderRadius: 8, marginBottom: 12, fontSize: 13, border: '1px solid #fde68a' }}>
-                    <strong>Observaciones:</strong> {selected.observaciones as string}
+                    <strong>Observaciones:</strong> {selected.notes as string}
                   </div>
                 )}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 14 }}>
                   <div>
                     <span style={{ color: '#64748b' }}>Saldo Anterior:</span>{' '}
-                    <CurrencyDisplay value={selected.saldo_anterior as number} />
+                    <CurrencyDisplay value={selected.previous_balance as number} />
                   </div>
                   <div>
                     <span style={{ color: '#64748b' }}>Saldo Actual:</span>{' '}
-                    <CurrencyDisplay value={selected.saldo_actual as number} />
+                    <CurrencyDisplay value={selected.current_balance as number} />
                   </div>
                   <div style={{ color: '#16a34a' }}>
                     <ArrowUpCircle size={14} style={{ marginRight: 4 }} />
-                    Ingresos: <CurrencyDisplay value={selected.total_ingresos as number} style={{ color: '#16a34a' }} />
+                    Ingresos: <CurrencyDisplay value={selected.total_income as number} style={{ color: '#16a34a' }} />
                   </div>
                   <div style={{ color: '#dc2626' }}>
                     <ArrowDownCircle size={14} style={{ marginRight: 4 }} />
-                    Egresos: <CurrencyDisplay value={selected.total_salidas as number} style={{ color: '#dc2626' }} />
+                    Egresos: <CurrencyDisplay value={selected.total_expenses as number} style={{ color: '#dc2626' }} />
                   </div>
                   <div style={{ color: '#16a34a', fontWeight: 700, gridColumn: '1 / -1' }}>
-                    Efectivo Real: <CurrencyDisplay value={selected.efectivo_real as number} style={{ color: '#16a34a', fontWeight: 700 }} />
+                    Efectivo Real: <CurrencyDisplay value={selected.real_cash as number} style={{ color: '#16a34a', fontWeight: 700 }} />
                   </div>
                 </div>
               </div>
 
               {/* Movimientos del día seleccionado */}
-              {(selected.movimientos as Record<string, unknown>[]) && (selected.movimientos as Record<string, unknown>[]).length > 0 && (
+              {(selected.movements as Record<string, unknown>[]) && (selected.movements as Record<string, unknown>[]).length > 0 && (
                 <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                   <h3 style={{ fontSize: 14, fontWeight: 700, padding: '12px 16px 0' }}>Movimientos</h3>
                   <div className="table-container" style={{ marginTop: 8 }}>
@@ -125,18 +125,18 @@ export default function CajaHistorial() {
                         </tr>
                       </thead>
                       <tbody>
-                        {(selected.movimientos as Record<string, unknown>[]).map((m: Record<string, unknown>) => (
+                        {(selected.movements as Record<string, unknown>[]).map((m: Record<string, unknown>) => (
                           <tr key={m.id as number}>
                             <td>
-                              <span className={`badge ${(m.tipo as string) === 'INGRESO' ? 'badge-approved' : 'badge-rejected'}`}>
-                                {(m.tipo as string) === 'INGRESO' ? 'Entrada' : 'Salida'}
+                              <span className={`badge ${(m.type as string) === 'INCOME' ? 'badge-approved' : 'badge-rejected'}`}>
+                                {(m.type as string) === 'INCOME' ? 'Entrada' : 'Salida'}
                               </span>
                             </td>
-                            <td>{(m.concepto as string) || '-'}</td>
-                            <td style={{ fontWeight: 600, color: (m.tipo as string) === 'INGRESO' ? '#16a34a' : '#dc2626' }}>
-                              <CurrencyDisplay value={m.monto as number} style={{ fontWeight: 600, color: (m.tipo as string) === 'INGRESO' ? '#16a34a' : '#dc2626' }} />
+                            <td>{(m.description as string) || '-'}</td>
+                            <td style={{ fontWeight: 600, color: (m.type as string) === 'INCOME' ? '#16a34a' : '#dc2626' }}>
+                              <CurrencyDisplay value={m.amount as number} style={{ fontWeight: 600, color: (m.type as string) === 'INCOME' ? '#16a34a' : '#dc2626' }} />
                             </td>
-                            <td>{(m.forma_pago as string) || (m.tipo_egreso as string) || '-'}</td>
+                            <td>{(m.payment_method as string) || (m.expense_type as string) || '-'}</td>
                           </tr>
                         ))}
                       </tbody>

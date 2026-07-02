@@ -1,5 +1,5 @@
-export const FORMAS_PAGO: string[] = ['Efectivo', 'Transferencia', 'Tarjeta'];
-export const TIPOS_EGRESO: string[] = ['Gasto', 'Transferencia Banco'];
+export const FORMAS_PAGO: string[] = ['CASH', 'TRANSFER', 'CREDIT_CARD'];
+export const TIPOS_EGRESO: string[] = ['GENERAL', 'BANK_TRANSFER'];
 
 export const ESTADO_CARPETA_MAP: Record<string, string> = {
   'MEDICION': 'Medición',
@@ -10,10 +10,10 @@ export const ESTADO_CARPETA_MAP: Record<string, string> = {
 
 export const estadoCarpetaClass = (estado: string): string => {
   const map: Record<string, string> = {
-    'Medición': 'badge-pending',
-    'Taller': 'badge-production',
-    'Terminada': 'badge-finished',
-    'Entregada': 'badge-finished',
+    'MEASUREMENT': 'badge-pending',
+    'WORKSHOP': 'badge-production',
+    'FINISHED': 'badge-finished',
+    'DELIVERED': 'badge-finished',
   };
   return map[estado] || 'badge-pending';
 };

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Eye, Save, Printer, MoreVertical, Copy, FileDown, Trash2, History, Plus, X, FileOutput, Check, Send } from 'lucide-react';
+import { Eye, Save, Printer, MoreVertical, Copy, FileDown, Trash2, History, FileOutput, Check, Send } from 'lucide-react';
 import { getBudget, createBudget, updateBudget, deleteBudget, getNextBudgetNumber, getBudgetPdf, convertBudgetToWorkOrder, convertAlternativeToWorkOrder } from '@/api/resources/budgets';
 import { getMaterials } from '@/api/resources/materials';
 import { getPoolStock } from '@/api/resources/poolStock';
@@ -12,15 +12,17 @@ import CroquisEditor from '../../components/croquis/CroquisEditor';
 import PresupuestoPanel from '../../components/presupuesto/PresupuestoPanel';
 import Loading from '../../components/common/Loading';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
-import MaterialCard from '../../components/materiales/MaterialCard';
-import PiletaCard from '../../components/materiales/PiletaCard';
-import FabricacionTable from '../../components/presupuesto/FabricacionTable';
 import OpcionesCotizacionGrid from '../../components/presupuesto/OpcionesCotizacionGrid';
-import ClienteSection from '../../components/ordenes/ClienteSection';
 import AprobacionSection from '../../components/ordenes/AprobacionSection';
 import ObservacionesSection from '../../components/ordenes/ObservacionesSection';
 import FormHeader from '../../components/ordenes/FormHeader';
 import FormFooter from '../../components/ordenes/FormFooter';
+import BudgetFormClient from './BudgetFormClient';
+import BudgetFormSpecs from './BudgetFormSpecs';
+import BudgetFormFinancial from './BudgetFormFinancial';
+import BudgetFormItems from './BudgetFormItems';
+import BudgetFormAdicionales from './BudgetFormAdicionales';
+import BudgetFormObservations from './BudgetFormObservations';
 import type { PresupuestoPayload, MaterialEnForm, EntityFormState, EntityServices } from '../../types';
 import styles from './BudgetFormPage.module.css';
 
@@ -287,56 +289,56 @@ export default function PresupuestoForm() {
 
   return (
     <div className={s['budget-form']}>
-        <FormHeader
-          className="presupuesto-header"
-          title={`Presupuesto N° ${form.numero || 'P-_____'}`}
-          badge={!['PENDIENTE'].includes(form.estado) ? <EstadoBadge estado={form.estado} style={{ fontSize: 13, padding: '4px 14px' }} /> : undefined}
-          logoUrl={logoUrl}
-          menuOpen={menuOpen}
-          menuRef={menuRef}
-          setMenuOpen={setMenuOpen}
-          menuItems={[
-            { label: 'Duplicar', icon: <Copy size={16} />, onClick: () => { setMenuOpen(false); alert('Duplicar presupuesto'); } },
-            { label: 'Exportar PDF', icon: <FileDown size={16} />, onClick: () => { setMenuOpen(false); window.open(getBudgetPdf(id as string), '_blank'); } },
-            { label: 'Guardar', icon: <Save size={16} />, onClick: () => { setMenuOpen(false); handleGuardar(); } },
-            { label: 'Eliminar', icon: <Trash2 size={16} />, onClick: () => { setMenuOpen(false); setDeleteConfirm(true); }, danger: true },
-            { label: 'Historial', icon: <History size={16} />, onClick: () => { setMenuOpen(false); alert('Historial de cambios'); } },
-          ]}
-        >
-          <button className="btn btn-outline" onClick={() => window.open(getBudgetPdf(id as string), '_blank')} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Eye size={16} /> VISTA PREVIA PDF
-          </button>
-          {isEdit ? (
-            ordenTrabajoNumero ? (
-              <button type="button" className={s['budget-form__btn-ot']} onClick={() => navigate(`/admin/work-orders?search=${ordenTrabajoNumero}`)}>
-                <FileOutput size={16} /> OT {ordenTrabajoNumero}
-              </button>
-            ) : form.estado === 'APROBADO' ? (
-              <button type="button" className={s['budget-form__btn-convert']} onClick={handleConvertirGuardar}
-                disabled={saving}>
-                <FileOutput size={16} /> {saving ? 'CONVIRTIENDO...' : 'CONVERTIR A ORDEN'}
-              </button>
-            ) : ['PENDIENTE', 'ENVIADO'].includes(form.estado) ? (
-              <button type="button" className={s['budget-form__btn-approve']} onClick={handleAprobar}
-                disabled={saving}>
-                <Check size={16} /> {saving ? 'APROBANDO...' : 'APROBAR PRESUPUESTO'}
-              </button>
-            ) : null
-          ) : (
-            <button className={`btn btn-primary ${s['budget-form__btn-save']}`} onClick={handleSubmit} disabled={saving}>
-              <Save size={16} /> {saving ? 'GUARDANDO...' : 'GUARDAR'}
+      <FormHeader
+        className="presupuesto-header"
+        title={`Presupuesto N° ${form.numero || 'P-_____'}`}
+        badge={!['PENDIENTE'].includes(form.estado) ? <EstadoBadge estado={form.estado} style={{ fontSize: 13, padding: '4px 14px' }} /> : undefined}
+        logoUrl={logoUrl}
+        menuOpen={menuOpen}
+        menuRef={menuRef}
+        setMenuOpen={setMenuOpen}
+        menuItems={[
+          { label: 'Duplicar', icon: <Copy size={16} />, onClick: () => { setMenuOpen(false); alert('Duplicar presupuesto'); } },
+          { label: 'Exportar PDF', icon: <FileDown size={16} />, onClick: () => { setMenuOpen(false); window.open(getBudgetPdf(id as string), '_blank'); } },
+          { label: 'Guardar', icon: <Save size={16} />, onClick: () => { setMenuOpen(false); handleGuardar(); } },
+          { label: 'Eliminar', icon: <Trash2 size={16} />, onClick: () => { setMenuOpen(false); setDeleteConfirm(true); }, danger: true },
+          { label: 'Historial', icon: <History size={16} />, onClick: () => { setMenuOpen(false); alert('Historial de cambios'); } },
+        ]}
+      >
+        <button className="btn btn-outline" onClick={() => window.open(getBudgetPdf(id as string), '_blank')} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Eye size={16} /> VISTA PREVIA PDF
+        </button>
+        {isEdit ? (
+          ordenTrabajoNumero ? (
+            <button type="button" className={s['budget-form__btn-ot']} onClick={() => navigate(`/admin/work-orders?search=${ordenTrabajoNumero}`)}>
+              <FileOutput size={16} /> OT {ordenTrabajoNumero}
             </button>
-          )}
-          <button className="btn btn-success" onClick={handleEnviarWhatsApp} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', fontSize: 13 }}>
-            <Send size={16} /> WhatsApp
+          ) : form.estado === 'APROBADO' ? (
+            <button type="button" className={s['budget-form__btn-convert']} onClick={handleConvertirGuardar}
+              disabled={saving}>
+              <FileOutput size={16} /> {saving ? 'CONVIRTIENDO...' : 'CONVERTIR A ORDEN'}
+            </button>
+          ) : ['PENDIENTE', 'ENVIADO'].includes(form.estado) ? (
+            <button type="button" className={s['budget-form__btn-approve']} onClick={handleAprobar}
+              disabled={saving}>
+              <Check size={16} /> {saving ? 'APROBANDO...' : 'APROBAR PRESUPUESTO'}
+            </button>
+          ) : null
+        ) : (
+          <button className={`btn btn-primary ${s['budget-form__btn-save']}`} onClick={handleSubmit} disabled={saving}>
+            <Save size={16} /> {saving ? 'GUARDANDO...' : 'GUARDAR'}
           </button>
-          <button className="btn btn-outline" onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Printer size={16} /> IMPRIMIR
-          </button>
-        </FormHeader>
- 
+        )}
+        <button className="btn btn-success" onClick={handleEnviarWhatsApp} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', fontSize: 13 }}>
+          <Send size={16} /> WhatsApp
+        </button>
+        <button className="btn btn-outline" onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Printer size={16} /> IMPRIMIR
+        </button>
+      </FormHeader>
+
       <form onSubmit={handleSubmit} onKeyDown={(e: React.KeyboardEvent<HTMLFormElement>) => { if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') e.preventDefault(); }}>
-        <ClienteSection
+        <BudgetFormClient
           form={form}
           readOnly={readOnly}
           update={update as (field: string, value: unknown) => void}
@@ -347,72 +349,50 @@ export default function PresupuestoForm() {
           handleClienteSelect={handleClienteSelect}
         />
 
-        {/* ===== ÁREA CENTRAL: Croquis 70% | Materiales 30% ===== */}
-        <div className={s['budget-form__header']}>
-          <button type="button" className={`btn btn-outline ${s['budget-form__header-toggle']}`} onClick={() => setShowCroquis(!showCroquis)}>
-            {showCroquis ? '👁️' : '📐'} {showCroquis ? 'Ocultar Diseño' : 'Activar Diseño'}
-          </button>
-          {!showCroquis && <span className={s['budget-form__header-hint']}>Croquis oculto.</span>}
-        </div>
         <div className={`${s['budget-form__layout']}${showCroquis ? '' : ' ' + s['budget-form__layout--no-croquis']}`}>
           {showCroquis && (
-          <div className={s['budget-form__croquis']}>
-            <CroquisEditor croquis={form.croquis} onChange={(v: unknown) => update('croquis', v)} readOnly={readOnly} />
-          </div>
+            <div className={s['budget-form__croquis']}>
+              <CroquisEditor croquis={form.croquis} onChange={(v: unknown) => update('croquis', v)} readOnly={readOnly} />
+            </div>
           )}
           <div className={s['budget-form__right']}>
-            <div className="card" style={{ height: '100%' }}>
-              <h3 className="section-title">MATERIALES</h3>
-              <div className={s['budget-form__add-row']}>
-                <select className="input" value="" onChange={(e) => { addMaterial(e.target.value); e.target.value = ''; }} disabled={readOnly}>
-                  <option value="">+ AGREGAR MATERIAL</option>
-                  {materiales.filter((m: Record<string, unknown>) => m.nombre).map((m: Record<string, unknown>) => (
-                    <option key={m.id as number} value={m.nombre as string}>{m.nombre as string}{m.color ? ` - ${m.color as string}` : ''}</option>
-                  ))}
-                </select>
-              </div>
-              <div className={s['budget-form__materials-grid']}>
-              {(form.materiales || []).map((mat, idx) => (
-                <MaterialCard key={idx} mat={mat as unknown as Record<string, unknown>} idx={idx} readOnly={readOnly} updateMaterial={updateMaterial} removeMaterial={removeMaterial} num={num as (v: unknown) => number} />
-              ))}
-              </div>
-              {(form.materiales || []).length === 0 && (
-                <div className={s['budget-form__materials-empty']}>
-                  Sin materiales agregados. Usá "+ AGREGAR MATERIAL" para sumar.
-                </div>
-              )}
-              <div className="form-group">
-                <label>Observaciones del diseño</label>
-                <textarea className="input" rows={4} value={form.observaciones_diseno} onChange={(e) => update('observaciones_diseno', e.target.value)} placeholder="Zócalo de 7 cm. Frente de 4 cm. Incluye 3 perforaciones..." disabled={readOnly} />
-              </div>
-            </div>
+            <BudgetFormSpecs
+              form={form}
+              readOnly={readOnly}
+              materiales={materiales}
+              addMaterial={addMaterial}
+              updateMaterial={updateMaterial}
+              removeMaterial={removeMaterial}
+              update={update}
+              num={num}
+            />
           </div>
         </div>
 
-        {/* ===== SECCIÓN INFERIOR: 4 paneles ===== */}
         <div className={s['budget-form__bottom']}>
-          {/* Panel 1: Detalle de Fabricación y Adicionales */}
-          <div className="card">
-            <FabricacionTable detalles={form.detalles_fabricacion as unknown as Record<string, unknown>[]} readOnly={readOnly} handleDetalleChange={handleDetalleChange} addDetalle={addDetalle} removeDetalle={removeDetalle} materiales={materiales} CONCEPTOS_M2={CONCEPTOS_M2} conceptosFabricacion={conceptosFabricacion} num={num as (v: unknown) => number} />
-          </div>
+          <BudgetFormItems
+            form={form}
+            readOnly={readOnly}
+            materiales={materiales}
+            CONCEPTOS_M2={CONCEPTOS_M2}
+            num={num}
+            handleDetalleChange={handleDetalleChange}
+            addDetalle={addDetalle}
+            removeDetalle={removeDetalle}
+          />
 
-          {/* Panel 2: Piletas */}
-          <div className="card">
-            <h3 className="section-title">PILETAS</h3>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-              <select className="input" style={{ flex: 1, fontSize: 13 }} value="" onChange={(e) => { addPileta(e.target.value); e.target.value = ''; }} disabled={readOnly}>
-                <option value="">+ AGREGAR PILETA</option>
-                {piletas.map((p: Record<string, unknown>) => (
-                  <option key={p.id as number} value={p.id as number}>{p.marca as string} - {p.modelo as string} (Stock: {p.cantidad as number})</option>
-                ))}
-              </select>
-            </div>
-            {(form.piletas || []).map((pt, idx) => (
-              <PiletaCard key={idx} pt={pt as unknown as Record<string, unknown>} idx={idx} piletas={piletas} readOnly={readOnly} updatePileta={updatePileta} removePileta={removePileta} formPiletas={form.piletas as unknown as Record<string, unknown>[]} update={update as (field: string, value: unknown) => void} num={num as (v: unknown) => number} />
-            ))}
-          </div>
+          <BudgetFormAdicionales
+            form={form}
+            readOnly={readOnly}
+            piletas={piletas}
+            update={update}
+            updatePileta={updatePileta}
+            removePileta={removePileta}
+            addPileta={addPileta}
+            num={num}
+          />
 
-          <PresupuestoPanel
+          <BudgetFormFinancial
             form={form}
             modoUSD={modoUSD}
             toggleModoUSD={toggleModoUSD}
@@ -427,7 +407,6 @@ export default function PresupuestoForm() {
             setForm={setForm}
             update={update as (field: string, value: unknown) => void}
             num={num as (v: unknown) => number}
-            hidePaymentSection={hayAlternativas}
             alternativasTop={alternativasTop}
             alternativasGrid={alternativasGrid}
             descuentoBlock={descuentoBlock}
@@ -437,7 +416,13 @@ export default function PresupuestoForm() {
           <AprobacionSection form={form} readOnly={readOnly} update={update as (field: string, value: unknown) => void} />
         </div>
 
-        <ObservacionesSection form={form} readOnly={readOnly} update={update as (field: string, value: unknown) => void} />
+        <BudgetFormObservations
+          form={form}
+          readOnly={readOnly}
+          update={update}
+          showCroquis={showCroquis}
+          setShowCroquis={setShowCroquis}
+        />
 
         <FormFooter saving={saving} onCancel={() => navigate('/admin/budgets')} />
       </form>
