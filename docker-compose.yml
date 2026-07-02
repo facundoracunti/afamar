@@ -43,8 +43,6 @@ services:
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - API_URL=${API_URL:-/api/v1}
       - LOG_LEVEL=${LOG_LEVEL:-info}
-    depends_on:
-      - backend
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3090"]
       interval: 30s
