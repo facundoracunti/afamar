@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
-const API_PORT = process.env.API_PORT || '8000'
+const API_PORT = process.env.API_PORT || '3095'
 
 export default defineConfig({
   plugins: [react()],

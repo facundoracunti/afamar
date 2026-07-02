@@ -91,3 +91,6 @@ export type { DashboardData, BudgetSummary, OrderSummary, PoolSummary } from './
 
 // Completed works (renamed from TrabajoRealizado)
 export type { CompletedWork } from './completedWorks';
+
+// Product photos
+export type { ProductPhoto, CreateProductPhotoData } from './product';

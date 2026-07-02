@@ -1,6 +1,9 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from './api/queryClient';
 import { AuthProvider } from './context/AuthContext';
+import { NotificationProvider } from './context/NotificationContext';
 import MainLayout from './layouts/MainLayout';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import DashboardPage from './pages/dashboard/DashboardPage';
@@ -19,6 +22,7 @@ import MaterialFormPage from './pages/materials/MaterialFormPage';
 import PoolStockPage from './pages/pool-stock/PoolStockPage';
 import ReportsPage from './pages/reports/ReportsPage';
 import ConfigurationPage from './pages/configuration/ConfigurationPage';
+import ProductPhotosPage from './pages/product-photos/ProductPhotosPage';
 import MeasurementsListPage from './pages/measurements/MeasurementsListPage';
 import MeasurementFormPage from './pages/measurements/MeasurementFormPage';
 import CalculatorPage from './pages/calculator/CalculatorPage';
@@ -41,48 +45,53 @@ function OldPOnlineRedirect() {
 function App() {
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <AuthProvider>
-        <Routes>
-          <Route index element={<HomePage />} />
-          <Route path="login" element={<LoginPage />} />
-          {/* Backward-compat redirects from Spanish paths */}
-          <Route path="presupuestos/*" element={<OldPresupuestoRedirect />} />
-          <Route path="ordenes/*" element={<OldOrdenRedirect />} />
-          <Route path="presupuestos-online/*" element={<OldPOnlineRedirect />} />
-          <Route path="stock-piletas" element={<Navigate to="/admin/pool-stock" replace />} />
-          <Route path="caja/diaria" element={<Navigate to="/admin/cash" replace />} />
-          <Route path="caja" element={<Navigate to="/admin/cash" replace />} />
-          <Route element={<ProtectedRoute />}>
-            <Route path="admin" element={<MainLayout />}>
-              <Route index element={<DashboardPage />} />
-              <Route path="clients" element={<ClientsListPage />} />
-              <Route path="clients/new" element={<ClientFormPage />} />
-              <Route path="clients/:id" element={<ClientFormPage />} />
-              <Route path="budgets" element={<BudgetsListPage />} />
-              <Route path="budgets/new" element={<BudgetFormPage />} />
-              <Route path="budgets/:id" element={<BudgetFormPage />} />
-              <Route path="online-budgets" element={<OnlineBudgetsListPage />} />
-              <Route path="online-budgets/new" element={<OnlineBudgetFormPage />} />
-              <Route path="online-budgets/:id" element={<OnlineBudgetFormPage />} />
-              <Route path="work-orders" element={<WorkOrdersListPage />} />
-              <Route path="work-orders/new" element={<WorkOrderFormPage />} />
-              <Route path="work-orders/:id" element={<WorkOrderFormPage />} />
-              <Route path="materials" element={<MaterialsListPage />} />
-              <Route path="materials/new" element={<MaterialFormPage />} />
-              <Route path="materials/:id" element={<MaterialFormPage />} />
-              <Route path="pool-stock" element={<PoolStockPage />} />
-              <Route path="measurements" element={<MeasurementsListPage />} />
-              <Route path="measurements/new" element={<MeasurementFormPage />} />
-              <Route path="measurements/:id" element={<MeasurementFormPage />} />
-              <Route path="calculator" element={<CalculatorPage />} />
-              <Route path="cash" element={<CashDailyPage />} />
-              <Route path="cash/history" element={<CashHistoryPage />} />
-              <Route path="reports" element={<ReportsPage />} />
-              <Route path="configuration" element={<ConfigurationPage />} />
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+        <NotificationProvider>
+          <Routes>
+            <Route index element={<HomePage />} />
+            <Route path="login" element={<LoginPage />} />
+            {/* Backward-compat redirects from Spanish paths */}
+            <Route path="presupuestos/*" element={<OldPresupuestoRedirect />} />
+            <Route path="ordenes/*" element={<OldOrdenRedirect />} />
+            <Route path="presupuestos-online/*" element={<OldPOnlineRedirect />} />
+            <Route path="stock-piletas" element={<Navigate to="/admin/pool-stock" replace />} />
+            <Route path="caja/diaria" element={<Navigate to="/admin/cash" replace />} />
+            <Route path="caja" element={<Navigate to="/admin/cash" replace />} />
+            <Route element={<ProtectedRoute />}>
+              <Route path="admin" element={<MainLayout />}>
+                <Route index element={<DashboardPage />} />
+                <Route path="clients" element={<ClientsListPage />} />
+                <Route path="clients/new" element={<ClientFormPage />} />
+                <Route path="clients/:id" element={<ClientFormPage />} />
+                <Route path="budgets" element={<BudgetsListPage />} />
+                <Route path="budgets/new" element={<BudgetFormPage />} />
+                <Route path="budgets/:id" element={<BudgetFormPage />} />
+                <Route path="online-budgets" element={<OnlineBudgetsListPage />} />
+                <Route path="online-budgets/new" element={<OnlineBudgetFormPage />} />
+                <Route path="online-budgets/:id" element={<OnlineBudgetFormPage />} />
+                <Route path="work-orders" element={<WorkOrdersListPage />} />
+                <Route path="work-orders/new" element={<WorkOrderFormPage />} />
+                <Route path="work-orders/:id" element={<WorkOrderFormPage />} />
+                <Route path="materials" element={<MaterialsListPage />} />
+                <Route path="materials/new" element={<MaterialFormPage />} />
+                <Route path="materials/:id" element={<MaterialFormPage />} />
+                <Route path="pool-stock" element={<PoolStockPage />} />
+                <Route path="measurements" element={<MeasurementsListPage />} />
+                <Route path="measurements/new" element={<MeasurementFormPage />} />
+                <Route path="measurements/:id" element={<MeasurementFormPage />} />
+                <Route path="calculator" element={<CalculatorPage />} />
+                <Route path="cash" element={<CashDailyPage />} />
+                <Route path="cash/history" element={<CashHistoryPage />} />
+                <Route path="reports" element={<ReportsPage />} />
+                <Route path="configuration" element={<ConfigurationPage />} />
+                <Route path="product-photos" element={<ProductPhotosPage />} />
+              </Route>
             </Route>
-          </Route>
-        </Routes>
+          </Routes>
+        </NotificationProvider>
       </AuthProvider>
+      </QueryClientProvider>
     </BrowserRouter>
   );
 }

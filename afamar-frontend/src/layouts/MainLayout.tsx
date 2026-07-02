@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, ChevronDown, LayoutDashboard, FileText, ClipboardList, Users, Box, Bath, Calendar, Calculator, BarChart3, Settings, Globe, Send, Wrench, Clock, Truck, DollarSign, Receipt, History, LogOut, type LucideIcon } from 'lucide-react';
+import { Menu, ChevronDown, LayoutDashboard, FileText, ClipboardList, Users, Box, Bath, Calendar, Calculator, BarChart3, Settings, Globe, Send, Wrench, Clock, Truck, DollarSign, Receipt, History, Image, LogOut, type LucideIcon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import styles from './MainLayout.module.css';
 
@@ -93,8 +93,10 @@ const accordionGroups: AccordionGroup[] = [
     key: 'config',
     label: 'CONFIGURACIÓN',
     icon: Settings,
-    path: `${PREFIX}/configuration`,
-    subItems: null,
+    subItems: [
+      { label: 'Datos de AFAMAR', path: `${PREFIX}/configuration`, icon: Settings },
+      { label: 'Fotos de productos', path: `${PREFIX}/product-photos`, icon: Image },
+    ],
   },
 ];
 

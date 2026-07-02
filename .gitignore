@@ -29,6 +29,7 @@ logs/
 
 # Uploads (keep folder, ignore contents)
 uploads/*
+afamar-backend/uploads/*
 !uploads/.gitkeep
 !uploads/materiales/
 !uploads/logos/

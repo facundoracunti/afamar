@@ -19,11 +19,11 @@ class Settings(BaseSettings):
     DEBUG: bool = False
 
     # Database
-    DB_USER: str = "afamar-project"
+    DB_USER: str = "afamar"
     DB_PASSWORD: str = ""
     DB_HOST: str = "mysql-central"
     DB_PORT: str = "3306"
-    DB_NAME: str = "afamar-project"
+    DB_NAME: str = "afamar"
     DB_POOL_SIZE: int = 10
     DB_MAX_OVERFLOW: int = 20
     DB_ECHO: bool = False

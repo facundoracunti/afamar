@@ -1,0 +1,150 @@
+.product-photos {
+  padding: 1.5rem;
+}
+
+.product-photos__title {
+  margin: 0 0 1rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.product-photos__upload {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: #f5f5f5;
+  border-radius: 8px;
+}
+
+.product-photos__input {
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.product-photos__submit {
+  padding: 0.5rem 1rem;
+  background: #007bff;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.product-photos__submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.product-photos__error {
+  color: #d32f2f;
+  margin-bottom: 1rem;
+}
+
+.product-photos__loading {
+  text-align: center;
+  color: #666;
+  padding: 2rem;
+}
+
+.product-photos__empty {
+  text-align: center;
+  color: #666;
+  padding: 2rem;
+}
+
+.product-photos__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.product-photos__card {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.product-photos__img {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  display: block;
+  cursor: pointer;
+}
+
+.product-photos__info {
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.product-photos__actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.product-photos__edit-btn {
+  background: none;
+  border: none;
+  color: #007bff;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.85rem;
+}
+
+.product-photos__delete-btn {
+  background: none;
+  border: none;
+  color: #d32f2f;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.85rem;
+}
+
+.product-photos__edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.product-photos__edit-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.product-photos__save-btn {
+  padding: 0.25rem 0.75rem;
+  background: #28a745;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.product-photos__cancel-btn {
+  padding: 0.25rem 0.75rem;
+  background: #6c757d;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.product-photos__lightbox-img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 12px;
+}

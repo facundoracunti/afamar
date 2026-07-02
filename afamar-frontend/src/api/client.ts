@@ -24,3 +24,4 @@ export * from './resources/measurements';
 export * from './resources/cash';
 export * from './resources/reports';
 export * from './resources/completedWorks';
+export * from './resources/productPhotos';
