@@ -194,6 +194,7 @@ export interface UseCroquisStateReturn {
 
   addShape: (shape: CroquisElement) => void;
   deleteShape: (id: string) => void;
+  deleteLast: () => void;
   clearAll: () => void;
   updateElementPosition: (id: string, absX: number, absY: number) => void;
   updateElementTransform: (id: string, scaleX: number, scaleY: number, rotation: number) => void;
@@ -276,6 +277,16 @@ export function useCroquisState(
   const deleteShape = useCallback((id: string) => {
     const next = pages.map((p, i) =>
       i === pageIdx ? { ...p, elementos: p.elementos.filter((el) => el.id !== id) } : p,
+    );
+    setSid(null);
+    persist(next);
+  }, [pages, pageIdx, persist]);
+
+  const deleteLast = useCallback(() => {
+    const current = pages[pageIdx]?.elementos || [];
+    if (current.length === 0) return;
+    const next = pages.map((p, i) =>
+      i === pageIdx ? { ...p, elementos: p.elementos.slice(0, -1) } : p,
     );
     setSid(null);
     persist(next);
@@ -414,6 +425,7 @@ export function useCroquisState(
 
     addShape,
     deleteShape,
+    deleteLast,
     clearAll,
     updateElementPosition,
     updateElementTransform,

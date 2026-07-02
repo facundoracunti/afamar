@@ -1,0 +1,126 @@
+/* MeasurementsListPage — BEM
+   .measurements                block
+   .measurements__header        page header
+   .measurements__title         page title
+   .measurements__actions       action buttons
+   .measurements__filters       filter card
+   .measurements__search        search box wrapper
+   .measurements__filter        filter dropdown
+   .measurements__table         table wrapper
+   .measurements__cell-actions  actions cell
+   .measurements__empty         empty state
+*/
+
+.measurements {
+  padding: 24px;
+  display: grid;
+  gap: 16px;
+}
+
+.measurements__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.measurements__title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0;
+}
+
+.measurements__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.measurements__filters {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.measurements__search {
+  position: relative;
+  flex: 1;
+  min-width: 250px;
+}
+
+.measurements__search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.measurements__search input {
+  padding-left: 40px;
+  width: 100%;
+}
+
+.measurements__filter {
+  width: 180px;
+}
+
+.measurements__table {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.measurements__table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.measurements__table th {
+  background: #f8fafc;
+  text-align: left;
+  padding: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #4a5568;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.measurements__table td {
+  padding: 12px;
+  font-size: 14px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1a202c;
+}
+
+.measurements__table tr:hover td {
+  background: #fef3f3;
+}
+
+.measurements__table tr:last-child td {
+  border-bottom: none;
+}
+
+.measurements__cell-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.measurements__cell-actions button {
+  padding: 4px 8px;
+}
+
+.measurements__empty {
+  text-align: center;
+  padding: 40px;
+  color: #94a3b8;
+}

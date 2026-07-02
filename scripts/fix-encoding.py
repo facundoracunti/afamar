@@ -62,6 +62,21 @@ PATTERNS_1 = [
     # (skip - too aggressive)
 ]
 
+# Special-case corruptions (Windows editor mojibake — non-standard pattern)
+# These are visual Latin-1 renderings of UTF-8 bytes that were re-saved
+# as UTF-8 a second time. They show up as Ô£ô (was ✓) and ÔÅ│ (was ⏳).
+PATTERNS_SPECIAL = [
+    (b'\xc3\x94\xc2\xa3\xc3\xb4', '✓'.encode('utf-8')),  # U+2713 CHECK MARK
+    (b'\xc3\x94\xc3\x85\xe2\x94\x82', '⏳'.encode('utf-8')),  # U+23F3 HOURGLASS
+    # "Garbage box-drawing prefix" pattern: some editors insert ├ (U+251C,
+    # 0xe2 0x94 0x9c) before accented characters. Strip the prefix and keep
+    # the actual character. e.g. ├ô -> Ó, ├ì -> Í, ├ë -> É, ├▒ -> ñ.
+    (b'\xe2\x94\x9c\xe2\x96\x92', 'ñ'.encode('utf-8')),
+    (b'\xe2\x94\x9c\xc3\xb4', 'Ó'.encode('utf-8')),
+    (b'\xe2\x94\x9c\xc3\xac', 'Í'.encode('utf-8')),
+    (b'\xe2\x94\x9c\xc3\xab', 'É'.encode('utf-8')),
+]
+
 def fix_file(path: str) -> bool:
     """Fix UTF-8 corruption in a single file. Returns True if changed."""
     try:
@@ -72,10 +87,12 @@ def fix_file(path: str) -> bool:
         return False
 
     data = original
-    # Apply 2-round first (longer patterns), then 1-round
+    # Apply 2-round first (longer patterns), then 1-round, then special cases
     for pattern, replacement in PATTERNS_2:
         data = data.replace(pattern, replacement)
     for pattern, replacement in PATTERNS_1:
+        data = data.replace(pattern, replacement)
+    for pattern, replacement in PATTERNS_SPECIAL:
         data = data.replace(pattern, replacement)
 
     if data == original:
@@ -90,19 +107,25 @@ def fix_file(path: str) -> bool:
         return False
 
 def main():
-    root = r'D:\projects\PERSONAL\afamar\afamar-frontend\src'
+    roots = [
+        r'D:\projects\PERSONAL\afamar\afamar-frontend\src',
+        r'D:\projects\PERSONAL\afamar\afamar-backend\app',
+    ]
     fixed_count = 0
     file_count = 0
 
-    for dirpath, dirs, files in os.walk(root):
-        for f in files:
-            if not f.endswith(('.tsx', '.ts', '.css', '.html')):
-                continue
-            p = os.path.join(dirpath, f)
-            file_count += 1
-            if fix_file(p):
-                fixed_count += 1
-                print(f'Fixed: {p.replace(root, "")}')
+    for root in roots:
+        if not os.path.isdir(root):
+            continue
+        for dirpath, dirs, files in os.walk(root):
+            for f in files:
+                if not f.endswith(('.tsx', '.ts', '.css', '.html', '.py')):
+                    continue
+                p = os.path.join(dirpath, f)
+                file_count += 1
+                if fix_file(p):
+                    fixed_count += 1
+                    print(f'Fixed: {p.replace(root, "")}')
 
     print(f'\n{fixed_count}/{file_count} files modified')
 

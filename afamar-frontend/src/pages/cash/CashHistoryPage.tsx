@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getCajaHistorial } from '../../services/api';
+import { getCashHistory } from '@/api/resources/cash';
 import CurrencyDisplay from '../../components/ui/CurrencyDisplay';
 import { ArrowUpCircle, ArrowDownCircle, Calendar, FileText } from 'lucide-react';
 import Loading from '../../components/common/Loading';
@@ -12,7 +12,7 @@ export default function CajaHistorial() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await getCajaHistorial();
+        const res = await getCashHistory();
         setCajas(res.data || []);
       } catch (err: unknown) {
         setCajas([]);

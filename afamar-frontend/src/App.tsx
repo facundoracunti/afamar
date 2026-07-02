@@ -4,7 +4,7 @@ import { AuthProvider } from './context/AuthContext';
 import MainLayout from './layouts/MainLayout';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import DashboardPage from './pages/dashboard/DashboardPage';
-import PublicPage from './pages/auth/PublicPage';
+import { HomePage } from './pages/home/HomePage';
 import LoginPage from './pages/auth/LoginPage';
 import ClientsListPage from './pages/clients/ClientsListPage';
 import ClientFormPage from './pages/clients/ClientFormPage';
@@ -43,7 +43,7 @@ function App() {
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <AuthProvider>
         <Routes>
-          <Route index element={<PublicPage />} />
+          <Route index element={<HomePage />} />
           <Route path="login" element={<LoginPage />} />
           {/* Backward-compat redirects from Spanish paths */}
           <Route path="presupuestos/*" element={<OldPresupuestoRedirect />} />

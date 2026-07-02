@@ -1,26 +1,4 @@
-export interface Medicion {
-  id: number;
-  cliente_nombre?: string;
-  cliente_telefono?: string;
-  cliente_direccion?: string;
-  fecha_programada?: string;
-  hora_programada?: string;
-  estado?: string;
-  fotos?: string[];
-  croquis?: unknown[];
-  observaciones?: string;
-  created_at?: string;
-  updated_at?: string;
-}
+// Legacy Spanish types — re-exported from the new English equivalents.
+// @deprecated — use Measurement from './measurement' instead.
 
-export interface MedicionFormData {
-  cliente_nombre: string;
-  cliente_telefono: string;
-  cliente_direccion: string;
-  fecha_programada: string;
-  hora_programada: string;
-  observaciones: string;
-  croquis: unknown[];
-  fotos: string[];
-  estado: string;
-}
+export type { Measurement as Medicion, MeasurementFormData as MedicionFormData } from './measurement';

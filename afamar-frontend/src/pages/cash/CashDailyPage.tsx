@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Printer, Lock } from 'lucide-react';
-import { getCajaDiaria, createMovimientoCaja, deleteMovimientoCaja, putSaldoAnterior, cerrarCaja } from '../../services/api';
+import { getDailyCash, createCashMovement, deleteCashMovement, setPreviousBalance, closeDailyCash } from '@/api/resources/cash';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Loading from '../../components/common/Loading';
 import SaldoAnteriorCard from '../../components/caja/SaldoAnteriorCard';
@@ -32,7 +32,7 @@ export default function CajaDiaria() {
   const loadCaja = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getCajaDiaria(fecha);
+      const res = await getDailyCash(fecha);
       if (res.data) {
         const movs = (res.data.movimientos as Record<string, unknown>[]) || [];
         setSaldoAnterior(prev => (res.data.saldo_anterior as number) ?? prev);
@@ -44,10 +44,10 @@ export default function CajaDiaria() {
           prev.setDate(prev.getDate() - 1);
           const prevStr = prev.toISOString().split('T')[0];
           try {
-            const prevRes = await getCajaDiaria(prevStr);
+            const prevRes = await getDailyCash(prevStr);
             const prevSaldo = (prevRes.data?.saldo_actual as number) || 0;
             if (prevSaldo) {
-              await putSaldoAnterior(fecha, prevSaldo);
+              await setPreviousBalance(fecha, prevSaldo);
               setSaldoAnterior(prevSaldo);
             }
           } catch {
@@ -67,7 +67,7 @@ export default function CajaDiaria() {
 
   const handleSaveSaldoAnterior = async () => {
     try {
-      await putSaldoAnterior(fecha, saldoAnterior);
+      await setPreviousBalance(fecha, saldoAnterior);
       setSaldoAnteriorEdit(false);
       await loadCaja();
     } catch {
@@ -77,7 +77,7 @@ export default function CajaDiaria() {
 
   const handleAddIngreso = async (data: Record<string, unknown>) => {
     try {
-      await createMovimientoCaja({ ...data, fecha });
+      await createCashMovement({ ...data, fecha });
       setShowIngreso(false);
       await loadCaja();
     } catch {
@@ -87,7 +87,7 @@ export default function CajaDiaria() {
 
   const handleAddEgreso = async (data: Record<string, unknown>) => {
     try {
-      await createMovimientoCaja({ ...data, fecha });
+      await createCashMovement({ ...data, fecha });
       setShowEgreso(false);
       await loadCaja();
     } catch {
@@ -98,7 +98,7 @@ export default function CajaDiaria() {
   const handleDeleteMov = async () => {
     if (!deleteId) return;
     try {
-      await deleteMovimientoCaja(deleteId);
+      await deleteCashMovement(deleteId);
       setDeleteId(null);
       await loadCaja();
     } catch {
@@ -108,7 +108,7 @@ export default function CajaDiaria() {
 
   const handleCerrarCaja = async (observaciones: string) => {
     try {
-      await cerrarCaja(fecha, observaciones || undefined);
+      await closeDailyCash(fecha, observaciones || undefined);
       setShowCerrar(false);
       await loadCaja();
     } catch {

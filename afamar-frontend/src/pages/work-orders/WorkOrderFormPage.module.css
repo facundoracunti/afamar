@@ -1,0 +1,194 @@
+/* WorkOrderFormPage — BEM
+   .work-order-form             block (root)
+   .work-order-form__header      header area with toggle
+   .work-order-form__header-toggle  show/hide croquis button
+   .work-order-form__header-hint    small text next to toggle
+   .work-order-form__layout      main 2-col layout
+   .work-order-form__layout--no-croquis  layout when croquis hidden
+   .work-order-form__croquis     croquis column
+   .work-order-form__right       right column
+   .work-order-form__card        card
+   .work-order-form__add-row     add material/pool select row
+   .work-order-form__materials-grid  materials grid
+   .work-order-form__materials-empty  empty state
+   .work-order-form__obs         observations group
+   .work-order-form__bottom      bottom 2-col grid
+   .work-order-form__comparative  m² comparativa section
+   .work-order-form__comparative-title  comparativa title
+   .work-order-form__comparative-table   comparativa table
+   .work-order-form__btn-measurement  enviar a taller button
+   .work-order-form__btn-workshop     finalizar trabajo button
+   .work-order-form__btn-delivery     entregar button
+   .work-order-form__badge-delivered  entregado badge
+   .work-order-form__btn-save        save button
+   .work-order-form__btn-print       print button
+*/
+
+.work-order-form {
+  padding: 0;
+}
+
+.work-order-form__header {
+  margin-top: 16px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.work-order-form__header-toggle {
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+}
+
+.work-order-form__header-hint {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.work-order-form__layout {
+  display: grid;
+  grid-template-columns: 7fr 3fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.work-order-form__layout--no-croquis {
+  grid-template-columns: 1fr;
+}
+
+.work-order-form__croquis,
+.work-order-form__right {
+  min-width: 0;
+}
+
+.work-order-form__card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  height: 100%;
+}
+
+.work-order-form__add-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.work-order-form__add-row select {
+  flex: 1;
+  font-size: 13px;
+}
+
+.work-order-form__materials-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 16px;
+}
+
+.work-order-form__materials-empty {
+  padding: 16px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.work-order-form__obs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.work-order-form__obs label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #4a5568;
+}
+
+.work-order-form__bottom {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.work-order-form__comparative {
+  margin-top: 16px;
+  border-top: 2px solid #1e40af;
+  padding-top: 12px;
+}
+
+.work-order-form__comparative-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e40af;
+  margin: 0 0 8px;
+}
+
+.work-order-form__comparative-table {
+  font-size: 12px;
+}
+
+.work-order-form__comparative-table th,
+.work-order-form__comparative-table td {
+  text-align: center;
+}
+
+/* Action buttons in header (estado transitions, save, print) */
+.work-order-form__btn-measurement,
+.work-order-form__btn-workshop,
+.work-order-form__btn-delivery,
+.work-order-form__btn-save {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  color: #fff;
+}
+
+.work-order-form__btn-measurement {
+  background: #2563eb;
+}
+
+.work-order-form__btn-workshop {
+  background: #059669;
+}
+
+.work-order-form__btn-delivery {
+  background: #9333ea;
+}
+
+.work-order-form__btn-save {
+  background: #b91c1c;
+}
+
+.work-order-form__btn-measurement:disabled,
+.work-order-form__btn-workshop:disabled,
+.work-order-form__btn-delivery:disabled,
+.work-order-form__btn-save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.work-order-form__badge-delivered {
+  background: #f3f4f6;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 13px;
+}

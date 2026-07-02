@@ -1,14 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getPresupuestoOnline, createPresupuestoOnline, updatePresupuestoOnline, getMateriales, getPiletas, getNextPresupuestoNumero, convertirOnlineAOrden, convertirOnlineAOrdenOpcion } from '../../services/api';
+import { getOnlineBudget, createOnlineBudget, updateOnlineBudget, convertOnlineBudgetToWorkOrder, convertOnlineBudgetToWorkOrderOption } from '@/api/resources/onlineBudgets';
+import { getMaterials } from '@/api/resources/materials';
+import { getPoolStock } from '@/api/resources/poolStock';
+import { getNextBudgetNumber } from '@/api/resources/budgets';
 import Loading from '../../components/common/Loading';
 import PresupuestoOnlineHeader from '../../components/presupuesto/PresupuestoOnlineHeader';
-import OnlineItemsTable, { createOpcion, parseNum, type OpcionTab, type PresupuestoOnlineItemLocal, NOMBRES_ESPECIALES, FILAS_INICIALES, ESPECIALES_INICIALES, emptyItem, TIPOS_ESPECIALES } from '../../components/presupuesto/OnlineItemsTable';
+import OnlineItemsTable, { createOpcion, parseNum, type OpcionTab, type PresupuestoOnlineItemLocal, NOMBRES_ESPECIALES, FILAS_INICIALES, ESPECIALES_INICIALES, emptyItem } from '../../components/presupuesto/OnlineItemsTable';
 import PresupuestoOnlineTotals from '../../components/presupuesto/PresupuestoOnlineTotals';
 import PresupuestoOnlineFooter from '../../components/presupuesto/PresupuestoOnlineFooter';
 import type { Material } from '../../types/material';
 import type { StockPileta } from '../../types/stockPileta';
 import type { ConvertirOpcionResponse } from '../../types/orden';
+import styles from './OnlineBudgetFormPage.module.css';
+
+const s = styles as unknown as Record<string, string>;
 
 export default function PresupuestoOnlineForm() {
   const { id } = useParams();
@@ -33,13 +39,13 @@ export default function PresupuestoOnlineForm() {
   const [convertingOpcion, setConvertingOpcion] = useState<number | null>(null);
 
   useEffect(() => {
-    getMateriales({ limit: 500 }).then((r: { data: Material[] }) => setMateriales(r.data));
+    getMaterials({ limit: 500 }).then((r: { data: Material[] }) => setMateriales(r.data));
   }, []);
   useEffect(() => {
-    getPiletas({}).then((r: { data: StockPileta[] }) => setPiletas(r.data));
+    getPoolStock({}).then((r: { data: StockPileta[] }) => setPiletas(r.data));
   }, []);
   useEffect(() => {
-    if (!isEdit) { getNextPresupuestoNumero().then((r: { data: { numero: string } }) => setNumero(r.data.numero)).catch(() => {}); }
+    if (!isEdit) { getNextBudgetNumber().then((r: { data: { numero: string } }) => setNumero(r.data.numero)).catch(() => {}); }
   }, [isEdit]);
 
   // Auto-recalculate totals when active tab, opciones, or dolarDia change
@@ -60,9 +66,9 @@ export default function PresupuestoOnlineForm() {
   useEffect(() => {
     if (isEdit && id) {
       Promise.all([
-        getPresupuestoOnline(id),
-        getMateriales({ limit: 500 }),
-        getPiletas({}),
+        getOnlineBudget(id),
+        getMaterials({ limit: 500 }),
+        getPoolStock({}),
       ]).then(([presRes, matRes, piletaRes]: unknown[]) => {
         const d = (presRes as { data: Record<string, unknown> }).data;
         const matData = (matRes as { data: Material[] }).data;
@@ -130,10 +136,10 @@ export default function PresupuestoOnlineForm() {
     if (!window.confirm(`¿Convertir a Orden de Trabajo la "${opciones[opcionIdx]?.nombre}"? Solo se copiarán los ítems de esta opción.`)) return;
     setConvertingOpcion(opcionIdx);
     try {
-      const res = await convertirOnlineAOrdenOpcion(id as string, opcionIdx);
+      const res = await convertOnlineBudgetToWorkOrderOption(id as string, opcionIdx);
       const data: ConvertirOpcionResponse = res.data;
       alert(`Orden ${data.numero} creada a partir de ${opciones[opcionIdx]?.nombre}.`);
-      navigate('/admin/ordenes');
+      navigate('/admin/work-orders');
     } catch (err: unknown) {
       alert('Error al convertir la opción a orden de trabajo.');
     } finally {
@@ -149,9 +155,9 @@ export default function PresupuestoOnlineForm() {
   const handleConvertirAll = async () => {
     if (!window.confirm('¿Convertir a Orden de Trabajo? Se copiarán todos los ítems.')) return;
     try {
-      const res = await convertirOnlineAOrden(id as string);
+      const res = await convertOnlineBudgetToWorkOrder(id as string);
       alert(`Orden ${(res.data as Record<string, unknown>).numero} creada.`);
-      navigate('/admin/ordenes');
+      navigate('/admin/work-orders');
     } catch {
       alert('Error');
     }
@@ -179,9 +185,9 @@ export default function PresupuestoOnlineForm() {
         pileta_id: piletaItems.length ? Number(piletaItems[0].pileta_id) : null,
         pileta_precio: piletaItems.length ? (Number(piletaItems[0].precio_unitario) || 0) : 0,
       };
-      if (isEdit) await updatePresupuestoOnline(id as string, payload);
-      else await createPresupuestoOnline(payload);
-      navigate('/admin/presupuestos-online');
+      if (isEdit) await updateOnlineBudget(id as string, payload);
+      else await createOnlineBudget(payload);
+      navigate('/admin/online-budgets');
     } catch (err: unknown) { alert('Error al guardar'); }
     finally { setSaving(false); }
   };
@@ -240,9 +246,9 @@ export default function PresupuestoOnlineForm() {
   const hayUSD = [...(opciones[activeOpcion]?.items || []), ...(opciones[activeOpcion]?.especiales || [])].some((i: PresupuestoOnlineItemLocal) => i.moneda === 'USD');
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 } as React.CSSProperties}>
-        <h1 style={{ fontSize: 22, fontWeight: 700 }}>
+    <div className={s['online-budget-form']}>
+      <div className={s['online-budget-form__header']}>
+        <h1 className={s['online-budget-form__title']}>
           {isEdit ? `Presupuesto ${numero}` : `Nuevo Presupuesto ${numero || ''}`}
         </h1>
       </div>
@@ -284,7 +290,7 @@ export default function PresupuestoOnlineForm() {
 
         <PresupuestoOnlineFooter
           onWhatsApp={handleWhatsApp}
-          onCancel={() => navigate('/admin/presupuestos-online')}
+          onCancel={() => navigate('/admin/online-budgets')}
           isEdit={isEdit}
           onConvertirAll={handleConvertirAll}
           saving={saving}

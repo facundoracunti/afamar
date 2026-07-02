@@ -8,9 +8,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.core.config import settings
-from app.core.database import Base
-from app.core.dependencies import get_current_user, get_db
+from app.core.settings import settings
+from app.db.base import Base
+from app.api.dependencies import get_current_user, get_db
 from app.main import app
 from app.models.user import User
 

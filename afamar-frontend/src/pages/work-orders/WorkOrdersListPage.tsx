@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Search, Trash2, ChevronRight, ChevronLeft, FileDown } from 'lucide-react';
-import { getOrdenes, deleteOrden, updateOrden, getOrdenPdf } from '../../services/api';
+import { getWorkOrders, deleteWorkOrder, updateWorkOrder, getWorkOrderPdf } from '@/api/resources/workOrders';
 import { formatDate, estadosOrden } from '../../utils/formatters';
 import CurrencyDisplay from '../../components/ui/CurrencyDisplay';
 import EstadoBadge from '../../components/ui/EstadoBadge';
@@ -27,7 +27,7 @@ export default function OrdenesList() {
 
   const load = () => {
     setLoading(true);
-    getOrdenes({ search: search || undefined, estado: estado || undefined }).then((res) => {
+    getWorkOrders({ search: search || undefined, estado: estado || undefined }).then((res) => {
       setData(res.data);
       setLoading(false);
     });
@@ -38,7 +38,7 @@ export default function OrdenesList() {
 
   const handleDelete = async () => {
     if (deleteId === null) return;
-    await deleteOrden(deleteId);
+    await deleteWorkOrder(deleteId);
     setDeleteId(null);
     load();
   };
@@ -46,7 +46,7 @@ export default function OrdenesList() {
   const avanzarEstado = async (o: Record<string, unknown>) => {
     const idx = estadosOrden.indexOf(o.estado as string);
     if (idx < estadosOrden.length - 1) {
-      await updateOrden(o.id as string, { estado: estadosOrden[idx + 1] });
+      await updateWorkOrder(o.id as string, { estado: estadosOrden[idx + 1] });
       load();
     }
   };
@@ -54,7 +54,7 @@ export default function OrdenesList() {
   const retrocederEstado = async (o: Record<string, unknown>) => {
     const idx = estadosOrden.indexOf(o.estado as string);
     if (idx > 0) {
-      await updateOrden(o.id as string, { estado: estadosOrden[idx - 1] });
+      await updateWorkOrder(o.id as string, { estado: estadosOrden[idx - 1] });
       load();
     }
   };
@@ -110,7 +110,7 @@ export default function OrdenesList() {
               </thead>
               <tbody>
                 {data.map((o: Record<string, unknown>) => (
-                  <tr key={o.id as number} style={{ cursor: 'pointer' } as React.CSSProperties} onClick={() => navigate(`/admin/ordenes/${o.id as number}`)}>
+                  <tr key={o.id as number} style={{ cursor: 'pointer' } as React.CSSProperties} onClick={() => navigate(`/admin/work-orders/${o.id as number}`)}>
                     <td style={{ fontWeight: 600, fontFamily: 'monospace' } as React.CSSProperties}>{(o as Record<string, unknown>).numero as string}</td>
                     <td>{(o as Record<string, unknown>).cliente_nombre as string || '-'}</td>
                     <td><EstadoBadge estado={(o as Record<string, unknown>).estado as string} /></td>
@@ -130,7 +130,7 @@ export default function OrdenesList() {
                             <ChevronRight size={14} />
                           </button>
                         )}
-                        <button className="btn btn-outline" style={{ padding: '4px 6px' } as React.CSSProperties} onClick={() => window.open(getOrdenPdf((o as Record<string, unknown>).id as string), '_blank')} title="Descargar PDF">
+                        <button className="btn btn-outline" style={{ padding: '4px 6px' } as React.CSSProperties}                         onClick={() => window.open(getWorkOrderPdf((o as Record<string, unknown>).id as string), '_blank')} title="Descargar PDF">
                           <FileDown size={14} />
                         </button>
                         <button className="btn btn-danger" style={{ padding: '4px 6px' } as React.CSSProperties} onClick={() => setDeleteId((o as Record<string, unknown>).id as number)}>

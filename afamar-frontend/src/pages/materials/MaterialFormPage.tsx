@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Save, Camera, Trash2 } from 'lucide-react';
-import { getMaterial, createMaterial, updateMaterial, getConfig, uploadMaterialFoto } from '../../services/api';
+import { getMaterial, createMaterial, updateMaterial, uploadMaterialPhoto } from '@/api/resources/materials';
+import { getSettings } from '@/api/resources/settings';
 import { categoriasMaterial } from '../../utils/formatters';
 import type { MaterialFormData, Material } from '../../types/material';
-import type { Configuracion } from '../../types/configuracion';
 import Loading from '../../components/common/Loading';
+import styles from './MaterialFormPage.module.css';
+
+const s = styles as unknown as Record<string, string>;
 
 export default function MaterialForm() {
   const { id } = useParams();
@@ -24,9 +27,10 @@ export default function MaterialForm() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    getConfig().then((res) => {
+    getSettings().then((res) => {
       const map: Record<string, string> = {};
-      (res.data as Configuracion[]).forEach((c) => { map[c.key] = c.value; });
+      const data = (res as unknown as { data: Record<string, unknown> }).data || {};
+      Object.entries(data).forEach(([k, v]) => { map[k] = String(v ?? ''); });
       setTipoCambio(Number(map.tipo_cambio) || 1);
     });
     if (id) {
@@ -103,9 +107,9 @@ export default function MaterialForm() {
         materialId = (res.data as Material).id;
       }
       if (selectedFile) {
-        await uploadMaterialFoto(materialId, selectedFile);
+        await uploadMaterialPhoto(materialId, selectedFile);
       }
-      navigate('/admin/materiales');
+      navigate('/admin/materials');
     } catch (err) {
       alert('Error al guardar');
     } finally {
@@ -118,29 +122,37 @@ export default function MaterialForm() {
   const displayUrl = fotoPreview || (existingFoto ? `/${existingFoto}` : null);
 
   return (
-    <div>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700 }}>{isEdit ? 'Editar Material' : 'Nuevo Material'}</h1>
-      </div>
+    <div className={s['material-form']}>
+      <h1 className={s['material-form__title']}>{isEdit ? 'Editar Material' : 'Nuevo Material'}</h1>
 
       <form onSubmit={handleSubmit}>
-        <div className="card" style={{ maxWidth: 700 }}>
-          <div className="form-row">
-            <div className="form-group"><label>Nombre *</label><input className="input" required value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} /></div>
-            <div className="form-group"><label>Categoría</label>
+        <div className={s['material-form__card']}>
+          <div className={s['material-form__row']}>
+            <div className={s['material-form__group']}>
+              <label className={s['material-form__label']}>Nombre *</label>
+              <input className="input" required value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
+            </div>
+            <div className={s['material-form__group']}>
+              <label className={s['material-form__label']}>Categoría</label>
               <select className="input" value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })}>
                 <option value="">Seleccionar...</option>
                 {categoriasMaterial.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
           </div>
-          <div className="form-row">
-            <div className="form-group"><label>Color</label><input className="input" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /></div>
-            <div className="form-group"><label>Espesor disponible</label><input className="input" value={form.espesor_disponible} onChange={(e) => setForm({ ...form, espesor_disponible: e.target.value })} /></div>
+          <div className={s['material-form__row']}>
+            <div className={s['material-form__group']}>
+              <label className={s['material-form__label']}>Color</label>
+              <input className="input" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
+            </div>
+            <div className={s['material-form__group']}>
+              <label className={s['material-form__label']}>Espesor disponible</label>
+              <input className="input" value={form.espesor_disponible} onChange={(e) => setForm({ ...form, espesor_disponible: e.target.value })} />
+            </div>
           </div>
-          <div className="form-row">
-            <div className="form-group" style={{ flex: 1 }}>
-              <label>Precio M²</label>
+          <div className={s['material-form__row']}>
+            <div className={`${s['material-form__group']} ${s['material-form__group--grow']}`}>
+              <label className={s['material-form__label']}>Precio M²</label>
               <input className="input" type="number" step="0.01" min="0"
                 value={form.moneda === 'USD' ? (form.precio_m2_usd || '') : (form.precio_m2 || '')}
                 onChange={(e) => {
@@ -149,22 +161,31 @@ export default function MaterialForm() {
                   else handlePrecioArsChange(v);
                 }} />
             </div>
-            <div className="form-group" style={{ width: 130 }}>
-              <label>Moneda</label>
+            <div className={`${s['material-form__group']} ${s['material-form__group--fixed']}`}>
+              <label className={s['material-form__label']}>Moneda</label>
               <select className="input" value={form.moneda} onChange={(e) => handleMonedaChange(e.target.value)}>
                 <option value="ARS">ARS</option>
                 <option value="USD">USD</option>
               </select>
             </div>
           </div>
-          <div className="form-row">
-            <div className="form-group"><label>Proveedor</label><input className="input" value={form.proveedor} onChange={(e) => setForm({ ...form, proveedor: e.target.value })} /></div>
-            <div className="form-group"><label>Stock disponible</label><input className="input" type="number" min="0" value={form.stock_disponible} onChange={(e) => setForm({ ...form, stock_disponible: Number(e.target.value) })} /></div>
+          <div className={s['material-form__row']}>
+            <div className={s['material-form__group']}>
+              <label className={s['material-form__label']}>Proveedor</label>
+              <input className="input" value={form.proveedor} onChange={(e) => setForm({ ...form, proveedor: e.target.value })} />
+            </div>
+            <div className={s['material-form__group']}>
+              <label className={s['material-form__label']}>Stock disponible</label>
+              <input className="input" type="number" min="0" value={form.stock_disponible} onChange={(e) => setForm({ ...form, stock_disponible: Number(e.target.value) })} />
+            </div>
           </div>
-          <div className="form-group"><label>Observaciones</label><textarea className="input" rows={3} value={form.observaciones} onChange={(e) => setForm({ ...form, observaciones: e.target.value })} /></div>
+          <div className={s['material-form__group']}>
+            <label className={s['material-form__label']}>Observaciones</label>
+            <textarea className="input" rows={3} value={form.observaciones} onChange={(e) => setForm({ ...form, observaciones: e.target.value })} />
+          </div>
 
-          <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 20, marginTop: 20 }}>
-            <label style={{ fontWeight: 600, display: 'block', marginBottom: 12 }}>Foto del Material</label>
+          <div className={s['material-form__photo']}>
+            <label className={s['material-form__photo-label']}>Foto del Material</label>
             <input
               ref={fileRef}
               type="file"
@@ -172,17 +193,16 @@ export default function MaterialForm() {
               style={{ display: 'none' }}
               onChange={handleFotoSelect}
             />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div className={s['material-form__photo-row']}>
               {displayUrl ? (
-                <div style={{ position: 'relative', width: 140, height: 140, borderRadius: 8, overflow: 'hidden', border: '1px solid #e2e8f0', flexShrink: 0 }}>
-                  <img src={displayUrl} alt="Vista previa" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  <button type="button" onClick={handleRemoveFoto}
-                    style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: 4, color: '#fff', cursor: 'pointer', padding: '2px 4px', display: 'flex', alignItems: 'center' }}>
+                <div className={s['material-form__photo-preview']}>
+                  <img src={displayUrl} alt="Vista previa" className={s['material-form__photo-img']} />
+                  <button type="button" onClick={handleRemoveFoto} className={s['material-form__photo-remove']}>
                     <Trash2 size={14} />
                   </button>
                 </div>
               ) : (
-                <div style={{ width: 140, height: 140, borderRadius: 8, border: '2px dashed #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, background: '#f8fafc' }}>
+                <div className={s['material-form__photo-empty']}>
                   <Camera size={32} color="#94a3b8" />
                 </div>
               )}
@@ -190,11 +210,11 @@ export default function MaterialForm() {
                 <Camera size={16} /> {existingFoto || fotoPreview ? 'Cambiar Foto' : 'Seleccionar Foto'}
               </button>
             </div>
-            {selectedFile && <p style={{ fontSize: 12, color: '#64748b', marginTop: 8 }}>{selectedFile.name}</p>}
+            {selectedFile && <p className={s['material-form__file-info']}>{selectedFile.name}</p>}
           </div>
 
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24 }}>
-            <button type="button" className="btn btn-outline" onClick={() => navigate('/admin/materiales')}>Cancelar</button>
+          <div className={s['material-form__actions']}>
+            <button type="button" className="btn btn-outline" onClick={() => navigate('/admin/materials')}>Cancelar</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
               <Save size={16} /> {saving ? 'Guardando...' : (isEdit ? 'Actualizar' : 'Crear Material')}
             </button>

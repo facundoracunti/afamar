@@ -1,10 +1,4 @@
-export interface MovimientoCaja {
-  id: number;
-  orden_trabajo_id?: number;
-  tipo: string;
-  monto: number;
-  forma_pago?: string;
-  saldo_restante?: number;
-  observaciones?: string;
-  created_at?: string;
-}
+// Legacy Spanish types — re-exported from the new English equivalents.
+// @deprecated — use CashMovement from './cash' instead.
+
+export type { CashMovement as MovimientoCaja } from './cash';

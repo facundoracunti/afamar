@@ -1,7 +1,10 @@
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Eye, Save, Printer, MoreVertical, Copy, FileDown, Trash2, History, Plus, X } from 'lucide-react';
-import { getOrden, createOrden, updateOrden, deleteOrden, getNextNumero, getMateriales, getPiletas, getClientes, getOrdenPdf } from '../../services/api';
+import { getWorkOrder, createWorkOrder, updateWorkOrder, deleteWorkOrder, getNextWorkOrderNumber, getWorkOrderPdf } from '@/api/resources/workOrders';
+import { getMaterials } from '@/api/resources/materials';
+import { getPoolStock } from '@/api/resources/poolStock';
+import { getClients } from '@/api/resources/clients';
 import { formatCurrency, conceptosFabricacion } from '../../utils/formatters';
 import EstadoBadge from '../../components/ui/EstadoBadge';
 import useEntityForm from '../../hooks/useEntityForm';
@@ -18,18 +21,21 @@ import ObservacionesSection from '../../components/ordenes/ObservacionesSection'
 import FormHeader from '../../components/ordenes/FormHeader';
 import FormFooter from '../../components/ordenes/FormFooter';
 import type { OrdenTrabajoPayload, EntityFormState, EntityServices } from '../../types';
+import styles from './WorkOrderFormPage.module.css';
+
+const s = styles as unknown as Record<string, string>;
 
 const ordenServices = {
-  getById: getOrden as EntityServices['getById'],
-  create: createOrden as EntityServices['create'],
-  update: updateOrden as EntityServices['update'],
-  delete: deleteOrden as EntityServices['delete'],
-  getNextNumero: getNextNumero as EntityServices['getNextNumero'],
-  getMateriales: getMateriales as EntityServices['getMateriales'],
-  getPiletas: getPiletas as EntityServices['getPiletas'],
-  getClientes: getClientes as EntityServices['getClientes'],
-  getPdfUrl: getOrdenPdf,
-  listPath: '/admin/ordenes',
+  getById: getWorkOrder as EntityServices['getById'],
+  create: createWorkOrder as EntityServices['create'],
+  update: updateWorkOrder as EntityServices['update'],
+  delete: deleteWorkOrder as EntityServices['delete'],
+  getNextNumero: getNextWorkOrderNumber as EntityServices['getNextNumero'],
+  getMateriales: getMaterials as EntityServices['getMateriales'],
+  getPiletas: getPoolStock as EntityServices['getPiletas'],
+  getClientes: getClients as EntityServices['getClientes'],
+  getPdfUrl: getWorkOrderPdf,
+  listPath: '/admin/work-orders',
 };
 
 export default function OrdenForm() {
@@ -81,7 +87,7 @@ export default function OrdenForm() {
       payload.sena_usd = Number(form.total_usd);
       payload.saldo_pendiente_usd = 0;
     }
-    await updateOrden(id as string, payload);
+    await updateWorkOrder(id as string, payload);
     setForm((prev) => ({ ...prev, ...payload, fecha_pago_saldo: nuevo ? hoy : '' } as EntityFormState));
   };
 
@@ -202,7 +208,7 @@ export default function OrdenForm() {
   );
 
   return (
-    <div className="orden-form">
+    <div className={s['work-order-form']}>
         <FormHeader
           className="orden-header"
           title={`Orden N° ${form.numero || 'A-_____'}`}
@@ -219,32 +225,29 @@ export default function OrdenForm() {
           ]}
         >
           {form.estado === 'MEDICION' && (
-            <button className="btn" onClick={() => handleCambioEstadoAccion('TALLER')} disabled={saving}
-              style={{ background: '#2563eb', color: '#fff', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+            <button className={s['work-order-form__btn-measurement']} onClick={() => handleCambioEstadoAccion('TALLER')} disabled={saving}>
               🏭 Enviar a Taller
             </button>
           )}
           {form.estado === 'TALLER' && (
-            <button className="btn" onClick={() => handleCambioEstadoAccion('TERMINADA')} disabled={saving}
-              style={{ background: '#059669', color: '#fff', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+            <button className={s['work-order-form__btn-workshop']} onClick={() => handleCambioEstadoAccion('TERMINADA')} disabled={saving}>
               ✅ Finalizar Trabajo
             </button>
           )}
           {form.estado === 'TERMINADA' && (
-            <button className="btn" onClick={() => handleCambioEstadoAccion('ENTREGADA')} disabled={saving}
-              style={{ background: '#9333ea', color: '#fff', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+            <button className={s['work-order-form__btn-delivery']} onClick={() => handleCambioEstadoAccion('ENTREGADA')} disabled={saving}>
               🚚 Entregar al Cliente
             </button>
           )}
           {form.estado === 'ENTREGADA' && (
-            <span style={{ background: '#f3f4f6', color: '#6b7280', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', border: '1px solid #d1d5db', borderRadius: 6, fontWeight: 600, fontSize: 13 }}>
+            <span className={s['work-order-form__badge-delivered']}>
               📦 Trabajo Entregado
             </span>
           )}
           <button className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <Eye size={16} /> VISTA PREVIA PDF
           </button>
-          <button className="btn btn-primary" onClick={handleSubmit} disabled={saving} style={{ background: '#b91c1c', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 20px' }}>
+          <button className={`btn btn-primary ${s['work-order-form__btn-save']}`} onClick={handleSubmit} disabled={saving}>
             <Save size={16} /> {saving ? 'GUARDANDO...' : 'GUARDAR'}
           </button>
           <button className="btn btn-outline" onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -265,44 +268,43 @@ export default function OrdenForm() {
         />
 
         {/* ===== BOTÓN CROQUIS COLAPSABLE ===== */}
-        <div style={{ marginTop: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button type="button" className="btn btn-outline" onClick={() => setShowCroquis(!showCroquis)}
-            style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px' }}>
+        <div className={s['work-order-form__header']}>
+          <button type="button" className={`btn btn-outline ${s['work-order-form__header-toggle']}`} onClick={() => setShowCroquis(!showCroquis)}>
             {showCroquis ? '👁️' : '📐'} {showCroquis ? 'Ocultar Diseño / Croquis' : 'Activar Diseño / Croquis'}
           </button>
           {!showCroquis && (
-            <span style={{ fontSize: 12, color: '#94a3b8' }}>El croquis está oculto. Hacé clic para diseñar.</span>
+            <span className={s['work-order-form__header-hint']}>El croquis está oculto. Hacé clic para diseñar.</span>
           )}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: showCroquis ? '7fr 3fr' : '1fr', gap: 16, marginTop: 16 }}>
+        <div className={`${s['work-order-form__layout']}${showCroquis ? '' : ' ' + s['work-order-form__layout--no-croquis']}`}>
           {showCroquis && (
-          <div style={{ minWidth: 0 }}>
+          <div className={s['work-order-form__croquis']}>
             <CroquisEditor croquis={form.croquis} onChange={(v: unknown) => update('croquis', v)} readOnly={readOnly} />
           </div>
           )}
-          <div style={{ minWidth: 0 }}>
+          <div className={s['work-order-form__right']}>
             <div className="card" style={{ height: '100%' }}>
               <h3 className="section-title">MATERIALES</h3>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                <select className="input" style={{ flex: 1, fontSize: 13 }} value="" onChange={(e) => { addMaterial(e.target.value); e.target.value = ''; }} disabled={readOnly}>
+              <div className={s['work-order-form__add-row']}>
+                <select className="input" value="" onChange={(e) => { addMaterial(e.target.value); e.target.value = ''; }} disabled={readOnly}>
                   <option value="">+ AGREGAR MATERIAL</option>
                   {materiales.filter((m: Record<string, unknown>) => m.nombre).map((m: Record<string, unknown>) => (
                     <option key={m.id as number} value={m.nombre as string}>{m.nombre as string}{m.color ? ` - ${m.color as string}` : ''}</option>
                   ))}
                 </select>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: 16 }}>
+              <div className={s['work-order-form__materials-grid']}>
               {(form.materiales || []).map((mat, idx) => (
                 <MaterialCard key={idx} mat={mat as unknown as Record<string, unknown>} idx={idx} readOnly={readOnly} updateMaterial={updateMaterial} removeMaterial={removeMaterial} num={num as (v: unknown) => number} />
               ))}
               </div>
               {(form.materiales || []).length === 0 && (
-                <div style={{ padding: 16, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+                <div className={s['work-order-form__materials-empty']}>
                   Sin materiales agregados. Usá "+ AGREGAR MATERIAL" para sumar.
                 </div>
               )}
-              <div className="form-group">
+              <div className={s['work-order-form__obs']}>
                 <label>Observaciones del diseño</label>
                 <textarea className="input" rows={4} value={form.observaciones_diseno} onChange={(e) => update('observaciones_diseno', e.target.value)} placeholder="Zócalo de 7 cm. Frente de 4 cm. Incluye 3 perforaciones..." disabled={readOnly} />
               </div>
@@ -311,15 +313,15 @@ export default function OrdenForm() {
         </div>
 
         {/* ===== SECCIÓN INFERIOR: 4 paneles ===== */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
+        <div className={s['work-order-form__bottom']}>
           {/* Panel 1: Detalle de Fabricación y Adicionales */}
           <div className="card">
             <FabricacionTable detalles={form.detalles_fabricacion as unknown as Record<string, unknown>[]} readOnly={readOnly} handleDetalleChange={handleDetalleChange} addDetalle={addDetalle} removeDetalle={removeDetalle} materiales={materiales} CONCEPTOS_M2={CONCEPTOS_M2} conceptosFabricacion={conceptosFabricacion} num={num as (v: unknown) => number} />
 
             {form.estado === 'MEDICION' && form.detalles_presupuestados.length > 0 && (
-              <div style={{ marginTop: 16, borderTop: '2px solid #1e40af', paddingTop: 12 }}>
-                <h4 style={{ fontSize: 14, fontWeight: 700, color: '#1e40af', marginBottom: 8 }}>📐 COMPARATIVA DE MEDICIÓN</h4>
-                <table className="table" style={{ fontSize: 12 }}>
+              <div className={s['work-order-form__comparative']}>
+                <h4 className={s['work-order-form__comparative-title']}>📐 COMPARATIVA DE MEDICIÓN</h4>
+                <table className={`table ${s['work-order-form__comparative-table']}`}>
                   <thead>
                     <tr>
                       <th>Concepto</th>
@@ -415,7 +417,7 @@ export default function OrdenForm() {
 
         <ObservacionesSection form={form} readOnly={readOnly} update={update as (field: string, value: unknown) => void} />
 
-        <FormFooter saving={saving} onCancel={() => navigate('/admin/ordenes')} />
+        <FormFooter saving={saving} onCancel={() => navigate('/admin/work-orders')} />
       </form>
 
       <ConfirmDialog isOpen={deleteConfirm} onClose={() => setDeleteConfirm(false)} onConfirm={handleDelete} title="Eliminar orden" message="¿Estás seguro de eliminar esta orden de trabajo?" />

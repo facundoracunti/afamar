@@ -54,6 +54,7 @@ interface ToolbarProps {
   onUndo: () => void;
   onRedo: () => void;
   onDeleteSelected: () => void;
+  onDeleteLast: () => void;
   onClearAll: () => void;
 }
 
@@ -85,6 +86,7 @@ export default function Toolbar({
   onUndo,
   onRedo,
   onDeleteSelected,
+  onDeleteLast,
   onClearAll,
 }: ToolbarProps) {
   return (
@@ -265,9 +267,28 @@ export default function Toolbar({
                 padding: '2px 10px',
               }}
             >
-              Eliminar
+              Eliminar selección
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={onDeleteLast}
+            disabled={currentShapes.length === 0}
+            title="Borrar el último elemento dibujado"
+            style={{
+              background: currentShapes.length === 0 ? '#f3f4f6' : '#fef2f2',
+              border: '1px solid #ef4444',
+              borderRadius: 4,
+              cursor: currentShapes.length === 0 ? 'not-allowed' : 'pointer',
+              fontSize: 11,
+              color: currentShapes.length === 0 ? '#9ca3af' : '#dc2626',
+              padding: '2px 10px',
+              opacity: currentShapes.length === 0 ? 0.6 : 1,
+            }}
+          >
+            Borrar último
+          </button>
 
           <button
             type="button"

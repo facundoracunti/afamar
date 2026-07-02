@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Edit, Trash2 } from 'lucide-react';
-import { getClientes, deleteCliente } from '../../services/api';
+import { getClients, deleteClient } from '@/api/resources/clients';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Loading from '../../components/common/Loading';
 import styles from './ClientsListPage.module.css';
@@ -29,7 +29,7 @@ export default function ClientsList() {
 
   const load = () => {
     setLoading(true);
-    getClientes({ search: search || undefined }).then((res) => {
+    getClients({ search: search || undefined }).then((res) => {
       setClients((res.data as Client[]) || []);
       setLoading(false);
     });
@@ -40,7 +40,7 @@ export default function ClientsList() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    await deleteCliente(deleteId);
+    await deleteClient(deleteId);
     setDeleteId(null);
     load();
   };

@@ -80,7 +80,7 @@ export default function PresupuestoPanel({
                 const precioArs = d.moneda === 'ARS' ? Number(d.precio) : (dd2 > 0 ? Number(d.precio) * dd2 : 0);
                 return (
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>{d.concepto === 'OTRA' ? (d.detalle || 'OTRA') : d.concepto}{d.material ? ` - ${d.material}` : ''}{d.m2 > 0 ? ` (${d.m2} m┬▓)` : ''}{(d.largo || 0) > 0 && d.concepto === 'OTRA' ? ` (${d.largo} m)` : ''}{(d.cantidad || 1) > 1 ? ` x${d.cantidad}` : ''}</span>
+                    <span>{d.concepto === 'OTRA' ? (d.detalle || 'OTRA') : d.concepto}{d.material ? ` - ${d.material}` : ''}{d.m2 > 0 ? ` (${d.m2} m²)` : ''}{(d.largo || 0) > 0 && d.concepto === 'OTRA' ? ` (${d.largo} m)` : ''}{(d.cantidad || 1) > 1 ? ` x${d.cantidad}` : ''}</span>
                     <span style={{ fontWeight: 600 }}>{modoUSD && dd2 > 0 ? `USD ${(precioArs * (d.cantidad || 1) / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(precioArs * (d.cantidad || 1))}</span>
                   </div>
                 );
@@ -91,7 +91,7 @@ export default function PresupuestoPanel({
                 const sub = m.moneda === 'ARS' ? m2 * (m.precio_m2 || 0) : (dd2 > 0 ? m2 * (m.precio_m2_usd || 0) * dd2 : 0);
                 return sub > 0 ? (
                   <div key={'ma' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>{m.nombre} ({m2.toFixed(3)} m┬▓){(m.cantidad || 1) > 1 ? ` x${m.cantidad}` : ''}</span>
+                    <span>{m.nombre} ({m2.toFixed(3)} m²){(m.cantidad || 1) > 1 ? ` x${m.cantidad}` : ''}</span>
                     <span style={{ fontWeight: 600 }}>{modoUSD && dd2 > 0 ? `USD ${(sub / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(sub)}</span>
                   </div>
                 ) : null;
@@ -127,7 +127,7 @@ export default function PresupuestoPanel({
               </div>
             </div>
             <div className="form-group" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <label style={{ margin: 0 }}>{modoUSD ? 'Se├▒a recibida (USD)' : 'Se├▒a recibida'}</label>
+              <label style={{ margin: 0 }}>{modoUSD ? 'Seña recibida (USD)' : 'Seña recibida'}</label>
               <div style={{ display: 'flex', borderRadius: 6, border: '1px solid #d1d5db', overflow: 'hidden', width: 180 }}>
                 <select value={form.sena_moneda || 'ARS'} onChange={(e) => handleSenaMonedaChange(e.target.value)} disabled={readOnly}
                   style={{ background: '#f3f4f6', borderRight: '1px solid #d1d5db', padding: '4px 6px', fontSize: 12, fontWeight: 700, border: 'none', outline: 'none' }}>
@@ -142,7 +142,7 @@ export default function PresupuestoPanel({
             </div>
             {(mostrarUSDCol || modoUSD) && (
               <div className="form-group" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-                <label style={{ margin: 0, fontWeight: 700, fontSize: 14, color: '#1e40af' }}>D├ôLAR DEL D├ìA</label>
+                <label style={{ margin: 0, fontWeight: 700, fontSize: 14, color: '#1e40af' }}>DÓLAR DEL DÍA</label>
                 <input type="number" className="input" style={{ width: 130, textAlign: 'right', fontWeight: 700, color: '#1e40af', borderColor: '#93c5fd' }}
                   value={form.dolar_dia}
                   onChange={(e) => handleDolarDiaChange(e.target.value)}
@@ -166,7 +166,7 @@ export default function PresupuestoPanel({
                   const precioUsd = d.moneda === 'USD' ? Number(d.precio) : (dd2 > 0 ? Number(d.precio) / dd2 : 0);
                   return (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>{d.concepto === 'OTRA' ? (d.detalle || 'OTRA') : d.concepto}{d.material ? ` - ${d.material}` : ''}{d.m2 > 0 ? ` (${d.m2} m┬▓)` : ''}{(d.cantidad || 1) > 1 ? ` x${d.cantidad}` : ''}</span>
+                      <span>{d.concepto === 'OTRA' ? (d.detalle || 'OTRA') : d.concepto}{d.material ? ` - ${d.material}` : ''}{d.m2 > 0 ? ` (${d.m2} m²)` : ''}{(d.cantidad || 1) > 1 ? ` x${d.cantidad}` : ''}</span>
                       <span style={{ fontWeight: 600 }}>USD {(precioUsd * (d.cantidad || 1)).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   );
@@ -177,7 +177,7 @@ export default function PresupuestoPanel({
                   const sub = m.moneda === 'USD' ? m2 * (m.precio_m2_usd || 0) : (dd2 > 0 ? m2 * (m.precio_m2 || 0) / dd2 : 0);
                   return sub > 0 ? (
                     <div key={'mu' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>{m.nombre} ({m2.toFixed(3)} m┬▓){(m.cantidad || 1) > 1 ? ` x${m.cantidad}` : ''}</span>
+                      <span>{m.nombre} ({m2.toFixed(3)} m²){(m.cantidad || 1) > 1 ? ` x${m.cantidad}` : ''}</span>
                       <span style={{ fontWeight: 600 }}>USD {sub.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                     </div>
                   ) : null;
@@ -209,7 +209,7 @@ export default function PresupuestoPanel({
                 </div>
               </div>
               <div className="form-group" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label style={{ margin: 0 }}>Se├▒a recibida (USD)</label>
+                <label style={{ margin: 0 }}>Seña recibida (USD)</label>
                 <input type="number" className="input" style={{ width: 130, textAlign: 'right' }}
                   value={form.sena_usd}
                   onChange={(e) => handleSenaMontoChange(e.target.value)}
@@ -235,7 +235,7 @@ export default function PresupuestoPanel({
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <span style={{ fontWeight: 600, fontSize: 13, color: form.saldo_pagado ? '#065f46' : '#92400e' }}>
-                  {form.saldo_pagado ? 'Ô£ô Saldo cobrado' : 'ÔÅ│ Saldo pendiente de cobro'}
+                  {form.saldo_pagado ? '✓ Saldo cobrado' : '⏳ Saldo pendiente de cobro'}
                 </span>
                 {form.saldo_pagado && form.fecha_pago_saldo && (
                   <div style={{ fontSize: 11, color: '#065f46', marginTop: 2 }}>Fecha: {form.fecha_pago_saldo}</div>
@@ -250,7 +250,7 @@ export default function PresupuestoPanel({
                 }}
                 disabled={saving}
               >
-                {form.saldo_pagado ? 'Deshacer' : 'Ô£ô Confirmar pago'}
+                {form.saldo_pagado ? 'Deshacer' : '✓ Confirmar pago'}
               </button>
             </div>
           </div>
@@ -289,10 +289,10 @@ export default function PresupuestoPanel({
                 <option value="">Seleccionar...</option>
                 <option value="EFECTIVO">EFECTIVO</option>
                 <option value="TRANSFERENCIA BANCARIA">TRANSFERENCIA BANCARIA</option>
-                <option value="TARJETA DE D├ëBITO">TARJETA DE D├ëBITO</option>
-                <option value="TARJETA DE CR├ëDITO">TARJETA DE CR├ëDITO</option>
+                <option value="TARJETA DE DÉBITO">TARJETA DE DÉBITO</option>
+                <option value="TARJETA DE CRÉDITO">TARJETA DE CRÉDITO</option>
               </select>
-              {form.forma_pago === 'TARJETA DE CR├ëDITO' && (
+              {form.forma_pago === 'TARJETA DE CRÉDITO' && (
                 <select className="input" style={{ width: 160 }} value={form.cuotas || 1} onChange={(e) => update('cuotas', num(e.target.value))} disabled={readOnly}>
                   {Array.from({ length: 12 }, (_, i) => i + 1).map((c) => {
                     const pct = c <= 2 ? 0 : c * 5;

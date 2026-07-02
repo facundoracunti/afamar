@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Search } from 'lucide-react';
 import Modal from '../../components/common/Modal';
-import { getOrdenes } from '../../services/api';
+import { getWorkOrders } from '@/api/resources/workOrders';
 import { formatCurrency } from '../../utils/formatters';
 import { FORMAS_PAGO, estadoCarpetaClass } from './cajaUtils';
 
@@ -24,7 +24,7 @@ export default function IngresoModal({ isOpen, onClose, onSubmit }: Props) {
     setOrdenSearch(q);
     if (q.length < 2) { setOrdenResults([]); return; }
     try {
-      const res = await getOrdenes({ search: q, limit: 10 });
+      const res = await getWorkOrders({ search: q, limit: 10 });
       setOrdenResults((res.data as Record<string, unknown>[]) || []);
     } catch { setOrdenResults([]); }
   };

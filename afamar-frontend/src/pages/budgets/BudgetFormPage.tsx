@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Eye, Save, Printer, MoreVertical, Copy, FileDown, Trash2, History, Plus, X, FileOutput, Check, Send } from 'lucide-react';
-import { getPresupuesto, createPresupuesto, updatePresupuesto, deletePresupuesto, getNextPresupuestoNumero, getMateriales, getPiletas, getClientes, convertirAOrden, getPresupuestoPdf } from '../../services/api';
+import { getBudget, createBudget, updateBudget, deleteBudget, getNextBudgetNumber, getBudgetPdf, convertBudgetToWorkOrder, convertAlternativeToWorkOrder } from '@/api/resources/budgets';
+import { getMaterials } from '@/api/resources/materials';
+import { getPoolStock } from '@/api/resources/poolStock';
+import { getClients } from '@/api/resources/clients';
 import { formatCurrency, conceptosFabricacion } from '../../utils/formatters';
 import EstadoBadge from '../../components/ui/EstadoBadge';
 import useEntityForm from '../../hooks/useEntityForm';
@@ -19,18 +22,21 @@ import ObservacionesSection from '../../components/ordenes/ObservacionesSection'
 import FormHeader from '../../components/ordenes/FormHeader';
 import FormFooter from '../../components/ordenes/FormFooter';
 import type { PresupuestoPayload, MaterialEnForm, EntityFormState, EntityServices } from '../../types';
+import styles from './BudgetFormPage.module.css';
+
+const s = styles as unknown as Record<string, string>;
 
 const presupuestoServices: EntityServices = {
-  getById: getPresupuesto as EntityServices['getById'],
-  create: createPresupuesto as EntityServices['create'],
-  update: updatePresupuesto as EntityServices['update'],
-  delete: deletePresupuesto as EntityServices['delete'],
-  getNextNumero: getNextPresupuestoNumero as EntityServices['getNextNumero'],
-  getMateriales: getMateriales as EntityServices['getMateriales'],
-  getPiletas: getPiletas as EntityServices['getPiletas'],
-  getClientes: getClientes as EntityServices['getClientes'],
-  getPdfUrl: getPresupuestoPdf,
-  listPath: '/admin/presupuestos',
+  getById: getBudget as EntityServices['getById'],
+  create: createBudget as EntityServices['create'],
+  update: updateBudget as EntityServices['update'],
+  delete: deleteBudget as EntityServices['delete'],
+  getNextNumero: getNextBudgetNumber as EntityServices['getNextNumero'],
+  getMateriales: getMaterials as EntityServices['getMateriales'],
+  getPiletas: getPoolStock as EntityServices['getPiletas'],
+  getClientes: getClients as EntityServices['getClientes'],
+  getPdfUrl: getBudgetPdf,
+  listPath: '/admin/budgets',
 };
 
 export default function PresupuestoForm() {
@@ -72,8 +78,8 @@ export default function PresupuestoForm() {
     setSaving(true);
     try {
       const payload = buildPayload();
-      await updatePresupuesto(id as string, payload);
-      const res = await convertirAOrden(id as string);
+      await updateBudget(id as string, payload);
+      const res = await convertBudgetToWorkOrder(id as string);
       setOrdenTrabajoNumero(res.data.numero);
       setForm((prev) => ({ ...prev, estado: 'CONVERTIDO A OT' }));
       alert(`¡Orden ${res.data.numero} creada exitosamente!`);
@@ -89,8 +95,7 @@ export default function PresupuestoForm() {
     if (!window.confirm('¿Convertir esta alternativa en Orden de Trabajo? Se creará una nueva OT con el material de esta opción más los trabajos comunes.')) return;
     setSaving(true);
     try {
-      const { convertirAlternativaAOrden } = await import('../../services/api');
-      const res = await convertirAlternativaAOrden(id as string, idx);
+      const res = await convertAlternativeToWorkOrder(id as string, idx);
       if (res.status === 201) {
         alert(`¡Orden ${res.data.numero} creada exitosamente desde alternativa "${res.data.alternativa_nombre}"!`);
       }
@@ -105,7 +110,7 @@ export default function PresupuestoForm() {
     setSaving(true);
     try {
       const payload = buildPayload();
-      await updatePresupuesto(id as string, payload);
+      await updateBudget(id as string, payload);
     } catch {
       alert('Error al guardar');
     } finally {
@@ -126,7 +131,7 @@ export default function PresupuestoForm() {
         aprobado.saldo_pendiente_usd = 0;
         aprobado.fecha_pago_saldo = new Date().toISOString().split('T')[0];
       }
-      await updatePresupuesto(id as string, aprobado as unknown as Record<string, unknown>);
+      await updateBudget(id as string, aprobado as unknown as Record<string, unknown>);
       setForm((prev) => ({ ...prev, ...aprobado, estado: 'APROBADO' }) as EntityFormState);
     } catch {
       alert('Error al aprobar');
@@ -138,7 +143,7 @@ export default function PresupuestoForm() {
   const handleEnviarWhatsApp = () => {
     const telefono = (form.cliente_telefono_orden || '').replace(/[^\d]/g, '');
     const nombre = form.cliente_nombre || '';
-    const pdfUrl = getPresupuestoPdf(id as string);
+    const pdfUrl = getBudgetPdf(id as string);
     const saludo = nombre ? `Hola ${nombre}! ` : '';
     const mensaje = `${saludo}Te enviamos el presupuesto formal de AFAMAR Mármoles & Granitos. Podés revisarlo e imprimirlo desde el siguiente link: ${pdfUrl}`;
     const whatsappUrl = telefono
@@ -276,12 +281,12 @@ export default function PresupuestoForm() {
       payload.sena_usd = Number(form.total_usd);
       payload.saldo_pendiente_usd = 0;
     }
-    await updatePresupuesto(id as string, payload);
+    await updateBudget(id as string, payload);
     setForm((prev) => ({ ...prev, ...payload, fecha_pago_saldo: nuevo ? hoy : '' } as EntityFormState));
   };
 
   return (
-    <div className="presupuesto-form">
+    <div className={s['budget-form']}>
         <FormHeader
           className="presupuesto-header"
           title={`Presupuesto N° ${form.numero || 'P-_____'}`}
@@ -292,36 +297,33 @@ export default function PresupuestoForm() {
           setMenuOpen={setMenuOpen}
           menuItems={[
             { label: 'Duplicar', icon: <Copy size={16} />, onClick: () => { setMenuOpen(false); alert('Duplicar presupuesto'); } },
-            { label: 'Exportar PDF', icon: <FileDown size={16} />, onClick: () => { setMenuOpen(false); window.open(getPresupuestoPdf(id as string), '_blank'); } },
+            { label: 'Exportar PDF', icon: <FileDown size={16} />, onClick: () => { setMenuOpen(false); window.open(getBudgetPdf(id as string), '_blank'); } },
             { label: 'Guardar', icon: <Save size={16} />, onClick: () => { setMenuOpen(false); handleGuardar(); } },
             { label: 'Eliminar', icon: <Trash2 size={16} />, onClick: () => { setMenuOpen(false); setDeleteConfirm(true); }, danger: true },
             { label: 'Historial', icon: <History size={16} />, onClick: () => { setMenuOpen(false); alert('Historial de cambios'); } },
           ]}
         >
-          <button className="btn btn-outline" onClick={() => window.open(getPresupuestoPdf(id as string), '_blank')} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button className="btn btn-outline" onClick={() => window.open(getBudgetPdf(id as string), '_blank')} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <Eye size={16} /> VISTA PREVIA PDF
           </button>
           {isEdit ? (
             ordenTrabajoNumero ? (
-              <button type="button" className="btn" onClick={() => navigate(`/admin/ordenes?search=${ordenTrabajoNumero}`)}
-                style={{ background: '#059669', color: '#fff', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 20px', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 14 }}>
+              <button type="button" className={s['budget-form__btn-ot']} onClick={() => navigate(`/admin/work-orders?search=${ordenTrabajoNumero}`)}>
                 <FileOutput size={16} /> OT {ordenTrabajoNumero}
               </button>
             ) : form.estado === 'APROBADO' ? (
-              <button type="button" className="btn" onClick={handleConvertirGuardar}
-                disabled={saving}
-                style={{ background: '#b91c1c', color: '#fff', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 20px', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 14 }}>
+              <button type="button" className={s['budget-form__btn-convert']} onClick={handleConvertirGuardar}
+                disabled={saving}>
                 <FileOutput size={16} /> {saving ? 'CONVIRTIENDO...' : 'CONVERTIR A ORDEN'}
               </button>
             ) : ['PENDIENTE', 'ENVIADO'].includes(form.estado) ? (
-              <button type="button" className="btn" onClick={handleAprobar}
-                disabled={saving}
-                style={{ background: '#2563eb', color: '#fff', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 20px', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 14 }}>
+              <button type="button" className={s['budget-form__btn-approve']} onClick={handleAprobar}
+                disabled={saving}>
                 <Check size={16} /> {saving ? 'APROBANDO...' : 'APROBAR PRESUPUESTO'}
               </button>
             ) : null
           ) : (
-            <button className="btn btn-primary" onClick={handleSubmit} disabled={saving} style={{ background: '#b91c1c', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 20px' }}>
+            <button className={`btn btn-primary ${s['budget-form__btn-save']}`} onClick={handleSubmit} disabled={saving}>
               <Save size={16} /> {saving ? 'GUARDANDO...' : 'GUARDAR'}
             </button>
           )}
@@ -346,37 +348,36 @@ export default function PresupuestoForm() {
         />
 
         {/* ===== ÁREA CENTRAL: Croquis 70% | Materiales 30% ===== */}
-        <div style={{ marginTop: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button type="button" className="btn btn-outline" onClick={() => setShowCroquis(!showCroquis)}
-            style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px' }}>
+        <div className={s['budget-form__header']}>
+          <button type="button" className={`btn btn-outline ${s['budget-form__header-toggle']}`} onClick={() => setShowCroquis(!showCroquis)}>
             {showCroquis ? '👁️' : '📐'} {showCroquis ? 'Ocultar Diseño' : 'Activar Diseño'}
           </button>
-          {!showCroquis && <span style={{ fontSize: 12, color: '#94a3b8' }}>Croquis oculto.</span>}
+          {!showCroquis && <span className={s['budget-form__header-hint']}>Croquis oculto.</span>}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: showCroquis ? '7fr 3fr' : '1fr', gap: 16, marginTop: 16 }}>
+        <div className={`${s['budget-form__layout']}${showCroquis ? '' : ' ' + s['budget-form__layout--no-croquis']}`}>
           {showCroquis && (
-          <div style={{ minWidth: 0 }}>
+          <div className={s['budget-form__croquis']}>
             <CroquisEditor croquis={form.croquis} onChange={(v: unknown) => update('croquis', v)} readOnly={readOnly} />
           </div>
           )}
-          <div style={{ minWidth: 0 }}>
+          <div className={s['budget-form__right']}>
             <div className="card" style={{ height: '100%' }}>
               <h3 className="section-title">MATERIALES</h3>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                <select className="input" style={{ flex: 1, fontSize: 13 }} value="" onChange={(e) => { addMaterial(e.target.value); e.target.value = ''; }} disabled={readOnly}>
+              <div className={s['budget-form__add-row']}>
+                <select className="input" value="" onChange={(e) => { addMaterial(e.target.value); e.target.value = ''; }} disabled={readOnly}>
                   <option value="">+ AGREGAR MATERIAL</option>
                   {materiales.filter((m: Record<string, unknown>) => m.nombre).map((m: Record<string, unknown>) => (
                     <option key={m.id as number} value={m.nombre as string}>{m.nombre as string}{m.color ? ` - ${m.color as string}` : ''}</option>
                   ))}
                 </select>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: 16 }}>
+              <div className={s['budget-form__materials-grid']}>
               {(form.materiales || []).map((mat, idx) => (
                 <MaterialCard key={idx} mat={mat as unknown as Record<string, unknown>} idx={idx} readOnly={readOnly} updateMaterial={updateMaterial} removeMaterial={removeMaterial} num={num as (v: unknown) => number} />
               ))}
               </div>
               {(form.materiales || []).length === 0 && (
-                <div style={{ padding: 16, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+                <div className={s['budget-form__materials-empty']}>
                   Sin materiales agregados. Usá "+ AGREGAR MATERIAL" para sumar.
                 </div>
               )}
@@ -389,7 +390,7 @@ export default function PresupuestoForm() {
         </div>
 
         {/* ===== SECCIÓN INFERIOR: 4 paneles ===== */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
+        <div className={s['budget-form__bottom']}>
           {/* Panel 1: Detalle de Fabricación y Adicionales */}
           <div className="card">
             <FabricacionTable detalles={form.detalles_fabricacion as unknown as Record<string, unknown>[]} readOnly={readOnly} handleDetalleChange={handleDetalleChange} addDetalle={addDetalle} removeDetalle={removeDetalle} materiales={materiales} CONCEPTOS_M2={CONCEPTOS_M2} conceptosFabricacion={conceptosFabricacion} num={num as (v: unknown) => number} />
@@ -438,7 +439,7 @@ export default function PresupuestoForm() {
 
         <ObservacionesSection form={form} readOnly={readOnly} update={update as (field: string, value: unknown) => void} />
 
-        <FormFooter saving={saving} onCancel={() => navigate('/admin/presupuestos')} />
+        <FormFooter saving={saving} onCancel={() => navigate('/admin/budgets')} />
       </form>
 
       <ConfirmDialog isOpen={deleteConfirm} onClose={() => setDeleteConfirm(false)} onConfirm={handleDelete} title="Eliminar presupuesto" message="¿Estás seguro de eliminar este PRESUPUESTO LOCAL?" />

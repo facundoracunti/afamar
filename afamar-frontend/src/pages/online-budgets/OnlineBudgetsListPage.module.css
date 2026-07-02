@@ -1,0 +1,149 @@
+/* OnlineBudgetsListPage — BEM
+   .online-budgets              block
+   .online-budgets__header      page header
+   .online-budgets__title       page title
+   .online-budgets__actions     action buttons
+   .online-budgets__filters     filter card
+   .online-budgets__search      search wrapper
+   .online-budgets__table       table wrapper
+   .online-budgets__row         clickable row
+   .online-budgets__numero      numero cell
+   .online-budgets__total-ars   ARS total cell
+   .online-budgets__total-usd   USD total cell
+   .online-budgets__total-cons  consolidated total cell
+   .online-budgets__cell-actions  actions cell
+   .online-budgets__empty       empty state
+*/
+
+.online-budgets {
+  padding: 24px;
+  display: grid;
+  gap: 16px;
+}
+
+.online-budgets__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.online-budgets__title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0;
+}
+
+.online-budgets__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.online-budgets__filters {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.online-budgets__search {
+  position: relative;
+  flex: 1;
+  min-width: 250px;
+}
+
+.online-budgets__search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.online-budgets__search input {
+  padding-left: 40px;
+  width: 100%;
+}
+
+.online-budgets__table {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.online-budgets__table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.online-budgets__table th {
+  background: #f8fafc;
+  text-align: left;
+  padding: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #4a5568;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.online-budgets__table td {
+  padding: 12px;
+  font-size: 14px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1a202c;
+}
+
+.online-budgets__row {
+  cursor: pointer;
+}
+
+.online-budgets__row:hover td {
+  background: #fef3f3;
+}
+
+.online-budgets__row:last-child td {
+  border-bottom: none;
+}
+
+.online-budgets__numero {
+  font-weight: 600;
+  font-family: monospace;
+}
+
+.online-budgets__total-ars,
+.online-budgets__total-usd {
+  font-weight: 600;
+}
+
+.online-budgets__total-usd {
+  color: #059669;
+}
+
+.online-budgets__total-cons {
+  font-weight: 700;
+  color: #dc2626;
+}
+
+.online-budgets__cell-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.online-budgets__cell-actions button {
+  padding: 4px 6px;
+}
+
+.online-budgets__empty {
+  text-align: center;
+  padding: 40px;
+  color: #94a3b8;
+}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, PackagePlus, PackageMinus, Trash2 } from 'lucide-react';
-import { getPiletas, createPileta, updatePileta, deletePileta, getMovimientos, createMovimiento } from '../../services/api';
+import { getPoolStock, createPool, updatePool, deletePool, getPoolMovements, createPoolMovement } from '@/api/resources/poolStock';
 import Modal from '../../components/common/Modal';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Loading from '../../components/common/Loading';
@@ -24,7 +24,7 @@ export default function StockPiletas() {
 
   const load = () => {
     setLoading(true);
-    getPiletas({ search: search || undefined }).then((res: { data: StockPileta[] }) => {
+    getPoolStock({ search: search || undefined }).then((res: { data: StockPileta[] }) => {
       setData(res.data);
       setLoading(false);
     });
@@ -48,9 +48,9 @@ export default function StockPiletas() {
     e.preventDefault();
     try {
       if (editItem) {
-        await updatePileta(editItem.id, form);
+        await updatePool(editItem.id, form);
       } else {
-        await createPileta(form);
+        await createPool(form);
       }
       setShowForm(false);
       load();
@@ -61,14 +61,14 @@ export default function StockPiletas() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    await deletePileta(deleteId);
+    await deletePool(deleteId);
     setDeleteId(null);
     load();
   };
 
   const handleOpenMov = async (pileta: StockPileta) => {
     setShowMov(pileta);
-    const res = await getMovimientos(pileta.id);
+    const res = await getPoolMovements(pileta.id);
     setMovimientos(res.data);
     setMovForm({ tipo: 'Ingreso', cantidad: 1, descripcion: '' });
   };
@@ -77,8 +77,8 @@ export default function StockPiletas() {
     e.preventDefault();
     if (!showMov) return;
     try {
-      await createMovimiento(showMov.id, movForm);
-      const res = await getMovimientos(showMov.id);
+      await createPoolMovement(showMov.id, movForm);
+      const res = await getPoolMovements(showMov.id);
       setMovimientos(res.data);
       load();
       setMovForm({ tipo: 'Ingreso', cantidad: 1, descripcion: '' });

@@ -5,6 +5,7 @@ from app.api.routers import (
     budgets,
     clients,
     daily_cash,
+    dashboard,
     materials,
     measurements,
     online_budgets,
@@ -21,6 +22,7 @@ from app.api.routers import (
 
 router = APIRouter(prefix="/api/v1")
 
+router.include_router(dashboard.router, tags=["Dashboard"])
 router.include_router(auth.router, prefix="/auth", tags=["Auth"])
 router.include_router(clients.router, prefix="/clients", tags=["Clients"])
 router.include_router(budgets.router, prefix="/budgets", tags=["Budgets"])

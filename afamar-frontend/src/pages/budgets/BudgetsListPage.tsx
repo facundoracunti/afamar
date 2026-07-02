@@ -2,15 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Search, Trash2, FileDown, FileOutput, Eye, Send, Mail } from 'lucide-react';
 import {
-  getPresupuestosUnificados,
-  deletePresupuesto,
-  deletePresupuestoOnline,
-  updatePresupuesto,
-  convertirAOrden,
-  convertirOnlineAOrden,
-  getPresupuestoPdf,
-  enviarPresupuestoEmail,
-} from '../../services/api';
+  getBudgetsUnified,
+  deleteBudget,
+  updateBudget,
+  convertBudgetToWorkOrder,
+  getBudgetPdf,
+  sendBudgetEmail,
+} from '@/api/resources/budgets';
+import {
+  deleteOnlineBudget,
+  convertOnlineBudgetToWorkOrder,
+} from '@/api/resources/onlineBudgets';
 import { formatDate } from '../../utils/formatters';
 import CurrencyDisplay from '../../components/ui/CurrencyDisplay';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
@@ -37,7 +39,7 @@ export default function PresupuestosList() {
 
   const load = () => {
     setLoading(true);
-    getPresupuestosUnificados({ search: search || undefined, estado: estado || undefined }).then((res) => {
+    getBudgetsUnified({ search: search || undefined, estado: estado || undefined }).then((res) => {
       setData(res.data as PresupuestoUnificado[]);
       setLoading(false);
     });
@@ -49,22 +51,22 @@ export default function PresupuestosList() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    if (deleteTipo === 'online') await deletePresupuestoOnline(deleteId as string);
-    else await deletePresupuesto(deleteId as string);
+    if (deleteTipo === 'online') await deleteOnlineBudget(deleteId as string);
+    else await deleteBudget(deleteId as string);
     setDeleteId(null);
     setDeleteTipo(null);
     load();
   };
 
   const handleCambiarEstado = async (id: string | number, nuevoEstado: string) => {
-    await updatePresupuesto(id as string, { estado: nuevoEstado } as Record<string, unknown>);
+    await updateBudget(id as string, { estado: nuevoEstado } as Record<string, unknown>);
     load();
   };
 
   const handleConvertirOnline = async (id: string | number) => {
     if (!window.confirm('Convertir este presupuesto online en Orden de Trabajo? Se copiaran todos los items.')) return;
     try {
-      const res = await convertirOnlineAOrden(id as string);
+      const res = await convertOnlineBudgetToWorkOrder(id as string);
       navigate(`/admin/work-orders/${(res.data as Record<string, unknown>).orden_id as string}`);
     } catch (err: unknown) {
       const error = err as { response?: { data?: { detail?: string } } };
@@ -75,7 +77,7 @@ export default function PresupuestosList() {
   const handleConvertir = async (id: string | number) => {
     if (!window.confirm('Convertir este presupuesto en Orden de Trabajo? Se copiara toda la informacion.')) return;
     try {
-      const res = await convertirAOrden(id as string);
+      const res = await convertBudgetToWorkOrder(id as string);
       navigate(`/admin/work-orders/${(res.data as Record<string, unknown>).orden_id as string}`);
     } catch (err: unknown) {
       const error = err as { response?: { data?: { detail?: string } } };
@@ -86,7 +88,7 @@ export default function PresupuestosList() {
   const handleEnviarWhatsApp = (presupuesto: PresupuestoUnificado) => {
     const telefono = (presupuesto.cliente_telefono || '').replace(/[^\d]/g, '');
     const nombre = presupuesto.cliente_nombre || '';
-    const pdfUrl = getPresupuestoPdf(presupuesto.id as unknown as string);
+    const pdfUrl = getBudgetPdf(presupuesto.id as unknown as string);
     const saludo = nombre ? `Hola ${nombre}! ` : '';
     const mensaje = `${saludo}Te enviamos el presupuesto formal de AFAMAR Marmoles & Granitos. Podes revisarlo e imprimirlo desde el siguiente link: ${pdfUrl}`;
     const whatsappUrl = telefono
@@ -97,7 +99,7 @@ export default function PresupuestosList() {
 
   const handleEnviarEmail = async (id: string | number) => {
     try {
-      await enviarPresupuestoEmail(id as string);
+      await sendBudgetEmail(id as string);
       alert('Email enviado correctamente');
     } catch (err: unknown) {
       const error = err as { response?: { data?: { detail?: string } } };
@@ -330,7 +332,7 @@ export default function PresupuestosList() {
                         type="button"
                         className="btn btn-outline"
                         style={{ padding: '3px 8px', fontSize: 11 }}
-                        onClick={() => window.open(getPresupuestoPdf(p.id as unknown as string), '_blank')}
+                        onClick={() => window.open(getBudgetPdf(p.id as unknown as string), '_blank')}
                       >
                         <FileDown size={12} /> PDF
                       </button>

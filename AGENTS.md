@@ -1,6 +1,6 @@
 # AGENTS.md
 
-> **Estado:** Rama `refactor` con 4 commits pusheados a origin. El proyecto
+> **Estado:** Rama `refactor` con 6 commits (2 locales sin pushear). El proyecto
 > está en inglés, con estructura BEM/CSS Modules, `/api/v1` y path aliases.
 > Ver `PLAN.md` para el roadmap completo de migración.
 
@@ -58,37 +58,38 @@ afamar-frontend/   — Vite + React + TS
   src/
     main.tsx       — React entrypoint
     App.tsx        — BrowserRouter + Routes (con /admin/* + ProtectedRoute)
-    index.css      — reset CSS + design tokens (CSS vars)
+    index.css      — reset CSS + design tokens (CSS vars) + legacy classes
     api/
       http.ts      — Axios instance (baseURL: /api/v1) + interceptors
-      client.ts    — api = re-export hub
-      wrap.ts      — wrap helper
-    pages/         — one folder per module (English names)
-      auth/        (Login, Public)
-      dashboard/   (Dashboard)
-      clients/     (ClientsList, ClientForm)
-      budgets/     (BudgetsList, BudgetForm)
-      work-orders/ (WorkOrdersList, WorkOrderForm)
-      materials/   (MaterialsList, MaterialForm)
-      pool-stock/  (PoolStock)
-      measurements/
-      cash/        (CashDaily, CashHistory)
-      calculator/  (Calculator)
-      configuration/
-      reports/
-      online-budgets/
+      client.ts    — api = re-export hub from resources/
+      resources/   — 12 domain files (budgets, clients, cash, etc.)
+      hooks.ts     — TanStack Query hooks (useList, useGet, etc.)
+    pages/         — one folder per module (English names), all with *.module.css
+      auth/        (LoginPage)
+      home/        (HomePage)
+      dashboard/   (DashboardPage)
+      clients/     (ClientsListPage, ClientFormPage)
+      budgets/     (BudgetsListPage, BudgetFormPage)
+      work-orders/ (WorkOrdersListPage, WorkOrderFormPage)
+      materials/   (MaterialsListPage, MaterialFormPage)
+      pool-stock/  (PoolStockPage)
+      measurements/ (MeasurementsListPage, MeasurementFormPage)
+      cash/        (CashDailyPage, CashHistoryPage)
+      calculator/  (CalculatorPage)
+      configuration/ (ConfigurationPage)
+      reports/     (ReportsPage)
+      online-budgets/ (OnlineBudgetsListPage, OnlineBudgetFormPage)
     components/    — reutilizables
       ui/          — primitivas (Button, Modal, StatusBadge, ListPage, etc.)
-      Layout/      — sidebar con grupos BEM
+      croquis/     — CroquisEditor, Toolbar, useCroquisState
+      caja/        — IngresoModal
+      presupuesto/ — PresupuestoPanel
       ErrorBoundary/
-      ProtectedRoute/
-    shared/
-      api/         — TanStack Query hooks (useList, useGet, useCreate, etc.)
+    layouts/       — MainLayout + MainLayout.module.css (sidebar BEM)
     context/       — AuthContext, NotificationContext, ReferencesContext
-    app/providers.tsx — QueryClient + Auth + Notification + References
-    hooks/         — generic hooks
+    hooks/         — useEntityForm (legacy, @ts-nocheck), custom hooks
     constants/     — CURRENCIES, STATUS_COLORS, PRIORITY_COLORS
-    types/         — interfaces por entidad
+    types/         — 17 files (9 English + 8 Spanish aliases)
     utils/         — formatCurrency, translate, calcM2, downloadPdf, whatsapp
   tsconfig.json    — path aliases (@/, @features/, @shared/, @assets/)
   vite.config.ts   — proxy /api → http://localhost:8000
@@ -101,6 +102,8 @@ afamar-frontend/   — Vite + React + TS
 - **Endpoints protegidos:** todos los demás routers admin usan `Depends(get_current_user)`.
 - **JWT:** token en `Authorization: Bearer <token>`. Almacenado en `localStorage` como `auth_token`.
 - **Admin seed:** `python seed_admin.py` crea `admin` / `admin123` si no existe.
+- **Reference data seed:** `python scripts/seed_reference_data.py` carga `budget_statuses`, `work_order_statuses`, `payment_methods`, `priority_levels` y `finish_types` con labels en español. Idempotente. Flags: `--only <tabla>` y `--force` (actualiza labels existentes).
+- **Reference endpoints:** `GET /api/v1/references/{resource}` (público) devuelve listas ordenadas. Resources: `budget-statuses`, `work-order-statuses`, `payment-methods`, `priority-levels`, `finish-types`. CRUD protegido con `get_current_user`.
 - **Frontend:** `AuthContext` en `src/context/AuthContext.tsx`. Hook `useAuth()` para consumir.
 - **Response envelope:** `{ success: true, data: T, error: null, pagination? }`. `http.ts` extrae `data` automáticamente.
 
@@ -157,16 +160,7 @@ Con `baseURL: '/api/v1'` en `http.ts`, el path completo es `/api/v1/clients`, et
 
 ## Pages con BEM (CSS Module)
 
-✅ Migrados: `auth/LoginPage`, `auth/PublicPage`, `dashboard/DashboardPage`, `clients/ClientsListPage`, `budgets/BudgetsListPage`, `materials/MaterialsListPage`, `work-orders/WorkOrdersListPage`, `pool-stock/PoolStockPage`, `cash/CashDailyPage`, `calculator/CalculatorPage`, `reports/ReportsPage`
-
-⏳ Sin BEM module: `online-budgets/*`, `measurements/*`, `configuration/*`, y todos los `*FormPage`
-
-## Pages con forms pendientes de migración a BEM
-
-- `budgets/BudgetFormPage.tsx` (~900 líneas)
-- `work-orders/WorkOrderFormPage.tsx` (~1000 líneas)
-- `clients/ClientFormPage.tsx` (~300 líneas)
-- `materials/MaterialFormPage.tsx` (~250 líneas)
+✅ Migrados (18 pages — todos): `auth/LoginPage`, `home/HomePage`, `dashboard/DashboardPage`, `clients/ClientsListPage`, `clients/ClientFormPage`, `budgets/BudgetsListPage`, `budgets/BudgetFormPage`, `materials/MaterialsListPage`, `materials/MaterialFormPage`, `work-orders/WorkOrdersListPage`, `work-orders/WorkOrderFormPage`, `pool-stock/PoolStockPage`, `cash/CashDailyPage`, `calculator/CalculatorPage`, `reports/ReportsPage`, `configuration/ConfigurationPage`, `measurements/MeasurementsListPage`, `measurements/MeasurementFormPage`, `online-budgets/OnlineBudgetsListPage`, `online-budgets/OnlineBudgetFormPage`
 
 Próxima fase: descomponer los forms en subcomponentes (la referencia lo hace en 6 cada uno).
 
@@ -234,21 +228,23 @@ DB_MAX_OVERFLOW=10
 
 ## Trabajo futuro (PLAN.md §1.2)
 
-1. **Migrar form pages a BEM** (~2-3h): BudgetForm, WorkOrderForm, ClientForm, MaterialForm
-2. **Renombrar types a inglés** (~1h): Cliente→Client, Presupuesto→Quote, etc. Mantener aliases.
+1. **Migrar form pages a BEM** (~2-3h): BudgetForm, WorkOrderForm, ClientForm, MaterialForm ✅
+2. **Renombrar types a inglés** (~1h): Cliente→Client, Presupuesto→Quote, etc. Mantener aliases. ✅
 3. **Descomponer forms** (~3-4h): extraer 6 subcomponentes de BudgetForm y WorkOrderForm.
-4. **Crear seed de reference data** (~1h): statuses, payment_methods, etc.
-5. **Migrar pages sin BEM** (~30 min): OnlineBudgets, Measurements, Configuration.
+4. **Crear seed de reference data** (~1h): statuses, payment_methods, etc. ✅
+5. **Migrar pages sin BEM** (~30 min): OnlineBudgets, Measurements, Configuration. ✅
 6. **Tests E2E con Playwright** (~2-3h).
-7. **Eliminar legacy** (~10 min): folders `pages/<spanish-name>/` si quedan archivos.
-8. **Eliminar aliases Spanish** (~30 min) en services.
+7. **Eliminar legacy** (~10 min): folders `pages/<spanish-name>/` si quedan archivos. ✅
+8. **Eliminar aliases Spanish** (~30 min) en services. ✅
 9. **Reemplazar useEntityForm** (~2h): dividir en composables más pequeños.
-10. **Migrar a TanStack Query** en pages (hooks ya están en `shared/api/hooks.ts`).
+10. **Migrar a TanStack Query** en pages (hooks ya están en `src/api/hooks.ts`).
 
 ## Refactor commits en `refactor`
 
 ```
-c328f6a6 (HEAD -> main)        "ultimo fix de docker"
+5985a2ca (HEAD)                "fix: repair UTF-8 corruption in Spanish text"
+7600a594                       "docs: update AGENTS.md and PLAN.md for refactor state"
+c328f6a6 (origin/main)         "ultimo fix de docker"
 398a0586                       "fix: reestructuración de middlewares..."
 1e3d6604                       "alembic"
 ced1d0ad                       "fix de login/admin"
@@ -264,6 +260,13 @@ fa6c583b                       "Refactor frontend structure..."
 c98228c5 (origin/refactor)     "feat: migrate 6 list pages to BEM/CSS Modules"
 25e57a56 (origin/refactor)     "feat: add BEM/CSS Modules for 7 list pages"
 f83f8b95 (origin/refactor)     "refactor: complete English naming + BEM foundation"
+```
+
+## Commits locales sin pushear (2)
+
+```
+5985a2ca fix: repair UTF-8 corruption in Spanish text
+7600a594 docs: update AGENTS.md and PLAN.md for refactor state
 ```
 
 ## Para crear PR

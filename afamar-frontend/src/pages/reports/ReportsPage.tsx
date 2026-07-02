@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { getReportePresupuestos, getReporteOrdenes, getVentasMensuales, getMaterialesMasUsados } from '../../services/api';
+import { getReportsDashboard, getMonthlySales, getMostUsedMaterials } from '@/api/resources/reports';
 import Loading from '../../components/common/Loading';
 import styles from './ReportsPage.module.css';
 
@@ -18,13 +18,24 @@ export default function Reportes() {
 
   useEffect(() => {
     Promise.all([
-      getReportePresupuestos(),
-      getReporteOrdenes(),
-      getVentasMensuales(),
-      getMaterialesMasUsados(),
-    ]).then(([p, o, v, m]) => {
-      setPresupuestos((p as { data: Record<string, unknown> }).data);
-      setOrdenes((o as { data: Record<string, unknown> }).data);
+      getReportsDashboard(),
+      getMonthlySales(),
+      getMostUsedMaterials(),
+    ]).then(([stats, v, m]) => {
+      const s = (stats as { data: Record<string, unknown> }).data;
+      setPresupuestos({
+        total: ((s.pending_budgets as number) || 0) + ((s.approved_budgets as number) || 0) + ((s.rejected_budgets as number) || 0),
+        pendientes: s.pending_budgets,
+        aprobados: s.approved_budgets,
+        rechazados: s.rejected_budgets,
+        monto_total: 0,
+      });
+      setOrdenes({
+        total: ((s.workshop_orders as number) || 0) + ((s.finished_orders as number) || 0) + ((s.delivered_orders as number) || 0),
+        presupuestadas: s.workshop_orders,
+        en_produccion: s.finished_orders,
+        finalizadas: s.delivered_orders,
+      });
       setVentas((v as { data: Record<string, unknown> }).data);
       setMateriales((m as { data: Record<string, unknown>[] }).data);
       setLoading(false);

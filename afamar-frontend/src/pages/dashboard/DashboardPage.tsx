@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DollarSign, FileText, ClipboardList, PackageOpen, Globe, Truck, type LucideIcon } from 'lucide-react';
 import type { DashboardData } from '../../types/dashboard';
-import { getDashboard } from '../../services/api';
+import { getDashboard } from '@/api/resources/dashboard';
 import Loading from '../../components/common/Loading';
 import styles from './DashboardPage.module.css';
 
@@ -38,20 +38,20 @@ export default function Dashboard() {
   if (loading) return <Loading />;
   if (!data) return <div className={s['dashboard__error']}>Error al cargar el dashboard</div>;
 
-  const ing = (data.total_ingresos ?? 0).toLocaleString();
-  const pendiente = (data.total_pendiente_cobro ?? 0).toLocaleString();
-  const activas = data.total_ordenes_activas ?? 0;
-  const terminadas = data.ordenes_terminadas ?? 0;
-  const online = data.presupuestos_online ?? 0;
-  const medicion = data.ordenes_en_medicion ?? 0;
-  const taller = data.ordenes_en_taller ?? 0;
+  const ing = (data.total_revenue ?? 0).toLocaleString();
+  const pendiente = (data.total_pending_payments ?? 0).toLocaleString();
+  const activas = data.total_active_orders ?? 0;
+  const terminadas = data.delivered_orders.length;
+  const online = data.pending_budgets ?? 0;
+  const medicion = data.orders_in_measurement ?? 0;
+  const taller = data.orders_in_workshop ?? 0;
 
   const cards: CardDef[] = [
     { icon: DollarSign, label: 'CAJA', value: '$' + ing, color: '#2563eb', tone: 'accent', path: '/admin/cash', description: 'Total de ingresos registrados' },
     { icon: FileText, label: 'NUEVO PRESUPUESTO', color: '#059669', tone: 'success', path: '/admin/budgets/new', description: 'Crear un nuevo presupuesto' },
     { icon: ClipboardList, label: 'NUEVA ORDEN', color: '#dc2626', tone: 'danger', path: '/admin/work-orders/new', description: 'Crear una nueva orden de trabajo' },
     { icon: PackageOpen, label: 'ORDENES EN MEDICION / TALLER', value: String(activas), color: '#d97706', tone: 'warning', path: '/admin/work-orders', description: medicion + ' en medicion - ' + taller + ' en taller', span: { col: 2 } },
-    { icon: Truck, label: 'ORDENES TERMINADAS P/ ENVIO', value: String(terminadas), color: '#7c3aed', tone: 'info', path: '/admin/work-orders?estado=FINISHED', description: 'Listas para retirar', span: { col: 2 } },
+    { icon: Truck, label: 'ORDENES TERMINADAS P/ ENVIO', value: String(terminadas), color: '#7c3aed', tone: 'info', path: '/admin/work-orders?estado=DELIVERED', description: 'Listas para retirar', span: { col: 2 } },
     { icon: Globe, label: 'PRESUPUESTOS EN LINEA', value: String(online), color: '#0891b2', tone: 'info', path: '/admin/online-budgets', description: 'Pendientes de revision', span: { row: 2 } },
     { icon: PackageOpen, label: 'STOCK DE PILETAS', color: '#be185d', tone: 'info', path: '/admin/pool-stock', description: 'Gestionar stock de piletas' },
   ];
@@ -94,11 +94,11 @@ export default function Dashboard() {
         <div className={s['dashboard__metrics-grid']}>
           <div className={s['dashboard__metric']}>
             <div className={s['dashboard__metric-label']}>Total presupuestos</div>
-            <div className={s['dashboard__metric-value']}>{String(data.total_presupuestos ?? 0)}</div>
+            <div className={s['dashboard__metric-value']}>{String(data.total_budgets ?? 0)}</div>
           </div>
           <div className={s['dashboard__metric']}>
             <div className={s['dashboard__metric-label']}>Total ordenes</div>
-            <div className={s['dashboard__metric-value']}>{String(data.total_ordenes ?? 0)}</div>
+            <div className={s['dashboard__metric-value']}>{String(data.total_orders ?? 0)}</div>
           </div>
           <div className={s['dashboard__metric']}>
             <div className={s['dashboard__metric-label']}>Ingresos</div>

@@ -1,6 +1,26 @@
-// Re-exports from the legacy services/* (one file per resource).
-// New code should import individual services from their own file (e.g. `@/services/clients`).
-// TODO: migrate to src/api/resources/* (one file per resource) per the reference architecture.
-import api from "../services/api";
-export { api };
-export default api;
+// Barrel re-export. New code should import the http client from
+// `@/api/http` or individual resources from `@/api/resources/<name>`.
+//
+// Example:
+//   import http from '@/api/http';
+//   import { getClients } from '@/api/resources/clients';
+
+import http from './http';
+import { getSettings } from './resources/settings';
+
+export { http };
+export default http;
+
+export { getSettings };
+
+export * from './resources/dashboard';
+export * from './resources/clients';
+export * from './resources/budgets';
+export * from './resources/onlineBudgets';
+export * from './resources/workOrders';
+export * from './resources/materials';
+export * from './resources/poolStock';
+export * from './resources/measurements';
+export * from './resources/cash';
+export * from './resources/reports';
+export * from './resources/completedWorks';

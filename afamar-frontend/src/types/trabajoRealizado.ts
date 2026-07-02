@@ -1,7 +1,7 @@
-export interface TrabajoRealizado {
-  id: number;
-  titulo: string;
-  descripcion?: string;
-  foto?: string;
-  created_at?: string;
-}
+// Legacy Spanish file — re-exports the new English types from
+// ./completedWorks for backward compatibility.
+// @deprecated — use CompletedWork from './completedWorks' instead.
+
+import type { CompletedWork } from './completedWorks';
+
+export type TrabajoRealizado = CompletedWork;

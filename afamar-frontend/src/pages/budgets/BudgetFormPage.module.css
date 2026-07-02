@@ -1,0 +1,164 @@
+/* BudgetFormPage — BEM
+   .budget-form              block (root)
+   .budget-form__header      header area with toggle
+   .budget-form__header-toggle  show/hide croquis button
+   .budget-form__header-hint    small text next to toggle
+   .budget-form__layout      main 2-col layout (croquis + materials)
+   .budget-form__layout--no-croquis  layout when croquis hidden
+   .budget-form__croquis     croquis column
+   .budget-form__right       right column (materials)
+   .budget-form__card        card
+   .budget-form__card-title  card title
+   .budget-form__materials-grid  materials grid
+   .budget-form__materials-empty  empty state for materials
+   .budget-form__obs         observations textarea group
+   .budget-form__add-row     add material/pool select row
+   .budget-form__bottom      bottom 2-col grid
+   .budget-form__btn-success  green action button
+   .budget-form__btn-approve  blue action button
+   .budget-form__btn-convert  red action button
+   .budget-form__btn-save    save button
+   .budget-form__btn-ot      OT navigation button
+*/
+
+.budget-form {
+  padding: 0;
+}
+
+.budget-form__header {
+  margin-top: 16px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.budget-form__header-toggle {
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+}
+
+.budget-form__header-hint {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.budget-form__layout {
+  display: grid;
+  grid-template-columns: 7fr 3fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.budget-form__layout--no-croquis {
+  grid-template-columns: 1fr;
+}
+
+.budget-form__croquis,
+.budget-form__right {
+  min-width: 0;
+}
+
+.budget-form__card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  height: 100%;
+}
+
+.budget-form__card-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0 0 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.budget-form__add-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.budget-form__add-row select {
+  flex: 1;
+  font-size: 13px;
+}
+
+.budget-form__materials-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 16px;
+}
+
+.budget-form__materials-empty {
+  padding: 16px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.budget-form__obs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.budget-form__obs label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #4a5568;
+}
+
+.budget-form__bottom {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+/* Action buttons in header (OT, Convertir, Aprobar, Guardar, WhatsApp, Imprimir) */
+.budget-form__btn-ot,
+.budget-form__btn-convert,
+.budget-form__btn-approve,
+.budget-form__btn-save {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 20px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 14px;
+  color: #fff;
+}
+
+.budget-form__btn-ot {
+  background: #059669;
+}
+
+.budget-form__btn-convert {
+  background: #b91c1c;
+}
+
+.budget-form__btn-approve {
+  background: #2563eb;
+}
+
+.budget-form__btn-save {
+  background: #b91c1c;
+}
+
+.budget-form__btn-ot:disabled,
+.budget-form__btn-convert:disabled,
+.budget-form__btn-approve:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

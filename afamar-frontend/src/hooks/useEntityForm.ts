@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import api from '../services/api';
+import api from '../api/http';
 import type { EntityFormState, EntityServices, FormField, MaterialEnForm, PiletaEnForm } from '../types';
 import type { Material } from '../types/material';
 import type { StockPileta } from '../types/stockPileta';
@@ -107,14 +107,14 @@ export default function useEntityForm({
     services.getMateriales({ limit: 500 }).then((res: Record<string, unknown>) => setMateriales(res.data as Material[]));
     services.getPiletas().then((res: Record<string, unknown>) => setPiletas(res.data as StockPileta[]));
     services.getClientes({ limit: 500 }).then((res: Record<string, unknown>) => setClientes(res.data as Cliente[]));
-    api.get('/configuracion').then((res) => {
-      const configs = (res as unknown as Record<string, unknown>).data as Array<Record<string, unknown>>;
-      const logo = configs.find((c: Record<string, unknown>) => c.key === 'logo');
-      if (logo?.value) {
-        const base = (api.defaults.baseURL || 'http://localhost:8000/api').replace('/api', '');
-        setLogoUrl(`${base}/${logo.value as string}`);
+    api.get('/settings').then((res) => {
+      const configs = (res as unknown as Record<string, unknown>).data as Record<string, unknown>;
+      const logoValue = configs?.['company_logo'] || configs?.['logo'];
+      if (logoValue && typeof logoValue === 'string') {
+        const base = (api.defaults.baseURL || '').replace(/\/api\/v\d+$/, '').replace(/\/api$/, '');
+        setLogoUrl(`${base}${logoValue.startsWith('/') ? '' : '/'}${logoValue}`);
       }
-    });
+    }).catch(() => { /* ignore — logo is optional */ });
     if (id) {
       services.getById(id).then((res: Record<string, unknown>) => {
         const d = res.data as Record<string, unknown>;

@@ -1,0 +1,24 @@
+/* OnlineBudgetFormPage — BEM
+   .online-budget-form            block
+   .online-budget-form__header    page header
+   .online-budget-form__title     page title
+*/
+
+.online-budget-form {
+  padding: 24px;
+  display: grid;
+  gap: 16px;
+}
+
+.online-budget-form__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.online-budget-form__title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0;
+}

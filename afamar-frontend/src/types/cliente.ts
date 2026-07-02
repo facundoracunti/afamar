@@ -1,12 +1,4 @@
-export interface Cliente {
-  id: number;
-  nombre: string;
-  telefono?: string;
-  email?: string;
-  direccion?: string;
-  observaciones?: string;
-  created_at?: string;
-  updated_at?: string;
-  total_ordenes?: number;
-  ultima_orden?: string;
-}
+// Legacy Spanish types — re-exported from the new English equivalents.
+// @deprecated — use Client from './client' instead.
+
+export type { Client as Cliente, ClientFormData as ClienteFormData } from './client';

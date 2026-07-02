@@ -55,6 +55,7 @@ export default function CroquisEditor({ croquis, onChange, readOnly = false }: C
         onUndo={s.undo}
         onRedo={s.redo}
         onDeleteSelected={() => s.sid && s.deleteShape(s.sid)}
+        onDeleteLast={s.deleteLast}
         onClearAll={s.clearAll}
       />
 

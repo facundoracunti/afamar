@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Save, X, Plus } from 'lucide-react';
-import { getMedicion, createMedicion, updateMedicion } from '../../services/api';
+import { getMeasurement, createMeasurement, updateMeasurement } from '@/api/resources/measurements';
 import { estadosMedicion } from '../../utils/formatters';
 import type { Medicion, MedicionFormData } from '../../types/medicion';
 import Loading from '../../components/common/Loading';
+import styles from './MeasurementFormPage.module.css';
+
+const s = styles as unknown as Record<string, string>;
 
 export default function MedicionForm() {
   const { id } = useParams<{ id: string }>();
@@ -29,7 +32,7 @@ export default function MedicionForm() {
 
   useEffect(() => {
     if (id) {
-      getMedicion(id).then((res: { data: Medicion }) => {
+      getMeasurement(id).then((res: { data: Medicion }) => {
         const d = res.data;
         setForm({
           cliente_nombre: d.cliente_nombre || '',
@@ -82,11 +85,11 @@ export default function MedicionForm() {
         fecha_programada: form.fecha_programada ? new Date(form.fecha_programada).toISOString() : null,
       };
       if (isEdit) {
-        await updateMedicion(id as string, payload);
+        await updateMeasurement(id as string, payload);
       } else {
-        await createMedicion(payload);
+        await createMeasurement(payload);
       }
-      navigate('/admin/mediciones');
+      navigate('/admin/measurements');
     } catch (err: unknown) {
       alert('Error al guardar');
     } finally {
@@ -97,32 +100,50 @@ export default function MedicionForm() {
   if (loading) return <Loading />;
 
   return (
-    <div>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700 }}>{isEdit ? 'Editar Medición' : 'Nueva Medición'}</h1>
+    <div className={s['measurement-form']}>
+      <div className={s['measurement-form__header']}>
+        <h1 className={s['measurement-form__title']}>{isEdit ? 'Editar Medición' : 'Nueva Medición'}</h1>
       </div>
 
       <form onSubmit={handleSubmit}>
-        <div className="card" style={{ maxWidth: 700 }}>
-          <div className="form-row">
-            <div className="form-group"><label>Cliente *</label><input className="input" required value={form.cliente_nombre} onChange={handleChange('cliente_nombre')} /></div>
-            <div className="form-group"><label>Teléfono</label><input className="input" value={form.cliente_telefono} onChange={handleChange('cliente_telefono')} /></div>
+        <div className={s['measurement-form__card']}>
+          <div className={s['measurement-form__row']}>
+            <div className={s['measurement-form__group']}>
+              <label className={s['measurement-form__label']}>Cliente *</label>
+              <input className="input" required value={form.cliente_nombre} onChange={handleChange('cliente_nombre')} />
+            </div>
+            <div className={s['measurement-form__group']}>
+              <label className={s['measurement-form__label']}>Teléfono</label>
+              <input className="input" value={form.cliente_telefono} onChange={handleChange('cliente_telefono')} />
+            </div>
           </div>
-          <div className="form-group"><label>Dirección</label><input className="input" value={form.cliente_direccion} onChange={handleChange('cliente_direccion')} /></div>
-          <div className="form-row">
-            <div className="form-group"><label>Fecha programada</label><input className="input" type="date" value={form.fecha_programada} onChange={handleChange('fecha_programada')} /></div>
-            <div className="form-group"><label>Hora programada</label><input className="input" type="time" value={form.hora_programada} onChange={handleChange('hora_programada')} /></div>
+          <div className={s['measurement-form__group']}>
+            <label className={s['measurement-form__label']}>Dirección</label>
+            <input className="input" value={form.cliente_direccion} onChange={handleChange('cliente_direccion')} />
           </div>
-          <div className="form-group"><label>Observaciones</label><textarea className="input" rows={3} value={form.observaciones} onChange={handleChange('observaciones')} /></div>
-          <div className="form-group">
-            <label>Estado</label>
+          <div className={s['measurement-form__row']}>
+            <div className={s['measurement-form__group']}>
+              <label className={s['measurement-form__label']}>Fecha programada</label>
+              <input className="input" type="date" value={form.fecha_programada} onChange={handleChange('fecha_programada')} />
+            </div>
+            <div className={s['measurement-form__group']}>
+              <label className={s['measurement-form__label']}>Hora programada</label>
+              <input className="input" type="time" value={form.hora_programada} onChange={handleChange('hora_programada')} />
+            </div>
+          </div>
+          <div className={s['measurement-form__group']}>
+            <label className={s['measurement-form__label']}>Observaciones</label>
+            <textarea className="input" rows={3} value={form.observaciones} onChange={handleChange('observaciones')} />
+          </div>
+          <div className={s['measurement-form__group']}>
+            <label className={s['measurement-form__label']}>Estado</label>
             <select className="input" value={form.estado} onChange={handleChange('estado')}>
               {estadosMedicion.map((e: string) => <option key={e} value={e}>{e}</option>)}
             </select>
           </div>
 
-          <div className="form-group">
-            <label>Fotos</label>
+          <div className={s['measurement-form__group']}>
+            <label className={s['measurement-form__label']}>Fotos</label>
             <input
               ref={fileInputRef}
               type="file"
@@ -135,18 +156,14 @@ export default function MedicionForm() {
               <Plus size={16} /> Agregar fotos
             </button>
             {fotosPreview.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+              <div className={s['measurement-form__photos']}>
                 {fotosPreview.map((foto: string, idx: number) => (
-                  <div key={idx} style={{ position: 'relative', width: 100, height: 100 }}>
-                    <img src={foto} alt={`Foto ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} />
+                  <div key={idx} className={s['measurement-form__photo']}>
+                    <img src={foto} alt={`Foto ${idx + 1}`} className={s['measurement-form__photo-img']} />
                     <button
                       type="button"
+                      className={s['measurement-form__photo-remove']}
                       onClick={() => handleRemoveFoto(idx)}
-                      style={{
-                        position: 'absolute', top: -6, right: -6, width: 22, height: 22, borderRadius: '50%',
-                        border: 'none', background: '#dc2626', color: 'white', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14,
-                      }}
                     >
                       <X size={12} />
                     </button>
@@ -156,8 +173,8 @@ export default function MedicionForm() {
             )}
           </div>
 
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24 } as React.CSSProperties}>
-            <button type="button" className="btn btn-outline" onClick={() => navigate('/admin/mediciones')}>Cancelar</button>
+          <div className={s['measurement-form__actions']}>
+            <button type="button" className="btn btn-outline" onClick={() => navigate('/admin/measurements')}>Cancelar</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
               <Save size={16} /> {saving ? 'Guardando...' : (isEdit ? 'Actualizar' : 'Crear Medición')}
             </button>

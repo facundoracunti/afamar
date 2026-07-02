@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Edit, Trash2 } from 'lucide-react';
-import { getMateriales, deleteMaterial, getConfig } from '../../services/api';
+import { getMaterials, deleteMaterial } from '@/api/resources/materials';
+import { getSettings } from '@/api/resources/settings';
 import { categoriasMaterial } from '../../utils/formatters';
 import type { Material } from '../../types/material';
-import type { Configuracion } from '../../types/configuracion';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Loading from '../../components/common/Loading';
 import styles from './MaterialsListPage.module.css';
@@ -23,14 +23,13 @@ export default function MaterialsList() {
   const load = () => {
     setLoading(true);
     Promise.all([
-      getMateriales({ search: search || undefined, categoria: categoria || undefined }),
-      getConfig(),
+      getMaterials({ search: search || undefined, categoria: categoria || undefined }),
+      getSettings(),
     ]).then(([matRes, cfgRes]) => {
       setData(matRes.data as Material[]);
+      const cfgData = (cfgRes as unknown as { data: Record<string, unknown> }).data || {};
       const cfgMap: Record<string, string> = {};
-      (cfgRes.data as Configuracion[]).forEach((c) => {
-        cfgMap[c.key] = c.value;
-      });
+      Object.entries(cfgData).forEach(([k, v]) => { cfgMap[k] = String(v ?? ''); });
       setTipoCambio(Number(cfgMap.tipo_cambio) || 1);
       setLoading(false);
     });

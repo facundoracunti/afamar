@@ -19,26 +19,34 @@
 | **Alembic** | Migración `initial_schema` autogenerada. `app/main.py` corre `alembic upgrade head` en lifespan |
 | **Frontend infra** | `tsconfig.json` con `@/`, `@features/`, `@shared/`, `@assets/`. `vite.config.ts` con proxy `/api` |
 | **Frontend services** | 13 services con paths English + aliases backward-compat |
-| **Frontend pages** | 21 pages en carpetas English (`clients/`, `budgets/`, `work-orders/`, etc.) |
-| **BEM modules** | 11 pages con `.module.css` (Dashboard, Login, Public, Clients, Budgets, Materials, WorkOrders, PoolStock, Cash, Calculator, Reports) |
+| **Frontend pages** | 20 pages en carpetas English (`clients/`, `budgets/`, `work-orders/`, etc.) |
+| **BEM modules** | 18/18 pages con `.module.css` (todas las pages, incluyendo 4 form pages) |
 | **App.tsx** | Rutas `/admin/*` con redirects backward-compat desde paths en español |
+| **Types en inglés** | 9 English files + 8 Spanish aliases re-exportando desde `types/index.ts` |
+| **Reference data seed** | `scripts/seed_reference_data.py` — 5 tablas, idempotente, flags `--only`/`--force` |
+| **src/api/ consolidado** | `src/services/`, `src/shared/`, `src/app/`, `components/Layout/`, `components/ProtectedRoute/` eliminados. `src/api/resources/` con 12 domain files |
+| **Sidebar mejorada** | Sin auto-open/auto-close. Botón hamburguesa. Content shift con sidebar |
+| **Croquis "Borrar último"** | Siempre visible, deshabilitado cuando no hay elementos |
+| **PDF templates movidos** | `app/templates/templates/` → `app/templates/` |
+| **Pytest conftest arreglado** | Imports actualizados a nueva estructura |
 | **Build verde** | `tsc --noEmit && vite build` → 0 errores |
-| **Carpetas viejas** | `backend/` y `frontend/` borradas |
-| **Git** | Rama `refactor` pusheada a origin con 4 commits |
+| **Carpetas viejas** | `backend/` y `frontend/` borradas. `app/routers/`, `app/schemas/schemas/`, `app/repositories/repositories/`, `app/utils/utils/` eliminados |
+| **Git** | Rama `refactor` con 6 commits (2 locales sin pushear) |
 
 ### 1.2 Pendiente ⏳
 
 | # | Tarea | Esfuerzo |
 |---|-------|----------|
-| 1 | Migrar 4 form pages a BEM (BudgetForm, WorkOrderForm, ClientForm, MaterialForm) | ~2-3 h |
-| 2 | Renombrar types a inglés (`Cliente`→`Client`, etc.) manteniendo aliases | ~1 h |
+| 1 | ~~Migrar 4 form pages a BEM (BudgetForm, WorkOrderForm, ClientForm, MaterialForm)~~ ✅ | — |
+| 2 | ~~Renombrar types a inglés (`Cliente`→`Client`, etc.) manteniendo aliases~~ ✅ | — |
 | 3 | Extraer subcomponentes de `BudgetForm`/`WorkOrderForm` (la referencia lo hace en 6 cada uno) | ~3-4 h |
-| 4 | Crear seed de reference data (`budget_statuses`, `work_order_statuses`, `payment_methods`, etc.) | ~1 h |
-| 5 | Migrar pages sin BEM module (OnlineBudgets, Measurements, Configuration) | ~30 min |
+| 4 | ~~Crear seed de reference data (`budget_statuses`, `work_order_statuses`, `payment_methods`, etc.)~~ ✅ | — |
+| 5 | ~~Migrar pages sin BEM module (OnlineBudgets, Measurements, Configuration)~~ ✅ | — |
 | 6 | Tests E2E con Playwright | ~2-3 h |
-| 7 | Eliminar legacy folders (si quedan archivos en `pages/<spanish-name>/`) | ~10 min |
-| 8 | Eliminar aliases Spanish en services (mantener solo English) | ~30 min |
+| 7 | ~~Eliminar legacy folders (si quedan archivos en `pages/<spanish-name>/`)~~ ✅ | — |
+| 8 | ~~Eliminar aliases Spanish en services (mantener solo English)~~ ✅ | — |
 | 9 | Eliminar `useEntityForm.ts` legacy y dividir en composables | ~2 h |
+| 10 | Migrar a TanStack Query en pages (hooks ya en `src/api/hooks.ts`) | ~2-3 h |
 
 ---
 
@@ -260,41 +268,38 @@ afamar-frontend/src/
 ├── api/                       # Capa de red
 │   ├── http.ts                # Axios instance + interceptors
 │   ├── client.ts              # api = re-export from resources
-│   ├── wrap.ts                # wrap helper
-│   └── resources/             # (futuro) one file per resource
-├── pages/                     # Componentes de ruta (1 carpeta por dominio)
-│   ├── auth/                  (Login, Public)
-│   ├── dashboard/             (Dashboard + BEM)
-│   ├── clients/               (ClientsList + BEM)
-│   ├── budgets/               (BudgetsList + BEM)
-│   ├── work-orders/           (WorkOrdersList + BEM)
-│   ├── materials/             (MaterialsList + BEM)
-│   ├── pool-stock/            (PoolStock + BEM)
-│   ├── measurements/          (Measurements)         ⏳ sin BEM
-│   ├── cash/                  (CashDaily, CashHistory) + BEM
-│   ├── calculator/            (Calculator) + BEM
-│   ├── configuration/         (Configuration)        ⏳ sin BEM
-│   ├── reports/               (Reports) + BEM
-│   ├── online-budgets/        (OnlineBudgets)        ⏳ sin BEM
-│   └── auth/
+│   ├── resources/             # 12 domain files (budgets, clients, cash, etc.)
+│   └── hooks.ts               # TanStack Query hooks (useList, useGet, etc.)
+├── pages/                     # Componentes de ruta (1 carpeta por dominio, todas con *.module.css)
+│   ├── auth/                  (LoginPage)
+│   ├── home/                  (HomePage)
+│   ├── dashboard/             (DashboardPage)
+│   ├── clients/               (ClientsListPage, ClientFormPage)
+│   ├── budgets/               (BudgetsListPage, BudgetFormPage)
+│   ├── work-orders/           (WorkOrdersListPage, WorkOrderFormPage)
+│   ├── materials/             (MaterialsListPage, MaterialFormPage)
+│   ├── pool-stock/            (PoolStockPage)
+│   ├── measurements/          (MeasurementsListPage, MeasurementFormPage)
+│   ├── cash/                  (CashDailyPage, CashHistoryPage)
+│   ├── calculator/            (CalculatorPage)
+│   ├── configuration/         (ConfigurationPage)
+│   ├── reports/               (ReportsPage)
+│   └── online-budgets/        (OnlineBudgetsListPage, OnlineBudgetFormPage)
 ├── components/                # Reutilizables
 │   ├── ui/                    # Primitivas: Button, Modal, StatusBadge, ListPage, etc.
-│   ├── Layout/                # Layout con sidebar BEM
-│   ├── ErrorBoundary/
-│   ├── ProtectedRoute/
-│   └── ...
-├── shared/
-│   └── api/                   # TanStack Query hooks (useList, useGet, useCreate, useUpdate, useDelete)
+│   ├── croquis/               # CroquisEditor, Toolbar, useCroquisState
+│   ├── caja/                  # IngresoModal
+│   ├── presupuesto/           # PresupuestoPanel
+│   └── ErrorBoundary/
+├── layouts/                   # MainLayout + MainLayout.module.css (sidebar BEM)
 ├── context/                   # AuthContext, NotificationContext, ReferencesContext
-├── app/providers.tsx          # QueryClientProvider + Auth + Notification + References
-├── hooks/                     # Custom hooks genéricos (useDebounce, etc.)
+├── hooks/                     # useEntityForm (legacy, @ts-nocheck), custom hooks
 ├── constants/                 # CURRENCIES, STATUS_COLORS, PRIORITY_COLORS
-├── types/                     # Interfaces por entidad (re-exports)
+├── types/                     # 17 files (9 English + 8 Spanish aliases)
 ├── utils/                     # formatCurrency, translate, calcM2, downloadPdf, whatsapp
-├── styles/                    # (vacío - tokens en index.css)
 ├── main.tsx
 ├── App.tsx                    # BrowserRouter + Routes (lazy + ProtectedRoute + AuthProvider)
-└── index.css                  # reset + design tokens
+└── index.css                  # reset + design tokens + legacy classes
 ```
 
 ### Path aliases
@@ -323,34 +328,7 @@ export const API_URL = window.APP_CONFIG?.API_URL || '/api/v1';
 
 ## 6. Path de migración para próximas sesiones
 
-### Sesión siguiente: form pages BEM
-
-1. `pages/budgets/BudgetFormPage.tsx` (~900 líneas, requiere descomposición)
-2. `pages/work-orders/WorkOrderFormPage.tsx` (~1000 líneas)
-3. `pages/clients/ClientFormPage.tsx` (~300 líneas)
-4. `pages/materials/MaterialFormPage.tsx` (~250 líneas)
-
-Para cada una:
-1. Crear `XFormPage.module.css` con BEM (`form`, `form__section`, `form__field`, etc.)
-2. Reemplazar `style={{ ... }}` por `className={s['...']}`
-3. Para estilos dinámicos: usar `--var` CSS custom properties
-
-### Sesión después: types en inglés
-
-1. `types/cliente.ts` → `types/client.ts` (interface `Client`)
-2. `types/presupuesto.ts` → `types/quote.ts` (interfaces `Quote`, `QuoteItem`, etc.)
-3. `types/orden.ts` → `types/workOrder.ts` (interface `WorkOrder`)
-4. `types/medicion.ts` → `types/measurement.ts` (interface `Measurement`)
-5. `types/stockPileta.ts` → `types/poolStock.ts` (interfaces `PoolStock`, `StockMovement`)
-6. `types/caja.ts` → `types/cash.ts` (interfaces `DailyCash`, `CashMovement`)
-7. `types/configuracion.ts` → `types/setting.ts` (interface `Setting`)
-8. `types/presupuestoOnline.ts` → `types/onlineQuote.ts` (interface `OnlineQuote`)
-9. `types/trabajoRealizado.ts` → eliminar (fuera de scope)
-10. `types/croquis.ts` → `types/design.ts` (interfaces `DesignPage`, `DesignElement`)
-
-Mantener aliases en `types/index.ts` para backward-compat.
-
-### Sesión después: descomposición de forms
+### Sesión siguiente: descomposición de forms
 
 `BudgetFormPage` → 6 subcomponentes (como la referencia):
 - `BudgetFormClient.tsx` — datos del cliente + snapshot
