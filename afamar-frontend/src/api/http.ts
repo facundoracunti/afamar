@@ -7,7 +7,6 @@ export const API_URL = window.APP_CONFIG?.API_URL || '/api/v1';
 
 const http = axios.create({
   baseURL: API_URL,
-  headers: { "Content-Type": "application/json" },
   timeout: 15000,
 });
 
@@ -15,6 +14,9 @@ http.interceptors.request.use((config) => {
   const token = localStorage.getItem("auth_token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  if (!(config.data instanceof FormData) && !config.headers["Content-Type"]) {
+    config.headers["Content-Type"] = "application/json";
   }
   return config;
 });

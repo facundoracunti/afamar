@@ -1,8 +1,6 @@
 # AGENTS.md
 
-> **Estado:** Rama `refactor` con 6 commits (2 locales sin pushear). El proyecto
-> está en inglés, con estructura BEM/CSS Modules, `/api/v1` y path aliases.
-> Ver `PLAN.md` para el roadmap completo de migración.
+> **Estado:** Rama `refactor` con commits pendientes (logo, PDF preview, sidebar colapsable, configuration). El proyecto está en inglés, con estructura BEM/CSS Modules, `/api/v1` y path aliases. Ver `PLAN.md` para el roadmap completo de migración.
 
 ---
 
@@ -22,6 +20,35 @@
 - **Values:** `FORMAS_PAGO` ahora `['CASH','TRANSFER','CREDIT_CARD']`, `TIPOS_EGRESO` ahora `['GENERAL','BANK_TRANSFER']`, movement types `'INCOME'`/`'EXPENSE'`.
 - **`closeDailyCash`:** body `{ date, notes }` (antes `{ date, observations }`).
 - **Movement create:** body `{ date, type, amount, description, payment_method, ... }` (antes `{ fecha, tipo, monto, concepto, forma_pago, ... }`).
+
+## PDF Preview modal (reciente)
+
+- **Backend:** `POST /api/v1/budgets/preview-pdf` y `POST /api/v1/work-orders/preview-pdf` generan PDF sin guardar en DB.
+- **Field mapping:** `_BUDGET_FIELD_MAP` / `_FIELD_MAP` convierten campos Spanish (frontend) a English (backend) antes de pasar a `build_*_pdf_data`.
+- **Response:** PDF como `application/octet-stream` con `Content-Disposition: inline`.
+- **Frontend:** `PdfPreviewModal` con `title` prop (default `"Vista previa"`, budgets `"Vista previa — Presupuesto"`, work orders `"Vista previa — Orden de Trabajo"`).
+- **Resources:** `previewBudgetPdf(data)` / `previewWorkOrderPdf(data)` en `src/api/resources/budgets.ts` y `workOrders.ts`.
+- **Try/except en endpoints:** devuelven texto plano con `f"Error generando PDF: {TypeError}: {str(e)}"` para debug.
+
+## Sidebar colapsable (reciente)
+
+- **Default:** sidebar abierto (280px) con todos los labels.
+- **Botón X** en header del sidebar → colapsa a 64px (solo iconos con `title` para tooltip).
+- **Click en item con subitems colapsado:** aparece **popover flotante** a la derecha del item con el nombre de la sección como header y los subitems navegables.
+- **Click en otro grupo colapsado:** cierra popover anterior y abre el nuevo.
+- **Click en subitem del popover:** navega y cierra popover.
+- **CSS clave:** `overflow: visible` en `.main-layout__sidebar` y `.main-layout__menu-links` para que el popover no se corte.
+
+## Configuration page refactor (reciente)
+
+- **Un solo botón "Guardar"** que sube el logo (si hay uno nuevo) y guarda los campos (si cambiaron).
+- **Solo `company_name` es obligatorio** (marcado con `*` rojo). Si está vacío, no permite guardar.
+- **Preview inmediato** del logo al seleccionar archivo (`URL.createObjectURL`).
+- **Notificaciones con `useNotify()`** (toast) en vez de `setMessage` inline.
+- **Botón se deshabilita** hasta que haya cambios (`configDirty || logoDirty`) y `company_name` no esté vacío.
+- **Backend `POST /settings/upload-logo`:** convierte cualquier imagen a PNG con Pillow, sobrescribe siempre `logo.png`, valida que sea imagen.
+- **API:** `updateSettings(data)` (PUT /settings con todos los campos) en lugar de `updateSetting(key, ...)` (PUT /settings/{key} que no existía).
+- **HTTP fix:** `http.ts` no pone `Content-Type: application/json` por default - lo aplica solo si el body NO es FormData.
 
 ## Status enums (English values, en DB)
 
@@ -89,9 +116,11 @@ afamar-frontend/   — Vite + React + TS
       online-budgets/ (OnlineBudgetsListPage, OnlineBudgetFormPage)
     components/    — reutilizables
       ui/          — primitivas (Button, Modal, StatusBadge, ListPage, etc.)
+      common/      — Loading, ConfirmDialog, PdfPreviewModal
       croquis/     — CroquisEditor, Toolbar, useCroquisState
       caja/        — IngresoModal
       presupuesto/ — PresupuestoPanel
+      ordenes/     — FormHeader, FormFooter, AprobacionSection, ObservacionesSection
       ErrorBoundary/
     layouts/       — MainLayout + MainLayout.module.css (sidebar BEM)
     context/       — AuthContext, NotificationContext, ReferencesContext
@@ -189,16 +218,18 @@ Con `baseURL: '/api/v1'` en `http.ts`, el path completo es `/api/v1/clients`, et
 ## Comandos
 
 ```bash
-# Backend (puerto 8000)
+# Backend (puerto 3095 en este proyecto)
 cd afamar-backend
 .\venv\Scripts\activate
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 3095
 python seed_admin.py
+python scripts/seed_reference_data.py
+python scripts/seed_product_photos.py
 alembic revision --autogenerate -m "msg"
 alembic upgrade head
 pytest
 
-# Frontend (puerto 5173, o 5174+ si 5173 ocupado)
+# Frontend (puerto 3090, configurado en vite.config.ts)
 cd afamar-frontend
 npm install
 npm run dev
@@ -250,28 +281,37 @@ DB_MAX_OVERFLOW=10
 ## Refactor commits en `refactor`
 
 ```
-5985a2ca (HEAD)                "fix: repair UTF-8 corruption in Spanish text"
+bbd69de5 (HEAD)                "add /admin/product-photos for config last products"
+ded87937                       "update nginx cfg for deploy"
+d3ffca1c                       "update composes for deploy"
+28570887                       "feat: extract BudgetForm/WorkOrderForm subcomponents + fix cash module Spanish→English fields"
+f04f740a (origin/refactor)     "feat: complete BEM migration, API consolidation, type renaming, and cleanup"
+5985a2ca                       "fix: repair UTF-8 corruption in Spanish text"
 7600a594                       "docs: update AGENTS.md and PLAN.md for refactor state"
-c328f6a6 (origin/main)         "ultimo fix de docker"
-398a0586                       "fix: reestructuración de middlewares..."
-1e3d6604                       "alembic"
-ced1d0ad                       "fix de login/admin"
-6a922b5c                       "Refactor: Finalizada limpieza de frontend..."
-7f9a6e75                       "ultimo fix"
-8300ea63                       "fix de lo que rompio la ia 2"
-0ff5b51c                       "login admin"
-fa6c583b                       "Refactor frontend structure..."
-30b7a8be                       "opencode actualiza contexto"
-1e3d6604                       "alembic"
-... (history)
 39bf9031 (origin/refactor)     "chore: remove stale build artifacts..."
 c98228c5 (origin/refactor)     "feat: migrate 6 list pages to BEM/CSS Modules"
 25e57a56 (origin/refactor)     "feat: add BEM/CSS Modules for 7 list pages"
 f83f8b95 (origin/refactor)     "refactor: complete English naming + BEM foundation"
-f04f740a (origin/refactor)     "feat: complete BEM migration, API consolidation, type renaming, and cleanup"
 ```
 
-## Commits locales sin pushear (0 — al día con origin/refactor)
+## Commits locales sin pushear (17 archivos modificados, 1 nuevo)
+
+- `afamar-backend/app/api/routers/budgets.py` — `_BUDGET_FIELD_MAP` + try/except en `preview-pdf`
+- `afamar-backend/app/api/routers/work_orders.py` — try/except en `preview-pdf`
+- `afamar-backend/app/api/routers/settings.py` — `upload-logo` convierte a PNG con Pillow
+- `afamar-backend/app/services/pdf_html.py` — fix `_load_logo_base64` (AttributeError pdf_output_dir)
+- `afamar-backend/app/utils/logger.py` — fuerza reconfiguración del root logger
+- `afamar-backend/uploads/logo.png` — logo subido por el usuario
+- `afamar-frontend/src/api/http.ts` — Content-Type solo si NO es FormData
+- `afamar-frontend/src/api/resources/budgets.ts` — `previewBudgetPdf`
+- `afamar-frontend/src/api/resources/settings.ts` — `updateSettings` (PUT /settings)
+- `afamar-frontend/src/api/resources/workOrders.ts` — `previewWorkOrderPdf`
+- `afamar-frontend/src/hooks/useEntityForm.ts` — campo `snapshot`, limpieza de props
+- `afamar-frontend/src/layouts/MainLayout.{tsx,module.css}` — sidebar colapsable con popover
+- `afamar-frontend/src/pages/budgets/BudgetFormPage.tsx` — `useNotify` + `console.error` + PdfPreviewModal
+- `afamar-frontend/src/pages/work-orders/WorkOrderFormPage.tsx` — `console.error` + diagnóstico en catch
+- `afamar-frontend/src/pages/configuration/ConfigurationPage.tsx` — refactor: 1 botón, validación, toasts
+- `afamar-frontend/src/components/common/PdfPreviewModal.tsx` (nuevo) — modal para preview de PDF
 
 ## Para crear PR
 

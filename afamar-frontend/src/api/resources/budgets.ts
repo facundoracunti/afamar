@@ -11,5 +11,7 @@ export const sendBudgetWhatsApp = (id: number | string) => http.post(`/budgets/$
 export const sendBudgetEmail = (id: number | string) => http.post(`/budgets/${id}/send-email`);
 export const getNextBudgetNumber = () => http.get('/budgets/next-number');
 export const getBudgetPdf = (id: number | string) => `${http.defaults.baseURL}/budgets/${id}/pdf`;
+export const previewBudgetPdf = (data: Record<string, unknown>) =>
+  http.post('/budgets/preview-pdf', data, { responseType: 'blob' });
 export const convertAlternativeToWorkOrder = (budgetId: number | string, idx: number) =>
   http.post(`/budgets/${budgetId}/alternatives/${idx}/convert-to-work-order`);

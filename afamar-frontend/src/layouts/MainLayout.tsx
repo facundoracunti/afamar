@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, ChevronDown, LayoutDashboard, FileText, ClipboardList, Users, Box, Bath, Calendar, Calculator, BarChart3, Settings, Globe, Send, Wrench, Clock, Truck, DollarSign, Receipt, History, Image, LogOut, type LucideIcon } from 'lucide-react';
+import { Menu, X, ChevronDown, LayoutDashboard, FileText, ClipboardList, Users, Box, Bath, Calendar, Calculator, BarChart3, Settings, Globe, Send, Wrench, Clock, Truck, DollarSign, Receipt, History, Image, LogOut, type LucideIcon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import styles from './MainLayout.module.css';
 
 const SIDEBAR_WIDTH = 280;
+const SIDEBAR_COLLAPSED = 64;
 
 const s = styles as unknown as Record<string, string>;
 
@@ -101,26 +102,14 @@ const accordionGroups: AccordionGroup[] = [
 ];
 
 export default function MainLayout() {
-  const [isOpen, setIsOpen] = useState<boolean>(false);
-  const [isPinned, setIsPinned] = useState<boolean>(() => localStorage.getItem('sidebarPinned') === 'true');
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const [expanded, setExpanded] = useState<string>('');
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
 
-  useEffect(() => {
-    localStorage.setItem('sidebarPinned', String(isPinned));
-  }, [isPinned]);
-
-  const handleMouseEnter = useCallback(() => {
-    if (isPinned) return;
-    setIsOpen(true);
-  }, [isPinned]);
-
-  const togglePin = () => setIsPinned((p) => !p);
-
-  const sidebarVisible = isPinned || isOpen;
-  const sidebarClass = `${s['main-layout__sidebar']} ${sidebarVisible ? s['main-layout__sidebar--visible'] : ''} ${isPinned ? s['main-layout__sidebar--pinned'] : ''}`;
+  const sidebarWidth = isCollapsed ? SIDEBAR_COLLAPSED : SIDEBAR_WIDTH;
+  const sidebarClass = `${s['main-layout__sidebar']}${isCollapsed ? ' ' + s['main-layout__sidebar--collapsed'] : ''}`;
 
   const isGroupActive = (group: AccordionGroup): boolean => {
     if (group.path) return location.pathname === group.path;
@@ -129,27 +118,31 @@ export default function MainLayout() {
   };
 
   const toggleExpand = (key: string): void => {
+    if (isCollapsed) {
+      setExpanded((prev) => (prev === key ? '' : key));
+      return;
+    }
     setExpanded((prev) => (prev === key ? '' : key));
   };
 
   const handleNavigate = (path: string): void => {
     navigate(path);
-    if (!isPinned) setIsOpen(false);
+    if (isCollapsed) setExpanded('');
   };
 
   return (
     <div className={s['main-layout']}>
-      <aside
-        className={sidebarClass}
-        onMouseEnter={handleMouseEnter}
-      >
-        <button onClick={togglePin} title={isPinned ? 'Desfijar' : 'Fijar'} className={s['main-layout__pin-btn']}>
-          {isPinned ? '📌' : '📍'}
-        </button>
-
+      <aside className={sidebarClass} style={{ width: sidebarWidth }}>
         <div className={s['main-layout__menu-header']}>
-          <span>MENÚ</span>
-          <Menu size={18} />
+          {!isCollapsed && <span>MENÚ</span>}
+          <button
+            onClick={() => setIsCollapsed((c) => !c)}
+            className={s['main-layout__collapse-btn']}
+            title={isCollapsed ? 'Expandir menú' : 'Colapsar menú'}
+            aria-label="Toggle menu"
+          >
+            {isCollapsed ? <Menu size={20} /> : <X size={20} />}
+          </button>
         </div>
 
         <ul className={s['main-layout__menu-links']}>
@@ -163,48 +156,80 @@ export default function MainLayout() {
                   <button
                     className={s['main-layout__menu-btn']}
                     onClick={() => toggleExpand(group.key)}
+                    title={isCollapsed ? group.label : undefined}
                   >
                     <span className={s['main-layout__menu-btn-icon']}>
                       <group.icon size={18} />
-                      {group.label}
+                      {!isCollapsed && group.label}
                     </span>
-                    <ChevronDown
-                      size={14}
-                      className={`${s['main-layout__arrow']}${expanded === group.key ? ' ' + s['main-layout__arrow--rotated'] : ''}`}
-                    />
+                    {!isCollapsed && (
+                      <ChevronDown
+                        size={14}
+                        className={`${s['main-layout__arrow']}${expanded === group.key ? ' ' + s['main-layout__arrow--rotated'] : ''}`}
+                      />
+                    )}
                   </button>
-                  <ul
-                    className={s['main-layout__submenu']}
-                    style={{ maxHeight: expanded === group.key ? (group.subItems.length * 40) + 'px' : 0 }}
-                  >
-                    {group.subItems.map((sub) => {
-                      const subActive = location.pathname.startsWith(sub.path.split('?')[0]) && !location.search;
-                      return (
-                        <li
-                          key={sub.path}
-                          className={`${s['main-layout__submenu-item']}${subActive ? ' ' + s['main-layout__submenu-item--active'] : ''}`}
-                        >
-                          <a
-                            href="#!"
-                            className={s['main-layout__submenu-link']}
-                            onClick={(e) => { e.preventDefault(); handleNavigate(sub.path); }}
+                  {!isCollapsed && (
+                    <ul
+                      className={s['main-layout__submenu']}
+                      style={{ maxHeight: expanded === group.key ? (group.subItems.length * 40) + 'px' : 0 }}
+                    >
+                      {group.subItems.map((sub) => {
+                        const subActive = location.pathname.startsWith(sub.path.split('?')[0]) && !location.search;
+                        return (
+                          <li
+                            key={sub.path}
+                            className={`${s['main-layout__submenu-item']}${subActive ? ' ' + s['main-layout__submenu-item--active'] : ''}`}
                           >
-                            <sub.icon size={15} className={s['main-layout__submenu-icon']} />
-                            {sub.label}
-                          </a>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                            <a
+                              href="#!"
+                              className={s['main-layout__submenu-link']}
+                              onClick={(e) => { e.preventDefault(); handleNavigate(sub.path); }}
+                            >
+                              <sub.icon size={15} className={s['main-layout__submenu-icon']} />
+                              {sub.label}
+                            </a>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                  {isCollapsed && expanded === group.key && (
+                    <ul className={s['main-layout__submenu-popover']}>
+                      <li className={`${s['main-layout__submenu-popover-header']} ${s['main-layout__menu-item--active'] ? '' : ''}`}>
+                        <group.icon size={14} />
+                        <span>{group.label}</span>
+                      </li>
+                      {group.subItems.map((sub) => {
+                        const subActive = location.pathname.startsWith(sub.path.split('?')[0]) && !location.search;
+                        return (
+                          <li
+                            key={sub.path}
+                            className={`${s['main-layout__submenu-item']}${subActive ? ' ' + s['main-layout__submenu-item--active'] : ''}`}
+                          >
+                            <a
+                              href="#!"
+                              className={s['main-layout__submenu-link']}
+                              onClick={(e) => { e.preventDefault(); handleNavigate(sub.path); }}
+                            >
+                              <sub.icon size={14} className={s['main-layout__submenu-icon']} />
+                              {sub.label}
+                            </a>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
                 </>
               ) : (
                 <button
                   className={s['main-layout__menu-btn']}
                   onClick={() => handleNavigate(group.path!)}
+                  title={isCollapsed ? group.label : undefined}
                 >
                   <span className={s['main-layout__menu-btn-icon']}>
                     <group.icon size={18} />
-                    {group.label}
+                    {!isCollapsed && group.label}
                   </span>
                 </button>
               )}
@@ -213,33 +238,27 @@ export default function MainLayout() {
         </ul>
 
         <div className={s['main-layout__user-section']}>
-          <div className={s['main-layout__user-name']}>
-            {user?.full_name || user?.username}
-          </div>
+          {!isCollapsed && (
+            <div className={s['main-layout__user-name']}>
+              {user?.full_name || user?.username}
+            </div>
+          )}
           <button
             onClick={() => { logout(); navigate('/login'); }}
             className={s['main-layout__logout-btn']}
+            title={isCollapsed ? 'Cerrar sesión' : undefined}
           >
             <LogOut size={16} />
-            <span>Cerrar sesión</span>
+            {!isCollapsed && <span>Cerrar sesión</span>}
           </button>
         </div>
       </aside>
 
       <div
         className={s['main-layout__content']}
-        style={{ marginLeft: sidebarVisible ? SIDEBAR_WIDTH : 0 }}
+        style={{ marginLeft: sidebarWidth }}
       >
         <div className={s['main-layout__topbar']}>
-          <button
-            type="button"
-            onClick={() => setIsOpen((v) => !v)}
-            className={s['main-layout__menu-toggle']}
-            title={sidebarVisible ? 'Ocultar menú' : 'Mostrar menú'}
-            aria-label="Toggle menu"
-          >
-            <Menu size={20} />
-          </button>
           <div className={s['main-layout__date']}>
             {new Date().toLocaleDateString('es-AR', {
               weekday: 'long',

@@ -1,30 +1,27 @@
 /* MainLayout — BEM
-   .main-layout                 root container
-   .main-layout__trigger        invisible trigger zone (left edge)
-   .main-layout__sidebar        sidebar
-   .main-layout__sidebar--visible   visible state
-   .main-layout__sidebar--pinned    pinned state
-   .main-layout__pin-btn        pin/unpin button
-   .main-layout__menu-header    sidebar header
-   .main-layout__menu-links     links list
-   .main-layout__menu-item      single group item
+   .main-layout                       root container
+   .main-layout__sidebar              sidebar (always visible, 280px)
+   .main-layout__sidebar--collapsed   collapsed sidebar (64px, icons only)
+   .main-layout__collapse-btn         collapse/expand button
+   .main-layout__menu-header          sidebar header
+   .main-layout__menu-links           links list
+   .main-layout__menu-item            single group item
    .main-layout__menu-item--active    active group
-   .main-layout__menu-btn       group button
-   .main-layout__menu-btn-icon  icon in button
-   .main-layout__menu-btn-label label in button
-   .main-layout__arrow          chevron arrow
-   .main-layout__arrow--rotated  rotated arrow
-   .main-layout__submenu        submenu container
-   .main-layout__submenu-item   submenu item
-   .main-layout__submenu-item--active  active submenu item
-   .main-layout__submenu-link   submenu link
-   .main-layout__submenu-icon   submenu icon
-   .main-layout__user-section   user info + logout
-   .main-layout__user-name      user name
-   .main-layout__logout-btn     logout button
-   .main-layout__content        main content
-   .main-layout__topbar         top bar
-   .main-layout__date           date in top bar
+   .main-layout__menu-btn             group button
+   .main-layout__menu-btn-icon        icon in button
+   .main-layout__arrow                chevron arrow
+   .main-layout__arrow--rotated       rotated arrow
+   .main-layout__submenu              submenu container
+   .main-layout__submenu-item         submenu item
+   .main-layout__submenu-item--active active submenu item
+   .main-layout__submenu-link         submenu link
+   .main-layout__submenu-icon         submenu icon
+   .main-layout__user-section         user info + logout
+   .main-layout__user-name            user name
+   .main-layout__logout-btn           logout button
+   .main-layout__content              main content
+   .main-layout__topbar               top bar
+   .main-layout__date                 date in top bar
 */
 
 .main-layout {
@@ -43,49 +40,9 @@
   display: flex;
   flex-direction: column;
   z-index: 999;
-  transform: translateX(-100%);
-  transition: transform 0.3s ease-in-out;
+  transition: width 0.25s ease-in-out;
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
-  overflow-y: auto;
-}
-
-.main-layout__sidebar--visible {
-  transform: translateX(0);
-}
-
-.main-layout__sidebar--pinned {
-  transform: translateX(0);
-}
-
-.main-layout__pin-btn {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  padding: 4px 8px;
-  cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
-  z-index: 1;
-}
-
-.main-layout__pin-btn:hover {
-  background: #e2e8f0;
-}
-
-.main-layout__menu-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  color: #94a3b8;
-  text-transform: uppercase;
-  border-bottom: 1px solid #e2e8f0;
+  overflow: visible;
 }
 
 .main-layout__menu-links {
@@ -95,6 +52,77 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+}
+
+.main-layout__sidebar--collapsed {
+  width: 64px;
+}
+
+.main-layout__menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  min-height: 56px;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.main-layout__sidebar--collapsed .main-layout__menu-header {
+  justify-content: center;
+  padding: 16px 0;
+}
+
+.main-layout__menu-header > span {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+
+.main-layout__collapse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  color: #374151;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.main-layout__collapse-btn:hover {
+  background: #e2e8f0;
+  color: #1a202c;
+}
+
+.main-layout__sidebar--collapsed .main-layout__collapse-btn {
+  background: #dc2626;
+  color: #fff;
+  border-color: #dc2626;
+}
+
+.main-layout__sidebar--collapsed .main-layout__collapse-btn:hover {
+  background: #b91c1c;
+  color: #fff;
+}
+
+.main-layout__menu-links {
+  list-style: none;
+  margin: 0;
+  padding: 8px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: visible;
 }
 
 .main-layout__menu-item {
@@ -118,6 +146,11 @@
   gap: 8px;
 }
 
+.main-layout__sidebar--collapsed .main-layout__menu-btn {
+  justify-content: center;
+  padding: 10px 0;
+}
+
 .main-layout__menu-btn:hover {
   background: #f8fafc;
 }
@@ -133,11 +166,42 @@
   align-items: center;
   gap: 10px;
   flex: 1;
+  min-width: 0;
+  color: inherit;
+}
+
+.main-layout__menu-btn-icon > svg {
+  flex-shrink: 0;
+  color: inherit;
+}
+
+.main-layout__sidebar--collapsed .main-layout__menu-btn-icon {
+  justify-content: center;
+  flex: 0 0 auto;
+  min-width: auto;
+  gap: 0;
+}
+
+.main-layout__sidebar--collapsed .main-layout__menu-btn {
+  padding: 12px 0;
+}
+
+.main-layout__sidebar--collapsed .main-layout__menu-btn-icon > svg {
+  color: #475569;
+}
+
+.main-layout__sidebar--collapsed .main-layout__menu-item--active .main-layout__menu-btn-icon > svg {
+  color: #dc2626;
+}
+
+.main-layout__menu-item--active .main-layout__menu-btn-icon > svg {
+  color: #dc2626;
 }
 
 .main-layout__arrow {
   transition: transform 0.2s;
   color: #94a3b8;
+  flex-shrink: 0;
 }
 
 .main-layout__arrow--rotated {
@@ -195,16 +259,71 @@
   color: #dc2626;
 }
 
+.main-layout__submenu-popover {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  margin: 0;
+  padding: 6px 0;
+  list-style: none;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 4px 4px 16px rgba(0, 0, 0, 0.1);
+  min-width: 220px;
+  z-index: 1000;
+}
+
+.main-layout__submenu-popover > .main-layout__submenu-item {
+  border-left: none;
+}
+
+.main-layout__submenu-popover > .main-layout__submenu-item--active {
+  border-left: none;
+  background: #fef3f3;
+}
+
+.main-layout__submenu-popover .main-layout__submenu-link {
+  padding: 8px 16px;
+  white-space: nowrap;
+}
+
+.main-layout__submenu-popover-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #94a3b8;
+  text-transform: uppercase;
+  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 4px;
+}
+
+.main-layout__submenu-popover-header > svg {
+  color: #dc2626;
+}
+
 .main-layout__user-section {
   padding: 16px 20px;
   border-top: 1px solid #e2e8f0;
   margin-top: auto;
+  flex-shrink: 0;
+}
+
+.main-layout__sidebar--collapsed .main-layout__user-section {
+  padding: 16px 0;
 }
 
 .main-layout__user-name {
   font-size: 12px;
   color: #718096;
   margin-bottom: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .main-layout__logout-btn {
@@ -224,43 +343,29 @@
   justify-content: flex-start;
 }
 
+.main-layout__sidebar--collapsed .main-layout__logout-btn {
+  justify-content: center;
+  padding: 8px 0;
+}
+
 .main-layout__logout-btn:hover {
   background: #fef2f2;
 }
 
 .main-layout__content {
   min-height: 100vh;
-  transition: margin-left 0.3s ease-in-out;
+  transition: margin-left 0.25s ease-in-out;
   background: #f5f5f5;
 }
 
 .main-layout__topbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   padding: 16px 24px;
   background: #fff;
   border-bottom: 1px solid #e2e8f0;
   min-height: 64px;
-}
-
-.main-layout__menu-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  color: #374151;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-
-.main-layout__menu-toggle:hover {
-  background: #e2e8f0;
-  color: #1a202c;
 }
 
 .main-layout__date {

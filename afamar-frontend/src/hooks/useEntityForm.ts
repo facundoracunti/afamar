@@ -198,7 +198,7 @@ export default function useEntityForm({
   useEffect(() => {
     if (!isEdit && services.getNextNumero) {
       services.getNextNumero().then((res: Record<string, unknown>) => {
-        setForm((prev: EntityFormState) => ({ ...prev, numero: (res.data as Record<string, unknown>).numero as string }));
+        setForm((prev: EntityFormState) => ({ ...prev, numero: (res.data as Record<string, unknown>).number as string }));
       }).catch(() => {});
     }
   }, [isEdit]);

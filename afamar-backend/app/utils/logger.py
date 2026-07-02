@@ -6,12 +6,17 @@ from app.core.settings import settings
 
 def setup_logging() -> None:
     level = getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO)
-    logging.basicConfig(
-        level=level,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    root = logging.getLogger()
+    root.setLevel(level)
+    for h in list(root.handlers):
+        root.removeHandler(h)
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(level)
+    handler.setFormatter(logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
-        stream=sys.stdout,
-    )
+    ))
+    root.addHandler(handler)
 
     if settings.DB_ECHO:
         logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Eye, Save, Printer, MoreVertical, Copy, FileDown, Trash2, History, FileOutput, Check, Send } from 'lucide-react';
-import { getBudget, createBudget, updateBudget, deleteBudget, getNextBudgetNumber, getBudgetPdf, convertBudgetToWorkOrder, convertAlternativeToWorkOrder } from '@/api/resources/budgets';
+import { getBudget, createBudget, updateBudget, deleteBudget, getNextBudgetNumber, getBudgetPdf, previewBudgetPdf, convertBudgetToWorkOrder, convertAlternativeToWorkOrder } from '@/api/resources/budgets';
 import { getMaterials } from '@/api/resources/materials';
 import { getPoolStock } from '@/api/resources/poolStock';
 import { getClients } from '@/api/resources/clients';
@@ -12,6 +12,8 @@ import CroquisEditor from '../../components/croquis/CroquisEditor';
 import PresupuestoPanel from '../../components/presupuesto/PresupuestoPanel';
 import Loading from '../../components/common/Loading';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
+import PdfPreviewModal from '../../components/common/PdfPreviewModal';
+import { useNotify } from '../../context/NotificationContext';
 import OpcionesCotizacionGrid from '../../components/presupuesto/OpcionesCotizacionGrid';
 import AprobacionSection from '../../components/ordenes/AprobacionSection';
 import ObservacionesSection from '../../components/ordenes/ObservacionesSection';
@@ -46,6 +48,9 @@ export default function PresupuestoForm() {
   const navigate = useNavigate();
 
   const [ordenTrabajoNumero, setOrdenTrabajoNumero] = useState<string | null>(null);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
+  const notify = useNotify();
   const num = (v: string): number | null => v === '' ? null : parseFloat(v);
 
   const {
@@ -152,6 +157,37 @@ export default function PresupuestoForm() {
       ? `https://api.whatsapp.com/send?phone=${telefono}&text=${encodeURIComponent(mensaje)}`
       : `https://api.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
     window.open(whatsappUrl, '_blank');
+  };
+
+  const handlePreviewPdf = async () => {
+    setPdfPreviewLoading(true);
+    setPdfPreviewUrl(null);
+    try {
+      const payload = buildPayload();
+      const res = await previewBudgetPdf(payload);
+      const blob = res.data as Blob;
+      const url = URL.createObjectURL(blob);
+      setPdfPreviewUrl(url);
+    } catch (err) {
+      const responseData = (err as { response?: { data?: unknown } }).response?.data;
+      let detail: string | undefined;
+      if (typeof responseData === 'string') {
+        detail = responseData;
+      } else if (responseData && typeof responseData === 'object' && 'detail' in responseData) {
+        detail = (responseData as { detail?: string }).detail;
+      }
+      console.error('Error al generar la vista previa del PDF:', err);
+      notify(detail || 'Error al generar la vista previa del PDF', 'error');
+    } finally {
+      setPdfPreviewLoading(false);
+    }
+  };
+
+  const handleClosePdfPreview = () => {
+    if (pdfPreviewUrl) {
+      URL.revokeObjectURL(pdfPreviewUrl);
+      setPdfPreviewUrl(null);
+    }
   };
 
   if (loading) return <Loading />;
@@ -299,14 +335,14 @@ export default function PresupuestoForm() {
         setMenuOpen={setMenuOpen}
         menuItems={[
           { label: 'Duplicar', icon: <Copy size={16} />, onClick: () => { setMenuOpen(false); alert('Duplicar presupuesto'); } },
-          { label: 'Exportar PDF', icon: <FileDown size={16} />, onClick: () => { setMenuOpen(false); window.open(getBudgetPdf(id as string), '_blank'); } },
+          { label: 'Exportar PDF', icon: <FileDown size={16} />, onClick: () => { setMenuOpen(false); if (id) window.open(getBudgetPdf(id as string), '_blank'); else handlePreviewPdf(); } },
           { label: 'Guardar', icon: <Save size={16} />, onClick: () => { setMenuOpen(false); handleGuardar(); } },
           { label: 'Eliminar', icon: <Trash2 size={16} />, onClick: () => { setMenuOpen(false); setDeleteConfirm(true); }, danger: true },
           { label: 'Historial', icon: <History size={16} />, onClick: () => { setMenuOpen(false); alert('Historial de cambios'); } },
         ]}
       >
-        <button className="btn btn-outline" onClick={() => window.open(getBudgetPdf(id as string), '_blank')} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Eye size={16} /> VISTA PREVIA PDF
+        <button className="btn btn-outline" onClick={handlePreviewPdf} disabled={pdfPreviewLoading} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Eye size={16} /> {pdfPreviewLoading ? 'GENERANDO...' : 'VISTA PREVIA PDF'}
         </button>
         {isEdit ? (
           ordenTrabajoNumero ? (
@@ -428,6 +464,14 @@ export default function PresupuestoForm() {
       </form>
 
       <ConfirmDialog isOpen={deleteConfirm} onClose={() => setDeleteConfirm(false)} onConfirm={handleDelete} title="Eliminar presupuesto" message="¿Estás seguro de eliminar este PRESUPUESTO LOCAL?" />
+
+      <PdfPreviewModal
+        isOpen={!!pdfPreviewUrl || pdfPreviewLoading}
+        onClose={handleClosePdfPreview}
+        pdfUrl={pdfPreviewUrl}
+        loading={pdfPreviewLoading}
+        title="Vista previa — Presupuesto"
+      />
     </div>
   );
 }

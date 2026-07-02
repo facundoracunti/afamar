@@ -1,7 +1,6 @@
 import os
-import shutil
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user, get_db
@@ -48,14 +47,34 @@ def update_settings(data: SettingUpdate, db: Session = Depends(get_db)):
 
 @router.post("/upload-logo")
 def upload_logo(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    file_ext = os.path.splitext(file.filename or "logo.png")[1] or ".png"
-    dest = os.path.join(UPLOAD_DIR, f"logo{file_ext}")
-    with open(dest, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    from PIL import Image
+    from io import BytesIO
+
+    contents = file.file.read()
+    try:
+        img = Image.open(BytesIO(contents))
+        img.load()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Archivo no es una imagen válida: {exc}")
+
+    for ext in (".png", ".jpg", ".jpeg", ".webp", ".gif"):
+        old = os.path.join(UPLOAD_DIR, f"logo{ext}")
+        if os.path.exists(old):
+            try:
+                os.remove(old)
+            except OSError:
+                pass
+
+    dest = os.path.join(UPLOAD_DIR, "logo.png")
+    if img.mode in ("RGBA", "LA", "P"):
+        img.save(dest, format="PNG")
+    else:
+        img.convert("RGB").save(dest, format="PNG")
+
     setting = db.query(Setting).filter(Setting.key == "company_logo").first()
     if setting:
-        setting.value = f"/uploads/logo{file_ext}"
+        setting.value = "/uploads/logo.png"
     else:
-        db.add(Setting(key="company_logo", value=f"/uploads/logo{file_ext}"))
+        db.add(Setting(key="company_logo", value="/uploads/logo.png"))
     db.commit()
-    return success({"path": f"/uploads/logo{file_ext}"})
+    return success({"path": "/uploads/logo.png"})

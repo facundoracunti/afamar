@@ -9,8 +9,6 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from PIL import Image as PILImage, ImageDraw
 from xhtml2pdf import pisa
 
-from app.core.settings import settings
-
 _TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates"
 _env = Environment(
     loader=FileSystemLoader(str(_TEMPLATE_DIR)),
@@ -18,11 +16,19 @@ _env = Environment(
 )
 
 
+_BACKEND_ROOT = Path(__file__).resolve().parent.parent.parent
+
+
 def _load_logo_base64(logo_path: Optional[str] = None) -> Optional[str]:
     candidates = []
     if logo_path:
-        candidates.append(logo_path)
-    candidates.append(os.path.join(settings.pdf_output_dir, "logo.png"))
+        if os.path.isabs(logo_path):
+            candidates.append(logo_path)
+        else:
+            candidates.append(str(_BACKEND_ROOT / logo_path.lstrip("/")))
+    candidates.append(str(_BACKEND_ROOT / "uploads" / "logo.png"))
+    candidates.append(str(_BACKEND_ROOT / "uploads" / "logo.jpg"))
+    candidates.append(str(_BACKEND_ROOT / "static" / "logo.png"))
     for path in candidates:
         if path and os.path.exists(path):
             try:

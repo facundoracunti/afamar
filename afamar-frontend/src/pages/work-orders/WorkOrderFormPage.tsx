@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Eye, Save, Printer, MoreVertical, Copy, FileDown, Trash2, History } from 'lucide-react';
-import { getWorkOrder, createWorkOrder, updateWorkOrder, deleteWorkOrder, getNextWorkOrderNumber, getWorkOrderPdf } from '@/api/resources/workOrders';
+import { useNotify } from '../../context/NotificationContext';
+import { getWorkOrder, createWorkOrder, updateWorkOrder, deleteWorkOrder, getNextWorkOrderNumber, getWorkOrderPdf, previewWorkOrderPdf } from '@/api/resources/workOrders';
 import { getMaterials } from '@/api/resources/materials';
 import { getPoolStock } from '@/api/resources/poolStock';
 import { getClients } from '@/api/resources/clients';
@@ -12,6 +13,7 @@ import CroquisEditor from '../../components/croquis/CroquisEditor';
 import PresupuestoPanel from '../../components/presupuesto/PresupuestoPanel';
 import Loading from '../../components/common/Loading';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
+import PdfPreviewModal from '../../components/common/PdfPreviewModal';
 import AprobacionSection from '../../components/ordenes/AprobacionSection';
 import FormHeader from '../../components/ordenes/FormHeader';
 import FormFooter from '../../components/ordenes/FormFooter';
@@ -42,7 +44,11 @@ const ordenServices = {
 export default function OrdenForm() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const notify = useNotify();
   const num = (v: string): number | null => v === '' ? null : parseFloat(v);
+
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
 
   const {
     form, loading, saving, materiales, piletas, logoUrl,
@@ -59,6 +65,7 @@ export default function OrdenForm() {
     addMaterial, removeMaterial, updateMaterial,
     addPileta, removePileta, updatePileta,
     handleSubmit, handleDelete, handleCambioEstadoAccion, handlePrint,
+    buildPayload,
     CONCEPTOS_M2,
   } = useEntityForm({
     entityType: 'orden',
@@ -90,6 +97,40 @@ export default function OrdenForm() {
     }
     await updateWorkOrder(id as string, payload);
     setForm((prev) => ({ ...prev, ...payload, fecha_pago_saldo: nuevo ? hoy : '' } as EntityFormState));
+  };
+
+  const handlePreviewPdf = async () => {
+    setPdfPreviewLoading(true);
+    setPdfPreviewUrl(null);
+    try {
+      const payload = buildPayload();
+      const res = await previewWorkOrderPdf(payload);
+      const blob = res.data as Blob;
+      const url = URL.createObjectURL(blob);
+      setPdfPreviewUrl(url);
+    } catch (err) {
+      const responseData = (err as { response?: { data?: unknown; status?: number } }).response?.data;
+      const status = (err as { response?: { status?: number } }).response?.status;
+      let detail: string | undefined;
+      if (typeof responseData === 'string') {
+        detail = responseData;
+      } else if (responseData && typeof responseData === 'object' && 'detail' in responseData) {
+        detail = (responseData as { detail?: string }).detail;
+      } else if (responseData && typeof responseData === 'object' && 'error' in responseData) {
+        detail = (responseData as { error?: string }).error;
+      }
+      console.error('[preview-pdf] status:', status, 'data:', responseData, 'err:', err);
+      notify(detail ? `${detail} (status ${status})` : `Error al generar la vista previa del PDF (status ${status})`, 'error');
+    } finally {
+      setPdfPreviewLoading(false);
+    }
+  };
+
+  const handleClosePdfPreview = () => {
+    if (pdfPreviewUrl) {
+      URL.revokeObjectURL(pdfPreviewUrl);
+      setPdfPreviewUrl(null);
+    }
   };
 
   const alternativasGrid = hayAlternativas ? (
@@ -219,10 +260,10 @@ export default function OrdenForm() {
         menuRef={menuRef}
         setMenuOpen={setMenuOpen}
         menuItems={[
-          { label: 'Duplicar', icon: <Copy size={16} />, onClick: () => { setMenuOpen(false); alert('Duplicar orden'); } },
-          { label: 'Exportar PDF', icon: <FileDown size={16} />, onClick: () => { setMenuOpen(false); alert('Exportar PDF'); } },
+          { label: 'Duplicar', icon: <Copy size={16} />, onClick: () => { setMenuOpen(false); notify('Duplicar orden — próximamente', 'info'); } },
+          { label: 'Exportar PDF', icon: <FileDown size={16} />, onClick: () => { setMenuOpen(false); if (id) window.open(getWorkOrderPdf(id as string), '_blank'); else notify('Guardá la orden primero para exportar el PDF', 'info'); } },
           { label: 'Eliminar', icon: <Trash2 size={16} />, onClick: () => { setMenuOpen(false); setDeleteConfirm(true); }, danger: true },
-          { label: 'Historial', icon: <History size={16} />, onClick: () => { setMenuOpen(false); alert('Historial de cambios'); } },
+          { label: 'Historial', icon: <History size={16} />, onClick: () => { setMenuOpen(false); notify('Historial de cambios — próximamente', 'info'); } },
         ]}
       >
         {form.estado === 'MEDICION' && (
@@ -245,8 +286,8 @@ export default function OrdenForm() {
             📦 Trabajo Entregado
           </span>
         )}
-        <button className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Eye size={16} /> VISTA PREVIA PDF
+        <button className="btn btn-outline" onClick={handlePreviewPdf} disabled={pdfPreviewLoading} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Eye size={16} /> {pdfPreviewLoading ? 'GENERANDO...' : 'VISTA PREVIA PDF'}
         </button>
         <button className={`btn btn-primary ${s['work-order-form__btn-save']}`} onClick={handleSubmit} disabled={saving}>
           <Save size={16} /> {saving ? 'GUARDANDO...' : 'GUARDAR'}
@@ -343,6 +384,13 @@ export default function OrdenForm() {
         <FormFooter saving={saving} onCancel={() => navigate('/admin/work-orders')} />
       </form>
 
+      <PdfPreviewModal
+        isOpen={pdfPreviewUrl !== null || pdfPreviewLoading}
+        onClose={handleClosePdfPreview}
+        pdfUrl={pdfPreviewUrl}
+        loading={pdfPreviewLoading}
+        title="Vista previa — Orden de Trabajo"
+      />
       <ConfirmDialog isOpen={deleteConfirm} onClose={() => setDeleteConfirm(false)} onConfirm={handleDelete} title="Eliminar orden" message="¿Estás seguro de eliminar esta orden de trabajo?" />
     </div>
   );

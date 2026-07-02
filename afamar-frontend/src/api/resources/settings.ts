@@ -1,8 +1,8 @@
 import http from '../http';
 
 export const getSettings = () => http.get('/settings');
-export const getSetting = (key: string) => http.get(`/settings/${key}`);
-export const updateSetting = (key: string, data: Record<string, unknown>) => http.put(`/settings/${key}`, data);
+
+export const updateSettings = (data: Record<string, string>) => http.put('/settings', data);
 
 export const uploadLogo = (file: File) => {
   const fd = new FormData();
