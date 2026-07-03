@@ -41,11 +41,11 @@ def parse_materials_data(materials_data: str | None | list | dict) -> list:
 
 
 def filter_main_materials(materials: list) -> list:
-    return [m for m in materials if not m.get("es_alternativa")]
+    return [m for m in materials if not m.get("is_alternative") and not m.get("es_alternativa")]
 
 
 def has_alternative_materials(materials: list) -> bool:
-    return any(m.get("es_alternativa") for m in materials)
+    return any(m.get("is_alternative") or m.get("es_alternativa") for m in materials)
 
 
 def calculate_material_totals(materials: list, usd_rate: float) -> dict:

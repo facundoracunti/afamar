@@ -378,7 +378,7 @@
 <!-- ============================================================ -->
 <!-- OPCIONES COMPARATIVAS (columnas paralelas)                   -->
 <!-- ============================================================ -->
-{% set alternativas = (materiales or []) | selectattr("es_alternativa", "equalto", True) | list %}
+{% set alternativas = (materiales or []) | selectattr("is_alternative", "equalto", True) | list %}
 {% set dd = dolar_dia or 1 %}
 
 {% if alternativas|length > 0 %}

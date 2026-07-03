@@ -167,7 +167,7 @@ class BudgetService:
             raise ValueError(f"Alternative index {idx} out of range")
 
         alt = materials[idx]
-        if not alt.get("es_alternativa"):
+        if not (alt.get("is_alternative") or alt.get("es_alternativa")):
             raise ValueError("Material at index is not marked as alternative")
 
         mat_cost_ars, mat_cost_usd, alt_currency, usd_rate_value, _ = compute_alternative_totals(alt, budget)
@@ -195,7 +195,7 @@ class BudgetService:
         total_ars = round(subtotal_ars + round(subtotal_usd * usd_rate_value, 2) + traslado)
         total_usd_val = round(subtotal_usd + round(subtotal_ars / usd_rate_value, 2) + round(traslado / usd_rate_value, 2), 2) if usd_rate_value > 0 else 0
 
-        common = [m for m in materials if not m.get("es_alternativa")]
+        common = [m for m in materials if not (m.get("is_alternative") or m.get("es_alternativa"))]
         budgeted_details_list = [alt] + common
 
         last_number = self.repo.db.query(WorkOrder).order_by(WorkOrder.id.desc()).first()

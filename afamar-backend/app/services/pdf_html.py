@@ -154,9 +154,9 @@ def _combine_and_sort_items(detalles_fabricacion, materiales, piletas) -> list:
             "moneda": p.get("moneda", "ARS"),
         })
     for m in (materiales or []):
-        if m.get("es_alternativa"):
+        if m.get("is_alternative") or m.get("es_alternativa"):
             continue
-        m2_item = (m.get("largo") or 0) * (m.get("ancho") or 0) * (m.get("cantidad") or 1)
+        m2_item = (m.get("length") or m.get("largo", 0) or 0) * (m.get("width") or m.get("ancho", 0) or 0) * (m.get("quantity") or m.get("cantidad", 1) or 1)
         if m.get("moneda") == "USD":
             precio_item = m2_item * (m.get("precio_m2_usd") or 0)
         else:
@@ -428,7 +428,7 @@ def build_budget_pdf_data(budget_data: dict, client_dict: dict, company: dict, t
 
     materiales_raw = parse_materials_data(budget_data.get("materials_data"))
     main_materials = filter_main_materials(materiales_raw)
-    alternatives = [m for m in materiales_raw if m.get("es_alternativa")]
+    alternatives = [m for m in materiales_raw if m.get("is_alternative") or m.get("es_alternativa")]
 
     items_list = []
     for it in (budget_data.get("items") or []):
@@ -474,7 +474,7 @@ def build_budget_pdf_data(budget_data: dict, client_dict: dict, company: dict, t
             "precio_m2": m.get("precio_m2") or m.get("price_m2", 0),
             "precio_m2_usd": m.get("precio_m2_usd") or m.get("price_m2_usd", 0),
             "moneda": m.get("moneda") or m.get("currency", "ARS"),
-            "es_alternativa": False,
+            "is_alternative": False,
         })
     for m in alternatives:
         materiales_pdf.append(m)
