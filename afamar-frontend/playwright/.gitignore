@@ -1,0 +1,14 @@
+node_modules/
+dist/
+build/
+
+# Playwright artifacts
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# Local data
+.env.local
+.env.*.local
+*.local

@@ -298,6 +298,28 @@ afamar-frontend/   — Vite + React + TS
                      d3-timer, react-beautiful-dnd, json-schema}
 ```
 
+## E2E Tests (Playwright)
+
+- **Stack:** `@playwright/test@1.61.1` + Chromium. Tests en `afamar-frontend/e2e/`.
+- **Config:** `afamar-frontend/playwright.config.ts` define `webServer` que arranca backend (uvicorn 3095) + frontend (vite 3090) automáticamente. Override con `PLAYWRIGHT_BASE_URL` si ya están corriendo.
+- **Auto-arranque:** backend con `.\\venv\\Scripts\\python.exe -m uvicorn app.main:app --port 3095`, frontend con `npm run dev -- --port 3090`. `reuseExistingServer: !process.env.CI` permite correr contra stack manual.
+- **Auth helpers:** `e2e/helpers/login.ts` con `ADMIN_USER = { username: 'admin', password: 'admin123' }` (override con env `E2E_ADMIN_USER` / `E2E_ADMIN_PASS`).
+- **Specs (4 archivos, 16 tests):**
+  - `01-auth.spec.ts` — redirect a /login, login OK, login falla, redirects Spanish→English (`/presupuestos`, `/ordenes`, `/stock-piletas`).
+  - `02-clients.spec.ts` — listar, crear cliente, editar (usa timestamp `E2E-${Date.now()}` para unicidad).
+  - `03-budgets.spec.ts` — listar, abrir form nuevo, PDF preview button visible, filtro por status.
+  - `04-cash.spec.ts` — caja diaria carga saldo+ingresos+egresos, navegación a historial, modales ingreso/egreso.
+- **Scripts:** `npm run test:e2e` (headless), `npm run test:e2e:ui` (Playwright UI), `npm run test:e2e:debug`, `npm run test:e2e:list` (lista sin correr).
+- **Artifacts:** `test-results/`, `playwright-report/`, `blob-report/` ignorados en `afamar-frontend/playwright/.gitignore`. Trace + screenshot + video se retienen on-failure.
+- **Pre-requisito para correr:** backend con `alembic upgrade head` aplicado (la migración `15a75ef09120_add_term_overrides` debe estar aplicada).
+
+```bash
+cd afamar-frontend
+npm run test:e2e          # corre todo (auto-arranca servers)
+npm run test:e2e:ui       # modo UI interactivo
+E2E_ADMIN_PASS=xxx npm run test:e2e  # custom credentials
+```
+
 ## Auth system
 
 - **Endpoints públicos:** `POST /api/v1/auth/login`, `GET /api/v1/product-photos*`, `GET /api/v1/references/*`, `GET /api/v1/online-budgets` (POST público).
