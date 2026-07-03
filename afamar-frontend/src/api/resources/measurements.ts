@@ -7,14 +7,14 @@ export const updateMeasurement = (id: number | string, data: Record<string, unkn
 export const deleteMeasurement = (id: number | string) => http.delete(`/measurements/${id}`);
 
 const MEASUREMENT_FIELD_MAP: Record<string, string> = {
-  cliente_nombre: 'client_name',
-  cliente_telefono: 'client_phone',
-  cliente_direccion: 'client_address',
-  fecha_programada: 'scheduled_date',
-  hora_programada: 'scheduled_time',
-  observaciones: 'notes',
+  clientName: 'client_name',
+  clientPhone: 'client_phone',
+  clientAddress: 'client_address',
+  scheduledDate: 'scheduled_date',
+  scheduledTime: 'scheduled_time',
+  observations: 'notes',
   croquis: 'sketch_data',
-  fotos: 'photos_data',
+  photos: 'photos_data',
 };
 
 function mapMeasurementToApi(data: Record<string, unknown>): Record<string, unknown> {

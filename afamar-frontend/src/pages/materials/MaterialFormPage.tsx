@@ -1,59 +1,96 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Save, Camera, Trash2 } from 'lucide-react';
-import { getMaterial, createMaterial, updateMaterial, uploadMaterialPhoto, primeMaterialCategoryMap, getMaterialCategories } from '@/api/resources/materials';
+import { Save, Camera, Trash2, FolderTree } from 'lucide-react';
+import {
+  getMaterial,
+  createMaterial,
+  updateMaterial,
+  uploadMaterialPhoto,
+  getMaterialCategories,
+  primeMaterialCategoryMap,
+  type MaterialCategory,
+} from '@/api/resources/materials';
 import { getSettings } from '@/api/resources/settings';
-import { categoriasMaterial } from '../../utils/formatters';
+import { useNotify } from '../../context/NotificationContext';
+import { useList } from '../../api/hooks';
 import type { MaterialFormData, Material } from '../../types/material';
 import Loading from '../../components/common/Loading';
 import styles from './MaterialFormPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
 
+const CATEGORIES_KEY = ['material-categories'] as const;
+
 export default function MaterialForm() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const notify = useNotify();
   const isEdit = !!id;
-  const [loading, setLoading] = useState(isEdit);
+  const [loadingMaterial, setLoadingMaterial] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [tipoCambio, setTipoCambio] = useState(1);
-  const [categorias, setCategorias] = useState<{ id: number; name: string }[]>([]);
   const [form, setForm] = useState<MaterialFormData>({
-    nombre: '', categoria: '', color: '', espesor_disponible: '',
-    precio_m2: 0, precio_m2_usd: 0, moneda: 'ARS', proveedor: '', stock_disponible: 0, observaciones: '',
+    name: '',
+    categoryId: '',
+    color: '',
+    availableThickness: '',
+    basePrice: 0,
+    priceUsd: 0,
+    currency: 'ARS',
+    supplier: '',
+    stockAvailable: 0,
+    notes: '',
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
   const [existingFoto, setExistingFoto] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
+  // Categories always come from the API. This keeps the form in sync with the
+  // MaterialsCategoriesPage CRUD (create/edit/delete) without a hard refresh.
+  // We also re-prime the helper name→id map on every load so mapMaterialToApi can
+  // resolve the selected category back to a numeric id when persisting.
+  const { items: categorias, loading: loadingCategories } = useList<MaterialCategory>(
+    CATEGORIES_KEY,
+    async () => {
+      const res = await getMaterialCategories();
+      // axios interceptor unwraps {success,data} envelope → res.data IS the array
+      const list = (res.data as unknown as MaterialCategory[]) || [];
+      // Keep the helper name→id map populated for createMaterial/updateMaterial resolution.
+      await primeMaterialCategoryMap();
+      return list;
+    }
+  );
 
   useEffect(() => {
-    primeMaterialCategoryMap();
-    getMaterialCategories().then((res) => {
-      const list = (res as unknown as { data: Array<{ id: number; name: string }> }).data || [];
-      setCategorias(list);
-    });
     getSettings().then((res) => {
-      const map: Record<string, string> = {};
-      const data = (res as unknown as { data: Record<string, unknown> }).data || {};
-      Object.entries(data).forEach(([k, v]) => { map[k] = String(v ?? ''); });
-      setTipoCambio(Number(map.tipo_cambio) || 1);
-    });
-    if (id) {
-      getMaterial(id).then((res) => {
-        const d = res.data as Material;
-        setForm({
-          nombre: d.nombre || '', categoria: d.categoria || '', color: d.color || '',
-          espesor_disponible: d.espesor_disponible || '',
-          precio_m2: d.precio_m2 || 0, precio_m2_usd: d.precio_m2_usd || 0,
-          moneda: d.moneda || 'ARS',
-          proveedor: d.proveedor || '',
-          stock_disponible: d.stock_disponible || 0, observaciones: d.observaciones || '',
-        });
-        if (d.foto) setExistingFoto(d.foto);
-        setLoading(false);
+      const data = (res.data as Record<string, unknown>) || {};
+      setTipoCambio(Number(data.tipo_cambio) || 1);
+    }).catch(() => { /* optional */ });
+  }, []);
+
+  useEffect(() => {
+    if (!id) return;
+    setLoadingMaterial(true);
+    getMaterial(id).then((res) => {
+      const d = res.data as Material;
+      setForm({
+        name: d.name || '',
+        // Backend stores category_id (numeric). Keep it as a string in the form
+        // so it matches the `<option value>` created from categories list.
+        categoryId: d.categoryId ? String(d.categoryId) : '',
+        color: d.color || '',
+        availableThickness: d.availableThickness || '',
+        basePrice: d.basePrice || 0,
+        priceUsd: d.priceUsd || 0,
+        currency: d.currency || 'ARS',
+        supplier: d.supplier || '',
+        stockAvailable: d.stockAvailable || 0,
+        notes: d.notes || '',
       });
-    }
+      if (d.photo) setExistingFoto(d.photo);
+      setLoadingMaterial(false);
+    }).catch(() => setLoadingMaterial(false));
   }, [id]);
 
   useEffect(() => {
@@ -79,29 +116,37 @@ export default function MaterialForm() {
 
   const handlePrecioArsChange = (value: number) => {
     const ars = Number(value) || 0;
-    const usd = form.moneda === 'ARS' ? (tipoCambio > 0 ? ars / tipoCambio : 0) : form.precio_m2_usd;
-    setForm({ ...form, precio_m2: ars, precio_m2_usd: form.moneda === 'ARS' ? usd : form.precio_m2_usd });
+    const usd = form.currency === 'ARS' ? (tipoCambio > 0 ? ars / tipoCambio : 0) : form.priceUsd;
+    setForm({ ...form, basePrice: ars, priceUsd: form.currency === 'ARS' ? usd : form.priceUsd });
   };
 
   const handlePrecioUsdChange = (value: number) => {
     const usd = Number(value) || 0;
-    const ars = form.moneda === 'USD' ? (tipoCambio > 0 ? usd * tipoCambio : 0) : form.precio_m2;
-    setForm({ ...form, precio_m2_usd: usd, precio_m2: form.moneda === 'USD' ? ars : form.precio_m2 });
+    const ars = form.currency === 'USD' ? (tipoCambio > 0 ? usd * tipoCambio : 0) : form.basePrice;
+    setForm({ ...form, priceUsd: usd, basePrice: form.currency === 'USD' ? ars : form.basePrice });
   };
 
-  const handleMonedaChange = (moneda: string) => {
-    const m = moneda as 'ARS' | 'USD';
+  const handleMonedaChange = (currency: string) => {
+    const m = currency as 'ARS' | 'USD';
     if (m === 'ARS') {
-      const usd = tipoCambio > 0 ? form.precio_m2 / tipoCambio : 0;
-      setForm({ ...form, moneda: m, precio_m2_usd: usd });
+      const usd = tipoCambio > 0 ? form.basePrice / tipoCambio : 0;
+      setForm({ ...form, currency: m, priceUsd: usd });
     } else {
-      const ars = tipoCambio > 0 ? form.precio_m2_usd * tipoCambio : 0;
-      setForm({ ...form, moneda: m, precio_m2: ars });
+      const ars = tipoCambio > 0 ? form.priceUsd * tipoCambio : 0;
+      setForm({ ...form, currency: m, basePrice: ars });
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.name.trim()) {
+      notify('El nombre es obligatorio', 'error');
+      return;
+    }
+    if (!form.categoryId) {
+      notify('Seleccioná una categoría', 'error');
+      return;
+    }
     setSaving(true);
     try {
       let materialId: string | number;
@@ -116,14 +161,16 @@ export default function MaterialForm() {
         await uploadMaterialPhoto(materialId, selectedFile);
       }
       navigate('/admin/materials');
-    } catch (err) {
-      alert('Error al guardar');
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: any } })?.response?.data?.detail
+        ?? (err instanceof Error ? err.message : 'Error al guardar el material');
+      notify(typeof detail === 'string' ? detail : JSON.stringify(detail), 'error');
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) return <Loading />;
+  if (loadingMaterial) return <Loading />;
 
   const displayUrl = fotoPreview || (existingFoto ? `/${existingFoto}` : null);
 
@@ -136,17 +183,37 @@ export default function MaterialForm() {
           <div className={s['material-form__row']}>
             <div className={s['material-form__group']}>
               <label className={s['material-form__label']}>Nombre *</label>
-              <input className="input" required value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
+              <input className="input" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </div>
             <div className={s['material-form__group']}>
-              <label className={s['material-form__label']}>Categoría</label>
-              <select className="input" value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })}>
-                <option value="">Seleccionar...</option>
-                {categorias.length > 0
-                  ? categorias.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)
-                  : categoriasMaterial.map((c) => <option key={c} value={c}>{c}</option>)
-                }
+              <label className={s['material-form__label']}>
+                Categoría *
+                <a
+                  href="/admin/materials/categories"
+                  onClick={(e) => { e.preventDefault(); navigate('/admin/materials/categories'); }}
+                  className={s['material-form__label-link']}
+                  title="Gestionar categorías"
+                >
+                  <FolderTree size={12} /> Gestionar
+                </a>
+              </label>
+              <select
+                className="input"
+                value={form.categoryId}
+                onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
+                disabled={loadingCategories && categorias.length === 0}
+                required
+              >
+                <option value="">{loadingCategories ? 'Cargando categorías...' : 'Seleccionar...'}</option>
+                {categorias.map((c) => (
+                  <option key={c.id} value={String(c.id)}>{c.name}</option>
+                ))}
               </select>
+              {!loadingCategories && categorias.length === 0 && (
+                <small style={{ color: '#b45309', fontSize: 12, marginTop: 4, display: 'block' }}>
+                  No hay categorías cargadas. Creá una desde "Gestionar Categorías" en el menú.
+                </small>
+              )}
             </div>
           </div>
           <div className={s['material-form__row']}>
@@ -156,23 +223,23 @@ export default function MaterialForm() {
             </div>
             <div className={s['material-form__group']}>
               <label className={s['material-form__label']}>Espesor disponible</label>
-              <input className="input" value={form.espesor_disponible} onChange={(e) => setForm({ ...form, espesor_disponible: e.target.value })} />
+              <input className="input" value={form.availableThickness} onChange={(e) => setForm({ ...form, availableThickness: e.target.value })} />
             </div>
           </div>
           <div className={s['material-form__row']}>
             <div className={`${s['material-form__group']} ${s['material-form__group--grow']}`}>
               <label className={s['material-form__label']}>Precio M²</label>
               <input className="input" type="number" step="0.01" min="0"
-                value={form.moneda === 'USD' ? (form.precio_m2_usd || '') : (form.precio_m2 || '')}
+                value={form.currency === 'USD' ? (form.priceUsd || '') : (form.basePrice || '')}
                 onChange={(e) => {
                   const v = Number(e.target.value);
-                  if (form.moneda === 'USD') handlePrecioUsdChange(v);
+                  if (form.currency === 'USD') handlePrecioUsdChange(v);
                   else handlePrecioArsChange(v);
                 }} />
             </div>
             <div className={`${s['material-form__group']} ${s['material-form__group--fixed']}`}>
               <label className={s['material-form__label']}>Moneda</label>
-              <select className="input" value={form.moneda} onChange={(e) => handleMonedaChange(e.target.value)}>
+              <select className="input" value={form.currency} onChange={(e) => handleMonedaChange(e.target.value)}>
                 <option value="ARS">ARS</option>
                 <option value="USD">USD</option>
               </select>
@@ -181,16 +248,16 @@ export default function MaterialForm() {
           <div className={s['material-form__row']}>
             <div className={s['material-form__group']}>
               <label className={s['material-form__label']}>Proveedor</label>
-              <input className="input" value={form.proveedor} onChange={(e) => setForm({ ...form, proveedor: e.target.value })} />
+              <input className="input" value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} />
             </div>
             <div className={s['material-form__group']}>
               <label className={s['material-form__label']}>Stock disponible</label>
-              <input className="input" type="number" min="0" value={form.stock_disponible} onChange={(e) => setForm({ ...form, stock_disponible: Number(e.target.value) })} />
+              <input className="input" type="number" min="0" value={form.stockAvailable} onChange={(e) => setForm({ ...form, stockAvailable: Number(e.target.value) })} />
             </div>
           </div>
           <div className={s['material-form__group']}>
             <label className={s['material-form__label']}>Observaciones</label>
-            <textarea className="input" rows={3} value={form.observaciones} onChange={(e) => setForm({ ...form, observaciones: e.target.value })} />
+            <textarea className="input" rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           </div>
 
           <div className={s['material-form__photo']}>

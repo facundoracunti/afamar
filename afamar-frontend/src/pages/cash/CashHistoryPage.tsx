@@ -4,8 +4,8 @@ import CurrencyDisplay from '../../components/ui/CurrencyDisplay';
 import { ArrowUpCircle, ArrowDownCircle, Calendar, FileText } from 'lucide-react';
 import Loading from '../../components/common/Loading';
 
-export default function CajaHistorial() {
-  const [cajas, setCajas] = useState<Record<string, unknown>[]>([]);
+export default function CashHistoryPage() {
+  const [cashRecords, setCashRecords] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Record<string, unknown> | null>(null);
 
@@ -13,9 +13,9 @@ export default function CajaHistorial() {
     (async () => {
       try {
         const res = await getCashHistory();
-        setCajas(res.data || []);
+        setCashRecords(res.data || []);
       } catch (err: unknown) {
-        setCajas([]);
+        setCashRecords([]);
       } finally {
         setLoading(false);
       }
@@ -28,7 +28,7 @@ export default function CajaHistorial() {
     <div>
       <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>Historial de Cierres de Caja</h1>
 
-      {cajas.length === 0 ? (
+      {cashRecords.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>
           <Calendar size={40} style={{ marginBottom: 12, opacity: 0.4 }} />
           <p>No hay cajas cerradas aún.</p>
@@ -53,7 +53,7 @@ export default function CajaHistorial() {
                     </tr>
                   </thead>
                   <tbody>
-                    {cajas.map((c: Record<string, unknown>) => (
+                    {cashRecords.map((c: Record<string, unknown>) => (
                       <tr key={c.id as number}
                         onClick={() => setSelected((selected?.id as number) === (c.id as number) ? null : c)}
                         style={{ cursor: 'pointer', background: (selected?.id as number) === (c.id as number) ? '#f0fdf4' : undefined }}>

@@ -1,30 +1,28 @@
-// Measurement entity type. Field names are kept in Spanish to
-// match the form layer (MeasurementFormPage.tsx). See client.ts
-// header for the rename tracking note.
+// Measurement entity type. English field names matching backend API.
 
 export interface Measurement {
   id: number;
-  cliente_nombre?: string;
-  cliente_telefono?: string;
-  cliente_direccion?: string;
-  fecha_programada?: string;
-  hora_programada?: string;
-  estado?: string;
-  fotos?: string[];
+  clientName?: string;
+  clientPhone?: string;
+  clientAddress?: string;
+  scheduledDate?: string;
+  scheduledTime?: string;
+  status?: string;
+  photos?: string[];
   croquis?: unknown[];
-  observaciones?: string;
-  created_at?: string;
-  updated_at?: string;
+  observations?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface MeasurementFormData {
-  cliente_nombre: string;
-  cliente_telefono: string;
-  cliente_direccion: string;
-  fecha_programada: string;
-  hora_programada: string;
-  observaciones: string;
+  clientName: string;
+  clientPhone: string;
+  clientAddress: string;
+  scheduledDate: string;
+  scheduledTime: string;
+  observations: string;
   croquis: unknown[];
-  fotos: string[];
-  estado: string;
+  photos: string[];
+  status: string;
 }

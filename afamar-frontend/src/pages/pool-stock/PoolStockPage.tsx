@@ -5,29 +5,29 @@ import { useList, useDelete } from '../../api/hooks';
 import Modal from '../../components/common/Modal';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Loading from '../../components/common/Loading';
-import type { StockPileta, MovimientoPileta } from '../../types/stockPileta';
+import type { Pool, PoolMovement } from '../../types/poolStock';
 import styles from './PoolStockPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
 
 const POOL_STOCK_KEY = ['pool-stock'] as const;
 
-export default function StockPiletas() {
+export default function PoolStockPage() {
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
-  const [showMov, setShowMov] = useState<StockPileta | null>(null);
-  const [movimientos, setMovimientos] = useState<MovimientoPileta[]>([]);
+  const [showMov, setShowMov] = useState<Pool | null>(null);
+  const [movimientos, setMovimientos] = useState<PoolMovement[]>([]);
   const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [editItem, setEditItem] = useState<StockPileta | null>(null);
+  const [editItem, setEditItem] = useState<Pool | null>(null);
 
-  const [form, setForm] = useState<{ marca: string; modelo: string; descripcion: string; material: string; cantidad: number; precio: number; precio_usd: number }>({ marca: '', modelo: '', descripcion: '', material: '', cantidad: 0, precio: 0, precio_usd: 0 });
-  const [movForm, setMovForm] = useState<{ tipo: string; cantidad: number; descripcion: string }>({ tipo: 'Ingreso', cantidad: 1, descripcion: '' });
+  const [form, setForm] = useState<{ brand: string; model: string; description: string; material: string; quantity: number; price: number; priceUsd: number }>({ brand: '', model: '', description: '', material: '', quantity: 0, price: 0, priceUsd: 0 });
+  const [movForm, setMovForm] = useState<{ type: string; quantity: number; description: string }>({ type: 'Ingreso', quantity: 1, description: '' });
 
-  const { items: data, loading, load } = useList<StockPileta>(
+  const { items: data, loading, load } = useList<Pool>(
     [...POOL_STOCK_KEY, search],
     async () => {
       const res = await getPoolStock({ search: search || undefined });
-      return (res.data as StockPileta[]) || [];
+      return (res.data as Pool[]) || [];
     }
   );
 
@@ -37,13 +37,13 @@ export default function StockPiletas() {
     { invalidateKeys: [POOL_STOCK_KEY] }
   );
 
-  const handleOpenForm = (item: StockPileta | null = null) => {
+  const handleOpenForm = (item: Pool | null = null) => {
     if (item) {
       setEditItem(item);
-      setForm({ marca: item.marca, modelo: item.modelo, descripcion: item.descripcion || '', material: item.material || '', cantidad: item.cantidad, precio: item.precio || 0, precio_usd: item.precio_usd || 0 });
+      setForm({ brand: item.brand, model: item.model, description: item.description || '', material: item.material || '', quantity: item.quantity, price: item.price || 0, priceUsd: item.priceUsd || 0 });
     } else {
       setEditItem(null);
-      setForm({ marca: '', modelo: '', descripcion: '', material: '', cantidad: 0, precio: 0, precio_usd: 0 });
+      setForm({ brand: '', model: '', description: '', material: '', quantity: 0, price: 0, priceUsd: 0 });
     }
     setShowForm(true);
   };
@@ -69,11 +69,11 @@ export default function StockPiletas() {
     setDeleteId(null);
   };
 
-  const handleOpenMov = async (pileta: StockPileta) => {
+  const handleOpenMov = async (pileta: Pool) => {
     setShowMov(pileta);
     const res = await getPoolMovements(pileta.id);
     setMovimientos(res.data);
-    setMovForm({ tipo: 'Ingreso', cantidad: 1, descripcion: '' });
+    setMovForm({ type: 'Ingreso', quantity: 1, description: '' });
   };
 
   const handleAddMov = async (e: React.FormEvent) => {
@@ -84,7 +84,7 @@ export default function StockPiletas() {
       const res = await getPoolMovements(showMov.id);
       setMovimientos(res.data);
       load();
-      setMovForm({ tipo: 'Ingreso', cantidad: 1, descripcion: '' });
+    setMovForm({ type: 'Ingreso', quantity: 1, description: '' });
     } catch (err: unknown) {
       alert('Error al registrar movimiento');
     }
@@ -129,16 +129,16 @@ export default function StockPiletas() {
               <tbody>
                 {data.map((p) => (
                   <tr key={p.id}>
-                    <td style={{ fontWeight: 600 }}>{p.marca}</td>
-                    <td>{p.modelo}</td>
+                    <td style={{ fontWeight: 600 }}>{p.brand}</td>
+                    <td>{p.model}</td>
                     <td>{p.material || '-'}</td>
-                    <td style={{ fontWeight: 600 }}>${Number(p.precio || 0).toLocaleString('es-AR')}</td>
-                    <td style={{ fontWeight: 600, color: '#059669' }}>USD {Number(p.precio_usd || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                    <td style={{ fontWeight: 600 }}>${Number(p.price || 0).toLocaleString('es-AR')}</td>
+                    <td style={{ fontWeight: 600, color: '#059669' }}>USD {Number(p.priceUsd || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
                     <td>
                       <span style={{
                         fontWeight: 700, fontSize: 16,
-                        color: p.cantidad > 0 ? '#16a34a' : '#dc2626',
-                      }}>{p.cantidad}</span>
+                        color: p.quantity > 0 ? '#16a34a' : '#dc2626',
+                      }}>{p.quantity}</span>
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: 6 }}>
@@ -168,27 +168,27 @@ export default function StockPiletas() {
           <div className="form-row">
             <div className="form-group">
               <label>Marca *</label>
-              <select className="input" required value={['JOHNSON', 'MI PILETA'].includes(form.marca) ? form.marca : 'OTRA'} onChange={(e) => setForm({ ...form, marca: e.target.value === 'OTRA' ? '' : e.target.value })}>
+              <select className="input" required value={['JOHNSON', 'MI PILETA'].includes(form.brand) ? form.brand : 'OTRA'} onChange={(e) => setForm({ ...form, brand: e.target.value === 'OTRA' ? '' : e.target.value })}>
                 <option value="">Seleccionar...</option>
                 <option value="JOHNSON">JOHNSON</option>
                 <option value="MI PILETA">MI PILETA</option>
                 <option value="OTRA">OTRA (escribir)</option>
               </select>
-              {!['JOHNSON', 'MI PILETA', ''].includes(form.marca) && (
-                <input className="input" style={{ marginTop: 6 }} value={form.marca} onChange={(e) => setForm({ ...form, marca: e.target.value })} placeholder="Escribí la marca..." />
+              {!['JOHNSON', 'MI PILETA', ''].includes(form.brand) && (
+                <input className="input" style={{ marginTop: 6 }} value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} placeholder="Escribí la marca..." />
               )}
             </div>
-            <div className="form-group"><label>Modelo *</label><input className="input" required value={form.modelo} onChange={(e) => setForm({ ...form, modelo: e.target.value })} /></div>
+            <div className="form-group"><label>Modelo *</label><input className="input" required value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} /></div>
           </div>
           <div className="form-row">
             <div className="form-group"><label>Material</label><input className="input" value={form.material} onChange={(e) => setForm({ ...form, material: e.target.value })} /></div>
-            <div className="form-group"><label>Precio ARS ($)</label><input className="input" type="number" step="0.01" min="0" value={form.precio} onChange={(e) => setForm({ ...form, precio: Number(e.target.value) })} /></div>
+            <div className="form-group"><label>Precio ARS ($)</label><input className="input" type="number" step="0.01" min="0" value={form.price} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} /></div>
           </div>
           <div className="form-row">
-            <div className="form-group"><label>Precio USD</label><input className="input" type="number" step="0.01" min="0" value={form.precio_usd} onChange={(e) => setForm({ ...form, precio_usd: Number(e.target.value) })} /></div>
-            <div className="form-group"><label>Cantidad</label><input className="input" type="number" value={form.cantidad} onChange={(e) => setForm({ ...form, cantidad: Number(e.target.value) })} /></div>
+            <div className="form-group"><label>Precio USD</label><input className="input" type="number" step="0.01" min="0" value={form.priceUsd} onChange={(e) => setForm({ ...form, priceUsd: Number(e.target.value) })} /></div>
+            <div className="form-group"><label>Cantidad</label><input className="input" type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} /></div>
           </div>
-          <div className="form-group"><label>Descripción</label><textarea className="input" rows={2} value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} /></div>
+          <div className="form-group"><label>Descripción</label><textarea className="input" rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 16 }}>
             <button type="button" className="btn btn-outline" onClick={() => setShowForm(false)}>Cancelar</button>
             <button type="submit" className="btn btn-primary">Guardar</button>
@@ -197,18 +197,18 @@ export default function StockPiletas() {
       </Modal>
 
       {/* Movimientos */}
-      <Modal isOpen={!!showMov} onClose={() => setShowMov(null)} title={`Movimientos - ${showMov?.marca} ${showMov?.modelo}`} width="600px">
+      <Modal isOpen={!!showMov} onClose={() => setShowMov(null)} title={`Movimientos - ${showMov?.brand} ${showMov?.model}`} width="600px">
         <div style={{ marginBottom: 20 }}>
           <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Registrar Movimiento</h4>
           <form onSubmit={handleAddMov} style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <select className="input" style={{ width: 140 }} value={movForm.tipo} onChange={(e) => setMovForm({ ...movForm, tipo: e.target.value })}>
+            <select className="input" style={{ width: 140 }} value={movForm.type} onChange={(e) => setMovForm({ ...movForm, type: e.target.value })}>
               <option value="Ingreso">Ingreso</option>
               <option value="Egreso">Egreso</option>
             </select>
-            <input className="input" style={{ width: 100 }} type="number" min="1" value={movForm.cantidad} onChange={(e) => setMovForm({ ...movForm, cantidad: Number(e.target.value) })} />
-            <input className="input" style={{ flex: 1, minWidth: 150 }} placeholder="Descripción" value={movForm.descripcion} onChange={(e) => setMovForm({ ...movForm, descripcion: e.target.value })} />
+            <input className="input" style={{ width: 100 }} type="number" min="1" value={movForm.quantity} onChange={(e) => setMovForm({ ...movForm, quantity: Number(e.target.value) })} />
+            <input className="input" style={{ flex: 1, minWidth: 150 }} placeholder="Descripción" value={movForm.description} onChange={(e) => setMovForm({ ...movForm, description: e.target.value })} />
             <button type="submit" className="btn btn-primary">
-              {movForm.tipo === 'Ingreso' ? <PackagePlus size={14} /> : <PackageMinus size={14} />} Registrar
+              {movForm.type === 'Ingreso' ? <PackagePlus size={14} /> : <PackageMinus size={14} />} Registrar
             </button>
           </form>
         </div>
@@ -222,9 +222,9 @@ export default function StockPiletas() {
             <tbody>
               {movimientos.map((m) => (
                 <tr key={m.id}>
-                  <td><span className={`badge ${m.tipo === 'Ingreso' ? 'badge-approved' : 'badge-rejected'}`}>{m.tipo}</span></td>
-                  <td style={{ fontWeight: 600 }}>{m.cantidad}</td>
-                  <td>{m.descripcion || '-'}</td>
+                  <td><span className={`badge ${m.type === 'Ingreso' ? 'badge-approved' : 'badge-rejected'}`}>{m.type}</span></td>
+                  <td style={{ fontWeight: 600 }}>{m.quantity}</td>
+                  <td>{m.description || '-'}</td>
                   <td>{new Date(m.created_at || '').toLocaleDateString('es-AR')}</td>
                 </tr>
               ))}

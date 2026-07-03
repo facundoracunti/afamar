@@ -1,33 +1,30 @@
-// Online budget schema. Field names kept in Spanish to match the
-// form layer (OnlineItemsTable.tsx, OnlineBudgetFormPage.tsx).
-
 export interface OnlineBudgetItem {
-  detalle: string;
-  largo: number;
-  ancho: number;
+  detail: string;
+  length: number;
+  width: number;
   m2: number;
-  es_unidad: boolean;
-  moneda: 'ARS' | 'USD';
-  mano_de_obra: number;
-  cantidad: number;
-  precio_unitario: number;
+  isUnit: boolean;
+  currency: 'ARS' | 'USD';
+  labor: number;
+  quantity: number;
+  unitPrice: number;
   subtotal: number;
   material: string;
-  pileta_id: number | null;
-  opcion: number;
+  poolId: number | null;
+  option: number;
 }
 
 export interface OnlineBudgetPayload {
-  cliente: string;
-  telefono: string;
-  tipo_obra: string;
-  fecha: string;
-  dolar_dia: number;
+  clientName: string;
+  phone: string;
+  workType: string;
+  date: string;
+  usdRate: number;
   items: OnlineBudgetItem[];
-  total_neto_ars: number;
-  total_neto_usd: number;
-  total_consolidado: number;
-  pileta_id: number | null;
-  pileta_precio: number;
-  estado?: string;
+  totalNetArs: number;
+  totalNetUsd: number;
+  totalConsolidated: number;
+  poolId: number | null;
+  poolPrice: number;
+  status?: string;
 }

@@ -2,14 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Save, X, Plus } from 'lucide-react';
 import { getMeasurement, createMeasurement, updateMeasurement } from '@/api/resources/measurements';
-import { estadosMedicion } from '../../utils/formatters';
-import type { Medicion, MedicionFormData } from '../../types/medicion';
+import { measurementStatuses } from '../../utils/formatters';
+import type { Measurement, MeasurementFormData } from '../../types/measurement';
 import Loading from '../../components/common/Loading';
 import styles from './MeasurementFormPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
 
-export default function MedicionForm() {
+export default function MeasurementForm() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const isEdit = !!id;
@@ -18,40 +18,40 @@ export default function MedicionForm() {
   const [fotosPreview, setFotosPreview] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const [form, setForm] = useState<MedicionFormData>({
-    cliente_nombre: '',
-    cliente_telefono: '',
-    cliente_direccion: '',
-    fecha_programada: '',
-    hora_programada: '',
-    observaciones: '',
+  const [form, setForm] = useState<MeasurementFormData>({
+    clientName: '',
+    clientPhone: '',
+    clientAddress: '',
+    scheduledDate: '',
+    scheduledTime: '',
+    observations: '',
     croquis: [],
-    fotos: [],
-    estado: 'PENDIENTE',
+    photos: [],
+    status: 'PENDING',
   });
 
   useEffect(() => {
     if (id) {
-      getMeasurement(id).then((res: { data: Medicion }) => {
+      getMeasurement(id).then((res: { data: Measurement }) => {
         const d = res.data;
         setForm({
-          cliente_nombre: d.cliente_nombre || '',
-          cliente_telefono: d.cliente_telefono || '',
-          cliente_direccion: d.cliente_direccion || '',
-          fecha_programada: d.fecha_programada ? d.fecha_programada.split('T')[0] : '',
-          hora_programada: d.hora_programada || '',
-          observaciones: d.observaciones || '',
+          clientName: d.clientName || '',
+          clientPhone: d.clientPhone || '',
+          clientAddress: d.clientAddress || '',
+          scheduledDate: d.scheduledDate ? d.scheduledDate.split('T')[0] : '',
+          scheduledTime: d.scheduledTime || '',
+          observations: d.observations || '',
           croquis: d.croquis || [],
-          fotos: d.fotos || [],
-          estado: d.estado || 'PENDIENTE',
+          photos: d.photos || [],
+          status: d.status || 'PENDING',
         });
-        setFotosPreview(d.fotos || []);
+        setFotosPreview(d.photos || []);
         setLoading(false);
       });
     }
   }, [id]);
 
-  const handleChange = (field: keyof MedicionFormData) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleChange = (field: keyof MeasurementFormData) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setForm({ ...form, [field]: e.target.value });
   };
 
@@ -63,16 +63,16 @@ export default function MedicionForm() {
       reader.readAsDataURL(file);
     }));
     Promise.all(readers).then((base64s: string[]) => {
-      const newFotos = [...form.fotos, ...base64s];
-      setForm({ ...form, fotos: newFotos });
+      const newFotos = [...form.photos, ...base64s];
+      setForm({ ...form, photos: newFotos });
       setFotosPreview(newFotos);
     });
     e.target.value = '';
   };
 
   const handleRemoveFoto = (index: number): void => {
-    const newFotos = form.fotos.filter((_: string, i: number) => i !== index);
-    setForm({ ...form, fotos: newFotos });
+    const newFotos = form.photos.filter((_: string, i: number) => i !== index);
+    setForm({ ...form, photos: newFotos });
     setFotosPreview(newFotos);
   };
 
@@ -82,7 +82,7 @@ export default function MedicionForm() {
     try {
       const payload = {
         ...form,
-        fecha_programada: form.fecha_programada ? new Date(form.fecha_programada).toISOString() : null,
+        scheduledDate: form.scheduledDate ? new Date(form.scheduledDate).toISOString() : null,
       };
       if (isEdit) {
         await updateMeasurement(id as string, payload);
@@ -110,35 +110,35 @@ export default function MedicionForm() {
           <div className={s['measurement-form__row']}>
             <div className={s['measurement-form__group']}>
               <label className={s['measurement-form__label']}>Cliente *</label>
-              <input className="input" required value={form.cliente_nombre} onChange={handleChange('cliente_nombre')} />
+              <input className="input" required value={form.clientName} onChange={handleChange('clientName')} />
             </div>
             <div className={s['measurement-form__group']}>
               <label className={s['measurement-form__label']}>Teléfono</label>
-              <input className="input" value={form.cliente_telefono} onChange={handleChange('cliente_telefono')} />
+              <input className="input" value={form.clientPhone} onChange={handleChange('clientPhone')} />
             </div>
           </div>
           <div className={s['measurement-form__group']}>
             <label className={s['measurement-form__label']}>Dirección</label>
-            <input className="input" value={form.cliente_direccion} onChange={handleChange('cliente_direccion')} />
+            <input className="input" value={form.clientAddress} onChange={handleChange('clientAddress')} />
           </div>
           <div className={s['measurement-form__row']}>
             <div className={s['measurement-form__group']}>
               <label className={s['measurement-form__label']}>Fecha programada</label>
-              <input className="input" type="date" value={form.fecha_programada} onChange={handleChange('fecha_programada')} />
+              <input className="input" type="date" value={form.scheduledDate} onChange={handleChange('scheduledDate')} />
             </div>
             <div className={s['measurement-form__group']}>
               <label className={s['measurement-form__label']}>Hora programada</label>
-              <input className="input" type="time" value={form.hora_programada} onChange={handleChange('hora_programada')} />
+              <input className="input" type="time" value={form.scheduledTime} onChange={handleChange('scheduledTime')} />
             </div>
           </div>
           <div className={s['measurement-form__group']}>
             <label className={s['measurement-form__label']}>Observaciones</label>
-            <textarea className="input" rows={3} value={form.observaciones} onChange={handleChange('observaciones')} />
+            <textarea className="input" rows={3} value={form.observations} onChange={handleChange('observations')} />
           </div>
           <div className={s['measurement-form__group']}>
             <label className={s['measurement-form__label']}>Estado</label>
-            <select className="input" value={form.estado} onChange={handleChange('estado')}>
-              {estadosMedicion.map((e: string) => <option key={e} value={e}>{e}</option>)}
+            <select className="input" value={form.status} onChange={handleChange('status')}>
+              {measurementStatuses.map((e: string) => <option key={e} value={e}>{e}</option>)}
             </select>
           </div>
 

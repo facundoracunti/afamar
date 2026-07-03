@@ -1,12 +1,12 @@
 import React from 'react';
-import MaterialCard from '../../components/materiales/MaterialCard';
+import MaterialCard from '../../components/materials/MaterialCard';
 import type { EntityFormState } from '../../types';
 
 interface WorkOrderFormSpecsProps {
   form: EntityFormState;
   readOnly: boolean;
   materiales: Record<string, unknown>[];
-  addMaterial: (nombre: string) => void;
+  addMaterial: (name: string) => void;
   updateMaterial: (idx: number, field: string, value: unknown) => void;
   removeMaterial: (idx: number) => void;
   update: (field: string, value: unknown) => void;
@@ -29,24 +29,24 @@ export default function WorkOrderFormSpecs({
       <div className="form-group">
         <select className="input" value="" onChange={(e) => { addMaterial(e.target.value); e.target.value = ''; }} disabled={readOnly}>
           <option value="">+ AGREGAR MATERIAL</option>
-          {materiales.filter((m: Record<string, unknown>) => m.nombre).map((m: Record<string, unknown>) => (
-            <option key={m.id as number} value={m.nombre as string}>{m.nombre as string}{m.color ? ` - ${m.color as string}` : ''}</option>
+          {materiales.filter((m: Record<string, unknown>) => m.name).map((m: Record<string, unknown>) => (
+            <option key={m.id as number} value={m.name as string}>{m.name as string}{m.color ? ` - ${m.color as string}` : ''}</option>
           ))}
         </select>
       </div>
       <div style={{ display: 'grid', gap: 12 }}>
-        {(form.materiales || []).map((mat, idx) => (
+        {(form.materials_data || []).map((mat, idx) => (
           <MaterialCard key={idx} mat={mat as unknown as Record<string, unknown>} idx={idx} readOnly={readOnly} updateMaterial={updateMaterial} removeMaterial={removeMaterial} num={num} />
         ))}
       </div>
-      {(form.materiales || []).length === 0 && (
+      {(form.materials_data || []).length === 0 && (
         <div style={{ padding: 16, textAlign: 'center', color: '#94a3b8' }}>
           Sin materiales agregados. Usá "+ AGREGAR MATERIAL" para sumar.
         </div>
       )}
       <div className="form-group">
         <label>Observaciones del diseño</label>
-        <textarea className="input" rows={4} value={form.observaciones_diseno} onChange={(e) => update('observaciones_diseno', e.target.value)} placeholder="Zócalo de 7 cm. Frente de 4 cm. Incluye 3 perforaciones..." disabled={readOnly} />
+        <textarea className="input" rows={4} value={form.design_observations} onChange={(e) => update('design_observations', e.target.value)} placeholder="Zócalo de 7 cm. Frente de 4 cm. Incluye 3 perforaciones..." disabled={readOnly} />
       </div>
     </div>
   );

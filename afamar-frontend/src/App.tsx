@@ -19,6 +19,7 @@ import WorkOrdersListPage from './pages/work-orders/WorkOrdersListPage';
 import WorkOrderFormPage from './pages/work-orders/WorkOrderFormPage';
 import MaterialsListPage from './pages/materials/MaterialsListPage';
 import MaterialFormPage from './pages/materials/MaterialFormPage';
+import MaterialsCategoriesPage from './pages/materials/MaterialsCategoriesPage';
 import PoolStockPage from './pages/pool-stock/PoolStockPage';
 import ReportsPage from './pages/reports/ReportsPage';
 import ConfigurationPage from './pages/configuration/ConfigurationPage';
@@ -29,15 +30,15 @@ import CalculatorPage from './pages/calculator/CalculatorPage';
 import CashDailyPage from './pages/cash/CashDailyPage';
 import CashHistoryPage from './pages/cash/CashHistoryPage';
 
-function OldPresupuestoRedirect() {
+function OldBudgetRedirect() {
   const splat = useParams()['*'];
   return <Navigate to={splat ? `/admin/budgets/${splat}` : '/admin/budgets'} replace />;
 }
-function OldOrdenRedirect() {
+function OldWorkOrderRedirect() {
   const splat = useParams()['*'];
   return <Navigate to={splat ? `/admin/work-orders/${splat}` : '/admin/work-orders'} replace />;
 }
-function OldPOnlineRedirect() {
+function OldOnlineBudgetRedirect() {
   const splat = useParams()['*'];
   return <Navigate to={splat ? `/admin/online-budgets/${splat}` : '/admin/online-budgets'} replace />;
 }
@@ -52,9 +53,9 @@ function App() {
             <Route index element={<HomePage />} />
             <Route path="login" element={<LoginPage />} />
             {/* Backward-compat redirects from Spanish paths */}
-            <Route path="presupuestos/*" element={<OldPresupuestoRedirect />} />
-            <Route path="ordenes/*" element={<OldOrdenRedirect />} />
-            <Route path="presupuestos-online/*" element={<OldPOnlineRedirect />} />
+            <Route path="presupuestos/*" element={<OldBudgetRedirect />} />
+            <Route path="ordenes/*" element={<OldWorkOrderRedirect />} />
+            <Route path="presupuestos-online/*" element={<OldOnlineBudgetRedirect />} />
             <Route path="stock-piletas" element={<Navigate to="/admin/pool-stock" replace />} />
             <Route path="caja/diaria" element={<Navigate to="/admin/cash" replace />} />
             <Route path="caja" element={<Navigate to="/admin/cash" replace />} />
@@ -74,6 +75,7 @@ function App() {
                 <Route path="work-orders/new" element={<WorkOrderFormPage />} />
                 <Route path="work-orders/:id" element={<WorkOrderFormPage />} />
                 <Route path="materials" element={<MaterialsListPage />} />
+                <Route path="materials/categories" element={<MaterialsCategoriesPage />} />
                 <Route path="materials/new" element={<MaterialFormPage />} />
                 <Route path="materials/:id" element={<MaterialFormPage />} />
                 <Route path="pool-stock" element={<PoolStockPage />} />

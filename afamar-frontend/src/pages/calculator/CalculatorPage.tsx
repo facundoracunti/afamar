@@ -17,7 +17,7 @@ interface NuevaPiezaState {
   cantidad: string;
 }
 
-export default function CalculadoraPlaca() {
+export default function Calculator() {
   const [piezas, setPiezas] = useState<Pieza[]>([]);
   const [nuevaPieza, setNuevaPieza] = useState<NuevaPiezaState>({ largo: '', ancho: '', cantidad: '1' });
   const [plateW, setPlateW] = useState(3.00);

@@ -4,10 +4,11 @@
    .work-order-form__header-toggle  show/hide croquis button
    .work-order-form__header-hint    small text next to toggle
    .work-order-form__layout      main 2-col layout
-   .work-order-form__layout--no-croquis  layout when croquis hidden
-   .work-order-form__croquis     croquis column
+   .work-order-form__layout--no-sketch  layout when sketch hidden
+   .work-order-form__sketch     sketch column
    .work-order-form__right       right column
    .work-order-form__card        card
+   .work-order-form__card-title  card title
    .work-order-form__add-row     add material/pool select row
    .work-order-form__materials-grid  materials grid
    .work-order-form__materials-empty  empty state
@@ -55,11 +56,11 @@
   margin-top: 16px;
 }
 
-.work-order-form__layout--no-croquis {
+.work-order-form__layout--no-sketch {
   grid-template-columns: 1fr;
 }
 
-.work-order-form__croquis,
+.work-order-form__sketch,
 .work-order-form__right {
   min-width: 0;
 }
@@ -71,6 +72,15 @@
   padding: 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   height: 100%;
+}
+
+.work-order-form__card-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0 0 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .work-order-form__add-row {

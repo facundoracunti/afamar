@@ -59,8 +59,8 @@ export type CroquisElement = CroquisLine | CroquisRect | CroquisCutout | Croquis
 
 export interface CroquisPage {
   id: number;
-  nombre: string;
-  elementos: CroquisElement[];
+  name: string;
+  elements: CroquisElement[];
 }
 
 export interface CroquisEditorProps {

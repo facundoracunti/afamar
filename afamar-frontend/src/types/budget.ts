@@ -1,10 +1,9 @@
-// Budget form schema types. Field names are kept in Spanish because
-// the form layer (`useEntityForm.ts`, `useCalculosPresupuesto.ts`,
-// `OnlineItemsTable.tsx`, and the form pages) reads/writes these
-// fields with Spanish keys. Migrating the field names is a separate
-// task (PLAN.md #9 — replace useEntityForm).
+// Budget form schema types. Field names are in English snake_case to match the backend API exactly.
+// Source of truth: afamar-backend/app/schemas/budget.py (BudgetBase / BudgetCreate / BudgetUpdate).
 
 export interface FabricationDetail {
+  // Spanish field names used inline in form state and fabrication_details array.
+  // The backend serializes this array as a JSON string in fabrication_details TEXT column.
   concepto: string;
   detalle: string;
   concepto_personalizado?: string;
@@ -22,112 +21,111 @@ export interface FabricationDetail {
 export interface BudgetItemSchema {
   id?: number;
   sector?: string;
-  unidad_largo?: string;
-  unidad_ancho?: string;
-  largo?: number;
-  ancho?: number;
+  lengthUnit?: string;
+  widthUnit?: string;
+  length?: number;
+  width?: number;
   m2?: number;
-  cantidad?: number;
-  precio_m2?: number;
+  quantity?: number;
+  priceM2?: number;
   subtotal?: number;
 }
 
 export interface BudgetAdditionalSchema {
   id?: number;
-  concepto?: string;
-  detalle?: string;
-  cantidad?: number;
-  precio_unitario?: number;
+  concept?: string;
+  detail?: string;
+  quantity?: number;
+  unitPrice?: number;
   subtotal?: number;
 }
 
 export interface MaterialInForm {
-  nombre: string;
-  categoria?: string;
+  name: string;
+  category?: string;
   color?: string;
-  precio_m2: number;
-  precio_m2_usd: number;
-  moneda: 'ARS' | 'USD';
-  cantidad: number;
-  m2_utilizados: number;
-  m2_presupuestado: number;
-  largo: number;
-  ancho: number;
-  es_alternativa: boolean;
+  priceM2: number;
+  priceM2Usd: number;
+  currency: 'ARS' | 'USD';
+  quantity: number;
+  m2Used: number;
+  m2Budgeted: number;
+  length: number;
+  width: number;
+  isAlternative: boolean;
 }
 
 export interface PoolInForm {
-  pileta_id: number;
-  marca: string;
-  modelo: string;
-  precio: number;
-  moneda: 'ARS' | 'USD';
-  imagen?: string;
-  cantidad: number;
+  poolId: number;
+  brand: string;
+  model: string;
+  price: number;
+  currency: 'ARS' | 'USD';
+  image?: string;
+  quantity: number;
 }
 
 export interface BudgetPayload {
-  cliente_nombre: string;
-  cliente_telefono_orden: string;
-  domicilio: string;
-  email: string;
-  fecha: string | null;
-  estado: string;
-  material: string;
-  material_precio_m2: number;
-  tipo_cambio: number;
-  color_tipo: string;
-  espesor: string;
-  acabado: string;
-  bacha: string;
-  anafe: string;
-  croquis: unknown;
-  observaciones_diseno: string;
-  detalles_fabricacion: FabricationDetail[];
-  materiales: MaterialInForm[];
-  pileta_id: number | undefined;
-  pileta_precio: number;
-  pileta_moneda: string;
-  pileta_imagen: string;
-  piletas: PoolInForm[];
+  client_name: string | null;
+  client_phone: string | null;
+  client_email: string | null;
+  client_address: string | null;
+  material: string | null;
+  material_price_m2: number;
+  materials_data: string | null;
+  color: string | null;
+  thickness: string | null;
+  finish: string | null;
+  bacha: string | null;
+  anafe: string | null;
+  currency: string;
+  usd_rate: number;
   subtotal: number;
-  traslado: number;
+  transport: number;
   total: number;
-  sena_recibida: number;
-  sena_moneda: string;
-  saldo_pendiente: number;
-  dolar_dia: number;
   subtotal_usd: number;
-  traslado_usd: number;
+  transport_usd: number;
   total_usd: number;
-  sena_usd: number;
-  saldo_pendiente_usd: number;
-  forma_pago: string;
-  cuotas: number;
-  saldo_pagado: boolean;
-  fecha_pago_saldo: string | null;
-  fecha_entrega: string | null;
-  firma_cliente: string | null;
-  fecha_aprobacion: string | null;
-  observaciones: string;
-  observaciones_importantes: string;
-  descuento: number;
-  descuento_porcentaje: number;
-  descuento_monto_fijo: number;
+  deposit_received: number;
+  deposit_currency: string;
+  deposit_usd: number;
+  balance_due: number;
+  balance_due_usd: number;
+  balance_paid: boolean;
+  balance_paid_at: string | null;
+  payment_method: string | null;
+  installments: number;
+  delivery_date: string | null;
+  digital_signature: string | null;
+  signed_at: string | null;
+  design_observations: string | null;
+  important_observations: string | null;
+  notes: string | null;
+  fabrication_details: string | null;
+  pool_id: number | null;
+  pool_price: number;
+  pool_currency: string;
+  pool_image: string | null;
+  pools_data: string | null;
+  discount_percentage: number;
+  discount_fixed_amount: number;
+  items?: unknown[];
+  adicionales?: unknown[];
+  sketch_elements?: unknown[];
 }
 
 export interface UnifiedBudget {
-  tipo: string;
+  type: string;
   id: number;
-  numero: string;
-  orden_trabajo_numero?: string;
-  fecha: string;
-  cliente_nombre?: string;
-  cliente_telefono?: string;
-  materiales?: Array<{ nombre: string }>;
-  items?: Array<{ detalle: string; material?: string }>;
+  number: string;
+  workOrderNumber?: string;
+  date: string;
+  clientName?: string;
+  clientPhone?: string;
+  materials?: Array<{ name: string }>;
+  items?: Array<{ detail: string; material?: string }>;
   material?: string;
-  observaciones_diseno?: string;
+  designObservations?: string;
   total: number;
-  estado: string;
+  status: string;
 }

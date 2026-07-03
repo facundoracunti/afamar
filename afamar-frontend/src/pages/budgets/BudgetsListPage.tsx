@@ -19,14 +19,14 @@ import { formatDate } from '../../utils/formatters';
 import CurrencyDisplay from '../../components/ui/CurrencyDisplay';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Loading from '../../components/common/Loading';
-import type { PresupuestoUnificado } from '../../types/presupuesto';
+import type { UnifiedBudget } from '../../types/budget';
 import styles from './BudgetsListPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
 
 const BUDGETS_KEY = ['budgets', 'unified'] as const;
 
-export default function PresupuestosList() {
+export default function BudgetsList() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
@@ -39,11 +39,11 @@ export default function PresupuestosList() {
     setEstado(e);
   }, [searchParams]);
 
-  const { items: data, loading, load } = useList<PresupuestoUnificado>(
+  const { items: data, loading, load } = useList<UnifiedBudget>(
     [...BUDGETS_KEY, search, estado],
     async () => {
       const res = await getBudgetsUnified({ search: search || undefined, estado: estado || undefined });
-      return (res.data as PresupuestoUnificado[]) || [];
+      return (res.data as UnifiedBudget[]) || [];
     }
   );
 
@@ -90,9 +90,9 @@ export default function PresupuestosList() {
     }
   };
 
-  const handleEnviarWhatsApp = (presupuesto: PresupuestoUnificado) => {
-    const telefono = (presupuesto.cliente_telefono || '').replace(/[^\d]/g, '');
-    const nombre = presupuesto.cliente_nombre || '';
+  const handleEnviarWhatsApp = (presupuesto: UnifiedBudget) => {
+    const telefono = (presupuesto.clientPhone || '').replace(/[^\d]/g, '');
+    const nombre = presupuesto.clientName || '';
     const pdfUrl = getBudgetPdf(presupuesto.id as unknown as string);
     const saludo = nombre ? `Hola ${nombre}! ` : '';
     const mensaje = `${saludo}Te enviamos el presupuesto formal de AFAMAR Marmoles & Granitos. Podes revisarlo e imprimirlo desde el siguiente link: ${pdfUrl}`;
@@ -183,35 +183,35 @@ export default function PresupuestosList() {
               </tr>
             </thead>
             <tbody>
-              {data.map((p: PresupuestoUnificado) => (
+              {data.map((p: UnifiedBudget) => (
                 <tr
-                  key={p.tipo + '-' + p.id}
+                  key={p.type + '-' + p.id}
                   className={s['budgets__row']}
                   onClick={() =>
-                    navigate(p.tipo === 'online' ? `/admin/online-budgets/${p.id}` : `/admin/budgets/${p.id}`)
+                    navigate(p.type === 'online' ? `/admin/online-budgets/${p.id}` : `/admin/budgets/${p.id}`)
                   }
                 >
                   <td className={s['budgets__td']}>
-                    <div className={s['budgets__numero']}>{p.numero}</div>
-                    {p.orden_trabajo_numero && (
-                      <div className={s['budgets__numeroSub']}>-&gt; {p.orden_trabajo_numero}</div>
+                    <div className={s['budgets__numero']}>{p.number}</div>
+                    {p.workOrderNumber && (
+                      <div className={s['budgets__numeroSub']}>{'-> '}{p.workOrderNumber}</div>
                     )}
                   </td>
                   <td className={s['budgets__td']}>
-                    {formatDate((p.fecha || '').split('T')[0]) || '-'}
+                    {formatDate((p.date || '').split('T')[0]) || '-'}
                   </td>
-                  <td className={s['budgets__td']}>{p.cliente_nombre || '-'}</td>
-                  <td className={s['budgets__td']}>{p.cliente_telefono || '-'}</td>
+                  <td className={s['budgets__td']}>{p.clientName || '-'}</td>
+                  <td className={s['budgets__td']}>{p.clientPhone || '-'}</td>
                   <td className={s['budgets__td'] + ' ' + s['budgets__material']}>
                     {(() => {
-                      if (p.materiales && p.materiales.length > 0)
-                        return [...new Set(p.materiales.map((m: { nombre: string }) => m.nombre.trim()))].join(' - ');
-                      if (p.tipo === 'online' && p.items?.length) {
+                      if (p.materials && p.materials.length > 0)
+                        return [...new Set(p.materials.map((m: { name: string }) => m.name.trim()))].join(' - ');
+                      if (p.type === 'online' && p.items?.length) {
                         const mats = p.items
                           .filter(
-                            (i: { detalle: string }) =>
-                              i.detalle &&
-                              i.detalle !== 'LONGITUD' &&
+                            (i: { detail: string }) =>
+                              i.detail &&
+                              i.detail !== 'LONGITUD' &&
                               ![
                                 'ZOCALOS',
                                 'APERTURA + PEGADO PILETA',
@@ -220,9 +220,9 @@ export default function PresupuestosList() {
                                 'APERTURA ANAFE',
                                 'TERMINACION',
                                 'PILETA MOD',
-                              ].includes(i.detalle),
+                              ].includes(i.detail),
                           )
-                          .map((i: { detalle: string }) => i.detalle.trim());
+                          .map((i: { detail: string }) => i.detail.trim());
                         const zocMat = p.items
                           .filter((i: { material?: string }) => i.material)
                           .map((i: { material?: string }) => (i.material || '').trim());
@@ -234,10 +234,10 @@ export default function PresupuestosList() {
                   </td>
                   <td
                     className={s['budgets__td'] + ' ' + s['budgets__details']}
-                    title={p.observaciones_diseno || ''}
+                    title={p.designObservations || ''}
                   >
                     {(() => {
-                      const txt = p.observaciones_diseno || '';
+                      const txt = p.designObservations || '';
                       return txt.length > 60 ? txt.slice(0, 60) + '...' : txt || '-';
                     })()}
                   </td>
@@ -245,11 +245,11 @@ export default function PresupuestosList() {
                     <CurrencyDisplay value={p.total} />
                   </td>
                   <td className={s['budgets__td']}>
-                    {p.estado === 'CONVERTIDO A OT' ? (
+                    {p.status === 'CONVERTED_TO_OT' ? (
                       <span className={s['budgets__status'] + ' ' + s['budgets__status--done']}>
                         CONCRETADO
                       </span>
-                    ) : p.tipo === 'online' ? (
+                    ) : p.type === 'online' ? (
                       <span
                         className={
                           s['budgets__status'] + ' ' + s['budgets__status--pending-online']
@@ -274,7 +274,7 @@ export default function PresupuestosList() {
                         style={{ padding: '3px 8px', fontSize: 11 }}
                         onClick={() =>
                           navigate(
-                            p.tipo === 'online'
+                            p.type === 'online'
                               ? `/admin/online-budgets/${p.id}`
                               : `/admin/budgets/${p.id}`,
                           )
@@ -282,17 +282,17 @@ export default function PresupuestosList() {
                       >
                         <Eye size={12} /> Ver
                       </button>
-                      {p.tipo !== 'online' && p.estado === 'PENDIENTE' && (
+                      {p.type !== 'online' && p.status === 'PENDING' && (
                         <button
                           type="button"
                           className="btn btn-success"
                           style={{ padding: '3px 8px', fontSize: 11 }}
-                          onClick={() => handleCambiarEstado(p.id, 'APROBADO')}
+                          onClick={() => handleCambiarEstado(p.id, 'APPROVED')}
                         >
                           Aprobar
                         </button>
                       )}
-                      {p.tipo !== 'online' && p.estado === 'APROBADO' && (
+                      {p.type !== 'online' && p.status === 'APPROVED' && (
                         <button
                           type="button"
                           className="btn"
@@ -302,7 +302,7 @@ export default function PresupuestosList() {
                           <FileOutput size={11} /> Convertir a OT
                         </button>
                       )}
-                      {p.tipo === 'online' && (
+                      {p.type === 'online' && (
                         <button
                           type="button"
                           className="btn"
@@ -312,21 +312,21 @@ export default function PresupuestosList() {
                           <FileOutput size={11} /> Convertir a OT
                         </button>
                       )}
-                      {p.tipo !== 'online' && p.estado === 'CONVERTIDO A OT' && p.orden_trabajo_numero && (
+                      {p.type !== 'online' && p.status === 'CONVERTED_TO_OT' && p.workOrderNumber && (
                         <button
                           type="button"
                           className={s['budgets__ot']}
-                          onClick={() => navigate(`/admin/work-orders?search=${p.orden_trabajo_numero}`)}
+                          onClick={() => navigate(`/admin/work-orders?search=${p.workOrderNumber}`)}
                         >
-                          OT {p.orden_trabajo_numero}
+                          OT {p.workOrderNumber}
                         </button>
                       )}
-                      {p.tipo !== 'online' && ['PENDIENTE', 'APROBADO'].includes(p.estado) && (
+                      {p.type !== 'online' && ['PENDING', 'APPROVED'].includes(p.status) && (
                         <button
                           type="button"
                           className="btn btn-danger"
                           style={{ padding: '3px 8px', fontSize: 11 }}
-                          onClick={() => handleCambiarEstado(p.id, 'RECHAZADO')}
+                          onClick={() => handleCambiarEstado(p.id, 'REJECTED')}
                         >
                           Rechazar
                         </button>
@@ -358,16 +358,16 @@ export default function PresupuestosList() {
                         <Mail size={12} /> Email
                       </button>
                       <button
-                        type="button"
-                        className="btn btn-danger"
-                        style={{ padding: '3px 6px' }}
-                        onClick={() => {
-                          setDeleteId(p.id);
-                          setDeleteTipo(p.tipo);
-                        }}
-                      >
-                        <Trash2 size={12} />
-                      </button>
+                          type="button"
+                          className="btn btn-danger"
+                          style={{ padding: '3px 6px' }}
+                          onClick={() => {
+                            setDeleteId(p.id);
+                            setDeleteTipo(p.type);
+                          }}
+                        >
+                          <Trash2 size={12} />
+                        </button>
                     </div>
                   </td>
                 </tr>

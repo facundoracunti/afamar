@@ -12,7 +12,7 @@ const s = styles as unknown as Record<string, string>;
 
 const ONLINE_BUDGETS_KEY = ['online-budgets'] as const;
 
-export default function PresupuestosOnlineList() {
+export default function OnlineBudgetsList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -32,9 +32,9 @@ export default function PresupuestosOnlineList() {
   );
 
   const enviarPorWhatsApp = (p: Record<string, unknown>) => {
-    const telefonoLimpio = ((p.telefono as string) || '').replace(/\D/g, '');
+    const telefonoLimpio = ((p.phone as string) || '').replace(/\D/g, '');
     if (!telefonoLimpio) { alert('El presupuesto no tiene teléfono de WhatsApp'); return; }
-    const mensaje = `Hola *${p.cliente as string}*! Te pasamos la cotización de Afamar para tu obra (${(p.tipo_obra as string) || 'sin especificar'}).%0A%0A` +
+    const mensaje = `Hola *${(p.clientName as string) || (p.client_name as string) || '-'}*! Te pasamos la cotización de Afamar para tu obra (${(p.workType as string) || (p.work_type as string) || 'sin especificar'}).%0A%0A` +
                     `Podés ver el detalle interactivo y las opciones disponibles ingresando acá:%0A` +
                     `👉 https://afamar.com.ar/presupuesto-online/${p.id as number}%0A%0A` +
                     `Cualquier duda nos avisás!`;
@@ -99,18 +99,18 @@ export default function PresupuestosOnlineList() {
                   className={s['online-budgets__row']}
                   onClick={() => navigate(`/admin/online-budgets/${p.id as number}`)}
                 >
-                  <td className={s['online-budgets__numero']}>{p.numero as string}</td>
-                  <td>{(p.cliente as string) || '-'}</td>
-                  <td>{(p.tipo_obra as string) || '-'}</td>
-                  <td>{(p.fecha as string) || formatDate((p.created_at as string).split('T')[0])}</td>
+                  <td className={s['online-budgets__number']}>{p.numero as string}</td>
+                  <td>{(p.clientName as string) || (p.client_name as string) || '-'}</td>
+                  <td>{(p.workType as string) || (p.work_type as string) || '-'}</td>
+                  <td>{(p.date as string) || formatDate((p.created_at as string).split('T')[0])}</td>
                   <td className={s['online-budgets__total-ars']}>
-                    $ {((p.total_neto_ars as number) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                    $ {((p.totalNetArs as number) || (p.total_net_ars as number) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                   </td>
                   <td className={s['online-budgets__total-usd']}>
-                    USD {((p.total_neto_usd as number) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                    USD {((p.totalNetUsd as number) || (p.total_net_usd as number) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                   </td>
                   <td className={s['online-budgets__total-cons']}>
-                    $ {((p.total_consolidado as number) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                    $ {((p.totalConsolidated as number) || (p.total_consolidated as number) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                   </td>
                   <td onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                     <div className={s['online-budgets__cell-actions']}>

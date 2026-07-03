@@ -1,6 +1,6 @@
 import React from 'react';
-import ObservacionesSection from '../../components/ordenes/ObservacionesSection';
-import CroquisEditor from '../../components/croquis/CroquisEditor';
+import ObservationsSection from '../../components/orders/ObservationsSection';
+import CroquisEditor from '../../components/sketch/CroquisEditor';
 import type { EntityFormState } from '../../types';
 import styles from './BudgetFormPage.module.css';
 
@@ -30,11 +30,11 @@ export default function BudgetFormObservations({
         {!showCroquis && <span className={s['budget-form__header-hint']}>Croquis oculto.</span>}
       </div>
       {showCroquis && (
-        <div className={s['budget-form__croquis']}>
-          <CroquisEditor croquis={form.croquis} onChange={(v: unknown) => update('croquis', v)} readOnly={readOnly} />
+        <div className={s['budget-form__sketch']}>
+          <CroquisEditor croquis={form.sketch_elements} onChange={(v: unknown) => update('sketch_elements', v)} readOnly={readOnly} />
         </div>
       )}
-      <ObservacionesSection form={form} readOnly={readOnly} update={update as (field: string, value: unknown) => void} />
+      <ObservationsSection form={form} readOnly={readOnly} update={update as (field: string, value: unknown) => void} />
     </>
   );
 }

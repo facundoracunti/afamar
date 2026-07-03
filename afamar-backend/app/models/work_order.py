@@ -75,6 +75,10 @@ class WorkOrder(Base):
     important_observations: Mapped[str] = mapped_column(Text, nullable=True)
     notes: Mapped[str] = mapped_column(Text, nullable=True)
 
+    # Optional per-work-order overrides for the PDF terms.
+    delivery_terms_override: Mapped[str] = mapped_column(Text, nullable=True)
+    warranty_override: Mapped[str] = mapped_column(Text, nullable=True)
+
     snapshot_name: Mapped[str] = mapped_column(String(200), nullable=True)
     snapshot_phone: Mapped[str] = mapped_column(String(50), nullable=True)
     snapshot_email: Mapped[str] = mapped_column(String(200), nullable=True)

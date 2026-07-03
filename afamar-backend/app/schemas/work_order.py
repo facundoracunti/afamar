@@ -54,6 +54,9 @@ class WorkOrderBase(BaseModel):
     design_observations: str | None = None
     important_observations: str | None = None
     notes: str | None = None
+    # Optional per-work-order term overrides (JSON list, may be empty string).
+    delivery_terms_override: str | None = ""
+    warranty_override: str | None = ""
     snapshot_name: str | None = None
     snapshot_phone: str | None = None
     snapshot_email: str | None = None

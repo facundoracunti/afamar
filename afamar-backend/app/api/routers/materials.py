@@ -89,6 +89,19 @@ def delete_category(category_id: int, db: Session = Depends(get_db)):
     db.commit()
 
 
+@router.put("/categories/{category_id}")
+def update_category(category_id: int, data: MaterialCategoryCreate, db: Session = Depends(get_db)):
+    from app.repositories.material import MaterialCategoryRepository
+    repo = MaterialCategoryRepository(db)
+    cat = repo.get_by_id(category_id)
+    if not cat:
+        raise NotFoundError("Category")
+    cat.name = data.name
+    db.commit()
+    db.refresh(cat)
+    return success(cat)
+
+
 # ── Price History ──────────────────────────────────────
 
 @router.get("/{material_id}/price-history")

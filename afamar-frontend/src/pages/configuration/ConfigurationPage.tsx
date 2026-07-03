@@ -4,24 +4,61 @@ import http from '@/api/http';
 import { getSettings, updateSettings, uploadLogo } from '@/api/resources/settings';
 import { useNotify } from '../../context/NotificationContext';
 import Loading from '../../components/common/Loading';
+import TermsEditor from '../../components/common/TermsEditor';
 import styles from './ConfigurationPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
 
-const CONFIG_KEYS = [
+type ConfigKeyType = 'text' | 'email' | 'textarea' | 'terms';
+
+interface ConfigKey {
+  key: string;
+  label: string;
+  type: ConfigKeyType;
+  required?: boolean;
+  terms?: boolean;
+  rows?: number;
+  placeholder?: string;
+  help?: string;
+}
+
+const CONFIG_KEYS: ConfigKey[] = [
   { key: 'company_name', label: 'Nombre de la empresa', type: 'text', required: true },
+  { key: 'company_tagline', label: 'Eslogan / Subtítulo', type: 'text' },
   { key: 'company_address', label: 'Dirección', type: 'text' },
   { key: 'company_phone', label: 'Teléfono', type: 'text' },
   { key: 'company_email', label: 'Email', type: 'email' },
   { key: 'pdf_footer', label: 'Pie de página PDF', type: 'textarea' },
-  { key: 'budget_terms', label: 'Términos del presupuesto', type: 'textarea' },
-  { key: 'delivery_terms', label: 'Condiciones de entrega', type: 'textarea' },
-  { key: 'warranty_text', label: 'Garantías', type: 'textarea' },
+  {
+    key: 'budget_terms',
+    label: 'Términos del presupuesto',
+    type: 'terms',
+    terms: true,
+    placeholder: 'Ej.: Presupuesto válido por 15 días.',
+    help: 'Cada ítem se muestra como un bullet en el PDF generado.',
+  },
+  {
+    key: 'delivery_terms',
+    label: 'Condiciones de entrega',
+    type: 'terms',
+    terms: true,
+    placeholder: 'Ej.: Plazo de entrega: 15 días hábiles.',
+    help: 'Cada ítem se muestra como un bullet en el PDF generado.',
+  },
+  {
+    key: 'warranty_text',
+    label: 'Garantías',
+    type: 'terms',
+    terms: true,
+    placeholder: 'Ej.: Garantía escrita por 12 meses.',
+    help: 'Cada ítem se muestra como un bullet en el PDF generado.',
+  },
   { key: 'observaciones_automaticas', label: 'Observaciones automáticas', type: 'textarea' },
 ];
 
-export default function Configuracion() {
-  const [config, setConfig] = useState<Record<string, string>>({});
+export default function Configuration() {
+  type ConfigValue = string | string[];
+  const [config, setConfig] = useState<Record<string, ConfigValue>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -31,12 +68,22 @@ export default function Configuracion() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const notify = useNotify();
 
+  const buildConfigMap = (data: Record<string, unknown>): Record<string, ConfigValue> => {
+    const map: Record<string, ConfigValue> = {};
+    Object.entries(data).forEach(([k, v]) => {
+      if (Array.isArray(v)) {
+        map[k] = v as string[];
+      } else {
+        map[k] = String(v ?? '');
+      }
+    });
+    return map;
+  };
+
   useEffect(() => {
     getSettings().then((res) => {
       const data = (res as unknown as { data: Record<string, unknown> }).data || {};
-      const map: Record<string, string> = {};
-      Object.entries(data).forEach(([k, v]) => { map[k] = String(v ?? ''); });
-      setConfig(map);
+      setConfig(buildConfigMap(data));
       setLoading(false);
     }).catch(() => {
       setLoading(false);
@@ -50,13 +97,24 @@ export default function Configuracion() {
     setLogoDirty(true);
   };
 
-  const handleFieldChange = (key: string, value: string) => {
+  const handleFieldChange = (key: string, value: ConfigValue) => {
     setConfig({ ...config, [key]: value });
     setConfigDirty(true);
   };
 
+  const refreshConfig = async (): Promise<void> => {
+    const res = await getSettings();
+    const data = (res as unknown as { data: Record<string, unknown> }).data || {};
+    setConfig(buildConfigMap(data));
+    setLogoFile(null);
+    setLogoPreview(null);
+    setLogoDirty(false);
+    setConfigDirty(false);
+  };
+
   const handleSave = async () => {
-    const companyName = (config.company_name || '').trim();
+    const rawName = config.company_name;
+    const companyName = (typeof rawName === 'string' ? rawName : '').trim();
     if (!companyName) {
       notify('El nombre de la empresa es obligatorio', 'error');
       return;
@@ -66,25 +124,24 @@ export default function Configuracion() {
     try {
       if (logoFile) {
         await uploadLogo(logoFile);
-        setLogoFile(null);
-        setLogoPreview(null);
-        setLogoDirty(false);
-        const res = await getSettings();
-        const data = (res as unknown as { data: Record<string, unknown> }).data || {};
-        const map: Record<string, string> = {};
-        Object.entries(data).forEach(([k, v]) => { map[k] = String(v ?? ''); });
-        setConfig(map);
       }
 
       if (configDirty) {
-        const payload: Record<string, string> = {};
+        const payload: Record<string, unknown> = {};
         CONFIG_KEYS.forEach((item) => {
-          payload[item.key] = config[item.key] || '';
+          const current = config[item.key];
+          if (item.terms) {
+            payload[item.key] = Array.isArray(current) ? current : [];
+          } else {
+            payload[item.key] = typeof current === 'string' ? current : '';
+          }
         });
         await updateSettings(payload);
-        setConfigDirty(false);
       }
 
+      // Reload from server so the UI reflects exactly what was persisted
+      // (including any default fallbacks applied by the backend).
+      await refreshConfig();
       notify('Configuración guardada correctamente', 'success');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error al guardar configuración';
@@ -97,10 +154,12 @@ export default function Configuracion() {
 
   if (loading) return <Loading />;
 
+  const companyLogo = typeof config.company_logo === 'string' ? config.company_logo : '';
   const logoSrc = logoPreview
-    || (config.company_logo ? `${(http.defaults.baseURL || '').replace('/api/v1', '')}${config.company_logo}` : null);
+    || (companyLogo ? `${(http.defaults.baseURL || '').replace('/api/v1', '')}${companyLogo}` : null);
 
-  const canSave = !!((config.company_name || '').trim()) && (configDirty || logoDirty);
+  const companyNameValue = typeof config.company_name === 'string' ? config.company_name : '';
+  const canSave = !!(companyNameValue.trim()) && (configDirty || logoDirty);
 
   return (
     <div className={s['configuration']}>
@@ -138,23 +197,34 @@ export default function Configuracion() {
 
         <div className={s['configuration__grid']}>
           {CONFIG_KEYS.map((item) => (
-            <div className={s['configuration__group']} key={item.key}>
+            <div className={s['configuration__group']} key={item.key} style={item.terms ? { gridColumn: '1 / -1' } : undefined}>
               <label className={s['configuration__label']}>
                 {item.label}
                 {item.required && <span style={{ color: '#dc2626' }}> *</span>}
               </label>
-              {item.type === 'textarea' ? (
+              {item.type === 'terms' ? (
+                <>
+                  <TermsEditor
+                    items={Array.isArray(config[item.key]) ? (config[item.key] as string[]) : []}
+                    onChange={(next) => handleFieldChange(item.key, next)}
+                    placeholder={item.placeholder}
+                    hint={item.help}
+                  />
+                </>
+              ) : item.type === 'textarea' ? (
                 <textarea
                   className="input"
-                  rows={3}
-                  value={config[item.key] || ''}
+                  rows={item.rows || 3}
+                  value={typeof config[item.key] === 'string' ? (config[item.key] as string) : ''}
+                  placeholder={item.placeholder}
+                  style={{ lineHeight: 1.5 }}
                   onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleFieldChange(item.key, e.target.value)}
                 />
               ) : (
                 <input
                   className="input"
                   type={item.type}
-                  value={config[item.key] || ''}
+                  value={typeof config[item.key] === 'string' ? (config[item.key] as string) : ''}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFieldChange(item.key, e.target.value)}
                 />
               )}

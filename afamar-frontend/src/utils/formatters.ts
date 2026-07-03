@@ -13,13 +13,13 @@ export const formatInputDate = (date: string | undefined | null): string => {
   return d.toISOString().split('T')[0];
 };
 
-export const espesores: string[] = ['2 cm', '1.2 cm'];
-export const acabados: string[] = ['PULIDO', 'LAPIDADO', 'FLAMEADO', 'CEPILLADO'];
-export const conceptosFabricacion: string[] = ['LONGITUD', 'ZÓCALO', 'FRENTE', 'TRAFORO DE PILETA', 'TRAFORO DE ANAFE', 'TRAFORO DE PILETA DE APOYO', 'OTRA'];
-export const categoriasMaterial: string[] = ['Granitos', 'Cuarzos', 'Sinterizados', 'Mármoles'];
+export const thicknesses: string[] = ['2 cm', '1.2 cm'];
+export const finishes: string[] = ['PULIDO', 'LAPIDADO', 'FLAMEADO', 'CEPILLADO'];
+export const fabricationConcepts: string[] = ['LONGITUD', 'ZÓCALO', 'FRENTE', 'TRAFORO DE PILETA', 'TRAFORO DE ANAFE', 'TRAFORO DE PILETA DE APOYO', 'OTRA'];
+export const materialCategories: string[] = ['Granitos', 'Cuarzos', 'Sinterizados', 'Mármoles'];
 
-export const estadosOrden: string[] = ['MEDICION', 'TALLER', 'TERMINADA', 'ENTREGADA'];
-export const estadosPresupuestoLocal: string[] = ['PENDIENTE', 'ENVIADO', 'APROBADO', 'RECHAZADO'];
+export const orderStatuses: string[] = ['MEDICION', 'TALLER', 'TERMINADA', 'ENTREGADA'];
+export const budgetStatuses: string[] = ['PENDIENTE', 'ENVIADO', 'APROBADO', 'RECHAZADO'];
 
-export const estadosMedicion: string[] = ['PENDIENTE', 'CONFIRMADA', 'REALIZADA', 'CANCELADA'];
-export const CONCEPTOS_M2: string[] = ['ZÓCALO', 'FRENTE'];
+export const measurementStatuses: string[] = ['PENDING', 'CONFIRMED', 'DONE', 'CANCELLED'];
+export const M2_CONCEPTS: string[] = ['ZÓCALO', 'FRENTE'];

@@ -80,6 +80,11 @@ class Budget(Base):
     notes: Mapped[str] = mapped_column(Text, nullable=True)
     fabrication_details: Mapped[str] = mapped_column(Text, nullable=True)
 
+    # Optional per-budget overrides for the PDF terms (stored as JSON list[str]).
+    # Empty string = inherit the global terms from /admin/configuration.
+    budget_terms_override: Mapped[str] = mapped_column(Text, nullable=True)
+    warranty_override: Mapped[str] = mapped_column(Text, nullable=True)
+
     pool_id: Mapped[int] = mapped_column(ForeignKey("pool_stock.id"), nullable=True)
     pool_price: Mapped[float] = mapped_column(Float, default=0.0)
     pool_currency: Mapped[str] = mapped_column(String(5), default="ARS")

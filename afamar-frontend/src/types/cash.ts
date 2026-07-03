@@ -1,13 +1,12 @@
-// Cash entity type. Field names are kept in Spanish to match
-// the form layer (caja components).
+// Cash entity type. English field names matching backend API.
 
 export interface CashMovement {
   id: number;
-  orden_trabajo_id?: number;
-  tipo: string;
-  monto: number;
-  forma_pago?: string;
-  saldo_restante?: number;
-  observaciones?: string;
-  created_at?: string;
+  workOrderId?: number;
+  type: string;
+  amount: number;
+  paymentMethod?: string;
+  remainingBalance?: number;
+  observations?: string;
+  createdAt?: string;
 }

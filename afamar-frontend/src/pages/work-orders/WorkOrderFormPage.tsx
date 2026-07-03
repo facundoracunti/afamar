@@ -6,24 +6,25 @@ import { getWorkOrder, createWorkOrder, updateWorkOrder, deleteWorkOrder, getNex
 import { getMaterials } from '@/api/resources/materials';
 import { getPoolStock } from '@/api/resources/poolStock';
 import { getClients } from '@/api/resources/clients';
-import { formatCurrency, conceptosFabricacion } from '../../utils/formatters';
-import EstadoBadge from '../../components/ui/EstadoBadge';
+import { formatCurrency } from '../../utils/formatters';
+import { StatusBadge } from '../../components/ui/StatusBadge';
 import useEntityForm from '../../hooks/useEntityForm';
-import CroquisEditor from '../../components/croquis/CroquisEditor';
-import PresupuestoPanel from '../../components/presupuesto/PresupuestoPanel';
+import CroquisEditor from '../../components/sketch/CroquisEditor';
+import BudgetPanel from '../../components/budget/BudgetPanel';
 import Loading from '../../components/common/Loading';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import PdfPreviewModal from '../../components/common/PdfPreviewModal';
-import AprobacionSection from '../../components/ordenes/AprobacionSection';
-import FormHeader from '../../components/ordenes/FormHeader';
-import FormFooter from '../../components/ordenes/FormFooter';
+import TermsEditor from '../../components/common/TermsEditor';
+import ApprovalSection from '../../components/orders/ApprovalSection';
+import FormHeader from '../../components/orders/FormHeader';
+import FormFooter from '../../components/orders/FormFooter';
 import WorkOrderFormBasic from './WorkOrderFormBasic';
 import WorkOrderFormSpecs from './WorkOrderFormSpecs';
 import WorkOrderFormItemsGrid from './WorkOrderFormItemsGrid';
 import WorkOrderFormFinancial from './WorkOrderFormFinancial';
 import WorkOrderFormObservations from './WorkOrderFormObservations';
 import WorkOrderFormSnapshot from './WorkOrderFormSnapshot';
-import type { OrdenTrabajoPayload, EntityFormState, EntityServices, MaterialEnForm } from '../../types';
+import type { EntityFormState, EntityServices, MaterialInForm, PoolInForm } from '../../types';
 import styles from './WorkOrderFormPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -34,14 +35,14 @@ const ordenServices = {
   update: updateWorkOrder as EntityServices['update'],
   delete: deleteWorkOrder as EntityServices['delete'],
   getNextNumero: getNextWorkOrderNumber as EntityServices['getNextNumero'],
-  getMateriales: getMaterials as EntityServices['getMateriales'],
-  getPiletas: getPoolStock as EntityServices['getPiletas'],
-  getClientes: getClients as EntityServices['getClientes'],
+  getMaterials: getMaterials as EntityServices['getMaterials'],
+  getPools: getPoolStock as EntityServices['getPools'],
+  getClients: getClients as EntityServices['getClients'],
   getPdfUrl: getWorkOrderPdf,
   listPath: '/admin/work-orders',
 };
 
-export default function OrdenForm() {
+export default function WorkOrderForm() {
   const { id } = useParams();
   const navigate = useNavigate();
   const notify = useNotify();
@@ -49,61 +50,71 @@ export default function OrdenForm() {
 
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
+  const [deliveryTerms, setDeliveryTerms] = useState<string[]>([]);
+  const [warrantyTerms, setWarrantyTerms] = useState<string[]>([]);
 
   const {
     form, loading, saving, materiales, piletas, logoUrl,
-    showClienteDropdown, menuOpen, deleteConfirm, showCroquis,
-    readOnly, hayUSD, hayAlternativas, clientesFiltrados,
+    showClientDropdown, menuOpen, deleteConfirm, showCroquis,
+    readOnly, hayUSD, hayAlternativas, filteredClients,
     modoUSD, toggleModoUSD,
-    menuRef, clienteRef,
+    menuRef, clientRef,
     setForm,
-    setMenuOpen, setDeleteConfirm, setShowClienteDropdown, setShowCroquis,
+    setMenuOpen, setDeleteConfirm, setShowClientDropdown, setShowCroquis,
     update,
-    handleClienteSelect, handleTrasladoChange,
-    handleSenaMonedaChange, handleSenaMontoChange, handleDolarDiaChange,
-    handleDetalleChange, addDetalle, removeDetalle,
+    handleClientSelect, handleTransportChange,
+    handleDepositCurrencyChange, handleDepositAmountChange, handleUsdRateChange,
+    handleDetailChange, addDetalle, removeDetalle,
     addMaterial, removeMaterial, updateMaterial,
     addPileta, removePileta, updatePileta,
-    handleSubmit, handleDelete, handleCambioEstadoAccion, handlePrint,
+    handleSubmit, handleDelete, handleStatusChangeAction, handlePrint,
     buildPayload,
-    CONCEPTOS_M2,
+    M2_CONCEPTS,
   } = useEntityForm({
-    entityType: 'orden',
+    entityType: 'work_order',
     services: ordenServices,
-    defaultEstado: 'MEDICION',
+    defaultEstado: 'MEASUREMENT',
     id,
     navigate,
   });
 
+  const encodeTerms = (items: string[]) => JSON.stringify(items.filter((t) => t.trim() !== ''));
+
+  const buildPayloadWithTerms = (): Record<string, unknown> => ({
+    ...buildPayload(),
+    delivery_terms_override: encodeTerms(deliveryTerms),
+    warranty_override: encodeTerms(warrantyTerms),
+  });
+
   if (loading) return <Loading />;
 
-  const matsMain = hayAlternativas ? (form.materiales || []).filter((m) => !m.es_alternativa) : (form.materiales || []);
-  const matsAlt = (form.materiales || []).filter((m) => m.es_alternativa);
+  const matsMain = hayAlternativas ? (form.materials_data as unknown as MaterialInForm[] || []).filter((m) => !m.isAlternative) : (form.materials_data as unknown as MaterialInForm[] || []);
+  const matsAlt = (form.materials_data as unknown as MaterialInForm[] || []).filter((m) => m.isAlternative);
 
   const handleConfirmarPago = async () => {
     if (!id) return;
-    const nuevo = !form.saldo_pagado;
+    const nuevo = !form.balance_paid;
     const hoy = new Date().toISOString().split('T')[0];
     const payload: Record<string, unknown> = {
-      saldo_pagado: nuevo,
-      fecha_pago_saldo: nuevo ? hoy : null,
+      balance_paid: nuevo,
+      balance_paid_at: nuevo ? hoy : null,
     };
     if (nuevo) {
-      payload.sena_recibida = Number(form.total);
-      payload.sena_moneda = 'ARS';
-      payload.saldo_pendiente = 0;
-      payload.sena_usd = Number(form.total_usd);
-      payload.saldo_pendiente_usd = 0;
+      payload.deposit_received = Number(form.total);
+      payload.deposit_currency = 'ARS';
+      payload.balance_due = 0;
+      payload.deposit_usd = Number(form.total_usd);
+      payload.balance_due_usd = 0;
     }
     await updateWorkOrder(id as string, payload);
-    setForm((prev) => ({ ...prev, ...payload, fecha_pago_saldo: nuevo ? hoy : '' } as EntityFormState));
+    setForm((prev) => ({ ...prev, ...payload } as EntityFormState));
   };
 
   const handlePreviewPdf = async () => {
     setPdfPreviewLoading(true);
     setPdfPreviewUrl(null);
     try {
-      const payload = buildPayload();
+      const payload = buildPayloadWithTerms();
       const res = await previewWorkOrderPdf(payload);
       const blob = res.data as Blob;
       const url = URL.createObjectURL(blob);
@@ -140,15 +151,15 @@ export default function OrdenForm() {
         <span style={{ fontSize: 11, color: '#3b82f6', marginLeft: 8 }}>{matsAlt.length} opciones alternativas</span>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
-        {matsAlt.map((mat, idx) => {
+        {matsAlt.map((mat: MaterialInForm, idx: number) => {
           const letra = String.fromCharCode(65 + idx);
-          const dd2 = Number(form.dolar_dia);
-          const m2 = Number(mat.largo || 0) * Number(mat.ancho || 0) * (mat.cantidad || 1);
-          const costoMat = mat.moneda === 'USD' ? m2 * (mat.precio_m2_usd || 0) : m2 * (mat.precio_m2 || 0);
-          const costoMatArs = mat.moneda === 'USD' ? (dd2 > 0 ? costoMat * dd2 : 0) : costoMat;
-          const fijosArsAlt = (form.detalles_fabricacion || []).reduce((s: number, d) => s + (Number(d.precio) || 0) * (d.cantidad || 1), 0)
-            + (form.piletas || []).reduce((s: number, pt) => s + (Number(pt.precio) || 0) * (pt.cantidad || 1), 0)
-            + (Number(form.traslado) || 0);
+          const dd2 = Number(form.usd_rate);
+          const m2 = Number(mat.length || 0) * Number(mat.width || 0) * (mat.quantity || 1);
+          const costoMat = mat.currency === 'USD' ? m2 * (mat.priceM2Usd || 0) : m2 * (mat.priceM2 || 0);
+          const costoMatArs = mat.currency === 'USD' ? (dd2 > 0 ? costoMat * dd2 : 0) : costoMat;
+          const fijosArsAlt = (form.fabrication_details || []).reduce((s: number, d) => s + (Number(d.precio) || 0) * (d.cantidad || 1), 0)
+            + (form.pools_data as unknown as PoolInForm[] || []).reduce((s: number, pt) => s + (Number(pt.price) || 0) * (Number(pt.quantity) || 1), 0)
+            + (Number(form.transport) || 0);
           const totalArs = costoMatArs + fijosArsAlt;
           const mostrarUSDAlt = modoUSD && dd2 > 0;
           return (
@@ -156,10 +167,10 @@ export default function OrdenForm() {
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                   <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', padding: '2px 8px', background: '#dbeafe', color: '#1e40af', borderRadius: 4 }}>Alternativa {letra}</span>
-                  <span style={{ fontSize: 11, color: '#6b7280' }}>{mat.cantidad || 1} pza. ({m2.toFixed(3)} m²)</span>
+                  <span style={{ fontSize: 11, color: '#6b7280' }}>{mat.quantity || 1} pza. ({m2.toFixed(3)} m²)</span>
                 </div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', textTransform: 'uppercase', marginBottom: 2 }}>{mat.nombre as string}</div>
-                {mat.moneda === 'USD' && <div style={{ fontSize: 11, color: '#059669', fontWeight: 600, marginBottom: 8 }}>USD {costoMat.toFixed(2)}</div>}
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', textTransform: 'uppercase', marginBottom: 2 }}>{mat.name}</div>
+                {mat.currency === 'USD' && <div style={{ fontSize: 11, color: '#059669', fontWeight: 600, marginBottom: 8 }}>USD {costoMat.toFixed(2)}</div>}
                 <div style={{ borderTop: '1px dashed #d1d5db', paddingTop: 6, fontSize: 12, color: '#6b7280', marginBottom: 8 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span>Material:</span>
@@ -180,81 +191,55 @@ export default function OrdenForm() {
         })}
       </div>
       <div style={{ fontSize: 10, color: '#9ca3af', textAlign: 'center', marginTop: 12, fontStyle: 'italic' }}>
-        * Todos los totales incluyen la misma configuraci&oacute;n de trabajos, piletas y traslados.
+        * Todos los totales incluyen la misma configuración de trabajos, piletas y traslados.
       </div>
     </div>
   ) : null;
 
   const descuentoBlock = (
-    <>
-      {form.descuento_porcentaje > 0 && (() => {
-        const descPct = form.descuento_porcentaje || 0;
-        const recargoPct = form.recargo_pct || 0;
-        const totalActual = form.total || 0;
-        const totalSinRecargo = recargoPct > 0 ? Math.round(totalActual / (1 + recargoPct / 100)) : totalActual;
-        const precioBase = Math.round(totalSinRecargo / (1 - descPct / 100));
-        const precioLista = recargoPct > 0 ? precioBase + Math.round(precioBase * recargoPct / 100) : precioBase;
-        const descuentoEnPesos = Math.round(precioLista * descPct / 100);
-        return (
-          <div style={{ marginTop: 12, padding: '10px 14px', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, fontSize: 13 }}>
-            <div style={{ marginBottom: 8, padding: '6px 10px', background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 6, fontSize: 12, fontWeight: 700, color: '#92400e', textAlign: 'center' }}>
-              📌 Este pedido se guard&oacute; con un <span style={{ fontSize: 14 }}>{descPct}%</span> de descuento aplicado
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0', borderBottom: '1px solid #dcfce7', fontWeight: 700, color: '#374151' }}>
-              <span>Precio Lista (Original)</span>
-              <span>{formatCurrency(precioLista)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0', fontWeight: 700, color: '#dc2626' }}>
-              <span>Descuento Aplicado</span>
-              <span>{descPct}% OFF (-{formatCurrency(descuentoEnPesos)})</span>
-            </div>
+    <>{form.payment_method === 'EFECTIVO' && (
+      <div style={{ marginTop: 8, padding: '8px 10px', background: '#fffbe6', border: '1px solid #fde68a', borderRadius: 8 }}>
+        <label style={{ fontSize: 12, fontWeight: 700, color: '#92400e', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
+          🔒 Descuento Comercial (Solo Vendedor)
+        </label>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>%</span>
+            <input type="number" className="input" style={{ width: 70, textAlign: 'right' }}
+              placeholder="0" min="0" max="100"
+              value={form.discount_percentage || ''}
+              onChange={(e) => {
+                const val = Number(e.target.value) || 0;
+                setForm({ ...form, discount_percentage: val, discount_fixed_amount: val > 0 ? 0 : form.discount_percentage });
+              }}
+              disabled={readOnly} />
           </div>
-        );
-      })()}
-      {form.forma_pago === 'EFECTIVO' && (
-        <div style={{ marginTop: 8, padding: '8px 10px', background: '#fffbe6', border: '1px solid #fde68a', borderRadius: 8 }}>
-          <label style={{ fontSize: 12, fontWeight: 700, color: '#92400e', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
-            &#128274; Descuento Comercial (Solo Vendedor)
-          </label>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>%</span>
-              <input type="number" className="input" style={{ width: 70, textAlign: 'right' }}
-                placeholder="0" min="0" max="100"
-                value={form.descuento_porcentaje || ''}
-                onChange={(e) => {
-                  const val = Number(e.target.value) || 0;
-                  setForm({ ...form, descuento_porcentaje: val, descuento_monto_fijo: val > 0 ? 0 : form.descuento_monto_fijo });
-                }}
-                disabled={readOnly} />
-            </div>
-            <span style={{ fontSize: 12, color: '#9ca3af' }}>o</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>$</span>
-              <input type="number" className="input" style={{ width: 100, textAlign: 'right' }}
-                placeholder="Monto fijo"
-                value={form.descuento_monto_fijo || ''}
-                onChange={(e) => {
-                  const val = Number(e.target.value) || 0;
-                  setForm({ ...form, descuento_monto_fijo: val, descuento_porcentaje: val > 0 ? 0 : form.descuento_porcentaje });
-                }}
-                disabled={readOnly} />
-            </div>
-          </div>
-          <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 4, fontStyle: 'italic' }}>
-            Este descuento modifica el TOTAL ARS final pero no se muestra en el PDF del cliente.
+          <span style={{ fontSize: 12, color: '#9ca3af' }}>o</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>$</span>
+            <input type="number" className="input" style={{ width: 100, textAlign: 'right' }}
+              placeholder="Monto fijo"
+              value={form.discount_fixed_amount || ''}
+              onChange={(e) => {
+                const val = Number(e.target.value) || 0;
+                setForm({ ...form, discount_fixed_amount: val, discount_percentage: val > 0 ? 0 : form.discount_percentage });
+              }}
+              disabled={readOnly} />
           </div>
         </div>
-      )}
-    </>
+        <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 4, fontStyle: 'italic' }}>
+          Este descuento modifica el TOTAL ARS final pero no se muestra en el PDF del cliente.
+        </div>
+      </div>
+    )}</>
   );
 
   return (
     <div className={s['work-order-form']}>
       <FormHeader
         className="orden-header"
-        title={`Orden N° ${form.numero || 'A-_____'}`}
-        badge={<EstadoBadge estado={form.estado} style={{ fontSize: 13, padding: '4px 14px' }} />}
+        title={`Orden N° ${form.number || 'A-_____'}`}
+        badge={<StatusBadge status={form.status} />}
         logoUrl={logoUrl}
         menuOpen={menuOpen}
         menuRef={menuRef}
@@ -266,22 +251,22 @@ export default function OrdenForm() {
           { label: 'Historial', icon: <History size={16} />, onClick: () => { setMenuOpen(false); notify('Historial de cambios — próximamente', 'info'); } },
         ]}
       >
-        {form.estado === 'MEDICION' && (
-          <button className={s['work-order-form__btn-measurement']} onClick={() => handleCambioEstadoAccion('TALLER')} disabled={saving}>
+        {form.status === 'MEASUREMENT' && (
+          <button className={s['work-order-form__btn-measurement']} onClick={() => handleStatusChangeAction('WORKSHOP')} disabled={saving}>
             🏭 Enviar a Taller
           </button>
         )}
-        {form.estado === 'TALLER' && (
-          <button className={s['work-order-form__btn-workshop']} onClick={() => handleCambioEstadoAccion('TERMINADA')} disabled={saving}>
+        {form.status === 'WORKSHOP' && (
+          <button className={s['work-order-form__btn-workshop']} onClick={() => handleStatusChangeAction('FINISHED')} disabled={saving}>
             ✅ Finalizar Trabajo
           </button>
         )}
-        {form.estado === 'TERMINADA' && (
-          <button className={s['work-order-form__btn-delivery']} onClick={() => handleCambioEstadoAccion('ENTREGADA')} disabled={saving}>
+        {form.status === 'FINISHED' && (
+          <button className={s['work-order-form__btn-delivery']} onClick={() => handleStatusChangeAction('DELIVERED')} disabled={saving}>
             🚚 Entregar al Cliente
           </button>
         )}
-        {form.estado === 'ENTREGADA' && (
+        {form.status === 'DELIVERED' && (
           <span className={s['work-order-form__badge-delivered']}>
             📦 Trabajo Entregado
           </span>
@@ -302,19 +287,19 @@ export default function OrdenForm() {
           form={form}
           readOnly={readOnly}
           update={update as (field: string, value: unknown) => void}
-          clienteRef={clienteRef}
-          showClienteDropdown={showClienteDropdown}
-          setShowClienteDropdown={setShowClienteDropdown}
-          clientesFiltrados={clientesFiltrados}
-          handleClienteSelect={handleClienteSelect}
+          clientRef={clientRef}
+          showClientDropdown={showClientDropdown}
+          setShowClientDropdown={setShowClientDropdown}
+          filteredClients={filteredClients}
+          handleClientSelect={handleClientSelect}
         />
 
         <WorkOrderFormSnapshot form={form} readOnly={readOnly} />
 
-        <div className={`${s['work-order-form__layout']}${showCroquis ? '' : ' ' + s['work-order-form__layout--no-croquis']}`}>
+        <div className={`${s['work-order-form__layout']}${showCroquis ? '' : ' ' + s['work-order-form__layout--no-sketch']}`}>
           {showCroquis && (
-            <div className={s['work-order-form__croquis']}>
-              <CroquisEditor croquis={form.croquis} onChange={(v: unknown) => update('croquis', v)} readOnly={readOnly} />
+            <div className={s['work-order-form__sketch']}>
+              <CroquisEditor croquis={form.sketch_elements} onChange={(v: unknown) => update('sketch_elements', v)} readOnly={readOnly} />
             </div>
           )}
           <div className={s['work-order-form__right']}>
@@ -336,9 +321,9 @@ export default function OrdenForm() {
             form={form}
             readOnly={readOnly}
             materiales={materiales}
-            CONCEPTOS_M2={CONCEPTOS_M2}
+            M2_CONCEPTS={M2_CONCEPTS}
             num={num}
-            handleDetalleChange={handleDetalleChange}
+            handleDetailChange={handleDetailChange}
             addDetalle={addDetalle}
             removeDetalle={removeDetalle}
           />
@@ -351,10 +336,10 @@ export default function OrdenForm() {
             hayAlternativas={hayAlternativas}
             readOnly={readOnly}
             saving={saving}
-            handleTrasladoChange={handleTrasladoChange}
-            handleSenaMonedaChange={handleSenaMonedaChange}
-            handleSenaMontoChange={handleSenaMontoChange}
-            handleDolarDiaChange={handleDolarDiaChange}
+            handleTransportChange={handleTransportChange}
+            handleDepositCurrencyChange={handleDepositCurrencyChange}
+            handleDepositAmountChange={handleDepositAmountChange}
+            handleUsdRateChange={handleUsdRateChange}
             setForm={setForm}
             update={update as (field: string, value: unknown) => void}
             num={num}
@@ -370,7 +355,7 @@ export default function OrdenForm() {
             mostrarToggleColumns={false}
           />
 
-          <AprobacionSection form={form} readOnly={readOnly} update={update as (field: string, value: unknown) => void} />
+          <ApprovalSection form={form} readOnly={readOnly} update={update as (field: string, value: unknown) => void} />
         </div>
 
         <WorkOrderFormObservations
@@ -380,6 +365,28 @@ export default function OrdenForm() {
           setShowCroquis={setShowCroquis}
           update={update}
         />
+
+        <div className={s['work-order-form__card']} style={{ marginTop: 16 }}>
+          <h3 className={s['work-order-form__card-title']}>Condiciones de Entrega</h3>
+          <TermsEditor
+            items={deliveryTerms}
+            onChange={setDeliveryTerms}
+            placeholder="Ej: Entrega a convenir, transporte a cargo del cliente…"
+            hint="Si dejás la lista vacía, se usarán las condiciones globales configuradas."
+            disabled={readOnly}
+          />
+        </div>
+
+        <div className={s['work-order-form__card']} style={{ marginTop: 16 }}>
+          <h3 className={s['work-order-form__card-title']}>Garantía</h3>
+          <TermsEditor
+            items={warrantyTerms}
+            onChange={setWarrantyTerms}
+            placeholder="Ej: 12 meses por defectos de fabricación…"
+            hint="Si dejás la lista vacía, se usará la garantía global configurada."
+            disabled={readOnly}
+          />
+        </div>
 
         <FormFooter saving={saving} onCancel={() => navigate('/admin/work-orders')} />
       </form>

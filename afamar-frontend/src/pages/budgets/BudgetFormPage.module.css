@@ -1,11 +1,11 @@
 /* BudgetFormPage — BEM
    .budget-form              block (root)
    .budget-form__header      header area with toggle
-   .budget-form__header-toggle  show/hide croquis button
+   .budget-form__header-toggle  show/hide sketch button
    .budget-form__header-hint    small text next to toggle
-   .budget-form__layout      main 2-col layout (croquis + materials)
-   .budget-form__layout--no-croquis  layout when croquis hidden
-   .budget-form__croquis     croquis column
+   .budget-form__layout      main 2-col layout (sketch + materials)
+   .budget-form__layout--no-sketch  layout when sketch hidden
+   .budget-form__sketch     sketch column
    .budget-form__right       right column (materials)
    .budget-form__card        card
    .budget-form__card-title  card title
@@ -52,11 +52,11 @@
   margin-top: 16px;
 }
 
-.budget-form__layout--no-croquis {
+.budget-form__layout--no-sketch {
   grid-template-columns: 1fr;
 }
 
-.budget-form__croquis,
+.budget-form__sketch,
 .budget-form__right {
   min-width: 0;
 }

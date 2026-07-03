@@ -1,0 +1,118 @@
+/* TermsEditor — BEM
+   .terms-editor               block
+   .terms-editor__list          list of items
+   .terms-editor__row           row (item + delete button)
+   .terms-editor__row-input     input inside row
+   .terms-editor__row-delete    delete button inside row
+   .terms-editor__row-handle    drag handle icon
+   .terms-editor__add           add new item button
+   .terms-editor__empty         empty state
+*/
+.terms-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.terms-editor__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.terms-editor__row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.terms-editor__row-bullet {
+  color: #64748b;
+  font-weight: 700;
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+}
+
+.terms-editor__row-input {
+  flex: 1;
+  padding: 7px 10px;
+  border: 1px solid #cbd5e0;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.terms-editor__row-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.terms-editor__row-input:disabled {
+  background: #f1f5f9;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.terms-editor__row-delete {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #b91c1c;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.terms-editor__row-delete:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.terms-editor__row-delete:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.terms-editor__add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px dashed #cbd5e0;
+  border-radius: 6px;
+  background: #fff;
+  color: #2563eb;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  align-self: flex-start;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.terms-editor__add:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+
+.terms-editor__add:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.terms-editor__empty {
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #94a3b8;
+  font-style: italic;
+  border: 1px dashed #e2e8f0;
+  border-radius: 6px;
+  background: #f8fafc;
+}

@@ -4,78 +4,78 @@ import { getDailyCash, createCashMovement, deleteCashMovement, setPreviousBalanc
 import { useGet } from '../../api/hooks';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Loading from '../../components/common/Loading';
-import SaldoAnteriorCard from '../../components/caja/SaldoAnteriorCard';
-import IngresosTable from '../../components/caja/IngresosTable';
-import EgresosTable from '../../components/caja/EgresosTable';
-import CajaTotalCards from '../../components/caja/CajaTotalCards';
-import IngresoModal from '../../components/caja/IngresoModal';
-import EgresoModal from '../../components/caja/EgresoModal';
-import CerrarCajaModal from '../../components/caja/CerrarCajaModal';
+import PreviousBalanceCard from '../../components/cash/PreviousBalanceCard';
+import IncomeTable from '../../components/cash/IncomeTable';
+import ExpenseTable from '../../components/cash/ExpenseTable';
+import CashTotalCards from '../../components/cash/CashTotalCards';
+import IncomeModal from '../../components/cash/IncomeModal';
+import ExpenseModal from '../../components/cash/ExpenseModal';
+import CloseCashModal from '../../components/cash/CloseCashModal';
 import styles from './CashDailyPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
 
-export default function CajaDiaria() {
+export default function CashDailyPage() {
   const today = new Date().toISOString().split('T')[0];
-  const [fecha, setFecha] = useState<string>(today);
-  const [saldoAnterior, setSaldoAnterior] = useState<number>(0);
-  const [movimientos, setMovimientos] = useState<Record<string, unknown>[]>([]);
-  const [saldoAnteriorEdit, setSaldoAnteriorEdit] = useState<boolean>(false);
+  const [date, setDate] = useState<string>(today);
+  const [previousBalance, setPreviousBalanceState] = useState<number>(0);
+  const [movements, setMovements] = useState<Record<string, unknown>[]>([]);
+  const [previousBalanceEdit, setPreviousBalanceEdit] = useState<boolean>(false);
 
-  const [showIngreso, setShowIngreso] = useState<boolean>(false);
-  const [showEgreso, setShowEgreso] = useState<boolean>(false);
+  const [showIncome, setShowIncome] = useState<boolean>(false);
+  const [showExpense, setShowExpense] = useState<boolean>(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
-  const [showCerrar, setShowCerrar] = useState<boolean>(false);
-  const [cerrada, setCerrada] = useState<boolean>(false);
+  const [showClose, setShowClose] = useState<boolean>(false);
+  const [closed, setClosed] = useState<boolean>(false);
 
-  const { data: cajaData, loading, load: loadCaja } = useGet<Record<string, unknown>>(
-    ['cash', 'daily', fecha],
+  const { data: cashData, loading, load: loadCaja } = useGet<Record<string, unknown>>(
+    ['cash', 'daily', date],
     async () => {
-      const res = await getDailyCash(fecha);
+      const res = await getDailyCash(date);
       return (res.data as Record<string, unknown>) || {};
     }
   );
 
   useEffect(() => {
-    if (!cajaData) return;
-    const movs = (cajaData.movements as Record<string, unknown>[]) || [];
-    setSaldoAnterior((cajaData.previous_balance as number) ?? 0);
-    setMovimientos(movs);
-    setCerrada((cajaData.is_closed as boolean) || false);
-  }, [cajaData]);
+    if (!cashData) return;
+    const movs = (cashData.movements as Record<string, unknown>[]) || [];
+    setPreviousBalanceState((cashData.previous_balance as number) ?? 0);
+    setMovements(movs);
+    setClosed((cashData.is_closed as boolean) || false);
+  }, [cashData]);
 
-  const handleSaveSaldoAnterior = async () => {
+  const handleSavePreviousBalance = async () => {
     try {
-      await setPreviousBalance(fecha, saldoAnterior);
-      setSaldoAnteriorEdit(false);
+      await setPreviousBalance(date, previousBalance);
+      setPreviousBalanceEdit(false);
       loadCaja();
     } catch {
       alert('Error al guardar saldo anterior');
     }
   };
 
-  const handleAddIngreso = async (data: Record<string, unknown>) => {
+  const handleAddIncome = async (data: Record<string, unknown>) => {
     try {
-      await createCashMovement({ ...data, date: fecha });
-      setShowIngreso(false);
+      await createCashMovement({ ...data, date: date });
+      setShowIncome(false);
       await loadCaja();
     } catch {
       alert('Error al registrar ingreso');
     }
   };
 
-  const handleAddEgreso = async (data: Record<string, unknown>) => {
+  const handleAddExpense = async (data: Record<string, unknown>) => {
     try {
-      await createCashMovement({ ...data, date: fecha });
-      setShowEgreso(false);
+      await createCashMovement({ ...data, date: date });
+      setShowExpense(false);
       await loadCaja();
     } catch {
       alert('Error al registrar egreso');
     }
   };
 
-  const handleDeleteMov = async () => {
+  const handleDeleteMovement = async () => {
     if (!deleteId) return;
     try {
       await deleteCashMovement(deleteId);
@@ -86,10 +86,10 @@ export default function CajaDiaria() {
     }
   };
 
-  const handleCerrarCaja = async (notes: string) => {
+  const handleCloseCash = async (notes: string) => {
     try {
-      await closeDailyCash(fecha, notes || undefined);
-      setShowCerrar(false);
+      await closeDailyCash(date, notes || undefined);
+      setShowClose(false);
       await loadCaja();
     } catch {
       alert('Error al cerrar la caja');
@@ -98,12 +98,12 @@ export default function CajaDiaria() {
 
   const handlePrint = () => window.print();
 
-  const ingresos = movimientos.filter((m: Record<string, unknown>) => m.type === 'INCOME');
-  const egresos = movimientos.filter((m: Record<string, unknown>) => m.type === 'EXPENSE');
+  const ingresos = movements.filter((m: Record<string, unknown>) => m.type === 'INCOME');
+  const egresos = movements.filter((m: Record<string, unknown>) => m.type === 'EXPENSE');
 
   const totalIngresos = ingresos.reduce((s: number, m: Record<string, unknown>) => s + ((m.amount as number) || 0), 0);
   const totalSalidas = egresos.reduce((s: number, m: Record<string, unknown>) => s + ((m.amount as number) || 0), 0);
-  const suma = (saldoAnterior || 0) + totalIngresos;
+  const suma = (previousBalance || 0) + totalIngresos;
   const saldoActualNum = suma - totalSalidas;
 
   const ingresosEfectivo = ingresos
@@ -112,9 +112,9 @@ export default function CajaDiaria() {
   const totalTB = egresos
     .filter((m: Record<string, unknown>) => (m.expense_type as string) === 'BANK_TRANSFER')
     .reduce((s: number, m: Record<string, unknown>) => s + ((m.amount as number) || 0), 0);
-  const efectivoReal = (saldoAnterior || 0) + ingresosEfectivo - (totalSalidas - totalTB);
+  const efectivoReal = (previousBalance || 0) + ingresosEfectivo - (totalSalidas - totalTB);
 
-  const isToday = fecha === today;
+  const isToday = date === today;
 
   return (
     <div className={s['cash']}>
@@ -131,7 +131,7 @@ export default function CajaDiaria() {
       <div id="print-area">
         <div className="print-only" style={{ textAlign: 'center', marginBottom: 20 } as React.CSSProperties}>
           <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0 } as React.CSSProperties}>CIERRE DE CAJA</h1>
-          <p style={{ fontSize: 13, color: '#475569', margin: '4px 0 0' } as React.CSSProperties}>Fecha: {fecha}</p>
+          <p style={{ fontSize: 13, color: '#475569', margin: '4px 0 0' } as React.CSSProperties}>Fecha: {date}</p>
           <hr style={{ margin: '10px 0', border: 'none', borderTop: '2px solid #000' } as React.CSSProperties} />
         </div>
 
@@ -143,19 +143,19 @@ export default function CajaDiaria() {
               type="date"
               className="input"
               style={{ width: 180 } as React.CSSProperties}
-              value={fecha}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFecha(e.target.value)}
+              value={date}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDate(e.target.value)}
             />
             {!isToday && (
-              <button className="btn btn-outline" onClick={() => setFecha(today)}>Hoy</button>
+              <button className="btn btn-outline" onClick={() => setDate(today)}>Hoy</button>
             )}
-            {isToday && !cerrada && (
+            {isToday && !closed && (
               <button className="btn btn-danger" style={{ padding: '6px 14px', fontSize: 13 } as React.CSSProperties}
-                onClick={() => setShowCerrar(true)}>
+                onClick={() => setShowClose(true)}>
                 <Lock size={14} style={{ marginRight: 4 } as React.CSSProperties} /> Cerrar Caja del Día
               </button>
             )}
-            {cerrada && (
+            {closed && (
               <span className="badge badge-finished" style={{ fontSize: 13 } as React.CSSProperties}>Cerrada</span>
             )}
             <button className="btn btn-outline no-print-keep" style={{ padding: '6px 14px', fontSize: 13 } as React.CSSProperties}
@@ -165,24 +165,24 @@ export default function CajaDiaria() {
           </div>
         </div>
 
-        <SaldoAnteriorCard
-          saldoAnterior={saldoAnterior}
-          cerrada={cerrada}
-          editMode={saldoAnteriorEdit}
-          onEdit={() => setSaldoAnteriorEdit(true)}
-          onCancel={() => { setSaldoAnteriorEdit(false); loadCaja(); }}
-          onSave={handleSaveSaldoAnterior}
-          onChange={(v: number) => setSaldoAnterior(v)}
+        <PreviousBalanceCard
+          previousBalance={previousBalance}
+          cerrada={closed}
+          editMode={previousBalanceEdit}
+          onEdit={() => setPreviousBalanceEdit(true)}
+          onCancel={() => { setPreviousBalanceEdit(false); loadCaja(); }}
+          onSave={handleSavePreviousBalance}
+          onChange={(v: number) => setPreviousBalanceState(v)}
         />
 
         {loading ? <Loading /> : (
           <>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 } as React.CSSProperties}>
-              <IngresosTable ingresos={ingresos} cerrada={cerrada} onDelete={(id: number) => setDeleteId(id)} onAdd={() => setShowIngreso(true)} />
-              <EgresosTable egresos={egresos} cerrada={cerrada} onDelete={(id: number) => setDeleteId(id)} onAdd={() => setShowEgreso(true)} />
+              <IncomeTable ingresos={ingresos} cerrada={closed} onDelete={(id: number) => setDeleteId(id)} onAdd={() => setShowIncome(true)} />
+              <ExpenseTable egresos={egresos} cerrada={closed} onDelete={(id: number) => setDeleteId(id)} onAdd={() => setShowExpense(true)} />
             </div>
 
-            <CajaTotalCards suma={suma} totalSalidas={totalSalidas} saldoActualNum={saldoActualNum} efectivoReal={efectivoReal} />
+            <CashTotalCards suma={suma} totalSalidas={totalSalidas} saldoActualNum={saldoActualNum} efectivoReal={efectivoReal} />
           </>
         )}
 
@@ -191,15 +191,15 @@ export default function CajaDiaria() {
         </div>
       </div>
 
-      <IngresoModal isOpen={showIngreso} onClose={() => setShowIngreso(false)} onSubmit={handleAddIngreso} />
-      <EgresoModal isOpen={showEgreso} onClose={() => setShowEgreso(false)} onSubmit={handleAddEgreso} />
+      <IncomeModal isOpen={showIncome} onClose={() => setShowIncome(false)} onSubmit={handleAddIncome} />
+      <ExpenseModal isOpen={showExpense} onClose={() => setShowExpense(false)} onSubmit={handleAddExpense} />
 
       <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)}
-        onConfirm={handleDeleteMov}
+        onConfirm={handleDeleteMovement}
         title="Eliminar movimiento"
         message="¿Estás seguro de eliminar este movimiento de caja?" />
 
-      <CerrarCajaModal isOpen={showCerrar} onClose={() => setShowCerrar(false)} onConfirm={handleCerrarCaja} fecha={fecha} />
+      <CloseCashModal isOpen={showClose} onClose={() => setShowClose(false)} onConfirm={handleCloseCash} fecha={date} />
     </div>
   );
 }

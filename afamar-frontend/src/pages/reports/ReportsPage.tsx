@@ -8,7 +8,7 @@ const s = styles as unknown as Record<string, string>;
 
 const COLORS = ['#3b82f6', '#22c55e', '#ef4444', '#f59e0b', '#8b5cf6', '#06b6d4'];
 
-export default function Reportes() {
+export default function Reports() {
   const [activeTab, setActiveTab] = useState('presupuestos');
   const [presupuestos, setPresupuestos] = useState<Record<string, unknown> | null>(null);
   const [ordenes, setOrdenes] = useState<Record<string, unknown> | null>(null);

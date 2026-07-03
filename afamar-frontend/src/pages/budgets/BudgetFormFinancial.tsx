@@ -1,6 +1,6 @@
 import React from 'react';
-import PresupuestoPanel from '../../components/presupuesto/PresupuestoPanel';
-import AprobacionSection from '../../components/ordenes/AprobacionSection';
+import BudgetPanel from '../../components/budget/BudgetPanel';
+import ApprovalSection from '../../components/orders/ApprovalSection';
 import type { EntityFormState } from '../../types';
 
 interface BudgetFormFinancialProps {
@@ -11,10 +11,10 @@ interface BudgetFormFinancialProps {
   hayAlternativas: boolean;
   readOnly: boolean;
   saving: boolean;
-  handleTrasladoChange: (value: string, source: 'ars' | 'usd') => void;
-  handleSenaMonedaChange: (moneda: string) => void;
-  handleSenaMontoChange: (value: string) => void;
-  handleDolarDiaChange: (value: string) => void;
+  handleTransportChange: (value: string, source: 'ars' | 'usd') => void;
+  handleDepositCurrencyChange: (moneda: string) => void;
+  handleDepositAmountChange: (value: string) => void;
+  handleUsdRateChange: (value: string) => void;
   setForm: React.Dispatch<React.SetStateAction<EntityFormState>>;
   update: (field: string, value: unknown) => void;
   num: (v: string) => number | null;
@@ -32,10 +32,10 @@ export default function BudgetFormFinancial({
   hayAlternativas,
   readOnly,
   saving,
-  handleTrasladoChange,
-  handleSenaMonedaChange,
-  handleSenaMontoChange,
-  handleDolarDiaChange,
+  handleTransportChange,
+  handleDepositCurrencyChange,
+  handleDepositAmountChange,
+  handleUsdRateChange,
   setForm,
   update,
   num,
@@ -46,7 +46,7 @@ export default function BudgetFormFinancial({
 }: BudgetFormFinancialProps) {
   return (
     <>
-      <PresupuestoPanel
+      <BudgetPanel
         form={form}
         modoUSD={modoUSD}
         toggleModoUSD={toggleModoUSD}
@@ -54,10 +54,10 @@ export default function BudgetFormFinancial({
         hayAlternativas={hayAlternativas}
         readOnly={readOnly}
         saving={saving}
-        handleTrasladoChange={handleTrasladoChange}
-        handleSenaMonedaChange={handleSenaMonedaChange}
-        handleSenaMontoChange={handleSenaMontoChange}
-        handleDolarDiaChange={handleDolarDiaChange}
+        handleTransportChange={handleTransportChange}
+        handleDepositCurrencyChange={handleDepositCurrencyChange}
+        handleDepositAmountChange={handleDepositAmountChange}
+        handleUsdRateChange={handleUsdRateChange}
         setForm={setForm}
         update={update as (field: string, value: unknown) => void}
         num={num as (v: unknown) => number}
@@ -67,7 +67,7 @@ export default function BudgetFormFinancial({
         descuentoBlock={descuentoBlock}
         onConfirmarPago={onConfirmarPago}
       />
-      <AprobacionSection form={form} readOnly={readOnly} update={update as (field: string, value: unknown) => void} />
+      <ApprovalSection form={form} readOnly={readOnly} update={update as (field: string, value: unknown) => void} />
     </>
   );
 }

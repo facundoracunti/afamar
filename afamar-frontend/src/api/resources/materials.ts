@@ -8,6 +8,15 @@ export const updateMaterial = (id: number | string, data: Record<string, unknown
 export const deleteMaterial = (id: number | string) => http.delete(`/materials/${id}`);
 export const getPriceHistory = (id: number | string) => http.get(`/materials/${id}/price-history`);
 
+// Material categories CRUD
+export interface MaterialCategory {
+  id: number;
+  name: string;
+}
+export const createMaterialCategory = (data: { name: string }) => http.post('/materials/categories', data);
+export const updateMaterialCategory = (id: number | string, data: { name: string }) => http.put(`/materials/categories/${id}`, data);
+export const deleteMaterialCategory = (id: number | string) => http.delete(`/materials/categories/${id}`);
+
 export const uploadMaterialPhoto = (id: number | string, file: File) => {
   const formData = new FormData();
   formData.append('file', file);
@@ -16,41 +25,82 @@ export const uploadMaterialPhoto = (id: number | string, file: File) => {
   });
 };
 
-const _categoriaToId: Record<string, number> = {};
+// Cache for category name → id (used by mapMaterialToApi when the form sends a name).
+// We keep both directions so callers can look up by name OR by id.
+let _categoriaNameToId: Record<string, number> = {};
+let _categoriaIdSet: Set<number> = new Set();
 
 export async function primeMaterialCategoryMap(): Promise<void> {
   try {
     const res = await getMaterialCategories();
-    const list = (res as unknown as Array<{ id: number; name: string }>) || [];
-    list.forEach((c) => { _categoriaToId[c.name.toLowerCase()] = c.id; });
-  } catch { /* ignore */ }
+    // Interceptor unwraps the {success,data} envelope, so res.data IS the array.
+    const list = (res.data as unknown as MaterialCategory[]) || [];
+    _categoriaNameToId = {};
+    _categoriaIdSet = new Set();
+    list.forEach((c) => {
+      _categoriaNameToId[c.name.toLowerCase()] = c.id;
+      _categoriaIdSet.add(c.id);
+    });
+  } catch { /* ignore — keep existing map */ }
 }
 
-export function resolveCategoryId(name: string): number | null {
-  if (!name) return null;
-  const id = _categoriaToId[name.toLowerCase()];
+export function resolveCategoryId(input: string | number): number | null {
+  if (input === '' || input === null || input === undefined) return null;
+  // Already an id?
+  if (typeof input === 'number' && !Number.isNaN(input) && _categoriaIdSet.has(input)) return input;
+  const asNumber = Number(input);
+  if (!Number.isNaN(asNumber) && _categoriaIdSet.has(asNumber)) return asNumber;
+  // Treat as name
+  const id = _categoriaNameToId[String(input).toLowerCase()];
   return id ?? null;
 }
 
 function mapMaterialToApi(data: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  if (data.nombre !== undefined) out.name = data.nombre;
-  if (data.categoria !== undefined) {
-    const id = resolveCategoryId(String(data.categoria));
-    if (id !== null) out.category_id = id;
-  } else if (data.category_id !== undefined) {
-    out.category_id = data.category_id;
+  if (data.name !== undefined) out.name = data.name;
+
+  // category_id is required by the backend (Pydantic). The form sends the
+  // category as either a numeric id (when the user picked from the dropdown
+  // loaded via getMaterialCategories) or a free-text name (legacy/newly
+  // created). We resolve in this priority order:
+  //   1. If the value matches an id we already primed → use it as-is.
+  //   2. If it matches a name in the cache → use its id.
+  //   3. If it's a number-looking string → coerce to int.
+  //   4. Otherwise → null so the backend can reject with a clear error.
+  if (data.categoryId !== undefined && data.categoryId !== '' && data.categoryId !== null) {
+    const raw = data.categoryId;
+    let resolved: number | null = null;
+    if (typeof raw === 'number' && !Number.isNaN(raw) && _categoriaIdSet.has(raw)) {
+      resolved = raw;
+    } else {
+      const asNumber = Number(raw);
+      if (!Number.isNaN(asNumber) && _categoriaIdSet.has(asNumber)) {
+        resolved = asNumber;
+      } else {
+        const lower = String(raw).toLowerCase();
+        resolved = _categoriaNameToId[lower] ?? null;
+      }
+    }
+    if (resolved !== null) {
+      out.category_id = resolved;
+    } else {
+      // Last-resort: try to coerce to int (the dropdown *does* send the id as a
+      // string). If even that fails the backend will surface a clean 422.
+      const asInt = Number(raw);
+      out.category_id = Number.isNaN(asInt) ? null : asInt;
+    }
   }
+
   if (data.color !== undefined) out.color = data.color;
-  if (data.espesor_disponible !== undefined) out.available_thickness = data.espesor_disponible;
-  if (data.precio_m2 !== undefined) out.base_price = data.precio_m2;
-  if (data.precio_m2_usd !== undefined) out.price_usd = data.precio_m2_usd;
-  if (data.moneda !== undefined) out.currency = data.moneda;
-  if (data.proveedor !== undefined) out.supplier = data.proveedor;
-  if (data.stock_disponible !== undefined) out.stock_available = data.stock_disponible;
-  if (data.observaciones !== undefined) out.notes = data.observaciones;
+  if (data.availableThickness !== undefined) out.available_thickness = data.availableThickness;
+  if (data.basePrice !== undefined) out.base_price = data.basePrice;
+  if (data.priceUsd !== undefined) out.price_usd = data.priceUsd;
+  if (data.currency !== undefined) out.currency = data.currency;
+  if (data.supplier !== undefined) out.supplier = data.supplier;
+  if (data.stockAvailable !== undefined) out.stock_available = data.stockAvailable;
+  if (data.notes !== undefined) out.notes = data.notes;
   Object.keys(data).forEach((k) => {
-    if (!(k in out) && !['nombre','categoria','espesor_disponible','precio_m2','precio_m2_usd','moneda','proveedor','stock_disponible','observaciones'].includes(k)) {
+    if (!(k in out) && !['name','categoryId','availableThickness','basePrice','priceUsd','currency','supplier','stockAvailable','notes'].includes(k)) {
       out[k] = data[k];
     }
   });

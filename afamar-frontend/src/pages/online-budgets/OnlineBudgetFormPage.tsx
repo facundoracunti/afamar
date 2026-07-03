@@ -1,67 +1,67 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getOnlineBudget, createOnlineBudget, updateOnlineBudget, convertOnlineBudgetToWorkOrder, convertOnlineBudgetToWorkOrderOption, mapOnlineBudgetToApi } from '@/api/resources/onlineBudgets';
+import { getOnlineBudget, createOnlineBudget, updateOnlineBudget, convertOnlineBudgetToWorkOrder, convertOnlineBudgetToWorkOrderOption } from '@/api/resources/onlineBudgets';
 import { getMaterials } from '@/api/resources/materials';
 import { getPoolStock } from '@/api/resources/poolStock';
 import { getNextBudgetNumber } from '@/api/resources/budgets';
 import Loading from '../../components/common/Loading';
-import PresupuestoOnlineHeader from '../../components/presupuesto/PresupuestoOnlineHeader';
-import OnlineItemsTable, { createOpcion, parseNum, type OpcionTab, type PresupuestoOnlineItemLocal, NOMBRES_ESPECIALES, FILAS_INICIALES, ESPECIALES_INICIALES, emptyItem } from '../../components/presupuesto/OnlineItemsTable';
-import PresupuestoOnlineTotals from '../../components/presupuesto/PresupuestoOnlineTotals';
-import PresupuestoOnlineFooter from '../../components/presupuesto/PresupuestoOnlineFooter';
+import OnlineBudgetHeader from '../../components/budget/OnlineBudgetHeader';
+import OnlineItemsTable, { createOption, parseNum, type OptionTab, type OnlineBudgetItemLocal, SPECIAL_NAMES, INITIAL_ROWS, INITIAL_SPECIALS, emptyItem } from '../../components/budget/OnlineItemsTable';
+import OnlineBudgetTotals from '../../components/budget/OnlineBudgetTotals';
+import OnlineBudgetFooter from '../../components/budget/OnlineBudgetFooter';
 import type { Material } from '../../types/material';
-import type { StockPileta } from '../../types/stockPileta';
-import type { ConvertirOpcionResponse } from '../../types/orden';
+import type { Pool } from '../../types/poolStock';
+import type { ConvertOptionResponse } from '../../types/workOrder';
 import styles from './OnlineBudgetFormPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
 
-export default function PresupuestoOnlineForm() {
+export default function OnlineBudgetForm() {
   const { id } = useParams();
   const navigate = useNavigate();
   const isEdit = !!id;
   const [loading, setLoading] = useState<boolean>(isEdit);
   const [saving, setSaving] = useState<boolean>(false);
 
-  const [opciones, setOpciones] = useState<OpcionTab[]>([createOpcion()]);
-  const [activeOpcion, setActiveOpcion] = useState<number>(0);
-  const [cliente, setCliente] = useState<string>('');
-  const [telefono, setTelefono] = useState<string>('');
-  const [tipoObra, setTipoObra] = useState<string>('');
-  const [fecha, setFecha] = useState<string>(new Date().toISOString().slice(0, 10));
-  const [dolarDia, setDolarDia] = useState<number>(1000);
+  const [opciones, setOpciones] = useState<OptionTab[]>([createOption()]);
+  const [activeOption, setActiveOption] = useState<number>(0);
+  const [client, setClient] = useState<string>('');
+  const [phone, setPhone] = useState<string>('');
+  const [workType, setWorkType] = useState<string>('');
+  const [date, setDate] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [usdRate, setUsdRate] = useState<number>(1000);
   const [totalArs, setTotalArs] = useState<number>(0);
   const [totalUsd, setTotalUsd] = useState<number>(0);
-  const [totalConsolidado, setTotalConsolidado] = useState<number>(0);
+  const [totalConsolidated, setTotalConsolidated] = useState<number>(0);
   const [materiales, setMateriales] = useState<Material[]>([]);
-  const [piletas, setPiletas] = useState<StockPileta[]>([]);
-  const [numero, setNumero] = useState<string>('');
-  const [convertingOpcion, setConvertingOpcion] = useState<number | null>(null);
+  const [piletas, setPiletas] = useState<Pool[]>([]);
+  const [numberValue, setNumberValue] = useState<string>('');
+  const [convertingOption, setConvertingOption] = useState<number | null>(null);
 
   useEffect(() => {
     getMaterials({ limit: 500 }).then((r: { data: Material[] }) => setMateriales(r.data));
   }, []);
   useEffect(() => {
-    getPoolStock({}).then((r: { data: StockPileta[] }) => setPiletas(r.data));
+    getPoolStock({}).then((r: { data: Pool[] }) => setPiletas(r.data));
   }, []);
   useEffect(() => {
-    if (!isEdit) { getNextBudgetNumber().then((r: { data: { numero: string } }) => setNumero(r.data.numero)).catch(() => {}); }
+    if (!isEdit) { getNextBudgetNumber().then((r: { data: { numero: string } }) => setNumberValue(r.data.numero)).catch(() => {}); }
   }, [isEdit]);
 
-  // Auto-recalculate totals when active tab, opciones, or dolarDia change
+  // Auto-recalculate totals when active tab, opciones, or usdRate change
   useEffect(() => {
-    const tab = opciones[activeOpcion];
+    const tab = opciones[activeOption];
     if (!tab) return;
     let ars = 0, usd = 0;
-    [...tab.items, ...tab.especiales].forEach((i: PresupuestoOnlineItemLocal) => {
-      if (i.moneda === 'USD') usd += i.subtotal || 0;
+    [...tab.items, ...tab.especiales].forEach((i: OnlineBudgetItemLocal) => {
+      if (i.currency === 'USD') usd += i.subtotal || 0;
       else ars += i.subtotal || 0;
     });
     setTotalArs(Math.round(ars * 100) / 100);
     setTotalUsd(Math.round(usd * 100) / 100);
-    const dd = Number(dolarDia) || 0;
-    setTotalConsolidado(Math.round((ars + usd * dd) * 100) / 100);
-  }, [opciones, activeOpcion, dolarDia]);
+    const dd = Number(usdRate) || 0;
+    setTotalConsolidated(Math.round((ars + usd * dd) * 100) / 100);
+  }, [opciones, activeOption, usdRate]);
 
   useEffect(() => {
     if (isEdit && id) {
@@ -69,27 +69,27 @@ export default function PresupuestoOnlineForm() {
         getOnlineBudget(id),
         getMaterials({ limit: 500 }),
         getPoolStock({}),
-      ]).then(([presRes, matRes, piletaRes]: unknown[]) => {
+      ]).then(([presRes, matRes, poolRes]: unknown[]) => {
         const d = (presRes as { data: Record<string, unknown> }).data;
         const matData = (matRes as { data: Material[] }).data;
-        const piletaData = (piletaRes as { data: StockPileta[] }).data;
+        const poolData = (poolRes as { data: Pool[] }).data;
         setMateriales(matData);
-        setPiletas(piletaData);
-        setCliente((d.cliente as string) || '');
-        setTelefono((d.telefono as string) || '');
-        setTipoObra((d.tipo_obra as string) || '');
-        setFecha((d.fecha as string) || new Date().toISOString().slice(0, 10));
-        setDolarDia((d.dolar_dia as number) ?? 1000);
-        setNumero((d.numero as string) || '');
-        const items = d.items as PresupuestoOnlineItemLocal[] | undefined;
+        setPiletas(poolData);
+        setClient((d.client_name as string) || (d.cliente as string) || '');
+        setPhone((d.phone as string) || (d.telefono as string) || '');
+        setWorkType((d.work_type as string) || (d.tipo_obra as string) || '');
+        setDate((d.date as string) || (d.fecha as string) || new Date().toISOString().slice(0, 10));
+        setUsdRate((d.usd_rate as number) ?? (d.dolar_dia as number) ?? 1000);
+        setNumberValue((d.number as string) || (d.numero as string) || '');
+        const items = d.items as OnlineBudgetItemLocal[] | undefined;
         if (items?.length) {
-          const opcionMap: Record<number, { normales: PresupuestoOnlineItemLocal[]; especiales: PresupuestoOnlineItemLocal[] }> = {};
-          items.forEach((i: PresupuestoOnlineItemLocal) => {
-            const op = Math.max(0, i.opcion ?? 0);
+          const opcionMap: Record<number, { normales: OnlineBudgetItemLocal[]; especiales: OnlineBudgetItemLocal[] }> = {};
+          items.forEach((i: OnlineBudgetItemLocal) => {
+            const op = Math.max(0, i.option ?? 0);
             if (!opcionMap[op]) opcionMap[op] = { normales: [], especiales: [] };
-            const parsed = { ...i, largo: parseNum(i.largo), ancho: parseNum(i.ancho), m2: parseNum(i.m2), cantidad: Math.max(1, parseNum(i.cantidad)), precio_unitario: parseNum(i.precio_unitario), subtotal: parseNum(i.subtotal), mano_de_obra: parseNum(i.mano_de_obra) };
-            if (i.es_unidad || NOMBRES_ESPECIALES.has(i.detalle)) {
-              if (parsed.detalle === 'PILETA MOD' && !parsed.pileta_id && d.pileta_id) parsed.pileta_id = Number(d.pileta_id);
+            const parsed = { ...i, length: parseNum(i.length), width: parseNum(i.width), m2: parseNum(i.m2), quantity: Math.max(1, parseNum(i.quantity)), unitPrice: parseNum(i.unitPrice), subtotal: parseNum(i.subtotal), labor: parseNum(i.labor) };
+            if (i.isUnit || SPECIAL_NAMES.has(i.detail)) {
+              if (parsed.detail === 'PILETA MOD' && !parsed.poolId) parsed.poolId = Number(d.pool_id ?? d.pileta_id);
               opcionMap[op].especiales.push(parsed);
             } else {
               opcionMap[op].normales.push(parsed);
@@ -101,26 +101,26 @@ export default function PresupuestoOnlineForm() {
               const group = opcionMap[Number(key)];
               const espList = group.especiales;
               const matEsp: Record<number, string> = {};
-              espList.forEach((e: PresupuestoOnlineItemLocal, i: number) => {
+              espList.forEach((e: OnlineBudgetItemLocal, i: number) => {
                 if (e.material) {
                   matEsp[i] = e.material;
                 } else {
-                  const matched = matData.find((m: Material) => m.nombre === e.detalle || e.detalle.includes(m.nombre) || m.nombre.includes(e.detalle));
-                  if (matched) matEsp[i] = matched.nombre;
+                  const matched = matData.find((m: Material) => m.name === e.detail || e.detail.includes(m.name) || m.name.includes(e.detail));
+                  if (matched) matEsp[i] = matched.name;
                 }
               });
               return {
                 nombre: `Opción ${idx + 1}`,
-                items: group.normales.length ? group.normales : FILAS_INICIALES.map((f) => emptyItem(f.detalle, f.es_unidad)),
-                especiales: espList.length ? espList : ESPECIALES_INICIALES.map((e) => emptyItem(e.detalle, e.es_unidad)),
+                items: group.normales.length ? group.normales : INITIAL_ROWS.map((f) => emptyItem(f.detail, f.isUnit)),
+                especiales: espList.length ? espList : INITIAL_SPECIALS.map((e) => emptyItem(e.detail, e.isUnit)),
                 matEspeciales: matEsp,
               };
             }));
           } else {
-            setOpciones([createOpcion()]);
+            setOpciones([createOption()]);
           }
         } else {
-          setOpciones([createOpcion()]);
+          setOpciones([createOption()]);
         }
         setLoading(false);
       }).catch((err: unknown) => {
@@ -134,16 +134,16 @@ export default function PresupuestoOnlineForm() {
   const handleConvertirOpcion = async (opcionIdx: number) => {
     if (!id) return;
     if (!window.confirm(`¿Convertir a Orden de Trabajo la "${opciones[opcionIdx]?.nombre}"? Solo se copiarán los ítems de esta opción.`)) return;
-    setConvertingOpcion(opcionIdx);
+    setConvertingOption(opcionIdx);
     try {
       const res = await convertOnlineBudgetToWorkOrderOption(id as string, opcionIdx);
-      const data: ConvertirOpcionResponse = res.data;
-      alert(`Orden ${data.numero} creada a partir de ${opciones[opcionIdx]?.nombre}.`);
+      const data: ConvertOptionResponse = res.data;
+      alert(`Orden ${data.number} creada a partir de ${opciones[opcionIdx]?.nombre}.`);
       navigate('/admin/work-orders');
     } catch (err: unknown) {
       alert('Error al convertir la opción a orden de trabajo.');
     } finally {
-      setConvertingOpcion(null);
+      setConvertingOption(null);
     }
   };
 
@@ -156,7 +156,7 @@ export default function PresupuestoOnlineForm() {
     if (!window.confirm('¿Convertir a Orden de Trabajo? Se copiarán todos los ítems.')) return;
     try {
       const res = await convertOnlineBudgetToWorkOrder(id as string);
-      alert(`Orden ${(res.data as Record<string, unknown>).numero} creada.`);
+      alert(`Orden ${(res.data as Record<string, unknown>).number} creada.`);
       navigate('/admin/work-orders');
     } catch {
       alert('Error');
@@ -167,25 +167,24 @@ export default function PresupuestoOnlineForm() {
     e.preventDefault();
     setSaving(true);
     try {
-      const allItems = opciones.flatMap((tab: OpcionTab, ti: number) => [
-        ...tab.items.map((i: PresupuestoOnlineItemLocal) => ({ ...i, opcion: ti })),
-        ...tab.especiales.map((e: PresupuestoOnlineItemLocal) => ({ ...e, opcion: ti })),
+      const allItems = opciones.flatMap((tab: OptionTab, ti: number) => [
+        ...tab.items.map((i: OnlineBudgetItemLocal) => ({ ...i, option: ti })),
+        ...tab.especiales.map((e: OnlineBudgetItemLocal) => ({ ...e, option: ti })),
       ]);
       let ars = 0, usd = 0;
-      allItems.forEach((i: PresupuestoOnlineItemLocal) => { if (i.moneda === 'USD') usd += Number(i.subtotal) || 0; else ars += Number(i.subtotal) || 0; });
-      const cons = Math.round((ars + usd * Number(dolarDia)) * 100) / 100;
-      const piletaItems = opciones.flatMap((tab: OpcionTab) => tab.especiales).filter((e: PresupuestoOnlineItemLocal) => e.detalle === 'PILETA MOD' && e.pileta_id);
-      const rawPayload: Record<string, unknown> = {
-        cliente, telefono, tipo_obra: tipoObra, fecha,
-        dolar_dia: Number(dolarDia),
+      allItems.forEach((i: OnlineBudgetItemLocal) => { if (i.currency === 'USD') usd += Number(i.subtotal) || 0; else ars += Number(i.subtotal) || 0; });
+      const cons = Math.round((ars + usd * Number(usdRate)) * 100) / 100;
+      const piletaItems = opciones.flatMap((tab: OptionTab) => tab.especiales).filter((e: OnlineBudgetItemLocal) => e.detail === 'PILETA MOD' && e.poolId);
+      const payload: Record<string, unknown> = {
+        client_name: client, phone: phone, work_type: workType, date: date,
+        usd_rate: Number(usdRate),
         items: allItems,
-        total_neto_ars: Math.round(ars * 100) / 100,
-        total_neto_usd: Math.round(usd * 100) / 100,
-        total_consolidado: cons,
-        pileta_id: piletaItems.length ? Number(piletaItems[0].pileta_id) : null,
-        pileta_precio: piletaItems.length ? (Number(piletaItems[0].precio_unitario) || 0) : 0,
+        total_net_ars: Math.round(ars * 100) / 100,
+        total_net_usd: Math.round(usd * 100) / 100,
+        total_consolidated: cons,
+        pool_id: piletaItems.length ? Number(piletaItems[0].poolId) : null,
+        pool_price: piletaItems.length ? (Number(piletaItems[0].unitPrice) || 0) : 0,
       };
-      const payload = mapOnlineBudgetToApi(rawPayload);
       if (isEdit) await updateOnlineBudget(id as string, payload);
       else await createOnlineBudget(payload);
       navigate('/admin/online-budgets');
@@ -197,24 +196,24 @@ export default function PresupuestoOnlineForm() {
     const L: string[] = [];
     L.push('AFAMAR - MARMOLES & GRANITOS');
     L.push('LA PLATA, BS AS');
-    if (cliente) L.push(`Cliente: ${cliente}`);
-    if (tipoObra) L.push(`Obra: ${tipoObra}`);
-    if (fecha) L.push(`Fecha: ${fecha}`);
+    if (client) L.push(`Cliente: ${client}`);
+    if (workType) L.push(`Obra: ${workType}`);
+    if (date) L.push(`Fecha: ${date}`);
     L.push('');
 
-    const tabItems = opciones[activeOpcion]?.items || [];
-    const activeEsps = opciones[activeOpcion]?.especiales || [];
+    const tabItems = opciones[activeOption]?.items || [];
+    const activeEsps = opciones[activeOption]?.especiales || [];
     const all = [...tabItems, ...activeEsps];
-    const itemsUsd = all.filter((i) => i.subtotal > 0 && i.moneda === 'USD');
-    const itemsArs = all.filter((i) => i.subtotal > 0 && i.moneda === 'ARS');
+    const itemsUsd = all.filter((i) => i.subtotal > 0 && i.currency === 'USD');
+    const itemsArs = all.filter((i) => i.subtotal > 0 && i.currency === 'ARS');
 
     if (itemsUsd.length) {
       L.push('Cotizado en DOLARES (USD):');
       itemsUsd.forEach((i) => {
-        let t = `. ${i.detalle}`;
-        if (i.es_unidad) t += ` | Cant: ${i.cantidad}`;
-        else if (i.m2 > 0) t += ` | ${i.largo}x${i.ancho} = ${i.m2.toFixed(5)} m2`;
-        t += ` | USD ${i.precio_unitario.toFixed(2)}/u = USD ${i.subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
+        let t = `. ${i.detail}`;
+        if (i.isUnit) t += ` | Cant: ${i.quantity}`;
+        else if (i.m2 > 0) t += ` | ${i.length}x${i.width} = ${i.m2.toFixed(5)} m2`;
+        t += ` | USD ${i.unitPrice.toFixed(2)}/u = USD ${i.subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
         L.push(t);
       });
       L.push('');
@@ -222,10 +221,10 @@ export default function PresupuestoOnlineForm() {
     if (itemsArs.length) {
       L.push('Cotizado en PESOS (ARS):');
       itemsArs.forEach((i) => {
-        let t = `. ${i.detalle}`;
-        if (i.es_unidad) t += ` | Cant: ${i.cantidad}`;
-        else if (i.m2 > 0) t += ` | ${i.largo}x${i.ancho} = ${i.m2.toFixed(5)} m2`;
-        t += ` | $ ${i.precio_unitario.toFixed(2)}/u = $ ${i.subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
+        let t = `. ${i.detail}`;
+        if (i.isUnit) t += ` | Cant: ${i.quantity}`;
+        else if (i.m2 > 0) t += ` | ${i.length}x${i.width} = ${i.m2.toFixed(5)} m2`;
+        t += ` | $ ${i.unitPrice.toFixed(2)}/u = $ ${i.subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
         L.push(t);
       });
       L.push('');
@@ -233,9 +232,9 @@ export default function PresupuestoOnlineForm() {
     L.push('==============================');
     if (totalUsd > 0) L.push(`TOTAL USD: USD ${totalUsd.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`);
     if (totalArs > 0) L.push(`TOTAL ARS: $ ${totalArs.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`);
-    if (totalUsd > 0 && dolarDia > 0) {
-      L.push(`Dolar del dia: $${Number(dolarDia).toLocaleString('es-AR')}`);
-      L.push(`TOTAL CONSOLIDADO: $ ${totalConsolidado.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`);
+    if (totalUsd > 0 && usdRate > 0) {
+      L.push(`Dolar del dia: $${Number(usdRate).toLocaleString('es-AR')}`);
+      L.push(`TOTAL CONSOLIDADO: $ ${totalConsolidated.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`);
     }
     L.push('');
     L.push('Consultas al WhatsApp');
@@ -244,56 +243,56 @@ export default function PresupuestoOnlineForm() {
 
   if (loading) return <Loading />;
 
-  const hayUSD = [...(opciones[activeOpcion]?.items || []), ...(opciones[activeOpcion]?.especiales || [])].some((i: PresupuestoOnlineItemLocal) => i.moneda === 'USD');
+  const hayUSD = [...(opciones[activeOption]?.items || []), ...(opciones[activeOption]?.especiales || [])].some((i: OnlineBudgetItemLocal) => i.currency === 'USD');
 
   return (
     <div className={s['online-budget-form']}>
       <div className={s['online-budget-form__header']}>
         <h1 className={s['online-budget-form__title']}>
-          {isEdit ? `Presupuesto ${numero}` : `Nuevo Presupuesto ${numero || ''}`}
+          {isEdit ? `Presupuesto ${numberValue}` : `Nuevo Presupuesto ${numberValue || ''}`}
         </h1>
       </div>
 
       <form onSubmit={handleSubmit}>
-        <PresupuestoOnlineHeader
-          numero={numero}
-          cliente={cliente}
-          telefono={telefono}
-          tipoObra={tipoObra}
-          fecha={fecha}
-          dolarDia={dolarDia}
-          onClienteChange={setCliente}
-          onTelefonoChange={setTelefono}
-          onTipoObraChange={setTipoObra}
-          onFechaChange={setFecha}
-          onDolarDiaChange={(v: number) => setDolarDia(v)}
+        <OnlineBudgetHeader
+          number={numberValue}
+          client={client}
+          phone={phone}
+          workType={workType}
+          date={date}
+          usdRate={usdRate}
+          onClientChange={setClient}
+          onPhoneChange={setPhone}
+          onWorkTypeChange={setWorkType}
+          onDateChange={setDate}
+          onUsdRateChange={(v: number) => setUsdRate(v)}
         />
 
         <OnlineItemsTable
           opciones={opciones}
           setOpciones={setOpciones}
-          activeOpcion={activeOpcion}
-          setActiveOpcion={setActiveOpcion}
+          activeOpcion={activeOption}
+          setActiveOpcion={setActiveOption}
           materiales={materiales}
           piletas={piletas}
           isEdit={isEdit}
-          convertingOpcion={convertingOpcion}
+          convertingOpcion={convertingOption}
           onConvertirOpcion={handleConvertirOpcion}
         />
 
-        <PresupuestoOnlineTotals
+        <OnlineBudgetTotals
           totalArs={totalArs}
           totalUsd={totalUsd}
-          totalConsolidado={totalConsolidado}
-          dolarDia={dolarDia}
+          totalConsolidated={totalConsolidated}
+          usdRate={usdRate}
           hayUSD={hayUSD}
         />
 
-        <PresupuestoOnlineFooter
+        <OnlineBudgetFooter
           onWhatsApp={handleWhatsApp}
           onCancel={() => navigate('/admin/online-budgets')}
           isEdit={isEdit}
-          onConvertirAll={handleConvertirAll}
+          onConvertAll={handleConvertirAll}
           saving={saving}
         />
       </form>

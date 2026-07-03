@@ -3,9 +3,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Search, Trash2, ChevronRight, ChevronLeft, FileDown } from 'lucide-react';
 import { getWorkOrders, deleteWorkOrder, updateWorkOrder, getWorkOrderPdf, mapWorkOrderStatusToApi } from '@/api/resources/workOrders';
 import { useList, useDelete } from '../../api/hooks';
-import { formatDate, estadosOrden } from '../../utils/formatters';
+import { formatDate, orderStatuses } from '../../utils/formatters';
 import CurrencyDisplay from '../../components/ui/CurrencyDisplay';
-import EstadoBadge from '../../components/ui/EstadoBadge';
+import { StatusBadge } from '../../components/ui/StatusBadge';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Loading from '../../components/common/Loading';
 import styles from './WorkOrdersListPage.module.css';
@@ -14,7 +14,7 @@ const s = styles as unknown as Record<string, string>;
 
 const WORK_ORDERS_KEY = ['work-orders'] as const;
 
-export default function OrdenesList() {
+export default function WorkOrdersList() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [search, setSearch] = useState<string>(searchParams.get('search') || '');
@@ -47,17 +47,17 @@ export default function OrdenesList() {
   };
 
   const avanzarEstado = async (o: Record<string, unknown>) => {
-    const idx = estadosOrden.indexOf(o.estado as string);
-    if (idx < estadosOrden.length - 1) {
-      await updateWorkOrder(o.id as string, mapWorkOrderStatusToApi(estadosOrden[idx + 1]));
+    const idx = orderStatuses.indexOf(o.estado as string);
+    if (idx < orderStatuses.length - 1) {
+      await updateWorkOrder(o.id as string, mapWorkOrderStatusToApi(orderStatuses[idx + 1]));
       load();
     }
   };
 
   const retrocederEstado = async (o: Record<string, unknown>) => {
-    const idx = estadosOrden.indexOf(o.estado as string);
+    const idx = orderStatuses.indexOf(o.estado as string);
     if (idx > 0) {
-      await updateWorkOrder(o.id as string, mapWorkOrderStatusToApi(estadosOrden[idx - 1]));
+      await updateWorkOrder(o.id as string, mapWorkOrderStatusToApi(orderStatuses[idx - 1]));
       load();
     }
   };
@@ -116,19 +116,19 @@ export default function OrdenesList() {
                   <tr key={o.id as number} style={{ cursor: 'pointer' } as React.CSSProperties} onClick={() => navigate(`/admin/work-orders/${o.id as number}`)}>
                     <td style={{ fontWeight: 600, fontFamily: 'monospace' } as React.CSSProperties}>{(o as Record<string, unknown>).numero as string}</td>
                     <td>{(o as Record<string, unknown>).cliente_nombre as string || '-'}</td>
-                    <td><EstadoBadge estado={(o as Record<string, unknown>).estado as string} /></td>
+                    <td><StatusBadge status={(o as Record<string, unknown>).estado as string} /></td>
                     <td style={{ fontWeight: 600 } as React.CSSProperties}><CurrencyDisplay value={(o as Record<string, unknown>).total as number} style={{ fontWeight: 600 }} /></td>
                     <td><CurrencyDisplay value={(o as Record<string, unknown>).sena_recibida as number} /></td>
                     <td style={{ fontWeight: 600 } as React.CSSProperties}><CurrencyDisplay value={(o as Record<string, unknown>).saldo_pendiente as number} style={{ fontWeight: 600 }} /></td>
                     <td>{formatDate((o as Record<string, unknown>).fecha_entrega as string)}</td>
                     <td onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                       <div style={{ display: 'flex', gap: 4 } as React.CSSProperties}>
-                        {(o as Record<string, unknown>).estado as string !== estadosOrden[0] && (
+                        {(o as Record<string, unknown>).estado as string !== orderStatuses[0] && (
                           <button className="btn btn-outline" style={{ padding: '4px 6px' } as React.CSSProperties} onClick={() => retrocederEstado(o)} title="Retroceder estado">
                             <ChevronLeft size={14} />
                           </button>
                         )}
-                        {(o as Record<string, unknown>).estado as string !== estadosOrden[estadosOrden.length - 1] && (
+                        {(o as Record<string, unknown>).estado as string !== orderStatuses[orderStatuses.length - 1] && (
                           <button className="btn btn-outline" style={{ padding: '4px 6px' } as React.CSSProperties} onClick={() => avanzarEstado(o)} title="Avanzar estado">
                             <ChevronRight size={14} />
                           </button>

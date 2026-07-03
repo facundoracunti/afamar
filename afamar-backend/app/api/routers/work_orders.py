@@ -126,13 +126,24 @@ def _load_settings(db: Session) -> dict:
     return {row.key: row.value for row in rows}
 
 
-_COMPANY_KEYS = ["company_name", "company_address", "company_phone", "company_email", "company_logo", "pdf_footer"]
+_COMPANY_KEYS = ["company_name", "company_tagline", "company_address", "company_phone", "company_email", "company_logo", "pdf_footer"]
 _TERMS_KEYS = ["budget_terms", "delivery_terms", "warranty_text"]
 
 
-def _build_company_and_terms(settings_data: dict) -> tuple[dict, dict]:
+def _build_company_and_terms(settings_data: dict, overrides: dict | None = None) -> tuple[dict, dict]:
+    """Build the `company` and `terms` dicts for the PDF.
+
+    `overrides` is an optional dict with per-work-order keys (delivery_terms_override,
+    warranty_override) — when present and non-empty, they REPLACE the global
+    values from settings_data at the same key.
+    """
     company = {k: settings_data.get(k, "") for k in _COMPANY_KEYS}
+    overrides = overrides or {}
     terms = {k: settings_data.get(k, "") for k in _TERMS_KEYS}
+    if overrides.get("delivery_terms_override"):
+        terms["delivery_terms"] = overrides["delivery_terms_override"]
+    if overrides.get("warranty_override"):
+        terms["warranty_text"] = overrides["warranty_override"]
     return company, terms
 
 
@@ -224,7 +235,11 @@ def preview_work_order_pdf(data: dict = Body(...), db: Session = Depends(get_db)
         client_dict = _build_client_dict_from_form(db, data)
 
         settings_data = _load_settings(db)
-        company, terms = _build_company_and_terms(settings_data)
+        overrides = {
+            "delivery_terms_override": data.get("delivery_terms_override"),
+            "warranty_override": data.get("warranty_override"),
+        }
+        company, terms = _build_company_and_terms(settings_data, overrides)
 
         items = []
         materials_raw = order_data.get("materials_data") or data.get("materiales")
@@ -276,7 +291,12 @@ def _prepare_work_order_payload(order, db: Session) -> tuple[dict, dict, dict, d
         "address": client.address,
     }
     settings_data = _load_settings(db)
-    company, terms = _build_company_and_terms(settings_data)
+    # Per-work-order overrides win over the global config terms.
+    overrides = {
+        "delivery_terms_override": getattr(order, "delivery_terms_override", None),
+        "warranty_override": getattr(order, "warranty_override", None),
+    }
+    company, terms = _build_company_and_terms(settings_data, overrides)
     return order_data, client_dict, company, terms
 
 

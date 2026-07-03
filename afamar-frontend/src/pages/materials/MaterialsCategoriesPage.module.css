@@ -1,0 +1,204 @@
+/* MaterialsCategoriesPage — BEM
+   .categories                  block (page wrapper)
+   .categories__header          page header row
+   .categories__title           title
+   .categories__toolbar         toolbar (search + new)
+   .categories__search          search input wrapper
+   .categories__table           table wrapper
+   .categories__th              table header cell
+   .categories__td              table data cell
+   .categories__cell-actions    actions cell
+   .categories__empty           empty state
+   .categories__modal           modal overlay
+   .categories__modal-card      modal card
+   .categories__modal-title     modal title
+   .categories__modal-body      modal body
+   .categories__modal-actions   modal action buttons
+*/
+
+.categories {
+  padding: 24px;
+  display: grid;
+  gap: 16px;
+}
+
+.categories__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.categories__title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0;
+}
+
+.categories__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.categories__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  min-width: 260px;
+  flex: 1;
+  max-width: 480px;
+}
+
+.categories__search input {
+  border: none;
+  outline: none;
+  flex: 1;
+  font-size: 14px;
+  padding: 4px;
+}
+
+.categories__table {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.categories__table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.categories__th {
+  background: #f8fafc;
+  text-align: left;
+  padding: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #4a5568;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.categories__th--actions {
+  width: 120px;
+  text-align: right;
+}
+
+.categories__td {
+  padding: 12px;
+  font-size: 14px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1a202c;
+  vertical-align: middle;
+}
+
+.categories__td--center {
+  text-align: center;
+  width: 60px;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.categories__td--name {
+  font-weight: 600;
+}
+
+.categories__cell-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.categories__empty {
+  padding: 48px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.categories__modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.categories__modal-card {
+  background: #fff;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.categories__modal-title {
+  margin: 0;
+  padding: 18px 24px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a202c;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.categories__modal-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.categories__modal-body label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #4a5568;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.categories__modal-body input {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid #cbd5e0;
+  border-radius: 6px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-sizing: border-box;
+}
+
+.categories__modal-body input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.categories__modal-body input:disabled {
+  background: #f1f5f9;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.categories__modal-actions {
+  padding: 14px 24px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+}

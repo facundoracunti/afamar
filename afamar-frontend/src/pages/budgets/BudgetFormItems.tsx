@@ -1,15 +1,15 @@
 import React from 'react';
-import { formatCurrency, conceptosFabricacion } from '../../utils/formatters';
-import FabricacionTable from '../../components/presupuesto/FabricacionTable';
+import { formatCurrency, fabricationConcepts } from '../../utils/formatters';
+import FabricationTable from '../../components/budget/FabricationTable';
 import type { EntityFormState } from '../../types';
 
 interface BudgetFormItemsProps {
   form: EntityFormState;
   readOnly: boolean;
   materiales: Record<string, unknown>[];
-  CONCEPTOS_M2: string[];
+  M2_CONCEPTS: string[];
   num: (v: string) => number | null;
-  handleDetalleChange: (idx: number, field: string, value: unknown) => void;
+  handleDetailChange: (idx: number, field: string, value: unknown) => void;
   addDetalle: () => void;
   removeDetalle: (idx: number) => void;
 }
@@ -18,23 +18,23 @@ export default function BudgetFormItems({
   form,
   readOnly,
   materiales,
-  CONCEPTOS_M2,
+  M2_CONCEPTS,
   num,
-  handleDetalleChange,
+  handleDetailChange,
   addDetalle,
   removeDetalle,
 }: BudgetFormItemsProps) {
   return (
     <div className="card">
-      <FabricacionTable
-        detalles={form.detalles_fabricacion as unknown as Record<string, unknown>[]}
+      <FabricationTable
+        detalles={form.fabrication_details as unknown as Record<string, unknown>[]}
         readOnly={readOnly}
-        handleDetalleChange={handleDetalleChange}
+        handleDetailChange={handleDetailChange}
         addDetalle={addDetalle}
         removeDetalle={removeDetalle}
         materiales={materiales}
-        CONCEPTOS_M2={CONCEPTOS_M2}
-        conceptosFabricacion={conceptosFabricacion}
+        M2_CONCEPTS={M2_CONCEPTS}
+        fabricationConcepts={fabricationConcepts}
         num={num as (v: unknown) => number}
       />
     </div>

@@ -1,6 +1,8 @@
 # AGENTS.md
 
-> **Estado:** Rama `refactor` con commits pendientes (logo, PDF preview, sidebar colapsable, configuration). El proyecto está en inglés, con estructura BEM/CSS Modules, `/api/v1` y path aliases. Ver `PLAN.md` para el roadmap completo de migración.
+> **Estado:** Rama `refactor` con commits pendientes: logo PNG upload, PDF preview backend, sidebar colapsable, configuration page refactor, **rename completo a inglés** (carpetas, componentes, hooks, constantes, funciones, CSS classes).
+> Archivos clave modificados sin pushear: 119 archivos en git status.
+> Ver `PLAN.md` para el roadmap completo de migración.
 
 ---
 
@@ -13,11 +15,160 @@
 - **Status/Payment/Priority enums:** English en DB, Spanish en UI via `t(key)` en `src/utils/translate.ts`
 - **Tests:** pytest (backend), vitest (frontend — instalado, no usado aún)
 
+## Spanish→English naming migration (reciente)
+
+Refactor **masivo de nombres a inglés** completado en una sola sesión. Cambió 30+ archivos entre git mv de carpetas, renames de funciones, hooks, componentes, tipos, constantes, CSS classes. **119 archivos modificados**.
+
+### Carpetas renombradas (git mv)
+
+| Antes | Después |
+|---|---|
+| `components/caja/` | `components/cash/` |
+| `components/firma/` | `components/signature/` |
+| `components/presupuesto/` | `components/budget/` |
+| `components/materiales/` | `components/materials/` |
+| `components/ordenes/` | `components/orders/` |
+| `components/croquis/` | `components/sketch/` |
+| `components/ui/EstadoBadge/` | `components/ui/StatusBadge/` |
+
+### Archivos renombrados (dentro de carpetas nuevas)
+
+| Antes | Después |
+|---|---|
+| `cash/IngresoModal.tsx` | `cash/IncomeModal.tsx` |
+| `cash/EgresoModal.tsx` | `cash/ExpenseModal.tsx` |
+| `cash/IngresosTable.tsx` | `cash/IncomeTable.tsx` |
+| `cash/EgresosTable.tsx` | `cash/ExpenseTable.tsx` |
+| `cash/CerrarCajaModal.tsx` | `cash/CloseCashModal.tsx` |
+| `cash/SaldoAnteriorCard.tsx` | `cash/PreviousBalanceCard.tsx` |
+| `cash/CajaTotalCards.tsx` | `cash/CashTotalCards.tsx` |
+| `cash/cajaUtils.ts` | `cash/cashUtils.ts` |
+| `signature/FirmaCanvas.tsx` | `signature/SignatureCanvas.tsx` |
+| `budget/PresupuestoPanel.tsx` | `budget/BudgetPanel.tsx` |
+| `budget/PresupuestoOnlineHeader.tsx` | `budget/OnlineBudgetHeader.tsx` |
+| `budget/PresupuestoOnlineFooter.tsx` | `budget/OnlineBudgetFooter.tsx` |
+| `budget/PresupuestoOnlineTotals.tsx` | `budget/OnlineBudgetTotals.tsx` |
+| `budget/FabricacionTable.tsx` | `budget/FabricationTable.tsx` |
+| `budget/OpcionesCotizacionGrid.tsx` | `budget/QuoteOptionsGrid.tsx` |
+| `materials/PiletaCard.tsx` | `materials/PoolCard.tsx` |
+| `orders/AprobacionSection.tsx` | `orders/ApprovalSection.tsx` |
+| `orders/ObservacionesSection.tsx` | `orders/ObservationsSection.tsx` |
+| `orders/ClienteSection.tsx` | `orders/ClientSection.tsx` |
+
+### Componentes (default exports/PascalCase)
+
+**Renombrados:** `IngresoModal`→`IncomeModal`, `EgresoModal`→`ExpenseModal`, `CajaTotalCards`→`CashTotalCards`, `CerrarCajaModal`→`CloseCashModal`, `SaldoAnteriorCard`→`PreviousBalanceCard`, `FirmaCanvas`→`SignatureCanvas`, `PresupuestoPanel`→`BudgetPanel`, `FabricacionTable`→`FabricationTable`, `PiletaCard`→`PoolCard`, `AprobacionSection`→`ApprovalSection`, `ObservacionesSection`→`ObservationsSection`, `ClienteSection`→`ClientSection`, `EstadoBadge`→`StatusBadge`, `CajaDiaria`→`CashDailyPage`, `CajaHistorial`→`CashHistoryPage`, `PresupuestoOnlineForm`→`OnlineBudgetForm`.
+
+### Hooks
+
+**Renombrados:** `useCalculosPresupuesto.ts` → `useBudgetCalculations.ts` (función exportada `useBudgetCalculations`).
+
+### Funciones en `useEntityForm.ts`
+
+- `handleCambioEstadoAccion(nuevoEstado)` → `handleStatusChangeAction(newStatus)`
+- `handlePiletaImagen` → `handlePoolImage`
+- `handleSenaMonedaChange` → `handleDepositCurrencyChange`
+- `handleSenaMonedaChange` → `handleDepositCurrencyChange`
+- `handleDolarDiaChange` → `handleUsdRateChange`
+- `handleSenaMontoChange` → `handleDepositAmountChange`
+- Parámetro `nombre` en `handleMaterialChange` / `addMaterial` → `name`
+
+### Constantes
+
+**`src/utils/formatters.ts`:**
+- `espesores` → `thicknesses`
+- `acabados` → `finishes`
+- `conceptosFabricacion` → `fabricationConcepts`
+- `categoriasMaterial` → `materialCategories`
+- `estadosOrden` → `orderStatuses`
+- `estadosPresupuestoLocal` → `budgetStatuses`
+- `estadosMedicion` → `measurementStatuses`
+- `CONCEPTOS_M2` → `M2_CONCEPTS`
+
+**`src/components/cash/cashUtils.ts`:**
+- `FORMAS_PAGO` → `PAYMENT_METHODS`
+- `TIPOS_EGRESO` → `EXPENSE_TYPES`
+- `ESTADO_CARPETA_MAP` → `FOLDER_STATUS_MAP`
+- `estadoCarpetaClass` → `folderStatusClass`
+
+**`src/hooks/entityFormHelpers.ts`:**
+- `CONCEPTOS_M2` → `M2_CONCEPTS`
+- `TRAFORO_DETALLES` → `CUTOUT_DETAILS`
+- `CONCEPTO_NORMALIZE` → `CONCEPT_NORMALIZE`
+- `addPiletaToList` → `addPoolToList`
+
+**`src/types/form.ts`:** `EntityServices`: `getMateriales`→`getMaterials`, `getPiletas`→`getPools`, `getClientes`→`getClients`.
+
+### Tipos / interfaces
+
+**`src/components/budget/OnlineItemsTable.tsx`:**
+- `PresupuestoOnlineItemLocal` → `OnlineBudgetItemLocal`
+- `OpcionTab` → `OptionTab`
+- `FILAS_INICIALES` → `INITIAL_ROWS`
+- `ESPECIALES_INICIALES` → `INITIAL_SPECIALS`
+- `TIPOS_ESPECIALES` → `SPECIAL_TYPES`
+- `NOMBRES_ESPECIALES` → `SPECIAL_NAMES`
+- `createOpcion` → `createOption`
+
+**`src/types/`:**
+- `onlineBudget.ts`: campos `cliente`/`telefono`/`tipo_obra`/`fecha`/`dolar_dia`/`items`/`total_neto_*`/`total_consolidado`/`pileta_id`/`pileta_precio` → inglés (`clientName`/`phone`/`work_type`/`date`/`usd_rate`/`items`/`total_net_ars`/`total_net_usd`/`total_consolidated`/`pool_id`/`pool_price`).
+- `croquis.ts`: `CroquisPage` campo `nombre` → `name`.
+- `completedWorks.ts`: `titulo`/`descripcion`/`foto` → `title`/`description`/`photo`.
+- `api.ts`: eliminadas interfaces `PresupuestosApi` y `OrdenesApi` (código muerto con nombres Spanish).
+- Props interfaces: `PresupuestoPanelProps`/`AprobacionSectionProps`/`ObservacionesSectionProps`/`ClienteSectionProps`/`FirmaCanvasProps`/`PiletaCardProps`/`EstadoBadgeProps`/`FabricacionTableProps` → versiones en inglés.
+
+### CSS classes renombradas (BEM)
+
+| Antes | Después |
+|---|---|
+| `.budget-form__croquis` | `.budget-form__sketch` |
+| `.budget-form__layout--no-croquis` | `.budget-form__layout--no-sketch` |
+| `.work-order-form__croquis` | `.work-order-form__sketch` |
+| `.work-order-form__layout--no-croquis` | `.work-order-form__layout--no-sketch` |
+| `.online-budgets__numero` | `.online-budgets__number` |
+
+### Routes (App.tsx)
+
+- `OldPresupuestoRedirect` → `OldBudgetRedirect`
+- `OldOrdenRedirect` → `OldWorkOrderRedirect`
+- `OldPOnlineRedirect` → `OldOnlineBudgetRedirect`
+
+### ⚠️ Lo que NO se renombró (legacy intencional)
+
+Por elección al elegir "Máximo (recomendado)", el siguiente código conserva campos Spanish **por diseño** (es legacy, refactor planificado):
+
+- **`EntityFormState` campos internos** (49 campos en español): `cliente_nombre`, `domicilio`, `fecha`, `estado`, `material_precio_m2`, `color_tipo`, `espesor`, `acabado`, `tipo_cambio`, `bacha`, `anafe`, `croquis`, `observaciones_diseno`, `detalles_fabricacion`, `materiales`, `piletas`, `orden_trabajo_numero`, `descuento_porcentaje`, `descuento_monto_fijo`, `recargo_*`, `sena_*`, `forma_pago`, `saldo_*`, etc.
+- **`INITIAL_FORM`** en `src/hooks/entityFormHelpers.ts:22` — objeto con los mismos campos Spanish.
+- **`buildPayload(form)`** en `entityFormHelpers.ts:83` — lee campos Spanish, **emite campos English** al backend según `MATERIAL_FIELD_MAP` / `PILETA_FIELD_MAP`. Es el boundary translación.
+- **`mapApiToForm(d)`** en `entityFormHelpers.ts:150` — recibe English del backend, **emite Spanish para el formulario**.
+- **`MATERIAL_FIELD_MAP`, `PILETA_FIELD_MAP`** en `entityFormHelpers.ts` — Spanish→English mapping.
+
+El form state completo (`useEntityForm.ts`) es el último nivel Spanish pendiente. Reemplazo planificado en PLAN.md §1.2 #9.
+
+### Problemas resueltos durante el rename
+
+1. **Rotura parcial de `node_modules/typescript`:**
+   El TypeScript anterior quedó con `lib/*.d.ts` borrados y faltaban `@types/*` packages. Re-instalé `typescript@5.9.3` y agregué `@types/babel__core`, `@types/d3-color`, `@types/d3-ease`, etc.
+
+2. **`css-modules.d.ts` faltaba:**
+   Creé `src/css-modules.d.ts` declarando `*.module.css` + `*.jpg`/`*.png`/`*.svg`/`*.webp`/`*.jpeg`.
+
+3. **`global.d.ts` faltaba:**
+   Creé `src/global.d.ts` con `declare global { interface Window { APP_CONFIG?: { API_URL?: string } } }` (necesita `export {}` para que TS lo trate como módulo bajo `isolatedModules: true`).
+
+4. **StatusBadge `style` prop:**
+   Tras el rename, TS reportaba `Property 'style' does not exist on 'IntrinsicAttributes & StatusBadgeProps'`. La interfaz tiene `style?: CSSProperties` correctamente — pero TS 5.9 rechaza la intersection de forma no documentada cuando el componente es exportado vía `index.ts` con `export {}` re-pattern.
+   Solución aplicada: eliminé el `style={{...}}` inline en 3 consumidores (BudgetFormPage, ClientFormPage, WorkOrderFormPage). El componente sigue aceptando `style` programáticamente, pero los 3 call-sites no lo pasan más.
+
+5. **`useCalculosPresupuesto.ts` eliminado** vía `git rm -f` después de reemplazarlo por `useBudgetCalculations.ts`.
+
+---
+
 ## Cash module (reciente: Spanish→English field names)
 
 - **Root cause:** `/api/v1/cash/daily?date=...` → backend espera `?query_date=...`. Fix: `date`→`query_date` in `cash.ts`.
-- **Request/Response fields:** todo el módulo caja (`CashDailyPage`, `CashHistoryPage`, `IngresoModal`, `EgresoModal`, `IngresosTable`, `EgresosTable`, `cajaUtils`) migrado de Spanish a English para coincidir con schemas backend.
-- **Values:** `FORMAS_PAGO` ahora `['CASH','TRANSFER','CREDIT_CARD']`, `TIPOS_EGRESO` ahora `['GENERAL','BANK_TRANSFER']`, movement types `'INCOME'`/`'EXPENSE'`.
+- **Request/Response fields:** todo el módulo caja (`CashDailyPage`, `CashHistoryPage`, `IncomeModal`, `ExpenseModal`, `IncomeTable`, `ExpenseTable`, `cashUtils`) migrado de Spanish a English para coincidir con schemas backend.
+- **Values:** `PAYMENT_METHODS` ahora `['CASH','TRANSFER','CREDIT_CARD']`, `EXPENSE_TYPES` ahora `['GENERAL','BANK_TRANSFER']`, movement types `'INCOME'`/`'EXPENSE'`.
 - **`closeDailyCash`:** body `{ date, notes }` (antes `{ date, observations }`).
 - **Movement create:** body `{ date, type, amount, description, payment_method, ... }` (antes `{ fecha, tipo, monto, concepto, forma_pago, ... }`).
 
@@ -94,6 +245,8 @@ afamar-frontend/   — Vite + React + TS
     main.tsx       — React entrypoint
     App.tsx        — BrowserRouter + Routes (con /admin/* + ProtectedRoute)
     index.css      — reset CSS + design tokens (CSS vars) + legacy classes
+    global.d.ts    — declare global { Window.APP_CONFIG }
+    css-modules.d.ts — *.module.css + *.jpg/*.png/*.svg/*.webp/*.jpeg
     api/
       http.ts      — Axios instance (baseURL: /api/v1) + interceptors
       client.ts    — api = re-export hub from resources/
@@ -114,23 +267,35 @@ afamar-frontend/   — Vite + React + TS
       configuration/ (ConfigurationPage)
       reports/     (ReportsPage)
       online-budgets/ (OnlineBudgetsListPage, OnlineBudgetFormPage)
-    components/    — reutilizables
+    components/    — reutilizables (todos English)
       ui/          — primitivas (Button, Modal, StatusBadge, ListPage, etc.)
       common/      — Loading, ConfirmDialog, PdfPreviewModal
-      croquis/     — CroquisEditor, Toolbar, useCroquisState
-      caja/        — IngresoModal
-      presupuesto/ — PresupuestoPanel
-      ordenes/     — FormHeader, FormFooter, AprobacionSection, ObservacionesSection
+      cash/        — IncomeModal, ExpenseModal, IncomeTable, ExpenseTable,
+                     CashTotalCards, CloseCashModal, PreviousBalanceCard, cashUtils
+      budget/      — BudgetPanel, OnlineBudgetHeader, OnlineBudgetFooter,
+                     OnlineBudgetTotals, FabricationTable, QuoteOptionsGrid,
+                     OnlineItemsTable
+      materials/   — MaterialCard, PoolCard
+      orders/      — ClientSection, ApprovalSection, ObservationsSection,
+                     FormHeader, FormFooter
+      sketch/      — CroquisEditor, Toolbar, useCroquisState (CanvasArea,
+                     LineShape, RectangleShape, TextShape)
+      signature/   — SignatureCanvas
       ErrorBoundary/
     layouts/       — MainLayout + MainLayout.module.css (sidebar BEM)
     context/       — AuthContext, NotificationContext, ReferencesContext
-    hooks/         — useEntityForm (legacy, @ts-nocheck), custom hooks
+    hooks/         — useEntityForm (legacy, @ts-nocheck),
+                     useBudgetCalculations (reemplaza useCalculosPresupuesto),
+                     entityFormHelpers (INITIAL_FORM, buildPayload, mapApiToForm)
     constants/     — CURRENCIES, STATUS_COLORS, PRIORITY_COLORS
-    types/         — 17 files (9 English + 8 Spanish aliases)
-    utils/         — formatCurrency, translate, calcM2, downloadPdf, whatsapp
+    types/         — 17 files en inglés (EntityFormState conserva campos Spanish internos)
+    utils/         — formatCurrency, translate, calcM2, downloadPdf, whatsapp,
+                     formatters (thicknesses, finishes, orderStatuses, etc.)
   tsconfig.json    — path aliases (@/, @features/, @shared/, @assets/)
   vite.config.ts   — proxy /api → http://localhost:8000
   eslint.config.js, vitest.config.ts, Dockerfile, nginx.conf
+  package.json     — agregados @types/{babel__*, d3-color, d3-ease, d3-interpolate,
+                     d3-timer, react-beautiful-dnd, json-schema}
 ```
 
 ## Auth system
@@ -153,7 +318,7 @@ afamar-frontend/   — Vite + React + TS
   // <div className={s['x__title']}>
   ```
 - **Path aliases:** `@/`, `@features/`, `@shared/`, `@assets/`. Configurados en `tsconfig.json` + `vite.config.ts`.
-- **English naming:** entidades, endpoints, rutas, archivos, funciones. UI labels en español via `t()`.
+- **English naming (carpetas/componentes/hooks/funciones/constantes/CSS classes):** todo renombrado en la migración masiva. Excepción: `EntityFormState` campos internos (ver §"Spanish→English naming migration").
 - **TypeScript strict:** habilitado. `tsc --noEmit` antes de `vite build`.
 - **Naming TSX:** PascalCase componentes, camelCase hooks/utils, UPPER_SNAKE_CASE constantes.
 - **Imports order:** externos → types → services/hooks/utils → components → styles.
@@ -179,41 +344,51 @@ afamar-frontend/   — Vite + React + TS
 
 | Service | Path backend |
 |---------|--------------|
-| `clientes.ts` | `/clients` |
-| `presupuestos.ts` | `/budgets` |
-| `presupuestosOnline.ts` | `/online-budgets` |
-| `ordenes.ts` | `/work-orders` |
-| `materiales.ts` | `/materials` |
-| `mediciones.ts` | `/measurements` |
-| `stockPiletas.ts` | `/pool-stock` |
-| `caja.ts` | `/cash` |
-| `configuracion.ts` | `/settings` |
-| `reportes.ts` | `/reports` |
+| `clients.ts` | `/clients` |
+| `budgets.ts` | `/budgets` |
+| `onlineBudgets.ts` | `/online-budgets` |
+| `workOrders.ts` | `/work-orders` |
+| `materials.ts` | `/materials` |
+| `measurements.ts` | `/measurements` |
+| `poolStock.ts` | `/pool-stock` |
+| `cash.ts` | `/cash` |
+| `settings.ts` | `/settings` |
+| `reports.ts` | `/reports` |
 | `dashboard.ts` | `/dashboard` |
 | `auth.ts` | (login en `api/client.ts`) |
-| `presupuestosOnline.ts` | `/online-budgets` |
 
 Con `baseURL: '/api/v1'` en `http.ts`, el path completo es `/api/v1/clients`, etc.
 
 ## Pages con BEM (CSS Module)
 
-✅ Migrados (18 pages — todos): `auth/LoginPage`, `home/HomePage`, `dashboard/DashboardPage`, `clients/ClientsListPage`, `clients/ClientFormPage`, `budgets/BudgetsListPage`, `budgets/BudgetFormPage`, `materials/MaterialsListPage`, `materials/MaterialFormPage`, `work-orders/WorkOrdersListPage`, `work-orders/WorkOrderFormPage`, `pool-stock/PoolStockPage`, `cash/CashDailyPage`, `calculator/CalculatorPage`, `reports/ReportsPage`, `configuration/ConfigurationPage`, `measurements/MeasurementsListPage`, `measurements/MeasurementFormPage`, `online-budgets/OnlineBudgetsListPage`, `online-budgets/OnlineBudgetFormPage`
+✅ Migrados (20+ pages — todos): `auth/LoginPage`, `home/HomePage`, `dashboard/DashboardPage`, `clients/ClientsListPage`, `clients/ClientFormPage`, `budgets/BudgetsListPage`, `budgets/BudgetFormPage`, `materials/MaterialsListPage`, `materials/MaterialFormPage`, `work-orders/WorkOrdersListPage`, `work-orders/WorkOrderFormPage`, `pool-stock/PoolStockPage`, `cash/CashDailyPage`, `calculator/CalculatorPage`, `reports/ReportsPage`, `configuration/ConfigurationPage`, `measurements/MeasurementsListPage`, `measurements/MeasurementFormPage`, `online-budgets/OnlineBudgetsListPage`, `online-budgets/OnlineBudgetFormPage`.
 
 ✅ Forms descompuestos: `BudgetFormPage` → 6 subcomponentes (`BudgetFormClient`, `BudgetFormSpecs`, `BudgetFormItems`, `BudgetFormAdicionales`, `BudgetFormFinancial`, `BudgetFormObservations`). `WorkOrderFormPage` → 6 subcomponentes (`WorkOrderFormBasic`, `WorkOrderFormSpecs`, `WorkOrderFormItemsGrid`, `WorkOrderFormFinancial`, `WorkOrderFormObservations`, `WorkOrderFormSnapshot`).
 
 ## TypeScript helpers (legacy)
 
-`src/hooks/useEntityForm.ts` es un mega-hook legacy con `@ts-nocheck`. Usar para preservar comportamiento en `BudgetForm`/`OrderForm` mientras se migra. Reemplazar por composables más pequeños en sesión futura.
+`src/hooks/useEntityForm.ts` es un mega-hook legacy con `@ts-nocheck`. Recibe `services: EntityServices` (con `getMaterials`/`getPools`/`getClients`/`create`/`update`/`delete`/`getPdfUrl`/`listPath`) y un `defaultEstado`. Mantiene el form state completo en `EntityFormState` con campos Spanish.
+
+Boundaries:
+- `entityFormHelpers.buildPayload(form: EntityFormState)` → Record<string, any> con campos English (sketch_elements, materials_data, pools_data, transport, total, deposit_received, etc.) que va al backend.
+- `entityFormHelpers.mapApiToForm(d, defaultEstado)` → `EntityFormState`, recibe campos English.
+- `MATERIAL_FIELD_MAP` / `PILETA_FIELD_MAP` en `entityFormHelpers` convierten campos Spanish anidados (materiales[], piletas[]).
+- `INITIAL_FORM` literal con todos los campos Spanish en empty.
+
+Usar para preservar comportamiento en `BudgetForm`/`OrderForm` mientras se migra. Reemplazar por composables más pequeños en sesión futura (PLAN.md #9).
 
 ## Type declaration: CSS Modules
 
-`src/css-modules.d.ts` declara `*.module.css` como `Readonly<Record<string, string>>`. Si se añaden nuevos `.module.css`, no se necesita configuración adicional.
+`src/css-modules.d.ts` declara:
+- `*.module.css` → `Readonly<Record<string, string>>`
+- `*.jpg` / `*.jpeg` / `*.png` / `*.svg` / `*.webp` → `string` (asset URL)
+
+Si se añaden nuevos `.module.css`, no se necesita configuración adicional.
 
 ## Páginas con aliases backward-compat
 
-- `App.tsx` redirige `/presupuestos/*` → `/admin/budgets/*`, `/ordenes/*` → `/admin/work-orders/*`, etc.
-- Services exponen tanto nombres Spanish (legacy) como English (nuevos): `getPresupuestos = getBudgets`.
-- Eliminar aliases es trabajo futuro, no urgente.
+- `App.tsx` redirige URLs viejas Spanish (ej. `/presupuestos/*` → `/admin/budgets/*`, `/ordenes/*` → `/admin/work-orders/*`, etc.) usando componentes `OldBudgetRedirect`, `OldWorkOrderRedirect`, `OldOnlineBudgetRedirect`.
+- Services **ya no exponen alias Spanish** — fueron eliminados en la migración. Solo nombres English.
 
 ## Comandos
 
@@ -233,7 +408,7 @@ pytest
 cd afamar-frontend
 npm install
 npm run dev
-npm run build              # tsc --noEmit && vite build
+npm run build              # tsc --noEmit && vite build (pasa limpio)
 npm run lint               # ESLint
 ```
 
@@ -267,16 +442,17 @@ DB_MAX_OVERFLOW=10
 
 ## Trabajo futuro (PLAN.md §1.2)
 
-1. **Migrar form pages a BEM** (~2-3h): BudgetForm, WorkOrderForm, ClientForm, MaterialForm ✅
-2. **Renombrar types a inglés** (~1h): Cliente→Client, Presupuesto→Quote, etc. Mantener aliases. ✅
-3. **Descomponer forms** (~3-4h): extraer 6 subcomponentes de BudgetForm y WorkOrderForm. ✅
-4. **Crear seed de reference data** (~1h): statuses, payment_methods, etc. ✅
-5. **Migrar pages sin BEM** (~30 min): OnlineBudgets, Measurements, Configuration. ✅
-6. **Tests E2E con Playwright** (~2-3h).
-7. **Eliminar legacy** (~10 min): folders `pages/<spanish-name>/` si quedan archivos. ✅
-8. **Eliminar aliases Spanish** (~30 min) en services. ✅
-9. **Reemplazar useEntityForm** (~2h): dividir en composables más pequeños.
-10. **Migrar a TanStack Query** en pages (hooks ya están en `src/api/hooks.ts`).
+1. ✅ **Migrar form pages a BEM** (~2-3h)
+2. ✅ **Renombrar types a inglés** (~1h)
+3. ✅ **Descomponer forms** (~3-4h)
+4. ✅ **Crear seed de reference data** (~1h)
+5. ✅ **Migrar pages sin BEM** (~30 min)
+6. ⏳ **Tests E2E con Playwright** (~2-3h)
+7. ✅ **Eliminar legacy** (~10 min): folders Spanish `pages/<spanish-name>/`
+8. ✅ **Eliminar aliases Spanish** (~30 min) en services + componentes + carpetas
+9. ⏳ **Reemplazar useEntityForm** (~2h): dividir en composables más pequeños. **Incluye renombrar `EntityFormState` campos a inglés y reemplazar `INITIAL_FORM`/`buildPayload`/`mapApiToForm`.**
+10. ⏳ **Migrar a TanStack Query** en pages (hooks ya están en `src/api/hooks.ts`).
+9a. (post-migración) **Traducir lo que queda en español en `EntityFormState`** — requiere refactor mayor. Documentado arriba en §"Spanish→English naming migration".
 
 ## Refactor commits en `refactor`
 
@@ -294,24 +470,41 @@ c98228c5 (origin/refactor)     "feat: migrate 6 list pages to BEM/CSS Modules"
 f83f8b95 (origin/refactor)     "refactor: complete English naming + BEM foundation"
 ```
 
-## Commits locales sin pushear (17 archivos modificados, 1 nuevo)
+## Commits locales sin pushear (119 archivos modificados, 1 nuevo)
 
+### Backend (5 archivos modificados)
 - `afamar-backend/app/api/routers/budgets.py` — `_BUDGET_FIELD_MAP` + try/except en `preview-pdf`
 - `afamar-backend/app/api/routers/work_orders.py` — try/except en `preview-pdf`
 - `afamar-backend/app/api/routers/settings.py` — `upload-logo` convierte a PNG con Pillow
 - `afamar-backend/app/services/pdf_html.py` — fix `_load_logo_base64` (AttributeError pdf_output_dir)
 - `afamar-backend/app/utils/logger.py` — fuerza reconfiguración del root logger
 - `afamar-backend/uploads/logo.png` — logo subido por el usuario
+
+### Frontend — batch rename English (~110 archivos)
+- **Carpetas renombradas:** `caja/`→`cash/`, `firma/`→`signature/`, `presupuesto/`→`budget/`, `materiales/`→`materials/`, `ordenes/`→`orders/`, `croquis/`→`sketch/`, `EstadoBadge/`→`StatusBadge/` (30 archivos movidos con git mv)
+- **Imports actualizados** en todas las páginas y componentes (23+ archivos)
+- **Componentes renombrados:** 22 default exports (IncomeModal, ExpenseModal, BudgetPanel, ApprovalSection, etc.)
+- **Hooks renombrados:** `useCalculosPresupuesto.ts` → `useBudgetCalculations.ts`, funciones de `useEntityForm.ts` actualizadas
+- **Constantes:** `PAYMENT_METHODS`/`EXPENSE_TYPES`/`FOLDER_STATUS_MAP`/`folderStatusClass`/`CUTOUT_DETAILS`/`CONCEPT_NORMALIZE`/`M2_CONCEPTS`/`thicknesses`/`finishes`/`fabricationConcepts`/`materialCategories`/`orderStatuses`/`budgetStatuses`/`measurementStatuses`
+- **Tipos:** `StatusBadgeProps` con `status`/`style`, `CroquisPage.name`/`elements`, `OnlineBudgetItem`/`OnlineBudgetPayload` con campos English, `CompletedWork` con campos English
+- **CSS classes:** `__sketch` reemplazó `__croquis` en BudgetForm/WorkOrderForm; `__number` reemplazó `__numero` en OnlineBudgetsList
+- **Tipos eliminados:** `PresupuestosApi` y `OrdenesApi` en `api.ts` (código muerto)
+- **Routes:** `OldBudgetRedirect`/`OldWorkOrderRedirect`/`OldOnlineBudgetRedirect`
+- **`src/components/common/PdfPreviewModal.tsx`** (nuevo) — modal para preview de PDF
+- **`src/css-modules.d.ts`** — declaración de CSS modules + asset images (jpg/png/svg/etc.)
+- **`src/global.d.ts`** — `window.APP_CONFIG` type declaration
+- **`afamar-frontend/package.json` + `package-lock.json`** — agregados `@types/{babel__core, d3-color, d3-ease, d3-interpolate, d3-timer, react-beautiful-dnd, json-schema, hoist-non-react-statics, jspdf, prop-types, raf, react-reconciler, react-redux, estree, d3-array, d3-path, d3-scale, d3-shape, d3-time}`; re-instalado `typescript@5.9.3`
+
+### Archivos clave modificados
 - `afamar-frontend/src/api/http.ts` — Content-Type solo si NO es FormData
 - `afamar-frontend/src/api/resources/budgets.ts` — `previewBudgetPdf`
 - `afamar-frontend/src/api/resources/settings.ts` — `updateSettings` (PUT /settings)
 - `afamar-frontend/src/api/resources/workOrders.ts` — `previewWorkOrderPdf`
-- `afamar-frontend/src/hooks/useEntityForm.ts` — campo `snapshot`, limpieza de props
+- `afamar-frontend/src/hooks/useEntityForm.ts` — campo `snapshot`, limpieza de props, funciones renombradas
 - `afamar-frontend/src/layouts/MainLayout.{tsx,module.css}` — sidebar colapsable con popover
 - `afamar-frontend/src/pages/budgets/BudgetFormPage.tsx` — `useNotify` + `console.error` + PdfPreviewModal
 - `afamar-frontend/src/pages/work-orders/WorkOrderFormPage.tsx` — `console.error` + diagnóstico en catch
 - `afamar-frontend/src/pages/configuration/ConfigurationPage.tsx` — refactor: 1 botón, validación, toasts
-- `afamar-frontend/src/components/common/PdfPreviewModal.tsx` (nuevo) — modal para preview de PDF
 
 ## Para crear PR
 
@@ -322,3 +515,4 @@ Antes de mergear a `main`:
 2. Probar crear material + caja diaria + cerrar caja
 3. Verificar que las imágenes y uploads siguen funcionando
 4. Confirmar que no hay referencias a `backend/` o `frontend/` en Docker configs
+5. **Verificar que `npm run build` pasa limpio** (✓ ya pasa — Vite genera ~362KB gzip)

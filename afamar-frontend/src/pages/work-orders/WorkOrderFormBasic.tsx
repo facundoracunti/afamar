@@ -1,39 +1,39 @@
 import React from 'react';
-import ClienteSection from '../../components/ordenes/ClienteSection';
+import ClientSection from '../../components/orders/ClientSection';
 import type { EntityFormState } from '../../types';
 
 interface WorkOrderFormBasicProps {
   form: EntityFormState;
   readOnly: boolean;
   update: (field: string, value: unknown) => void;
-  clienteRef: React.RefObject<HTMLDivElement>;
-  showClienteDropdown: boolean;
-  setShowClienteDropdown: (v: boolean) => void;
-  clientesFiltrados: unknown[];
-  handleClienteSelect: (c: Record<string, unknown>) => void;
+  clientRef: React.RefObject<HTMLDivElement>;
+  showClientDropdown: boolean;
+  setShowClientDropdown: (v: boolean) => void;
+  filteredClients: unknown[];
+  handleClientSelect: (c: Record<string, unknown>) => void;
 }
 
 export default function WorkOrderFormBasic({
   form,
   readOnly,
   update,
-  clienteRef,
-  showClienteDropdown,
-  setShowClienteDropdown,
-  clientesFiltrados,
-  handleClienteSelect,
+  clientRef,
+  showClientDropdown,
+  setShowClientDropdown,
+  filteredClients,
+  handleClientSelect,
 }: WorkOrderFormBasicProps) {
   return (
     <>
-      <ClienteSection
+      <ClientSection
         form={form}
         readOnly={readOnly}
         update={update}
-        clienteRef={clienteRef}
-        showClienteDropdown={showClienteDropdown}
-        setShowClienteDropdown={setShowClienteDropdown}
-        clientesFiltrados={clientesFiltrados}
-        handleClienteSelect={handleClienteSelect}
+        clientRef={clientRef}
+        showClientDropdown={showClientDropdown}
+        setShowClientDropdown={setShowClientDropdown}
+        filteredClients={filteredClients}
+        handleClientSelect={handleClientSelect}
       />
       <div className="card">
         <h3 className="section-title">ESTADO Y PRIORIDAD</h3>
@@ -42,8 +42,8 @@ export default function WorkOrderFormBasic({
             <label>Estado</label>
             <select
               className="input"
-              value={form.estado}
-              onChange={(e) => update('estado', e.target.value)}
+              value={form.status}
+              onChange={(e) => update('status', e.target.value)}
               disabled={readOnly}
             >
               <option value="MEDICION">Medición</option>

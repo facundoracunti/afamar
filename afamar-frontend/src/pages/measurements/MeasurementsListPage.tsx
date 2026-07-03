@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Eye, Trash2 } from 'lucide-react';
 import { getMeasurements, deleteMeasurement } from '@/api/resources/measurements';
 import { useList, useDelete } from '../../api/hooks';
-import { estadosMedicion, formatDate } from '../../utils/formatters';
-import EstadoBadge from '../../components/ui/EstadoBadge';
-import type { Medicion } from '../../types/medicion';
+import { measurementStatuses, formatDate } from '../../utils/formatters';
+import { StatusBadge } from '../../components/ui/StatusBadge';
+import type { Measurement } from '../../types/measurement';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Loading from '../../components/common/Loading';
 import styles from './MeasurementsListPage.module.css';
@@ -14,17 +14,17 @@ const s = styles as unknown as Record<string, string>;
 
 const MEASUREMENTS_KEY = ['measurements'] as const;
 
-export default function MedicionesList() {
+export default function MeasurementsList() {
   const [search, setSearch] = useState('');
   const [estadoFiltro, setEstadoFiltro] = useState('');
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const navigate = useNavigate();
 
-  const { items: data, loading } = useList<Medicion>(
+  const { items: data, loading } = useList<Measurement>(
     [...MEASUREMENTS_KEY, search, estadoFiltro],
     async () => {
-      const res = await getMeasurements({ search: search || undefined, estado: estadoFiltro || undefined });
-      return (res.data as Medicion[]) || [];
+      const res = await getMeasurements({ search: search || undefined, status: estadoFiltro || undefined });
+      return (res.data as Measurement[]) || [];
     }
   );
 
@@ -43,7 +43,7 @@ export default function MedicionesList() {
   return (
     <div className={s['measurements']}>
       <div className={s['measurements__header']}>
-        <h1 className={s['measurements__title']}>Agenda de Mediciones</h1>
+        <h1 className={s['measurements__title']}>Agenda de Measurementes</h1>
         <div className={s['measurements__actions']}>
           <button className="btn btn-primary" onClick={() => navigate('/admin/measurements/new')}>
             <Plus size={16} /> Nueva Medición
@@ -67,7 +67,7 @@ export default function MedicionesList() {
           onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEstadoFiltro(e.target.value)}
         >
           <option value="">Todos los estados</option>
-          {estadosMedicion.map((e: string) => <option key={e} value={e}>{e}</option>)}
+          {measurementStatuses.map((e: string) => <option key={e} value={e}>{e}</option>)}
         </select>
       </div>
 
@@ -86,14 +86,14 @@ export default function MedicionesList() {
               </tr>
             </thead>
             <tbody>
-              {data.map((m: Medicion) => (
+              {data.map((m: Measurement) => (
                 <tr key={m.id}>
-                  <td style={{ fontWeight: 600 }}>{m.cliente_nombre}</td>
-                  <td>{m.cliente_telefono || '-'}</td>
-                  <td>{m.cliente_direccion || '-'}</td>
-                  <td>{formatDate(m.fecha_programada)}</td>
-                  <td>{m.hora_programada || '-'}</td>
-                  <td><EstadoBadge estado={m.estado || ''} /></td>
+                  <td style={{ fontWeight: 600 }}>{m.clientName}</td>
+                  <td>{m.clientPhone || '-'}</td>
+                  <td>{m.clientAddress || '-'}</td>
+                  <td>{formatDate(m.scheduledDate)}</td>
+                  <td>{m.scheduledTime || '-'}</td>
+                  <td><StatusBadge status={m.status || ''} /></td>
                   <td>
                     <div className={s['measurements__cell-actions']}>
                       <button className="btn btn-outline" onClick={() => navigate(`/admin/measurements/${m.id}`)}>

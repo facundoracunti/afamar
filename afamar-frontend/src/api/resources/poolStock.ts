@@ -10,15 +10,15 @@ export const createPoolMovement = (id: number | string, data: Record<string, unk
 
 function mapPoolToApi(data: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  if (data.marca !== undefined) out.brand = data.marca;
-  if (data.modelo !== undefined) out.model = data.modelo;
-  if (data.descripcion !== undefined) out.description = data.descripcion;
+  if (data.brand !== undefined) out.brand = data.brand;
+  if (data.model !== undefined) out.model = data.model;
+  if (data.description !== undefined) out.description = data.description;
   if (data.material !== undefined) out.material = data.material;
-  if (data.cantidad !== undefined) out.quantity = data.cantidad;
-  if (data.precio !== undefined) out.price = data.precio;
-  if (data.precio_usd !== undefined) out.price_usd = data.precio_usd;
+  if (data.quantity !== undefined) out.quantity = data.quantity;
+  if (data.price !== undefined) out.price = data.price;
+  if (data.priceUsd !== undefined) out.price_usd = data.priceUsd;
   Object.keys(data).forEach((k) => {
-    if (!(k in out) && !['marca','modelo','descripcion','cantidad','precio'].includes(k)) {
+    if (!(k in out) && !['brand','model','description','quantity','price','priceUsd'].includes(k)) {
       out[k] = data[k];
     }
   });
@@ -27,8 +27,8 @@ function mapPoolToApi(data: Record<string, unknown>): Record<string, unknown> {
 
 function mapMovementToApi(data: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  if (data.tipo !== undefined) out.type = data.tipo;
-  if (data.cantidad !== undefined) out.quantity = data.cantidad;
-  if (data.descripcion !== undefined) out.description = data.descripcion;
+  if (data.type !== undefined) out.type = data.type;
+  if (data.quantity !== undefined) out.quantity = data.quantity;
+  if (data.description !== undefined) out.description = data.description;
   return out;
 }

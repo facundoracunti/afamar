@@ -9,15 +9,15 @@ import styles from './ClientsListPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
 
-// Local interface — replaces the Spanish-named `Cliente` from types/cliente
-interface Client {
+// Local interface — matches English `Client` type
+interface LocalClient {
   id: number;
-  nombre?: string;
-  telefono?: string | null;
+  name?: string;
+  phone?: string | null;
   email?: string | null;
-  direccion?: string | null;
-  total_ordenes?: number;
-  ultima_orden?: string | null;
+  address?: string | null;
+  totalOrders?: number;
+  lastOrderNumber?: string | null;
   created_at?: string | null;
 }
 
@@ -28,11 +28,11 @@ export default function ClientsList() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const navigate = useNavigate();
 
-  const { items: clients, loading } = useList<Client>(
+  const { items: clients, loading } = useList<LocalClient>(
     [...CLIENTS_KEY, search],
     async () => {
       const res = await getClients({ search: search || undefined });
-      return (res.data as Client[]) || [];
+      return (res.data as LocalClient[]) || [];
     }
   );
 
@@ -107,14 +107,14 @@ export default function ClientsList() {
                   onClick={() => navigate(`/admin/clients/${c.id}`)}
                 >
                   <td style={{ color: '#94a3b8', fontSize: 13 }}>{c.id}</td>
-                  <td style={{ fontWeight: 600 }}>{c.nombre}</td>
-                  <td>{c.telefono || '-'}</td>
+                  <td style={{ fontWeight: 600 }}>{c.name}</td>
+                  <td>{c.phone || '-'}</td>
                   <td>{c.email || '-'}</td>
-                  <td>{c.direccion || '-'}</td>
+                  <td>{c.address || '-'}</td>
                   <td style={{ textAlign: 'center' }}>
-                    <span className="badge badge-approved">{c.total_ordenes || 0}</span>
+                    <span className="badge badge-approved">{c.totalOrders || 0}</span>
                   </td>
-                  <td style={{ fontSize: 13, color: '#64748b' }}>{c.ultima_orden || '-'}</td>
+                  <td style={{ fontSize: 13, color: '#64748b' }}>{c.lastOrderNumber || '-'}</td>
                   <td style={{ fontSize: 13, color: '#64748b' }}>{formatDate(c.created_at)}</td>
                   <td>
                     <div

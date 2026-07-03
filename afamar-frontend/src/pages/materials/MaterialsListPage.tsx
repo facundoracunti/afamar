@@ -1,10 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Edit, Trash2 } from 'lucide-react';
-import { getMaterials, deleteMaterial } from '@/api/resources/materials';
-import { getSettings } from '@/api/resources/settings';
+import { Plus, Search, Edit, Trash2, FolderTree } from 'lucide-react';
+import { getMaterials, deleteMaterial, getMaterialCategories, type MaterialCategory } from '@/api/resources/materials';
 import { useList, useDelete } from '../../api/hooks';
-import { categoriasMaterial } from '../../utils/formatters';
 import type { Material } from '../../types/material';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Loading from '../../components/common/Loading';
@@ -13,7 +11,7 @@ import styles from './MaterialsListPage.module.css';
 const s = styles as unknown as Record<string, string>;
 
 const MATERIALS_KEY = ['materials'] as const;
-const SETTINGS_KEY = ['settings'] as const;
+const CATEGORIES_KEY = ['material-categories'] as const;
 
 export default function MaterialsList() {
   const [search, setSearch] = useState('');
@@ -21,6 +19,7 @@ export default function MaterialsList() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const navigate = useNavigate();
 
+  // Materials list (uses API filter param `categoria`).
   const { items: data, loading } = useList<Material>(
     [...MATERIALS_KEY, search, categoria],
     async () => {
@@ -28,6 +27,33 @@ export default function MaterialsList() {
       return (res.data as Material[]) || [];
     }
   );
+
+  // Categories come exclusively from the API. No more hardcoded lists.
+  // The hook refetches on every mount, so changes made in /admin/materials/categories
+  // show up here when the user navigates back.
+  const { items: categorias } = useList<MaterialCategory>(
+    CATEGORIES_KEY,
+    async () => {
+      const res = await getMaterialCategories();
+      const list = (res.data as unknown as MaterialCategory[]) || [];
+      return list;
+    }
+  );
+
+  // Resolve category names for the table display: backend stores `categoryId` as a number.
+  // Build a lookup map { id -> name } once per categories change.
+  const categoryNameById = useMemo(() => {
+    const m: Record<number, string> = {};
+    categorias.forEach((c) => { m[c.id] = c.name; });
+    return m;
+  }, [categorias]);
+
+  // Also need a "name -> id" map for filtering (the API expects `categoria=` to be the name).
+  // Build it client-side so the user can pick from the dropdown without round-trips.
+  useEffect(() => {
+    // The dropdown's `value` IS the category name (matches the API filter param).
+    // Categories list is already reactive via useList above.
+  }, []);
 
   const deleteMutation = useDelete<unknown, number>(
     MATERIALS_KEY,
@@ -68,17 +94,23 @@ export default function MaterialsList() {
         </div>
         <select
           className="input"
-          style={{ width: 200 }}
+          style={{ width: 220 }}
           value={categoria}
           onChange={(e) => setCategoria(e.target.value)}
         >
           <option value="">Todas las categorias</option>
-          {categoriasMaterial.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
+          {categorias.map((c) => (
+            <option key={c.id} value={c.name}>{c.name}</option>
           ))}
         </select>
+        <button
+          type="button"
+          className="btn btn-outline"
+          onClick={() => navigate('/admin/materials/categories')}
+          title="Gestionar categorías"
+        >
+          <FolderTree size={14} /> Categorías
+        </button>
       </div>
 
       {loading ? (
@@ -100,19 +132,21 @@ export default function MaterialsList() {
             </thead>
             <tbody>
               {data.map((m: Material) => {
-                const moneda = m.moneda || 'ARS';
-                const precio =
-                  moneda === 'USD' ? m.precio_m2_usd || 0 : m.precio_m2 || 0;
+                const moneda = m.currency || 'ARS';
+                const precio = moneda === 'USD' ? m.priceUsd || 0 : m.basePrice || 0;
+                const categoryName = m.categoryId
+                  ? (categoryNameById[Number(m.categoryId)] || categoryNameById[String(m.categoryId) as unknown as number] || `Categoria #${m.categoryId}`)
+                  : '-';
                 return (
                   <tr key={m.id}>
                     <td className={s['materials__td']} style={{ fontWeight: 600 }}>
-                      {m.nombre}
+                      {m.name}
                     </td>
                     <td className={s['materials__td']}>
-                      <span className="badge badge-approved">{m.categoria}</span>
+                      <span className="badge badge-approved">{categoryName}</span>
                     </td>
                     <td className={s['materials__td']}>{m.color || '-'}</td>
-                    <td className={s['materials__td']}>{m.espesor_disponible || '-'}</td>
+                    <td className={s['materials__td']}>{m.availableThickness || '-'}</td>
                     <td
                       className={s['materials__td'] + ' ' + s['materials__td--right']}
                       style={{
@@ -124,8 +158,8 @@ export default function MaterialsList() {
                         ? `USD ${precio.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
                         : `$ ${precio.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}
                     </td>
-                    <td className={s['materials__td']}>{m.proveedor || '-'}</td>
-                    <td className={s['materials__td']}>{m.stock_disponible || 0}</td>
+                    <td className={s['materials__td']}>{m.supplier || '-'}</td>
+                    <td className={s['materials__td']}>{m.stockAvailable || 0}</td>
                     <td className={s['materials__td']}>
                       <div className={s['materials__cell-actions']}>
                         <button

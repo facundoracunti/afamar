@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import type { Cliente } from '../../types/cliente';
+import type { Client } from '../../types/client';
 import { useNavigate, useParams } from 'react-router-dom';
 import { FileText, ClipboardList, DollarSign, Calendar, ArrowRight } from 'lucide-react';
 import { getClient, createClient, updateClient } from '@/api/resources/clients';
+import { useCreate, useUpdate } from '../../api/hooks';
 import Loading from '../../components/common/Loading';
-import EstadoBadge from '../../components/ui/EstadoBadge';
+import { StatusBadge } from '../../components/ui/StatusBadge';
 import styles from './ClientFormPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
 
-export default function ClienteForm() {
+const CLIENTS_KEY = ['clients'] as const;
+
+export default function ClientForm() {
   const { id } = useParams();
   const navigate = useNavigate();
   const isEdit = !!id;
@@ -17,7 +20,7 @@ export default function ClienteForm() {
   const [saving, setSaving] = useState(false);
   const [historial, setHistorial] = useState<Record<string, unknown> | null>(null);
   const [cliente, setCliente] = useState({
-    nombre: '', telefono: '', email: '', direccion: '', observaciones: '',
+    name: '', phone: '', email: '', address: '', notes: '',
   });
 
   useEffect(() => {
@@ -25,18 +28,18 @@ export default function ClienteForm() {
       getClient(id).then((res) => {
         const d = res.data as Record<string, unknown>;
         setCliente({
-          nombre: (d.nombre as string) || '',
-          telefono: (d.telefono as string) || '',
+          name: (d.name as string) || '',
+          phone: (d.phone as string) || '',
           email: (d.email as string) || '',
-          direccion: (d.direccion as string) || '',
-          observaciones: (d.observaciones as string) || '',
+          address: (d.address as string) || '',
+          notes: (d.notes as string) || '',
         });
         setHistorial({
-          total_presupuestos: (d.total_presupuestos as number) || 0,
-          total_ordenes: (d.total_ordenes as number) || 0,
-          total_comprado: (d.total_comprado as number) || 0,
-          ultima_orden: d.ultima_orden as string | null,
-          ordenes: (d.ordenes as Record<string, unknown>[]) || [],
+          total_budgets: (d.total_budgets as number) || 0,
+          total_orders: (d.total_orders as number) || 0,
+          total_purchased: (d.total_purchased as number) || 0,
+          last_order: d.last_order_number as string | null,
+          orders: (d.orders as Record<string, unknown>[]) || [],
           created_at: d.created_at as string,
         });
         setLoading(false);
@@ -44,15 +47,28 @@ export default function ClienteForm() {
     }
   }, [id]);
 
+  const createMutation = useCreate<unknown, Record<string, unknown>>(
+    CLIENTS_KEY,
+    async (variables) => { await createClient(variables); },
+    { invalidateKeys: [CLIENTS_KEY] }
+  );
+
+  const updateMutation = useUpdate<unknown, { id: string; data: Record<string, unknown> }>(
+    CLIENTS_KEY,
+    async (variables) => { await updateClient(variables.id, variables.data); },
+    { invalidateKeys: [CLIENTS_KEY] }
+  );
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSaving(true);
     try {
       if (isEdit) {
-        await updateClient(id as string, cliente);
+        await updateMutation.mutateAsync({ id: id as string, data: cliente });
       } else {
-        await createClient(cliente);
+        await createMutation.mutateAsync(cliente);
       }
+      // Invalidate ensures ClientsListPage refreshes the table after navigation.
       navigate('/admin/clients');
     } catch (err: unknown) {
       const apiErr = err as Record<string, unknown>;
@@ -82,11 +98,11 @@ export default function ClienteForm() {
             <div className={s['client-form__row']}>
               <div className={s['client-form__group']}>
                 <label className={s['client-form__label']}>Nombre *</label>
-                <input className="input" required value={cliente.nombre} onChange={(e) => setCliente({ ...cliente, nombre: e.target.value })} />
+                <input className="input" required value={cliente.name} onChange={(e) => setCliente({ ...cliente, name: e.target.value })} />
               </div>
               <div className={s['client-form__group']}>
                 <label className={s['client-form__label']}>Teléfono</label>
-                <input className="input" value={cliente.telefono || ''} onChange={(e) => setCliente({ ...cliente, telefono: e.target.value })} />
+                <input className="input" value={cliente.phone || ''} onChange={(e) => setCliente({ ...cliente, phone: e.target.value })} />
               </div>
             </div>
             <div className={s['client-form__row']}>
@@ -96,12 +112,12 @@ export default function ClienteForm() {
               </div>
               <div className={s['client-form__group']}>
                 <label className={s['client-form__label']}>Dirección</label>
-                <input className="input" value={cliente.direccion || ''} onChange={(e) => setCliente({ ...cliente, direccion: e.target.value })} />
+                <input className="input" value={cliente.address || ''} onChange={(e) => setCliente({ ...cliente, address: e.target.value })} />
               </div>
             </div>
             <div className={s['client-form__group']}>
               <label className={s['client-form__label']}>Observaciones</label>
-              <textarea className="input" rows={3} value={cliente.observaciones || ''} onChange={(e) => setCliente({ ...cliente, observaciones: e.target.value })} />
+              <textarea className="input" rows={3} value={cliente.notes || ''} onChange={(e) => setCliente({ ...cliente, notes: e.target.value })} />
             </div>
 
             <div className={s['client-form__actions']}>
@@ -120,40 +136,40 @@ export default function ClienteForm() {
               <div className={s['client-form__stats']}>
                 <div className={s['client-form__stat']}>
                   <FileText size={20} color="#3b82f6" className={s['client-form__stat-icon']} />
-                  <div className={s['client-form__stat-value']}>{(historial.total_presupuestos as number)}</div>
+                  <div className={s['client-form__stat-value']}>{(historial.total_budgets as number)}</div>
                   <div className={s['client-form__stat-label']}>Presupuestos</div>
                 </div>
                 <div className={s['client-form__stat']}>
                   <ClipboardList size={20} color="#059669" className={s['client-form__stat-icon']} />
-                  <div className={s['client-form__stat-value']}>{(historial.total_ordenes as number)}</div>
+                  <div className={s['client-form__stat-value']}>{(historial.total_orders as number)}</div>
                   <div className={s['client-form__stat-label']}>Órdenes</div>
                 </div>
                 <div className={s['client-form__stat']}>
                   <DollarSign size={20} color="#d97706" className={s['client-form__stat-icon']} />
-                  <div className={s['client-form__stat-value']}>{formatCurrency(historial.total_comprado as number)}</div>
+                  <div className={s['client-form__stat-value']}>{formatCurrency(historial.total_purchased as number)}</div>
                   <div className={s['client-form__stat-label']}>Total facturado</div>
                 </div>
                 <div className={s['client-form__stat']}>
                   <Calendar size={20} color="#8b5cf6" className={s['client-form__stat-icon']} />
-                  <div className={s['client-form__stat-value']}>{(historial.ultima_orden as string | null) || '-'}</div>
+                  <div className={s['client-form__stat-value']}>{(historial.last_order as string | null) || '-'}</div>
                   <div className={s['client-form__stat-label']}>Última orden</div>
                 </div>
               </div>
             </div>
 
-            {(historial.ordenes as Record<string, unknown>[]).length > 0 && (
+            {(historial.orders as Record<string, unknown>[]).length > 0 && (
               <div className={s['client-form__card']} style={{ marginTop: 16 }}>
                 <h3 className={s['client-form__section']}>Órdenes asociadas</h3>
                 <div className={s['client-form__orders']}>
-                  {(historial.ordenes as Record<string, unknown>[]).map((o: Record<string, unknown>) => (
+                  {(historial.orders as Record<string, unknown>[]).map((o: Record<string, unknown>) => (
                     <div
-                      key={o.numero as string}
+                      key={o.number as string}
                       className={s['client-form__order']}
                       onClick={() => navigate(`/admin/work-orders/${o.id as number}`)}
                     >
                       <div className={s['client-form__order-left']}>
-                        <span className={s['client-form__order-num']}>{o.numero as string}</span>
-                        <EstadoBadge estado={o.estado as string} style={{ marginLeft: 8 }} />
+                        <span className={s['client-form__order-num']}>{o.number as string}</span>
+                        <StatusBadge status={o.status as string} />
                       </div>
                       <div className={s['client-form__order-right']}>
                         <span className={s['client-form__order-total']}>

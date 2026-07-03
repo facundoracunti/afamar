@@ -186,13 +186,53 @@ def _load_settings(db: Session) -> dict:
     return {row.key: row.value for row in rows}
 
 
-_COMPANY_KEYS = ["company_name", "company_address", "company_phone", "company_email", "company_logo", "pdf_footer"]
+_COMPANY_KEYS = ["company_name", "company_tagline", "company_address", "company_phone", "company_email", "company_logo", "pdf_footer"]
 _TERMS_KEYS = ["budget_terms", "delivery_terms", "warranty_text", "observaciones_automaticas"]
 
 
-def _build_company_and_terms(settings_data: dict) -> tuple[dict, dict]:
+def _split_or_default(value, default_global_terms) -> list[str]:
+    """Return terms from `value` (per-budget override) if it has any,
+    otherwise from `default_global_terms` (loaded via /admin/configuration).
+
+    Accepts override values that may be: JSON list (already decoded), str (JSON or
+    legacy plain text), None. Matches the helper in pdf_html.py but lives here
+    so routers can decide whether a budget/work-order overrides config.
+    """
+    import json as _json
+    if value is None or value == "":
+        return default_global_terms or []
+    if isinstance(value, list):
+        return [str(t) for t in value if str(t).strip()]
+    raw = str(value).strip()
+    if not raw:
+        return default_global_terms or []
+    try:
+        parsed = _json.loads(raw)
+        if isinstance(parsed, list):
+            return [str(t) for t in parsed if str(t).strip()]
+    except (ValueError, TypeError):
+        pass
+    # Legacy plain-text: split on newlines
+    return [t for t in (line.strip() for line in raw.splitlines()) if t]
+
+
+def _build_company_and_terms(settings_data: dict, overrides: dict | None = None) -> tuple[dict, dict]:
+    """Build the `company` and `terms` dicts for the PDF.
+
+    `overrides` is an optional dict with per-budget keys (budget_terms_override,
+    warranty_override) — when present and non-empty, they REPLACE the global
+    values from settings_data at the same key.
+    """
     company = {k: settings_data.get(k, "") for k in _COMPANY_KEYS}
-    terms = {k: settings_data.get(k, "") for k in _TERMS_KEYS}
+    # Apply overrides if any (overrides win over config globals).
+    overrides = overrides or {}
+    # Carry over the legacy key `warranty_text` → mapped to `warranty`.
+    terms_global = {k: settings_data.get(k, "") for k in _TERMS_KEYS}
+    terms = dict(terms_global)
+    if overrides.get("budget_terms_override"):
+        terms["budget_terms"] = overrides["budget_terms_override"]
+    if overrides.get("warranty_override"):
+        terms["warranty_text"] = overrides["warranty_override"]
     return company, terms
 
 
@@ -206,7 +246,12 @@ def _prepare_budget_payload(budget, db: Session) -> tuple[dict, dict, dict, dict
         "address": client.address,
     }
     settings_data = _load_settings(db)
-    company, terms = _build_company_and_terms(settings_data)
+    # Per-budget overrides win over the global config terms.
+    overrides = {
+        "budget_terms_override": getattr(budget, "budget_terms_override", None),
+        "warranty_override": getattr(budget, "warranty_override", None),
+    }
+    company, terms = _build_company_and_terms(settings_data, overrides)
     return budget_data, client_dict, company, terms
 
 
@@ -305,7 +350,11 @@ def preview_budget_pdf(data: dict = Body(...), db: Session = Depends(get_db)):
         client_dict = {"name": client_name, "phone": client_phone, "email": client_email, "address": client_address}
 
         settings_data = _load_settings(db)
-        company, terms = _build_company_and_terms(settings_data)
+        overrides = {
+            "budget_terms_override": data.get("budget_terms_override"),
+            "warranty_override": data.get("warranty_override"),
+        }
+        company, terms = _build_company_and_terms(settings_data, overrides)
 
         pdf_data = build_budget_pdf_data(budget_data, client_dict, company, terms)
         pdf_bytes = generate_budget_pdf(pdf_data, logo_path=company.get("company_logo")).read()

@@ -19,6 +19,22 @@ _env = Environment(
 _BACKEND_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
+def _split_terms(value) -> list[str]:
+    """Return a clean list of non-blank terms from `value`.
+
+    Accepts:
+      - list[str]: the new structured shape from /admin/configuration
+      - str: legacy multi-line plain text (auto-split on `\\n`)
+      - None/empty: returns []
+    """
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(t).strip() for t in value if str(t).strip()]
+    text = str(value)
+    return [t for t in (line.strip() for line in text.splitlines()) if t]
+
+
 def _load_logo_base64(logo_path: Optional[str] = None) -> Optional[str]:
     candidates = []
     if logo_path:
@@ -300,6 +316,12 @@ def generate_budget_pdf(data: dict, logo_path: Optional[str] = None) -> BytesIO:
     dd = data.get("dolar_dia") or 1
     croquis_imagenes = _sketch_to_png_base64_list(data.get("croquis") or [])
 
+    company_name = data.get("company_name") or "AFAMAR"
+    company_tagline = data.get("company_tagline") or "MÁRMOLES & GRANITOS"
+    company_address = data.get("company_address") or ""
+    company_phone = data.get("company_phone") or ""
+    company_email = data.get("company_email") or ""
+
     ctx = {
         "logo_base64": _load_logo_base64(logo_path),
         "numero": data.get("numero", ""),
@@ -334,6 +356,11 @@ def generate_budget_pdf(data: dict, logo_path: Optional[str] = None) -> BytesIO:
         "observaciones_importantes": data.get("observaciones_importantes", ""),
         "validez": data.get("validez", "7 días"),
         "entrega_aproximada": data.get("entrega_aproximada", "7 a 10 días hábiles"),
+        "company_name": company_name,
+        "company_tagline": company_tagline,
+        "company_address": company_address,
+        "company_phone": company_phone,
+        "company_email": company_email,
     }
 
     html_str = template.render(**ctx)
@@ -346,6 +373,12 @@ def generate_work_order_pdf(data: dict, logo_path: Optional[str] = None) -> Byte
 
     croquis_imagenes = _sketch_to_png_base64_list(data.get("croquis") or [])
     hoy = datetime.now().strftime("%d/%m/%Y")
+
+    company_name = data.get("company_name") or "AFAMAR"
+    company_tagline = data.get("company_tagline") or "MÁRMOLES & GRANITOS"
+    company_address = data.get("company_address") or ""
+    company_phone = data.get("company_phone") or ""
+    company_email = data.get("company_email") or ""
 
     ctx = {
         "logo_base64": _load_logo_base64(logo_path),
@@ -379,6 +412,11 @@ def generate_work_order_pdf(data: dict, logo_path: Optional[str] = None) -> Byte
         "observaciones": data.get("observaciones", ""),
         "observaciones_importantes": data.get("observaciones_importantes", ""),
         "croquis_imagenes": croquis_imagenes,
+        "company_name": company_name,
+        "company_tagline": company_tagline,
+        "company_address": company_address,
+        "company_phone": company_phone,
+        "company_email": company_email,
     }
 
     html_str = template.render(**ctx)
@@ -483,11 +521,21 @@ def build_budget_pdf_data(budget_data: dict, client_dict: dict, company: dict, t
         "descuento_monto_fijo": desc_fijo,
         "forma_pago": budget_data.get("payment_method", ""),
         "cuotas": budget_data.get("installments", 1),
-        "observaciones": (terms.get("budget_terms") or "") + "\n\n" + (budget_data.get("notes") or ""),
+        # Notes are user notes only. Terms are rendered separately as a list.
+        "observaciones": budget_data.get("notes") or "",
         "observaciones_importantes": budget_data.get("important_observations", ""),
         "validez": f"{budget_data.get('validity_days', 7)} días",
         "entrega_aproximada": budget_data.get("estimated_date", "7 a 10 días hábiles"),
         "croquis": budget_data.get("sketch_elements"),
+        "company_name": company.get("company_name", "AFAMAR"),
+        "company_tagline": company.get("company_tagline", "MÁRMOLES & GRANITOS"),
+        "company_address": company.get("company_address", ""),
+        "company_phone": company.get("company_phone", ""),
+        "company_email": company.get("company_email", ""),
+        # Terms are exposed as a list-of-strings so the template can render them
+        # as a proper bulleted list (one item per line).
+        "budget_terms_list": _split_terms((terms or {}).get("budget_terms") or ""),
+        "warranty_terms_list": _split_terms((terms or {}).get("warranty_text") or ""),
     }
 
 
@@ -578,4 +626,13 @@ def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict
         "observaciones": order_data.get("notes", ""),
         "observaciones_importantes": order_data.get("important_observations", ""),
         "croquis": order_data.get("budgeted_details") or order_data.get("sketch_elements"),
+        # Company info from /admin/configuration (matches build_budget_pdf_data).
+        "company_name": company.get("company_name", "AFAMAR"),
+        "company_tagline": company.get("company_tagline", "MÁRMOLES & GRANITOS"),
+        "company_address": company.get("company_address", ""),
+        "company_phone": company.get("company_phone", ""),
+        "company_email": company.get("company_email", ""),
+        # Order-only terms (delivery) + warranty.
+        "delivery_terms_list": _split_terms((terms or {}).get("delivery_terms") or ""),
+        "warranty_terms_list": _split_terms((terms or {}).get("warranty_text") or ""),
     }

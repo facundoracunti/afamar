@@ -1,7 +1,7 @@
 import React from 'react';
-import PresupuestoPanel from '../../components/presupuesto/PresupuestoPanel';
-import AprobacionSection from '../../components/ordenes/AprobacionSection';
-import PiletaCard from '../../components/materiales/PiletaCard';
+import BudgetPanel from '../../components/budget/BudgetPanel';
+import ApprovalSection from '../../components/orders/ApprovalSection';
+import PoolCard from '../../components/materials/PoolCard';
 import type { EntityFormState } from '../../types';
 
 interface WorkOrderFormFinancialProps {
@@ -12,10 +12,10 @@ interface WorkOrderFormFinancialProps {
   hayAlternativas: boolean;
   readOnly: boolean;
   saving: boolean;
-  handleTrasladoChange: (value: string, source: 'ars' | 'usd') => void;
-  handleSenaMonedaChange: (moneda: string) => void;
-  handleSenaMontoChange: (value: string) => void;
-  handleDolarDiaChange: (value: string) => void;
+  handleTransportChange: (value: string, source: 'ars' | 'usd') => void;
+  handleDepositCurrencyChange: (moneda: string) => void;
+  handleDepositAmountChange: (value: string) => void;
+  handleUsdRateChange: (value: string) => void;
   setForm: React.Dispatch<React.SetStateAction<EntityFormState>>;
   update: (field: string, value: unknown) => void;
   num: (v: string) => number | null;
@@ -39,10 +39,10 @@ export default function WorkOrderFormFinancial({
   hayAlternativas,
   readOnly,
   saving,
-  handleTrasladoChange,
-  handleSenaMonedaChange,
-  handleSenaMontoChange,
-  handleDolarDiaChange,
+  handleTransportChange,
+  handleDepositCurrencyChange,
+  handleDepositAmountChange,
+  handleUsdRateChange,
   setForm,
   update,
   num,
@@ -65,12 +65,12 @@ export default function WorkOrderFormFinancial({
           <select className="input" style={{ flex: 1, fontSize: 13 }} value="" onChange={(e) => { addPileta(e.target.value); e.target.value = ''; }} disabled={readOnly}>
             <option value="">+ AGREGAR PILETA</option>
             {piletas.map((p) => (
-              <option key={p.id as number} value={p.id as number}>{p.marca as string} - {p.modelo as string} (Stock: {p.cantidad as number})</option>
+              <option key={p.id as number} value={p.id as number}>{p.brand as string} - {p.model as string} (Stock: {p.quantity as number})</option>
             ))}
           </select>
         </div>
-        {(form.piletas || []).map((pt, idx) => (
-          <PiletaCard
+        {(form.pools_data || []).map((pt, idx) => (
+          <PoolCard
             key={idx}
             pt={pt as unknown as Record<string, unknown>}
             idx={idx}
@@ -78,14 +78,14 @@ export default function WorkOrderFormFinancial({
             readOnly={readOnly}
             updatePileta={updatePileta}
             removePileta={removePileta}
-            formPiletas={form.piletas as unknown as Record<string, unknown>[]}
+            formPiletas={form.pools_data as unknown as Record<string, unknown>[]}
             update={update as (field: string, value: unknown) => void}
             num={num as (v: unknown) => number}
           />
         ))}
       </div>
 
-      <PresupuestoPanel
+      <BudgetPanel
         form={form}
         modoUSD={modoUSD}
         toggleModoUSD={toggleModoUSD}
@@ -93,10 +93,10 @@ export default function WorkOrderFormFinancial({
         hayAlternativas={hayAlternativas}
         readOnly={readOnly}
         saving={saving}
-        handleTrasladoChange={handleTrasladoChange}
-        handleSenaMonedaChange={handleSenaMonedaChange}
-        handleSenaMontoChange={handleSenaMontoChange}
-        handleDolarDiaChange={handleDolarDiaChange}
+        handleTransportChange={handleTransportChange}
+        handleDepositCurrencyChange={handleDepositCurrencyChange}
+        handleDepositAmountChange={handleDepositAmountChange}
+        handleUsdRateChange={handleUsdRateChange}
         setForm={setForm}
         update={update as (field: string, value: unknown) => void}
         num={num as (v: unknown) => number}
@@ -109,7 +109,7 @@ export default function WorkOrderFormFinancial({
         mostrarToggleColumns={mostrarToggleColumns}
       />
 
-      <AprobacionSection form={form} readOnly={readOnly} update={update as (field: string, value: unknown) => void} />
+      <ApprovalSection form={form} readOnly={readOnly} update={update as (field: string, value: unknown) => void} />
     </>
   );
 }

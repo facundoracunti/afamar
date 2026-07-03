@@ -7,7 +7,7 @@
    .online-budgets__search      search wrapper
    .online-budgets__table       table wrapper
    .online-budgets__row         clickable row
-   .online-budgets__numero      numero cell
+   .online-budgets__number      number cell
    .online-budgets__total-ars   ARS total cell
    .online-budgets__total-usd   USD total cell
    .online-budgets__total-cons  consolidated total cell
@@ -114,7 +114,7 @@
   border-bottom: none;
 }
 
-.online-budgets__numero {
+.online-budgets__number {
   font-weight: 600;
   font-family: monospace;
 }

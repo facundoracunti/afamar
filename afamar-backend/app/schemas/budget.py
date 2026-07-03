@@ -115,6 +115,9 @@ class BudgetBase(BaseModel):
     important_observations: str | None = None
     notes: str | None = None
     fabrication_details: str | None = None
+    # Optional per-budget term overrides (JSON list, may be empty string).
+    budget_terms_override: str | None = ""
+    warranty_override: str | None = ""
     pool_id: int | None = None
     pool_price: float = 0.0
     pool_currency: str = "ARS"
@@ -182,6 +185,8 @@ class BudgetUpdate(BaseModel):
     important_observations: str | None = None
     notes: str | None = None
     fabrication_details: str | None = None
+    budget_terms_override: str | None = ""
+    warranty_override: str | None = ""
     pool_id: int | None = None
     pool_price: float | None = None
     pool_currency: str | None = None

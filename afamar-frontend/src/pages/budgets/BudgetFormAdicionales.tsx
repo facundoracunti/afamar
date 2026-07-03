@@ -1,5 +1,5 @@
 import React from 'react';
-import PiletaCard from '../../components/materiales/PiletaCard';
+import PoolCard from '../../components/materials/PoolCard';
 import type { EntityFormState } from '../../types';
 
 interface BudgetFormAdicionalesProps {
@@ -42,8 +42,8 @@ export default function BudgetFormAdicionales({
           ))}
         </select>
       </div>
-      {(form.piletas || []).map((pt, idx) => (
-        <PiletaCard
+      {(form.pools_data || []).map((pt, idx) => (
+        <PoolCard
           key={idx}
           pt={pt as unknown as Record<string, unknown>}
           idx={idx}
@@ -51,7 +51,7 @@ export default function BudgetFormAdicionales({
           readOnly={readOnly}
           updatePileta={updatePileta}
           removePileta={removePileta}
-          formPiletas={form.piletas as unknown as Record<string, unknown>[]}
+          formPiletas={form.pools_data as unknown as Record<string, unknown>[]}
           update={update as (field: string, value: unknown) => void}
           num={num as (v: unknown) => number}
         />
