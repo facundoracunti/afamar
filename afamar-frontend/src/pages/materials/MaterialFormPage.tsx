@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Save, Camera, Trash2, FolderTree } from 'lucide-react';
 import {
   getMaterial,
@@ -25,6 +26,7 @@ export default function MaterialForm() {
   const { id } = useParams();
   const navigate = useNavigate();
   const notify = useNotify();
+  const queryClient = useQueryClient();
   const isEdit = !!id;
   const [loadingMaterial, setLoadingMaterial] = useState(isEdit);
   const [saving, setSaving] = useState(false);
@@ -160,6 +162,11 @@ export default function MaterialForm() {
       if (selectedFile) {
         await uploadMaterialPhoto(materialId, selectedFile);
       }
+      // Invalidate the materials list cache so the next mount of
+      // /admin/materials fetches fresh data (the default staleTime of 5min
+      // would otherwise keep the previous list visible).
+      queryClient.invalidateQueries({ queryKey: ['materials'] });
+      queryClient.invalidateQueries({ queryKey: ['material-categories'] });
       navigate('/admin/materials');
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: any } })?.response?.data?.detail
