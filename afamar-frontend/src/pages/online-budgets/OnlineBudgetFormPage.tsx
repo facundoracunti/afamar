@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { getOnlineBudget, createOnlineBudget, updateOnlineBudget, convertOnlineBudgetToWorkOrder, convertOnlineBudgetToWorkOrderOption } from '@/api/resources/onlineBudgets';
 import { getMaterials } from '@/api/resources/materials';
 import { getPoolStock } from '@/api/resources/poolStock';
@@ -19,6 +20,7 @@ const s = styles as unknown as Record<string, string>;
 export default function OnlineBudgetForm() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const isEdit = !!id;
   const [loading, setLoading] = useState<boolean>(isEdit);
   const [saving, setSaving] = useState<boolean>(false);
@@ -139,6 +141,10 @@ export default function OnlineBudgetForm() {
       const res = await convertOnlineBudgetToWorkOrderOption(id as string, opcionIdx);
       const data: ConvertOptionResponse = res.data;
       alert(`Orden ${data.number} creada a partir de ${opciones[opcionIdx]?.nombre}.`);
+      // Converting an online budget option creates a work order, so both
+      // lists become stale.
+      queryClient.invalidateQueries({ queryKey: ['online-budgets'] });
+      queryClient.invalidateQueries({ queryKey: ['work-orders'] });
       navigate('/admin/work-orders');
     } catch (err: unknown) {
       alert('Error al convertir la opción a orden de trabajo.');
@@ -157,6 +163,9 @@ export default function OnlineBudgetForm() {
     try {
       const res = await convertOnlineBudgetToWorkOrder(id as string);
       alert(`Orden ${(res.data as Record<string, unknown>).number} creada.`);
+      // Both the online-budgets and work-orders lists change.
+      queryClient.invalidateQueries({ queryKey: ['online-budgets'] });
+      queryClient.invalidateQueries({ queryKey: ['work-orders'] });
       navigate('/admin/work-orders');
     } catch {
       alert('Error');
@@ -187,6 +196,7 @@ export default function OnlineBudgetForm() {
       };
       if (isEdit) await updateOnlineBudget(id as string, payload);
       else await createOnlineBudget(payload);
+      queryClient.invalidateQueries({ queryKey: ['online-budgets'] });
       navigate('/admin/online-budgets');
     } catch (err: unknown) { alert('Error al guardar'); }
     finally { setSaving(false); }

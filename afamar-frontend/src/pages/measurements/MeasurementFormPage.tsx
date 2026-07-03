@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Save, X, Plus } from 'lucide-react';
 import { getMeasurement, createMeasurement, updateMeasurement } from '@/api/resources/measurements';
 import { measurementStatuses } from '../../utils/formatters';
@@ -12,6 +13,7 @@ const s = styles as unknown as Record<string, string>;
 export default function MeasurementForm() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const isEdit = !!id;
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
@@ -89,6 +91,9 @@ export default function MeasurementForm() {
       } else {
         await createMeasurement(payload);
       }
+      // Invalidate the measurements list cache so the next mount of
+      // /admin/measurements fetches fresh data instead of the stale 5min cache.
+      queryClient.invalidateQueries({ queryKey: ['measurements'] });
       navigate('/admin/measurements');
     } catch (err: unknown) {
       alert('Error al guardar');

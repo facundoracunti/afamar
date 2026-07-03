@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Eye, Save, Printer, MoreVertical, Copy, FileDown, Trash2, History } from 'lucide-react';
 import { useNotify } from '../../context/NotificationContext';
 import { getWorkOrder, createWorkOrder, updateWorkOrder, deleteWorkOrder, getNextWorkOrderNumber, getWorkOrderPdf, previewWorkOrderPdf } from '@/api/resources/workOrders';
@@ -45,6 +46,7 @@ const ordenServices = {
 export default function WorkOrderForm() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const notify = useNotify();
   const num = (v: string): number | null => v === '' ? null : parseFloat(v);
 
@@ -67,7 +69,7 @@ export default function WorkOrderForm() {
     handleDetailChange, addDetalle, removeDetalle,
     addMaterial, removeMaterial, updateMaterial,
     addPileta, removePileta, updatePileta,
-    handleSubmit, handleDelete, handleStatusChangeAction, handlePrint,
+    handleSubmit: legacyHandleSubmit, handleDelete, handleStatusChangeAction, handlePrint,
     buildPayload,
     M2_CONCEPTS,
   } = useEntityForm({
@@ -77,6 +79,14 @@ export default function WorkOrderForm() {
     id,
     navigate,
   });
+
+  // Wrap the legacy submit so the work-orders list cache is invalidated
+  // on every successful save (5min staleTime would otherwise keep the
+  // previous list visible after navigation).
+  const handleSubmit = async (e?: React.FormEvent) => {
+    await legacyHandleSubmit(e);
+    queryClient.invalidateQueries({ queryKey: ['work-orders'] });
+  };
 
   const encodeTerms = (items: string[]) => JSON.stringify(items.filter((t) => t.trim() !== ''));
 
@@ -108,6 +118,7 @@ export default function WorkOrderForm() {
     }
     await updateWorkOrder(id as string, payload);
     setForm((prev) => ({ ...prev, ...payload } as EntityFormState));
+    queryClient.invalidateQueries({ queryKey: ['work-orders'] });
   };
 
   const handlePreviewPdf = async () => {

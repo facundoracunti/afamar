@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Eye, Save, Printer, MoreVertical, Copy, FileDown, Trash2, History, FileOutput, Check, Send } from 'lucide-react';
 import { getBudget, createBudget, updateBudget, deleteBudget, getNextBudgetNumber, getBudgetPdf, previewBudgetPdf, convertBudgetToWorkOrder, convertAlternativeToWorkOrder } from '@/api/resources/budgets';
 import { getMaterials } from '@/api/resources/materials';
@@ -47,6 +48,7 @@ const presupuestoServices: EntityServices = {
 export default function BudgetForm() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [workOrderNumber, setWorkOrderNumber] = useState<string | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
@@ -72,7 +74,7 @@ export default function BudgetForm() {
     handleDetailChange, addDetalle, removeDetalle,
     addMaterial, removeMaterial, updateMaterial,
     addPileta, removePileta, updatePileta,
-    handleSubmit, handleDelete, handlePrint,
+    handleSubmit: legacyHandleSubmit, handleDelete, handlePrint,
     M2_CONCEPTS,
   } = useEntityForm({
     entityType: 'budget',
@@ -84,6 +86,14 @@ export default function BudgetForm() {
       setWorkOrderNumber((data.work_order_number as string) || null);
     },
   });
+
+  // Wrap the legacy submit so the budgets list cache is invalidated on
+  // every successful save (the default 5min staleTime would otherwise
+  // keep the previous list visible after navigation).
+  const handleSubmit = async (e?: React.FormEvent) => {
+    await legacyHandleSubmit(e);
+    queryClient.invalidateQueries({ queryKey: ['budgets'] });
+  };
 
   const buildPayloadWithTerms = (): Record<string, unknown> => ({
     ...buildPayload(),
@@ -101,6 +111,9 @@ export default function BudgetForm() {
       setWorkOrderNumber(res.data.number);
       setForm((prev) => ({ ...prev, status: 'CONVERTED_TO_OT' }));
       alert(`¡Orden ${res.data.number} creada exitosamente!`);
+      // Both lists change: budget becomes CONVERTED_TO_OT, OT is created.
+      queryClient.invalidateQueries({ queryKey: ['budgets'] });
+      queryClient.invalidateQueries({ queryKey: ['work-orders'] });
     } catch (err: unknown) {
       alert((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || 'Error al convertir');
     } finally {
@@ -116,6 +129,8 @@ export default function BudgetForm() {
       const res = await convertAlternativeToWorkOrder(id as string, idx);
       if (res.status === 201) {
         alert(`¡Orden ${res.data.number} creada exitosamente desde alternativa "${res.data.alternative_name}"!`);
+        queryClient.invalidateQueries({ queryKey: ['budgets'] });
+        queryClient.invalidateQueries({ queryKey: ['work-orders'] });
       }
     } catch (err: unknown) {
       alert((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || 'Error al convertir la alternativa');
@@ -129,6 +144,7 @@ export default function BudgetForm() {
     try {
       const payload = buildPayload();
       await updateBudget(id as string, payload);
+      queryClient.invalidateQueries({ queryKey: ['budgets'] });
     } catch {
       alert('Error al guardar');
     } finally {
@@ -151,6 +167,7 @@ export default function BudgetForm() {
       }
       await updateBudget(id as string, aprobado as unknown as Record<string, unknown>);
       setForm((prev) => ({ ...prev, ...aprobado, status: 'APPROVED' } as unknown as EntityFormState));
+      queryClient.invalidateQueries({ queryKey: ['budgets'] });
     } catch {
       alert('Error al aprobar');
     } finally {
@@ -333,6 +350,7 @@ export default function BudgetForm() {
     }
     await updateBudget(id as string, payload);
     setForm((prev) => ({ ...prev, ...payload, balance_paid_at: nuevo ? hoy : '' } as EntityFormState));
+    queryClient.invalidateQueries({ queryKey: ['budgets'] });
   };
 
   return (
