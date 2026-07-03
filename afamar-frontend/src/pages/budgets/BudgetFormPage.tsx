@@ -91,32 +91,8 @@ export default function BudgetForm() {
   // every successful save (the default 5min staleTime would otherwise
   // keep the previous list visible after navigation).
   const handleSubmit = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    setSaving(true);
-    try {
-      const payload = buildPayloadWithTerms();
-      if (isEdit) {
-        await updateBudget(id as string, payload);
-        queryClient.invalidateQueries({ queryKey: ['budgets'] });
-      } else {
-        const res = await createBudget(payload);
-        const pdfRes = await previewBudgetPdf(payload);
-        const url = URL.createObjectURL(pdfRes.data as Blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `presupuesto_${res.data.number || 'nuevo'}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        queryClient.invalidateQueries({ queryKey: ['budgets'] });
-        navigate('/admin/budgets');
-      }
-    } catch {
-      alert('Error al guardar');
-    } finally {
-      setSaving(false);
-    }
+    await legacyHandleSubmit(e);
+    queryClient.invalidateQueries({ queryKey: ['budgets'] });
   };
 
   const buildPayloadWithTerms = (): Record<string, unknown> => ({

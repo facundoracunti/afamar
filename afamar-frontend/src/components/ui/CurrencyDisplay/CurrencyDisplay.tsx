@@ -9,7 +9,8 @@ export interface CurrencyDisplayProps {
 
 export function CurrencyDisplay({ value, currency = 'ARS', className, style }: CurrencyDisplayProps) {
   const symbol = currency === 'USD' ? 'US$' : '$';
-  return <span className={`currency currency--${currency.toLowerCase()}${className ? ' ' + className : ''}`} style={style}>{symbol} {value.toFixed(2)}</span>;
+  const num = Number(value) || 0;
+  return <span className={`currency currency--${currency.toLowerCase()}${className ? ' ' + className : ''}`} style={style}>{symbol} {num.toFixed(2)}</span>;
 }
 
 export default CurrencyDisplay;

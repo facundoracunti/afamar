@@ -29,6 +29,7 @@ DEFAULT_KEYS = {
     "company_address": "",
     "company_phone": "",
     "company_email": "",
+    "company_logo": "",
     "pdf_footer": "",
     "budget_terms": [],
     "delivery_terms": [],

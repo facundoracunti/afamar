@@ -89,33 +89,8 @@ export default function WorkOrderForm() {
   // on every successful save (5min staleTime would otherwise keep the
   // previous list visible after navigation).
   const handleSubmit = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const editing = !!id;
-    setSaving(true);
-    try {
-      const payload = buildPayloadWithTerms();
-      if (editing) {
-        await updateWorkOrder(id as string, payload);
-        queryClient.invalidateQueries({ queryKey: ['work-orders'] });
-      } else {
-        const res = await createWorkOrder(payload);
-        const pdfRes = await previewWorkOrderPdf(payload);
-        const url = URL.createObjectURL(pdfRes.data as Blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `orden_trabajo_${res.data.number || 'nueva'}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        queryClient.invalidateQueries({ queryKey: ['work-orders'] });
-        navigate('/admin/work-orders');
-      }
-    } catch {
-      alert('Error al guardar');
-    } finally {
-      setSaving(false);
-    }
+    await legacyHandleSubmit(e);
+    queryClient.invalidateQueries({ queryKey: ['work-orders'] });
   };
 
   const encodeTerms = (items: string[]) => JSON.stringify(items.filter((t) => t.trim() !== ''));
