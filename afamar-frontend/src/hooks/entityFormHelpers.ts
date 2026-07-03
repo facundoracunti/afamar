@@ -160,11 +160,48 @@ export function buildPayload(form: EntityFormState): Record<string, unknown> {
     notes: form.notes,
     design_observations: form.design_observations,
     important_observations: form.important_observations,
-    fabrication_details: form.fabrication_details,
-    materials_data: form.materials_data,
-    pools_data: form.pools_data,
+    // Backend stores *_data fields as JSON-encoded strings in TEXT columns
+    // (Pydantic schemas declare them `str | None`). JSON-encoding here
+    // matches the convention used by the Términos / Garantía /
+    // Observaciones cards.
+    fabrication_details: jsonStringify(form.fabrication_details),
+    materials_data: jsonStringify(form.materials_data),
+    pools_data: jsonStringify(form.pools_data),
     sketch_elements: form.sketch_elements,
   };
+}
+
+/** JSON-encode for the API. `undefined`/`null` become `null` (the column
+ *  accepts null). Empty arrays are encoded as `[]` so round-trips preserve
+ *  the distinction between "not provided" and "explicitly empty". */
+function jsonStringify(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return null;
+  }
+}
+
+/** Parse a JSON-encoded string from the API into a list. Returns `[]`
+ *  on null/empty/invalid input (so the form state always has a list
+ *  to render, even for legacy rows that pre-date this convention). */
+function jsonParseList(raw: unknown): unknown[] {
+  if (raw === null || raw === undefined || raw === '') return [];
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      // Legacy fallback: a `;` or newline-separated string.
+      return raw
+        .split(/[;\n]/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+  }
+  return [];
 }
 
 // Backend snake_case field names are identical to form snake_case field names.
@@ -215,9 +252,9 @@ export function mapApiToForm(d: Record<string, unknown>, defaultStatus: string):
     notes: (d.notes as string) || '',
     design_observations: (d.design_observations as string) || '',
     important_observations: (d.important_observations as string) || '',
-    fabrication_details: ((d.fabrication_details as EntityFormState['fabrication_details']) || []) as EntityFormState['fabrication_details'],
-    materials_data: ((d.materials_data as unknown[]) || []) as unknown[],
-    pools_data: ((d.pools_data as unknown[]) || []) as unknown[],
+    fabrication_details: jsonParseList(d.fabrication_details) as EntityFormState['fabrication_details'],
+    materials_data: jsonParseList(d.materials_data),
+    pools_data: jsonParseList(d.pools_data),
     sketch_elements: ((d.sketch_elements as unknown[]) || []) as unknown[],
   };
 }
