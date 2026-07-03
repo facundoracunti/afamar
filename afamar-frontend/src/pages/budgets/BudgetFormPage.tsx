@@ -61,15 +61,15 @@ export default function BudgetForm() {
   const encodeTerms = (items: string[]) => JSON.stringify(items.map((t) => t).filter((t) => t.trim() !== ''));
 
   const {
-    form, loading, saving, materiales, piletas, logoUrl,
-    showClientDropdown, menuOpen, deleteConfirm, showCroquis,
-    readOnly, hayUSD, hayAlternativas, filteredClients, isEdit,
+    form, loading, saving, materiales, piletas, logoUrl, clientes, refreshClientes,
+    menuOpen, deleteConfirm, showCroquis,
+    readOnly, hayUSD, hayAlternativas, isEdit,
     modoUSD, toggleModoUSD,
-    menuRef, clientRef,
+    menuRef,
     setForm, setSaving,
-    setMenuOpen, setDeleteConfirm, setShowClientDropdown, setShowCroquis,
+    setMenuOpen, setDeleteConfirm, setShowCroquis,
     update, buildPayload,
-    handleClientSelect, handleTransportChange,
+    handleTransportChange,
     handleDepositCurrencyChange, handleDepositAmountChange, handleUsdRateChange,
     handleDetailChange, addDetalle, removeDetalle,
     addMaterial, removeMaterial, updateMaterial,
@@ -395,11 +395,8 @@ export default function BudgetForm() {
           form={form}
           readOnly={readOnly}
           update={update as (field: string, value: unknown) => void}
-          clientRef={clientRef}
-          showClientDropdown={showClientDropdown}
-          setShowClientDropdown={setShowClientDropdown}
-          filteredClients={filteredClients}
-          handleClientSelect={handleClientSelect}
+          clientes={clientes as unknown as import('../../types/client').Client[]}
+          onClientCreated={refreshClientes}
         />
 
         <div className={`${s['budget-form__layout']}${showCroquis ? '' : ' ' + s['budget-form__layout--no-sketch']}`}>

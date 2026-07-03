@@ -21,6 +21,7 @@ interface UseFormReferencesReturn {
   piletas: Pool[];
   clientes: Client[];
   logoUrl: string;
+  refreshClientes: () => void;
 }
 
 /**
@@ -45,6 +46,12 @@ export function useFormReferences({
   const [clientes, setClientes] = useState<Client[]>([]);
   const [logoUrl, setLogoUrl] = useState<string>('');
 
+  const fetchClientes = () => {
+    services.getClients({ limit: 500 }).then((res) => {
+      setClientes((res.data as unknown as Client[]) || []);
+    });
+  };
+
   useEffect(() => {
     services.getMaterials({ limit: 500 }).then((res) => {
       setMateriales((res.data as unknown as Material[]) || []);
@@ -52,9 +59,7 @@ export function useFormReferences({
     services.getPools().then((res) => {
       setPiletas((res.data as unknown as Pool[]) || []);
     });
-    services.getClients({ limit: 500 }).then((res) => {
-      setClientes((res.data as unknown as Client[]) || []);
-    });
+    fetchClientes();
     api
       .get('/settings')
       .then((res) => {
@@ -92,5 +97,5 @@ export function useFormReferences({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isEdit]);
 
-  return { materiales, piletas, clientes, logoUrl };
+  return { materiales, piletas, clientes, logoUrl, refreshClientes: fetchClientes };
 }

@@ -56,16 +56,16 @@ export default function WorkOrderForm() {
   const [warrantyTerms, setWarrantyTerms] = useState<string[]>([]);
 
   const {
-    form, loading, saving, materiales, piletas, logoUrl,
-    showClientDropdown, menuOpen, deleteConfirm, showCroquis,
-    readOnly, hayUSD, hayAlternativas, filteredClients,
+    form, loading, saving, materiales, piletas, logoUrl, clientes, refreshClientes,
+    menuOpen, deleteConfirm, showCroquis,
+    readOnly, hayUSD, hayAlternativas,
     modoUSD, toggleModoUSD,
-    menuRef, clientRef,
+    menuRef,
     setForm,
     setSaving,
-    setMenuOpen, setDeleteConfirm, setShowClientDropdown, setShowCroquis,
+    setMenuOpen, setDeleteConfirm, setShowCroquis,
     update,
-    handleClientSelect, handleTransportChange,
+    handleTransportChange,
     handleDepositCurrencyChange, handleDepositAmountChange, handleUsdRateChange,
     handleDetailChange, addDetalle, removeDetalle,
     addMaterial, removeMaterial, updateMaterial,
@@ -291,11 +291,8 @@ export default function WorkOrderForm() {
           form={form}
           readOnly={readOnly}
           update={update as (field: string, value: unknown) => void}
-          clientRef={clientRef}
-          showClientDropdown={showClientDropdown}
-          setShowClientDropdown={setShowClientDropdown}
-          filteredClients={filteredClients}
-          handleClientSelect={handleClientSelect}
+          clientes={clientes as unknown as import('../../types/client').Client[]}
+          onClientCreated={refreshClientes}
         />
 
         <WorkOrderFormSnapshot form={form} readOnly={readOnly} />

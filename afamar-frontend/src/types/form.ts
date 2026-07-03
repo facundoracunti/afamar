@@ -109,6 +109,7 @@ export interface UseEntityFormReturn {
   materiales: Record<string, unknown>[];
   piletas: Record<string, unknown>[];
   clientes: Record<string, unknown>[];
+  refreshClientes: () => void;
   logoUrl: string;
   showClientDropdown: boolean;
   menuOpen: boolean;
