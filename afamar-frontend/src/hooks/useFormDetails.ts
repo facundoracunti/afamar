@@ -52,7 +52,7 @@ export function useFormDetails({
           if (mat) {
             list[idx].material = value as string;
             list[idx].moneda = mat.currency || 'ARS';
-            list[idx].material_precio_m2 = mat.currency === 'USD' ? (mat.priceUsd || 0) : (mat.basePrice || 0);
+            list[idx].material_precio_m2 = mat.currency === 'USD' ? (mat.price_usd || 0) : (mat.base_price || 0);
             if (M2_CONCEPTS.includes(d.concepto) && d.m2 > 0) {
               list[idx].precio = Math.round(d.m2 * (list[idx].material_precio_m2 || 0) * 100) / 100;
             }
@@ -79,7 +79,7 @@ export function useFormDetails({
           if (d.material) {
             const mat = materiales.find((m) => m.name === d.material);
             if (mat) {
-              pm2 = moneda === 'USD' ? (mat.priceUsd || 0) : (mat.basePrice || 0);
+              pm2 = moneda === 'USD' ? (mat.price_usd || 0) : (mat.base_price || 0);
             }
           } else {
             pm2 =

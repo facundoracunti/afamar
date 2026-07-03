@@ -28,13 +28,13 @@ export function useBudgetCalculations(
     const ppUsd = poolsData
       .filter((pt: PoolInForm) => (pt.currency || 'ARS') === 'USD')
       .reduce((sum: number, pt: PoolInForm) => sum + (pt.price || 0) * (pt.quantity || 1), 0);
-    const matsMain = materialsData.filter((m: MaterialInForm) => !m.isAlternative);
+    const matsMain = materialsData.filter((m: MaterialInForm) => !m.is_alternative);
     const matArs = matsMain
       .filter((m: MaterialInForm) => m.currency !== 'USD')
-      .reduce((sum: number, m: MaterialInForm) => sum + (Number(m.length || 0) * Number(m.width || 0) * (m.quantity || 1) * (m.priceM2 || 0)), 0);
+      .reduce((sum: number, m: MaterialInForm) => sum + (Number(m.length || 0) * Number(m.width || 0) * (m.quantity || 1) * (m.price_m2 || 0)), 0);
     const matUsd = matsMain
       .filter((m: MaterialInForm) => m.currency === 'USD')
-      .reduce((sum: number, m: MaterialInForm) => sum + (Number(m.length || 0) * Number(m.width || 0) * (m.quantity || 1) * (m.priceM2Usd || 0)), 0);
+      .reduce((sum: number, m: MaterialInForm) => sum + (Number(m.length || 0) * Number(m.width || 0) * (m.quantity || 1) * (m.price_m2_usd || 0)), 0);
 
     const pctRecargo = form.payment_method === 'TARJETA DE CRÉDITO' ? (CONFIG_INSTALLMENTS[form.installments] || 0) : 0;
     const subtotal = arsTotal + (dd > 0 ? Math.round((usdTotal + matUsd) * dd * 100) / 100 : 0) + matArs + ppArs + (dd > 0 ? Math.round(ppUsd * dd * 100) / 100 : 0);
@@ -72,17 +72,17 @@ export function useBudgetCalculations(
     const total_usd = totalConDescuentoUsd + recargoUsd;
     const balance_due_usd = Math.max(0, total_usd - depositTotalUsd);
 
-    const hasAlternative = materialsData.some((m: MaterialInForm) => m.isAlternative);
+    const hasAlternative = materialsData.some((m: MaterialInForm) => m.is_alternative);
     let totalFinal = total;
     let totalUsdFinal = total_usd;
     let balanceDueFinal = balanceDue;
     let balanceDueUsdFinal = balance_due_usd;
     if (hasAlternative) {
-      const primeraAlt = materialsData.find((m: MaterialInForm) => m.isAlternative);
+      const primeraAlt = materialsData.find((m: MaterialInForm) => m.is_alternative);
       if (primeraAlt) {
         const dd2 = dd || 1;
         const m2 = Number(primeraAlt.length || 0) * Number(primeraAlt.width || 0) * (primeraAlt.quantity || 1);
-        const precioMat = primeraAlt.currency === 'USD' ? (primeraAlt.priceM2Usd || 0) : (primeraAlt.priceM2 || 0);
+        const precioMat = primeraAlt.currency === 'USD' ? (primeraAlt.price_m2_usd || 0) : (primeraAlt.price_m2 || 0);
         const costoMatArs = primeraAlt.currency === 'USD' ? m2 * precioMat * dd2 : m2 * precioMat;
         const fijosArs = arsTotal + (dd2 > 0 ? usdTotal * dd2 : 0) + ppArs + (dd2 > 0 ? ppUsd * dd2 : 0) + tr;
         const totalAlt = Math.round(costoMatArs + fijosArs);

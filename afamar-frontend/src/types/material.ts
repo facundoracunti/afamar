@@ -1,14 +1,14 @@
 export interface Material {
   id: number;
   name: string;
-  categoryId?: string;
+  category_id?: number;
   color?: string;
-  availableThickness?: string;
-  basePrice: number;
-  priceUsd: number;
+  available_thickness?: string;
+  base_price: number;
+  price_usd: number;
   currency: 'ARS' | 'USD';
   supplier?: string;
-  stockAvailable?: number;
+  stock_available?: number;
   photo?: string;
   notes?: string;
   created_at?: string;
@@ -16,13 +16,13 @@ export interface Material {
 
 export interface MaterialFormData {
   name: string;
-  categoryId: string;
+  category_id: number | string;
   color: string;
-  availableThickness: string;
-  basePrice: number;
-  priceUsd: number;
+  available_thickness: string;
+  base_price: number;
+  price_usd: number;
   currency: 'ARS' | 'USD';
   supplier: string;
-  stockAvailable: number;
+  stock_available: number;
   notes: string;
 }

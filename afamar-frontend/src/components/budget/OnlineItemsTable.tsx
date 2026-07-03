@@ -217,7 +217,7 @@ export default function OnlineItemsTable({
         const tab = { ...next[activeOpcion] };
         const list = [...tab.especiales];
         if (mat) {
-          list[idx] = { ...list[idx], material: value, currency: mat.currency || 'ARS', unitPrice: mat.currency === 'USD' ? (mat.priceUsd || 0) : (mat.basePrice || 0) };
+          list[idx] = { ...list[idx], material: value, currency: mat.currency || 'ARS', unitPrice: mat.currency === 'USD' ? (mat.price_usd || 0) : (mat.base_price || 0) };
           const m2 = list[idx].m2 || 0;
           const cant = Number(list[idx].quantity) || 1;
           const pu = Number(list[idx].unitPrice) || 0;
@@ -238,7 +238,7 @@ export default function OnlineItemsTable({
       const items = [...tab.items];
       const mat = materiales.find((m: Material) => m.name === value);
       if (mat) {
-        items[idx] = { ...items[idx], detail: value, currency: mat.currency || 'ARS', unitPrice: mat.currency === 'USD' ? (mat.priceUsd || 0) : (mat.basePrice || 0), material: mat.name };
+        items[idx] = { ...items[idx], detail: value, currency: mat.currency || 'ARS', unitPrice: mat.currency === 'USD' ? (mat.price_usd || 0) : (mat.base_price || 0),  material: mat.name };
         const m2 = items[idx].m2 || 0;
         const cant = Number(items[idx].quantity) || 1;
         const pu = Number(items[idx].unitPrice) || 0;

@@ -247,18 +247,18 @@ export function addMaterialToList(
     ...current,
     {
       name: mat.name,
-      category: mat.categoryId || '',
+      category: mat.category_id ? String(mat.category_id) : '',
       color: mat.color || '',
-      priceM2: mat.basePrice || 0,
-      priceM2Usd: mat.priceUsd || 0,
+      price_m2: mat.base_price || 0,
+      price_m2_usd: mat.price_usd || 0,
       currency: mat.currency || 'ARS',
       quantity: 1,
-      m2Used: 0,
-      m2Budgeted: 0,
+      m2_used: 0,
+      m2_budgeted: 0,
       length: 0,
       width: 0,
-      isAlternative: false,
-    } as MaterialInForm,
+      is_alternative: false,
+    } as unknown as MaterialInForm,
   ];
 }
 
@@ -274,13 +274,13 @@ export function addPoolToList(
   return [
     ...current,
     {
-      poolId: pt.id,
+      pool_id: pt.id,
       brand: pt.brand,
       model: pt.model,
       price: pt.price || 0,
       currency: 'ARS' as const,
       image: '',
       quantity: 1,
-    } as PoolInForm,
+    } as unknown as PoolInForm,
   ];
 }

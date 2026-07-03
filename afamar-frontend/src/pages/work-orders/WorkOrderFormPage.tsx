@@ -88,8 +88,8 @@ export default function WorkOrderForm() {
 
   if (loading) return <Loading />;
 
-  const matsMain = hayAlternativas ? (form.materials_data as unknown as MaterialInForm[] || []).filter((m) => !m.isAlternative) : (form.materials_data as unknown as MaterialInForm[] || []);
-  const matsAlt = (form.materials_data as unknown as MaterialInForm[] || []).filter((m) => m.isAlternative);
+  const matsMain = hayAlternativas ? (form.materials_data as unknown as MaterialInForm[] || []).filter((m) => !m.is_alternative) : (form.materials_data as unknown as MaterialInForm[] || []);
+  const matsAlt = (form.materials_data as unknown as MaterialInForm[] || []).filter((m) => m.is_alternative);
 
   const handleConfirmarPago = async () => {
     if (!id) return;
@@ -155,7 +155,7 @@ export default function WorkOrderForm() {
           const letra = String.fromCharCode(65 + idx);
           const dd2 = Number(form.usd_rate);
           const m2 = Number(mat.length || 0) * Number(mat.width || 0) * (mat.quantity || 1);
-          const costoMat = mat.currency === 'USD' ? m2 * (mat.priceM2Usd || 0) : m2 * (mat.priceM2 || 0);
+          const costoMat = mat.currency === 'USD' ? m2 * (mat.price_m2_usd || 0) : m2 * (mat.price_m2 || 0);
           const costoMatArs = mat.currency === 'USD' ? (dd2 > 0 ? costoMat * dd2 : 0) : costoMat;
           const fijosArsAlt = (form.fabrication_details || []).reduce((s: number, d) => s + (Number(d.precio) || 0) * (d.cantidad || 1), 0)
             + (form.pools_data as unknown as PoolInForm[] || []).reduce((s: number, pt) => s + (Number(pt.price) || 0) * (Number(pt.quantity) || 1), 0)

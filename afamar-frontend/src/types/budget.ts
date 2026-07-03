@@ -44,19 +44,19 @@ export interface MaterialInForm {
   name: string;
   category?: string;
   color?: string;
-  priceM2: number;
-  priceM2Usd: number;
+  price_m2: number;
+  price_m2_usd: number;
   currency: 'ARS' | 'USD';
   quantity: number;
-  m2Used: number;
-  m2Budgeted: number;
+  m2_used: number;
+  m2_budgeted: number;
   length: number;
   width: number;
-  isAlternative: boolean;
+  is_alternative: boolean;
 }
 
 export interface PoolInForm {
-  poolId: number;
+  pool_id: number;
   brand: string;
   model: string;
   price: number;

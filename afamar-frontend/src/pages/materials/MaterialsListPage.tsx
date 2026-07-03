@@ -40,7 +40,7 @@ export default function MaterialsList() {
     }
   );
 
-  // Resolve category names for the table display: backend stores `categoryId` as a number.
+  // Resolve category names for the table display: backend stores `category_id` as a number.
   // Build a lookup map { id -> name } once per categories change.
   const categoryNameById = useMemo(() => {
     const m: Record<number, string> = {};
@@ -48,12 +48,7 @@ export default function MaterialsList() {
     return m;
   }, [categorias]);
 
-  // Also need a "name -> id" map for filtering (the API expects `categoria=` to be the name).
-  // Build it client-side so the user can pick from the dropdown without round-trips.
-  useEffect(() => {
-    // The dropdown's `value` IS the category name (matches the API filter param).
-    // Categories list is already reactive via useList above.
-  }, []);
+  // Filter dropdown uses the category `name` as the API filter value.
 
   const deleteMutation = useDelete<unknown, number>(
     MATERIALS_KEY,
@@ -133,9 +128,9 @@ export default function MaterialsList() {
             <tbody>
               {data.map((m: Material) => {
                 const moneda = m.currency || 'ARS';
-                const precio = moneda === 'USD' ? m.priceUsd || 0 : m.basePrice || 0;
-                const categoryName = m.categoryId
-                  ? (categoryNameById[Number(m.categoryId)] || categoryNameById[String(m.categoryId) as unknown as number] || `Categoria #${m.categoryId}`)
+                const precio = moneda === 'USD' ? m.price_usd || 0 : m.base_price || 0;
+                const categoryName = m.category_id
+                  ? (categoryNameById[Number(m.category_id)] || `Categoria #${m.category_id}`)
                   : '-';
                 return (
                   <tr key={m.id}>
@@ -146,7 +141,7 @@ export default function MaterialsList() {
                       <span className="badge badge-approved">{categoryName}</span>
                     </td>
                     <td className={s['materials__td']}>{m.color || '-'}</td>
-                    <td className={s['materials__td']}>{m.availableThickness || '-'}</td>
+                    <td className={s['materials__td']}>{m.available_thickness || '-'}</td>
                     <td
                       className={s['materials__td'] + ' ' + s['materials__td--right']}
                       style={{
@@ -159,7 +154,7 @@ export default function MaterialsList() {
                         : `$ ${precio.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}
                     </td>
                     <td className={s['materials__td']}>{m.supplier || '-'}</td>
-                    <td className={s['materials__td']}>{m.stockAvailable || 0}</td>
+                    <td className={s['materials__td']}>{m.stock_available || 0}</td>
                     <td className={s['materials__td']}>
                       <div className={s['materials__cell-actions']}>
                         <button

@@ -226,8 +226,8 @@ export default function BudgetForm() {
       detalleTrabajosComunes.push({ concepto: `Pileta ${(pool.brand as string) || ''} ${(pool.model as string) || ''}`.trim(), cant: Number(pool.quantity || 1), total: totalPilARS });
     }
   });
-  const matsMain = hayAlternativas ? (form.materials_data as unknown as MaterialInForm[] || []).filter((m) => !m.isAlternative) : (form.materials_data as unknown as MaterialInForm[] || []);
-  const matsAlt = (form.materials_data as unknown as MaterialInForm[] || []).filter((m) => m.isAlternative);
+  const matsMain = hayAlternativas ? (form.materials_data as unknown as MaterialInForm[] || []).filter((m) => !m.is_alternative) : (form.materials_data as unknown as MaterialInForm[] || []);
+  const matsAlt = (form.materials_data as unknown as MaterialInForm[] || []).filter((m) => m.is_alternative);
 
   const alternativasTop = hayAlternativas ? (
     <div style={{ marginTop: 0 }}>
@@ -267,7 +267,7 @@ export default function BudgetForm() {
       alternativas={matsAlt.map((mat: MaterialInForm, altIdx: number) => {
         const ddLocal = Number(form.usd_rate) || 1;
         const m2 = Number(mat.length || 0) * Number(mat.width || 0) * (mat.quantity || 1);
-        const costoMat = mat.currency === 'USD' ? m2 * (mat.priceM2Usd || 0) : m2 * (mat.priceM2 || 0);
+        const costoMat = mat.currency === 'USD' ? m2 * (mat.price_m2_usd || 0) : m2 * (mat.price_m2 || 0);
         const costoMatArs = mat.currency === 'USD' ? (ddLocal > 0 ? costoMat * ddLocal : 0) : costoMat;
         const totalFinalARS = costoMatArs + sumatoriaAdicionalesARS;
         return { name: mat.name || '', category: mat.category || '', currency: mat.currency || 'ARS', costoMaterialBase: costoMat, totalFinalARS, length: Number(mat.length || 0), width: Number(mat.width || 0), cantidad: mat.quantity || 1 };

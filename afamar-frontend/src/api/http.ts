@@ -1,6 +1,10 @@
 // The backend mounts every router under /api/v1 (see app/api/routers/router.py).
 // Services should call paths like "/clients" or "/auth/login" — http.ts appends
 // the /api/v1 prefix automatically.
+//
+// Response shape: every JSON reply is the {success, data, error} envelope;
+// we unwrap it here. Keys stay snake_case end-to-end so the frontend matches
+// the backend (Pydantic) literally — no implicit conversion.
 import axios from "axios";
 
 export const API_URL = window.APP_CONFIG?.API_URL || '/api/v1';

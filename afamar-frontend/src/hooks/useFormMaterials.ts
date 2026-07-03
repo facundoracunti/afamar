@@ -46,8 +46,8 @@ export function useFormMaterials({
       const m = materiales.find((mat) => mat.name === name);
       if (m) {
         const currency = m.currency || 'ARS';
-        const usdPrice = m.priceUsd || 0;
-        const arsPrice = m.basePrice || 0;
+        const usdPrice = m.price_usd || 0;
+        const arsPrice = m.base_price || 0;
         materialUsdRef.current = usdPrice;
         setForm((prev) => {
           const tc = prev.usd_rate ?? 1000;
@@ -57,7 +57,7 @@ export function useFormMaterials({
             ...prev,
             material: name,
             color: m.color || '',
-            thickness: m.availableThickness || '',
+            thickness: m.available_thickness || '',
             material_price_m2: pm2,
             fabrication_details: (prev.fabrication_details || []).map((d) => {
               if (M2_CONCEPTS.includes(d.concepto) && d.m2 > 0) {
@@ -102,7 +102,7 @@ export function useFormMaterials({
 
   const materialsList = (form.materials_data as MaterialInForm[]) || [];
   const hayUSD = materialsList.some((m) => m.currency === 'USD');
-  const hayAlternativas = materialsList.some((m) => m.isAlternative);
+  const hayAlternativas = materialsList.some((m) => m.is_alternative);
 
   return { handleMaterialChange, addMaterial, removeMaterial, updateMaterial, hayUSD, hayAlternativas };
 }

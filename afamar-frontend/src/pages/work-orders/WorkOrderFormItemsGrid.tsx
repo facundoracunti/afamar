@@ -57,7 +57,7 @@ export default function WorkOrderFormItemsGrid({
                   <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
                     <td style={{ padding: '8px 12px', fontWeight: 600 }}>{m.name}</td>
                     <td style={{ textAlign: 'center', padding: '8px 12px' }}>{m2Real.toFixed(5)} m²</td>
-                    <td style={{ textAlign: 'center', padding: '8px 12px', fontWeight: 600 }}>{m.m2Budgeted ? `${m.m2Budgeted} m²` : '—'}</td>
+                    <td style={{ textAlign: 'center', padding: '8px 12px', fontWeight: 600 }}>{m.m2_budgeted ? `${m.m2_budgeted} m²` : '—'}</td>
                   </tr>
                 ) : null;
               })}

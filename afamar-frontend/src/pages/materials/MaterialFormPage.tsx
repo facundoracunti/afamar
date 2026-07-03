@@ -31,14 +31,14 @@ export default function MaterialForm() {
   const [tipoCambio, setTipoCambio] = useState(1);
   const [form, setForm] = useState<MaterialFormData>({
     name: '',
-    categoryId: '',
+    category_id: '',
     color: '',
-    availableThickness: '',
-    basePrice: 0,
-    priceUsd: 0,
+    available_thickness: '',
+    base_price: 0,
+    price_usd: 0,
     currency: 'ARS',
     supplier: '',
-    stockAvailable: 0,
+    stock_available: 0,
     notes: '',
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -78,14 +78,14 @@ export default function MaterialForm() {
         name: d.name || '',
         // Backend stores category_id (numeric). Keep it as a string in the form
         // so it matches the `<option value>` created from categories list.
-        categoryId: d.categoryId ? String(d.categoryId) : '',
+        category_id: d.category_id ? String(d.category_id) : '',
         color: d.color || '',
-        availableThickness: d.availableThickness || '',
-        basePrice: d.basePrice || 0,
-        priceUsd: d.priceUsd || 0,
+        available_thickness: d.available_thickness || '',
+        base_price: d.base_price || 0,
+        price_usd: d.price_usd || 0,
         currency: d.currency || 'ARS',
         supplier: d.supplier || '',
-        stockAvailable: d.stockAvailable || 0,
+        stock_available: d.stock_available || 0,
         notes: d.notes || '',
       });
       if (d.photo) setExistingFoto(d.photo);
@@ -116,24 +116,24 @@ export default function MaterialForm() {
 
   const handlePrecioArsChange = (value: number) => {
     const ars = Number(value) || 0;
-    const usd = form.currency === 'ARS' ? (tipoCambio > 0 ? ars / tipoCambio : 0) : form.priceUsd;
-    setForm({ ...form, basePrice: ars, priceUsd: form.currency === 'ARS' ? usd : form.priceUsd });
+    const usd = form.currency === 'ARS' ? (tipoCambio > 0 ? ars / tipoCambio : 0) : form.price_usd;
+    setForm({ ...form, base_price: ars, price_usd: form.currency === 'ARS' ? usd : form.price_usd });
   };
 
   const handlePrecioUsdChange = (value: number) => {
     const usd = Number(value) || 0;
-    const ars = form.currency === 'USD' ? (tipoCambio > 0 ? usd * tipoCambio : 0) : form.basePrice;
-    setForm({ ...form, priceUsd: usd, basePrice: form.currency === 'USD' ? ars : form.basePrice });
+    const ars = form.currency === 'USD' ? (tipoCambio > 0 ? usd * tipoCambio : 0) : form.base_price;
+    setForm({ ...form, price_usd: usd, base_price: form.currency === 'USD' ? ars : form.base_price });
   };
 
   const handleMonedaChange = (currency: string) => {
     const m = currency as 'ARS' | 'USD';
     if (m === 'ARS') {
-      const usd = tipoCambio > 0 ? form.basePrice / tipoCambio : 0;
-      setForm({ ...form, currency: m, priceUsd: usd });
+      const usd = tipoCambio > 0 ? form.base_price / tipoCambio : 0;
+      setForm({ ...form, currency: m, price_usd: usd });
     } else {
-      const ars = tipoCambio > 0 ? form.priceUsd * tipoCambio : 0;
-      setForm({ ...form, currency: m, basePrice: ars });
+      const ars = tipoCambio > 0 ? form.price_usd * tipoCambio : 0;
+      setForm({ ...form, currency: m, base_price: ars });
     }
   };
 
@@ -143,7 +143,7 @@ export default function MaterialForm() {
       notify('El nombre es obligatorio', 'error');
       return;
     }
-    if (!form.categoryId) {
+    if (!form.category_id) {
       notify('Seleccioná una categoría', 'error');
       return;
     }
@@ -199,8 +199,8 @@ export default function MaterialForm() {
               </label>
               <select
                 className="input"
-                value={form.categoryId}
-                onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
+                value={form.category_id}
+                onChange={(e) => setForm({ ...form, category_id: e.target.value })}
                 disabled={loadingCategories && categorias.length === 0}
                 required
               >
@@ -223,14 +223,14 @@ export default function MaterialForm() {
             </div>
             <div className={s['material-form__group']}>
               <label className={s['material-form__label']}>Espesor disponible</label>
-              <input className="input" value={form.availableThickness} onChange={(e) => setForm({ ...form, availableThickness: e.target.value })} />
+              <input className="input" value={form.available_thickness} onChange={(e) => setForm({ ...form, available_thickness: e.target.value })} />
             </div>
           </div>
           <div className={s['material-form__row']}>
             <div className={`${s['material-form__group']} ${s['material-form__group--grow']}`}>
               <label className={s['material-form__label']}>Precio M²</label>
               <input className="input" type="number" step="0.01" min="0"
-                value={form.currency === 'USD' ? (form.priceUsd || '') : (form.basePrice || '')}
+                value={form.currency === 'USD' ? (form.price_usd || '') : (form.base_price || '')}
                 onChange={(e) => {
                   const v = Number(e.target.value);
                   if (form.currency === 'USD') handlePrecioUsdChange(v);
@@ -252,7 +252,7 @@ export default function MaterialForm() {
             </div>
             <div className={s['material-form__group']}>
               <label className={s['material-form__label']}>Stock disponible</label>
-              <input className="input" type="number" min="0" value={form.stockAvailable} onChange={(e) => setForm({ ...form, stockAvailable: Number(e.target.value) })} />
+              <input className="input" type="number" min="0" value={form.stock_available} onChange={(e) => setForm({ ...form, stock_available: Number(e.target.value) })} />
             </div>
           </div>
           <div className={s['material-form__group']}>
