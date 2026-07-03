@@ -1,6 +1,5 @@
 import React from 'react';
 import BudgetPanel from '../../components/budget/BudgetPanel';
-import ApprovalSection from '../../components/orders/ApprovalSection';
 import PoolCard from '../../components/materials/PoolCard';
 import type { EntityFormState } from '../../types';
 
@@ -108,8 +107,6 @@ export default function WorkOrderFormFinancial({
         mostrarToggleTitle={mostrarToggleTitle}
         mostrarToggleColumns={mostrarToggleColumns}
       />
-
-      <ApprovalSection form={form} readOnly={readOnly} update={update as (field: string, value: unknown) => void} />
     </>
   );
 }

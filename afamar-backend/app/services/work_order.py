@@ -86,6 +86,34 @@ def restore_pool_stock(db: Session, pool_id: int | None, pools_data: str | None,
             pass
 
 
+def _stash_sketch_into_budgeted_details(data: dict) -> None:
+    """Move the frontend's `sketch_elements` array into `budgeted_details`.
+
+    The frontend sends the sketch as `sketch_elements: [...]` (an array of
+    pages with `dibujo`). The WorkOrder model has no `sketch_elements`
+    column (the canonical sketch lives on the Budget) so this field would
+    be dropped by the ORM. We serialise it into the existing
+    `budgeted_details` TEXT column — the same field used when a
+    WorkOrder is created from a Budget — and remove `sketch_elements`
+    from the dict so the ORM doesn't reject the unknown key.
+
+    Mutates `data` in place.
+    """
+    sketch = data.pop("sketch_elements", None)
+    if sketch is None:
+        return
+    if isinstance(sketch, str):
+        # Already JSON-encoded (rare; e.g. legacy / save round-trips).
+        data["budgeted_details"] = sketch or None
+        return
+    if not sketch:
+        return
+    try:
+        data["budgeted_details"] = json.dumps(sketch, ensure_ascii=False)
+    except (TypeError, ValueError):
+        data["budgeted_details"] = None
+
+
 def _create_cash_movement_on_deposit(
     db: Session,
     order_number: str,
@@ -165,6 +193,12 @@ class WorkOrderService:
         data.pop("client_phone", None)
         data.pop("client_email", None)
         data.pop("client_address", None)
+        # The frontend sends the sketch as `sketch_elements` (an array of
+        # pages). The WorkOrder model doesn't have a sketch_elements column
+        # (the sketch lives on the Budget), so we serialise it into the
+        # existing `budgeted_details` TEXT column — the same field used
+        # when a WorkOrder is created from a Budget.
+        _stash_sketch_into_budgeted_details(data)
         order = self.repo.create(data)
         self.repo.db.commit()
         self.repo.db.refresh(order)
@@ -329,6 +363,7 @@ class WorkOrderService:
         order = self.repo.get_by_id(order_id)
         if not order:
             return None
+        _stash_sketch_into_budgeted_details(data)
         old_status = order.status
         new_status = data.get("status", old_status)
 

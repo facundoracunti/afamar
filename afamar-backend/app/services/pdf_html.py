@@ -16,6 +16,23 @@ _env = Environment(
 )
 
 
+def _jinja2_format(value, *args, **kwargs):
+    """Override built-in ``format`` filter so that ``"{:,.2f}"|format(n)``
+    works the same as ``f"{n:,.2f}"`` in Python.  The default Jinja2 filter
+    uses ``%``-style formatting which does not understand ``{:,}``."""
+    if not args and not kwargs:
+        return str(value)
+    try:
+        if kwargs:
+            return str(value).format(**kwargs)
+        return str(value).format(*args)
+    except (IndexError, KeyError, ValueError, TypeError):
+        return str(value)
+
+
+_env.filters["format"] = _jinja2_format
+
+
 _BACKEND_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
@@ -24,14 +41,26 @@ def _split_terms(value) -> list[str]:
 
     Accepts:
       - list[str]: the new structured shape from /admin/configuration
-      - str: legacy multi-line plain text (auto-split on `\\n`)
+      - str: JSON-encoded list (auto-parsed), or legacy multi-line plain text
       - None/empty: returns []
     """
     if value is None:
         return []
     if isinstance(value, list):
         return [str(t).strip() for t in value if str(t).strip()]
-    text = str(value)
+    text = str(value).strip()
+    if not text:
+        return []
+    # Try JSON first — the frontend sends terms as JSON-encoded lists
+    if text.startswith("["):
+        import json as _json
+        try:
+            parsed = _json.loads(text)
+            if isinstance(parsed, list):
+                return [str(t).strip() for t in parsed if str(t).strip()]
+        except (_json.JSONDecodeError, TypeError):
+            pass
+    # Legacy plain-text fallback: split on newlines
     return [t for t in (line.strip() for line in text.splitlines()) if t]
 
 
@@ -66,110 +95,171 @@ def _format_date(d):
     return d.strftime("%d/%m/%Y")
 
 
-def _simplify_concept(texto: str) -> str:
-    if not texto:
-        return ""
-    m = texto.upper().strip()
-    m_norm = m.replace("É", "E").replace("Í", "I").replace("Ó", "O").replace("Ú", "U").replace("Ñ", "N")
+_CONCEPT_DISPLAY = {
+    "BASEBOARD": "Zócalo",
+    "FRONT": "Frente",
+    "LENGTH": "Longitud",
+    "CUTOUT_SINK": "Traforo de Pileta",
+    "CUTOUT_COOKTOP": "Traforo de Anafe",
+    "CUTOUT_DROPIN_SINK": "Traforo de Apoyo",
+    "OTHER": "Otro",
+}
 
-    if "LONGITUD" in m_norm:
-        return "Longitud"
-    if "FRENTE" in m_norm:
-        return "Frente"
-    if "ZOCALO" in m_norm:
-        return "Zócalo"
-    if "APOYO" in m_norm and "PILETA" in m_norm:
-        return "Traforo de Apoyo"
-    if "PILETA" in m_norm and ("APERTURA" in m_norm or "PEGADO" in m_norm):
-        return "Traforo de Pileta"
-    if "PILETA" in m_norm and "TRAFORO" in m_norm:
-        return "Traforo de Pileta"
-    if "ANAFE" in m_norm:
-        return "Traforo de Anafe"
-    if "MENSULA" in m_norm:
-        return "Ménsulas"
-    if "TERMINACI" in m_norm:
-        return "Terminación"
-    return texto
+_STATUS_SUB_MAP = {
+    "PENDING": "Pendiente",
+    "ONLINE": "Online",
+    "APPROVED": "Aprobado",
+    "REJECTED": "Rechazado",
+    "CONVERTED_TO_OT": "Convertido a OT",
+    "MEASUREMENT": "Medición",
+    "WORKSHOP": "En Taller",
+    "FINISHED": "Finalizado",
+    "DELIVERED": "Entregado",
+    "CANCELLED": "Cancelado",
+}
 
 
-def _prepare_data(data: dict) -> dict:
-    data = dict(data)
-    for d in data.get("detalles_fabricacion", []):
-        original = d.get("concepto", "")
-        if original:
-            d["concepto"] = _simplify_concept(original)
-        if d.get("detalle") and d["detalle"].upper().strip() == original.upper().strip():
-            d["detalle"] = ""
-    for d in data.get("items", []):
-        if d.get("sector"):
-            d["sector"] = _simplify_concept(d["sector"])
-    return data
+def _concept_to_display(concept_code: str, custom: str = "") -> str:
+    if concept_code == "OTHER" and custom:
+        return custom
+    return _CONCEPT_DISPLAY.get(concept_code, concept_code or "—")
 
 
-def _render_pdf(html_string: str) -> BytesIO:
-    result = BytesIO()
-    pdf = pisa.CreatePDF(src=html_string, dest=result, encoding="utf-8")
-    if pdf.err:
-        raise RuntimeError(f"PDF generation error: {pdf.err}")
-    result.seek(0)
+def _parse_fabrication_details(raw) -> list[dict]:
+    if not raw:
+        return []
+    import json as _json
+    try:
+        parsed = _json.loads(raw) if isinstance(raw, str) else raw
+        items = parsed if isinstance(parsed, list) else []
+    except (_json.JSONDecodeError, TypeError):
+        return []
+
+    result = []
+    for d in items:
+        result.append({
+            "concept": _concept_to_display(d.get("concepto", ""), d.get("concepto_personalizado", "")),
+            "detail": d.get("detalle", "") or "",
+            "material": d.get("material", "") or "",
+            "length": d.get("largo"),
+            "width": d.get("ancho"),
+            "quantity": d.get("cantidad", 1),
+            "price": d.get("precio", 0),
+        })
     return result
 
 
-def _xml_escape(text: str) -> str:
-    import html as _html
-    return _html.escape(text or "")
-
-
-def _get_item_priority(concepto: str) -> int:
-    c = (concepto or "").upper().strip()
-    if c.startswith("MATERIAL:") or c.startswith("MATERIAL :"):
-        return 1
-    if "ZOCALO" in c or "ZÓCALO" in c:
-        return 2
-    if c == "FRENTE":
-        return 3
-    if "PILETA" in c and "TRAFORO" in c and "APOYO" not in c:
-        return 4
-    if "APOYO" in c and "PILETA" in c:
-        return 5
-    if "ANAFE" in c:
-        return 6
-    return 8
-
-
-def _combine_and_sort_items(detalles_fabricacion, materiales, piletas) -> list:
-    items = []
-    for d in (detalles_fabricacion or []):
-        d = dict(d)
-        d["_tipo"] = _get_item_priority(d.get("concepto", ""))
-        items.append(d)
-    for p in (piletas or []):
-        items.append({
-            "_tipo": 7,
-            "concepto": f"Pileta {p.get('marca', '')} {p.get('modelo', '')}".strip(),
-            "detalle": None, "largo": None, "ancho": None, "m2": None,
-            "cantidad": p.get("cantidad", 1),
-            "precio": p.get("precio", 0),
-            "moneda": p.get("moneda", "ARS"),
+def _build_materials_pdf(main_materials: list, alternatives: list) -> list[dict]:
+    result = []
+    for m in main_materials:
+        length = m.get("largo") or m.get("length", 0) or 0
+        width = m.get("ancho") or m.get("width", 0) or 0
+        quantity = m.get("cantidad") or m.get("quantity", 1) or 1
+        m2 = length * width * quantity
+        price_m2 = m.get("precio_m2") or m.get("price_m2", 0) or 0
+        result.append({
+            "name": m.get("nombre") or m.get("name", ""),
+            "color": m.get("color", ""),
+            "length": length,
+            "width": width,
+            "quantity": quantity,
+            "m2": m2,
+            "price_m2": price_m2,
+            "subtotal": m2 * price_m2,
         })
-    for m in (materiales or []):
-        if m.get("is_alternative") or m.get("es_alternativa"):
-            continue
-        m2_item = (m.get("length") or m.get("largo", 0) or 0) * (m.get("width") or m.get("ancho", 0) or 0) * (m.get("quantity") or m.get("cantidad", 1) or 1)
-        if m.get("moneda") == "USD":
-            precio_item = m2_item * (m.get("precio_m2_usd") or 0)
-        else:
-            precio_item = m2_item * (m.get("precio_m2") or 0)
-        items.append({
-            "_tipo": 1,
-            "concepto": f"Material: {m.get('nombre', '')}",
-            "detalle": None, "largo": m.get("largo"), "ancho": m.get("ancho"),
-            "m2": m2_item, "cantidad": m.get("cantidad", 1),
-            "precio": precio_item, "moneda": m.get("moneda", "ARS"),
+    for m in alternatives:
+        length = m.get("largo") or m.get("length", 0) or 0
+        width = m.get("ancho") or m.get("width", 0) or 0
+        quantity = m.get("cantidad") or m.get("quantity", 1) or 1
+        m2 = length * width * quantity
+        price_m2 = m.get("precio_m2") or m.get("price_m2", 0) or 0
+        result.append({
+            "name": m.get("nombre") or m.get("name", ""),
+            "color": m.get("color", ""),
+            "length": length,
+            "width": width,
+            "quantity": quantity,
+            "m2": m2,
+            "price_m2": price_m2,
+            "subtotal": m2 * price_m2,
         })
-    items.sort(key=lambda x: x.get("_tipo", 99))
-    return items
+    return result
+
+
+def _build_pools_pdf(pools: list) -> list[dict]:
+    result = []
+    for p in pools:
+        quantity = p.get("cantidad") or p.get("quantity", 1) or 1
+        price = p.get("precio") or p.get("price", 0) or 0
+        result.append({
+            "brand": p.get("marca") or p.get("brand", ""),
+            "model": p.get("modelo") or p.get("model", ""),
+            "quantity": quantity,
+            "price": price,
+            "subtotal": price * quantity,
+        })
+    return result
+
+
+def _render_pdf(html_string: str, footer_text: str = "") -> BytesIO:
+    from xhtml2pdf.context import pisaContext
+    from xhtml2pdf.document import PmlBaseDoc, PmlPageTemplate, pisaStory
+    from xhtml2pdf.util import getBox
+    from reportlab.lib.colors import HexColor
+    from reportlab.lib.units import mm
+    from reportlab.platypus import Frame
+
+    result = BytesIO()
+
+    context = pisaContext(path="", debug=0, capacity=102400)
+    context = pisaStory(
+        html_string, "", None, 0, None, False, None, context=context,
+    )
+
+    pagesize = context.pageSize
+
+    if footer_text:
+        class _FooterDoc(PmlBaseDoc):
+            def afterPage(self_):
+                c = self_.canv
+                c.saveState()
+                c.setFont("Helvetica", 7)
+                c.setFillColor(HexColor("#64748b"))
+                c.drawCentredString(pagesize[0] / 2, 8 * mm, footer_text)
+                c.restoreState()
+
+        doc_cls = _FooterDoc
+    else:
+        doc_cls = PmlBaseDoc
+
+    if "body" in context.templateList:
+        body = context.templateList["body"]
+        del context.templateList["body"]
+    else:
+        x, y, w, h = getBox("1cm 1cm -1cm -1cm", pagesize)
+        body = PmlPageTemplate(
+            id="body",
+            frames=[Frame(x, y, w, h, id="body",
+                           leftPadding=0, rightPadding=0,
+                           bottomPadding=0, topPadding=0)],
+            pagesize=pagesize,
+        )
+
+    doc = doc_cls(
+        result,
+        pagesize=pagesize,
+        author=context.meta.get("author", ""),
+        subject=context.meta.get("subject", ""),
+        keywords=[k.strip() for k in context.meta.get("keywords", "").split(",") if k.strip()],
+        title=context.meta.get("title", ""),
+        showBoundary=0,
+        allowSplitting=1,
+    )
+    doc.addPageTemplates([body, *list(context.templateList.values())])
+    doc.build(context.story)
+
+    result.seek(0)
+    return result
 
 
 def _sketch_to_png_base64_list(croquis_data) -> list:
@@ -303,124 +393,31 @@ def _sketch_to_png_base64_list(croquis_data) -> list:
         img.save(buf, format="PNG")
         buf.seek(0)
         encoded = base64.b64encode(buf.getvalue()).decode("utf-8")
-        results.append(f"data:image/png;base64,{encoded}")
+        results.append(encoded)
 
     return results
 
 
 def generate_budget_pdf(data: dict, logo_path: Optional[str] = None) -> BytesIO:
-    template = _env.get_template("budget_pdf.html")
-    data = _prepare_data(data)
+    template = _env.get_template("document_pdf.html")
 
-    hoy = datetime.now().strftime("%d/%m/%Y")
-    dd = data.get("dolar_dia") or 1
-    croquis_imagenes = _sketch_to_png_base64_list(data.get("croquis") or [])
-
-    company_name = data.get("company_name") or "AFAMAR"
-    company_tagline = data.get("company_tagline") or "MÁRMOLES & GRANITOS"
-    company_address = data.get("company_address") or ""
-    company_phone = data.get("company_phone") or ""
-    company_email = data.get("company_email") or ""
-
-    ctx = {
-        "logo_base64": _load_logo_base64(logo_path),
-        "numero": data.get("numero", ""),
-        "fecha": _format_date(data.get("fecha") or hoy),
-        "cliente_nombre": data.get("cliente_nombre", "-"),
-        "cliente_telefono": data.get("cliente_telefono", "-"),
-        "domicilio": data.get("domicilio", ""),
-        "email": data.get("email", ""),
-        "items_ordenados": _combine_and_sort_items(
-            data.get("detalles_fabricacion") or [],
-            data.get("materiales") or [],
-            data.get("piletas") or [],
-        ),
-        "detalles_fabricacion": data.get("detalles_fabricacion") or [],
-        "items": data.get("items") or [],
-        "adicionales": data.get("adicionales") or [],
-        "materiales": data.get("materiales") or [],
-        "piletas": data.get("piletas") or [],
-        "croquis_imagenes": croquis_imagenes,
-        "subtotal": data.get("subtotal") or 0,
-        "traslado": data.get("traslado") or 0,
-        "total": data.get("total") or 0,
-        "total_usd": data.get("total_usd") or 0,
-        "dolar_dia": dd,
-        "sena_recibida": data.get("sena_recibida") or 0,
-        "saldo_pendiente": data.get("saldo_pendiente") or 0,
-        "descuento_porcentaje": data.get("descuento_porcentaje") or 0,
-        "descuento_monto_fijo": data.get("descuento_monto_fijo") or 0,
-        "forma_pago": data.get("forma_pago", ""),
-        "cuotas": data.get("cuotas") or 1,
-        "observaciones": data.get("observaciones", ""),
-        "observaciones_importantes": data.get("observaciones_importantes", ""),
-        "validez": data.get("validez", "7 días"),
-        "entrega_aproximada": data.get("entrega_aproximada", "7 a 10 días hábiles"),
-        "company_name": company_name,
-        "company_tagline": company_tagline,
-        "company_address": company_address,
-        "company_phone": company_phone,
-        "company_email": company_email,
-    }
+    ctx = dict(data)
+    ctx["logo_base64"] = _load_logo_base64(logo_path)
+    ctx["croquis_images"] = _sketch_to_png_base64_list(data.get("sketch_elements") or [])
 
     html_str = template.render(**ctx)
-    return _render_pdf(html_str)
+    return _render_pdf(html_str, footer_text=data.get("pdf_footer") or "")
 
 
 def generate_work_order_pdf(data: dict, logo_path: Optional[str] = None) -> BytesIO:
-    template = _env.get_template("work_order_pdf.html")
-    data = _prepare_data(data)
+    template = _env.get_template("document_pdf.html")
 
-    croquis_imagenes = _sketch_to_png_base64_list(data.get("croquis") or [])
-    hoy = datetime.now().strftime("%d/%m/%Y")
-
-    company_name = data.get("company_name") or "AFAMAR"
-    company_tagline = data.get("company_tagline") or "MÁRMOLES & GRANITOS"
-    company_address = data.get("company_address") or ""
-    company_phone = data.get("company_phone") or ""
-    company_email = data.get("company_email") or ""
-
-    ctx = {
-        "logo_base64": _load_logo_base64(logo_path),
-        "numero": data.get("numero", ""),
-        "fecha": _format_date(data.get("fecha") or hoy),
-        "estado": data.get("estado", ""),
-        "prioridad": data.get("prioridad", ""),
-        "cliente_nombre": data.get("cliente_nombre", "-"),
-        "cliente_telefono": data.get("cliente_telefono", "-"),
-        "domicilio": data.get("domicilio", ""),
-        "email": data.get("email", ""),
-        "color_tipo": data.get("color_tipo", ""),
-        "espesor": data.get("espesor", ""),
-        "acabado": data.get("acabado", ""),
-        "fecha_entrega": _format_date(data.get("fecha_entrega") or ""),
-        "items_ordenados": _combine_and_sort_items(
-            data.get("detalles_fabricacion") or [],
-            data.get("materiales") or [],
-            data.get("piletas") or [],
-        ),
-        "subtotal": data.get("subtotal") or 0,
-        "traslado": data.get("traslado") or 0,
-        "total": data.get("total") or 0,
-        "total_usd": data.get("total_usd") or 0,
-        "sena_recibida": data.get("sena_recibida") or 0,
-        "saldo_pendiente": data.get("saldo_pendiente") or 0,
-        "descuento_porcentaje": data.get("descuento_porcentaje") or 0,
-        "descuento_monto_fijo": data.get("descuento_monto_fijo") or 0,
-        "forma_pago": data.get("forma_pago", ""),
-        "cuotas": data.get("cuotas") or 1,
-        "observaciones": data.get("observaciones", ""),
-        "observaciones_importantes": data.get("observaciones_importantes", ""),
-        "croquis_imagenes": croquis_imagenes,
-        "company_name": company_name,
-        "company_tagline": company_tagline,
-        "company_address": company_address,
-        "company_phone": company_phone,
-        "company_email": company_email,
-    }
+    ctx = dict(data)
+    ctx["logo_base64"] = _load_logo_base64(logo_path)
+    ctx["croquis_images"] = _sketch_to_png_base64_list(data.get("sketch_elements") or [])
 
     html_str = template.render(**ctx)
-    return _render_pdf(html_str)
+    return _render_pdf(html_str, footer_text=data.get("pdf_footer") or "")
 
 
 def build_budget_pdf_data(budget_data: dict, client_dict: dict, company: dict, terms: dict) -> dict:
@@ -430,67 +427,12 @@ def build_budget_pdf_data(budget_data: dict, client_dict: dict, company: dict, t
     main_materials = filter_main_materials(materiales_raw)
     alternatives = [m for m in materiales_raw if m.get("is_alternative") or m.get("es_alternativa")]
 
-    items_list = []
-    for it in (budget_data.get("items") or []):
-        items_list.append({
-            "sector": it.get("sector", ""),
-            "detalle": it.get("description", ""),
-            "largo": it.get("length"),
-            "ancho": it.get("width"),
-            "m2": it.get("m2"),
-            "cantidad": it.get("quantity", 1),
-            "precio_m2": it.get("price_m2", 0),
-            "precio_unitario": it.get("unit_price", 0),
-            "total": it.get("total", 0),
-        })
-
-    adicionales_list = []
-    for ad in (budget_data.get("adicionales") or []):
-        adicionales_list.append({
-            "concepto": ad.get("concept", ""),
-            "detalle": ad.get("detail", ""),
-            "cantidad": ad.get("quantity", 1),
-            "precio_unitario": ad.get("unit_price", 0),
-            "total": ad.get("total", 0),
-        })
-
-    fabricacion_raw = budget_data.get("fabrication_details")
-    detalles_fabricacion = []
-    if fabricacion_raw:
-        import json as _json
-        try:
-            parsed = _json.loads(fabricacion_raw) if isinstance(fabricacion_raw, str) else fabricacion_raw
-            detalles_fabricacion = parsed if isinstance(parsed, list) else []
-        except (_json.JSONDecodeError, TypeError):
-            pass
-
-    materiales_pdf = []
-    for m in main_materials:
-        materiales_pdf.append({
-            "nombre": m.get("nombre") or m.get("name", ""),
-            "largo": m.get("largo") or m.get("length", 0),
-            "ancho": m.get("ancho") or m.get("width", 0),
-            "cantidad": m.get("cantidad") or m.get("quantity", 1),
-            "precio_m2": m.get("precio_m2") or m.get("price_m2", 0),
-            "precio_m2_usd": m.get("precio_m2_usd") or m.get("price_m2_usd", 0),
-            "moneda": m.get("moneda") or m.get("currency", "ARS"),
-            "is_alternative": False,
-        })
-    for m in alternatives:
-        materiales_pdf.append(m)
-
-    piletas_list = []
-    for pt in (parse_materials_data(budget_data.get("pools_data")) or []):
-        piletas_list.append({
-            "marca": pt.get("marca") or pt.get("brand", ""),
-            "modelo": pt.get("modelo") or pt.get("model", ""),
-            "cantidad": pt.get("cantidad") or pt.get("quantity", 1),
-            "precio": pt.get("precio") or pt.get("price", 0),
-            "moneda": pt.get("moneda") or pt.get("currency", "ARS"),
-        })
+    fabrication_details = _parse_fabrication_details(budget_data.get("fabrication_details"))
+    materials = _build_materials_pdf(main_materials, alternatives)
+    pools = _build_pools_pdf(parse_materials_data(budget_data.get("pools_data")) or [])
 
     subtotal_ars = float(budget_data.get("subtotal") or 0)
-    traslado = float(budget_data.get("transport") or 0)
+    transport = float(budget_data.get("transport") or 0)
     desc_pct = float(budget_data.get("discount_percentage") or 0)
     desc_fijo = float(budget_data.get("discount_fixed_amount") or 0)
     total_ars = float(budget_data.get("total") or 0)
@@ -498,44 +440,73 @@ def build_budget_pdf_data(budget_data: dict, client_dict: dict, company: dict, t
     sena = float(budget_data.get("deposit_received") or 0)
     saldo = max(0, float(budget_data.get("balance_due") or (total_ars - sena)))
 
+    important_obs = budget_data.get("important_observations") or ""
+    status = budget_data.get("status", "")
+
     return {
-        "numero": budget_data.get("number", ""),
-        "fecha": budget_data.get("date", ""),
-        "cliente_nombre": client_dict.get("name", ""),
-        "cliente_telefono": client_dict.get("phone", ""),
-        "domicilio": client_dict.get("address", ""),
-        "email": client_dict.get("email", ""),
-        "detalles_fabricacion": detalles_fabricacion,
-        "materiales": materiales_pdf,
-        "piletas": piletas_list,
-        "items": items_list,
-        "adicionales": adicionales_list,
+        # Header
+        "title": "PRESUPUESTO",
+        "number": budget_data.get("number", ""),
+        "doc_sub": _STATUS_SUB_MAP.get(status, ""),
+        "date": _format_date(budget_data.get("date", "")),
+
+        # Client
+        "client_name": client_dict.get("name", ""),
+        "client_phone": client_dict.get("phone", ""),
+        "client_address": client_dict.get("address", ""),
+        "client_email": client_dict.get("email", ""),
+
+        # Material specs
+        "material_color": budget_data.get("color", ""),
+        "material_thickness": budget_data.get("thickness", ""),
+        "material_finish": budget_data.get("finish", ""),
+        "delivery_date": _format_date(budget_data.get("delivery_date", "")),
+
+        # Fabrication details (English field names)
+        "fabrication_details": fabrication_details,
+
+        # Materials (English field names with computed m2/subtotal)
+        "materials": materials,
+
+        # Pools (English field names with computed subtotal)
+        "pools": pools,
+
+        # Financial
         "subtotal": subtotal_ars,
-        "traslado": traslado,
+        "transport": transport,
+        "discount_percentage": desc_pct,
+        "discount_fixed_amount": desc_fijo,
+        "deposit_received": sena,
+        "balance_due": saldo,
         "total": total_ars,
         "total_usd": total_usd_val,
-        "dolar_dia": float(budget_data.get("usd_rate") or 1000),
-        "sena_recibida": sena,
-        "saldo_pendiente": saldo,
-        "descuento_porcentaje": desc_pct,
-        "descuento_monto_fijo": desc_fijo,
-        "forma_pago": budget_data.get("payment_method", ""),
-        "cuotas": budget_data.get("installments", 1),
-        # Notes are user notes only. Terms are rendered separately as a list.
-        "observaciones": budget_data.get("notes") or "",
-        "observaciones_importantes": budget_data.get("important_observations", ""),
-        "validez": f"{budget_data.get('validity_days', 7)} días",
-        "entrega_aproximada": budget_data.get("estimated_date", "7 a 10 días hábiles"),
-        "croquis": budget_data.get("sketch_elements"),
+        "payment_method": budget_data.get("payment_method", ""),
+        "installments": budget_data.get("installments", 1),
+
+        # Observations
+        "notes": budget_data.get("notes") or "",
+        "important_observations": important_obs,
+        "important_observations_list": _split_terms(important_obs),
+
+        # Terms
+        "document_type": "budget",
+        "budget_terms_list": _split_terms((terms or {}).get("budget_terms") or ""),
+        "warranty_terms_list": _split_terms((terms or {}).get("warranty_text") or ""),
+
+        # Validity
+        "validity_days": budget_data.get("validity_days", 15),
+        "estimated_date": _format_date(budget_data.get("estimated_date", "")),
+
+        # Sketch (raw data, converted to PNG by generate_budget_pdf)
+        "sketch_elements": budget_data.get("sketch_elements"),
+
+        # Company
         "company_name": company.get("company_name", "AFAMAR"),
         "company_tagline": company.get("company_tagline", "MÁRMOLES & GRANITOS"),
         "company_address": company.get("company_address", ""),
         "company_phone": company.get("company_phone", ""),
         "company_email": company.get("company_email", ""),
-        # Terms are exposed as a list-of-strings so the template can render them
-        # as a proper bulleted list (one item per line).
-        "budget_terms_list": _split_terms((terms or {}).get("budget_terms") or ""),
-        "warranty_terms_list": _split_terms((terms or {}).get("warranty_text") or ""),
+        "pdf_footer": company.get("pdf_footer", ""),
     }
 
 
@@ -545,94 +516,80 @@ def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict
     materiales_raw = parse_materials_data(order_data.get("materials_data"))
     main_materials = filter_main_materials(materiales_raw)
 
-    items_list = []
-    for it in (order_data.get("items") or []):
-        items_list.append({
-            "sector": it.get("sector", ""),
-            "detalle": it.get("description", ""),
-            "largo": it.get("length"),
-            "ancho": it.get("width"),
-            "m2": it.get("m2"),
-            "cantidad": it.get("quantity", 1),
-            "precio_m2": it.get("price_m2", 0),
-            "precio_unitario": it.get("unit_price", 0),
-            "total": it.get("total", 0),
-        })
-
-    fabricacion_raw = order_data.get("fabrication_details")
-    detalles_fabricacion = []
-    if fabricacion_raw:
-        import json as _json
-        try:
-            parsed = _json.loads(fabricacion_raw) if isinstance(fabricacion_raw, str) else fabricacion_raw
-            detalles_fabricacion = parsed if isinstance(parsed, list) else []
-        except (_json.JSONDecodeError, TypeError):
-            pass
-
-    materiales_pdf = []
-    for m in main_materials:
-        materiales_pdf.append({
-            "nombre": m.get("nombre") or m.get("name", ""),
-            "largo": m.get("largo") or m.get("length", 0),
-            "ancho": m.get("ancho") or m.get("width", 0),
-            "cantidad": m.get("cantidad") or m.get("quantity", 1),
-            "precio_m2": m.get("precio_m2") or m.get("price_m2", 0),
-            "precio_m2_usd": m.get("precio_m2_usd") or m.get("price_m2_usd", 0),
-            "moneda": m.get("moneda") or m.get("currency", "ARS"),
-        })
-
-    piletas_list = []
-    for pt in (parse_materials_data(order_data.get("pools_data")) or []):
-        piletas_list.append({
-            "marca": pt.get("marca") or pt.get("brand", ""),
-            "modelo": pt.get("modelo") or pt.get("model", ""),
-            "cantidad": pt.get("cantidad") or pt.get("quantity", 1),
-            "precio": pt.get("precio") or pt.get("price", 0),
-            "moneda": pt.get("moneda") or pt.get("currency", "ARS"),
-        })
+    fabrication_details = _parse_fabrication_details(order_data.get("fabrication_details"))
+    materials = _build_materials_pdf(main_materials, [])
+    pools = _build_pools_pdf(parse_materials_data(order_data.get("pools_data")) or [])
 
     total_ars = float(order_data.get("total") or 0)
     total_usd_val = float(order_data.get("total_usd") or 0)
     sena = float(order_data.get("deposit_received") or 0)
     saldo = max(0, float(order_data.get("balance_due") or (total_ars - sena)))
 
+    important_obs = order_data.get("important_observations") or ""
+    status = order_data.get("status", "")
+
     return {
-        "numero": order_data.get("number", ""),
-        "fecha": order_data.get("date", ""),
-        "estado": order_data.get("status", ""),
-        "prioridad": order_data.get("priority", ""),
-        "cliente_nombre": client_dict.get("name", ""),
-        "cliente_telefono": client_dict.get("phone", ""),
-        "domicilio": client_dict.get("address", ""),
-        "email": client_dict.get("email", ""),
-        "color_tipo": order_data.get("color", ""),
-        "espesor": order_data.get("thickness", ""),
-        "acabado": order_data.get("finish", ""),
-        "fecha_entrega": order_data.get("delivery_date", ""),
-        "detalles_fabricacion": detalles_fabricacion,
-        "materiales": materiales_pdf,
-        "piletas": piletas_list,
-        "items": items_list,
+        # Header
+        "title": "ORDEN DE TRABAJO",
+        "number": order_data.get("number", ""),
+        "doc_sub": _STATUS_SUB_MAP.get(status, ""),
+        "date": _format_date(order_data.get("date", "")),
+
+        # Client
+        "client_name": client_dict.get("name", ""),
+        "client_phone": client_dict.get("phone", ""),
+        "client_address": client_dict.get("address", ""),
+        "client_email": client_dict.get("email", ""),
+
+        # Material specs
+        "material_color": order_data.get("color", ""),
+        "material_thickness": order_data.get("thickness", ""),
+        "material_finish": order_data.get("finish", ""),
+        "delivery_date": _format_date(order_data.get("delivery_date", "")),
+
+        # Fabrication details (English field names)
+        "fabrication_details": fabrication_details,
+
+        # Materials (English field names with computed m2/subtotal)
+        "materials": materials,
+
+        # Pools (English field names with computed subtotal)
+        "pools": pools,
+
+        # Financial
         "subtotal": float(order_data.get("subtotal") or 0),
-        "traslado": float(order_data.get("transport") or 0),
+        "transport": float(order_data.get("transport") or 0),
+        "discount_percentage": float(order_data.get("discount_percentage") or 0),
+        "discount_fixed_amount": float(order_data.get("discount_fixed_amount") or 0),
+        "deposit_received": sena,
+        "balance_due": saldo,
         "total": total_ars,
         "total_usd": total_usd_val,
-        "sena_recibida": sena,
-        "saldo_pendiente": saldo,
-        "descuento_porcentaje": float(order_data.get("discount_percentage") or 0),
-        "descuento_monto_fijo": float(order_data.get("discount_fixed_amount") or 0),
-        "forma_pago": order_data.get("payment_method", ""),
-        "cuotas": order_data.get("installments", 1),
-        "observaciones": order_data.get("notes", ""),
-        "observaciones_importantes": order_data.get("important_observations", ""),
-        "croquis": order_data.get("budgeted_details") or order_data.get("sketch_elements"),
-        # Company info from /admin/configuration (matches build_budget_pdf_data).
+        "payment_method": order_data.get("payment_method", ""),
+        "installments": order_data.get("installments", 1),
+
+        # Observations
+        "notes": order_data.get("notes", ""),
+        "important_observations": important_obs,
+        "important_observations_list": _split_terms(important_obs),
+
+        # Terms
+        "document_type": "work_order",
+        "delivery_terms_list": _split_terms((terms or {}).get("delivery_terms") or ""),
+        "warranty_terms_list": _split_terms((terms or {}).get("warranty_text") or ""),
+
+        # Validity (work orders don't have these, use defaults)
+        "validity_days": order_data.get("validity_days", 15),
+        "estimated_date": _format_date(order_data.get("estimated_date", "")),
+
+        # Sketch (raw data, converted to PNG by generate_work_order_pdf)
+        "sketch_elements": order_data.get("budgeted_details") or order_data.get("sketch_elements"),
+
+        # Company
         "company_name": company.get("company_name", "AFAMAR"),
         "company_tagline": company.get("company_tagline", "MÁRMOLES & GRANITOS"),
         "company_address": company.get("company_address", ""),
         "company_phone": company.get("company_phone", ""),
         "company_email": company.get("company_email", ""),
-        # Order-only terms (delivery) + warranty.
-        "delivery_terms_list": _split_terms((terms or {}).get("delivery_terms") or ""),
-        "warranty_terms_list": _split_terms((terms or {}).get("warranty_text") or ""),
+        "pdf_footer": company.get("pdf_footer", ""),
     }

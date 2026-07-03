@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Eye, Save, Printer, MoreVertical, Copy, FileDown, Trash2, History } from 'lucide-react';
+import { Eye, Save } from 'lucide-react';
 import { useNotify } from '../../context/NotificationContext';
 import { getWorkOrder, createWorkOrder, updateWorkOrder, deleteWorkOrder, getNextWorkOrderNumber, getWorkOrderPdf, previewWorkOrderPdf } from '@/api/resources/workOrders';
 import { getMaterials } from '@/api/resources/materials';
@@ -78,6 +78,10 @@ export default function WorkOrderForm() {
     defaultEstado: 'MEASUREMENT',
     id,
     navigate,
+    extraPayloadFields: () => ({
+      delivery_terms_override: encodeTerms(deliveryTerms),
+      warranty_override: encodeTerms(warrantyTerms),
+    }),
   });
 
   // Wrap the legacy submit so the work-orders list cache is invalidated
@@ -252,15 +256,6 @@ export default function WorkOrderForm() {
         title={`Orden N° ${form.number || 'A-_____'}`}
         badge={<StatusBadge status={form.status} />}
         logoUrl={logoUrl}
-        menuOpen={menuOpen}
-        menuRef={menuRef}
-        setMenuOpen={setMenuOpen}
-        menuItems={[
-          { label: 'Duplicar', icon: <Copy size={16} />, onClick: () => { setMenuOpen(false); notify('Duplicar orden — próximamente', 'info'); } },
-          { label: 'Exportar PDF', icon: <FileDown size={16} />, onClick: () => { setMenuOpen(false); if (id) window.open(getWorkOrderPdf(id as string), '_blank'); else notify('Guardá la orden primero para exportar el PDF', 'info'); } },
-          { label: 'Eliminar', icon: <Trash2 size={16} />, onClick: () => { setMenuOpen(false); setDeleteConfirm(true); }, danger: true },
-          { label: 'Historial', icon: <History size={16} />, onClick: () => { setMenuOpen(false); notify('Historial de cambios — próximamente', 'info'); } },
-        ]}
       >
         {form.status === 'MEASUREMENT' && (
           <button className={s['work-order-form__btn-measurement']} onClick={() => handleStatusChangeAction('WORKSHOP')} disabled={saving}>
@@ -287,9 +282,6 @@ export default function WorkOrderForm() {
         </button>
         <button className={`btn btn-primary ${s['work-order-form__btn-save']}`} onClick={handleSubmit} disabled={saving}>
           <Save size={16} /> {saving ? 'GUARDANDO...' : 'GUARDAR'}
-        </button>
-        <button className="btn btn-outline" onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Printer size={16} /> IMPRIMIR
         </button>
       </FormHeader>
 

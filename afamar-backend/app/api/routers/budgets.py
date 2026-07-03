@@ -222,18 +222,25 @@ def _build_company_and_terms(settings_data: dict, overrides: dict | None = None)
     `overrides` is an optional dict with per-budget keys (budget_terms_override,
     warranty_override) — when present and non-empty, they REPLACE the global
     values from settings_data at the same key.
+    Empty JSON arrays (`"[]"`) from the frontend mean "no per-entity override",
+    so the global config terms are kept.
     """
     company = {k: settings_data.get(k, "") for k in _COMPANY_KEYS}
-    # Apply overrides if any (overrides win over config globals).
     overrides = overrides or {}
-    # Carry over the legacy key `warranty_text` → mapped to `warranty`.
-    terms_global = {k: settings_data.get(k, "") for k in _TERMS_KEYS}
-    terms = dict(terms_global)
-    if overrides.get("budget_terms_override"):
+    terms = {k: settings_data.get(k, "") for k in _TERMS_KEYS}
+    if _has_terms(overrides.get("budget_terms_override")):
         terms["budget_terms"] = overrides["budget_terms_override"]
-    if overrides.get("warranty_override"):
+    if _has_terms(overrides.get("warranty_override")):
         terms["warranty_text"] = overrides["warranty_override"]
     return company, terms
+
+
+def _has_terms(value) -> bool:
+    """Return True if `value` is a non-empty terms override (not None, not `"[]"`)."""
+    if not value:
+        return False
+    s = str(value).strip()
+    return s not in ("", "[]")
 
 
 def _prepare_budget_payload(budget, db: Session) -> tuple[dict, dict, dict, dict]:

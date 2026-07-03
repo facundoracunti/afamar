@@ -136,15 +136,25 @@ def _build_company_and_terms(settings_data: dict, overrides: dict | None = None)
     `overrides` is an optional dict with per-work-order keys (delivery_terms_override,
     warranty_override) — when present and non-empty, they REPLACE the global
     values from settings_data at the same key.
+    Empty JSON arrays (`"[]"`) from the frontend mean "no per-entity override",
+    so the global config terms are kept.
     """
     company = {k: settings_data.get(k, "") for k in _COMPANY_KEYS}
     overrides = overrides or {}
     terms = {k: settings_data.get(k, "") for k in _TERMS_KEYS}
-    if overrides.get("delivery_terms_override"):
+    if _has_terms(overrides.get("delivery_terms_override")):
         terms["delivery_terms"] = overrides["delivery_terms_override"]
-    if overrides.get("warranty_override"):
+    if _has_terms(overrides.get("warranty_override")):
         terms["warranty_text"] = overrides["warranty_override"]
     return company, terms
+
+
+def _has_terms(value) -> bool:
+    """Return True if `value` is a non-empty terms override."""
+    if not value:
+        return False
+    s = str(value).strip()
+    return s not in ("", "[]")
 
 
 _FIELD_MAP: dict[str, str] = {

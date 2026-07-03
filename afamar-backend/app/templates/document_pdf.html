@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<style>
+  /* Single template, xhtml2pdf-compatible. All field names are English
+     to match the SQLAlchemy model + the JSON the frontend sends. */
+
+  @page { size: A4; margin: 14mm 12mm 16mm 12mm; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 9pt;
+    line-height: 1.4;
+    color: #1a1a1a;
+  }
+
+  /* ===== HEADER ===== */
+  .header-table { width: 100%; margin-bottom: 8px; border-collapse: collapse; }
+  .header-table > tbody > tr > td { padding: 0; vertical-align: top; }
+  .header-logo { max-height: 32px; max-width: 90px; margin-bottom: 6px; }
+  .header-tagline { font-size: 10pt; font-weight: bold; color: #475569; line-height: 1.2; }
+  .header-contact { font-size: 8pt; color: #475569; line-height: 1.4; }
+  .doc-title { font-size: 13pt; font-weight: bold; color: #c0392b; line-height: 1.2; }
+  .doc-number { font-size: 18pt; font-weight: bold; color: #c0392b; font-family: 'Courier New', monospace; margin-top: 2px; }
+  .doc-sub { font-size: 8pt; color: #64748b; margin-top: 2px; }
+  .header-divider { border: none; border-top: 2px solid #c0392b; margin: 0 0 8px 0; }
+
+  /* ===== CLIENT ===== */
+  .client-table { width: 100%; margin-bottom: 8px; }
+  .client-table td { font-size: 8.5pt; padding: 2px 4px; vertical-align: top; }
+  .label { font-weight: bold; white-space: nowrap; }
+  .divider { border: none; border-top: 1px solid #e2e8f0; margin: 8px 0; }
+
+  /* ===== INFO BOX ===== */
+  .info-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 8px 10px; margin-bottom: 10px; }
+  .info-grid { width: 100%; }
+  .info-grid td { font-size: 8.5pt; padding: 2px 8px; vertical-align: top; }
+  .value { font-weight: bold; color: #0f172a; }
+
+  /* ===== OBSERVATIONS ===== */
+  .obs-box { background: #fffbeb; border: 1px solid #fde68a; padding: 6px 8px; margin-bottom: 8px; }
+  .obs-title { font-size: 8pt; font-weight: bold; color: #92400e; text-transform: uppercase; margin-bottom: 2px; }
+  .obs-list { font-size: 8.5pt; padding-left: 18px; }
+  .obs-list li { margin-bottom: 2px; }
+
+  /* ===== CROQUIS ===== */
+  .croquis-img { max-width: 100%; max-height: 180px; margin: 4px 0; }
+
+  /* ===== DATA TABLES (fabrication, materials, pools) ===== */
+  .section-title {
+    font-size: 10pt;
+    font-weight: bold;
+    color: #c0392b;
+    text-transform: uppercase;
+    margin: 10px 0 4px 0;
+    border-bottom: 1px solid #c0392b;
+    padding-bottom: 2px;
+  }
+  .data-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+  .data-table th { background: #f1f5f9; font-size: 7.5pt; font-weight: bold; color: #334155; padding: 4px 6px; text-align: left; border: 1px solid #cbd5e1; }
+  .data-table td { font-size: 8.5pt; padding: 4px 6px; border: 1px solid #e2e8f0; vertical-align: top; }
+  .data-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .data-table .total-row { font-weight: bold; background: #fef9c3; }
+
+  /* ===== TOTALS (resumen) ===== */
+  .totals { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+  .totals td { font-size: 9pt; padding: 3px 6px; }
+  .totals .lbl { color: #475569; text-align: right; }
+  .totals .val { font-weight: bold; text-align: right; font-variant-numeric: tabular-nums; }
+  .totals .grand { font-size: 11pt; background: #1e40af; color: #fff; font-weight: bold; }
+  .totals .grand td { padding: 6px 8px; }
+
+  /* ===== TERMS ===== */
+  .terms-box { margin-top: 8px; }
+  .terms-title { font-size: 9pt; font-weight: bold; color: #1e40af; text-transform: uppercase; margin-bottom: 2px; }
+  .terms-list { font-size: 8.5pt; padding-left: 18px; }
+  .terms-list li { margin-bottom: 2px; }
+
+  /* ===== SIGNATURES ===== */
+  .signatures { width: 100%; margin-top: 14px; border-collapse: collapse; }
+  .signatures td { width: 50%; text-align: center; vertical-align: bottom; padding: 0 8px; }
+  .signature-line { border-top: 1px solid #1a1a1a; padding-top: 4px; min-height: 50px; }
+  .signature-caption { font-size: 7.5pt; color: #64748b; margin-top: 2px; }
+</style>
+</head>
+<body>
+
+{# =========================================================================
+   HEADER (top of first page only)
+   ========================================================================= #}
+<table class="header-table"><tr>
+  <td style="width:60%;">
+    {% if logo_base64 %}<img src="data:image/png;base64,{{ logo_base64 }}" width="180" height="90">{% endif %}
+    {% if company_tagline %}<div class="header-tagline">{{ company_tagline }}</div>{% endif %}
+    {% if company_address %}<div class="header-contact">{{ company_address }}</div>{% endif %}
+    {% if company_phone %}<div class="header-contact">Tel: {{ company_phone }}</div>{% endif %}
+    {% if company_email %}<div class="header-contact">{{ company_email }}</div>{% endif %}
+  </td>
+  <td style="width:40%; text-align:right; vertical-align:top;">
+    <div class="doc-title">{{ title }}</div>
+    <div class="doc-number">{{ number }}</div>
+    <div class="doc-sub">{{ doc_sub }}</div>
+  </td>
+</tr></table>
+
+<hr class="header-divider">
+
+{# =========================================================================
+   CLIENT
+   ========================================================================= #}
+<table class="client-table">
+  <tr>
+    <td style="width:50%;"><span class="label">Cliente:</span> {{ client_name }}</td>
+    <td><span class="label">Teléfono:</span> {{ client_phone }}</td>
+  </tr>
+  <tr>
+    {% if client_address %}<td><span class="label">Domicilio:</span> {{ client_address }}</td>{% endif %}
+    {% if client_email %}<td><span class="label">Email:</span> {{ client_email }}</td>{% endif %}
+    <td><span class="label">Fecha:</span> {{ date }}</td>
+  </tr>
+</table>
+
+<hr class="divider">
+
+{# =========================================================================
+   INFO BOX (material specs, delivery date, etc.)
+   ========================================================================= #}
+<table class="info-grid">
+  <tr>
+    {% if material_color %}<td><span class="label">Color:</span> <span class="value">{{ material_color or "—" }}</span></td>{% endif %}
+    {% if material_thickness %}<td><span class="label">Espesor:</span> <span class="value">{{ material_thickness or "—" }}</span></td>{% endif %}
+    {% if material_finish %}<td><span class="label">Acabado:</span> <span class="value">{{ material_finish or "—" }}</span></td>{% endif %}
+    {% if delivery_date %}<td><span class="label">Entrega:</span> <span class="value">{{ delivery_date or "—" }}</span></td>{% endif %}
+  </tr>
+</table>
+
+{% if croquis_images %}
+<div class="info-box">
+  <div class="obs-title">Croquis</div>
+  {% for img in croquis_images %}
+  <img src="data:image/png;base64,{{ img }}" class="croquis-img">
+  {% endfor %}
+</div>
+{% endif %}
+
+{# =========================================================================
+   FABRICATION DETAILS
+   ========================================================================= #}
+{% if fabrication_details %}
+<div class="section-title">Detalles de fabricación</div>
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Concepto</th><th>Detalle</th><th>Material</th>
+      <th class="num">Largo</th><th class="num">Ancho</th>
+      <th class="num">Cant.</th><th class="num">Subtotal</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for d in fabrication_details %}
+    <tr>
+      <td>{{ d.concept or "—" }}</td>
+      <td>{{ d.detail or "—" }}</td>
+      <td>{{ d.material or "—" }}</td>
+      <td class="num">{{ "%.2f"|format(d.length or 0) }} m</td>
+      <td class="num">{{ "%.2f"|format(d.width or 0) }} m</td>
+      <td class="num">{{ d.quantity or 1 }}</td>
+      <td class="num">$ {{ "{:,.2f}"|format(d.price or 0) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{# =========================================================================
+   MATERIALS
+   ========================================================================= #}
+{% if materials %}
+<div class="section-title">Materiales</div>
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Material</th><th>Color</th>
+      <th class="num">Largo</th><th class="num">Ancho</th>
+      <th class="num">Cant.</th><th class="num">M²</th>
+      <th class="num">Precio/m²</th>
+      <th class="num">Subtotal</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for m in materials %}
+    <tr>
+      <td>{{ m.name or "—" }}</td>
+      <td>{{ m.color or "—" }}</td>
+      <td class="num">{{ "%.2f"|format(m.length or 0) }} m</td>
+      <td class="num">{{ "%.2f"|format(m.width or 0) }} m</td>
+      <td class="num">{{ m.quantity or 1 }}</td>
+      <td class="num">{{ "%.2f"|format(m.m2 or 0) }}</td>
+      <td class="num">$ {{ "{:,.2f}"|format(m.price_m2 or 0) }}</td>
+      <td class="num">$ {{ "{:,.2f}"|format(m.subtotal or 0) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{# =========================================================================
+   POOLS
+   ========================================================================= #}
+{% if pools %}
+<div class="section-title">Piletas</div>
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Marca</th><th>Modelo</th><th class="num">Cant.</th>
+      <th class="num">Precio</th><th class="num">Subtotal</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in pools %}
+    <tr>
+      <td>{{ p.brand or "—" }}</td>
+      <td>{{ p.model or "—" }}</td>
+      <td class="num">{{ p.quantity or 1 }}</td>
+      <td class="num">$ {{ "{:,.2f}"|format(p.price or 0) }}</td>
+      <td class="num">$ {{ "{:,.2f}"|format(p.subtotal or 0) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{# =========================================================================
+   OBSERVATIONS
+   ========================================================================= #}
+{% if notes %}
+<div class="obs-box">
+  <div class="obs-title">Observaciones</div>
+  <div style="font-size: 8.5pt;">{{ notes }}</div>
+</div>
+{% endif %}
+{% if important_observations %}
+<div class="obs-box">
+  <div class="obs-title">Observaciones importantes</div>
+  {% if important_observations_list %}
+  <ul class="obs-list">
+    {% for o in important_observations_list %}<li>{{ o }}</li>{% endfor %}
+  </ul>
+  {% else %}
+  <div style="font-size: 8.5pt;">{{ important_observations }}</div>
+  {% endif %}
+</div>
+{% endif %}
+
+{# =========================================================================
+   TOTALS
+   ========================================================================= #}
+<table class="totals">
+  <tr>
+    <td class="lbl" style="width: 70%;">Subtotal</td>
+    <td class="val">$ {{ "{:,.2f}"|format(subtotal or 0) }}</td>
+  </tr>
+  {% if transport %}
+  <tr>
+    <td class="lbl">Traslado</td>
+    <td class="val">$ {{ "{:,.2f}"|format(transport or 0) }}</td>
+  </tr>
+  {% endif %}
+  {% if discount_percentage %}
+  <tr>
+    <td class="lbl">Descuento ({{ discount_percentage }}%)</td>
+    <td class="val">-$ {{ "{:,.2f}"|format(discount_fixed_amount or 0) }}</td>
+  </tr>
+  {% endif %}
+  {% if deposit_received %}
+  <tr>
+    <td class="lbl">Seña</td>
+    <td class="val">$ {{ "{:,.2f}"|format(deposit_received or 0) }}</td>
+  </tr>
+  {% endif %}
+  {% if balance_due %}
+  <tr>
+    <td class="lbl">Saldo pendiente</td>
+    <td class="val">$ {{ "{:,.2f}"|format(balance_due or 0) }}</td>
+  </tr>
+  {% endif %}
+  <tr class="grand">
+    <td>TOTAL</td>
+    <td>$ {{ "{:,.2f}"|format(total or 0) }}{% if total_usd %} <span style="font-size:8pt;opacity:0.8;">(USD ${{ "{:,.2f}"|format(total_usd or 0) }})</span>{% endif %}</td>
+  </tr>
+</table>
+
+{% if payment_method %}
+<div style="font-size: 8.5pt; margin-bottom: 6px;">
+  <span class="label">Forma de pago:</span> {{ payment_method }}{% if installments %} ({{ installments }} cuota{{ "" if installments == 1 else "s" }}){% endif %}
+</div>
+{% endif %}
+
+{# =========================================================================
+   TERMS (budget-specific + OT-specific, both rendered as bulleted lists)
+   Placed above signatures so both are visible together.
+   ========================================================================= #}
+{% if document_type == "budget" %}
+  {% if budget_terms_list %}
+  <div class="terms-box">
+    <div class="terms-title">Términos del presupuesto</div>
+    <ul class="terms-list">
+      {% for t in budget_terms_list %}<li>{{ t }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+  {% if warranty_terms_list %}
+  <div class="terms-box">
+    <div class="terms-title">Garantía</div>
+    <ul class="terms-list">
+      {% for t in warranty_terms_list %}<li>{{ t }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+{% else %}
+  {% if delivery_terms_list %}
+  <div class="terms-box">
+    <div class="terms-title">Condiciones de entrega</div>
+    <ul class="terms-list">
+      {% for t in delivery_terms_list %}<li>{{ t }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+  {% if warranty_terms_list %}
+  <div class="terms-box">
+    <div class="terms-title">Garantía</div>
+    <ul class="terms-list">
+      {% for t in warranty_terms_list %}<li>{{ t }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+{% endif %}
+
+{# =========================================================================
+   SIGNATURES
+   ========================================================================= #}
+<table class="signatures">
+  <tr>
+    <td>
+      <div class="signature-line">&nbsp;</div>
+      <div class="signature-caption">{{ company_name }}<br>Responsable</div>
+    </td>
+    <td>
+      <div class="signature-line">&nbsp;</div>
+      <div class="signature-caption">CLIENTE CONFORME<br>Firma y aclaración</div>
+    </td>
+  </tr>
+</table>
+
+</body>
+</html>

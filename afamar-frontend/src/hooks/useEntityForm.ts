@@ -18,6 +18,7 @@ export default function useEntityForm({
   id,
   navigate,
   onLoaded,
+  extraPayloadFields,
 }: {
   entityType: string;
   services: EntityFormState extends never ? never : Parameters<typeof useFormReferences>[0]['services'];
@@ -25,6 +26,9 @@ export default function useEntityForm({
   id?: string;
   navigate: (path: string) => void;
   onLoaded?: (data: Record<string, unknown>) => void;
+  /** Optional extra fields merged into the payload on every save
+   *  (e.g. per-order terms override `delivery_terms_override`). */
+  extraPayloadFields?: () => Record<string, unknown>;
 }): UseEntityFormReturn {
   void entityType; // entityType kept for future per-type branching
   const isEdit = !!id;

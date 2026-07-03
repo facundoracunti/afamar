@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Eye, Save, Printer, MoreVertical, Copy, FileDown, Trash2, History, FileOutput, Check, Send } from 'lucide-react';
+import { Eye, Save, FileOutput, Check, Send } from 'lucide-react';
 import { getBudget, createBudget, updateBudget, deleteBudget, getNextBudgetNumber, getBudgetPdf, previewBudgetPdf, convertBudgetToWorkOrder, convertAlternativeToWorkOrder } from '@/api/resources/budgets';
 import { getMaterials } from '@/api/resources/materials';
 import { getPoolStock } from '@/api/resources/poolStock';
@@ -360,16 +360,6 @@ export default function BudgetForm() {
         title={`Presupuesto N° ${form.number || 'P-_____'}`}
         badge={!['PENDING'].includes(form.status) ? <StatusBadge status={form.status} /> : undefined}
         logoUrl={logoUrl}
-        menuOpen={menuOpen}
-        menuRef={menuRef}
-        setMenuOpen={setMenuOpen}
-        menuItems={[
-          { label: 'Duplicar', icon: <Copy size={16} />, onClick: () => { setMenuOpen(false); alert('Duplicar presupuesto'); } },
-          { label: 'Exportar PDF', icon: <FileDown size={16} />, onClick: () => { setMenuOpen(false); if (id) window.open(getBudgetPdf(id as string), '_blank'); else handlePreviewPdf(); } },
-          { label: 'Guardar', icon: <Save size={16} />, onClick: () => { setMenuOpen(false); handleGuardar(); } },
-          { label: 'Eliminar', icon: <Trash2 size={16} />, onClick: () => { setMenuOpen(false); setDeleteConfirm(true); }, danger: true },
-          { label: 'Historial', icon: <History size={16} />, onClick: () => { setMenuOpen(false); alert('Historial de cambios'); } },
-        ]}
       >
         <button className="btn btn-outline" onClick={handlePreviewPdf} disabled={pdfPreviewLoading} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Eye size={16} /> {pdfPreviewLoading ? 'GENERANDO...' : 'VISTA PREVIA PDF'}
@@ -397,9 +387,6 @@ export default function BudgetForm() {
         )}
         <button className="btn btn-success" onClick={handleEnviarWhatsApp} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', fontSize: 13 }}>
           <Send size={16} /> WhatsApp
-        </button>
-        <button className="btn btn-outline" onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Printer size={16} /> IMPRIMIR
         </button>
       </FormHeader>
 

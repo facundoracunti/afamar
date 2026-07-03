@@ -10,6 +10,11 @@ interface UseFormActionsParams {
   isEdit: boolean;
   navigate: (path: string) => void;
   buildPayload: () => Record<string, unknown>;
+  /** Optional extra fields merged into the payload on every save. Used by
+   *  the form page to send the per-order terms override (`*_terms_override`)
+   *  alongside the regular form state, so the saved entity round-trips
+   *  into a later PDF download with the same custom terms. */
+  extraPayloadFields?: () => Record<string, unknown>;
 }
 
 /**
@@ -30,13 +35,14 @@ export function useFormActions({
   isEdit,
   navigate,
   buildPayload,
+  extraPayloadFields,
 }: UseFormActionsParams) {
   const handleSubmit = useCallback(
     async (e?: React.FormEvent) => {
       if (e) e.preventDefault();
       setSaving(true);
       try {
-        const payload = buildPayload();
+        const payload = { ...buildPayload(), ...(extraPayloadFields?.() ?? {}) };
         if (['TARJETA DE CRÉDITO', 'TARJETA DE DÉBITO'].includes(form.payment_method)) {
           payload.deposit_received = Number(form.total);
           payload.balance_due = 0;
@@ -57,7 +63,7 @@ export function useFormActions({
         setSaving(false);
       }
     },
-    [isEdit, id, services, navigate, form.payment_method, form.total, form.total_usd, buildPayload, setSaving]
+    [isEdit, id, services, navigate, form.payment_method, form.total, form.total_usd, buildPayload, extraPayloadFields, setSaving]
   );
 
   const handleDelete = useCallback(async () => {
