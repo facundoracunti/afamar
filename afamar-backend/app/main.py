@@ -53,13 +53,26 @@ async def lifespan(app: FastAPI):
         logger.error("Database check: %s", msg)
         raise RuntimeError(msg)
     run_migrations()
-    try:
-        from scripts.seed_materials import seed_materials, seed_default_settings
-        seed_default_settings()
-        seed_materials()
-    except Exception as exc:
-        logger.warning("Material seed failed: %s", exc)
+    _run_seeders()
     yield
+
+
+def _run_seeders() -> None:
+    """Run every idempotent seeder on startup. Failures are logged but never
+    block the app from starting — production DBs may already be populated and
+    dev DBs just need a one-shot bootstrap.
+
+    Seeders run in dependency order: settings + categories first, materials
+    (which need the categories), users last.
+    """
+    try:
+        from scripts.seeders import seed_categories, seed_materials, seed_settings, seed_users
+        seed_settings()
+        seed_categories()
+        seed_materials()
+        seed_users()
+    except Exception as exc:
+        logger.warning("Startup seed failed: %s", exc, exc_info=True)
 
 
 app = FastAPI(title=settings.APP_NAME, version=settings.APP_VERSION, lifespan=lifespan)

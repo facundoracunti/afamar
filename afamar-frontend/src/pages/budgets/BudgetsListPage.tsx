@@ -213,13 +213,13 @@ export default function BudgetsList() {
                               i.detail &&
                               i.detail !== 'LONGITUD' &&
                               ![
-                                'ZOCALOS',
-                                'APERTURA + PEGADO PILETA',
-                                'APERTURA PILETA APOYO',
-                                'MENSULAS',
-                                'APERTURA ANAFE',
-                                'TERMINACION',
-                                'PILETA MOD',
+                                'BASEBOARDS',
+                                'CUTOUT_SINK',
+                                'CUTOUT_DROPIN_SINK',
+                                'BRACKETS',
+                                'CUTOUT_COOKTOP',
+                                'FINISHING',
+                                'POOL_MOD',
                               ].includes(i.detail),
                           )
                           .map((i: { detail: string }) => i.detail.trim());

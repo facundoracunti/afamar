@@ -13,13 +13,34 @@ export const formatInputDate = (date: string | undefined | null): string => {
   return d.toISOString().split('T')[0];
 };
 
-export const thicknesses: string[] = ['2 cm', '1.2 cm'];
-export const finishes: string[] = ['PULIDO', 'LAPIDADO', 'FLAMEADO', 'CEPILLADO'];
-export const fabricationConcepts: string[] = ['LONGITUD', 'ZÓCALO', 'FRENTE', 'TRAFORO DE PILETA', 'TRAFORO DE ANAFE', 'TRAFORO DE PILETA DE APOYO', 'OTRA'];
-export const materialCategories: string[] = ['Granitos', 'Cuarzos', 'Sinterizados', 'Mármoles'];
+export const fabricationConcepts: string[] = [
+  'LENGTH',
+  'BASEBOARD',
+  'FRONT',
+  'CUTOUT_SINK',
+  'CUTOUT_COOKTOP',
+  'CUTOUT_DROPIN_SINK',
+  'OTHER',
+];
 
-export const orderStatuses: string[] = ['MEDICION', 'TALLER', 'TERMINADA', 'ENTREGADA'];
-export const budgetStatuses: string[] = ['PENDIENTE', 'ENVIADO', 'APROBADO', 'RECHAZADO'];
+export const orderStatuses: string[] = [
+  'MEASUREMENT',
+  'WORKSHOP',
+  'FINISHED',
+  'DELIVERED',
+  'CANCELLED',
+];
 
-export const measurementStatuses: string[] = ['PENDING', 'CONFIRMED', 'DONE', 'CANCELLED'];
-export const M2_CONCEPTS: string[] = ['ZÓCALO', 'FRENTE'];
+export const budgetStatuses: string[] = [
+  'PENDING',
+  'ONLINE',
+  'APPROVED',
+  'REJECTED',
+  'CONVERTED_TO_OT',
+];
+
+export const measurementStatuses: string[] = [
+  'PENDING',
+  'DONE',
+  'CANCELLED',
+];

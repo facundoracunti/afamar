@@ -39,7 +39,7 @@ export function useFormDetails({
       setForm((prev) => {
         const list = [...(prev.fabrication_details || [])];
         list[idx] = { ...list[idx], [field]: value } as FabricationDetail;
-        if (field === 'concepto' && value !== 'OTRA') {
+        if (field === 'concepto' && value !== 'OTHER') {
           list[idx].concepto_personalizado = '';
         }
         if (field === 'concepto' && CUTOUT_DETAILS[value as string]) {
@@ -62,7 +62,7 @@ export function useFormDetails({
           }
         }
 
-        if (d.concepto === 'OTRA' && (field === 'largo' || field === 'mano_de_obra')) {
+        if (d.concepto === 'OTHER' && (field === 'largo' || field === 'mano_de_obra')) {
           const largo = Number(d.largo) || 0;
           const mo = Number(d.mano_de_obra) || 0;
           list[idx].precio = Math.round(largo * mo * 100) / 100;
@@ -99,7 +99,7 @@ export function useFormDetails({
     update('fabrication_details', [
       ...(form.fabrication_details || []),
       {
-        concepto: 'ZÓCALO',
+        concepto: 'BASEBOARD',
         detalle: '',
         material: '',
         material_precio_m2: 0,

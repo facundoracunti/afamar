@@ -168,11 +168,11 @@ export default function PoolStockPage() {
           <div className="form-row">
             <div className="form-group">
               <label>Marca *</label>
-              <select className="input" required value={['JOHNSON', 'MI PILETA'].includes(form.brand) ? form.brand : 'OTRA'} onChange={(e) => setForm({ ...form, brand: e.target.value === 'OTRA' ? '' : e.target.value })}>
+              <select className="input" required value={['JOHNSON', 'MI PILETA'].includes(form.brand) ? form.brand : 'OTHER'} onChange={(e) => setForm({ ...form, brand: e.target.value === 'OTHER' ? '' : e.target.value })}>
                 <option value="">Seleccionar...</option>
                 <option value="JOHNSON">JOHNSON</option>
                 <option value="MI PILETA">MI PILETA</option>
-                <option value="OTRA">OTRA (escribir)</option>
+                <option value="OTHER">OTRA (escribir)</option>
               </select>
               {!['JOHNSON', 'MI PILETA', ''].includes(form.brand) && (
                 <input className="input" style={{ marginTop: 6 }} value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} placeholder="Escribí la marca..." />

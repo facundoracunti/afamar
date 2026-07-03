@@ -1,6 +1,7 @@
 // @ts-nocheck
 import React from 'react';
 import { Plus, X } from 'lucide-react';
+import { t } from '../../utils/translate';
 
 interface FabricationTableProps {
   detalles: Record<string, unknown>[];
@@ -36,7 +37,7 @@ export default function FabricationTable({ detalles, readOnly, handleDetailChang
             <tr key={i}>
               <td>
                 <select className="input" style={{ fontSize: 12, padding: '4px 8px' }} value={d.concepto as string} onChange={(e) => handleDetailChange(i, 'concepto', e.target.value)} disabled={readOnly}>
-                  {fabricationConcepts.map((c) => <option key={c} value={c}>{c}</option>)}
+                  {fabricationConcepts.map((c) => <option key={c} value={c}>{t(c)}</option>)}
                 </select>
               </td>
               <td>
@@ -55,7 +56,7 @@ export default function FabricationTable({ detalles, readOnly, handleDetailChang
                     <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '30%' }} value={d.ancho ?? ''} onChange={(e) => handleDetailChange(i, 'ancho', num(e.target.value))} placeholder="Ancho" disabled={readOnly} />
                     <span style={{ fontSize: 11, fontWeight: 600, color: '#1e40af', whiteSpace: 'nowrap' }}>{(d.m2 || 0)} m²</span>
                   </div>
-                ) : d.concepto === 'OTRA' ? (
+                ) : d.concepto === 'OTHER' ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     <input className="input" style={{ fontSize: 12, padding: '4px 8px' }} value={d.detalle as string} onChange={(e) => handleDetailChange(i, 'detalle', e.target.value)} placeholder="DETALLES" disabled={readOnly} />
                     <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
@@ -71,9 +72,9 @@ export default function FabricationTable({ detalles, readOnly, handleDetailChang
               <td>
                 {M2_CONCEPTS.includes(d.concepto as string) ? (
                   <span style={{ fontSize: 12, fontWeight: 600, color: (d.moneda as string) === 'USD' ? '#059669' : '#1e293b' }}>{(d.moneda as string) === 'USD' ? 'USD ' : '$'}{Number(d.precio || 0).toLocaleString('es-AR')}</span>
-                ) : d.concepto === 'OTRA' ? (
+                ) : d.concepto === 'OTHER' ? (
                   <span style={{ fontSize: 12, fontWeight: 600, color: (d.moneda as string) === 'USD' ? '#059669' : '#1e293b' }}>{(d.moneda as string) === 'USD' ? 'USD ' : '$'}{Number(d.precio || 0).toLocaleString('es-AR')}</span>
-                ) : ['TRAFORO DE PILETA', 'TRAFORO DE ANAFE', 'TRAFORO DE PILETA DE APOYO'].includes(d.concepto as string) ? (
+                ) : ['CUTOUT_SINK', 'CUTOUT_COOKTOP', 'CUTOUT_DROPIN_SINK'].includes(d.concepto as string) ? (
                   <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '100%' }} value={d.precio || ''} onChange={(e) => handleDetailChange(i, 'precio', num(e.target.value))} placeholder="0" disabled={readOnly} />
                 ) : (
                   <span style={{ fontSize: 12, color: '#94a3b8' }}>-</span>

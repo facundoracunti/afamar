@@ -2,21 +2,41 @@ import type { EntityFormState, Pool } from '../types';
 import type { Material } from '../types/material';
 import type { MaterialInForm, PoolInForm } from '../types';
 
-export const M2_CONCEPTS = ['ZÓCALO', 'FRENTE'];
+/**
+ * Fabrication concept codes. English keys are the canonical (DB) values;
+ * the UI translates them to Spanish via `t()`.
+ *
+ * The `detalle` values are operator-facing strings (PDF, quote lines) so
+ * they stay in Spanish — they are content, not codes.
+ */
+export const M2_CONCEPTS: string[] = ['BASEBOARD', 'FRONT'];
 
 export const CUTOUT_DETAILS: Record<string, string> = {
-  'TRAFORO DE PILETA': 'APERTURA Y PEGADO DE PILETA',
-  'TRAFORO DE ANAFE': 'APERTURA DE ANAFE',
-  'TRAFORO DE PILETA DE APOYO': 'APERTURA PILETA DE APOYO',
+  CUTOUT_SINK: 'Apertura y pegado de pileta',
+  CUTOUT_COOKTOP: 'Apertura de anafe',
+  CUTOUT_DROPIN_SINK: 'Apertura pileta de apoyo',
 };
 
+/**
+ * Maps legacy Spanish concept strings (from data created before the
+ * English-only migration) to the canonical English code. Used when
+ * loading `fabrication_details` from the API to keep the form's in-memory
+ * state consistent.
+ */
 export const CONCEPT_NORMALIZE: Record<string, string> = {
-  'APERTURA + PEGADO PILETA': 'TRAFORO DE PILETA',
-  'APERTURA Y PEGADO DE PILETA': 'TRAFORO DE PILETA',
-  'APERTURA ANAFE': 'TRAFORO DE ANAFE',
-  'APERTURA DE ANAFE': 'TRAFORO DE ANAFE',
-  'APERTURA PILETA APOYO': 'TRAFORO DE PILETA DE APOYO',
-  'APERTURA PILETA DE APOYO': 'TRAFORO DE PILETA DE APOYO',
+  'ZÓCALO': 'BASEBOARD',
+  'FRENTE': 'FRONT',
+  'LONGITUD': 'LENGTH',
+  'TRAFORO DE PILETA': 'CUTOUT_SINK',
+  'TRAFORO DE ANAFE': 'CUTOUT_COOKTOP',
+  'TRAFORO DE PILETA DE APOYO': 'CUTOUT_DROPIN_SINK',
+  'APERTURA + PEGADO PILETA': 'CUTOUT_SINK',
+  'APERTURA Y PEGADO DE PILETA': 'CUTOUT_SINK',
+  'APERTURA ANAFE': 'CUTOUT_COOKTOP',
+  'APERTURA DE ANAFE': 'CUTOUT_COOKTOP',
+  'APERTURA PILETA APOYO': 'CUTOUT_DROPIN_SINK',
+  'APERTURA PILETA DE APOYO': 'CUTOUT_DROPIN_SINK',
+  'OTRA': 'OTHER',
 };
 
 // Form state uses snake_case English field names that match the backend API exactly.

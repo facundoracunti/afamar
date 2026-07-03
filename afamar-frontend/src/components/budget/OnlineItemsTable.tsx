@@ -30,10 +30,10 @@ export const INITIAL_ROWS = Array.from({ length: 3 }, (): Partial<OnlineBudgetIt
 export const INITIAL_SPECIALS = [{ detail: 'ZOCALOS', isUnit: false }] as const;
 export const SPECIAL_TYPES: { detail: string; isUnit: boolean }[] = [
   { detail: 'ZOCALOS', isUnit: false },
-  { detail: 'APERTURA + PEGADO PILETA', isUnit: true },
-  { detail: 'APERTURA PILETA APOYO', isUnit: true },
-  { detail: 'MENSULAS', isUnit: true },
-  { detail: 'APERTURA ANAFE', isUnit: true },
+  { detail: 'CUTOUT_SINK', isUnit: true },
+  { detail: 'CUTOUT_DROPIN_SINK', isUnit: true },
+
+  { detail: 'CUTOUT_COOKTOP', isUnit: true },
   { detail: 'TERMINACION', isUnit: true },
   { detail: 'PILETA MOD', isUnit: true },
 ];

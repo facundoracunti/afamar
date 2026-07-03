@@ -33,7 +33,7 @@ const QuoteOptionsGrid = ({ alternativas, detalleTrabajosComunes, tipoCambio = 1
   ];
 
   const listaTrabajos: TrabajoComun[] = detalleTrabajosComunes && detalleTrabajosComunes.length > 0 ? detalleTrabajosComunes : [
-    { concepto: 'TRAFORO DE PILETA - APERTURA Y PEGADO DE PILETA', total: 60000 },
+    { concepto: 'CUTOUT_SINK - Apertura y pegado de pileta', total: 60000 },
     { concepto: 'Pileta JOHNSON e 44', total: 150000 }
   ];
 
@@ -126,7 +126,7 @@ const QuoteOptionsGrid = ({ alternativas, detalleTrabajosComunes, tipoCambio = 1
                         style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', paddingTop: '12px', borderTop: '1px dashed #e2e8f0' } as React.CSSProperties}
                       >
                         <span style={{ fontSize: '12px', color: '#64748b', maxWidth: '65%', textTransform: 'uppercase', lineHeight: '1.2' } as React.CSSProperties}>
-                          {job.concepto.replace('TRAFORO DE PILETA - ', '')}
+                          {job.concepto.replace('CUTOUT_SINK - ', '')}
                         </span>
                         <span style={{ fontSize: '12px', fontWeight: '600', color: '#334155', whiteSpace: 'nowrap', paddingLeft: '8px' } as React.CSSProperties}>
                           {modoUSD && tipoCambio > 0

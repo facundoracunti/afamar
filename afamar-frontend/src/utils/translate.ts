@@ -15,11 +15,24 @@ const enToEsLabels: Record<string, string> = {
   HIGH: "Alta",
   URGENT: "Urgente",
   CASH: "Efectivo",
+  TRANSFER: "Transferencia",
   CREDIT_CARD: "Tarjeta de Crédito",
   DEBIT_CARD: "Tarjeta de Débito",
-  BANK_TRANSFER: "Transf. Banco",
   CHECK: "Cheque",
-  EXPENSE: "Gasto",
+  MIXED: "Mixto",
+  BANK_TRANSFER: "Transf. Banco",
+  INCOME: "Ingreso",
+  EXPENSE: "Egreso",
+
+  // Fabrication concepts (used by the fabrication details table on
+  // budget / work-order forms and by the PDF preview).
+  LENGTH: "Largo",
+  BASEBOARD: "Zócalo",
+  FRONT: "Frente",
+  CUTOUT_SINK: "Traforo de pileta",
+  CUTOUT_COOKTOP: "Traforo de anafe",
+  CUTOUT_DROPIN_SINK: "Traforo de pileta de apoyo",
+  OTHER: "Otra",
 };
 
 const t = (key: string): string => enToEsLabels[key] || key;
