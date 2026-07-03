@@ -34,7 +34,13 @@ export default function WorkOrderFormObservations({
           <CroquisEditor croquis={form.sketch_elements} onChange={(v: unknown) => update('sketch_elements', v)} readOnly={readOnly} />
         </div>
       )}
-      <ObservationsSection form={form} readOnly={readOnly} update={update as (field: string, value: unknown) => void} />
+      <ObservationsSection
+        form={form}
+        readOnly={readOnly}
+        update={update as (field: string, value: unknown) => void}
+        className={s['work-order-form__card']}
+        titleClassName={s['work-order-form__card-title']}
+      />
     </>
   );
 }
