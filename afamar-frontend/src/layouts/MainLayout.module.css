@@ -197,11 +197,11 @@
 }
 
 .main-layout__sidebar--collapsed .main-layout__menu-item--active .main-layout__menu-btn-icon > svg {
-  color: var(--color-danger);
+  color: var(--sidebar-item-active-text);
 }
 
 .main-layout__menu-item--active .main-layout__menu-btn-icon > svg {
-  color: var(--color-danger);
+  color: var(--sidebar-item-active-text);
 }
 
 .main-layout__arrow {
@@ -252,7 +252,7 @@
 }
 
 .main-layout__submenu-item--active .main-layout__submenu-link {
-  color: var(--color-danger);
+  color: var(--text-primary);
   font-weight: 600;
 }
 
@@ -262,7 +262,7 @@
 }
 
 .main-layout__submenu-item--active .main-layout__submenu-icon {
-  color: var(--color-danger);
+  color: var(--text-primary);
 }
 
 .main-layout__submenu-popover {
@@ -435,8 +435,9 @@
 
 .main-layout__profile-theme-btn--active {
   background: var(--surface-bg);
-  color: var(--color-danger);
+  color: var(--text-primary);
   box-shadow: 0 1px 2px var(--shadow-color);
+  font-weight: 600;
 }
 
 .main-layout__profile-divider {
@@ -462,7 +463,7 @@
   padding: 8px 16px;
   background: transparent;
   border: none;
-  color: var(--color-danger);
+  color: var(--text-primary);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;

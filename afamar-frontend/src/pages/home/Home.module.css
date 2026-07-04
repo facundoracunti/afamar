@@ -167,19 +167,19 @@
   font-weight: 700;
   text-align: center;
   margin-bottom: 0.5rem;
-  color: #1a1a2e;
+  color: var(--color-primary);
 }
 
 .section__subtitle {
   text-align: center;
-  color: #666;
+  color: var(--text-secondary);
   margin-bottom: 3rem;
   font-size: 1.05rem;
 }
 
 /* ── Materials ── */
 .materials {
-  background: #f8f8f8;
+  background: var(--surface-alt-bg);
 }
 
 .materials__grid {
@@ -192,10 +192,10 @@
 }
 
 .material__card {
-  background: #fff;
+  background: var(--surface-bg);
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 12px var(--shadow-color);
   transition: transform 0.3s, box-shadow 0.3s;
   display: flex;
   flex-direction: column;
@@ -203,7 +203,7 @@
 
 .material__card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 8px 24px var(--shadow-color);
 }
 
 .material__header {
@@ -228,7 +228,7 @@
 }
 
 .material__desc {
-  color: #555;
+  color: var(--text-secondary);
   font-size: 0.88rem;
   line-height: 1.6;
 }
@@ -243,23 +243,23 @@
 }
 
 .materials__extraBlock {
-  background: #fff;
+  background: var(--surface-bg);
   border-radius: 12px;
   padding: 2rem;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 12px var(--shadow-color);
 }
 
 .materials__extraTitle {
   font-size: 1.3rem;
   font-weight: 700;
-  color: #1a1a2e;
+  color: var(--color-primary);
   margin-bottom: 1rem;
   padding-bottom: 0.5rem;
-  border-bottom: 3px solid #1a1a2e;
+  border-bottom: 3px solid var(--color-primary);
 }
 
 .materials__extraBlock p {
-  color: #555;
+  color: var(--text-secondary);
   font-size: 0.92rem;
   line-height: 1.6;
   margin-bottom: 0.7rem;
@@ -267,7 +267,7 @@
 
 /* ── About ── */
 .about {
-  background: #fff;
+  background: var(--surface-bg);
 }
 
 .about__content {
@@ -275,19 +275,19 @@
   margin: 0 auto;
   text-align: center;
   line-height: 1.8;
-  color: #555;
+  color: var(--text-secondary);
   font-size: 1.05rem;
 }
 
 /* ── Portfolio ── */
 .portfolio {
-  background: #f8f8f8;
+  background: var(--surface-alt-bg);
 }
 
 .portfolio__loading {
   text-align: center;
   padding: 3rem 1rem;
-  color: #666;
+  color: var(--text-secondary);
   font-size: 1rem;
 }
 
@@ -337,7 +337,7 @@
 
 /* ── Contact ── */
 .contact {
-  background: #fff;
+  background: var(--surface-bg);
 }
 
 .contact__grid {
@@ -371,14 +371,14 @@
 .contact__prompt {
   font-size: 1.2rem;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--color-primary);
 }
 
 .contact__item {
   display: flex;
   align-items: flex-start;
   gap: 1rem;
-  color: #555;
+  color: var(--text-secondary);
   font-size: 0.95rem;
   line-height: 1.5;
 }
@@ -390,7 +390,7 @@
 }
 
 .contact__link {
-  color: #1a1a2e;
+  color: var(--color-primary);
   text-decoration: none;
   font-weight: 500;
 }
@@ -401,7 +401,7 @@
 
 /* ── Footer ── */
 .footer {
-  background: #1a1a2e;
+  background: var(--color-primary);
   color: rgba(255, 255, 255, 0.7);
   text-align: center;
   padding: 2rem;

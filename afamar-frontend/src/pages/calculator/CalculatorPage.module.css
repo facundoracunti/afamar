@@ -8,19 +8,19 @@
 .calculator__title {
   font-size: 24px;
   font-weight: 700;
-  color: #1a202c;
+  color: var(--text-primary);
   margin: 0;
 }
 
 .calculator__subtitle {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--text-muted);
   margin: 0;
 }
 
 .calculator__section {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 16px;
 }
@@ -28,7 +28,7 @@
 .calculator__sectionTitle {
   font-size: 14px;
   font-weight: 700;
-  color: #1a202c;
+  color: var(--text-primary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin: 0 0 12px;
@@ -49,15 +49,17 @@
 .calculator__field label {
   font-size: 12px;
   font-weight: 600;
-  color: #4a5568;
+  color: var(--text-secondary);
 }
 
 .calculator__field input,
 .calculator__field select {
   padding: 8px 10px;
-  border: 1px solid #cbd5e0;
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   font-size: 14px;
+  background: var(--input-bg);
+  color: var(--input-text);
 }
 
 .calculator__pieces {
@@ -75,7 +77,7 @@
 .calculator__pieceBtn {
   background: transparent;
   border: none;
-  color: #dc2626;
+  color: var(--color-danger);
   cursor: pointer;
   padding: 4px 8px;
 }
@@ -86,8 +88,8 @@
 }
 
 .calculator__results {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 16px;
   display: grid;
@@ -104,7 +106,7 @@
 .calculator__resultLabel {
   font-size: 11px;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -112,17 +114,18 @@
 .calculator__resultValue {
   font-size: 22px;
   font-weight: 700;
-  color: #1a202c;
+  color: var(--text-primary);
 }
 
 .calculator__progress {
-  background: #f1f5f9;
+  background: var(--surface-alt-bg);
   border-radius: 4px;
   height: 12px;
   overflow: hidden;
   margin-top: 6px;
 }
 
+/* Progress bar colors stay semantic across themes (status indicators). */
 .calculator__progressBar {
   height: 100%;
   background: linear-gradient(90deg, #16a34a 0%, #22c55e 100%);
@@ -130,7 +133,7 @@
 }
 
 .calculator__progressBar--low {
-  background: linear-gradient(90deg, #dc2626 0%, #f87171 100%);
+  background: linear-gradient(90deg, var(--color-danger) 0%, #f87171 100%);
 }
 
 .calculator__progressBar--mid {

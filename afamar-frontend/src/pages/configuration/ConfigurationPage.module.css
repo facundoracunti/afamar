@@ -31,13 +31,13 @@
 .configuration__title {
   font-size: 24px;
   font-weight: 700;
-  color: #1a202c;
+  color: var(--text-primary);
   margin: 0;
 }
 
 .configuration__card {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 24px;
   max-width: 700px;
@@ -46,10 +46,10 @@
 .configuration__section {
   font-size: 16px;
   font-weight: 700;
-  color: #1a202c;
+  color: var(--text-primary);
   margin: 0 0 16px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .configuration__group {
@@ -61,13 +61,13 @@
 .configuration__label {
   font-size: 13px;
   font-weight: 600;
-  color: #4a5568;
+  color: var(--text-secondary);
 }
 
 .configuration__logo {
   max-height: 80px;
   border-radius: 4px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-color);
   margin-bottom: 8px;
   display: block;
 }
@@ -101,6 +101,7 @@
   font-size: 14px;
 }
 
+/* Status messages keep semantic colors in both themes. */
 .configuration__message--error {
   background: #fee2e2;
   color: #991b1b;

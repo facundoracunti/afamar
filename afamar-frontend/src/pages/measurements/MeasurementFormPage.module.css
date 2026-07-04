@@ -27,13 +27,13 @@
 .measurement-form__title {
   font-size: 24px;
   font-weight: 700;
-  color: #1a202c;
+  color: var(--text-primary);
   margin: 0;
 }
 
 .measurement-form__card {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 24px;
   max-width: 700px;
@@ -55,7 +55,7 @@
 .measurement-form__label {
   font-size: 13px;
   font-weight: 600;
-  color: #4a5568;
+  color: var(--text-secondary);
 }
 
 .measurement-form__photos {
@@ -86,7 +86,7 @@
   height: 22px;
   border-radius: 50%;
   border: none;
-  background: #dc2626;
+  background: var(--color-danger);
   color: #fff;
   cursor: pointer;
   display: flex;

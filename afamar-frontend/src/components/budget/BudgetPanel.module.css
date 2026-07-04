@@ -1,0 +1,139 @@
+.panelTotals {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: var(--surface-alt-bg);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.panelTotals__row {
+  display: flex;
+  justify-content: space-around;
+}
+
+.panelTotals__col {
+  text-align: center;
+}
+
+.panelTotals__label {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.panelTotals__value {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.panelTotals__value--ars { color: var(--color-danger); }
+.panelTotals__value--usd { color: #16a34a; }
+
+.paymentStatus {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid;
+}
+
+.paymentStatus--paid {
+  background: #d1fae5;
+  border-color: #6ee7b7;
+  color: #065f46;
+}
+
+.paymentStatus--pending {
+  background: #fef9c3;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+.paymentStatus__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.paymentStatus__label {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.paymentStatus__date {
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.paymentStatus__button {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 13px;
+  color: white;
+}
+
+.paymentStatus__button--paid { background: #ef4444; }
+.paymentStatus__button--pending { background: #16a34a; }
+
+.paymentStatus__button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.usdDivider {
+  border-top: 2px solid var(--border-color);
+  padding-top: 6px;
+  margin-bottom: 4px;
+}
+
+.usdDivider__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.usdDivider__total {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.usdDivider__value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #16a34a;
+}
+
+.balanceRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.balanceRow__label {
+  font-weight: 600;
+}
+
+.balanceRow__value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #16a34a;
+}
+
+.subsectionHeader {
+  margin-top: 12px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 12px;
+}
+
+.lineItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.lineItem__value {
+  font-weight: 600;
+}

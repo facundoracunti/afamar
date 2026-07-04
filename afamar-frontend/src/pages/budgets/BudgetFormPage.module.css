@@ -42,7 +42,7 @@
 
 .budget-form__header-hint {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .budget-form__layout {
@@ -62,21 +62,21 @@
 }
 
 .budget-form__card {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 3px var(--shadow-color);
   height: 100%;
 }
 
 .budget-form__card-title {
   font-size: 16px;
   font-weight: 700;
-  color: #1a202c;
+  color: var(--text-primary);
   margin: 0 0 16px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .budget-form__add-row {
@@ -99,7 +99,7 @@
 .budget-form__materials-empty {
   padding: 16px;
   text-align: center;
-  color: #94a3b8;
+  color: var(--text-muted);
   font-size: 13px;
 }
 
@@ -113,7 +113,7 @@
 .budget-form__obs label {
   font-size: 13px;
   font-weight: 600;
-  color: #4a5568;
+  color: var(--text-secondary);
 }
 
 .budget-form__bottom {
@@ -123,7 +123,7 @@
   margin-top: 16px;
 }
 
-/* Action buttons in header (OT, Convertir, Aprobar, Guardar, WhatsApp, Imprimir) */
+/* Action buttons keep semantic colors. */
 .budget-form__btn-ot,
 .budget-form__btn-convert,
 .budget-form__btn-approve,
@@ -141,11 +141,11 @@
 }
 
 .budget-form__btn-ot {
-  background: #059669;
+  background: #16a34a;
 }
 
 .budget-form__btn-convert {
-  background: #b91c1c;
+  background: var(--color-danger);
 }
 
 .budget-form__btn-approve {
@@ -153,7 +153,7 @@
 }
 
 .budget-form__btn-save {
-  background: #b91c1c;
+  background: var(--color-danger);
 }
 
 .budget-form__btn-ot:disabled,

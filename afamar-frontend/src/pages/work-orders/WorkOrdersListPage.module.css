@@ -15,29 +15,29 @@
 .workOrders__title {
   font-size: 24px;
   font-weight: 700;
-  color: #1a202c;
+  color: var(--text-primary);
   margin: 0;
 }
 
 .workOrders__viewToggle {
   display: inline-flex;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   overflow: hidden;
 }
 
 .workOrders__viewBtn {
   padding: 6px 14px;
-  background: #fff;
+  background: var(--surface-bg);
   border: none;
   cursor: pointer;
   font-size: 13px;
-  color: #4a5568;
+  color: var(--text-secondary);
   transition: background 0.15s ease;
 }
 
 .workOrders__viewBtn--active {
-  background: #b91c1c;
+  background: var(--color-danger);
   color: #fff;
 }
 
@@ -47,14 +47,14 @@
   flex-wrap: wrap;
   align-items: center;
   padding: 12px;
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
 }
 
 .workOrders__table {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -65,22 +65,22 @@
 }
 
 .workOrders__th {
-  background: #f8fafc;
+  background: var(--surface-alt-bg);
   text-align: left;
   padding: 12px;
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.4px;
-  color: #4a5568;
-  border-bottom: 1px solid #e2e8f0;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .workOrders__td {
   padding: 12px;
   font-size: 14px;
-  border-bottom: 1px solid #f1f5f9;
-  color: #1a202c;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
   vertical-align: middle;
 }
 
@@ -96,7 +96,7 @@
 .workOrders__empty {
   padding: 48px;
   text-align: center;
-  color: #6b7280;
+  color: var(--text-muted);
   font-size: 14px;
 }
 
@@ -108,8 +108,8 @@
 }
 
 .workOrders__column {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--surface-alt-bg);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 12px;
   min-height: 200px;
@@ -123,13 +123,13 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #4a5568;
+  color: var(--text-secondary);
   margin-bottom: 12px;
 }
 
 .workOrders__card {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   padding: 10px 12px;
   margin-bottom: 8px;
@@ -138,23 +138,23 @@
 }
 
 .workOrders__card:hover {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 8px var(--shadow-color);
 }
 
 .workOrders__cardNumber {
   font-weight: 700;
-  color: #b91c1c;
+  color: var(--color-danger);
   font-size: 13px;
 }
 
 .workOrders__cardClient {
   font-size: 13px;
-  color: #1a202c;
+  color: var(--text-primary);
   margin: 4px 0;
 }
 
 .workOrders__cardTotal {
   font-size: 12px;
-  color: #4a5568;
+  color: var(--text-secondary);
   font-weight: 600;
 }

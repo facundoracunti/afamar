@@ -48,9 +48,9 @@
   --sidebar-text: #cbd5e1;         /* slate-300 */
   --sidebar-text-muted: #64748b;   /* slate-500 */
   --sidebar-border: #1e293b;       /* slate-800 */
-  --sidebar-item-hover-bg: #1e293b; /* slate-800 */
-  --sidebar-item-active-bg: #1e1b4b;
-  --sidebar-item-active-text: #f87171; /* red-400 */
+  --sidebar-item-hover-bg: #334155; /* slate-700 (more visible on hover) */
+  --sidebar-item-active-bg: #334155; /* slate-700 (clearly visible) */
+  --sidebar-item-active-text: #f1f5f9; /* slate-100 (high contrast on slate-700) */
 
   /* Topbar */
   --topbar-bg: #1e293b;           /* slate-800 */
@@ -102,7 +102,7 @@
   --sidebar-border: #d6cdb8;
   --sidebar-item-hover-bg: #ebe4d3;
   --sidebar-item-active-bg: #fde2e2;
-  --sidebar-item-active-text: #b91c1c;
+  --sidebar-item-active-text: #1c1917; /* dark text on light pink (high contrast) */
 
   /* Topbar */
   --topbar-bg: #ffffff;

@@ -146,7 +146,7 @@ export default function MaterialsList() {
                       className={s['materials__td'] + ' ' + s['materials__td--right']}
                       style={{
                         fontWeight: 700,
-                        color: moneda === 'USD' ? '#059669' : '#111',
+                        color: moneda === 'USD' ? '#16a34a' : 'var(--text-primary)',
                       }}
                     >
                       {moneda === 'USD'

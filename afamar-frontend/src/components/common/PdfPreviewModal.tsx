@@ -31,7 +31,7 @@ export default function PdfPreviewModal({ isOpen, onClose, pdfUrl, loading, titl
       <div
         style={{
           width: '90vw', height: '90vh',
-          background: '#fff', borderRadius: 8,
+          background: 'var(--surface-bg)', borderRadius: 8,
           display: 'flex', flexDirection: 'column',
           overflow: 'hidden',
         }}
@@ -39,9 +39,9 @@ export default function PdfPreviewModal({ isOpen, onClose, pdfUrl, loading, titl
       >
         <div style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          padding: '12px 20px', borderBottom: '1px solid #e5e7eb',
+          padding: '12px 20px', borderBottom: '1px solid var(--border-color)',
         }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{title}</h2>
+          <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>{title}</h2>
           <button
             className="btn btn-outline"
             onClick={onClose}
@@ -50,13 +50,13 @@ export default function PdfPreviewModal({ isOpen, onClose, pdfUrl, loading, titl
             ✕ Cerrar
           </button>
         </div>
-        <div style={{ flex: 1, position: 'relative', background: '#f3f4f6' }}>
+        <div style={{ flex: 1, position: 'relative', background: 'var(--surface-alt-bg)' }}>
           {loading && (
             <div style={{
               position: 'absolute', inset: 0, display: 'flex',
               alignItems: 'center', justifyContent: 'center',
-              background: 'rgba(243,244,246,0.8)', zIndex: 1,
-              fontSize: 16, color: '#6b7280',
+              background: 'color-mix(in srgb, var(--surface-alt-bg) 80%, transparent)', zIndex: 1,
+              fontSize: 16, color: 'var(--text-muted)',
             }}>
               Generando PDF...
             </div>
@@ -73,7 +73,7 @@ export default function PdfPreviewModal({ isOpen, onClose, pdfUrl, loading, titl
             <div style={{
               position: 'absolute', inset: 0, display: 'flex',
               alignItems: 'center', justifyContent: 'center',
-              fontSize: 14, color: '#9ca3af',
+              fontSize: 14, color: 'var(--text-muted)',
             }}>
               No se pudo generar la vista previa
             </div>

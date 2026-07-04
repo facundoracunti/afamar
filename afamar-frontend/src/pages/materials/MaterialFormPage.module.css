@@ -26,17 +26,17 @@
 .material-form__title {
   font-size: 24px;
   font-weight: 700;
-  color: #1a202c;
+  color: var(--text-primary);
   margin: 0 0 8px;
 }
 
 .material-form__card {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 20px;
   max-width: 700px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 3px var(--shadow-color);
 }
 
 .material-form__row {
@@ -68,7 +68,7 @@
 .material-form__label {
   font-size: 13px;
   font-weight: 600;
-  color: #4a5568;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.4px;
   display: flex;
@@ -94,7 +94,7 @@
 }
 
 .material-form__photo {
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--border-color);
   padding-top: 20px;
   margin-top: 20px;
 }
@@ -104,7 +104,7 @@
   display: block;
   margin-bottom: 12px;
   font-size: 14px;
-  color: #1a202c;
+  color: var(--text-primary);
 }
 
 .material-form__photo-row {
@@ -119,8 +119,9 @@
   height: 140px;
   border-radius: 8px;
   overflow: hidden;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-color);
   flex-shrink: 0;
+  background: var(--surface-alt-bg);
 }
 
 .material-form__photo-img {
@@ -147,17 +148,17 @@
   width: 140px;
   height: 140px;
   border-radius: 8px;
-  border: 2px dashed #cbd5e1;
+  border: 2px dashed var(--border-color);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background: #f8fafc;
+  background: var(--surface-alt-bg);
 }
 
 .material-form__file-info {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-muted);
   margin-top: 8px;
   margin-bottom: 0;
 }

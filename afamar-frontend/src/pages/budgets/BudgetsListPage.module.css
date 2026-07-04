@@ -15,7 +15,7 @@
 .budgets__title {
   font-size: 24px;
   font-weight: 700;
-  color: #1a202c;
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -30,8 +30,8 @@
   flex-wrap: wrap;
   align-items: center;
   padding: 12px;
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
 }
 
@@ -49,11 +49,17 @@
   flex: 1;
   font-size: 14px;
   padding: 4px;
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.budgets__search input::placeholder {
+  color: var(--text-muted);
 }
 
 .budgets__table {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -64,29 +70,29 @@
 }
 
 .budgets__th {
-  background: #f8fafc;
+  background: var(--surface-alt-bg);
   text-align: left;
   padding: 12px;
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.4px;
-  color: #4a5568;
-  border-bottom: 1px solid #e2e8f0;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .budgets__td {
   padding: 12px;
   font-size: 14px;
-  border-bottom: 1px solid #f1f5f9;
-  color: #1a202c;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
   vertical-align: middle;
 }
 
 .budgets__td--right { text-align: right; }
 .budgets__td--center { text-align: center; }
 .budgets__td--currency { font-weight: 600; }
-.budgets__td--currency-usd { color: #059669; font-weight: 600; }
+.budgets__td--currency-usd { color: #16a34a; font-weight: 600; }
 
 .budgets__cell-actions {
   display: flex;
@@ -98,10 +104,11 @@
 .budgets__empty {
   padding: 48px;
   text-align: center;
-  color: #6b7280;
+  color: var(--text-muted);
   font-size: 14px;
 }
 
+/* Status badges keep semantic colors in both themes (status indicators). */
 .budgets__status {
   display: inline-block;
   padding: 4px 12px;
@@ -132,6 +139,10 @@
   cursor: pointer;
 }
 
+.budgets__row:hover td {
+  background: var(--surface-alt-bg);
+}
+
 .budgets__row td {
   vertical-align: middle;
 }
@@ -139,11 +150,12 @@
 .budgets__numero {
   font-weight: 600;
   font-family: 'JetBrains Mono', 'Consolas', monospace;
+  color: var(--text-primary);
 }
 
 .budgets__numeroSub {
   font-size: 10px;
-  color: #059669;
+  color: #16a34a;
   font-family: 'JetBrains Mono', 'Consolas', monospace;
   margin-top: 2px;
 }
@@ -152,10 +164,11 @@
   font-weight: 500;
   text-transform: uppercase;
   font-size: 12px;
+  color: var(--text-primary);
 }
 
 .budgets__details {
-  color: #2d3748;
+  color: var(--text-secondary);
   font-size: 13px;
   line-height: 1.4;
   white-space: normal;
@@ -169,14 +182,14 @@
 .budgets__ot {
   padding: 3px 8px;
   font-size: 11px;
-  color: #059669;
-  border-color: #059669;
-  background: #fff;
-  border: 1px solid #059669;
+  color: #16a34a;
+  border-color: #16a34a;
+  background: var(--surface-bg);
+  border: 1px solid #16a34a;
   border-radius: 4px;
   cursor: pointer;
 }
 
 .budgets__ot:hover {
-  background: #f0fdf4;
+  background: rgba(22, 163, 74, 0.08);
 }

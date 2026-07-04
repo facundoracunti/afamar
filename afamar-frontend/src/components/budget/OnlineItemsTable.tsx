@@ -341,7 +341,17 @@ export default function OnlineItemsTable({
   const activeEsp = opciones[activeOpcion]?.especiales || [];
   const activeMatEsp = opciones[activeOpcion]?.matEspeciales || {};
 
-  const inputStyle: React.CSSProperties = { width: '100%', padding: '4px 6px', border: '1px solid #d1d5db', borderRadius: 4, fontSize: 12, textAlign: 'right', boxSizing: 'border-box' };
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '4px 6px',
+    border: '1px solid var(--input-border)',
+    borderRadius: 4,
+    fontSize: 12,
+    textAlign: 'right',
+    boxSizing: 'border-box',
+    background: 'var(--input-bg)',
+    color: 'var(--input-text)',
+  };
   const inputTextStyle: React.CSSProperties = { ...inputStyle, textAlign: 'left' };
   const selectStyle: React.CSSProperties = { ...inputStyle, textAlign: 'center', cursor: 'pointer' };
   const cellStyle: React.CSSProperties = { padding: '3px 4px' };
@@ -420,7 +430,7 @@ export default function OnlineItemsTable({
 
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 } as React.CSSProperties}>
         <thead>
-          <tr style={{ background: '#f8fafc' }}>
+          <tr style={{ background: 'var(--surface-alt-bg)' }}>
             <th style={{ ...cellStyle, textAlign: 'left', width: '16%' } as React.CSSProperties}>Sector / Modelo</th>
             <th style={{ ...cellStyle, textAlign: 'center', width: '8%' } as React.CSSProperties}>Largo</th>
             <th style={{ ...cellStyle, textAlign: 'center', width: '8%' } as React.CSSProperties}>Ancho</th>
@@ -490,7 +500,7 @@ export default function OnlineItemsTable({
                         borderRadius: 4,
                       } as React.CSSProperties}>
                         <span style={{ fontWeight: 700, color: '#166534' } as React.CSSProperties}>{tab.nombre}: </span>
-                        {t.ars > 0 && <span style={{ color: '#1e293b', fontWeight: 600 } as React.CSSProperties}>$ {t.ars.toLocaleString('es-AR', { minimumFractionDigits: 2 })} </span>}
+                        {t.ars > 0 && <span style={{ color: 'var(--text-primary)', fontWeight: 600 } as React.CSSProperties}>$ {t.ars.toLocaleString('es-AR', { minimumFractionDigits: 2 })} </span>}
                         {t.usd > 0 && <span style={{ color: '#059669', fontWeight: 600 } as React.CSSProperties}>USD {t.usd.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>}
                         {t.ars === 0 && t.usd === 0 && <span style={{ color: '#94a3b8' } as React.CSSProperties}>$ 0,00</span>}
                       </div>
@@ -612,3 +622,5 @@ export default function OnlineItemsTable({
     </div>
   );
 }
+
+

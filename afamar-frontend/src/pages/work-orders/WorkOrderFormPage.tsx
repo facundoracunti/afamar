@@ -185,7 +185,7 @@ export default function WorkOrderForm() {
                   <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', padding: '2px 8px', background: '#dbeafe', color: '#1e40af', borderRadius: 4 }}>Alternativa {letra}</span>
                   <span style={{ fontSize: 11, color: '#6b7280' }}>{mat.quantity || 1} pza. ({m2.toFixed(3)} m²)</span>
                 </div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', textTransform: 'uppercase', marginBottom: 2 }}>{mat.name}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', marginBottom: 2 }}>{mat.name}</div>
                 {mat.currency === 'USD' && <div style={{ fontSize: 11, color: '#059669', fontWeight: 600, marginBottom: 8 }}>USD {costoMat.toFixed(2)}</div>}
                 <div style={{ borderTop: '1px dashed #d1d5db', paddingTop: 6, fontSize: 12, color: '#6b7280', marginBottom: 8 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>

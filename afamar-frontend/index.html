@@ -5,6 +5,21 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Afamar</title>
+    <script>
+      // Set theme before React mounts to avoid FOUC.
+      // Mirrors the logic in src/context/ThemeContext.tsx.
+      (function () {
+        try {
+          var stored = window.localStorage.getItem('afamar_theme');
+          if (stored === 'light') {
+            document.documentElement.setAttribute('data-theme', 'light');
+          }
+          // 'dark' is the default; no attribute needed.
+        } catch (e) {
+          /* localStorage may be blocked; fall through to default dark theme */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

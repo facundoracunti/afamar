@@ -31,7 +31,7 @@
 .online-budgets__title {
   font-size: 24px;
   font-weight: 700;
-  color: #1a202c;
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -41,8 +41,8 @@
 }
 
 .online-budgets__filters {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 12px;
   display: flex;
@@ -61,18 +61,25 @@
   left: 12px;
   top: 50%;
   transform: translateY(-50%);
-  color: #94a3b8;
+  color: var(--text-muted);
   pointer-events: none;
 }
 
 .online-budgets__search input {
   padding-left: 40px;
   width: 100%;
+  background: var(--input-bg);
+  color: var(--input-text);
+  border-color: var(--input-border);
+}
+
+.online-budgets__search input::placeholder {
+  color: var(--input-placeholder);
 }
 
 .online-budgets__table {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -83,22 +90,22 @@
 }
 
 .online-budgets__table th {
-  background: #f8fafc;
+  background: var(--surface-alt-bg);
   text-align: left;
   padding: 12px;
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.4px;
-  color: #4a5568;
-  border-bottom: 1px solid #e2e8f0;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .online-budgets__table td {
   padding: 12px;
   font-size: 14px;
-  border-bottom: 1px solid #f1f5f9;
-  color: #1a202c;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
 }
 
 .online-budgets__row {
@@ -106,7 +113,7 @@
 }
 
 .online-budgets__row:hover td {
-  background: #fef3f3;
+  background: var(--surface-alt-bg);
 }
 
 .online-budgets__row:last-child td {
@@ -116,6 +123,7 @@
 .online-budgets__number {
   font-weight: 600;
   font-family: monospace;
+  color: var(--text-primary);
 }
 
 .online-budgets__total-ars,
@@ -124,12 +132,12 @@
 }
 
 .online-budgets__total-usd {
-  color: #059669;
+  color: #16a34a;
 }
 
 .online-budgets__total-cons {
   font-weight: 700;
-  color: #dc2626;
+  color: var(--color-danger);
 }
 
 .online-budgets__cell-actions {
@@ -144,5 +152,5 @@
 .online-budgets__empty {
   text-align: center;
   padding: 40px;
-  color: #94a3b8;
+  color: var(--text-muted);
 }

@@ -27,7 +27,7 @@
 .measurements__title {
   font-size: 24px;
   font-weight: 700;
-  color: #1a202c;
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -37,8 +37,8 @@
 }
 
 .measurements__filters {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 12px;
   display: flex;
@@ -57,13 +57,16 @@
   left: 12px;
   top: 50%;
   transform: translateY(-50%);
-  color: #94a3b8;
+  color: var(--text-muted);
   pointer-events: none;
 }
 
 .measurements__search input {
   padding-left: 40px;
   width: 100%;
+  background: var(--input-bg);
+  color: var(--input-text);
+  border-color: var(--input-border);
 }
 
 .measurements__filter {
@@ -71,8 +74,8 @@
 }
 
 .measurements__table {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -83,26 +86,26 @@
 }
 
 .measurements__table th {
-  background: #f8fafc;
+  background: var(--surface-alt-bg);
   text-align: left;
   padding: 12px;
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.4px;
-  color: #4a5568;
-  border-bottom: 1px solid #e2e8f0;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .measurements__table td {
   padding: 12px;
   font-size: 14px;
-  border-bottom: 1px solid #f1f5f9;
-  color: #1a202c;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
 }
 
 .measurements__table tr:hover td {
-  background: #fef3f3;
+  background: var(--surface-alt-bg);
 }
 
 .measurements__table tr:last-child td {
@@ -121,5 +124,5 @@
 .measurements__empty {
   text-align: center;
   padding: 40px;
-  color: #94a3b8;
+  color: var(--text-muted);
 }

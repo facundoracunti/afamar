@@ -27,7 +27,7 @@
 }
 
 .terms-editor__row-bullet {
-  color: #64748b;
+  color: var(--text-muted);
   font-weight: 700;
   flex-shrink: 0;
   width: 14px;
@@ -37,22 +37,24 @@
 .terms-editor__row-input {
   flex: 1;
   padding: 7px 10px;
-  border: 1px solid #cbd5e0;
+  border: 1px solid var(--input-border);
   border-radius: 6px;
   font-size: 14px;
   font-family: inherit;
+  background: var(--input-bg);
+  color: var(--input-text);
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .terms-editor__row-input:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  border-color: var(--input-focus-border);
+  box-shadow: 0 0 0 3px var(--input-focus-shadow);
 }
 
 .terms-editor__row-input:disabled {
-  background: #f1f5f9;
-  color: #94a3b8;
+  background: var(--surface-alt-bg);
+  color: var(--text-muted);
   cursor: not-allowed;
 }
 
@@ -63,16 +65,16 @@
   justify-content: center;
   width: 32px;
   height: 32px;
-  border: 1px solid #e2e8f0;
-  background: #fff;
-  color: #b91c1c;
+  border: 1px solid var(--border-color);
+  background: var(--surface-bg);
+  color: var(--color-danger);
   border-radius: 6px;
   cursor: pointer;
   transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
 .terms-editor__row-delete:hover {
-  background: #fee2e2;
+  background: var(--sidebar-item-active-bg);
   border-color: #fca5a5;
 }
 
@@ -86,9 +88,9 @@
   align-items: center;
   gap: 6px;
   padding: 7px 12px;
-  border: 1px dashed #cbd5e0;
+  border: 1px dashed var(--input-border);
   border-radius: 6px;
-  background: #fff;
+  background: var(--surface-bg);
   color: #2563eb;
   font-weight: 600;
   font-size: 13px;
@@ -98,7 +100,7 @@
 }
 
 .terms-editor__add:hover {
-  background: #eff6ff;
+  background: rgba(37, 99, 235, 0.08);
   border-color: #93c5fd;
 }
 
@@ -110,9 +112,9 @@
 .terms-editor__empty {
   padding: 10px 12px;
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--text-muted);
   font-style: italic;
-  border: 1px dashed #e2e8f0;
+  border: 1px dashed var(--border-color);
   border-radius: 6px;
-  background: #f8fafc;
+  background: var(--surface-alt-bg);
 }

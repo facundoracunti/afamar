@@ -33,7 +33,7 @@
 .client-form__title {
   font-size: 24px;
   font-weight: 700;
-  color: #1a202c;
+  color: var(--text-primary);
   margin: 0 0 8px;
 }
 
@@ -54,20 +54,20 @@
 }
 
 .client-form__card {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 3px var(--shadow-color);
 }
 
 .client-form__section {
   font-size: 16px;
   font-weight: 700;
-  color: #1a202c;
+  color: var(--text-primary);
   margin: 0 0 16px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .client-form__row {
@@ -91,7 +91,7 @@
 .client-form__label {
   font-size: 13px;
   font-weight: 600;
-  color: #4a5568;
+  color: var(--text-secondary);
 }
 
 .client-form__actions {
@@ -109,7 +109,7 @@
 }
 
 .client-form__stat {
-  background: #f8fafc;
+  background: var(--surface-alt-bg);
   border-radius: 8px;
   padding: 12px 16px;
   text-align: center;
@@ -123,12 +123,12 @@
 .client-form__stat-value {
   font-size: 22px;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--text-primary);
 }
 
 .client-form__stat-label {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-muted);
   margin-top: 2px;
 }
 
@@ -143,14 +143,14 @@
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  background: #f8fafc;
+  background: var(--surface-alt-bg);
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.15s;
 }
 
 .client-form__order:hover {
-  background: #f1f5f9;
+  background: var(--border-color);
 }
 
 .client-form__order-left {
@@ -162,6 +162,7 @@
 .client-form__order-num {
   font-weight: 600;
   font-size: 14px;
+  color: var(--text-primary);
 }
 
 .client-form__order-right {
@@ -173,6 +174,7 @@
 .client-form__order-total {
   font-weight: 600;
   font-size: 13px;
+  color: var(--text-primary);
 }
 
 .client-form__loading,
@@ -180,11 +182,11 @@
   padding: 32px;
   text-align: center;
   font-size: 14px;
-  color: #6b7280;
+  color: var(--text-muted);
 }
 
 .client-form__error {
-  color: #dc2626;
-  background: #fef2f2;
+  color: var(--color-danger);
+  background: var(--sidebar-item-active-bg);
   border-radius: 8px;
 }

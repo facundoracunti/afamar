@@ -3,6 +3,9 @@ import React from 'react';
 import { formatCurrency } from '../../utils/formatters';
 import { t } from '../../utils/translate';
 import type { EntityFormState } from '../../types';
+import styles from './BudgetPanel.module.css';
+
+const s = styles as unknown as Record<string, string>;
 
 interface BudgetPanelProps {
   form: EntityFormState;
@@ -160,9 +163,9 @@ export default function BudgetPanel({
                   const dd2 = Number(form.usd_rate);
                   const precioUsd = d.currency === 'USD' ? Number(d.price) : (dd2 > 0 ? Number(d.price) / dd2 : 0);
                   return (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div key={i} className={s['lineItem']}>
                       <span>{d.concept === 'OTHER' ? (d.detail || t('OTHER')) : t(d.concept as string)}{d.material ? ` - ${d.material}` : ''}{d.m2 > 0 ? ` (${d.m2} m²)` : ''}{(d.quantity || 1) > 1 ? ` x${d.quantity}` : ''}</span>
-                      <span style={{ fontWeight: 600 }}>USD {(precioUsd * (d.quantity || 1)).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className={s['lineItem__value']}>USD {(precioUsd * (d.quantity || 1)).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   );
                 })}
@@ -171,9 +174,9 @@ export default function BudgetPanel({
                   const m2 = Number(m.length || 0) * Number(m.width || 0) * (m.quantity || 1);
                   const sub = m.currency === 'USD' ? m2 * (m.price_m2_usd || 0) : (dd2 > 0 ? m2 * (m.price_m2 || 0) / dd2 : 0);
                   return sub > 0 ? (
-                    <div key={'mu' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div key={'mu' + i} className={s['lineItem']}>
                       <span>{m.name} ({m2.toFixed(3)} m²){(m.quantity || 1) > 1 ? ` x${m.quantity}` : ''}</span>
-                      <span style={{ fontWeight: 600 }}>USD {sub.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                      <span className={s['lineItem__value']}>USD {sub.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                     </div>
                   ) : null;
                 })}
@@ -181,9 +184,9 @@ export default function BudgetPanel({
                   const dd2 = Number(form.usd_rate);
                   const precioUsd = (pt.currency || 'ARS') === 'USD' ? (pt.price || 0) : (dd2 > 0 ? (pt.price || 0) / dd2 : 0);
                   return (
-                    <div key={'pu' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div key={'pu' + i} className={s['lineItem']}>
                       <span>Pileta {pt.brand} - {pt.model}{pt.quantity > 1 ? ` (x${pt.quantity})` : ''}</span>
-                      <span style={{ fontWeight: 600 }}>USD {(precioUsd * (pt.quantity || 1)).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                      <span className={s['lineItem__value']}>USD {(precioUsd * (pt.quantity || 1)).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                     </div>
                   );
                 })}
@@ -195,10 +198,10 @@ export default function BudgetPanel({
                   onChange={(e) => handleTransportChange(e.target.value, 'usd')}
                   disabled={readOnly} />
               </div>
-              <div style={{ borderTop: '2px solid #e5e7eb', paddingTop: 6, marginBottom: 4 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 16, fontWeight: 700 }}>TOTAL USD</span>
-                  <span style={{ fontSize: 18, fontWeight: 700, color: '#059669' }}>
+              <div className={s['usdDivider']}>
+                <div className={s['usdDivider__row']}>
+                  <span className={s['usdDivider__total']}>TOTAL USD</span>
+                  <span className={s['usdDivider__value']}>
                     USD {form.total_usd.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
@@ -210,9 +213,9 @@ export default function BudgetPanel({
                   onChange={(e) => handleDepositAmountChange(e.target.value)}
                   disabled={readOnly} />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-                <span style={{ fontWeight: 600 }}>Saldo pendiente USD</span>
-                <span style={{ fontSize: 16, fontWeight: 700, color: '#059669' }}>
+              <div className={s['balanceRow']}>
+                <span className={s['balanceRow__label']}>Saldo pendiente USD</span>
+                <span className={s['balanceRow__value']}>
                   USD {form.balance_due_usd.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
@@ -225,40 +228,37 @@ export default function BudgetPanel({
       </div>
 
       {!hidePaymentSection && (
-        <div style={{ marginTop: 12, borderTop: '1px solid #e5e7eb', paddingTop: 12 }}>
-          <div style={{ marginTop: 12, padding: '10px 14px', background: form.balance_paid ? '#d1fae5' : '#fef9c3', borderRadius: 8, border: `1px solid ${form.balance_paid ? '#6ee7b7' : '#fde68a'}` }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className={s['subsectionHeader']}>
+          <div className={`${s['paymentStatus']}${form.balance_paid ? ' ' + s['paymentStatus--paid'] : ' ' + s['paymentStatus--pending']}`}>
+            <div className={s['paymentStatus__row']}>
               <div>
-                <span style={{ fontWeight: 600, fontSize: 13, color: form.balance_paid ? '#065f46' : '#92400e' }}>
+                <span className={s['paymentStatus__label']}>
                   {form.balance_paid ? '✓ Saldo cobrado' : '⏳ Saldo pendiente de cobro'}
                 </span>
                 {form.balance_paid && form.balance_paid_at && (
-                  <div style={{ fontSize: 11, color: '#065f46', marginTop: 2 }}>Fecha: {form.balance_paid_at}</div>
+                  <div className={s['paymentStatus__date']}>Fecha: {form.balance_paid_at}</div>
                 )}
               </div>
               <button
                 type="button"
                 onClick={onConfirmarPago}
-                style={{
-                  padding: '6px 14px', borderRadius: 6, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13,
-                  background: form.balance_paid ? '#ef4444' : '#059669', color: 'white',
-                }}
+                className={`${s['paymentStatus__button']}${form.balance_paid ? ' ' + s['paymentStatus__button--paid'] : ' ' + s['paymentStatus__button--pending']}`}
                 disabled={saving}
               >
                 {form.balance_paid ? 'Deshacer' : '✓ Confirmar pago'}
               </button>
             </div>
           </div>
-          <div style={{ marginTop: 12, padding: '10px 14px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-around' }}>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>TOTAL {currencyLabel}</div>
-                <div style={{ fontSize: 22, fontWeight: 700, color: modoUSD ? '#059669' : '#dc2626' }}>{modoUSD && dd > 0 ? `USD ${(form.total / dd).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(form.total)}</div>
+          <div className={s['panelTotals']}>
+            <div className={s['panelTotals__row']}>
+              <div className={s['panelTotals__col']}>
+                <div className={s['panelTotals__label']}>TOTAL {currencyLabel}</div>
+                <div className={`${s['panelTotals__value']}${modoUSD ? ' ' + s['panelTotals__value--usd'] : ' ' + s['panelTotals__value--ars']}`}>{modoUSD && dd > 0 ? `USD ${(form.total / dd).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(form.total)}</div>
               </div>
               {mostrarUSDCol && (
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>TOTAL USD</div>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: '#059669' }}>
+                <div className={s['panelTotals__col']}>
+                  <div className={s['panelTotals__label']}>TOTAL USD</div>
+                  <div className={`${s['panelTotals__value']} ${s['panelTotals__value--usd']}`}>
                     USD {form.total_usd.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                   </div>
                 </div>

@@ -6,6 +6,7 @@
   margin: 0 0 1rem;
   font-size: 1.5rem;
   font-weight: 700;
+  color: var(--text-primary);
 }
 
 .product-photos__upload {
@@ -15,20 +16,22 @@
   flex-wrap: wrap;
   margin-bottom: 1.5rem;
   padding: 1rem;
-  background: #f5f5f5;
+  background: var(--surface-alt-bg);
   border-radius: 8px;
 }
 
 .product-photos__input {
   padding: 0.5rem;
-  border: 1px solid #ccc;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   font-size: 0.9rem;
+  background: var(--input-bg);
+  color: var(--input-text);
 }
 
 .product-photos__submit {
   padding: 0.5rem 1rem;
-  background: #007bff;
+  background: var(--color-danger);
   color: #fff;
   border: none;
   border-radius: 4px;
@@ -42,19 +45,19 @@
 }
 
 .product-photos__error {
-  color: #d32f2f;
+  color: var(--color-danger);
   margin-bottom: 1rem;
 }
 
 .product-photos__loading {
   text-align: center;
-  color: #666;
+  color: var(--text-muted);
   padding: 2rem;
 }
 
 .product-photos__empty {
   text-align: center;
-  color: #666;
+  color: var(--text-muted);
   padding: 2rem;
 }
 
@@ -65,10 +68,10 @@
 }
 
 .product-photos__card {
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   overflow: hidden;
-  background: #fff;
+  background: var(--surface-bg);
 }
 
 .product-photos__img {
@@ -85,6 +88,7 @@
   flex-direction: column;
   gap: 0.25rem;
   font-size: 0.85rem;
+  color: var(--text-primary);
 }
 
 .product-photos__actions {
@@ -96,7 +100,7 @@
 .product-photos__edit-btn {
   background: none;
   border: none;
-  color: #007bff;
+  color: var(--color-danger);
   cursor: pointer;
   padding: 0;
   font-size: 0.85rem;
@@ -105,7 +109,7 @@
 .product-photos__delete-btn {
   background: none;
   border: none;
-  color: #d32f2f;
+  color: var(--color-danger);
   cursor: pointer;
   padding: 0;
   font-size: 0.85rem;
@@ -124,7 +128,7 @@
 
 .product-photos__save-btn {
   padding: 0.25rem 0.75rem;
-  background: #28a745;
+  background: var(--color-success);
   color: #fff;
   border: none;
   border-radius: 4px;
@@ -134,7 +138,7 @@
 
 .product-photos__cancel-btn {
   padding: 0.25rem 0.75rem;
-  background: #6c757d;
+  background: var(--text-secondary);
   color: #fff;
   border: none;
   border-radius: 4px;
