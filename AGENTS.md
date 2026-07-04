@@ -1,7 +1,6 @@
 # AGENTS.md
 
-> **Estado:** Rama `refactor` con commits pendientes: logo PNG upload, PDF preview backend, sidebar colapsable, configuration page refactor, **rename completo a inglés** (carpetas, componentes, hooks, constantes, funciones, CSS classes).
-> Archivos clave modificados sin pushear: 119 archivos en git status.
+> **Estado:** Rama `refactor` con commits pendientes: logo PNG upload, PDF preview backend, sidebar colapsable, configuration page refactor, **rename completo a inglés**, **client select dropdown + new client modal**.
 > Ver `PLAN.md` para el roadmap completo de migración.
 
 ---
@@ -18,6 +17,15 @@
 ## Spanish→English naming migration (reciente)
 
 Refactor **masivo de nombres a inglés** completado en una sola sesión. Cambió 30+ archivos entre git mv de carpetas, renames de funciones, hooks, componentes, tipos, constantes, CSS classes. **119 archivos modificados**.
+
+## Client section (reciente)
+
+- **`ClientSection`** ahora usa `<select>` dropdown + botón "Nuevo" para crear clientes inline.
+- **Select:** muestra todos los clientes cargados (`clientes` de `useEntityForm`), al seleccionar rellena `client_name`, `client_phone`, `client_email`, `client_address`.
+- **Modal "Nuevo Cliente":** formulario con nombre (requerido), teléfono, email, dirección. Crea via `POST /api/v1/clients`, refresca la lista y selecciona automáticamente el nuevo cliente.
+- **`refreshClientes`** expuesto desde `useEntityForm` → `useFormReferences` para refrescar la lista después de crear un cliente.
+- **Props anteriores eliminadas:** `clientRef`, `showClientDropdown`, `setShowClientDropdown`, `filteredClients`, `handleClientSelect` — ya no se usan en `WorkOrderFormBasic` ni `BudgetFormClient`.
+- **Ambos formularios** (Budget + Work Order) usan el mismo `ClientSection` con props: `form`, `readOnly`, `update`, `clientes`, `onClientCreated`.
 
 ### Carpetas renombradas (git mv)
 
@@ -276,7 +284,7 @@ afamar-frontend/   — Vite + React + TS
                      OnlineBudgetTotals, FabricationTable, QuoteOptionsGrid,
                      OnlineItemsTable
       materials/   — MaterialCard, PoolCard
-      orders/      — ClientSection, ApprovalSection, ObservationsSection,
+      orders/      — ClientSection (select + modal), ApprovalSection, ObservationsSection,
                      FormHeader, FormFooter
       sketch/      — CroquisEditor, Toolbar, useCroquisState (CanvasArea,
                      LineShape, RectangleShape, TextShape)
@@ -474,12 +482,12 @@ DB_MAX_OVERFLOW=10
 8. ✅ **Eliminar aliases Spanish** (~30 min) en services + componentes + carpetas
 9. ⏳ **Reemplazar useEntityForm** (~2h): dividir en composables más pequeños. **Incluye renombrar `EntityFormState` campos a inglés y reemplazar `INITIAL_FORM`/`buildPayload`/`mapApiToForm`.**
 10. ⏳ **Migrar a TanStack Query** en pages (hooks ya están en `src/api/hooks.ts`).
-9a. (post-migración) **Traducir lo que queda en español en `EntityFormState`** — requiere refactor mayor. Documentado arriba en §"Spanish→English naming migration".
 
 ## Refactor commits en `refactor`
 
 ```
-bbd69de5 (HEAD)                "add /admin/product-photos for config last products"
+c007e68b (HEAD)                "feat: replace client autocomplete with select dropdown + new client modal"
+bbd69de5                       "add /admin/product-photos for config last products"
 ded87937                       "update nginx cfg for deploy"
 d3ffca1c                       "update composes for deploy"
 28570887                       "feat: extract BudgetForm/WorkOrderForm subcomponents + fix cash module Spanish→English fields"
