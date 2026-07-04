@@ -14,17 +14,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  background: var(--page-bg);
   padding: 16px;
 }
 
 .login__card {
-  background: #fff;
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border);
   border-radius: 12px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 20px 50px var(--shadow-color);
   padding: 36px;
   width: 100%;
   max-width: 380px;
+  color: var(--text-primary);
 }
 
 .login__logo {
@@ -36,14 +38,14 @@
   font-family: 'Playfair Display', Georgia, serif;
   font-size: 32px;
   font-weight: 700;
-  color: #1a202c;
+  color: var(--text-primary);
   letter-spacing: 2px;
   margin: 0;
 }
 
 .login__subtitle {
   font-size: 13px;
-  color: #6b7280;
+  color: var(--text-muted);
   margin-top: 4px;
 }
 
@@ -62,35 +64,37 @@
 .login__field label {
   font-size: 12px;
   font-weight: 600;
-  color: #4a5568;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
 
 .login__field input {
-  border: 1px solid #cbd5e0;
+  border: 1px solid var(--input-border);
   border-radius: 6px;
   padding: 10px 12px;
   font-size: 14px;
+  background: var(--input-bg);
+  color: var(--input-text);
   transition: border-color 0.15s ease;
 }
 
 .login__field input:focus {
   outline: none;
-  border-color: #b91c1c;
-  box-shadow: 0 0 0 3px rgba(185, 28, 28, 0.12);
+  border-color: var(--input-focus-border);
+  box-shadow: 0 0 0 3px var(--input-focus-shadow);
 }
 
 .login__error {
-  background: #fef2f2;
-  color: #991b1b;
+  background: var(--sidebar-item-active-bg);
+  color: var(--color-danger);
   padding: 8px 12px;
   border-radius: 6px;
   font-size: 13px;
 }
 
 .login__submit {
-  background: #b91c1c;
+  background: var(--color-danger);
   color: #fff;
   border: none;
   border-radius: 6px;
@@ -104,7 +108,7 @@
 }
 
 .login__submit:hover:not(:disabled) {
-  background: #991b1b;
+  background: var(--color-danger-hover);
 }
 
 .login__submit:disabled {

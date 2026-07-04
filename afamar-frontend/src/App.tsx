@@ -4,6 +4,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './api/queryClient';
 import { AuthProvider } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
+import { ThemeProvider } from './context/ThemeContext';
 import MainLayout from './layouts/MainLayout';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import DashboardPage from './pages/dashboard/DashboardPage';
@@ -47,6 +48,7 @@ function App() {
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
         <AuthProvider>
         <NotificationProvider>
           <Routes>
@@ -93,6 +95,7 @@ function App() {
           </Routes>
         </NotificationProvider>
       </AuthProvider>
+        </ThemeProvider>
       </QueryClientProvider>
     </BrowserRouter>
   );

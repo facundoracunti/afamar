@@ -99,8 +99,8 @@ export default function PoolStockPage() {
         </button>
       </div>
 
-      <div className={s['poolStock__card']} style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <div className={s['poolStock__search'] || ''}>
+      <div className={s['poolStock__toolbar']}>
+        <div className={s['poolStock__search']}>
           <Search size={18} color="#94a3b8" />
           <input
             className="input"

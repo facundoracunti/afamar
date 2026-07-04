@@ -6,21 +6,24 @@
   padding: 0;
 }
 
+/* ================================================================
+   Theme tokens
+   - Dark theme is the default (no data-theme attribute needed).
+   - Light theme is opt-in via <html data-theme="light">.
+   - Components should reference the *-bg / *-text / *-border vars
+     instead of hardcoded colors so the same CSS works in both themes.
+   ================================================================ */
+
 :root {
-  --color-primary: #1a1a2e;
-  --color-primary-light: #2d2d4a;
+  /* Brand */
   --color-danger: #dc2626;
-  --color-danger-text: #c0392b;
+  --color-danger-hover: #b91c1c;
   --color-success: #27ae60;
+  --color-success-hover: #219653;
   --color-info: #2980b9;
-  --color-text: #333;
-  --color-text-secondary: #666;
-  --color-text-light: #888;
-  --color-border: #ccc;
-  --color-bg: #f5f5f5;
-  --color-bg-white: #fff;
-  --color-bg-card: #fff;
-  --color-state-bg: #fff;
+  --color-warning: #f59e0b;
+
+  /* Radii / shadows / spacing / fonts (theme-independent) */
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
@@ -39,13 +42,116 @@
   --spacing-lg: 1rem;
   --spacing-xl: 1.5rem;
   --spacing-2xl: 2rem;
+
+  /* Sidebar */
+  --sidebar-bg: #0f172a;          /* slate-900 */
+  --sidebar-text: #cbd5e1;         /* slate-300 */
+  --sidebar-text-muted: #64748b;   /* slate-500 */
+  --sidebar-border: #1e293b;       /* slate-800 */
+  --sidebar-item-hover-bg: #1e293b; /* slate-800 */
+  --sidebar-item-active-bg: #1e1b4b;
+  --sidebar-item-active-text: #f87171; /* red-400 */
+
+  /* Topbar */
+  --topbar-bg: #1e293b;           /* slate-800 */
+  --topbar-text: #f1f5f9;
+  --topbar-border: #334155;        /* slate-700 */
+
+  /* Page surface */
+  --page-bg: #020617;             /* slate-950 */
+  --surface-bg: #0f172a;          /* slate-900 (cards / tables) */
+  --surface-alt-bg: #1e293b;      /* slate-800 (zebra rows, hover) */
+  --surface-border: #334155;      /* slate-700 */
+
+  /* Text */
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --text-inverse: #0f172a;
+
+  /* Inputs */
+  --input-bg: #1e293b;
+  --input-border: #475569;
+  --input-text: #f1f5f9;
+  --input-placeholder: #64748b;
+  --input-focus-border: #ef4444;
+  --input-focus-shadow: rgba(220, 38, 38, 0.25);
+
+  /* Borders / shadows */
+  --border-color: #334155;
+  --shadow-color: rgba(0, 0, 0, 0.4);
+
+  /* Primary text (legacy alias kept for backward compat) */
+  --color-primary: #f1f5f9;
+  --color-primary-light: #cbd5e1;
+  --color-text: #cbd5e1;
+  --color-text-secondary: #94a3b8;
+  --color-text-light: #64748b;
+  --color-border: #334155;
+  --color-bg: #020617;
+  --color-bg-white: #0f172a;
+  --color-bg-card: #0f172a;
+  --color-state-bg: #1e293b;
+}
+
+:root[data-theme="light"] {
+  /* Sidebar (warm sepia) */
+  --sidebar-bg: #f5f0e8;          /* warm beige */
+  --sidebar-text: #3d342a;         /* dark brown */
+  --sidebar-text-muted: #8a7f6f;
+  --sidebar-border: #d6cdb8;
+  --sidebar-item-hover-bg: #ebe4d3;
+  --sidebar-item-active-bg: #fde2e2;
+  --sidebar-item-active-text: #b91c1c;
+
+  /* Topbar */
+  --topbar-bg: #ffffff;
+  --topbar-text: #1c1917;
+  --topbar-border: #e7e0d0;
+
+  /* Page surface */
+  --page-bg: #fafaf7;             /* off-white cream */
+  --surface-bg: #ffffff;
+  --surface-alt-bg: #f5f0e8;
+  --surface-border: #e7e0d0;
+
+  /* Text */
+  --text-primary: #1c1917;
+  --text-secondary: #44403c;
+  --text-muted: #78716c;
+  --text-inverse: #fafaf7;
+
+  /* Inputs */
+  --input-bg: #ffffff;
+  --input-border: #d6cdb8;
+  --input-text: #1c1917;
+  --input-placeholder: #a8a29e;
+  --input-focus-border: #dc2626;
+  --input-focus-shadow: rgba(220, 38, 38, 0.12);
+
+  /* Borders / shadows */
+  --border-color: #e7e0d0;
+  --shadow-color: rgba(60, 40, 20, 0.08);
+
+  /* Legacy aliases */
+  --color-primary: #1c1917;
+  --color-primary-light: #44403c;
+  --color-text: #1c1917;
+  --color-text-secondary: #44403c;
+  --color-text-light: #78716c;
+  --color-border: #d6cdb8;
+  --color-bg: #fafaf7;
+  --color-bg-white: #ffffff;
+  --color-bg-card: #ffffff;
+  --color-state-bg: #f5f0e8;
 }
 
 body {
   font-family: "Inter", system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
-  color: var(--color-primary);
-  background: var(--color-bg);
+  color: var(--text-primary);
+  background: var(--page-bg);
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 a { color: inherit; }
@@ -73,13 +179,13 @@ table { border-spacing: 0; }
   transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
   text-decoration: none;
   line-height: 1.2;
-  background: #fff;
-  color: var(--color-primary);
-  border-color: var(--color-border);
+  background: var(--surface-bg);
+  color: var(--text-primary);
+  border-color: var(--border-color);
 }
 
 .btn:hover:not(:disabled) {
-  background: #f1f5f9;
+  background: var(--surface-alt-bg);
 }
 
 .btn:disabled {
@@ -94,8 +200,8 @@ table { border-spacing: 0; }
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #b91c1c;
-  border-color: #b91c1c;
+  background: var(--color-danger-hover);
+  border-color: var(--color-danger-hover);
 }
 
 .btn-success {
@@ -105,8 +211,8 @@ table { border-spacing: 0; }
 }
 
 .btn-success:hover:not(:disabled) {
-  background: #219653;
-  border-color: #219653;
+  background: var(--color-success-hover);
+  border-color: var(--color-success-hover);
 }
 
 .btn-danger {
@@ -116,41 +222,41 @@ table { border-spacing: 0; }
 }
 
 .btn-danger:hover:not(:disabled) {
-  background: #b91c1c;
-  border-color: #b91c1c;
+  background: var(--color-danger-hover);
+  border-color: var(--color-danger-hover);
 }
 
 .btn-outline {
   background: transparent;
-  border-color: var(--color-border);
-  color: var(--color-primary);
+  border-color: var(--border-color);
+  color: var(--text-primary);
 }
 
 .btn-outline:hover:not(:disabled) {
-  background: #f8fafc;
+  background: var(--surface-alt-bg);
 }
 
 .input {
   display: block;
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--input-border);
   border-radius: var(--radius-md);
   font-size: 14px;
   font-family: inherit;
-  background: #fff;
-  color: var(--color-primary);
+  background: var(--input-bg);
+  color: var(--input-text);
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .input:focus {
   outline: none;
-  border-color: var(--color-danger);
-  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+  border-color: var(--input-focus-border);
+  box-shadow: 0 0 0 3px var(--input-focus-shadow);
 }
 
 .input::placeholder {
-  color: #94a3b8;
+  color: var(--input-placeholder);
 }
 
 textarea.input {
@@ -164,20 +270,20 @@ select.input {
 }
 
 .card {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border);
   border-radius: var(--radius-lg);
   padding: 20px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 1px 3px var(--shadow-color);
 }
 
 .section-title {
   font-size: 16px;
   font-weight: 700;
-  color: var(--color-primary);
+  color: var(--text-primary);
   margin: 0 0 16px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--surface-border);
 }
 
 .form-group {
@@ -190,7 +296,7 @@ select.input {
 .form-group label {
   font-size: 13px;
   font-weight: 600;
-  color: #4a5568;
+  color: var(--text-secondary);
 }
 
 .form-row {
@@ -207,13 +313,14 @@ select.input {
 .table-container {
   overflow-x: auto;
   border-radius: var(--radius-lg);
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--surface-border);
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  background: #fff;
+  background: var(--surface-bg);
+  color: var(--text-primary);
 }
 
 table th,
@@ -221,16 +328,16 @@ table td {
   padding: 12px;
   text-align: left;
   font-size: 14px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--surface-border);
 }
 
 table th {
-  background: #f8fafc;
+  background: var(--surface-alt-bg);
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.4px;
-  color: #4a5568;
+  color: var(--text-secondary);
 }
 
 table tr:last-child td {
@@ -238,7 +345,7 @@ table tr:last-child td {
 }
 
 table tr:hover td {
-  background: #fef3f3;
+  background: var(--surface-alt-bg);
 }
 
 .badge {
@@ -250,6 +357,8 @@ table tr:hover td {
   font-weight: 600;
 }
 
+/* Badges keep their semantic colors in both themes (status indicators).
+   Only the surrounding surface changes. */
 .badge-approved {
   background: #dcfce7;
   color: #166534;
@@ -284,23 +393,23 @@ table tr:hover td {
 }
 
 .stat-card {
-  background: #f8fafc;
+  background: var(--surface-alt-bg);
   border-radius: 8px;
   padding: 16px;
   text-align: center;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--surface-border);
 }
 
 .stat-card .value {
   font-size: 28px;
   font-weight: 700;
-  color: #1a202c;
+  color: var(--text-primary);
   line-height: 1.1;
 }
 
 .stat-card .label {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.4px;
   margin-top: 4px;
@@ -320,13 +429,14 @@ table tr:hover td {
 }
 
 .modal {
-  background: #fff;
+  background: var(--surface-bg);
   border-radius: 12px;
   padding: 24px;
   max-width: 90vw;
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  color: var(--text-primary);
 }
 
 /* Legacy Loading spinner keyframe */

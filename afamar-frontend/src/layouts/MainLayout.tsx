@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X, ChevronDown, LayoutDashboard, FileText, ClipboardList, Users, Box, Bath, Calendar, Calculator, BarChart3, Settings, Globe, Send, Wrench, Clock, Truck, DollarSign, Receipt, History, Image, LogOut, Tags, User, type LucideIcon } from 'lucide-react';
+import { Menu, X, ChevronDown, LayoutDashboard, FileText, ClipboardList, Users, Box, Bath, Calendar, Calculator, BarChart3, Settings, Globe, Send, Wrench, Clock, Truck, DollarSign, Receipt, History, Image, LogOut, Tags, User, Moon, Sun, type LucideIcon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import styles from './MainLayout.module.css';
 
 const SIDEBAR_WIDTH = 280;
@@ -153,6 +154,7 @@ export default function MainLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
+  const { theme, setTheme } = useTheme();
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -320,6 +322,28 @@ export default function MainLayout() {
                   <div className={s['main-layout__profile-name']}>
                     {user?.full_name || user?.username}
                   </div>
+                  <div className={s['main-layout__profile-section']}>
+                    <div className={s['main-layout__profile-section-label']}>Tema</div>
+                    <div className={s['main-layout__profile-theme']}>
+                      <button
+                        className={`${s['main-layout__profile-theme-btn']}${theme === 'dark' ? ' ' + s['main-layout__profile-theme-btn--active'] : ''}`}
+                        onClick={() => setTheme('dark')}
+                        title="Tema oscuro"
+                      >
+                        <Moon size={14} />
+                        Oscuro
+                      </button>
+                      <button
+                        className={`${s['main-layout__profile-theme-btn']}${theme === 'light' ? ' ' + s['main-layout__profile-theme-btn--active'] : ''}`}
+                        onClick={() => setTheme('light')}
+                        title="Tema claro"
+                      >
+                        <Sun size={14} />
+                        Claro
+                      </button>
+                    </div>
+                  </div>
+                  <div className={s['main-layout__profile-divider']} />
                   <button
                     className={s['main-layout__profile-logout']}
                     onClick={() => { logout(); navigate('/login'); }}

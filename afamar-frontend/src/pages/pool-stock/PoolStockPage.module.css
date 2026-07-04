@@ -115,6 +115,34 @@
   margin-top: 8px;
 }
 
+.poolStock__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.poolStock__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  min-width: 260px;
+  flex: 1;
+  max-width: 480px;
+}
+
+.poolStock__search input {
+  border: none;
+  outline: none;
+  flex: 1;
+  font-size: 14px;
+  padding: 4px;
+}
+
 .poolStock__empty {
   padding: 48px;
   text-align: center;
