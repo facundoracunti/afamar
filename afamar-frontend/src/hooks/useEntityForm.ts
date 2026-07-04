@@ -52,7 +52,7 @@ export default function useEntityForm({
   }, []);
 
   // ----- References (materials/pools/clients/logo/next#/initial load)
-  const { materiales, piletas, clientes, logoUrl, refreshClientes } = useFormReferences({
+  const { materiales, piletas, clientes, logoUrl, addOrRefreshClientes } = useFormReferences({
     services,
     defaultEstado,
     id,
@@ -147,7 +147,7 @@ export default function useEntityForm({
     materiales: materiales as unknown as Record<string, unknown>[],
     piletas: piletas as unknown as Record<string, unknown>[],
     clientes: clientes as unknown as Record<string, unknown>[],
-    refreshClientes,
+    addOrRefreshClientes,
     logoUrl,
     showClientDropdown,
     menuOpen,

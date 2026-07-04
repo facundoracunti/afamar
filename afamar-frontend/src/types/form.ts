@@ -1,4 +1,5 @@
 import type { FabricationDetail, MaterialInForm, PoolInForm } from './budget';
+import type { Client } from './client';
 
 export interface EntityFormState {
   // Client info — matches BudgetBase.client_*
@@ -109,7 +110,12 @@ export interface UseEntityFormReturn {
   materiales: Record<string, unknown>[];
   piletas: Record<string, unknown>[];
   clientes: Record<string, unknown>[];
-  refreshClientes: () => void;
+  /**
+   * Prepend a freshly-created client to the local cache (preferred — keeps
+   * the form values untouched). When called with no arguments, refetches
+   * the full client list from the API.
+   */
+  addOrRefreshClientes: (newClient?: Client) => void;
   logoUrl: string;
   showClientDropdown: boolean;
   menuOpen: boolean;

@@ -1,0 +1,171 @@
+/* MaterialFormPage — BEM
+   .material-form             block
+   .material-form__title      page title
+   .material-form__card       form card
+   .material-form__row        form row (2 columns)
+   .material-form__group      form group
+   .material-form__group--grow  group that fills available space
+   .material-form__group--fixed  group with fixed width
+   .material-form__label      form label
+   .material-form__photo      photo upload section
+   .material-form__photo-label   photo section label
+   .material-form__photo-row     photo preview + button row
+   .material-form__photo-preview  photo preview container
+   .material-form__photo-img     photo image
+   .material-form__photo-remove  remove photo button
+   .material-form__photo-empty   empty placeholder
+   .material-form__file-info   selected file info
+   .material-form__actions     action buttons row
+*/
+
+.material-form {
+  display: grid;
+  gap: 16px;
+}
+
+.material-form__title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 8px;
+}
+
+.material-form__card {
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 700px;
+  box-shadow: 0 1px 3px var(--shadow-color);
+}
+
+.material-form__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.material-form__row .material-form__group {
+  margin-bottom: 0;
+}
+
+.material-form__group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.material-form__group--grow {
+  flex: 1;
+}
+
+.material-form__group--fixed {
+  width: 130px;
+}
+
+.material-form__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  display: flex;
+  align-items: center;
+}
+
+.material-form__label-link {
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #2563eb;
+  text-transform: none;
+  letter-spacing: 0;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.material-form__label-link:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+.material-form__photo {
+  border-top: 1px solid var(--border-color);
+  padding-top: 20px;
+  margin-top: 20px;
+}
+
+.material-form__photo-label {
+  font-weight: 600;
+  display: block;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.material-form__photo-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.material-form__photo-preview {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  flex-shrink: 0;
+  background: var(--surface-alt-bg);
+}
+
+.material-form__photo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.material-form__photo-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(0, 0, 0, 0.5);
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+  cursor: pointer;
+  padding: 2px 4px;
+  display: flex;
+  align-items: center;
+}
+
+.material-form__photo-empty {
+  width: 140px;
+  height: 140px;
+  border-radius: 8px;
+  border: 2px dashed var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--surface-alt-bg);
+}
+
+.material-form__file-info {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  margin-bottom: 0;
+}
+
+.material-form__actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}

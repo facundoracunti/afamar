@@ -43,6 +43,11 @@ export const uploadMaterialPhoto = (id: number | string, file: File) => {
   });
 };
 
+export const deleteMaterialPhoto = (id: number | string) => {
+  // backend returns 204 No Content; axios exposes res.status === 204 and res.data undefined.
+  return http.delete(`/materials/${id}/foto`);
+};
+
 // Cache for category name → id (legacy: used by code paths that still
 // receive category names instead of ids). Kept for backward compatibility
 // with older callers.

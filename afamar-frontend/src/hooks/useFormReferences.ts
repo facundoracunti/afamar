@@ -21,7 +21,13 @@ interface UseFormReferencesReturn {
   piletas: Pool[];
   clientes: Client[];
   logoUrl: string;
-  refreshClientes: () => void;
+  /**
+   * Either refresh the client list from the API (no args), or prepend a
+   * freshly-created client to the local cache (pass the new Client).
+   * The prepend path lets `ClientSection` keep the form values intact while
+   * still making the new entry available in the typeahead.
+   */
+  addOrRefreshClientes: (newClient?: Client) => void;
 }
 
 /**
@@ -49,6 +55,23 @@ export function useFormReferences({
   const fetchClientes = () => {
     services.getClients({ limit: 500 }).then((res) => {
       setClientes((res.data as unknown as Client[]) || []);
+    });
+  };
+
+  /**
+   * Prepend a freshly-created client to the local cache (no API refetch).
+   * Falls back to a full refresh when called without arguments so existing
+   * callers keep working.
+   */
+  const addOrRefreshClientes = (newClient?: Client) => {
+    if (!newClient) {
+      fetchClientes();
+      return;
+    }
+    setClientes((prev) => {
+      // Avoid duplicates if a refresh raced in between create and callback.
+      if (prev.some((c) => c.id === newClient.id)) return prev;
+      return [newClient, ...prev];
     });
   };
 
@@ -97,5 +120,5 @@ export function useFormReferences({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isEdit]);
 
-  return { materiales, piletas, clientes, logoUrl, refreshClientes: fetchClientes };
+  return { materiales, piletas, clientes, logoUrl, addOrRefreshClientes };
 }
