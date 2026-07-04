@@ -47,7 +47,7 @@ export default function WorkOrdersList() {
   };
 
   const avanzarEstado = async (o: Record<string, unknown>) => {
-    const idx = orderStatuses.indexOf(o.estado as string);
+    const idx = orderStatuses.indexOf(o.status as string);
     if (idx < orderStatuses.length - 1) {
       await updateWorkOrder(o.id as string, mapWorkOrderStatusToApi(orderStatuses[idx + 1]));
       load();
@@ -55,7 +55,7 @@ export default function WorkOrdersList() {
   };
 
   const retrocederEstado = async (o: Record<string, unknown>) => {
-    const idx = orderStatuses.indexOf(o.estado as string);
+    const idx = orderStatuses.indexOf(o.status as string);
     if (idx > 0) {
       await updateWorkOrder(o.id as string, mapWorkOrderStatusToApi(orderStatuses[idx - 1]));
       load();
@@ -114,21 +114,21 @@ export default function WorkOrdersList() {
               <tbody>
                 {data.map((o: Record<string, unknown>) => (
                   <tr key={o.id as number} style={{ cursor: 'pointer' } as React.CSSProperties} onClick={() => navigate(`/admin/work-orders/${o.id as number}`)}>
-                    <td style={{ fontWeight: 600, fontFamily: 'monospace' } as React.CSSProperties}>{(o as Record<string, unknown>).numero as string}</td>
-                    <td>{(o as Record<string, unknown>).cliente_nombre as string || '-'}</td>
-                    <td><StatusBadge status={(o as Record<string, unknown>).estado as string} /></td>
+                    <td style={{ fontWeight: 600, fontFamily: 'monospace' } as React.CSSProperties}>{(o as Record<string, unknown>).number as string}</td>
+                    <td>{(o as Record<string, unknown>).client_name as string || '-'}</td>
+                    <td><StatusBadge status={(o as Record<string, unknown>).status as string} /></td>
                     <td style={{ fontWeight: 600 } as React.CSSProperties}><CurrencyDisplay value={(o as Record<string, unknown>).total as number} style={{ fontWeight: 600 }} /></td>
-                    <td><CurrencyDisplay value={(o as Record<string, unknown>).sena_recibida as number} /></td>
-                    <td style={{ fontWeight: 600 } as React.CSSProperties}><CurrencyDisplay value={(o as Record<string, unknown>).saldo_pendiente as number} style={{ fontWeight: 600 }} /></td>
-                    <td>{formatDate((o as Record<string, unknown>).fecha_entrega as string)}</td>
+                    <td><CurrencyDisplay value={(o as Record<string, unknown>).deposit_received as number} /></td>
+                    <td style={{ fontWeight: 600 } as React.CSSProperties}><CurrencyDisplay value={(o as Record<string, unknown>).balance_due as number} style={{ fontWeight: 600 }} /></td>
+                    <td>{formatDate((o as Record<string, unknown>).delivery_date as string)}</td>
                     <td onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                       <div style={{ display: 'flex', gap: 4 } as React.CSSProperties}>
-                        {(o as Record<string, unknown>).estado as string !== orderStatuses[0] && (
+                        {(o as Record<string, unknown>).status as string !== orderStatuses[0] && (
                           <button className="btn btn-outline" style={{ padding: '4px 6px' } as React.CSSProperties} onClick={() => retrocederEstado(o)} title="Retroceder estado">
                             <ChevronLeft size={14} />
                           </button>
                         )}
-                        {(o as Record<string, unknown>).estado as string !== orderStatuses[orderStatuses.length - 1] && (
+                        {(o as Record<string, unknown>).status as string !== orderStatuses[orderStatuses.length - 1] && (
                           <button className="btn btn-outline" style={{ padding: '4px 6px' } as React.CSSProperties} onClick={() => avanzarEstado(o)} title="Avanzar estado">
                             <ChevronRight size={14} />
                           </button>

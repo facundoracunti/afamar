@@ -39,11 +39,11 @@ export function useFormDetails({
       setForm((prev) => {
         const list = [...(prev.fabrication_details || [])];
         list[idx] = { ...list[idx], [field]: value } as FabricationDetail;
-        if (field === 'concepto' && value !== 'OTHER') {
-          list[idx].concepto_personalizado = '';
+        if (field === 'concept' && value !== 'OTHER') {
+          list[idx].custom_concept = '';
         }
-        if (field === 'concepto' && CUTOUT_DETAILS[value as string]) {
-          list[idx].detalle = CUTOUT_DETAILS[value as string];
+        if (field === 'concept' && CUTOUT_DETAILS[value as string]) {
+          list[idx].detail = CUTOUT_DETAILS[value as string];
         }
         const d = list[idx];
 
@@ -51,43 +51,43 @@ export function useFormDetails({
           const mat = materiales.find((m) => m.name === value);
           if (mat) {
             list[idx].material = value as string;
-            list[idx].moneda = mat.currency || 'ARS';
-            list[idx].material_precio_m2 = mat.currency === 'USD' ? (mat.price_usd || 0) : (mat.base_price || 0);
-            if (M2_CONCEPTS.includes(d.concepto) && d.m2 > 0) {
-              list[idx].precio = Math.round(d.m2 * (list[idx].material_precio_m2 || 0) * 100) / 100;
+            list[idx].currency = mat.currency || 'ARS';
+            list[idx].material_price_m2 = mat.currency === 'USD' ? (mat.price_usd || 0) : (mat.base_price || 0);
+            if (M2_CONCEPTS.includes(d.concept) && d.m2 > 0) {
+              list[idx].price = Math.round(d.m2 * (list[idx].material_price_m2 || 0) * 100) / 100;
             }
           } else {
             list[idx].material = '';
-            list[idx].material_precio_m2 = 0;
+            list[idx].material_price_m2 = 0;
           }
         }
 
-        if (d.concepto === 'OTHER' && (field === 'largo' || field === 'mano_de_obra')) {
-          const largo = Number(d.largo) || 0;
-          const mo = Number(d.mano_de_obra) || 0;
-          list[idx].precio = Math.round(largo * mo * 100) / 100;
+        if (d.concept === 'OTHER' && (field === 'length' || field === 'labor')) {
+          const length = Number(d.length) || 0;
+          const mo = Number(d.labor) || 0;
+          list[idx].price = Math.round(length * mo * 100) / 100;
         } else if (
-          M2_CONCEPTS.includes(d.concepto) &&
-          (field === 'concepto' || field === 'largo' || field === 'ancho' || field === 'moneda' || field === 'material')
+          M2_CONCEPTS.includes(d.concept) &&
+          (field === 'concept' || field === 'length' || field === 'width' || field === 'currency' || field === 'material')
         ) {
-          const largo = Number(d.largo) || 0;
-          const ancho = Number(d.ancho) || 0;
-          const m2 = Math.round(largo * ancho * 100000) / 100000;
+          const length = Number(d.length) || 0;
+          const width = Number(d.width) || 0;
+          const m2 = Math.round(length * width * 100000) / 100000;
           list[idx].m2 = m2;
-          const moneda = d.moneda || 'ARS';
+          const currency = d.currency || 'ARS';
           let pm2 = 0;
           if (d.material) {
             const mat = materiales.find((m) => m.name === d.material);
             if (mat) {
-              pm2 = moneda === 'USD' ? (mat.price_usd || 0) : (mat.base_price || 0);
+              pm2 = currency === 'USD' ? (mat.price_usd || 0) : (mat.base_price || 0);
             }
           } else {
             pm2 =
-              moneda === 'USD'
+              currency === 'USD'
                 ? (materialUsdRef.current || 0)
                 : (Number(materialPrecioRef.current) || Number(prev.material_price_m2) || 0);
           }
-          list[idx].precio = Math.round(m2 * pm2 * 100) / 100;
+          list[idx].price = Math.round(m2 * pm2 * 100) / 100;
         }
         return { ...prev, fabrication_details: list };
       });
@@ -99,17 +99,17 @@ export function useFormDetails({
     update('fabrication_details', [
       ...(form.fabrication_details || []),
       {
-        concepto: 'BASEBOARD',
-        detalle: '',
+        concept: 'BASEBOARD',
+        detail: '',
         material: '',
-        material_precio_m2: 0,
-        largo: null,
-        ancho: null,
+        material_price_m2: 0,
+        length: null,
+        width: null,
         m2: 0,
-        mano_de_obra: null,
-        cantidad: 1,
-        moneda: 'ARS' as const,
-        precio: 0,
+        labor: null,
+        quantity: 1,
+        currency: 'ARS' as const,
+        price: 0,
       },
     ]);
   }, [form.fabrication_details, update]);

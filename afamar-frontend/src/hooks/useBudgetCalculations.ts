@@ -14,11 +14,11 @@ export function useBudgetCalculations(
     const poolsData = (form.pools_data as unknown as PoolInForm[]) || [];
 
     const arsTotal = fabricationDetails.reduce(
-      (sum: number, d: FabricationDetail) => sum + (d.moneda === 'USD' ? 0 : (Number(d.precio) || 0) * (d.cantidad || 1)),
+      (sum: number, d: FabricationDetail) => sum + (d.currency === 'USD' ? 0 : (Number(d.price) || 0) * (d.quantity || 1)),
       0
     );
     const usdTotal = fabricationDetails.reduce(
-      (sum: number, d: FabricationDetail) => sum + (d.moneda === 'USD' ? (Number(d.precio) || 0) * (d.cantidad || 1) : 0),
+      (sum: number, d: FabricationDetail) => sum + (d.currency === 'USD' ? (Number(d.price) || 0) * (d.quantity || 1) : 0),
       0
     );
     const dd = Number(form.usd_rate);

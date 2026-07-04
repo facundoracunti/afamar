@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X, ChevronDown, LayoutDashboard, FileText, ClipboardList, Users, Box, Bath, Calendar, Calculator, BarChart3, Settings, Globe, Send, Wrench, Clock, Truck, DollarSign, Receipt, History, Image, LogOut, Tags, type LucideIcon } from 'lucide-react';
+import { Menu, X, ChevronDown, LayoutDashboard, FileText, ClipboardList, Users, Box, Bath, Calendar, Calculator, BarChart3, Settings, Globe, Send, Wrench, Clock, Truck, DollarSign, Receipt, History, Image, LogOut, Tags, User, type LucideIcon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import styles from './MainLayout.module.css';
 
@@ -102,12 +102,67 @@ const accordionGroups: AccordionGroup[] = [
   },
 ];
 
+function getPageTitle(pathname: string): string {
+  if (pathname === '/admin' || pathname === '/admin/') return 'Panel Principal';
+  if (pathname === '/admin/cash/history') return 'Historial de Caja';
+  if (pathname === '/admin/materials/categories') return 'Categorías de Materiales';
+
+  const match = (pattern: RegExp, listTitle: string, newTitle: string, editTitle: string): string | null => {
+    const m = pathname.match(pattern);
+    if (!m) return null;
+    if (m[1] === 'new') return newTitle;
+    if (/^\d+$/.test(m[1])) return editTitle;
+    return listTitle;
+  };
+
+  const r = (p: string) => new RegExp(`^/admin/${p}/(new|\\d+)$`);
+
+  const results = [
+    match(r('clients'), 'Clientes', 'Nuevo Cliente', 'Editar Cliente'),
+    match(r('budgets'), 'Presupuestos', 'Nuevo Presupuesto', 'Editar Presupuesto'),
+    match(r('online-budgets'), 'Presupuestos Online', 'Nuevo Presupuesto Online', 'Editar Presupuesto Online'),
+    match(r('work-orders'), 'Órdenes de Trabajo', 'Nueva Orden de Trabajo', 'Editar Orden de Trabajo'),
+    match(r('materials'), 'Materiales', 'Nuevo Material', 'Editar Material'),
+    match(r('measurements'), 'Mediciones', 'Nueva Medición', 'Editar Medición'),
+  ];
+  for (const r of results) { if (r) return r; }
+
+  const prefixes: Record<string, string> = {
+    '/admin/clients': 'Clientes',
+    '/admin/budgets': 'Presupuestos',
+    '/admin/online-budgets': 'Presupuestos Online',
+    '/admin/work-orders': 'Órdenes de Trabajo',
+    '/admin/materials': 'Materiales',
+    '/admin/pool-stock': 'Stock de Piletas',
+    '/admin/measurements': 'Mediciones',
+    '/admin/calculator': 'Calculadora',
+    '/admin/cash': 'Caja Diaria',
+    '/admin/reports': 'Reportes',
+    '/admin/configuration': 'Configuración',
+    '/admin/product-photos': 'Fotos de Productos',
+  };
+  const prefix = Object.keys(prefixes).find(k => pathname === k || pathname.startsWith(k + '/'));
+  return prefix ? prefixes[prefix] : 'AFAMAR';
+}
+
 export default function MainLayout() {
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const [expanded, setExpanded] = useState<string>('');
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setProfileOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
 
   const sidebarWidth = isCollapsed ? SIDEBAR_COLLAPSED : SIDEBAR_WIDTH;
   const sidebarClass = `${s['main-layout__sidebar']}${isCollapsed ? ' ' + s['main-layout__sidebar--collapsed'] : ''}`;
@@ -119,10 +174,6 @@ export default function MainLayout() {
   };
 
   const toggleExpand = (key: string): void => {
-    if (isCollapsed) {
-      setExpanded((prev) => (prev === key ? '' : key));
-      return;
-    }
     setExpanded((prev) => (prev === key ? '' : key));
   };
 
@@ -130,6 +181,8 @@ export default function MainLayout() {
     navigate(path);
     if (isCollapsed) setExpanded('');
   };
+
+  const pageTitle = getPageTitle(location.pathname);
 
   return (
     <div className={s['main-layout']}>
@@ -237,22 +290,6 @@ export default function MainLayout() {
             </li>
           ))}
         </ul>
-
-        <div className={s['main-layout__user-section']}>
-          {!isCollapsed && (
-            <div className={s['main-layout__user-name']}>
-              {user?.full_name || user?.username}
-            </div>
-          )}
-          <button
-            onClick={() => { logout(); navigate('/login'); }}
-            className={s['main-layout__logout-btn']}
-            title={isCollapsed ? 'Cerrar sesión' : undefined}
-          >
-            <LogOut size={16} />
-            {!isCollapsed && <span>Cerrar sesión</span>}
-          </button>
-        </div>
       </aside>
 
       <div
@@ -260,16 +297,44 @@ export default function MainLayout() {
         style={{ marginLeft: sidebarWidth }}
       >
         <div className={s['main-layout__topbar']}>
-          <div className={s['main-layout__date']}>
-            {new Date().toLocaleDateString('es-AR', {
-              weekday: 'long',
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-            })}
+          <div className={s['main-layout__page-title']}>{pageTitle}</div>
+          <div className={s['main-layout__topbar-right']}>
+            <div className={s['main-layout__date']}>
+              {new Date().toLocaleDateString('es-AR', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </div>
+            <div className={s['main-layout__profile']} ref={profileRef}>
+              <button
+                className={s['main-layout__profile-btn']}
+                onClick={() => setProfileOpen((p) => !p)}
+                title="Perfil"
+              >
+                <User size={20} />
+              </button>
+              {profileOpen && (
+                <div className={s['main-layout__profile-dropdown']}>
+                  <div className={s['main-layout__profile-name']}>
+                    {user?.full_name || user?.username}
+                  </div>
+                  <button
+                    className={s['main-layout__profile-logout']}
+                    onClick={() => { logout(); navigate('/login'); }}
+                  >
+                    <LogOut size={16} />
+                    <span>Cerrar sesión</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-        <Outlet />
+        <div className={s['main-layout__page-content']}>
+          <Outlet />
+        </div>
       </div>
     </div>
   );

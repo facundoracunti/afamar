@@ -9,6 +9,7 @@ from app.models.pool_stock import PoolStock, StockMovement
 from app.models.work_order import WorkOrder
 from app.repositories.budget import BudgetRepository
 from app.repositories.work_order import WorkOrderRepository
+from app.services.work_order import deduct_pool_stock
 from app.services.budget_calculator import (
     compute_alternative_totals,
     compute_detail_totals,
@@ -256,6 +257,9 @@ class BudgetService:
 
         wo_repo = WorkOrderRepository(self.repo.db)
         work_order = wo_repo.create(data)
+        self.repo.db.commit()
+        self.repo.db.refresh(work_order)
+        deduct_pool_stock(self.repo.db, budget.pool_id, budget.pools_data, work_order.number)
         work_order.stock_deducted = True
         self.repo.db.commit()
         self.repo.db.refresh(work_order)

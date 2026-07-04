@@ -15,7 +15,7 @@ export interface OnlineBudgetItemLocal {
   unitPrice: number;
   subtotal: number;
   material: string;
-  poolId: number | null;
+  pool_id: number | null;
   option: number;
 }
 
@@ -40,7 +40,7 @@ export const SPECIAL_TYPES: { detail: string; isUnit: boolean }[] = [
 export const SPECIAL_NAMES = new Set(SPECIAL_TYPES.map((t) => t.detail));
 
 export function emptyItem(detail: string = 'LONGITUD', isUnit: boolean = false): OnlineBudgetItemLocal {
-  return { detail, length: 0, width: 0, m2: 0, isUnit, currency: 'ARS' as const, labor: 0, quantity: 1, unitPrice: 0, subtotal: 0, material: '', poolId: null, option: 0 };
+  return { detail, length: 0, width: 0, m2: 0, isUnit, currency: 'ARS' as const, labor: 0, quantity: 1, unitPrice: 0, subtotal: 0, material: '', pool_id: null, option: 0 };
 }
 
 export function parseNum(v: unknown): number {
@@ -512,7 +512,7 @@ export default function OnlineItemsTable({
                 {item.detail === 'PILETA MOD' ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 } as React.CSSProperties}>
                     <span style={{ fontWeight: 700, fontSize: 11, whiteSpace: 'nowrap' } as React.CSSProperties}>PILETA MOD :</span>
-                    <select className="input" style={{ fontSize: 11, flex: 1 } as React.CSSProperties} value={item.poolId || ''} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                    <select className="input" style={{ fontSize: 11, flex: 1 } as React.CSSProperties} value={item.pool_id || ''} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                       const pid = e.target.value;
                       const p = piletas.find((x: Pool) => x.id === Number(pid));
                       const precio = p ? (p.price || 0) : 0;
@@ -520,7 +520,7 @@ export default function OnlineItemsTable({
                         const next = [...prev];
                         const tab = { ...next[activeOpcion] };
                         const list = [...tab.especiales];
-                        list[idx] = { ...list[idx], poolId: Number(pid), currency: 'ARS', unitPrice: precio, subtotal: Math.round((Number(list[idx].quantity) || 1) * precio * 100) / 100 };
+                        list[idx] = { ...list[idx], pool_id: Number(pid), currency: 'ARS', unitPrice: precio, subtotal: Math.round((Number(list[idx].quantity) || 1) * precio * 100) / 100 };
                         next[activeOpcion] = { ...tab, especiales: list };
                         return next;
                       });
@@ -568,10 +568,10 @@ export default function OnlineItemsTable({
                     const tab = { ...next[activeOpcion] };
                     const list = [...tab.especiales];
                     list[idx] = { ...list[idx], currency: nuevoMoneda };
-                    if (item.detail === 'PILETA MOD' && item.poolId) {
-                      const p = piletas.find((x: Pool) => x.id === Number(item.poolId));
+                    if (item.detail === 'PILETA MOD' && item.pool_id) {
+                      const p = piletas.find((x: Pool) => x.id === Number(item.pool_id));
                       if (p) {
-                        const nuevoPrecio = nuevoMoneda === 'USD' ? (p.priceUsd || 0) : (p.price || 0);
+                        const nuevoPrecio = nuevoMoneda === 'USD' ? (p.price_usd || 0) : (p.price || 0);
                         list[idx].unitPrice = nuevoPrecio;
                         list[idx].subtotal = Math.round((Number(list[idx].quantity) || 1) * nuevoPrecio * 100) / 100;
                       }

@@ -5,6 +5,7 @@ import { getOnlineBudget, createOnlineBudget, updateOnlineBudget, convertOnlineB
 import { getMaterials } from '@/api/resources/materials';
 import { getPoolStock } from '@/api/resources/poolStock';
 import { getNextBudgetNumber } from '@/api/resources/budgets';
+import { useGet, useList } from '../../api/hooks';
 import Loading from '../../components/common/Loading';
 import OnlineBudgetHeader from '../../components/budget/OnlineBudgetHeader';
 import OnlineItemsTable, { createOption, parseNum, type OptionTab, type OnlineBudgetItemLocal, SPECIAL_NAMES, INITIAL_ROWS, INITIAL_SPECIALS, emptyItem } from '../../components/budget/OnlineItemsTable';
@@ -22,7 +23,6 @@ export default function OnlineBudgetForm() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isEdit = !!id;
-  const [loading, setLoading] = useState<boolean>(isEdit);
   const [saving, setSaving] = useState<boolean>(false);
 
   const [opciones, setOpciones] = useState<OptionTab[]>([createOption()]);
@@ -35,20 +35,39 @@ export default function OnlineBudgetForm() {
   const [totalArs, setTotalArs] = useState<number>(0);
   const [totalUsd, setTotalUsd] = useState<number>(0);
   const [totalConsolidated, setTotalConsolidated] = useState<number>(0);
-  const [materiales, setMateriales] = useState<Material[]>([]);
-  const [piletas, setPiletas] = useState<Pool[]>([]);
   const [numberValue, setNumberValue] = useState<string>('');
   const [convertingOption, setConvertingOption] = useState<number | null>(null);
 
+  const { items: materiales } = useList<Material>(
+    ['materials', 'all'],
+    async () => {
+      const res = await getMaterials({ limit: 500 });
+      return (res.data as Material[]) || [];
+    }
+  );
+
+  const { items: piletas } = useList<Pool>(
+    ['pool-stock', 'all'],
+    async () => {
+      const res = await getPoolStock({});
+      return (res.data as Pool[]) || [];
+    }
+  );
+
+  const nextNumberFetcher = async () => {
+    const r = await getNextBudgetNumber();
+    return (r.data as { number: string }).number;
+  };
+
+  const { data: fetchedNextNumber } = useGet<string>(
+    ['next-budget-number'],
+    nextNumberFetcher,
+    !isEdit
+  );
+
   useEffect(() => {
-    getMaterials({ limit: 500 }).then((r: { data: Material[] }) => setMateriales(r.data));
-  }, []);
-  useEffect(() => {
-    getPoolStock({}).then((r: { data: Pool[] }) => setPiletas(r.data));
-  }, []);
-  useEffect(() => {
-    if (!isEdit) { getNextBudgetNumber().then((r: { data: { numero: string } }) => setNumberValue(r.data.numero)).catch(() => {}); }
-  }, [isEdit]);
+    if (fetchedNextNumber) setNumberValue(fetchedNextNumber);
+  }, [fetchedNextNumber]);
 
   // Auto-recalculate totals when active tab, opciones, or usdRate change
   useEffect(() => {
@@ -65,73 +84,69 @@ export default function OnlineBudgetForm() {
     setTotalConsolidated(Math.round((ars + usd * dd) * 100) / 100);
   }, [opciones, activeOption, usdRate]);
 
+  const { data: onlineBudget, loading: loadingBudget } = useGet<Record<string, unknown>>(
+    ['online-budget', id],
+    async () => {
+      if (!id) return {};
+      const res = await getOnlineBudget(id);
+      return (res.data as Record<string, unknown>) || {};
+    },
+    !!id
+  );
+
+  const loading = (isEdit && loadingBudget) || !materiales || !piletas;
+
   useEffect(() => {
-    if (isEdit && id) {
-      Promise.all([
-        getOnlineBudget(id),
-        getMaterials({ limit: 500 }),
-        getPoolStock({}),
-      ]).then(([presRes, matRes, poolRes]: unknown[]) => {
-        const d = (presRes as { data: Record<string, unknown> }).data;
-        const matData = (matRes as { data: Material[] }).data;
-        const poolData = (poolRes as { data: Pool[] }).data;
-        setMateriales(matData);
-        setPiletas(poolData);
-        setClient((d.client_name as string) || (d.cliente as string) || '');
-        setPhone((d.phone as string) || (d.telefono as string) || '');
-        setWorkType((d.work_type as string) || (d.tipo_obra as string) || '');
-        setDate((d.date as string) || (d.fecha as string) || new Date().toISOString().slice(0, 10));
-        setUsdRate((d.usd_rate as number) ?? (d.dolar_dia as number) ?? 1000);
-        setNumberValue((d.number as string) || (d.numero as string) || '');
-        const items = d.items as OnlineBudgetItemLocal[] | undefined;
-        if (items?.length) {
-          const opcionMap: Record<number, { normales: OnlineBudgetItemLocal[]; especiales: OnlineBudgetItemLocal[] }> = {};
-          items.forEach((i: OnlineBudgetItemLocal) => {
-            const op = Math.max(0, i.option ?? 0);
-            if (!opcionMap[op]) opcionMap[op] = { normales: [], especiales: [] };
-            const parsed = { ...i, length: parseNum(i.length), width: parseNum(i.width), m2: parseNum(i.m2), quantity: Math.max(1, parseNum(i.quantity)), unitPrice: parseNum(i.unitPrice), subtotal: parseNum(i.subtotal), labor: parseNum(i.labor) };
-            if (i.isUnit || SPECIAL_NAMES.has(i.detail)) {
-              if (parsed.detail === 'PILETA MOD' && !parsed.poolId) parsed.poolId = Number(d.pool_id ?? d.pileta_id);
-              opcionMap[op].especiales.push(parsed);
+    if (!onlineBudget || !id) return;
+    const matData = materiales;
+    setClient((onlineBudget.client_name as string) || '');
+    setPhone((onlineBudget.phone as string) || '');
+    setWorkType((onlineBudget.work_type as string) || '');
+    setDate((onlineBudget.date as string) || new Date().toISOString().slice(0, 10));
+    setUsdRate((onlineBudget.usd_rate as number) ?? 1000);
+    setNumberValue((onlineBudget.number as string) || '');
+    const items = onlineBudget.items as OnlineBudgetItemLocal[] | undefined;
+    if (items?.length) {
+      const opcionMap: Record<number, { normales: OnlineBudgetItemLocal[]; especiales: OnlineBudgetItemLocal[] }> = {};
+      items.forEach((i: OnlineBudgetItemLocal) => {
+        const op = Math.max(0, i.option ?? 0);
+        if (!opcionMap[op]) opcionMap[op] = { normales: [], especiales: [] };
+        const parsed = { ...i, length: parseNum(i.length), width: parseNum(i.width), m2: parseNum(i.m2), quantity: Math.max(1, parseNum(i.quantity)), unitPrice: parseNum(i.unitPrice), subtotal: parseNum(i.subtotal), labor: parseNum(i.labor) };
+        if (i.isUnit || SPECIAL_NAMES.has(i.detail)) {
+          if (parsed.detail === 'PILETA MOD' && !parsed.pool_id) parsed.pool_id = Number(onlineBudget.pool_id);
+          opcionMap[op].especiales.push(parsed);
+        } else {
+          opcionMap[op].normales.push(parsed);
+        }
+      });
+      const opcionKeys = Object.keys(opcionMap).sort((a: string, b: string) => Number(a) - Number(b));
+      if (opcionKeys.length > 0) {
+        setOpciones(opcionKeys.map((key: string, idx: number) => {
+          const group = opcionMap[Number(key)];
+          const espList = group.especiales;
+          const matEsp: Record<number, string> = {};
+          espList.forEach((e: OnlineBudgetItemLocal, i: number) => {
+            if (e.material) {
+              matEsp[i] = e.material;
             } else {
-              opcionMap[op].normales.push(parsed);
+              const matched = matData.find((m: Material) => m.name === e.detail || e.detail.includes(m.name) || m.name.includes(e.detail));
+              if (matched) matEsp[i] = matched.name;
             }
           });
-          const opcionKeys = Object.keys(opcionMap).sort((a: string, b: string) => Number(a) - Number(b));
-          if (opcionKeys.length > 0) {
-            setOpciones(opcionKeys.map((key: string, idx: number) => {
-              const group = opcionMap[Number(key)];
-              const espList = group.especiales;
-              const matEsp: Record<number, string> = {};
-              espList.forEach((e: OnlineBudgetItemLocal, i: number) => {
-                if (e.material) {
-                  matEsp[i] = e.material;
-                } else {
-                  const matched = matData.find((m: Material) => m.name === e.detail || e.detail.includes(m.name) || m.name.includes(e.detail));
-                  if (matched) matEsp[i] = matched.name;
-                }
-              });
-              return {
-                nombre: `Opción ${idx + 1}`,
-                items: group.normales.length ? group.normales : INITIAL_ROWS.map((f) => emptyItem(f.detail, f.isUnit)),
-                especiales: espList.length ? espList : INITIAL_SPECIALS.map((e) => emptyItem(e.detail, e.isUnit)),
-                matEspeciales: matEsp,
-              };
-            }));
-          } else {
-            setOpciones([createOption()]);
-          }
-        } else {
-          setOpciones([createOption()]);
-        }
-        setLoading(false);
-      }).catch((err: unknown) => {
-        console.error('Error al cargar presupuesto online', err);
-        alert('Error al cargar el presupuesto');
-        setLoading(false);
-      });
+          return {
+            nombre: `Opción ${idx + 1}`,
+            items: group.normales.length ? group.normales : INITIAL_ROWS.map((f) => emptyItem(f.detail, f.isUnit)),
+            especiales: espList.length ? espList : INITIAL_SPECIALS.map((e) => emptyItem(e.detail, e.isUnit)),
+            matEspeciales: matEsp,
+          };
+        }));
+      } else {
+        setOpciones([createOption()]);
+      }
+    } else {
+      setOpciones([createOption()]);
     }
-  }, [id, isEdit]);
+  }, [onlineBudget, id, materiales]);
 
   const handleConvertirOpcion = async (opcionIdx: number) => {
     if (!id) return;
@@ -183,7 +198,7 @@ export default function OnlineBudgetForm() {
       let ars = 0, usd = 0;
       allItems.forEach((i: OnlineBudgetItemLocal) => { if (i.currency === 'USD') usd += Number(i.subtotal) || 0; else ars += Number(i.subtotal) || 0; });
       const cons = Math.round((ars + usd * Number(usdRate)) * 100) / 100;
-      const piletaItems = opciones.flatMap((tab: OptionTab) => tab.especiales).filter((e: OnlineBudgetItemLocal) => e.detail === 'PILETA MOD' && e.poolId);
+      const piletaItems = opciones.flatMap((tab: OptionTab) => tab.especiales).filter((e: OnlineBudgetItemLocal) => e.detail === 'PILETA MOD' && e.pool_id);
       const payload: Record<string, unknown> = {
         client_name: client, phone: phone, work_type: workType, date: date,
         usd_rate: Number(usdRate),
@@ -191,7 +206,7 @@ export default function OnlineBudgetForm() {
         total_net_ars: Math.round(ars * 100) / 100,
         total_net_usd: Math.round(usd * 100) / 100,
         total_consolidated: cons,
-        pool_id: piletaItems.length ? Number(piletaItems[0].poolId) : null,
+        pool_id: piletaItems.length ? Number(piletaItems[0].pool_id) : null,
         pool_price: piletaItems.length ? (Number(piletaItems[0].unitPrice) || 0) : 0,
       };
       if (isEdit) await updateOnlineBudget(id as string, payload);

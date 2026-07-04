@@ -50,7 +50,7 @@ export default function MaterialForm() {
 
   // Categories always come from the API. This keeps the form in sync with the
   // MaterialsCategoriesPage CRUD (create/edit/delete) without a hard refresh.
-  // We also re-prime the helper name→id map on every load so mapMaterialToApi can
+  // We also re-prime the helper name→id map on every load so the form can
   // resolve the selected category back to a numeric id when persisting.
   const { items: categorias, loading: loadingCategories } = useList<MaterialCategory>(
     CATEGORIES_KEY,
@@ -67,7 +67,7 @@ export default function MaterialForm() {
   useEffect(() => {
     getSettings().then((res) => {
       const data = (res.data as Record<string, unknown>) || {};
-      setTipoCambio(Number(data.tipo_cambio) || 1);
+      setTipoCambio(Number(data.default_usd_rate) || 1000);
     }).catch(() => { /* optional */ });
   }, []);
 

@@ -60,8 +60,8 @@ export function useFormMaterials({
             thickness: m.available_thickness || '',
             material_price_m2: pm2,
             fabrication_details: (prev.fabrication_details || []).map((d) => {
-              if (M2_CONCEPTS.includes(d.concepto) && d.m2 > 0) {
-                return { ...d, moneda: currency as 'ARS' | 'USD', precio: Math.round(d.m2 * pm2 * 100) / 100 };
+              if (M2_CONCEPTS.includes(d.concept) && d.m2 > 0) {
+                return { ...d, currency: currency as 'ARS' | 'USD', price: Math.round(d.m2 * pm2 * 100) / 100 };
               }
               return d;
             }),

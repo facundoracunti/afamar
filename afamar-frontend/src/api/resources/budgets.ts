@@ -6,7 +6,7 @@ export const getBudget = (id: number | string) => http.get(`/budgets/${id}`);
 export const createBudget = (data: Record<string, unknown>) => http.post('/budgets', data);
 export const updateBudget = (id: number | string, data: Record<string, unknown>) => http.put(`/budgets/${id}`, data);
 export const deleteBudget = (id: number | string) => http.delete(`/budgets/${id}`);
-export const convertBudgetToWorkOrder = (id: number | string) => http.post(`/budgets/${id}/convert-to-work-order`);
+export const convertBudgetToWorkOrder = (id: number | string) => http.post(`/work-orders/from-budget/${id}`);
 export const sendBudgetWhatsApp = (id: number | string) => http.post(`/budgets/${id}/send-whatsapp`);
 export const sendBudgetEmail = (id: number | string) => http.post(`/budgets/${id}/send-email`);
 export const getNextBudgetNumber = () => http.get('/budgets/next-number');

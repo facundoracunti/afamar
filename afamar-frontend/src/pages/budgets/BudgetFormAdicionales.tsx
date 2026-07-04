@@ -37,7 +37,7 @@ export default function BudgetFormAdicionales({
           <option value="">+ AGREGAR PILETA</option>
           {piletas.map((p) => (
             <option key={p.id as number} value={p.id as number}>
-              {p.marca as string} - {p.modelo as string} (Stock: {p.cantidad as number})
+              {p.brand as string} - {p.model as string} (Stock: {p.quantity as number})
             </option>
           ))}
         </select>

@@ -16,7 +16,7 @@ test.describe('Authentication', () => {
     await page.getByLabel('Usuario').fill(ADMIN_USER.username);
     await page.getByLabel('Contraseña').fill('wrong-password');
     await page.getByRole('button', { name: /ingresar/i }).click();
-    await expect(page.getByText(/error/i)).toBeVisible();
+    await expect(page.getByText(/inválid|credencial|error/i)).toBeVisible();
     await expect(page).toHaveURL(/\/login$/);
   });
 
@@ -28,6 +28,7 @@ test.describe('Authentication', () => {
   });
 
   test('legacy Spanish paths redirect to English equivalents', async ({ page }) => {
+    await loginAsAdmin(page);
     await page.goto('/presupuestos');
     await expect(page).toHaveURL(/\/admin\/budgets$/);
     await page.goto('/ordenes');

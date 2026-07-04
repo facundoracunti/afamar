@@ -202,6 +202,11 @@ class WorkOrderService:
         order = self.repo.create(data)
         self.repo.db.commit()
         self.repo.db.refresh(order)
+        if not order.stock_deducted and (order.pool_id or order.pools_data):
+            deduct_pool_stock(self.repo.db, order.pool_id, order.pools_data, order.number)
+            order.stock_deducted = True
+            self.repo.db.commit()
+            self.repo.db.refresh(order)
         return order
 
     def create_from_budget(self, budget) -> WorkOrder:

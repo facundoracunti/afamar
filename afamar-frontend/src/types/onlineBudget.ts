@@ -10,7 +10,7 @@ export interface OnlineBudgetItem {
   unitPrice: number;
   subtotal: number;
   material: string;
-  poolId: number | null;
+  pool_id: number | null;
   option: number;
 }
 
@@ -24,7 +24,7 @@ export interface OnlineBudgetPayload {
   totalNetArs: number;
   totalNetUsd: number;
   totalConsolidated: number;
-  poolId: number | null;
-  poolPrice: number;
+  pool_id: number | null;
+  pool_price: number;
   status?: string;
 }

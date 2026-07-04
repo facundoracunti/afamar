@@ -17,7 +17,7 @@ import PdfPreviewModal from '../../components/common/PdfPreviewModal';
 import TermsEditor from '../../components/common/TermsEditor';
 import { useNotify } from '../../context/NotificationContext';
 import QuoteOptionsGrid from '../../components/budget/QuoteOptionsGrid';
-import ApprovalSection from '../../components/orders/ApprovalSection';
+
 import ObservationsSection from '../../components/orders/ObservationsSection';
 import FormHeader from '../../components/orders/FormHeader';
 import FormFooter from '../../components/orders/FormFooter';
@@ -222,16 +222,16 @@ export default function BudgetForm() {
 
   const dd2 = Number(form.usd_rate) || 1;
   let sumatoriaAdicionalesARS = Number(form.transport || 0);
-  const detalleTrabajosComunes: { concepto: string; cant: number; total: number }[] = [];
+  const detalleTrabajosComunes: { concept: string; quantity: number; total: number }[] = [];
   if (Number(form.transport || 0) > 0) {
-    detalleTrabajosComunes.push({ concepto: 'Traslado', cant: 1, total: Number(form.transport) });
+    detalleTrabajosComunes.push({ concept: 'Traslado', quantity: 1, total: Number(form.transport) });
   }
   (form.fabrication_details || []).forEach((item) => {
-    const totalItem = Number(item.precio || 0) * Number(item.cantidad || 1);
-    const totalItemARS = item.moneda === 'USD' ? (dd2 > 0 ? totalItem * dd2 : 0) : totalItem;
+    const totalItem = Number(item.price || 0) * Number(item.quantity || 1);
+    const totalItemARS = item.currency === 'USD' ? (dd2 > 0 ? totalItem * dd2 : 0) : totalItem;
     if (totalItemARS > 0) {
       sumatoriaAdicionalesARS += totalItemARS;
-      detalleTrabajosComunes.push({ concepto: (item.concepto as string) + (item.detalle ? ` - ${item.detalle as string}` : ''), cant: Number(item.cantidad || 1), total: totalItemARS });
+      detalleTrabajosComunes.push({ concept: (item.concept as string) + (item.detail ? ` - ${item.detail as string}` : ''), quantity: Number(item.quantity || 1), total: totalItemARS });
     }
   });
   (form.pools_data || []).forEach((pil) => {
@@ -240,7 +240,7 @@ export default function BudgetForm() {
     const totalPilARS = pool.currency === 'USD' ? (dd2 > 0 ? totalPil * dd2 : 0) : totalPil;
     if (totalPilARS > 0) {
       sumatoriaAdicionalesARS += totalPilARS;
-      detalleTrabajosComunes.push({ concepto: `Pileta ${(pool.brand as string) || ''} ${(pool.model as string) || ''}`.trim(), cant: Number(pool.quantity || 1), total: totalPilARS });
+      detalleTrabajosComunes.push({ concept: `Pileta ${(pool.brand as string) || ''} ${(pool.model as string) || ''}`.trim(), quantity: Number(pool.quantity || 1), total: totalPilARS });
     }
   });
   const matsMain = hayAlternativas ? (form.materials_data as unknown as MaterialInForm[] || []).filter((m) => !m.is_alternative) : (form.materials_data as unknown as MaterialInForm[] || []);
@@ -267,7 +267,7 @@ export default function BudgetForm() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '4px 16px', fontSize: 12, fontWeight: 500, color: '#475569' }}>
             {detalleTrabajosComunes.map((job, idx) => (
               <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px dashed #e2e8f0' }}>
-                <span>✓ {job.concepto} ({job.cant > 1 ? `x${job.cant}` : 'x1'})</span>
+                <span>✓ {job.concept} ({job.quantity > 1 ? `x${job.quantity}` : 'x1'})</span>
                 <span style={{ color: '#1e293b', fontWeight: 700 }}>$ {job.total.toLocaleString('es-AR')}</span>
               </div>
             ))}
@@ -287,7 +287,7 @@ export default function BudgetForm() {
         const costoMat = mat.currency === 'USD' ? m2 * (mat.price_m2_usd || 0) : m2 * (mat.price_m2 || 0);
         const costoMatArs = mat.currency === 'USD' ? (ddLocal > 0 ? costoMat * ddLocal : 0) : costoMat;
         const totalFinalARS = costoMatArs + sumatoriaAdicionalesARS;
-        return { name: mat.name || '', category: mat.category || '', currency: mat.currency || 'ARS', costoMaterialBase: costoMat, totalFinalARS, length: Number(mat.length || 0), width: Number(mat.width || 0), cantidad: mat.quantity || 1 };
+        return { name: mat.name || '', category: mat.category || '', currency: mat.currency || 'ARS', costoMaterialBase: costoMat, totalFinalARS, length: Number(mat.length || 0), width: Number(mat.width || 0), quantity: mat.quantity || 1 };
       })}
       detalleTrabajosComunes={detalleTrabajosComunes}
       tipoCambio={Number(form.usd_rate) || 1}
@@ -463,7 +463,6 @@ export default function BudgetForm() {
             onConfirmarPago={handleConfirmarPago}
           />
 
-          <ApprovalSection form={form} readOnly={readOnly} update={update as (field: string, value: unknown) => void} />
         </div>
 
         <BudgetFormObservations

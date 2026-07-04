@@ -3,7 +3,7 @@ import type { Client } from '../../types/client';
 import { useNavigate, useParams } from 'react-router-dom';
 import { FileText, ClipboardList, DollarSign, Calendar, ArrowRight } from 'lucide-react';
 import { getClient, createClient, updateClient } from '@/api/resources/clients';
-import { useCreate, useUpdate } from '../../api/hooks';
+import { useCreate, useUpdate, useGet } from '../../api/hooks';
 import Loading from '../../components/common/Loading';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import styles from './ClientFormPage.module.css';
@@ -16,36 +16,42 @@ export default function ClientForm() {
   const { id } = useParams();
   const navigate = useNavigate();
   const isEdit = !!id;
-  const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
-  const [historial, setHistorial] = useState<Record<string, unknown> | null>(null);
   const [cliente, setCliente] = useState({
     name: '', phone: '', email: '', address: '', notes: '',
   });
 
+  const { data: clientData, loading } = useGet<Record<string, unknown>>(
+    ['client', id],
+    async () => {
+      if (!id) return {};
+      const res = await getClient(id);
+      return (res.data as Record<string, unknown>) || {};
+    },
+    !!id
+  );
+
   useEffect(() => {
-    if (id) {
-      getClient(id).then((res) => {
-        const d = res.data as Record<string, unknown>;
-        setCliente({
-          name: (d.name as string) || '',
-          phone: (d.phone as string) || '',
-          email: (d.email as string) || '',
-          address: (d.address as string) || '',
-          notes: (d.notes as string) || '',
-        });
-        setHistorial({
-          total_budgets: (d.total_budgets as number) || 0,
-          total_orders: (d.total_orders as number) || 0,
-          total_purchased: (d.total_purchased as number) || 0,
-          last_order: d.last_order_number as string | null,
-          orders: (d.orders as Record<string, unknown>[]) || [],
-          created_at: d.created_at as string,
-        });
-        setLoading(false);
-      });
-    }
-  }, [id]);
+    if (!clientData) return;
+    setCliente({
+      name: (clientData.name as string) || '',
+      phone: (clientData.phone as string) || '',
+      email: (clientData.email as string) || '',
+      address: (clientData.address as string) || '',
+      notes: (clientData.notes as string) || '',
+    });
+  }, [clientData]);
+
+  const historial = clientData
+    ? {
+        total_budgets: (clientData.total_budgets as number) || 0,
+        total_orders: (clientData.total_orders as number) || 0,
+        total_purchased: (clientData.total_purchased as number) || 0,
+        last_order: clientData.last_order_number as string | null,
+        orders: (clientData.orders as Record<string, unknown>[]) || [],
+        created_at: clientData.created_at as string,
+      }
+    : null;
 
   const createMutation = useCreate<unknown, Record<string, unknown>>(
     CLIENTS_KEY,
@@ -80,7 +86,7 @@ export default function ClientForm() {
     }
   };
 
-  if (loading) return <Loading />;
+  if (loading || (isEdit && !clientData)) return <Loading />;
 
   const formatCurrency = (n: number): string =>
     `$${n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

@@ -20,7 +20,7 @@ export default function PoolStockPage() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editItem, setEditItem] = useState<Pool | null>(null);
 
-  const [form, setForm] = useState<{ brand: string; model: string; description: string; material: string; quantity: number; price: number; priceUsd: number }>({ brand: '', model: '', description: '', material: '', quantity: 0, price: 0, priceUsd: 0 });
+  const [form, setForm] = useState<{ brand: string; model: string; description: string; material: string; quantity: number; price: number; price_usd: number }>({ brand: '', model: '', description: '', material: '', quantity: 0, price: 0, price_usd: 0 });
   const [movForm, setMovForm] = useState<{ type: string; quantity: number; description: string }>({ type: 'Ingreso', quantity: 1, description: '' });
 
   const { items: data, loading, load } = useList<Pool>(
@@ -40,10 +40,10 @@ export default function PoolStockPage() {
   const handleOpenForm = (item: Pool | null = null) => {
     if (item) {
       setEditItem(item);
-      setForm({ brand: item.brand, model: item.model, description: item.description || '', material: item.material || '', quantity: item.quantity, price: item.price || 0, priceUsd: item.priceUsd || 0 });
+      setForm({ brand: item.brand, model: item.model, description: item.description || '', material: item.material || '', quantity: item.quantity, price: item.price || 0, price_usd: item.price_usd || 0 });
     } else {
       setEditItem(null);
-      setForm({ brand: '', model: '', description: '', material: '', quantity: 0, price: 0, priceUsd: 0 });
+      setForm({ brand: '', model: '', description: '', material: '', quantity: 0, price: 0, price_usd: 0 });
     }
     setShowForm(true);
   };
@@ -133,7 +133,7 @@ export default function PoolStockPage() {
                     <td>{p.model}</td>
                     <td>{p.material || '-'}</td>
                     <td style={{ fontWeight: 600 }}>${Number(p.price || 0).toLocaleString('es-AR')}</td>
-                    <td style={{ fontWeight: 600, color: '#059669' }}>USD {Number(p.priceUsd || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                    <td style={{ fontWeight: 600, color: '#059669' }}>USD {Number(p.price_usd || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
                     <td>
                       <span style={{
                         fontWeight: 700, fontSize: 16,
@@ -185,7 +185,7 @@ export default function PoolStockPage() {
             <div className="form-group"><label>Precio ARS ($)</label><input className="input" type="number" step="0.01" min="0" value={form.price} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} /></div>
           </div>
           <div className="form-row">
-            <div className="form-group"><label>Precio USD</label><input className="input" type="number" step="0.01" min="0" value={form.priceUsd} onChange={(e) => setForm({ ...form, priceUsd: Number(e.target.value) })} /></div>
+            <div className="form-group"><label>Precio USD</label><input className="input" type="number" step="0.01" min="0" value={form.price_usd} onChange={(e) => setForm({ ...form, price_usd: Number(e.target.value) })} /></div>
             <div className="form-group"><label>Cantidad</label><input className="input" type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} /></div>
           </div>
           <div className="form-group"><label>Descripción</label><textarea className="input" rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>

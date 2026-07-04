@@ -1,6 +1,5 @@
-// @ts-nocheck
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { EntityFormState, FormField, UseEntityFormReturn } from '../types';
+import type { EntityFormState, FormField, UseEntityFormReturn, EntityServices } from '../types';
 import { INITIAL_FORM, M2_CONCEPTS, buildPayload } from './entityFormHelpers';
 import { useBudgetCalculations } from './useBudgetCalculations';
 import { useFormReferences } from './useFormReferences';
@@ -11,17 +10,9 @@ import { useFormClient } from './useFormClient';
 import { useFormCalculationsInput } from './useFormCalculationsInput';
 import { useFormActions } from './useFormActions';
 
-export default function useEntityForm({
-  entityType,
-  services,
-  defaultEstado,
-  id,
-  navigate,
-  onLoaded,
-  extraPayloadFields,
-}: {
+export interface UseEntityFormParams {
   entityType: string;
-  services: EntityFormState extends never ? never : Parameters<typeof useFormReferences>[0]['services'];
+  services: EntityServices;
   defaultEstado: string;
   id?: string;
   navigate: (path: string) => void;
@@ -29,7 +20,17 @@ export default function useEntityForm({
   /** Optional extra fields merged into the payload on every save
    *  (e.g. per-order terms override `delivery_terms_override`). */
   extraPayloadFields?: () => Record<string, unknown>;
-}): UseEntityFormReturn {
+}
+
+export default function useEntityForm({
+  entityType,
+  services,
+  defaultEstado,
+  id,
+  navigate,
+  onLoaded,
+  extraPayloadFields: _extraPayloadFields,
+}: UseEntityFormParams): UseEntityFormReturn {
   void entityType; // entityType kept for future per-type branching
   const isEdit = !!id;
 
@@ -52,7 +53,7 @@ export default function useEntityForm({
 
   // ----- References (materials/pools/clients/logo/next#/initial load)
   const { materiales, piletas, clientes, logoUrl, refreshClientes } = useFormReferences({
-    services: services as any,
+    services,
     defaultEstado,
     id,
     isEdit,
@@ -120,11 +121,12 @@ export default function useEntityForm({
     form,
     setForm,
     setSaving,
-    services: services as any,
+    services,
     id,
     isEdit,
     navigate,
     buildPayload: buildPayloadFn,
+    extraPayloadFields: _extraPayloadFields,
   });
 
   // ----- Outside-click dismiss for menu/dropdown

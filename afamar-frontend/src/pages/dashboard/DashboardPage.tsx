@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DollarSign, FileText, ClipboardList, PackageOpen, Globe, Truck, type LucideIcon } from 'lucide-react';
 import type { DashboardData } from '../../types/dashboard';
 import { getDashboard } from '@/api/resources/dashboard';
+import { useGet } from '../../api/hooks';
 import Loading from '../../components/common/Loading';
 import styles from './DashboardPage.module.css';
 
@@ -22,21 +23,14 @@ interface CardDef {
 }
 
 export default function Dashboard() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, error } = useGet<DashboardData>(
+    ['dashboard'],
+    async () => (await getDashboard()).data as DashboardData
+  );
   const navigate = useNavigate();
 
-  useEffect(() => {
-    getDashboard()
-      .then((res) => {
-        setData(res.data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
-
   if (loading) return <Loading />;
-  if (!data) return <div className={s['dashboard__error']}>Error al cargar el dashboard</div>;
+  if (error || !data) return <div className={s['dashboard__error']}>Error al cargar el dashboard</div>;
 
   const ing = (data.total_revenue ?? 0).toLocaleString();
   const pendiente = (data.total_pending_payments ?? 0).toLocaleString();

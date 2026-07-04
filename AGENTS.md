@@ -1,7 +1,183 @@
 # AGENTS.md
 
-> **Estado:** Rama `refactor` con commits pendientes: logo PNG upload, PDF preview backend, sidebar colapsable, configuration page refactor, **rename completo a inglés**, **client select dropdown + new client modal**.
+> **Estado:** Rama `refactor` con commits pendientes: logo PNG upload, PDF preview backend, sidebar colapsable, configuration page refactor, **rename completo a inglés**, **client select dropdown + new client modal**, **stock deduction fixes**, **dead code cleanup**, **`default_usd_rate` setting**, **layout fixes**.
 > Ver `PLAN.md` para el roadmap completo de migración.
+
+## Stock deduction & dead-code cleanup (sesión actual)
+
+### TanStack Query migration — PLAN.md #10 ✅ (round 2)
+
+Segunda vuelta: migré las 4 páginas restantes que aún usaban `useState`+`useEffect` para fetching. Ahora **TODAS** las páginas con fetching usan TanStack Query (`useList`/`useGet`/`useCreate`/`useUpdate`/`useDelete` de `src/api/hooks.ts`).
+
+| Page | Antes | Después |
+|---|---|---|
+| `ClientFormPage.tsx` | `useState<loading>` + `useEffect` que llama `getClient` + setState cliente/historial | `useGet(['client', id], async () => (await getClient(id)).data, !!id)` + `useEffect` que sincroniza cache → local state |
+| `MeasurementFormPage.tsx` | `useState<loading>` + `useEffect` que llama `getMeasurement` + setState form | `useGet<Measurement>(['measurement', id], ..., !!id)` |
+| `OnlineBudgetFormPage.tsx` | 5 `useEffect` para materials/pools/next#/onlineBudget + setState locales | `useList<Material>` + `useList<Pool>` + `useGet<nextNumber>` + `useGet<OnlineBudget>` |
+| `HomePage.tsx` (portfolio fetch) | `useEffect` que llama `http.get` + setState portfolioItems | `useList<ProductPhoto>(['portfolio-photos'], ...)` |
+
+### Páginas que NO necesitan TanStack Query (UI state puro)
+
+| Page | Razón |
+|---|---|
+| `LoginPage.tsx` | Solo `useState` para form data. Mutación via `auth.login()`. Sin fetching. |
+| `BudgetFormPage.tsx` / `WorkOrderFormPage.tsx` | Usan `useEntityForm` (internamente usa TanStack Query para refs/logo/initial load). |
+| `CalculatorPage.tsx` | Solo cálculos locales, sin fetching. |
+| `ConfigurationPage.tsx` | Lee config 1 vez en mount. Opcional migrar. |
+
+### Beneficios
+
+- **Auto-deduplication**: TanStack Query deduplica requests si el componente se monta 2 veces
+- **Cache**: el cache es compartido entre componentes (botones en sidebar, navigation, etc.)
+- **Refetch on focus**: automático cuando el user vuelve a la tab
+- **Error/Loading states uniformes**: tipados y consistentes
+- **No más `.then().catch().finally()` boilerplate** para fetching
+
+### Verificación
+
+- `tsc --noEmit` → 0 errores ✅
+- `vite build` → ✓ built in 9.53s ✅
+
+### Beneficios
+
+- **Auto-deduplication**: TanStack Query deduplica requests si el componente se monta 2 veces
+- **Cache**: el cache es compartido entre componentes (botones en sidebar, navigation, etc.)
+- **Refetch on focus**: automático cuando el user vuelve a la tab
+- **Error/Loading states uniformes**: tipados y consistentes
+- **No más `.then().catch().finally()` boilerplate**
+
+### UI state local — no se migra
+
+Estado de UI legítimo sigue con `useState`:
+- Filtros de búsqueda (`search`, `estado`)
+- Estado de modales (`showIncome`, `deleteId`)
+- Tabs activos (`activeTab` en ReportsPage)
+- PDF preview state (`pdfPreviewUrl`, `pdfPreviewLoading`)
+
+Estos NO deben migrarse porque no son data fetching.
+
+### Verificación
+
+- `tsc --noEmit` → 0 errores ✅
+- `vite build` → ✓ built in 9.38s ✅
+- Comportamiento idéntico (mismas queries, mismo rendering) ✅
+
+### useEntityForm refactor — PLAN.md #9 ✅
+
+`useEntityForm.ts` ya NO es un mega-hook legacy con `@ts-nocheck`. Ahora es un **facade delgado y tipado** que compone 7 composables pequeños.
+
+#### Composables extraídos (todos en `src/hooks/`)
+
+| Composable | Responsabilidad | Líneas |
+|---|---|---|
+| `useFormReferences` | Carga materiales/pools/clients/logo, fetch next number, initial load | 101 |
+| `useFormDetails` | CRUD `fabrication_details`, refs de material | 130 |
+| `useFormMaterials` | Material picker + CRUD `materials_data`, `hayUSD`/`hayAlternativas` | 108 |
+| `useFormPools` | Pool picker + CRUD `pools_data`, image upload | 67 |
+| `useFormClient` | Client autocomplete (filtered + handleClientSelect) | 49 |
+| `useFormCalculationsInput` | Handlers transport/deposit/usd_rate | 88 |
+| `useFormActions` | Submit/delete/status-change/print | 117 |
+
+#### `useEntityForm.ts` ahora es solo el facade
+
+- ❌ Removido `@ts-nocheck` (era `// @ts-nocheck` en línea 1)
+- ✅ Totalmente tipado con `UseEntityFormReturn` (de `types/form.ts`)
+- ✅ Acepta `extraPayloadFields?` opcional (sin `as any`)
+- ✅ `useFormReferences`, `useFormActions`, etc. se llaman con tipos exactos
+- 198 líneas → tipadas completamente
+
+#### `entityFormHelpers.ts` — kept as-is
+
+Sigue exportando `INITIAL_FORM`, `M2_CONCEPTS`, `CUTOUT_DETAILS`, `CONCEPT_NORMALIZE`, `buildPayload`, `mapApiToForm`, `addMaterialToList`, `addPoolToList`. Los composables lo importan. Es un módulo de helpers puros (sin React) — válido como tal.
+
+#### Consumers sin cambios
+
+`BudgetFormPage.tsx` y `WorkOrderFormPage.tsx` consumen `useEntityForm({...})` igual que antes. Solo `WorkOrderFormPage` pasa `extraPayloadFields` para los terms override.
+
+### E2E test fixes (independiente del refactor)
+
+- `e2e/helpers/login.ts:logout()` ahora navega a `/login` antes de tocar `localStorage` (pre-nav `about:blank` tira `SecurityError`).
+- `e2e/01-auth.spec.ts:rejects bad credentials` ahora matchea `/inválid|credencial|error/i` (error real es "Credenciales inválidas", no "error").
+- `e2e/01-auth.spec.ts:legacy Spanish paths` ahora hace `loginAsAdmin` antes de testear redirects a `/admin/*` (sin auth, redirects van a `/login`).
+- `e2e/helpers/login.ts` agrega `loginViaApi(page, request)` que autentica vía API y setea el JWT en `localStorage` directamente — evita el rate limit del backend en suites grandes.
+- `e2e/{02,03,04}-*.spec.ts` ahora usan `loginViaApi` en `beforeEach` (más rápido + no golpea el rate limit).
+- `e2e/04-cash.spec.ts:opens add income/expense modal` ahora matchea `/agregar ingreso|nuevo ingreso/i` (botón real dice "Agregar Ingreso", no "Nuevo Ingreso").
+- `e2e/04-cash.spec.ts:navigates to cash history` navega directo a `/admin/cash/history` (sidebar accordion colapsado intercepta clicks).
+
+### Backend rate limit configurable
+
+- `app/core/settings.py`: `RATE_LIMIT_LOGIN=60/minute`, `RATE_LIMIT_REGISTER=3/minute` (antes hardcoded a 5 y 3).
+- Permite que las E2E suites + uso normal convivan sin bloquearse.
+- En tests pytest backend se sigue usando `RATE_LIMIT_ENABLED=false` en `tests/conftest.py`.
+
+### Backend .env setup
+
+- `afamar-backend/.env.example` (commitable): plantilla con todos los valores documentados.
+- `afamar-backend/.env` (gitignored): copia local del `.env.example` con valores para development.
+- `app/core/settings.py`: bug fix en `BASE_DIR` — antes apuntaba a `D:\projects\PERSONAL\afamar\.env` (4 niveles arriba), ahora apunta correctamente a `afamar-backend/.env` (3 niveles arriba, 1 nivel arriba de `app/`).
+- El `.env` viejo en `D:\projects\PERSONAL\afamar\.env` ya no se usa (movido a `afamar-backend/.env`).
+
+### Bugs encontrados y arreglados
+
+#### 1. Stock NO se descontaba al crear WO directa
+- `POST /api/v1/work-orders` → `WorkOrderService.create()` no llamaba `deduct_pool_stock()`
+- Fix (`work_order.py:201-211`): agrega deducción al final del método cuando `order.pool_id` o `order.pools_data` están presentes.
+
+#### 2. Stock NO se descontaba al convertir alternativa
+- `POST /api/v1/budgets/{id}/alternatives/{idx}/convert-to-work-order` → `BudgetService.convert_alternative_to_work_order()` solo seteaba `stock_deducted = True` sin descargar realmente.
+- Fix (`budget.py:259-269`): importa `deduct_pool_stock` y la llama antes de setear el flag.
+
+#### 3. Frontend llamaba endpoint inexistente
+- `convertBudgetToWorkOrder(id)` → `POST /api/v1/budgets/${id}/convert-to-work-order` → **404**
+- Fix (`budgets.ts:9`): apunta a `/work-orders/from-budget/${id}` que sí existe y crea OT con stock deduction.
+- `BudgetsListPage.tsx:86`: cambia `res.data.orden_id` → `res.data.id` (backend retorna English).
+
+### List pages leyendo campos Spanish del API (bugs silenciosos)
+
+Los list endpoints retornan campos English (`status`, `number`, `client_name`, etc.) pero las páginas leían los nombres viejos en español — los displays salían vacíos.
+
+| Archivo | Antes | Después |
+|---|---|---|
+| `WorkOrdersListPage.tsx` | `o.numero`, `o.cliente_nombre`, `o.estado`, `o.sena_recibida`, `o.saldo_pendiente`, `o.fecha_entrega` | `o.number`, `o.client_name`, `o.status`, `o.deposit_received`, `o.balance_due`, `o.delivery_date` |
+| `IncomeModal.tsx` (líneas 36, 37, 39, 111) | `orden.numero`, `orden.cliente_nombre`, `orden.estado` | `orden.number`, `orden.client_name`, `orden.status` |
+| `OnlineBudgetsListPage.tsx:102` | `p.numero` | `(p.number as string) \|\| ''` |
+| `OnlineBudgetFormPage.tsx:80-85, 94` | fallbacks `d.cliente`/`d.telefono`/`d.tipo_obra`/`d.fecha`/`d.dolar_dia`/`d.numero`/`d.pileta_id` | solo English (`d.client_name`, `d.phone`, `d.work_type`, `d.date`, `d.usd_rate`, `d.number`, `d.pool_id`) |
+| `OnlineBudgetFormPage.tsx:50` | `r.data.numero` | `r.data.number` (endpoint ya retornaba English) |
+
+### Dead code eliminado
+
+#### Frontend `api/resources/`:
+- **`onlineBudgets.ts`**: eliminado `mapOnlineBudgetToApi` (32 líneas, nunca importado).
+- **`poolStock.ts`**: eliminados `mapPoolToApi` y `mapMovementToApi` (eran pass-throughs). `createPool`, `updatePool`, `createPoolMovement` ahora pasan `data` directo.
+- **`materials.ts`**: ya estaba limpio desde refactor anterior.
+
+#### Backend `api/routers/`:
+- **`work_orders.py`**: eliminado `_FIELD_MAP` (33 entradas Spanish→English) + `_map_form_fields`. Simplificado `_build_client_dict_from_form` (sin fallbacks `cliente_nombre`/`domicilio`).
+- **`budgets.py`**: eliminado `_BUDGET_FIELD_MAP` (33 entradas) + `_map_budget_fields`. Simplificado client dict extraction en `preview_budget_pdf`.
+
+**Razón para eliminar:** el frontend ahora envía directamente campos English (vía `buildPayload()` en `entityFormHelpers.ts`). Los mappings eran backward-compat obsoleto.
+
+### Fix limpio: `tipo_cambio` → `default_usd_rate`
+
+- **Antes**: `MaterialFormPage.tsx:70` leía `data.tipo_cambio` que **no existía en backend** → caía al fallback `|| 1` → ARS/1 = ARS (conversión 1:1 rota).
+- **Ahora**: `data.default_usd_rate`. Backend `settings.py` agrega `"default_usd_rate": "1000"` a `DEFAULT_KEYS` (admin puede editarlo desde `/admin/configuration`).
+- **Por qué `default_usd_rate` y no `tipo_cambio`**: English consistente con el resto del codebase, y la convención del modelo (cada Budget/WorkOrder tiene su propio `usd_rate`).
+
+### Layout fixes (uniform padding)
+
+- `MainLayout.module.css`: `main-layout__page-content` padding: `24px` → `36px` (única fuente de padding exterior).
+- **17 pages** (todos los CSS modules de pages): eliminado `padding: 24px` de la clase raíz. Layout ahora es la única fuente de padding.
+
+### Duplicate "APROBACIÓN DEL CLIENTE"
+
+- `BudgetFormPage.tsx:466` renderizaba `<ApprovalSection>` directamente, pero `BudgetFormFinancial` (subcomponente) ya lo incluye. Removido el duplicado + import `ApprovalSection`.
+
+### Sidebar
+
+- `MainLayout.tsx`: profile + logout movidos del sidebar a topbar (User icon dropdown).
+- Topbar con `position: sticky` + dynamic page title via `getPageTitle(pathname)` y `useEffect` para cerrar dropdown al click outside.
+
+
 
 ---
 
@@ -13,6 +189,56 @@
 - **Auth:** JWT (python-jose HS256) + passlib bcrypt==4.1.3
 - **Status/Payment/Priority enums:** English en DB, Spanish en UI via `t(key)` en `src/utils/translate.ts`
 - **Tests:** pytest (backend), vitest (frontend — instalado, no usado aún)
+
+## FabricationDetail + MaterialInForm/PoolInForm migration (sesión actual)
+
+### FabricationDetail → English snake_case
+Campos internos del JSON `fabrication_details` (frontend-only, serializado como string):
+| Antes | Después |
+|---|---|
+| `concepto` | `concept` |
+| `detalle` | `detail` |
+| `concepto_personalizado` | `custom_concept` |
+| `material_precio_m2` | `material_price_m2` |
+| `largo` | `length` |
+| `ancho` | `width` |
+| `mano_de_obra` | `labor` |
+| `moneda` | `currency` |
+| `cantidad` | `quantity` |
+| `precio` | `price` |
+
+### MaterialInForm → snake_case (revertido de camelCase)
+| Antes (camelCase) | Después (snake_case) |
+|---|---|
+| `priceM2` | `price_m2` |
+| `priceM2Usd` | `price_m2_usd` |
+| `m2Used` | `m2_used` |
+| `m2Budgeted` | `m2_budgeted` |
+| `isAlternative` | `is_alternative` |
+
+### PoolInForm → snake_case (revertido de camelCase)
+| Antes (camelCase) | Después (snake_case) |
+|---|---|
+| `poolId` | `pool_id` |
+
+### Archivos modificados (12):
+- `types/budget.ts` — interfaces FabricationDetail, MaterialInForm, PoolInForm, BudgetItemSchema
+- `types/poolStock.ts` — PoolMovement.poolId → pool_id
+- `types/onlineBudget.ts` — OnlineBudgetItem.poolId → pool_id, OnlineBudgetPayload.poolId → pool_id
+- `hooks/useFormMaterials.ts` — d.concepto → d.concept, moneda → currency, precio → price
+- `hooks/useFormDetails.ts` — todas las referencias Spanish a English en handleDetailChange + addDetalle
+- `hooks/useBudgetCalculations.ts` — d.moneda → currency, precio → price, cantidad → quantity
+- `components/budget/FabricationTable.tsx` — inputs/callbacks a English field names
+- `components/budget/BudgetPanel.tsx` — todas las referencias a FabricationDetail
+- `components/budget/QuoteOptionsGrid.tsx` — Alternativa/TrabajoComun interfaces + referencias
+- `components/materials/MaterialCard.tsx` — priceM2 → price_m2, isAlternative → is_alternative
+- `components/materials/PoolCard.tsx` — poolId → pool_id
+- `pages/budgets/BudgetFormPage.tsx` — items/forEach referencias a FabricationDetail
+- `pages/work-orders/WorkOrderFormPage.tsx` — d.precio → price, cantidad → quantity
+- `pages/budgets/BudgetFormAdicionales.tsx` — p.marca → brand, modelo → model, cantidad → quantity
+
+### Verificación
+- `tsc --noEmit` → **0 errores** ✅
 
 ## Spanish→English naming migration (reciente)
 

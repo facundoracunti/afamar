@@ -31,6 +31,7 @@ DEFAULT_KEYS = {
     "company_email": "",
     "company_logo": "",
     "pdf_footer": "",
+    "default_usd_rate": "1000",
     "budget_terms": [],
     "delivery_terms": [],
     "warranty_text": [],

@@ -16,12 +16,17 @@
    .main-layout__submenu-item--active active submenu item
    .main-layout__submenu-link         submenu link
    .main-layout__submenu-icon         submenu icon
-   .main-layout__user-section         user info + logout
-   .main-layout__user-name            user name
-   .main-layout__logout-btn           logout button
-   .main-layout__content              main content
-   .main-layout__topbar               top bar
+   .main-layout__content              main content wrapper
+   .main-layout__topbar               fixed top bar
+   .main-layout__topbar-right         right section of topbar (date + profile)
+   .main-layout__page-title           dynamic page title in topbar
    .main-layout__date                 date in top bar
+   .main-layout__profile              profile dropdown wrapper
+   .main-layout__profile-btn          profile icon button
+   .main-layout__profile-dropdown     dropdown menu
+   .main-layout__profile-name         user name in dropdown
+   .main-layout__profile-logout       logout button in dropdown
+   .main-layout__page-content         scrollable content below fixed topbar
 */
 
 .main-layout {
@@ -306,52 +311,6 @@
   color: #dc2626;
 }
 
-.main-layout__user-section {
-  padding: 16px 20px;
-  border-top: 1px solid #e2e8f0;
-  margin-top: auto;
-  flex-shrink: 0;
-}
-
-.main-layout__sidebar--collapsed .main-layout__user-section {
-  padding: 16px 0;
-}
-
-.main-layout__user-name {
-  font-size: 12px;
-  color: #718096;
-  margin-bottom: 8px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.main-layout__logout-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 12px;
-  background: transparent;
-  border: 1px solid #fee2e2;
-  border-radius: 6px;
-  color: #dc2626;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s;
-  justify-content: flex-start;
-}
-
-.main-layout__sidebar--collapsed .main-layout__logout-btn {
-  justify-content: center;
-  padding: 8px 0;
-}
-
-.main-layout__logout-btn:hover {
-  background: #fef2f2;
-}
-
 .main-layout__content {
   min-height: 100vh;
   transition: margin-left 0.25s ease-in-out;
@@ -359,16 +318,104 @@
 }
 
 .main-layout__topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  padding: 16px 24px;
+  justify-content: space-between;
+  padding: 0 24px;
   background: #fff;
   border-bottom: 1px solid #e2e8f0;
   min-height: 64px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.main-layout__topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.main-layout__page-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a202c;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .main-layout__date {
-  font-size: 14px;
-  color: #4a5568;
+  font-size: 13px;
+  color: #718096;
+}
+
+.main-layout__profile {
+  position: relative;
+}
+
+.main-layout__profile-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #374151;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.main-layout__profile-btn:hover {
+  background: #e2e8f0;
+  color: #1a202c;
+}
+
+.main-layout__profile-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 200px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  z-index: 200;
+  padding: 8px 0;
+}
+
+.main-layout__profile-name {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a202c;
+  border-bottom: 1px solid #f1f5f9;
+  margin-bottom: 4px;
+}
+
+.main-layout__profile-logout {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  color: #dc2626;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+}
+
+.main-layout__profile-logout:hover {
+  background: #fef2f2;
+}
+
+.main-layout__page-content {
+  padding: 36px;
 }

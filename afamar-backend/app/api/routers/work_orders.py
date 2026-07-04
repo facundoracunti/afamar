@@ -157,66 +157,11 @@ def _has_terms(value) -> bool:
     return s not in ("", "[]")
 
 
-_FIELD_MAP: dict[str, str] = {
-    "cliente_nombre": "client_name",
-    "cliente_telefono_orden": "client_phone",
-    "domicilio": "client_address",
-    "email": "client_email",
-    "fecha": "date",
-    "estado": "status",
-    "material": "material",
-    "material_precio_m2": "material_price_m2",
-    "tipo_cambio": "usd_rate",
-    "color_tipo": "color",
-    "espesor": "thickness",
-    "acabado": "finish",
-    "croquis": "sketch_elements",
-    "observaciones_diseno": "design_observations",
-    "detalles_fabricacion": "fabrication_details",
-    "materiales": "materials_data",
-    "pileta_id": "pool_id",
-    "pileta_precio": "pool_price",
-    "pileta_moneda": "pool_currency",
-    "pileta_imagen": "pool_image",
-    "piletas": "pools_data",
-    "subtotal": "subtotal",
-    "traslado": "transport",
-    "total": "total",
-    "sena_recibida": "deposit_received",
-    "sena_moneda": "deposit_currency",
-    "saldo_pendiente": "balance_due",
-    "dolar_dia": "usd_rate",
-    "subtotal_usd": "subtotal_usd",
-    "traslado_usd": "transport_usd",
-    "total_usd": "total_usd",
-    "sena_usd": "deposit_usd",
-    "saldo_pendiente_usd": "balance_due_usd",
-    "forma_pago": "payment_method",
-    "cuotas": "installments",
-    "fecha_entrega": "delivery_date",
-    "firma_cliente": "digital_signature",
-    "fecha_aprobacion": "signed_at",
-    "observaciones": "notes",
-    "observaciones_importantes": "important_observations",
-    "descuento_porcentaje": "discount_percentage",
-    "descuento_monto_fijo": "discount_fixed_amount",
-}
-
-
-def _map_form_fields(data: dict) -> dict:
-    """Map Spanish frontend field names → English backend names."""
-    mapped = dict(data)
-    for es, en in _FIELD_MAP.items():
-        if es in data and en not in mapped:
-            mapped[en] = data[es]
-    return mapped
-
-
 def _build_client_dict_from_form(db: Session, data: dict) -> dict:
-    name = data.get("client_name") or data.get("cliente_nombre") or ""
-    phone = data.get("client_phone") or data.get("cliente_telefono_orden") or ""
-    email_val = data.get("client_email") or data.get("email") or ""
-    address = data.get("client_address") or data.get("domicilio") or ""
+    name = data.get("client_name") or ""
+    phone = data.get("client_phone") or ""
+    email_val = data.get("client_email") or ""
+    address = data.get("client_address") or ""
     if (not name or not phone) and data.get("client_id"):
         client = db.query(Client).filter(Client.id == int(data["client_id"])).first()
         if client:
@@ -237,7 +182,7 @@ def preview_work_order_pdf(data: dict = Body(...), db: Session = Depends(get_db)
         from app.services.work_order import WorkOrderService
         from app.utils.numbering import generate_work_order_number
 
-        order_data = _map_form_fields(data)
+        order_data = dict(data)
         service = WorkOrderService(db)
         last = service.repo.get_last_number()
         order_data["number"] = generate_work_order_number(last)
@@ -252,7 +197,7 @@ def preview_work_order_pdf(data: dict = Body(...), db: Session = Depends(get_db)
         company, terms = _build_company_and_terms(settings_data, overrides)
 
         items = []
-        materials_raw = order_data.get("materials_data") or data.get("materiales")
+        materials_raw = order_data.get("materials_data")
         if materials_raw:
             try:
                 parsed = json.loads(materials_raw) if isinstance(materials_raw, str) else materials_raw

@@ -33,10 +33,10 @@ export default function IncomeModal({ isOpen, onClose, onSubmit }: Props) {
     setIncomeForm({
       ...incomeForm,
       orden_id: orden.id as number,
-      orderNumber: orden.numero as string,
-      clientName: (orden.cliente_nombre as string) || '',
+      orderNumber: orden.number as string,
+      clientName: (orden.client_name as string) || '',
       amount: (orden.total as number) || '',
-      folderStatus: (orden.estado as string) ? (orden.estado as string) : '',
+      folderStatus: (orden.status as string) ? (orden.status as string) : '',
       orden_total: (orden.total as number) || null,
     });
     setShowOrderSearch(false);
@@ -108,7 +108,7 @@ export default function IncomeModal({ isOpen, onClose, onSubmit }: Props) {
                     onClick={() => selectOrder(o)}
                     onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => { (e.target as HTMLDivElement).style.background = '#f8fafc'; }}
                     onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => { (e.target as HTMLDivElement).style.background = 'transparent'; }}>
-                    <strong style={{ fontFamily: 'monospace' } as React.CSSProperties}>{(o.numero as string)}</strong> — {(o.cliente_nombre as string) || 'Sin cliente'}
+                    <strong style={{ fontFamily: 'monospace' } as React.CSSProperties}>{(o.number as string)}</strong> — {(o.client_name as string) || 'Sin cliente'}
                     <span style={{ cssFloat: 'right', color: '#64748b', fontSize: 12 } as React.CSSProperties}>{formatCurrency(o.total as number)}</span>
                   </div>
                 ))}

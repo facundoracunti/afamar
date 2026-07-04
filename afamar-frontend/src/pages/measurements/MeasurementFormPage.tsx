@@ -5,6 +5,7 @@ import { Save, X, Plus } from 'lucide-react';
 import { getMeasurement, createMeasurement, updateMeasurement } from '@/api/resources/measurements';
 import { measurementStatuses } from '../../utils/formatters';
 import type { Measurement, MeasurementFormData } from '../../types/measurement';
+import { useGet } from '../../api/hooks';
 import Loading from '../../components/common/Loading';
 import styles from './MeasurementFormPage.module.css';
 
@@ -15,7 +16,6 @@ export default function MeasurementForm() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isEdit = !!id;
-  const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [fotosPreview, setFotosPreview] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -32,26 +32,31 @@ export default function MeasurementForm() {
     status: 'PENDING',
   });
 
+  const { data: measurement, loading } = useGet<Measurement>(
+    ['measurement', id],
+    async () => {
+      if (!id) return {} as Measurement;
+      const res = await getMeasurement(id);
+      return res.data as Measurement;
+    },
+    !!id
+  );
+
   useEffect(() => {
-    if (id) {
-      getMeasurement(id).then((res: { data: Measurement }) => {
-        const d = res.data;
-        setForm({
-          clientName: d.clientName || '',
-          clientPhone: d.clientPhone || '',
-          clientAddress: d.clientAddress || '',
-          scheduledDate: d.scheduledDate ? d.scheduledDate.split('T')[0] : '',
-          scheduledTime: d.scheduledTime || '',
-          observations: d.observations || '',
-          croquis: d.croquis || [],
-          photos: d.photos || [],
-          status: d.status || 'PENDING',
-        });
-        setFotosPreview(d.photos || []);
-        setLoading(false);
-      });
-    }
-  }, [id]);
+    if (!measurement) return;
+    setForm({
+      clientName: measurement.clientName || '',
+      clientPhone: measurement.clientPhone || '',
+      clientAddress: measurement.clientAddress || '',
+      scheduledDate: measurement.scheduledDate ? measurement.scheduledDate.split('T')[0] : '',
+      scheduledTime: measurement.scheduledTime || '',
+      observations: measurement.observations || '',
+      croquis: measurement.croquis || [],
+      photos: measurement.photos || [],
+      status: measurement.status || 'PENDING',
+    });
+    setFotosPreview(measurement.photos || []);
+  }, [measurement]);
 
   const handleChange = (field: keyof MeasurementFormData) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setForm({ ...form, [field]: e.target.value });
@@ -102,7 +107,7 @@ export default function MeasurementForm() {
     }
   };
 
-  if (loading) return <Loading />;
+  if (loading || (isEdit && !measurement)) return <Loading />;
 
   return (
     <div className={s['measurement-form']}>

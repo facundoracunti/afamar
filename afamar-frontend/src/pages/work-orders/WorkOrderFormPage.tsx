@@ -173,7 +173,7 @@ export default function WorkOrderForm() {
           const m2 = Number(mat.length || 0) * Number(mat.width || 0) * (mat.quantity || 1);
           const costoMat = mat.currency === 'USD' ? m2 * (mat.price_m2_usd || 0) : m2 * (mat.price_m2 || 0);
           const costoMatArs = mat.currency === 'USD' ? (dd2 > 0 ? costoMat * dd2 : 0) : costoMat;
-          const fijosArsAlt = (form.fabrication_details || []).reduce((s: number, d) => s + (Number(d.precio) || 0) * (d.cantidad || 1), 0)
+          const fijosArsAlt = (form.fabrication_details || []).reduce((s: number, d) => s + (Number(d.price) || 0) * (d.quantity || 1), 0)
             + (form.pools_data as unknown as PoolInForm[] || []).reduce((s: number, pt) => s + (Number(pt.price) || 0) * (Number(pt.quantity) || 1), 0)
             + (Number(form.transport) || 0);
           const totalArs = costoMatArs + fijosArsAlt;

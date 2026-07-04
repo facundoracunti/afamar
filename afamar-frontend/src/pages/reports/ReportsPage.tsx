@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { getReportsDashboard, getMonthlySales, getMostUsedMaterials } from '@/api/resources/reports';
+import { useGet, useList } from '../../api/hooks';
 import Loading from '../../components/common/Loading';
 import styles from './ReportsPage.module.css';
 
@@ -10,38 +11,42 @@ const COLORS = ['#3b82f6', '#22c55e', '#ef4444', '#f59e0b', '#8b5cf6', '#06b6d4'
 
 export default function Reports() {
   const [activeTab, setActiveTab] = useState('presupuestos');
-  const [presupuestos, setPresupuestos] = useState<Record<string, unknown> | null>(null);
-  const [ordenes, setOrdenes] = useState<Record<string, unknown> | null>(null);
-  const [ventas, setVentas] = useState<Record<string, unknown> | null>(null);
-  const [materiales, setMateriales] = useState<Record<string, unknown>[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    Promise.all([
-      getReportsDashboard(),
-      getMonthlySales(),
-      getMostUsedMaterials(),
-    ]).then(([stats, v, m]) => {
-      const s = (stats as { data: Record<string, unknown> }).data;
-      setPresupuestos({
-        total: ((s.pending_budgets as number) || 0) + ((s.approved_budgets as number) || 0) + ((s.rejected_budgets as number) || 0),
-        pendientes: s.pending_budgets,
-        aprobados: s.approved_budgets,
-        rechazados: s.rejected_budgets,
-        monto_total: 0,
-      });
-      setOrdenes({
-        total: ((s.workshop_orders as number) || 0) + ((s.finished_orders as number) || 0) + ((s.delivered_orders as number) || 0),
-        presupuestadas: s.workshop_orders,
-        en_produccion: s.finished_orders,
-        finalizadas: s.delivered_orders,
-      });
-      setVentas((v as { data: Record<string, unknown> }).data);
-      setMateriales((m as { data: Record<string, unknown>[] }).data);
-      setLoading(false);
-    });
-  }, []);
+  const { data: stats, loading: loadingStats } = useGet<Record<string, unknown>>(
+    ['reports-dashboard'],
+    async () => (await getReportsDashboard()).data as Record<string, unknown>
+  );
+  const { data: ventas, loading: loadingVentas } = useGet<Record<string, unknown>>(
+    ['reports-monthly-sales'],
+    async () => (await getMonthlySales()).data as Record<string, unknown>
+  );
+  const { items: materiales, loading: loadingMateriales } = useList<Record<string, unknown>>(
+    ['reports-most-used-materials'],
+    async () => (await getMostUsedMaterials()).data as Record<string, unknown>[]
+  );
 
+  const presupuestos = useMemo(() => {
+    if (!stats) return null;
+    return {
+      total: ((stats.pending_budgets as number) || 0) + ((stats.approved_budgets as number) || 0) + ((stats.rejected_budgets as number) || 0),
+      pendientes: stats.pending_budgets,
+      aprobados: stats.approved_budgets,
+      rechazados: stats.rejected_budgets,
+      monto_total: 0,
+    };
+  }, [stats]);
+
+  const ordenes = useMemo(() => {
+    if (!stats) return null;
+    return {
+      total: ((stats.workshop_orders as number) || 0) + ((stats.finished_orders as number) || 0) + ((stats.delivered_orders as number) || 0),
+      presupuestadas: stats.workshop_orders,
+      en_produccion: stats.finished_orders,
+      finalizadas: stats.delivered_orders,
+    };
+  }, [stats]);
+
+  const loading = loadingStats || loadingVentas || loadingMateriales;
   if (loading) return <Loading />;
 
   const tabs = [

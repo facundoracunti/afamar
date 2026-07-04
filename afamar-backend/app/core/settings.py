@@ -1,7 +1,9 @@
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
+# settings.py lives at afamar-backend/app/core/settings.py
+# .env lives at afamar-backend/.env (one level above app/)
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 
 class Settings(BaseSettings):
@@ -54,6 +56,8 @@ class Settings(BaseSettings):
 
     # Rate limiting
     RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_LOGIN: str = "60/minute"
+    RATE_LIMIT_REGISTER: str = "3/minute"
 
     @property
     def cors_origins_list(self) -> list[str]:

@@ -12,7 +12,7 @@ interface MaterialCardProps {
 
 export default function MaterialCard({ mat, idx, readOnly, updateMaterial, removeMaterial, num }: MaterialCardProps) {
   const m2 = Number(mat.length || 0) * Number(mat.width || 0) * (mat.quantity || 1);
-  const subtotal = m2 * (mat.currency === 'USD' ? (mat.priceM2Usd || 0) : (mat.priceM2 || 0));
+  const subtotal = m2 * (mat.currency === 'USD' ? (mat.price_m2_usd || 0) : (mat.price_m2 || 0));
   return (
     <div key={idx} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -22,8 +22,8 @@ export default function MaterialCard({ mat, idx, readOnly, updateMaterial, remov
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <label style={{ fontSize: 11, color: '#4a5568', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <input type="checkbox" checked={mat.isAlternative as boolean || false}
-              onChange={(e) => updateMaterial(idx, 'isAlternative', e.target.checked)}
+            <input type="checkbox" checked={mat.is_alternative as boolean || false}
+              onChange={(e) => updateMaterial(idx, 'is_alternative', e.target.checked)}
               disabled={readOnly} style={{ width: 14, height: 14 }} />
             <span>Alternativa</span>
           </label>
@@ -49,7 +49,7 @@ export default function MaterialCard({ mat, idx, readOnly, updateMaterial, remov
         <div>
           <label style={{ fontSize: 11, color: '#4a5568', display: 'block', marginBottom: 2 }}>Precio M²</label>
           <div style={{ fontSize: 13, fontWeight: 700, color: mat.currency === 'USD' ? '#059669' : '#1e293b', padding: '5px 6px' }}>
-            {mat.currency === 'USD' ? `USD ${(mat.priceM2Usd || 0).toLocaleString('es-AR')}` : `$ ${(mat.priceM2 || 0).toLocaleString('es-AR')}`}
+            {mat.currency === 'USD' ? `USD ${(mat.price_m2_usd || 0).toLocaleString('es-AR')}` : `$ ${(mat.price_m2 || 0).toLocaleString('es-AR')}`}
           </div>
         </div>
       </div>

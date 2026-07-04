@@ -272,61 +272,6 @@ def convert_alternative_to_work_order(budget_id: int, idx: int, db: Session = De
     return created(work_order)
 
 
-_BUDGET_FIELD_MAP: dict[str, str] = {
-    "cliente_nombre": "client_name",
-    "cliente_telefono_orden": "client_phone",
-    "domicilio": "client_address",
-    "email": "client_email",
-    "fecha": "date",
-    "estado": "status",
-    "material": "material",
-    "material_precio_m2": "material_price_m2",
-    "tipo_cambio": "usd_rate",
-    "color_tipo": "color",
-    "espesor": "thickness",
-    "acabado": "finish",
-    "croquis": "sketch_elements",
-    "observaciones_diseno": "design_observations",
-    "detalles_fabricacion": "fabrication_details",
-    "materiales": "materials_data",
-    "pileta_id": "pool_id",
-    "pileta_precio": "pool_price",
-    "pileta_moneda": "pool_currency",
-    "pileta_imagen": "pool_image",
-    "piletas": "pools_data",
-    "subtotal": "subtotal",
-    "traslado": "transport",
-    "total": "total",
-    "sena_recibida": "deposit_received",
-    "sena_moneda": "deposit_currency",
-    "saldo_pendiente": "balance_due",
-    "dolar_dia": "usd_rate",
-    "subtotal_usd": "subtotal_usd",
-    "traslado_usd": "transport_usd",
-    "total_usd": "total_usd",
-    "sena_usd": "deposit_usd",
-    "saldo_pendiente_usd": "balance_due_usd",
-    "forma_pago": "payment_method",
-    "cuotas": "installments",
-    "fecha_entrega": "delivery_date",
-    "firma_cliente": "digital_signature",
-    "fecha_aprobacion": "signed_at",
-    "observaciones": "notes",
-    "observaciones_importantes": "important_observations",
-    "descuento_porcentaje": "discount_percentage",
-    "descuento_monto_fijo": "discount_fixed_amount",
-}
-
-
-def _map_budget_fields(data: dict) -> dict:
-    """Map Spanish frontend field names → English backend names."""
-    mapped = dict(data)
-    for es, en in _BUDGET_FIELD_MAP.items():
-        if es in data and en not in mapped:
-            mapped[en] = data[es]
-    return mapped
-
-
 @router.post("/preview-pdf")
 def preview_budget_pdf(data: dict = Body(...), db: Session = Depends(get_db)):
     """Generate a budget PDF preview without saving."""
@@ -338,15 +283,14 @@ def preview_budget_pdf(data: dict = Body(...), db: Session = Depends(get_db)):
         last = db.query(Budget.number).order_by(Budget.id.desc()).first()
         budget_data = dict(data)
         budget_data["number"] = generate_budget_number(last[0] if last else None)
-        budget_data = _map_budget_fields(budget_data)
 
-        budget_data["items"] = budget_data.get("items") or budget_data.get("materiales") or []
+        budget_data["items"] = budget_data.get("items") or budget_data.get("materials_data") or []
         budget_data["adicionales"] = budget_data.get("adicionales") or budget_data.get("adicionales_data") or []
 
-        client_name = data.get("client_name") or data.get("cliente_nombre") or ""
-        client_phone = data.get("client_phone") or data.get("cliente_telefono_orden") or ""
-        client_email = data.get("client_email") or data.get("email") or ""
-        client_address = data.get("client_address") or data.get("domicilio") or ""
+        client_name = data.get("client_name") or ""
+        client_phone = data.get("client_phone") or ""
+        client_email = data.get("client_email") or ""
+        client_address = data.get("client_address") or ""
         if (not client_name or not client_phone) and data.get("client_id"):
             client = db.query(Client).filter(Client.id == int(data["client_id"])).first()
             if client:

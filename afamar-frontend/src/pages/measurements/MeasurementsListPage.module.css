@@ -12,7 +12,6 @@
 */
 
 .measurements {
-  padding: 24px;
   display: grid;
   gap: 16px;
 }

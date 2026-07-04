@@ -1,11 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { loginAsAdmin } from './helpers/login';
+import { loginViaApi } from './helpers/login';
 
 const UNIQUE = `E2E-${Date.now()}`;
 
 test.describe('Clients', () => {
-  test.beforeEach(async ({ page }) => {
-    await loginAsAdmin(page);
+  test.beforeEach(async ({ page, request }) => {
+    await loginViaApi(page, request);
   });
 
   test('lists clients page', async ({ page }) => {

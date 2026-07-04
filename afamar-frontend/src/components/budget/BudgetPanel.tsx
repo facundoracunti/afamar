@@ -39,8 +39,8 @@ export default function BudgetPanel({
   const dd = Number(form.usd_rate);
   const currencyLabel = modoUSD ? 'USD' : 'ARS';
   const mostrarUSDCol = hayUSD && !modoUSD;
-  const matsMain = hayAlternativas ? (form.materials_data || []).filter((m: Record<string, unknown>) => !m.isAlternative) : (form.materials_data || []);
-  const matsAlt = (form.materials_data || []).filter((m: Record<string, unknown>) => m.isAlternative);
+  const matsMain = hayAlternativas ? (form.materials_data || []).filter((m: Record<string, unknown>) => !m.is_alternative) : (form.materials_data || []);
+  const matsAlt = (form.materials_data || []).filter((m: Record<string, unknown>) => m.is_alternative);
 
   return (
     <div className="card">
@@ -76,20 +76,20 @@ export default function BudgetPanel({
               <span style={{ fontWeight: 700, color: '#6b7280' }}>SUBTOTALES ({currencyLabel})</span>
             </div>
             <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: 8, marginBottom: 8 }}>
-              {(form.fabrication_details || []).filter((d: Record<string, unknown>) => Number(d.precio) > 0).map((d, i) => {
+              {(form.fabrication_details || []).filter((d: Record<string, unknown>) => Number(d.price) > 0).map((d, i) => {
                 const dd2 = Number(form.usd_rate);
-                const precioArs = d.moneda === 'ARS' ? Number(d.precio) : (dd2 > 0 ? Number(d.precio) * dd2 : 0);
+                const precioArs = d.currency === 'ARS' ? Number(d.price) : (dd2 > 0 ? Number(d.price) * dd2 : 0);
                 return (
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>{d.concepto === 'OTHER' ? (d.detalle || t('OTHER')) : t(d.concepto as string)}{d.material ? ` - ${d.material}` : ''}{d.m2 > 0 ? ` (${d.m2} m²)` : ''}{(d.largo || 0) > 0 && d.concepto === 'OTHER' ? ` (${d.largo} m)` : ''}{(d.cantidad || 1) > 1 ? ` x${d.cantidad}` : ''}</span>
-                    <span style={{ fontWeight: 600 }}>{modoUSD && dd2 > 0 ? `USD ${(precioArs * (d.cantidad || 1) / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(precioArs * (d.cantidad || 1))}</span>
+                    <span>{d.concept === 'OTHER' ? (d.detail || t('OTHER')) : t(d.concept as string)}{d.material ? ` - ${d.material}` : ''}{d.m2 > 0 ? ` (${d.m2} m²)` : ''}{(d.length || 0) > 0 && d.concept === 'OTHER' ? ` (${d.length} m)` : ''}{(d.quantity || 1) > 1 ? ` x${d.quantity}` : ''}</span>
+                    <span style={{ fontWeight: 600 }}>{modoUSD && dd2 > 0 ? `USD ${(precioArs * (d.quantity || 1) / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : formatCurrency(precioArs * (d.quantity || 1))}</span>
                   </div>
                 );
               })}
               {(matsMain || []).map((m: Record<string, unknown>, i) => {
                 const dd2 = Number(form.usd_rate);
                 const m2 = Number(m.length || 0) * Number(m.width || 0) * (m.quantity || 1);
-                const sub = m.currency === 'ARS' ? m2 * (m.priceM2 || 0) : (dd2 > 0 ? m2 * (m.priceM2Usd || 0) * dd2 : 0);
+                const sub = m.currency === 'ARS' ? m2 * (m.price_m2 || 0) : (dd2 > 0 ? m2 * (m.price_m2_usd || 0) * dd2 : 0);
                 return sub > 0 ? (
                   <div key={'ma' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span>{m.name} ({m2.toFixed(3)} m²){(m.quantity || 1) > 1 ? ` x${m.quantity}` : ''}</span>
@@ -156,20 +156,20 @@ export default function BudgetPanel({
                 <span style={{ fontWeight: 700, color: '#6b7280' }}>SUBTOTALES (USD)</span>
               </div>
               <div style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: 8, marginBottom: 8 }}>
-                {(form.fabrication_details || []).filter((d: Record<string, unknown>) => Number(d.precio) > 0).map((d, i) => {
+                {(form.fabrication_details || []).filter((d: Record<string, unknown>) => Number(d.price) > 0).map((d, i) => {
                   const dd2 = Number(form.usd_rate);
-                  const precioUsd = d.moneda === 'USD' ? Number(d.precio) : (dd2 > 0 ? Number(d.precio) / dd2 : 0);
+                  const precioUsd = d.currency === 'USD' ? Number(d.price) : (dd2 > 0 ? Number(d.price) / dd2 : 0);
                   return (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>{d.concepto === 'OTHER' ? (d.detalle || t('OTHER')) : t(d.concepto as string)}{d.material ? ` - ${d.material}` : ''}{d.m2 > 0 ? ` (${d.m2} m²)` : ''}{(d.cantidad || 1) > 1 ? ` x${d.cantidad}` : ''}</span>
-                      <span style={{ fontWeight: 600 }}>USD {(precioUsd * (d.cantidad || 1)).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span>{d.concept === 'OTHER' ? (d.detail || t('OTHER')) : t(d.concept as string)}{d.material ? ` - ${d.material}` : ''}{d.m2 > 0 ? ` (${d.m2} m²)` : ''}{(d.quantity || 1) > 1 ? ` x${d.quantity}` : ''}</span>
+                      <span style={{ fontWeight: 600 }}>USD {(precioUsd * (d.quantity || 1)).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   );
                 })}
                 {(matsMain || []).map((m: Record<string, unknown>, i) => {
                   const dd2 = Number(form.usd_rate);
                   const m2 = Number(m.length || 0) * Number(m.width || 0) * (m.quantity || 1);
-                  const sub = m.currency === 'USD' ? m2 * (m.priceM2Usd || 0) : (dd2 > 0 ? m2 * (m.priceM2 || 0) / dd2 : 0);
+                  const sub = m.currency === 'USD' ? m2 * (m.price_m2_usd || 0) : (dd2 > 0 ? m2 * (m.price_m2 || 0) / dd2 : 0);
                   return sub > 0 ? (
                     <div key={'mu' + i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span>{m.name} ({m2.toFixed(3)} m²){(m.quantity || 1) > 1 ? ` x${m.quantity}` : ''}</span>

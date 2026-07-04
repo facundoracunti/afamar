@@ -99,7 +99,7 @@ export default function OnlineBudgetsList() {
                   className={s['online-budgets__row']}
                   onClick={() => navigate(`/admin/online-budgets/${p.id as number}`)}
                 >
-                  <td className={s['online-budgets__number']}>{p.numero as string}</td>
+                  <td className={s['online-budgets__number']}>{(p.number as string) || (p.numero as string) || ''}</td>
                   <td>{(p.clientName as string) || (p.client_name as string) || '-'}</td>
                   <td>{(p.workType as string) || (p.work_type as string) || '-'}</td>
                   <td>{(p.date as string) || formatDate((p.created_at as string).split('T')[0])}</td>

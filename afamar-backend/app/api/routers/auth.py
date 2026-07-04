@@ -16,7 +16,7 @@ router = APIRouter(tags=["Auth"])
 
 
 @router.post("/login")
-@limiter.limit("5/minute")
+@limiter.limit(settings.RATE_LIMIT_LOGIN)
 def login(request: Request, body: LoginRequest, db: Session = Depends(get_db)):
     user = authenticate_user(db, body.username, body.password)
     if not user:
@@ -31,7 +31,7 @@ def me(current_user: User = Depends(get_current_user)):
 
 
 @router.post("/register")
-@limiter.limit("3/minute")
+@limiter.limit(settings.RATE_LIMIT_REGISTER)
 def register(request: Request, body: UserCreate, db: Session = Depends(get_db)):
     existing = db.query(User).filter((User.username == body.username) | (User.email == body.email)).first()
     if existing:

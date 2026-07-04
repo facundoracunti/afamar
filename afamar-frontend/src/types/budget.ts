@@ -2,20 +2,18 @@
 // Source of truth: afamar-backend/app/schemas/budget.py (BudgetBase / BudgetCreate / BudgetUpdate).
 
 export interface FabricationDetail {
-  // Spanish field names used inline in form state and fabrication_details array.
-  // The backend serializes this array as a JSON string in fabrication_details TEXT column.
-  concepto: string;
-  detalle: string;
-  concepto_personalizado?: string;
+  concept: string;
+  detail: string;
+  custom_concept?: string;
   material?: string;
-  material_precio_m2?: number;
-  largo: number | null;
-  ancho: number | null;
+  material_price_m2?: number;
+  length: number | null;
+  width: number | null;
   m2: number;
-  mano_de_obra: number | null;
-  moneda: 'ARS' | 'USD';
-  cantidad: number;
-  precio: number;
+  labor: number | null;
+  currency: 'ARS' | 'USD';
+  quantity: number;
+  price: number;
 }
 
 export interface BudgetItemSchema {
@@ -27,7 +25,7 @@ export interface BudgetItemSchema {
   width?: number;
   m2?: number;
   quantity?: number;
-  priceM2?: number;
+  price_m2?: number;
   subtotal?: number;
 }
 

@@ -30,8 +30,8 @@ export default function PoolCard({ pt, idx, piletas, readOnly, updatePileta, rem
           <label style={{ fontSize: 11 }}>Moneda</label>
           <select className="input" style={{ fontSize: 12, padding: '4px 6px' }} value={pt.currency as string} onChange={(e) => {
             const mon = e.target.value;
-            const pdata = piletas.find((p: Record<string, unknown>) => p.id === Number(pt.poolId));
-            const precio = pdata ? (mon === 'USD' ? (pdata.priceUsd as number || 0) : (pdata.price as number || 0)) : (pt.price as number);
+            const pdata = piletas.find((p: Record<string, unknown>) => p.id === Number(pt.pool_id));
+            const precio = pdata ? (mon === 'USD' ? (pdata.price_usd as number || 0) : (pdata.price as number || 0)) : (pt.price as number);
             const list = [...formPiletas];
             list[idx] = { ...list[idx], currency: mon as 'ARS' | 'USD', price: precio };
             update('pools_data', list);

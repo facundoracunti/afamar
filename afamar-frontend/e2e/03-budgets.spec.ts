@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { loginAsAdmin } from './helpers/login';
+import { loginViaApi } from './helpers/login';
 
 test.describe('Budgets', () => {
-  test.beforeEach(async ({ page }) => {
-    await loginAsAdmin(page);
+  test.beforeEach(async ({ page, request }) => {
+    await loginViaApi(page, request);
   });
 
   test('lists budgets page', async ({ page }) => {

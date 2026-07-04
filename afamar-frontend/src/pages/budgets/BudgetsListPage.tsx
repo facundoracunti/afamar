@@ -83,7 +83,7 @@ export default function BudgetsList() {
     if (!window.confirm('Convertir este presupuesto en Orden de Trabajo? Se copiara toda la informacion.')) return;
     try {
       const res = await convertBudgetToWorkOrder(id as string);
-      navigate(`/admin/work-orders/${(res.data as Record<string, unknown>).orden_id as string}`);
+      navigate(`/admin/work-orders/${(res.data as Record<string, unknown>).id as string}`);
     } catch (err: unknown) {
       const error = err as { response?: { data?: { detail?: string } } };
       alert(error.response?.data?.detail || 'Error al convertir');

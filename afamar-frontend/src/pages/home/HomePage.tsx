@@ -3,6 +3,7 @@ import styles from "./Home.module.css";
 import { Container } from "@/components/ui/Container";
 import { Modal } from "@/components/ui/Modal";
 import http from "@/api/http";
+import { useList } from "@/api/hooks";
 import type { ProductPhoto } from "@/types/product";
 
 import slider1 from "@/assets/slider/1.jpg";
@@ -57,18 +58,20 @@ const fallbackPortfolio = [
 export function HomePage() {
   const [activeSlide, setActiveSlide] = useState(0);
   const [modalImg, setModalImg] = useState<string | null>(null);
-  const [portfolioItems, setPortfolioItems] = useState<{ image: string }[]>(fallbackPortfolio);
-  const [portfolioLoading, setPortfolioLoading] = useState(true);
 
-  useEffect(() => {
-    setPortfolioLoading(true);
-    http.get("/product-photos/latest?limit=12").then((res) => {
-      const photos: ProductPhoto[] = res.data?.data || res.data || [];
-      if (photos.length > 0) {
-        setPortfolioItems(photos.map((p) => ({ image: p.file_path })));
-      }
-    }).catch(() => {}).finally(() => setPortfolioLoading(false));
-  }, []);
+  const { items: portfolioPhotos, loading: portfolioLoading } = useList<ProductPhoto>(
+    ['portfolio-photos'],
+    async () => {
+      const res = await http.get('/product-photos/latest', { params: { limit: 12 } });
+      const data = (res as { data: unknown }).data as { data?: ProductPhoto[] } | ProductPhoto[];
+      if (Array.isArray(data)) return data;
+      return (data.data as ProductPhoto[]) || [];
+    }
+  );
+
+  const portfolioItems: { image: string }[] = portfolioPhotos.length > 0
+    ? portfolioPhotos.map((p) => ({ image: p.file_path }))
+    : fallbackPortfolio;
 
   const goTo = (i: number) => {
     setActiveSlide(i);

@@ -8,11 +8,11 @@ interface Alternativa {
   totalFinalARS: number;
   length: number;
   width: number;
-  cantidad: number;
+  quantity: number;
 }
 
 interface TrabajoComun {
-  concepto: string;
+  concept: string;
   total: number;
 }
 
@@ -28,13 +28,13 @@ interface Props {
 // JSX-side helper because lucide icons & HTML entities are not used here.
 const QuoteOptionsGrid = ({ alternativas, detalleTrabajosComunes, tipoCambio = 1000, presupuestoId, onConvertirAlternativa, modoUSD = false }: Props) => {
   const listaAlternativas: Alternativa[] = alternativas && alternativas.length > 0 ? alternativas : [
-    { name: 'GRIS MARA', category: 'GRANITOS', currency: 'ARS', costoMaterialBase: 180000, totalFinalARS: 390000, length: 2.1, width: 2, cantidad: 1 },
-    { name: 'TAJ MAHAL', category: 'SINTERIZADOS', currency: 'USD', costoMaterialBase: 350, totalFinalARS: 560000, length: 2.1, width: 2, cantidad: 1 }
+    { name: 'GRIS MARA', category: 'GRANITOS', currency: 'ARS', costoMaterialBase: 180000, totalFinalARS: 390000, length: 2.1, width: 2, quantity: 1 },
+    { name: 'TAJ MAHAL', category: 'SINTERIZADOS', currency: 'USD', costoMaterialBase: 350, totalFinalARS: 560000, length: 2.1, width: 2, quantity: 1 }
   ];
 
   const listaTrabajos: TrabajoComun[] = detalleTrabajosComunes && detalleTrabajosComunes.length > 0 ? detalleTrabajosComunes : [
-    { concepto: 'CUTOUT_SINK - Apertura y pegado de pileta', total: 60000 },
-    { concepto: 'Pileta JOHNSON e 44', total: 150000 }
+    { concept: 'CUTOUT_SINK - Apertura y pegado de pileta', total: 60000 },
+    { concept: 'Pileta JOHNSON e 44', total: 150000 }
   ];
 
   return (
@@ -88,7 +88,7 @@ const QuoteOptionsGrid = ({ alternativas, detalleTrabajosComunes, tipoCambio = 1
                     Alternativa {String.fromCharCode(65 + idx)}
                   </span>
                   <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: '700' } as React.CSSProperties}>
-                    {mat.cantidad || 1} pza. ({Number(mat.length * mat.width || 1.216).toFixed(2)} m²)
+                    {mat.quantity || 1} pza. ({Number(mat.length * mat.width || 1.216).toFixed(2)} m²)
                   </span>
                 </div>
 
@@ -126,7 +126,7 @@ const QuoteOptionsGrid = ({ alternativas, detalleTrabajosComunes, tipoCambio = 1
                         style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', paddingTop: '12px', borderTop: '1px dashed #e2e8f0' } as React.CSSProperties}
                       >
                         <span style={{ fontSize: '12px', color: '#64748b', maxWidth: '65%', textTransform: 'uppercase', lineHeight: '1.2' } as React.CSSProperties}>
-                          {job.concepto.replace('CUTOUT_SINK - ', '')}
+                          {job.concept.replace('CUTOUT_SINK - ', '')}
                         </span>
                         <span style={{ fontSize: '12px', fontWeight: '600', color: '#334155', whiteSpace: 'nowrap', paddingLeft: '8px' } as React.CSSProperties}>
                           {modoUSD && tipoCambio > 0

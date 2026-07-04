@@ -1,26 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { getCashHistory } from '@/api/resources/cash';
+import { useList } from '../../api/hooks';
 import CurrencyDisplay from '../../components/ui/CurrencyDisplay';
 import { ArrowUpCircle, ArrowDownCircle, Calendar, FileText } from 'lucide-react';
 import Loading from '../../components/common/Loading';
 
 export default function CashHistoryPage() {
-  const [cashRecords, setCashRecords] = useState<Record<string, unknown>[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { items: cashRecords, loading } = useList<Record<string, unknown>>(
+    ['cash-history'],
+    async () => {
+      const res = await getCashHistory();
+      return (res.data as unknown as Record<string, unknown>[]) || [];
+    }
+  );
   const [selected, setSelected] = useState<Record<string, unknown> | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await getCashHistory();
-        setCashRecords(res.data || []);
-      } catch (err: unknown) {
-        setCashRecords([]);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
 
   if (loading) return <Loading />;
 
