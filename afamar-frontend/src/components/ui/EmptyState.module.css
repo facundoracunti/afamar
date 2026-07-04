@@ -1,9 +1,14 @@
 .emptyState {
   text-align: center;
   padding: 3rem 1rem;
-  color: var(--color-text-secondary);
+  color: var(--text-muted);
+  background: var(--surface-bg);
+  border: 1px dashed var(--border-color);
+  border-radius: 12px;
+  margin: 1rem 0;
+}
+
+.emptyState__message {
+  margin: 0;
   font-size: 0.95rem;
-  background: var(--color-state-bg);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
 }

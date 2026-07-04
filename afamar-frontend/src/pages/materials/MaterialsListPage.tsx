@@ -1,11 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Edit, Trash2, FolderTree } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, FolderTree, Image as ImageIcon } from 'lucide-react';
 import { getMaterials, deleteMaterial, getMaterialCategories, type MaterialCategory } from '@/api/resources/materials';
 import { useList, useDelete } from '../../api/hooks';
 import type { Material } from '../../types/material';
-import ConfirmDialog from '../../components/common/ConfirmDialog';
-import Loading from '../../components/common/Loading';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { SearchInput } from '../../components/ui/SearchInput';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { Modal } from '../../components/ui/Modal';
+import { MaterialFormModal } from '../../components/features/materials/MaterialFormModal';
 import styles from './MaterialsListPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -17,9 +22,12 @@ export default function MaterialsList() {
   const [search, setSearch] = useState('');
   const [categoria, setCategoria] = useState('');
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
+  const [lightboxName, setLightboxName] = useState<string>('');
   const navigate = useNavigate();
 
-  // Materials list (uses API filter param `categoria`).
   const { items: data, loading } = useList<Material>(
     [...MATERIALS_KEY, search, categoria],
     async () => {
@@ -28,9 +36,6 @@ export default function MaterialsList() {
     }
   );
 
-  // Categories come exclusively from the API. No more hardcoded lists.
-  // The hook refetches on every mount, so changes made in /admin/materials/categories
-  // show up here when the user navigates back.
   const { items: categorias } = useList<MaterialCategory>(
     CATEGORIES_KEY,
     async () => {
@@ -40,15 +45,11 @@ export default function MaterialsList() {
     }
   );
 
-  // Resolve category names for the table display: backend stores `category_id` as a number.
-  // Build a lookup map { id -> name } once per categories change.
   const categoryNameById = useMemo(() => {
     const m: Record<number, string> = {};
     categorias.forEach((c) => { m[c.id] = c.name; });
     return m;
   }, [categorias]);
-
-  // Filter dropdown uses the category `name` as the API filter value.
 
   const deleteMutation = useDelete<unknown, number>(
     MATERIALS_KEY,
@@ -62,31 +63,37 @@ export default function MaterialsList() {
     setDeleteId(null);
   };
 
+  const openEdit = (id: number) => setEditId(id);
+  const closeEdit = () => setEditId(null);
+
+  const openPhoto = (m: Material) => {
+    if (!m.photo) return;
+    setLightboxPhoto(m.photo);
+    setLightboxName(m.name);
+  };
+
   return (
     <div className={s['materials']}>
-      <div className={s['materials__header']}>
-        <h1 className={s['materials__title']}>Materiales</h1>
-        <div className={s['materials__toolbar']}>
+      <PageHeader
+        title="Materiales"
+        actions={
           <button
             type="button"
             className="btn btn-primary"
-            onClick={() => navigate('/admin/materials/new')}
+            onClick={() => setCreateOpen(true)}
           >
             <Plus size={16} /> Nuevo Material
           </button>
-        </div>
-      </div>
+        }
+      />
 
       <div className={s['materials__toolbar']}>
-        <div className={s['materials__search']}>
-          <Search size={18} color="#94a3b8" />
-          <input
-            className="input"
-            placeholder="Buscar material..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Buscar material..."
+          leftIcon={<Search size={18} color="#94a3b8" />}
+        />
         <select
           className="input"
           style={{ width: 220 }}
@@ -109,12 +116,13 @@ export default function MaterialsList() {
       </div>
 
       {loading ? (
-        <Loading />
+        <LoadingSpinner />
       ) : (
         <div className={s['materials__table']}>
           <table>
             <thead>
               <tr>
+                <th className={s['materials__th']} style={{ width: 60 }}>Foto</th>
                 <th className={s['materials__th']}>Nombre</th>
                 <th className={s['materials__th']}>Categoria</th>
                 <th className={s['materials__th']}>Color</th>
@@ -134,6 +142,22 @@ export default function MaterialsList() {
                   : '-';
                 return (
                   <tr key={m.id}>
+                    <td className={s['materials__td']}>
+                      {m.photo ? (
+                        <button
+                          type="button"
+                          className={s['materials__thumb-btn']}
+                          title={`Ver foto de ${m.name}`}
+                          onClick={() => openPhoto(m)}
+                        >
+                          <img src={m.photo} alt={m.name} className={s['materials__thumb']} />
+                        </button>
+                      ) : (
+                        <span className={s['materials__thumb-empty']} title="Sin foto">
+                          <ImageIcon size={16} />
+                        </span>
+                      )}
+                    </td>
                     <td className={s['materials__td']} style={{ fontWeight: 600 }}>
                       {m.name}
                     </td>
@@ -161,7 +185,7 @@ export default function MaterialsList() {
                           type="button"
                           className="btn btn-outline"
                           style={{ padding: '4px 8px' }}
-                          onClick={() => navigate(`/admin/materials/${m.id}`)}
+                          onClick={() => openEdit(m.id)}
                         >
                           <Edit size={14} />
                         </button>
@@ -180,8 +204,8 @@ export default function MaterialsList() {
               })}
               {data.length === 0 && (
                 <tr>
-                  <td colSpan={8} className={s['materials__empty']}>
-                    No hay materiales registrados
+                  <td colSpan={9}>
+                    <EmptyState message="No hay materiales registrados" />
                   </td>
                 </tr>
               )}
@@ -191,12 +215,51 @@ export default function MaterialsList() {
       )}
 
       <ConfirmDialog
-        isOpen={!!deleteId}
-        onClose={() => setDeleteId(null)}
+        open={!!deleteId}
+        onCancel={() => setDeleteId(null)}
         onConfirm={handleDelete}
         title="Eliminar material"
         message="Estas seguro?"
+        confirmLabel="Eliminar"
+        danger
       />
+
+      {/* Edit modal — triggered by the row's edit button instead of navigation */}
+      <MaterialFormModal
+        isOpen={editId !== null}
+        materialId={editId ?? undefined}
+        onClose={closeEdit}
+      />
+
+      {/* Create modal — same form, no materialId */}
+      <MaterialFormModal
+        isOpen={createOpen}
+        onClose={() => setCreateOpen(false)}
+      />
+
+      {/* Photo lightbox modal — opens the full-size image */}
+      <Modal
+        isOpen={lightboxPhoto !== null}
+        onClose={() => setLightboxPhoto(null)}
+        title={lightboxName ? `Foto — ${lightboxName}` : 'Foto del material'}
+        width="800px"
+      >
+        {lightboxPhoto && (
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <img
+              src={lightboxPhoto}
+              alt={lightboxName}
+              style={{
+                maxWidth: '100%',
+                maxHeight: '70vh',
+                objectFit: 'contain',
+                borderRadius: 8,
+                border: '1px solid var(--border-color)',
+              }}
+            />
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import React from 'react';
-import ObservationsSection from '../../components/orders/ObservationsSection';
-import CroquisEditor from '../../components/sketch/CroquisEditor';
+import ObservationsSection from '../../components/features/orders/ObservationsSection';
+import CroquisEditor from '../../components/features/sketch/CroquisEditor';
 import type { EntityFormState } from '../../types';
 import styles from './BudgetFormPage.module.css';
 

@@ -173,7 +173,7 @@ export default function ProductPhotosPage() {
         </div>
       )}
 
-      <Modal open={!!lightboxImg} onClose={() => setLightboxImg(null)} maxWidth="900px">
+      <Modal isOpen={!!lightboxImg} onClose={() => setLightboxImg(null)} width="900px">
         {lightboxImg && <img src={lightboxImg} alt="" className={s['product-photos__lightbox-img']} />}
       </Modal>
     </div>

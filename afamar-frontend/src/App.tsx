@@ -6,7 +6,7 @@ import { AuthProvider } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { ThemeProvider } from './context/ThemeContext';
 import MainLayout from './layouts/MainLayout';
-import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { ProtectedRoute } from './components/layout/ProtectedRoute';
 import DashboardPage from './pages/dashboard/DashboardPage';
 import { HomePage } from './pages/home/HomePage';
 import LoginPage from './pages/auth/LoginPage';

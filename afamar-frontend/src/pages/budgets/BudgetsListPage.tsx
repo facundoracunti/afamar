@@ -17,8 +17,10 @@ import {
 import { useList, useDelete } from '../../api/hooks';
 import { formatDate } from '../../utils/formatters';
 import CurrencyDisplay from '../../components/ui/CurrencyDisplay';
-import ConfirmDialog from '../../components/common/ConfirmDialog';
-import Loading from '../../components/common/Loading';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { EmptyState } from '../../components/ui/EmptyState';
 import type { UnifiedBudget } from '../../types/budget';
 import styles from './BudgetsListPage.module.css';
 
@@ -114,9 +116,9 @@ export default function BudgetsList() {
 
   return (
     <div className={s['budgets']}>
-      <div className={s['budgets__header']}>
-        <h1 className={s['budgets__title']}>PRESUPUESTOS LOCAL / WHATSAPP</h1>
-        <div className={s['budgets__actions']}>
+      <PageHeader
+        title="PRESUPUESTOS LOCAL / WHATSAPP"
+        actions={
           <button
             type="button"
             className="btn btn-primary"
@@ -124,8 +126,8 @@ export default function BudgetsList() {
           >
             <Plus size={16} /> Nuevo Presupuesto Local
           </button>
-        </div>
-      </div>
+        }
+      />
 
       <div className={s['budgets__filters']}>
         <div className={s['budgets__search']}>
@@ -149,7 +151,7 @@ export default function BudgetsList() {
       </div>
 
       {loading ? (
-        <Loading />
+        <LoadingSpinner />
       ) : (
         <div className={s['budgets__table']}>
           <table>
@@ -374,8 +376,8 @@ export default function BudgetsList() {
               ))}
               {data.length === 0 && (
                 <tr>
-                  <td colSpan={9} className={s['budgets__empty']}>
-                    No hay presupuestos
+                  <td colSpan={9}>
+                    <EmptyState message="No hay presupuestos" />
                   </td>
                 </tr>
               )}
@@ -385,11 +387,13 @@ export default function BudgetsList() {
       )}
 
       <ConfirmDialog
-        isOpen={!!deleteId}
-        onClose={() => setDeleteId(null)}
+        open={!!deleteId}
+        onCancel={() => setDeleteId(null)}
         onConfirm={handleDelete}
         title="Eliminar presupuesto"
         message="Estas seguro?"
+        confirmLabel="Eliminar"
+        danger
       />
     </div>
   );

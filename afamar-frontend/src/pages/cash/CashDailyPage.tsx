@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Printer, Lock } from 'lucide-react';
+import { Printer, Lock, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
 import { getDailyCash, createCashMovement, deleteCashMovement, setPreviousBalance, closeDailyCash } from '@/api/resources/cash';
 import { useGet } from '../../api/hooks';
-import ConfirmDialog from '../../components/common/ConfirmDialog';
-import Loading from '../../components/common/Loading';
-import PreviousBalanceCard from '../../components/cash/PreviousBalanceCard';
-import IncomeTable from '../../components/cash/IncomeTable';
-import ExpenseTable from '../../components/cash/ExpenseTable';
-import CashTotalCards from '../../components/cash/CashTotalCards';
-import IncomeModal from '../../components/cash/IncomeModal';
-import ExpenseModal from '../../components/cash/ExpenseModal';
-import CloseCashModal from '../../components/cash/CloseCashModal';
+import { formatCurrency } from '../../utils/formatters';
+import { folderStatusClass } from '../../constants';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import PreviousBalanceCard from '../../components/features/cash/PreviousBalanceCard';
+import { CashMovementTable } from '../../components/features/cash/CashMovementTable';
+import CashTotalCards from '../../components/features/cash/CashTotalCards';
+import IncomeModal from '../../components/features/cash/IncomeModal';
+import ExpenseModal from '../../components/features/cash/ExpenseModal';
+import CloseCashModal from '../../components/features/cash/CloseCashModal';
 import styles from './CashDailyPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -175,11 +176,64 @@ export default function CashDailyPage() {
           onChange={(v: number) => setPreviousBalanceState(v)}
         />
 
-        {loading ? <Loading /> : (
+        {loading ? <LoadingSpinner /> : (
           <>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 } as React.CSSProperties}>
-              <IncomeTable ingresos={ingresos} cerrada={closed} onDelete={(id: number) => setDeleteId(id)} onAdd={() => setShowIncome(true)} />
-              <ExpenseTable egresos={egresos} cerrada={closed} onDelete={(id: number) => setDeleteId(id)} onAdd={() => setShowExpense(true)} />
+              <CashMovementTable
+                title="Entradas (Ingresos)"
+                titleColor="#16a34a"
+                icon={<ArrowUpCircle size={20} />}
+                addLabel="Agregar Ingreso"
+                emptyMessage="Sin ingresos registrados"
+                movements={ingresos}
+                columns={[
+                  { key: 'order_number', label: 'N° Orden', width: 90, render: (m) => <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{(m as Record<string, unknown>).order_number as string || '-'}</span> },
+                  { key: 'client_name', label: 'Cliente', render: (m) => ((m as Record<string, unknown>).client_name as string) || '-' },
+                  { key: 'amount', label: 'Monto', width: 110, render: (m) => <span style={{ fontWeight: 600, color: '#16a34a' }}>{formatCurrency((m as Record<string, unknown>).amount as number)}</span> },
+                  { key: 'remaining_balance', label: 'Saldo Restante', width: 110, render: (m) => {
+                      const v = (m as Record<string, unknown>).remaining_balance as number | null | undefined;
+                      return v !== null && v !== undefined
+                        ? <span style={{ fontWeight: 600, color: v > 0 ? '#dc2626' : '#94a3b8' }}>{formatCurrency(v)}</span>
+                        : '-';
+                    }
+                  },
+                  { key: 'payment_method', label: 'Pago', width: 100, render: (m) => {
+                      const pm = (m as Record<string, unknown>).payment_method as string;
+                      const cls = pm === 'CASH' ? 'badge-approved' : pm === 'TRANSFER' ? 'badge-production' : 'badge-pending';
+                      return <span className={`badge ${cls}`}>{pm || '-'}</span>;
+                    }
+                  },
+                  { key: 'folder_status', label: 'Carpeta', width: 90, render: (m) => {
+                      const fs = (m as Record<string, unknown>).folder_status as string | undefined;
+                      return fs ? <span className={`badge ${folderStatusClass(fs)}`}>{fs}</span> : '-';
+                    }
+                  },
+                ]}
+                closed={closed}
+                onAdd={() => setShowIncome(true)}
+                onDelete={(id: number) => setDeleteId(id)}
+              />
+              <CashMovementTable
+                title="Salidas (Egresos)"
+                titleColor="#dc2626"
+                icon={<ArrowDownCircle size={20} />}
+                addLabel="Agregar Egreso"
+                emptyMessage="Sin egresos registrados"
+                movements={egresos}
+                columns={[
+                  { key: 'description', label: 'Concepto', render: (m) => ((m as Record<string, unknown>).description as string) || '-' },
+                  { key: 'amount', label: 'Monto', width: 110, render: (m) => <span style={{ fontWeight: 600, color: '#dc2626' }}>{formatCurrency((m as Record<string, unknown>).amount as number)}</span> },
+                  { key: 'expense_type', label: 'Tipo', width: 90, render: (m) => {
+                      const et = (m as Record<string, unknown>).expense_type as string;
+                      const cls = et === 'GENERAL' ? 'badge-rejected' : 'badge-production';
+                      return <span className={`badge ${cls}`}>{et || 'GENERAL'}</span>;
+                    }
+                  },
+                ]}
+                closed={closed}
+                onAdd={() => setShowExpense(true)}
+                onDelete={(id: number) => setDeleteId(id)}
+              />
             </div>
 
             <CashTotalCards suma={suma} totalSalidas={totalSalidas} saldoActualNum={saldoActualNum} efectivoReal={efectivoReal} />
@@ -194,10 +248,12 @@ export default function CashDailyPage() {
       <IncomeModal isOpen={showIncome} onClose={() => setShowIncome(false)} onSubmit={handleAddIncome} />
       <ExpenseModal isOpen={showExpense} onClose={() => setShowExpense(false)} onSubmit={handleAddExpense} />
 
-      <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)}
+      <ConfirmDialog open={!!deleteId} onCancel={() => setDeleteId(null)}
         onConfirm={handleDeleteMovement}
         title="Eliminar movimiento"
-        message="¿Estás seguro de eliminar este movimiento de caja?" />
+        message="¿Estás seguro de eliminar este movimiento de caja?"
+        confirmLabel="Eliminar"
+        danger />
 
       <CloseCashModal isOpen={showClose} onClose={() => setShowClose(false)} onConfirm={handleCloseCash} fecha={date} />
     </div>

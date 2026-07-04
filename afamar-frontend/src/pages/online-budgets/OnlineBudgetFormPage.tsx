@@ -6,11 +6,11 @@ import { getMaterials } from '@/api/resources/materials';
 import { getPoolStock } from '@/api/resources/poolStock';
 import { getNextBudgetNumber } from '@/api/resources/budgets';
 import { useGet, useList } from '../../api/hooks';
-import Loading from '../../components/common/Loading';
-import OnlineBudgetHeader from '../../components/budget/OnlineBudgetHeader';
-import OnlineItemsTable, { createOption, parseNum, type OptionTab, type OnlineBudgetItemLocal, SPECIAL_NAMES, INITIAL_ROWS, INITIAL_SPECIALS, emptyItem } from '../../components/budget/OnlineItemsTable';
-import OnlineBudgetTotals from '../../components/budget/OnlineBudgetTotals';
-import OnlineBudgetFooter from '../../components/budget/OnlineBudgetFooter';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import OnlineBudgetHeader from '../../components/features/budget/OnlineBudgetHeader';
+import OnlineItemsTable, { createOption, parseNum, type OptionTab, type OnlineBudgetItemLocal, SPECIAL_NAMES, INITIAL_ROWS, INITIAL_SPECIALS, emptyItem } from '../../components/features/budget/OnlineItemsTable';
+import OnlineBudgetTotals from '../../components/features/budget/OnlineBudgetTotals';
+import OnlineBudgetFooter from '../../components/features/budget/OnlineBudgetFooter';
 import type { Material } from '../../types/material';
 import type { Pool } from '../../types/poolStock';
 import type { ConvertOptionResponse } from '../../types/workOrder';
@@ -266,7 +266,7 @@ export default function OnlineBudgetForm() {
     return L.join('\n');
   };
 
-  if (loading) return <Loading />;
+  if (loading) return <LoadingSpinner />;
 
   const hayUSD = [...(opciones[activeOption]?.items || []), ...(opciones[activeOption]?.especiales || [])].some((i: OnlineBudgetItemLocal) => i.currency === 'USD');
 

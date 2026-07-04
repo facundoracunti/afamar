@@ -3,8 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Edit, Trash2 } from 'lucide-react';
 import { getClients, deleteClient } from '@/api/resources/clients';
 import { useList, useDelete } from '../../api/hooks';
-import ConfirmDialog from '../../components/common/ConfirmDialog';
-import Loading from '../../components/common/Loading';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { SearchInput } from '../../components/ui/SearchInput';
+import { EmptyState } from '../../components/ui/EmptyState';
 import styles from './ClientsListPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -58,9 +61,9 @@ export default function ClientsList() {
 
   return (
     <div className={s['clients']}>
-      <div className={s['clients__header']}>
-        <h1 className={s['clients__title']}>Clientes</h1>
-        <div className={s['clients__actions']}>
+      <PageHeader
+        title="Clientes"
+        actions={
           <button
             type="button"
             className="btn btn-primary"
@@ -68,21 +71,18 @@ export default function ClientsList() {
           >
             <Plus size={16} /> Nuevo Cliente
           </button>
-        </div>
-      </div>
+        }
+      />
 
-      <div className={s['clients__search']}>
-        <Search size={18} color="#94a3b8" />
-        <input
-          className="input"
-          placeholder="Buscar por nombre, telefono o direccion..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
+      <SearchInput
+        value={search}
+        onChange={setSearch}
+        placeholder="Buscar por nombre, telefono o direccion..."
+        leftIcon={<Search size={18} color="#94a3b8" />}
+      />
 
       {loading ? (
-        <Loading />
+        <LoadingSpinner />
       ) : (
         <div className={s['clients__table']}>
           <table>
@@ -143,8 +143,8 @@ export default function ClientsList() {
               ))}
               {clients.length === 0 && (
                 <tr>
-                  <td colSpan={9} className={s['clients__empty']}>
-                    No hay clientes registrados
+                  <td colSpan={9}>
+                    <EmptyState message="No hay clientes registrados" />
                   </td>
                 </tr>
               )}
@@ -154,11 +154,13 @@ export default function ClientsList() {
       )}
 
       <ConfirmDialog
-        isOpen={!!deleteId}
-        onClose={() => setDeleteId(null)}
+        open={!!deleteId}
+        onCancel={() => setDeleteId(null)}
         onConfirm={handleDelete}
         title="Eliminar cliente"
         message="Estas seguro de eliminar este cliente? Esta accion no se puede deshacer."
+        confirmLabel="Eliminar"
+        danger
       />
     </div>
   );

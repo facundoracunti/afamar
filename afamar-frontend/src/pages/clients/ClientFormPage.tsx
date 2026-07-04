@@ -4,8 +4,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { FileText, ClipboardList, DollarSign, Calendar, ArrowRight } from 'lucide-react';
 import { getClient, createClient, updateClient } from '@/api/resources/clients';
 import { useCreate, useUpdate, useGet } from '../../api/hooks';
-import Loading from '../../components/common/Loading';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { StatusBadge } from '../../components/ui/StatusBadge';
+import { FormActions } from '../../components/ui/FormActions';
 import styles from './ClientFormPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -86,7 +87,7 @@ export default function ClientForm() {
     }
   };
 
-  if (loading || (isEdit && !clientData)) return <Loading />;
+  if (loading || (isEdit && !clientData)) return <LoadingSpinner />;
 
   const formatCurrency = (n: number): string =>
     `$${n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -126,12 +127,11 @@ export default function ClientForm() {
               <textarea className="input" rows={3} value={cliente.notes || ''} onChange={(e) => setCliente({ ...cliente, notes: e.target.value })} />
             </div>
 
-            <div className={s['client-form__actions']}>
-              <button type="button" className="btn btn-outline" onClick={() => navigate('/admin/clients')}>Cancelar</button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>
-                {saving ? 'Guardando...' : (isEdit ? 'Actualizar' : 'Crear Cliente')}
-              </button>
-            </div>
+            <FormActions
+              loading={saving}
+              submitLabel={isEdit ? 'Actualizar' : 'Crear Cliente'}
+              onCancel={() => navigate('/admin/clients')}
+            />
           </div>
         </form>
 

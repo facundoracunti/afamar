@@ -6,8 +6,11 @@ import { useList, useDelete } from '../../api/hooks';
 import { measurementStatuses, formatDate } from '../../utils/formatters';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import type { Measurement } from '../../types/measurement';
-import ConfirmDialog from '../../components/common/ConfirmDialog';
-import Loading from '../../components/common/Loading';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { SearchInput } from '../../components/ui/SearchInput';
+import { EmptyState } from '../../components/ui/EmptyState';
 import styles from './MeasurementsListPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -42,25 +45,22 @@ export default function MeasurementsList() {
 
   return (
     <div className={s['measurements']}>
-      <div className={s['measurements__header']}>
-        <h1 className={s['measurements__title']}>Agenda de Measurementes</h1>
-        <div className={s['measurements__actions']}>
+      <PageHeader
+        title="Agenda de Mediciones"
+        actions={
           <button className="btn btn-primary" onClick={() => navigate('/admin/measurements/new')}>
             <Plus size={16} /> Nueva Medición
           </button>
-        </div>
-      </div>
+        }
+      />
 
       <div className={s['measurements__filters']}>
-        <div className={s['measurements__search']}>
-          <Search size={18} className={s['measurements__search-icon']} />
-          <input
-            className="input"
-            placeholder="Buscar por cliente, teléfono o dirección..."
-            value={search}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Buscar por cliente, teléfono o dirección..."
+          leftIcon={<Search size={18} />}
+        />
         <select
           className={`input ${s['measurements__filter']}`}
           value={estadoFiltro}
@@ -71,7 +71,7 @@ export default function MeasurementsList() {
         </select>
       </div>
 
-      {loading ? <Loading /> : (
+      {loading ? <LoadingSpinner /> : (
         <div className={s['measurements__table']}>
           <table>
             <thead>
@@ -107,14 +107,14 @@ export default function MeasurementsList() {
                 </tr>
               ))}
               {data.length === 0 && (
-                <tr><td colSpan={7} className={s['measurements__empty']}>No hay mediciones registradas</td></tr>
+                <tr><td colSpan={7}><EmptyState message="No hay mediciones registradas" /></td></tr>
               )}
             </tbody>
           </table>
         </div>
       )}
 
-      <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={handleDelete} title="Eliminar medición" message="¿Estás seguro?" />
+      <ConfirmDialog open={!!deleteId} onCancel={() => setDeleteId(null)} onConfirm={handleDelete} title="Eliminar medición" message="¿Estás seguro?" confirmLabel="Eliminar" danger />
     </div>
   );
 }

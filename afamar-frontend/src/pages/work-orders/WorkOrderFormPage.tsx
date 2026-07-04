@@ -10,19 +10,19 @@ import { getClients } from '@/api/resources/clients';
 import { formatCurrency } from '../../utils/formatters';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import useEntityForm from '../../hooks/useEntityForm';
-import CroquisEditor from '../../components/sketch/CroquisEditor';
-import BudgetPanel from '../../components/budget/BudgetPanel';
-import Loading from '../../components/common/Loading';
-import ConfirmDialog from '../../components/common/ConfirmDialog';
+import CroquisEditor from '../../components/features/sketch/CroquisEditor';
+import BudgetPanel from '../../components/features/budget/BudgetPanel';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import PdfPreviewModal from '../../components/common/PdfPreviewModal';
 import TermsEditor from '../../components/common/TermsEditor';
-import ApprovalSection from '../../components/orders/ApprovalSection';
-import FormHeader from '../../components/orders/FormHeader';
-import FormFooter from '../../components/orders/FormFooter';
+import ApprovalSection from '../../components/features/orders/ApprovalSection';
+import FormHeader from '../../components/features/orders/FormHeader';
+import FormFooter from '../../components/features/orders/FormFooter';
 import WorkOrderFormBasic from './WorkOrderFormBasic';
 import WorkOrderFormSpecs from './WorkOrderFormSpecs';
-import WorkOrderFormItemsGrid from './WorkOrderFormItemsGrid';
 import WorkOrderFormFinancial from './WorkOrderFormFinancial';
+import FabricationSection from '../../components/features/budget/FabricationSection';
 import WorkOrderFormObservations from './WorkOrderFormObservations';
 import WorkOrderFormSnapshot from './WorkOrderFormSnapshot';
 import type { EntityFormState, EntityServices, MaterialInForm, PoolInForm } from '../../types';
@@ -56,7 +56,7 @@ export default function WorkOrderForm() {
   const [warrantyTerms, setWarrantyTerms] = useState<string[]>([]);
 
   const {
-    form, loading, saving, materiales, piletas, logoUrl, clientes, refreshClientes,
+    form, loading, saving, materiales, piletas, logoUrl, clientes, addOrRefreshClientes,
     menuOpen, deleteConfirm, showCroquis,
     readOnly, hayUSD, hayAlternativas,
     modoUSD, toggleModoUSD,
@@ -101,7 +101,7 @@ export default function WorkOrderForm() {
     warranty_override: encodeTerms(warrantyTerms),
   });
 
-  if (loading) return <Loading />;
+  if (loading) return <LoadingSpinner />;
 
   const matsMain = hayAlternativas ? (form.materials_data as unknown as MaterialInForm[] || []).filter((m) => !m.is_alternative) : (form.materials_data as unknown as MaterialInForm[] || []);
   const matsAlt = (form.materials_data as unknown as MaterialInForm[] || []).filter((m) => m.is_alternative);
@@ -292,7 +292,7 @@ export default function WorkOrderForm() {
           readOnly={readOnly}
           update={update as (field: string, value: unknown) => void}
           clientes={clientes as unknown as import('../../types/client').Client[]}
-          onClientCreated={refreshClientes}
+          onClientCreated={addOrRefreshClientes}
         />
 
         <WorkOrderFormSnapshot form={form} readOnly={readOnly} />
@@ -318,15 +318,17 @@ export default function WorkOrderForm() {
         </div>
 
         <div className={s['work-order-form__bottom']}>
-          <WorkOrderFormItemsGrid
-            form={form}
+          <FabricationSection
+            detalles={form.fabrication_details as unknown as Record<string, unknown>[]}
             readOnly={readOnly}
             materiales={materiales}
             M2_CONCEPTS={M2_CONCEPTS}
-            num={num}
+            num={num as (v: unknown) => number}
             handleDetailChange={handleDetailChange}
             addDetalle={addDetalle}
             removeDetalle={removeDetalle}
+            showMeasurementComparison={form.status === 'MEASUREMENT'}
+            materialsData={form.materials_data as unknown as import('../../types').MaterialInForm[]}
           />
 
           <WorkOrderFormFinancial
@@ -399,7 +401,7 @@ export default function WorkOrderForm() {
         loading={pdfPreviewLoading}
         title="Vista previa — Orden de Trabajo"
       />
-      <ConfirmDialog isOpen={deleteConfirm} onClose={() => setDeleteConfirm(false)} onConfirm={handleDelete} title="Eliminar orden" message="¿Estás seguro de eliminar esta orden de trabajo?" />
+      <ConfirmDialog open={deleteConfirm} onCancel={() => setDeleteConfirm(false)} onConfirm={handleDelete} title="Eliminar orden" message="¿Estás seguro de eliminar esta orden de trabajo?" confirmLabel="Eliminar" danger />
     </div>
   );
 }

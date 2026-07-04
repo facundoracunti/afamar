@@ -1,5 +1,5 @@
 import React from 'react';
-import ClientSection from '../../components/orders/ClientSection';
+import ClientSection from '../../components/features/orders/ClientSection';
 import type { EntityFormState } from '../../types';
 import type { Client } from '../../types/client';
 
@@ -8,7 +8,7 @@ interface BudgetFormClientProps {
   readOnly: boolean;
   update: (field: string, value: unknown) => void;
   clientes: Client[];
-  onClientCreated: () => void;
+  onClientCreated: (newClient: Client) => void;
 }
 
 export default function BudgetFormClient({

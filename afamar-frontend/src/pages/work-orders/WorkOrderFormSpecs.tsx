@@ -1,5 +1,5 @@
 import React from 'react';
-import MaterialCard from '../../components/materials/MaterialCard';
+import MaterialCard from '../../components/features/materials/MaterialCard';
 import type { EntityFormState } from '../../types';
 
 interface WorkOrderFormSpecsProps {

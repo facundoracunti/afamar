@@ -3,7 +3,7 @@ import { Save } from 'lucide-react';
 import http from '@/api/http';
 import { getSettings, updateSettings, uploadLogo } from '@/api/resources/settings';
 import { useNotify } from '../../context/NotificationContext';
-import Loading from '../../components/common/Loading';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import TermsEditor from '../../components/common/TermsEditor';
 import styles from './ConfigurationPage.module.css';
 
@@ -152,7 +152,7 @@ export default function Configuration() {
     }
   };
 
-  if (loading) return <Loading />;
+  if (loading) return <LoadingSpinner />;
 
   const companyLogo = typeof config.company_logo === 'string' ? config.company_logo : '';
   const logoSrc = logoPreview

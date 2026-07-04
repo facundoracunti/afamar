@@ -338,15 +338,14 @@
 /* ── Contact ── */
 .contact {
   background: var(--surface-bg);
+  margin-bottom: 2rem;
 }
 
 .contact__grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 3rem;
-  max-width: 1200px;
   margin: 0 auto;
-  padding: 0 2rem;
 }
 
 .contact__map {
@@ -376,11 +375,12 @@
 
 .contact__item {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 1rem;
   color: var(--text-secondary);
   font-size: 0.95rem;
   line-height: 1.5;
+  text-align: center;
 }
 
 .contact__icon {
@@ -401,7 +401,7 @@
 
 /* ── Footer ── */
 .footer {
-  background: var(--color-primary);
+  background: #0f172a;
   color: rgba(255, 255, 255, 0.7);
   text-align: center;
   padding: 2rem;

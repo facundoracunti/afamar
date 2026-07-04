@@ -1,5 +1,5 @@
 import React from 'react';
-import PoolCard from '../../components/materials/PoolCard';
+import PoolSection from '../../components/features/materials/PoolSection';
 import type { EntityFormState } from '../../types';
 
 interface BudgetFormAdicionalesProps {
@@ -24,38 +24,15 @@ export default function BudgetFormAdicionales({
   num,
 }: BudgetFormAdicionalesProps) {
   return (
-    <div className="card">
-      <h3 className="section-title">PILETAS</h3>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-        <select
-          className="input"
-          style={{ flex: 1, fontSize: 13 }}
-          value=""
-          onChange={(e) => { addPileta(e.target.value); e.target.value = ''; }}
-          disabled={readOnly}
-        >
-          <option value="">+ AGREGAR PILETA</option>
-          {piletas.map((p) => (
-            <option key={p.id as number} value={p.id as number}>
-              {p.brand as string} - {p.model as string} (Stock: {p.quantity as number})
-            </option>
-          ))}
-        </select>
-      </div>
-      {(form.pools_data || []).map((pt, idx) => (
-        <PoolCard
-          key={idx}
-          pt={pt as unknown as Record<string, unknown>}
-          idx={idx}
-          piletas={piletas}
-          readOnly={readOnly}
-          updatePileta={updatePileta}
-          removePileta={removePileta}
-          formPiletas={form.pools_data as unknown as Record<string, unknown>[]}
-          update={update as (field: string, value: unknown) => void}
-          num={num as (v: unknown) => number}
-        />
-      ))}
-    </div>
+    <PoolSection
+      piletas={piletas}
+      formPiletas={form.pools_data as unknown as Record<string, unknown>[]}
+      readOnly={readOnly}
+      addPileta={addPileta}
+      updatePileta={updatePileta}
+      removePileta={removePileta}
+      update={update}
+      num={num as (v: unknown) => number}
+    />
   );
 }

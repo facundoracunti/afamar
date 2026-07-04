@@ -2,7 +2,8 @@
   display: flex;
   gap: 0.5rem;
   justify-content: flex-end;
-  margin-top: 1.25rem;
+  align-items: center;
+  margin-top: 1.5rem;
 }
 
 .actions__submit {
@@ -11,8 +12,14 @@
   border: none;
   padding: 0.6rem 1.5rem;
   border-radius: var(--radius-md);
-  font-size: var(--font-md);
+  font-size: 0.95rem;
+  font-weight: 500;
   cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.actions__submit:hover:not(:disabled) {
+  opacity: 0.85;
 }
 
 .actions__submit:disabled {
@@ -21,11 +28,16 @@
 }
 
 .actions__cancel {
-  background: #eee;
-  color: var(--color-text);
-  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
   padding: 0.6rem 1.5rem;
   border-radius: var(--radius-md);
-  font-size: var(--font-md);
+  font-size: 0.95rem;
   cursor: pointer;
+  transition: background 0.15s;
+}
+
+.actions__cancel:hover {
+  background: var(--surface-alt-bg);
 }

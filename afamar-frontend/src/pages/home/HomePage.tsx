@@ -232,7 +232,7 @@ export function HomePage() {
         </div>
         )}
 
-        <Modal open={!!modalImg} onClose={() => setModalImg(null)} maxWidth="900px">
+        <Modal isOpen={!!modalImg} onClose={() => setModalImg(null)} width="900px">
           <img src={modalImg ?? ""} alt="Producto" style={{ width: "100%", height: "auto", display: "block", borderRadius: "12px" }} />
         </Modal>
         </Container>

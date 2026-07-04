@@ -1,6 +1,6 @@
 import React from 'react';
-import BudgetPanel from '../../components/budget/BudgetPanel';
-import ApprovalSection from '../../components/orders/ApprovalSection';
+import BudgetPanel from '../../components/features/budget/BudgetPanel';
+import ApprovalSection from '../../components/features/orders/ApprovalSection';
 import type { EntityFormState } from '../../types';
 
 interface BudgetFormFinancialProps {

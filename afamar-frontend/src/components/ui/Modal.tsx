@@ -3,15 +3,16 @@ import { createPortal } from "react-dom";
 import styles from "./Modal.module.css";
 
 interface ModalProps {
-  open: boolean;
+  isOpen: boolean;
   onClose: () => void;
+  title?: string;
   children: ReactNode;
-  maxWidth?: string;
+  width?: string;
 }
 
-export function Modal({ open, onClose, children, maxWidth = "600px" }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, width = "600px" }: ModalProps) {
   useEffect(() => {
-    if (!open) return;
+    if (!isOpen) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
@@ -21,21 +22,31 @@ export function Modal({ open, onClose, children, maxWidth = "600px" }: ModalProp
       document.removeEventListener("keydown", handler);
       document.body.style.overflow = "";
     };
-  }, [open, onClose]);
+  }, [isOpen, onClose]);
 
-  if (!open) return null;
+  if (!isOpen) return null;
 
   return createPortal(
     <div className={styles.overlay} onClick={onClose}>
       <div
         className={styles.modal}
-        style={{ maxWidth }}
+        style={{ maxWidth: width }}
         onClick={(e) => e.stopPropagation()}
       >
-        <button className={styles.close} onClick={onClose} aria-label="Cerrar">
-          ✕
-        </button>
-        {children}
+        {title && (
+          <div className={styles.header}>
+            <h2 className={styles.title}>{title}</h2>
+            <button className={styles.close} onClick={onClose} aria-label="Cerrar">
+              ✕
+            </button>
+          </div>
+        )}
+        {!title && (
+          <button className={`${styles.close} ${styles["close--floating"]}`} onClick={onClose} aria-label="Cerrar">
+            ✕
+          </button>
+        )}
+        <div className={styles.body}>{children}</div>
       </div>
     </div>,
     document.body,

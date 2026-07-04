@@ -4,7 +4,7 @@ import { DollarSign, FileText, ClipboardList, PackageOpen, Globe, Truck, type Lu
 import type { DashboardData } from '../../types/dashboard';
 import { getDashboard } from '@/api/resources/dashboard';
 import { useGet } from '../../api/hooks';
-import Loading from '../../components/common/Loading';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import styles from './DashboardPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -29,7 +29,7 @@ export default function Dashboard() {
   );
   const navigate = useNavigate();
 
-  if (loading) return <Loading />;
+  if (loading) return <LoadingSpinner />;
   if (error || !data) return <div className={s['dashboard__error']}>Error al cargar el dashboard</div>;
 
   const ing = (data.total_revenue ?? 0).toLocaleString();

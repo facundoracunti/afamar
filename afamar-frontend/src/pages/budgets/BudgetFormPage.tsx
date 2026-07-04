@@ -9,23 +9,23 @@ import { getClients } from '@/api/resources/clients';
 import { formatCurrency, fabricationConcepts } from '../../utils/formatters';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import useEntityForm from '../../hooks/useEntityForm';
-import CroquisEditor from '../../components/sketch/CroquisEditor';
-import BudgetPanel from '../../components/budget/BudgetPanel';
-import Loading from '../../components/common/Loading';
-import ConfirmDialog from '../../components/common/ConfirmDialog';
+import CroquisEditor from '../../components/features/sketch/CroquisEditor';
+import BudgetPanel from '../../components/features/budget/BudgetPanel';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import PdfPreviewModal from '../../components/common/PdfPreviewModal';
 import TermsEditor from '../../components/common/TermsEditor';
 import { useNotify } from '../../context/NotificationContext';
-import QuoteOptionsGrid from '../../components/budget/QuoteOptionsGrid';
+import QuoteOptionsGrid from '../../components/features/budget/QuoteOptionsGrid';
 
-import ObservationsSection from '../../components/orders/ObservationsSection';
-import FormHeader from '../../components/orders/FormHeader';
-import FormFooter from '../../components/orders/FormFooter';
+import ObservationsSection from '../../components/features/orders/ObservationsSection';
+import FormHeader from '../../components/features/orders/FormHeader';
+import FormFooter from '../../components/features/orders/FormFooter';
 import BudgetFormClient from './BudgetFormClient';
 import BudgetFormSpecs from './BudgetFormSpecs';
 import BudgetFormFinancial from './BudgetFormFinancial';
-import BudgetFormItems from './BudgetFormItems';
 import BudgetFormAdicionales from './BudgetFormAdicionales';
+import FabricationSection from '../../components/features/budget/FabricationSection';
 import BudgetFormObservations from './BudgetFormObservations';
 import type { BudgetPayload, MaterialInForm, PoolInForm, EntityFormState, EntityServices } from '../../types';
 import styles from './BudgetFormPage.module.css';
@@ -61,7 +61,7 @@ export default function BudgetForm() {
   const encodeTerms = (items: string[]) => JSON.stringify(items.map((t) => t).filter((t) => t.trim() !== ''));
 
   const {
-    form, loading, saving, materiales, piletas, logoUrl, clientes, refreshClientes,
+    form, loading, saving, materiales, piletas, logoUrl, clientes, addOrRefreshClientes,
     menuOpen, deleteConfirm, showCroquis,
     readOnly, hayUSD, hayAlternativas, isEdit,
     modoUSD, toggleModoUSD,
@@ -218,7 +218,7 @@ export default function BudgetForm() {
     }
   };
 
-  if (loading) return <Loading />;
+  if (loading) return <LoadingSpinner />;
 
   const dd2 = Number(form.usd_rate) || 1;
   let sumatoriaAdicionalesARS = Number(form.transport || 0);
@@ -396,7 +396,7 @@ export default function BudgetForm() {
           readOnly={readOnly}
           update={update as (field: string, value: unknown) => void}
           clientes={clientes as unknown as import('../../types/client').Client[]}
-          onClientCreated={refreshClientes}
+          onClientCreated={addOrRefreshClientes}
         />
 
         <div className={`${s['budget-form__layout']}${showCroquis ? '' : ' ' + s['budget-form__layout--no-sketch']}`}>
@@ -420,12 +420,12 @@ export default function BudgetForm() {
         </div>
 
         <div className={s['budget-form__bottom']}>
-          <BudgetFormItems
-            form={form}
+          <FabricationSection
+            detalles={form.fabrication_details as unknown as Record<string, unknown>[]}
             readOnly={readOnly}
             materiales={materiales}
             M2_CONCEPTS={M2_CONCEPTS}
-            num={num}
+            num={num as (v: unknown) => number}
             handleDetailChange={handleDetailChange}
             addDetalle={addDetalle}
             removeDetalle={removeDetalle}
@@ -498,7 +498,7 @@ export default function BudgetForm() {
         <FormFooter saving={saving} onCancel={() => navigate('/admin/budgets')} />
       </form>
 
-      <ConfirmDialog isOpen={deleteConfirm} onClose={() => setDeleteConfirm(false)} onConfirm={handleDelete} title="Eliminar presupuesto" message="¿Estás seguro de eliminar este PRESUPUESTO LOCAL?" />
+      <ConfirmDialog open={deleteConfirm} onCancel={() => setDeleteConfirm(false)} onConfirm={handleDelete} title="Eliminar presupuesto" message="¿Estás seguro de eliminar este PRESUPUESTO LOCAL?" confirmLabel="Eliminar" danger />
 
       <PdfPreviewModal
         isOpen={!!pdfPreviewUrl || pdfPreviewLoading}

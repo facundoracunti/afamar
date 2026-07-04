@@ -9,8 +9,11 @@ import {
 } from '@/api/resources/materials';
 import { useList, useCreate, useUpdate, useDelete } from '../../api/hooks';
 import { useNotify } from '../../context/NotificationContext';
-import Loading from '../../components/common/Loading';
-import ConfirmDialog from '../../components/common/ConfirmDialog';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { SearchInput } from '../../components/ui/SearchInput';
+import { EmptyState } from '../../components/ui/EmptyState';
 import styles from './MaterialsCategoriesPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -134,9 +137,9 @@ export default function MaterialsCategories() {
 
   return (
     <div className={s['categories']}>
-      <div className={s['categories__header']}>
-        <h1 className={s['categories__title']}>Categorías de Materiales</h1>
-        <div className={s['categories__toolbar']}>
+      <PageHeader
+        title="Categorías de Materiales"
+        actions={
           <button
             type="button"
             className="btn btn-primary"
@@ -144,26 +147,23 @@ export default function MaterialsCategories() {
           >
             <Plus size={16} /> Nueva Categoría
           </button>
-        </div>
-      </div>
+        }
+      />
 
       <div className={s['categories__toolbar']}>
-        <div className={s['categories__search']}>
-          <Search size={18} color="#94a3b8" />
-          <input
-            className="input"
-            placeholder="Buscar categoría..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Buscar categoría..."
+          leftIcon={<Search size={18} color="#94a3b8" />}
+        />
         <span style={{ fontSize: 13, color: '#6b7280' }}>
           {filtered.length} categoría{filtered.length === 1 ? '' : 's'}
         </span>
       </div>
 
       {loading ? (
-        <Loading />
+        <LoadingSpinner />
       ) : (
         <div className={s['categories__table']}>
           <table>
@@ -210,10 +210,14 @@ export default function MaterialsCategories() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={3} className={s['categories__empty']}>
-                    {data.length === 0
-                      ? 'No hay categorías registradas. Crea la primera con "Nueva Categoría".'
-                      : 'Sin resultados para la búsqueda actual.'}
+                  <td colSpan={3}>
+                    <EmptyState
+                      message={
+                        data.length === 0
+                          ? 'No hay categorías registradas. Crea la primera con "Nueva Categoría".'
+                          : 'Sin resultados para la búsqueda actual.'
+                      }
+                    />
                   </td>
                 </tr>
               )}
@@ -269,11 +273,13 @@ export default function MaterialsCategories() {
       )}
 
       <ConfirmDialog
-        isOpen={!!deleteId}
-        onClose={() => setDeleteId(null)}
+        open={!!deleteId}
+        onCancel={() => setDeleteId(null)}
         onConfirm={handleDelete}
         title="Eliminar categoría"
         message="¿Seguro que querés eliminar esta categoría? Si tiene materiales asociados, la operación será rechazada por el servidor."
+        confirmLabel="Eliminar"
+        danger
       />
     </div>
   );

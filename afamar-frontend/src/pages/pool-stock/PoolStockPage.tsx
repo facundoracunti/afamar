@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Search, Plus, PackagePlus, PackageMinus, Trash2 } from 'lucide-react';
 import { getPoolStock, createPool, updatePool, deletePool, getPoolMovements, createPoolMovement } from '@/api/resources/poolStock';
+import http from '@/api/http';
 import { useList, useDelete } from '../../api/hooks';
-import Modal from '../../components/common/Modal';
-import ConfirmDialog from '../../components/common/ConfirmDialog';
-import Loading from '../../components/common/Loading';
-import type { Pool, PoolMovement } from '../../types/poolStock';
+import { Modal } from '../../components/ui/Modal';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import type { Pool, PoolMovement, PoolType } from '../../types/poolStock';
 import styles from './PoolStockPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -20,7 +21,15 @@ export default function PoolStockPage() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editItem, setEditItem] = useState<Pool | null>(null);
 
-  const [form, setForm] = useState<{ brand: string; model: string; description: string; material: string; quantity: number; price: number; price_usd: number }>({ brand: '', model: '', description: '', material: '', quantity: 0, price: 0, price_usd: 0 });
+  const { items: poolTypes } = useList<PoolType>(
+    ['pool-types'],
+    async () => {
+      const res = await http.get('/references/pool-types');
+      return (res.data as PoolType[]) || [];
+    }
+  );
+
+  const [form, setForm] = useState<{ brand: string; model: string; description: string; material: string; quantity: number; price: number; price_usd: number; pool_type_id: number | string }>({ brand: '', model: '', description: '', material: '', quantity: 0, price: 0, price_usd: 0, pool_type_id: 1 });
   const [movForm, setMovForm] = useState<{ type: string; quantity: number; description: string }>({ type: 'Ingreso', quantity: 1, description: '' });
 
   const { items: data, loading, load } = useList<Pool>(
@@ -40,10 +49,10 @@ export default function PoolStockPage() {
   const handleOpenForm = (item: Pool | null = null) => {
     if (item) {
       setEditItem(item);
-      setForm({ brand: item.brand, model: item.model, description: item.description || '', material: item.material || '', quantity: item.quantity, price: item.price || 0, price_usd: item.price_usd || 0 });
+      setForm({ brand: item.brand, model: item.model, description: item.description || '', material: item.material || '', quantity: item.quantity, price: item.price || 0, price_usd: item.price_usd || 0, pool_type_id: item.pool_type_id ?? 1 });
     } else {
       setEditItem(null);
-      setForm({ brand: '', model: '', description: '', material: '', quantity: 0, price: 0, price_usd: 0 });
+      setForm({ brand: '', model: '', description: '', material: '', quantity: 0, price: 0, price_usd: 0, pool_type_id: 1 });
     }
     setShowForm(true);
   };
@@ -111,7 +120,7 @@ export default function PoolStockPage() {
         </div>
       </div>
 
-      {loading ? <Loading /> : (
+      {loading ? <LoadingSpinner /> : (
         <div className="card">
           <div className="table-container">
             <table>
@@ -119,6 +128,7 @@ export default function PoolStockPage() {
                 <tr>
                   <th>Marca</th>
                   <th>Modelo</th>
+                  <th>Tipo</th>
                   <th>Material</th>
                   <th>Precio ARS</th>
                   <th>Precio USD</th>
@@ -131,6 +141,7 @@ export default function PoolStockPage() {
                   <tr key={p.id}>
                     <td style={{ fontWeight: 600 }}>{p.brand}</td>
                     <td>{p.model}</td>
+                    <td><span className="badge badge-info" style={{ fontSize: 11 }}>{p.pool_type_name || 'Simple'}</span></td>
                     <td>{p.material || '-'}</td>
                     <td style={{ fontWeight: 600 }}>${Number(p.price || 0).toLocaleString('es-AR')}</td>
                     <td style={{ fontWeight: 600, color: '#059669' }}>USD {Number(p.price_usd || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
@@ -154,7 +165,7 @@ export default function PoolStockPage() {
                   </tr>
                 ))}
                 {data.length === 0 && (
-                  <tr><td colSpan={7} style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>No hay piletas en stock</td></tr>
+                  <tr><td colSpan={8} style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>No hay piletas en stock</td></tr>
                 )}
               </tbody>
             </table>
@@ -181,14 +192,24 @@ export default function PoolStockPage() {
             <div className="form-group"><label>Modelo *</label><input className="input" required value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} /></div>
           </div>
           <div className="form-row">
+            <div className="form-group">
+              <label>Tipo</label>
+              <select className="input" value={form.pool_type_id} onChange={(e) => setForm({ ...form, pool_type_id: Number(e.target.value) })}>
+                {poolTypes.map((pt) => (
+                  <option key={pt.id} value={pt.id}>{pt.label}</option>
+                ))}
+              </select>
+            </div>
             <div className="form-group"><label>Material</label><input className="input" value={form.material} onChange={(e) => setForm({ ...form, material: e.target.value })} /></div>
-            <div className="form-group"><label>Precio ARS ($)</label><input className="input" type="number" step="0.01" min="0" value={form.price} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} /></div>
           </div>
           <div className="form-row">
+            <div className="form-group"><label>Precio ARS ($)</label><input className="input" type="number" step="0.01" min="0" value={form.price} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} /></div>
             <div className="form-group"><label>Precio USD</label><input className="input" type="number" step="0.01" min="0" value={form.price_usd} onChange={(e) => setForm({ ...form, price_usd: Number(e.target.value) })} /></div>
-            <div className="form-group"><label>Cantidad</label><input className="input" type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} /></div>
           </div>
-          <div className="form-group"><label>Descripción</label><textarea className="input" rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
+          <div className="form-row">
+            <div className="form-group"><label>Cantidad</label><input className="input" type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} /></div>
+            <div className="form-group"><label>Descripción</label><textarea className="input" rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
+          </div>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 16 }}>
             <button type="button" className="btn btn-outline" onClick={() => setShowForm(false)}>Cancelar</button>
             <button type="submit" className="btn btn-primary">Guardar</button>
@@ -236,7 +257,7 @@ export default function PoolStockPage() {
         </div>
       </Modal>
 
-      <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={handleDelete} title="Eliminar pileta" message="¿Estás seguro?" />
+      <ConfirmDialog open={!!deleteId} onCancel={() => setDeleteId(null)} onConfirm={handleDelete} title="Eliminar pileta" message="¿Estás seguro?" confirmLabel="Eliminar" danger />
     </div>
   );
 }

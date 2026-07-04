@@ -4,8 +4,11 @@ import { Plus, Search, Trash2, Eye, Send } from 'lucide-react';
 import { getOnlineBudgets, deleteOnlineBudget } from '@/api/resources/onlineBudgets';
 import { useList, useDelete } from '../../api/hooks';
 import { formatDate } from '../../utils/formatters';
-import ConfirmDialog from '../../components/common/ConfirmDialog';
-import Loading from '../../components/common/Loading';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { SearchInput } from '../../components/ui/SearchInput';
+import { EmptyState } from '../../components/ui/EmptyState';
 import styles from './OnlineBudgetsListPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -53,31 +56,30 @@ export default function OnlineBudgetsList() {
 
   return (
     <div className={s['online-budgets']}>
-      <div className={s['online-budgets__header']}>
-        <h1 className={s['online-budgets__title']}>PRESUPUESTOS EN LÍNEA</h1>
-        <div className={s['online-budgets__actions']}>
-          <button className="btn btn-outline" onClick={() => navigate('/admin/budgets')}>
-            ← PRESUPUESTOS LOCAL
-          </button>
-          <button className="btn btn-primary" onClick={() => navigate('/admin/online-budgets/new')}>
-            <Plus size={16} /> Nuevo Presupuesto Online
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="PRESUPUESTOS EN LÍNEA"
+        actions={
+          <>
+            <button className="btn btn-outline" onClick={() => navigate('/admin/budgets')}>
+              ← PRESUPUESTOS LOCAL
+            </button>
+            <button className="btn btn-primary" onClick={() => navigate('/admin/online-budgets/new')}>
+              <Plus size={16} /> Nuevo Presupuesto Online
+            </button>
+          </>
+        }
+      />
 
       <div className={s['online-budgets__filters']}>
-        <div className={s['online-budgets__search']}>
-          <Search size={18} className={s['online-budgets__search-icon']} />
-          <input
-            className="input"
-            placeholder="Buscar por número o cliente..."
-            value={search}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Buscar por número o cliente..."
+          leftIcon={<Search size={18} />}
+        />
       </div>
 
-      {loading ? <Loading /> : (
+      {loading ? <LoadingSpinner /> : (
         <div className={s['online-budgets__table']}>
           <table>
             <thead>
@@ -128,14 +130,14 @@ export default function OnlineBudgetsList() {
                 </tr>
               ))}
               {data.length === 0 && (
-                <tr><td colSpan={8} className={s['online-budgets__empty']}>No hay presupuestos en línea</td></tr>
+                <tr><td colSpan={8}><EmptyState message="No hay presupuestos en línea" /></td></tr>
               )}
             </tbody>
           </table>
         </div>
       )}
 
-      <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={handleDelete} title="Eliminar" message="¿Estás seguro?" />
+      <ConfirmDialog open={!!deleteId} onCancel={() => setDeleteId(null)} onConfirm={handleDelete} title="Eliminar" message="¿Estás seguro?" confirmLabel="Eliminar" danger />
     </div>
   );
 }

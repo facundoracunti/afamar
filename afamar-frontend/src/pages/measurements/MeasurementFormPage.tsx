@@ -6,7 +6,8 @@ import { getMeasurement, createMeasurement, updateMeasurement } from '@/api/reso
 import { measurementStatuses } from '../../utils/formatters';
 import type { Measurement, MeasurementFormData } from '../../types/measurement';
 import { useGet } from '../../api/hooks';
-import Loading from '../../components/common/Loading';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { FormActions } from '../../components/ui/FormActions';
 import styles from './MeasurementFormPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -107,7 +108,7 @@ export default function MeasurementForm() {
     }
   };
 
-  if (loading || (isEdit && !measurement)) return <Loading />;
+  if (loading || (isEdit && !measurement)) return <LoadingSpinner />;
 
   return (
     <div className={s['measurement-form']}>
@@ -183,12 +184,11 @@ export default function MeasurementForm() {
             )}
           </div>
 
-          <div className={s['measurement-form__actions']}>
-            <button type="button" className="btn btn-outline" onClick={() => navigate('/admin/measurements')}>Cancelar</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
-              <Save size={16} /> {saving ? 'Guardando...' : (isEdit ? 'Actualizar' : 'Crear Medición')}
-            </button>
-          </div>
+          <FormActions
+            loading={saving}
+            submitLabel={isEdit ? 'Actualizar' : 'Crear Medición'}
+            onCancel={() => navigate('/admin/measurements')}
+          />
         </div>
       </form>
     </div>
