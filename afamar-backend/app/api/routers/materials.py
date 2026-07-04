@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends
+import os
+import uuid
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user, get_db
@@ -15,6 +18,13 @@ from app.services.material import MaterialService
 from app.utils.pagination import paginate
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
+
+MATERIALS_UPLOAD_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
+    "uploads",
+    "materials",
+)
+os.makedirs(MATERIALS_UPLOAD_DIR, exist_ok=True)
 
 
 # ── Colors ──────────────────────────────────────────────
@@ -157,3 +167,77 @@ def delete_material(material_id: int, db: Session = Depends(get_db)):
     service = MaterialService(db)
     if not service.delete(material_id):
         raise NotFoundError("Material")
+
+
+# ── Photo upload/remove ─────────────────────────────────
+
+
+def _delete_photo_file(photo: str | None) -> None:
+    """Best-effort delete of a previously stored photo file."""
+    if not photo:
+        return
+    abs_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
+        photo.lstrip("/"),
+    )
+    try:
+        if os.path.isfile(abs_path):
+            os.remove(abs_path)
+    except OSError:
+        pass
+
+
+@router.post("/{material_id}/upload-foto")
+def upload_material_photo(material_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """Store an image on disk and save its path on the material row.
+
+    Mirrors `settings.upload_logo`: image is normalized to PNG, validated
+    with Pillow, and the original file is overwritten so a stale photo
+    cannot leak.
+    """
+    from PIL import Image
+    from io import BytesIO
+
+    service = MaterialService(db)
+    material = service.get_by_id(material_id)
+    if not material:
+        raise NotFoundError("Material")
+
+    contents = file.file.read()
+    try:
+        img = Image.open(BytesIO(contents))
+        img.load()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Archivo no es una imagen válida: {exc}")
+
+    # Always overwrite any prior photo (different extensions) before saving the
+    # new one so an old variant cannot leak on disk.
+    _delete_photo_file(getattr(material, "photo", None))
+
+    stored_name = f"{material_id}_{uuid.uuid4().hex[:8]}.png"
+    abs_dest = os.path.join(MATERIALS_UPLOAD_DIR, stored_name)
+    if img.mode in ("RGBA", "LA", "P"):
+        img.save(abs_dest, format="PNG")
+    else:
+        img.convert("RGB").save(abs_dest, format="PNG")
+
+    relative_path = f"/uploads/materials/{stored_name}"
+    # Save directly via the repository to bypass the `update()` helper, which
+    # would re-fetch and validate the row against the schema fields.
+    material.photo = relative_path
+    db.commit()
+    db.refresh(material)
+    return success({"path": relative_path})
+
+
+@router.delete("/{material_id}/foto", status_code=204)
+def delete_material_photo(material_id: int, db: Session = Depends(get_db)):
+    """Remove the photo file from disk and clear the column."""
+    service = MaterialService(db)
+    material = service.get_by_id(material_id)
+    if not material:
+        raise NotFoundError("Material")
+    _delete_photo_file(getattr(material, "photo", None))
+    material.photo = None
+    db.commit()
+    return None

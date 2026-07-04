@@ -66,10 +66,11 @@ def _run_seeders() -> None:
     (which need the categories), users last.
     """
     try:
-        from scripts.seeders import seed_categories, seed_materials, seed_settings, seed_users
+        from scripts.seeders import seed_categories, seed_materials, seed_pool_types, seed_settings, seed_users
         seed_settings()
         seed_categories()
         seed_materials()
+        seed_pool_types()
         seed_users()
     except Exception as exc:
         logger.warning("Startup seed failed: %s", exc, exc_info=True)

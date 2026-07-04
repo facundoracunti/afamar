@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.api.dependencies import get_current_user, get_db
 from app.core.exceptions import NotFoundError
 from app.utils.responses import created, success
+from app.models.pool_stock import PoolType
 from app.models.reference import BudgetStatus, WorkOrderStatus, PaymentMethod, PriorityLevel, FinishType
 from app.schemas.reference import ReferenceCreate, ReferenceUpdate
 
@@ -18,6 +19,7 @@ MODEL_MAP = {
     "payment-methods": PaymentMethod,
     "priority-levels": PriorityLevel,
     "finish-types": FinishType,
+    "pool-types": PoolType,
 }
 
 LABEL_MAP = {
@@ -26,6 +28,7 @@ LABEL_MAP = {
     "payment-methods": "PaymentMethod",
     "priority-levels": "PriorityLevel",
     "finish-types": "FinishType",
+    "pool-types": "PoolType",
 }
 
 

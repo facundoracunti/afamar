@@ -20,6 +20,12 @@ class StockMovementResponse(BaseResponse):
     created_at: datetime
 
 
+class PoolTypeResponse(BaseResponse):
+    id: int
+    name: str
+    label: str
+
+
 class PoolStockBase(BaseModel):
     brand: str
     model: str
@@ -28,6 +34,7 @@ class PoolStockBase(BaseModel):
     quantity: int = 0
     price: float = 0.0
     price_usd: float = 0.0
+    pool_type_id: int | None = 1
 
 
 class PoolStockCreate(PoolStockBase):
@@ -42,10 +49,13 @@ class PoolStockUpdate(BaseModel):
     quantity: int | None = None
     price: float | None = None
     price_usd: float | None = None
+    pool_type_id: int | None = None
 
 
 class PoolStockResponse(PoolStockBase, BaseResponse):
     id: int
+    pool_type_id: int | None = None
+    pool_type_name: str | None = None
     created_at: datetime
     updated_at: datetime
     movements: list[StockMovementResponse] = []

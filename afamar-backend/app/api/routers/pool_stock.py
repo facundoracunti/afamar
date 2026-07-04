@@ -14,8 +14,7 @@ router = APIRouter(dependencies=[Depends(get_current_user)])
 @router.get("")
 def list_pool_stock(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     service = PoolStockService(db)
-    query = service.repo.db.query(service.repo.model)
-    page = paginate(db, query, skip, limit)
+    page = service.get_all_paginated(skip, limit)
     return success(page.items, page.pagination)
 
 

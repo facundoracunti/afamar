@@ -45,6 +45,7 @@ class MaterialBase(BaseModel):
     supplier: str | None = None
     stock_available: int = 0
     notes: str | None = None
+    photo: str | None = None
 
 
 class MaterialCreate(MaterialBase):

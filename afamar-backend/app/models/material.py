@@ -46,6 +46,7 @@ class Material(Base):
     supplier: Mapped[str] = mapped_column(String(200), nullable=True)
     stock_available: Mapped[int] = mapped_column(Integer, default=0)
     notes: Mapped[str] = mapped_column(Text, nullable=True)
+    photo: Mapped[str] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     category = relationship("MaterialCategory", back_populates="materials")

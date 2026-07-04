@@ -3,7 +3,7 @@ from app.models.budget import Budget, BudgetItem, BudgetAdicional, BudgetSketchE
 from app.models.work_order import WorkOrder
 from app.models.material import Material, MaterialCategory, MaterialColor, MaterialThickness
 from app.models.options import AppOption
-from app.models.pool_stock import PoolStock, StockMovement
+from app.models.pool_stock import PoolStock, PoolType, StockMovement
 from app.models.setting import Setting
 from app.models.measurement import Measurement
 from app.models.online_budget import OnlineBudget
@@ -25,6 +25,7 @@ __all__ = [
     "MaterialThickness",
     "AppOption",
     "Setting",
+    "PoolType",
     "PoolStock",
     "StockMovement",
     "Measurement",
