@@ -1,9 +1,75 @@
 # AGENTS.md
 
-> **Estado:** Rama `refactor` con commits pendientes: logo PNG upload, PDF preview backend, sidebar colapsable, configuration page refactor, **rename completo a inglés**, **client select dropdown + new client modal**, **stock deduction fixes**, **dead code cleanup**, **`default_usd_rate` setting**, **layout fixes**, **dark/light theme system**, **USD auto-fill from dolarapi.com**, **PdfPreviewModal theme fix**.
+> **Estado:** Rama `refactor` con commits pendientes: logo PNG upload, PDF preview backend, sidebar colapsable, configuration page refactor, **rename completo a inglés**, **client select dropdown + new client modal**, **stock deduction fixes**, **dead code cleanup**, **`default_usd_rate` setting**, **layout fixes**, **dark/light theme system**, **USD auto-fill from dolarapi.com**, **PdfPreviewModal theme fix**, **Modal/Loading/ConfirmDialog unificados**, **`ui/` primitives mejoradas + adoptadas en 10 pages**, **`IncomeTable`+`ExpenseTable` → `CashMovementTable`**, **`M2_CONCEPTS` derivado**, **`constants/index.ts` refactorizado**, **material photo backend + foto modal editar + lightbox**, **client typeahead (search-by-approx) sin refresh del form**.
 > Ver `PLAN.md` para el roadmap completo de migración.
 
-## Dark/Light theme + USD auto-fill + PdfPreviewModal theme (sesión actual)
+## Material photo + Client typeahead (sesión actual)
+
+### Material photo (upload + edit modal + foto lightbox) ✅
+
+**Backend**
+- `app/models/material.py`: `photo: Mapped[str]` agregado a `Material`.
+- `app/schemas/material.py`: `MaterialBase.photo: str | None` agregado (heredado por `MaterialCreate`/`MaterialUpdate`/`MaterialResponse`).
+- `app/api/routers/materials.py`:
+  - `POST /api/v1/materials/{material_id}/upload-foto` — recibe `multipart/form-data` con campo `file`, normaliza a PNG con Pillow, persiste en `backend/uploads/materials/{id}_{uuid8}.png`, escribe `material.photo = "/uploads/materials/{file}"`. Sobreescribe cualquier versión anterior (mismo ID, distinta extensión).
+  - `DELETE /api/v1/materials/{material_id}/foto` — borra archivo del disco + limpia `material.photo`.
+- Migración Alembic `248a1a9b051b_add_material_photo_column.py` (aplicada): solo `op.add_column('materials', sa.Column('photo', sa.String(500), nullable=True))`. Detección aditiva manual — el autogenerate intentó alterar `price_history.date`/`created_at`, lo cual fue removido.
+- `app/main.py` ya tiene `app.mount("/uploads", StaticFiles(...))` — sirve los PNGs en `/uploads/materials/{file}`.
+
+**Verificación backend** (script Python con urllib):
+- Login → `POST /materials/124/upload-foto` con PNG 1×1 → 200, retorna `{path: "/uploads/materials/124_cdae9628.png"}`, archivo creado en `D:\...\uploads\materials\`.
+- `GET /uploads/materials/...` → 200, 70 bytes.
+- `DELETE /materials/124/foto` → 204.
+- `GET /materials/124` → `photo: None` después del delete.
+
+**Frontend**
+- `api/resources/materials.ts`:
+  - `uploadMaterialPhoto(id, file)` — `FormData` + `Content-Type: undefined` (para que axios ponga el `multipart` boundary).
+  - `deleteMaterialPhoto(id)` — `DELETE /materials/{id}/foto` (204 No Content).
+- `components/features/materials/MaterialForm.tsx` (nuevo, ~340 líneas): todo el form extraído del `MaterialFormPage` original. Acepta `{ materialId?, onSaved?, onCancel? }`. Auto-fetch material, categorías, `default_usd_rate`. Maneja upload + delete de foto. CSS module propio: `MaterialForm.module.css`.
+- `components/features/materials/MaterialFormModal.tsx` (nuevo): wrappea `MaterialForm` en un `ui/Modal`. `title={materialId ? 'Editar Material' : 'Nuevo Material'}`, `width="760px"`. Pasa `onSaved={onClose}` y `onCancel={onClose}` para que el cierre del modal reemplace el navigate-back.
+- `pages/materials/MaterialFormPage.tsx`: ahora es solo un wrapper con título `<h1>` que pasa `materialId={id}` a `<MaterialForm>`. La ruta `/admin/materials/:id` sigue funcionando igual.
+- `pages/materials/MaterialsListPage.tsx`:
+  - Botón "+ Nuevo Material" ahora abre `<MaterialFormModal>` (estado `createOpen`) en vez de navegar.
+  - Botón Edit (en cada row) abre `<MaterialFormModal>` con `materialId={editId}`.
+  - Nueva columna **"Foto"** (60px, primera columna) con:
+    - Thumbnail botón (`<button>` con `<img>`) si `m.photo` está cargada → abre **lightbox modal** con la imagen full-size.
+    - Icono `<ImageIcon>` muted en celda dashed-border si no hay foto.
+- `pages/materials/MaterialsListPage.module.css`: agregadas `.materials__thumb-btn` (hover scale + border-color), `.materials__thumb` (`object-fit: cover` 44×44), `.materials__thumb-empty` (placeholder dashed).
+- Lightbox modal: `ui/Modal` `width="800px"`, `<img>` con `max-height: 70vh; object-fit: contain`.
+
+**Garantía clave:** el form **NO se resetea** cuando se sube/quita foto. Solo se actualiza `existingFoto` local state. La invalidación de `['materials']` query key está solo en el `handleSubmit`.
+
+### Client typeahead (search-by-approximation) ✅
+
+**Problema:** antes el selector de cliente en `/admin/budgets/new` y `/admin/work-orders/new` era un `<select>` nativo con TODOS los clientes. Con 500+ clientes scrollear era horrible. Además, al crear un cliente nuevo se llamaba a `refreshClientes()` (refetch completo) que re-renderizaba el form shell.
+
+**Solución:**
+- `components/features/orders/ClientSection.tsx`:
+  - **Typeahead custom** reemplaza al `<select>`:
+    - `<input>` con placeholder "Buscar cliente por nombre, teléfono o dirección...".
+    - Filtrado `useMemo`: `clientes.filter(c => c.name|phone|address.includes(q))` case-insensitive. Si el input está vacío, muestra los primeros 30 clientes.
+    - Dropdown flotante (`position: absolute`, `max-height: 280px`, scroll) con cada item mostrando **nombre + (teléfono · email · dirección)**.
+    - Click en item → `update('client_name', ...)` etc. + `setQuery('')` + `setOpen(false)`.
+  - **Botón "✕"** para limpiar el cliente seleccionado (visible cuando hay cliente activo o query no vacía, posicionado absolute dentro del input).
+  - **Inline "+ Crear cliente 'X'"** aparece al final del dropdown cuando hay texto en el input sin matches → abre el modal pre-llenando el nombre con lo que escribió el usuario.
+  - Botón **"+ Nuevo"** al lado del input (igual que antes).
+  - Modal `<Modal title="Nuevo Cliente">` (no inline `<h2>` como antes) con `<form>` y campos nombre (required, autoFocus), teléfono, email, dirección.
+- `hooks/useFormReferences.ts`: reemplaza `refreshClientes` por `addOrRefreshClientes(newClient?: Client)`:
+  - Con Client: prepend a la lista local sin refetch (`setClientes(prev => [newClient, ...prev])` con dedupe por `id`).
+  - Sin args: fallback al `fetchClientes()` (full refetch) para compatibilidad.
+- `hooks/useEntityForm.ts`: reexportado como `addOrRefreshClientes` en lugar de `refreshClientes`.
+- `types/form.ts`: `UseEntityFormReturn.addOrRefreshClientes: (newClient?: Client) => void` (param tipado `Client` para evitar `Record<string, unknown>` cast).
+- `pages/budgets/BudgetFormClient.tsx` + `pages/work-orders/WorkOrderFormBasic.tsx`: prop type `onClientCreated: (newClient: Client) => void` (antes era `() => void`).
+- `pages/budgets/BudgetFormPage.tsx` + `pages/work-orders/WorkOrderFormPage.tsx`: destructuring `addOrRefreshClientes` (en vez de `refreshClientes`) y pasarlo a `<BudgetFormClient onClientCreated={addOrRefreshClientes} ... />`.
+
+**Garantía clave:** al crear un cliente nuevo desde el modal, los datos **ya cargados** del budget/WO (material, color, espesor, items, total, observaciones, etc.) **NO se refrescan**. Solo se prepend el cliente nuevo a la lista del dropdown. Los `update('client_name', created.name)`, `update('client_phone', ...)` etc. sí se ejecutan — pero son los datos del cliente recién creado, intencionalmente.
+
+**Verificación:** `tsc --noEmit` 0 errores · `vite build` 9.66s · gzip 367 KB.
+
+---
+
+## Dark/Light theme + USD auto-fill + PdfPreviewModal theme (sesión anterior)
 
 ### Dark/Light theme system ✅
 - `src/context/ThemeContext.tsx` (new): dark default, light via `data-theme="light"`, localStorage persistence
