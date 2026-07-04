@@ -36,7 +36,7 @@ export default function WorkOrderFormSpecs({
       </div>
       <div style={{ display: 'grid', gap: 12 }}>
         {(form.materials_data || []).map((mat, idx) => (
-          <MaterialCard key={idx} mat={mat as unknown as Record<string, unknown>} idx={idx} readOnly={readOnly} updateMaterial={updateMaterial} removeMaterial={removeMaterial} num={num} />
+          <MaterialCard key={idx}             mat={mat as unknown as import('../../types/budget').MaterialInForm} idx={idx} readOnly={readOnly} updateMaterial={updateMaterial} removeMaterial={removeMaterial} num={num} />
         ))}
       </div>
       {(form.materials_data || []).length === 0 && (

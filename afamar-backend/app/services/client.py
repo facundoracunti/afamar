@@ -1,5 +1,6 @@
 from typing import List, Optional
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.client import Client
@@ -21,6 +22,99 @@ class ClientService:
 
     def search(self, term: str) -> List[Client]:
         return self.repo.search(term)
+
+    def get_with_history(self, client_id: int) -> Optional[dict]:
+        """Return the client enriched with aggregated history (budget/order
+        counts, last order number, recent orders/budgets). Powers the edit
+        page (`/admin/clients/{id}`), which renders a side panel of stats
+        and recent orders next to the form fields.
+
+        Reuses `repo.get_history` so the aggregate queries aren't
+        duplicated — same cost as a separate `/history` request, but in
+        one round trip.
+        """
+        client = self.get_by_id(client_id)
+        if not client:
+            return None
+        history = self.repo.get_history(client_id)
+        return {
+            "id": client.id,
+            "name": client.name,
+            "phone": client.phone,
+            "email": client.email,
+            "address": client.address,
+            "notes": client.notes,
+            "total_purchased": client.total_purchased or 0.0,
+            "created_at": client.created_at,
+            "updated_at": client.updated_at,
+            "total_budgets": history["total_budgets"],
+            "total_orders": history["total_orders"],
+            "last_order_number": history["last_order_number"],
+            "orders": history["recent_orders"],
+            "budgets": history["recent_budgets"],
+        }
+
+    def list_with_stats(self, skip: int = 0, limit: int = 100) -> List[dict]:
+        """Paginated client list enriched with per-client aggregates:
+        `total_budgets`, `total_orders`, `last_order_number`.
+
+        Uses three extra aggregate queries (one each for budgets, work-orders,
+        and the latest order number) instead of a correlated subquery per row,
+        so the cost is constant regardless of page size.
+        """
+        from app.models.budget import Budget
+        from app.models.work_order import WorkOrder
+
+        clients: List[Client] = self.repo.get_all(skip, limit)
+        ids = [c.id for c in clients]
+        if not ids:
+            return []
+
+        budget_counts: dict[int, int] = dict(
+            self.repo.db.query(Budget.client_id, func.count(Budget.id))
+            .filter(Budget.client_id.in_(ids))
+            .group_by(Budget.client_id)
+            .all()
+        )
+
+        work_order_counts: dict[int, int] = dict(
+            self.repo.db.query(WorkOrder.client_id, func.count(WorkOrder.id))
+            .filter(WorkOrder.client_id.in_(ids))
+            .group_by(WorkOrder.client_id)
+            .all()
+        )
+
+        # `last_order_number` — fetch all work orders for the page, sorted
+        # newest-first by client, then keep the first per client_id.
+        last_orders: dict[int, str] = {}
+        for o in (
+            self.repo.db.query(WorkOrder)
+            .filter(WorkOrder.client_id.in_(ids))
+            .order_by(WorkOrder.client_id, WorkOrder.created_at.desc())
+            .all()
+        ):
+            if o.client_id not in last_orders:
+                last_orders[o.client_id] = o.number
+
+        results: List[dict] = []
+        for c in clients:
+            results.append(
+                {
+                    "id": c.id,
+                    "name": c.name,
+                    "phone": c.phone,
+                    "email": c.email,
+                    "address": c.address,
+                    "notes": c.notes,
+                    "total_purchased": c.total_purchased or 0.0,
+                    "created_at": c.created_at,
+                    "updated_at": c.updated_at,
+                    "total_budgets": budget_counts.get(c.id, 0),
+                    "total_orders": work_order_counts.get(c.id, 0),
+                    "last_order_number": last_orders.get(c.id),
+                }
+            )
+        return results
 
     def create(self, data: dict) -> Client:
         client = self.repo.create(data)
@@ -44,3 +138,19 @@ class ClientService:
         self.repo.delete(client)
         self.repo.db.commit()
         return True
+
+    def count_dependent_records(self, client_id: int) -> dict:
+        """Return counts of records that reference this client. Used by the
+        delete endpoint to refuse the operation when there are linked budgets
+        or work orders — FK constraints would otherwise surface as a 500.
+        """
+        from app.models.budget import Budget
+        from app.models.work_order import WorkOrder
+
+        budgets = (
+            self.repo.db.query(Budget).filter(Budget.client_id == client_id).count()
+        )
+        work_orders = (
+            self.repo.db.query(WorkOrder).filter(WorkOrder.client_id == client_id).count()
+        )
+        return {"budgets": budgets, "work_orders": work_orders}

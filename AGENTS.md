@@ -1,7 +1,15 @@
 # AGENTS.md
 
-> **Estado:** Rama `refactor` con commits pendientes: logo PNG upload, PDF preview backend, sidebar colapsable, configuration page refactor, **rename completo a inglés**, **client select dropdown + new client modal**, **stock deduction fixes**, **dead code cleanup**, **`default_usd_rate` setting**, **layout fixes**, **dark/light theme system**, **USD auto-fill from dolarapi.com**, **PdfPreviewModal theme fix**, **Modal/Loading/ConfirmDialog unificados**, **`ui/` primitives mejoradas + adoptadas en 10 pages**, **`IncomeTable`+`ExpenseTable` → `CashMovementTable`**, **`M2_CONCEPTS` derivado**, **`constants/index.ts` refactorizado**, **material photo backend + foto modal editar + lightbox**, **client typeahead (search-by-approx) sin refresh del form**.
+> **Estado:** Rama `development` con commits sin pushear: work descrito debajo (sesión de clientes + MaterialCard theming). Sesiones previas acumuladas en `refactor`: logo PNG upload, PDF preview backend, sidebar colapsable, configuration page refactor, **rename completo a inglés**, **client select dropdown + new client modal**, **stock deduction fixes**, **dead code cleanup**, **`default_usd_rate` setting**, **layout fixes**, **dark/light theme system**, **USD auto-fill from dolarapi.com**, **PdfPreviewModal theme fix**, **Modal/Loading/ConfirmDialog unificados**, **`ui/` primitives mejoradas + adoptadas en 10 pages**, **`IncomeTable`+`ExpenseTable` → `CashMovementTable`**, **`M2_CONCEPTS` derivado**, **`constants/index.ts` refactorizado**, **material photo backend + foto modal editar + lightbox**, **client typeahead (search-by-approx) sin refresh del form**, **client delete 409 conflict + notify error**, **`Presupuestos` column en `/admin/clients` + fix `Ordenes`/`Última orden` que mostraban `0`/`-`**, **`GET /clients/{id}` devuelve history aggregates + listas**, **card `Presupuestos asociados` en ClientFormPage**, **`ClientFormPage` layout 2×2 grid (form + historial / presupuestos + órdenes)**, **bug client no cargaba al editar budget/WO (snapshot backend + resolver fallback frontend)**, **`MaterialCard` theme-aware (CSS module, BEM, sin inline styles, vars de tema)**.
 > Ver `PLAN.md` para el roadmap completo de migración.
+
+## Reglas de operación
+
+- **Git es manual**: NO commitear, NO pushear, NO crear PR, NO hacer `git add`, `git commit`, `git push`, `git merge`, `git rebase`, `git reset`, ni modificar la historia — **solo cuando el usuario lo pida explícitamente**. Modificar archivos está permitido; versionarlos no.
+- **Inspeccionar antes de versionar**: si el usuario pide commit/PR, antes de stagear revisar `git status`, `git diff` y `git log --oneline -10`; stagear solo los archivos intencionalmente modificados; nunca commitear secretos.
+- **Mensajes concisos**: usar el estilo del repo. Si no hay convención clara, mensajes cortos en inglés o español describiendo el "qué" en lugar del "cómo".
+- **Cero PRs automáticos**: aunque el usuario diga "todo listo", NO crear el PR — esperar a que el usuario lo pida.
+
 
 ## Material photo + Client typeahead (sesión actual)
 
@@ -65,7 +73,176 @@
 
 **Garantía clave:** al crear un cliente nuevo desde el modal, los datos **ya cargados** del budget/WO (material, color, espesor, items, total, observaciones, etc.) **NO se refrescan**. Solo se prepend el cliente nuevo a la lista del dropdown. Los `update('client_name', created.name)`, `update('client_phone', ...)` etc. sí se ejecutan — pero son los datos del cliente recién creado, intencionalmente.
 
+**Bug fix (synthetic submit bubble a través del portal):**
+El `<form onSubmit={handleCreateClient}>` del modal se renderiza via `createPortal` a `document.body`, pero el sistema de synthetic events de React sigue propagando el `submit` a través del árbol de React — no del DOM. Sin fix, al hacer click en "Crear Cliente" también se disparaba `handleSubmit` del `<form>` padre del BudgetFormPage/WorkOrderFormPage, que hacía `POST /budgets` + `navigate('/admin/budgets')` y sacaba al usuario de la sección. Verificado con Playwright: `POST clients [201]` seguido de `POST budgets [500]` (sin el fix). Solución: `e.stopPropagation()` después de `e.preventDefault()` en `handleCreateClient` — el submit queda confinado al modal.
+
 **Verificación:** `tsc --noEmit` 0 errores · `vite build` 9.66s · gzip 367 KB.
+
+---
+
+## Clients module (sesión actual)
+
+### Client delete: 409 conflict + notify error ✅
+
+**Backend** (`afamar-backend/app/services/client.py:48-62` + `api/routers/clients.py:62-78`):
+- `ClientService.count_dependent_records(client_id)` cuenta presupuestos/órdenes vinculadas (2 queries, una por tabla).
+- `DELETE /api/v1/clients/{id}` ahora chequea antes de borrar. Si hay presupuestos/órdenes vinculadas → `raise ConflictError(...)` (HTTP 409) con mensaje descriptivo en español: `"No se puede eliminar el cliente porque tiene X presupuestos asociado(s) y Y orden(es) de trabajo asociada(s). Eliminá o reasigná esos registros primero."` Singular/plural correctos vía branches.
+- Antes: MySQL devolvía 500 por FK constraint sin mensaje útil.
+
+**Frontend** (`afamar-frontend/src/pages/clients/ClientsListPage.tsx`):
+- `handleDelete` ahora envuelve `deleteMutation.mutateAsync(deleteId)` en `try/catch`:
+  - éxito → `notify('Cliente eliminado correctamente', 'success')` + cierra el modal
+  - error → `notify((err as Error).message, 'error')` + deja el modal abierto (user puede revisar y cancelar)
+- Antes: `await mutateAsync()` sin catch → unhandled promise rejection → toast nunca aparecía.
+
+### `/admin/clients` — agregar columna "Presupuestos" + fix Ordenes/Última orden ✅
+
+**Backend** (`afamar-backend/app/services/client.py:31-86`):
+- Nuevo método `ClientService.list_with_stats(skip, limit)` retorna `[{...cliente, total_budgets, total_orders, last_order_number}]` usando 3 queries agregadas (GROUP BY para presups, GROUP BY para OTs, ORDER BY para `last_order_number`). Costo constante independiente del page size — sin N+1.
+- `GET /api/v1/clients` usa este método y arma la `Page` a mano para mantener `pagination`.
+
+**Frontend** (`afamar-frontend/src/pages/clients/ClientsListPage.tsx`):
+- `LocalClient` interface renombrada a snake_case: `total_budgets?`, `total_orders?`, `last_order_number?`. Ya matchean el backend directo (sin mapping).
+- Nueva columna **"Presupuestos"** (badge naranja `badge-pending`).
+- Columnas existentes "Ordenes" y "Ultima orden" ahora muestran datos reales (antes siempre `0`/`-` porque el backend no las populaba).
+- `colSpan` del empty state 9 → 10.
+
+### `GET /api/v1/clients/{id}` — respuesta unificada con historial ✅
+
+**Backend** (`afamar-backend/app/services/client.py:25-30` + `api/routers/clients.py:28-34`):
+- Nuevo método `ClientService.get_with_history(client_id)` que reutiliza `repo.get_history(client_id)` para combinar los datos básicos del cliente + agregados + listas recientes (orders/budgets) en un solo round-trip.
+- `GET /api/v1/clients/{id}` ahora retorna `{...cliente, total_budgets, total_orders, last_order_number, orders, budgets}`.
+- El endpoint `GET /clients/{id}/history` sigue funcionando para backward-compat.
+
+### ClientFormPage: card "Presupuestos asociados" ✅
+
+**CSS** (`afamar-frontend/src/pages/clients/ClientFormPage.module.css`):
+- Renombré clases específicas de órdenes a genéricas: `__orders/__order*` → `__items-list/__item*`. Misma estructura ahora sirve para presupuestos y órdenes.
+- Nueva clase `__item-empty` para estados vacíos.
+
+**JSX** (`afamar-frontend/src/pages/clients/ClientFormPage.tsx:46-56`):
+- `historial` ahora incluye `budgets` además de `orders` (snapshot del backend).
+- Nueva card **"Presupuestos asociados"** debajo de "Órdenes asociadas". Cada item: número (P-XXXXXX) + StatusBadge + total formateado + flecha → click navega a `/admin/budgets/{id}`.
+- Cada card se renderiza condicionalmente: solo si tiene items (oculta cuando no hay).
+
+### ClientFormPage: layout 2×2 grid ✅
+
+**Estructura nueva** (`afamar-frontend/src/pages/clients/ClientFormPage.tsx` + `.module.css`):
+```
+Row 1 (mismo alto): [Datos del cliente]  [Historial del cliente]
+Row 2 (mismo alto): [Presupuestos asoc.] [Órdenes asoc.]
+```
+
+**CSS**:
+- `.client-form__layout` ahora es `flex-direction: column` con dos filas.
+- `.client-form__row` es `grid` de 2 columnas (`1fr 1fr`) con `align-items: stretch` → celdas de cada fila comparten altura automáticamente.
+- `.client-form__col` (flex wrapper) + `.client-form__card--fill` (`flex: 1`) hacen que la card llene la celda.
+- `@media (max-width: 900px)` colapsa a una columna en pantallas chicas.
+- Renombré la antigua `__row` (form-row de 2 cols dentro del form) a `__form-row` para no chocar con el nuevo `__row` de grid.
+
+**JSX**:
+- Quité el `style={{ marginTop: 16 }}` inline — el `gap: 16px` del grid se encarga.
+- Las cards de "Órdenes" y "Presupuestos" ahora se renderizan **siempre** (incluso vacías) mostrando `"Sin presupuestos asociadas."` / `"Sin órdenes asociadas."` para mantener simetría visual.
+- En `/admin/clients/new` (create mode) solo se muestra "Datos del cliente" (sin historial/budgets/ordenes).
+
+**Verificación Playwright:**
+
+| Página | Row 1 (px) | Row 2 (px) |
+|---|---|---|
+| `/admin/clients/1` (Gonzalo) | 404 / 404 | 270 / 270 |
+| `/admin/clients/2` (Test, 0 OT) | simétrico + empty msg | simétrico |
+| `/admin/clients/new` | solo "Datos del cliente" | (no aplica) |
+
+### Client no carga al editar budget/WO existente ✅
+
+**Bug**: `GET /work-orders/{id}` y `GET /budgets/{id}` retornaban `client_name=""` y `snapshot_*=null` (nunca se populaban). Resultado: al editar un budget/WO existente, el campo "Cliente" aparecía vacío aunque el cliente existiera.
+
+**Dos problemas concatenados:**
+
+1. **Backend nunca populaba `snapshot_*`**: `BudgetService.create()` y `WorkOrderService.create()` resolvían el `client_id` pero **nunca copiaban** los datos del cliente a `snapshot_name/phone/email/address`. Todas las filas en DB tenían esos campos NULL.
+
+2. **Frontend `mapApiToForm` leía `d.client_name` (que el backend ni siquiera expone)**: la DB no tiene `client_name` column en budgets/work_orders — solo `client_id` + `snapshot_*`.
+
+**Fix backend** (`afamar-backend/app/services/budget.py:91-99` + `work_order.py:191-199`):
+- En `BudgetService.create()` y `WorkOrderService.create()`, después de resolver `client_id`, se consulta el `Client` y se populan `snapshot_name/snapshot_phone/snapshot_email/snapshot_address`. A partir de ahora toda budget/WO nueva queda con snapshot válido.
+
+**Fix frontend** (`afamar-frontend/src/hooks/useFormReferences.ts`):
+- Refactor del `useEffect` a `async/await`: ahora se cargan **`clientes` antes** de la entidad, para que el fallback pueda usarlos.
+- Nueva helper `resolveClientFields(data, clientes)`:
+  1. Si `snapshot_name` existe → lo usa (snapshot histórico)
+  2. Si es null y hay `client_id` → busca el cliente en `clientes` por id (legacy rows)
+  3. Reescribe los campos `client_name/client_phone/client_email/client_address` en el payload resuelto antes de pasar a `mapApiToForm`.
+
+**Verificación curl:**
+```
+POST /budgets {client_id: 2}    → snapshot_name="Test", snapshot_phone="123" ✅
+POST /work-orders {client_id: 1} → snapshot_name="Gonzalo Gonzalez", snapshot_phone="2215715177" … ✅
+```
+
+**Verificación Playwright (registros legacy, snapshot=null):**
+- `/admin/work-orders/4`: Cliente=`Gonzalo Gonzalez`, Tel=`2215715177`, Email=`gg161087@gmail.com`, Domicilio=`calle 54 1160 La Plata` ✅
+- `/admin/budgets/2`: Cliente=`Test`, Tel=`123` ✅
+
+### MaterialCard theming (CSS module, BEM, theme-aware) ✅
+
+**Antes**: `MaterialCard.tsx` tenía `// @ts-nocheck` y todas las clases inline con colores hardcoded (`#fff`, `#e2e8f0`, `#1a202c`, etc.) que no respondían al dark/light theme.
+
+**Después** (`afamar-frontend/src/components/features/materials/MaterialCard.tsx` + `.module.css`):
+- Nuevo `MaterialCard.module.css` con BEM completo:
+  ```
+  .material-card                          block (bg, border, shadow, radius)
+  .material-card__header                  flex row
+  .material-card__title-group             wraps name + category badge
+  .material-card__title                   material name (uppercase)
+  .material-card__category                badge pill
+  .material-card__actions                 alt checkbox + remove button
+  .material-card__alt-label               "Alternativa" checkbox wrapper
+  .material-card__alt-checkbox            the checkbox
+  .material-card__remove                  × delete button
+  .material-card__fields                  2-col grid
+  .material-card__field                   single field cell
+  .material-card__label                   field caption
+  .material-card__input                   shared input style (compact)
+  .material-card__price                   displayed price (ARS)
+  .material-card__price--usd              modifier: USD color
+  .material-card__footer                  bottom row
+  .material-card__m2                      m² label
+  .material-card__m2-value                m² number (info color)
+  .material-card__subtotal                the dollar figure
+  ```
+- Removí `// @ts-nocheck`. `mat` prop ahora tipado como `MaterialInForm` (de `types/budget.ts`).
+- Mapeé todos los colores hardcoded a theme vars:
+  - `#fff` → `var(--surface-bg)`
+  - `#e2e8f0` → `var(--border-color)`
+  - `rgba(0,0,0,0.05)` → `var(--shadow-color)`
+  - `#1a202c` → `var(--text-primary)`
+  - `#718096` → `var(--text-muted)`
+  - `#edf2f7` → `var(--surface-alt-bg)`
+  - `#4a5568` → `var(--text-secondary)`
+  - `#e53e3e` → `var(--color-danger)` + hover `var(--color-danger-hover)`
+  - `#059669` → `var(--color-success)`
+  - `#f7fafc` → `var(--surface-alt-bg)`
+  - `#2b6cb0` → `var(--color-info)`
+  - `#2f855a` → `var(--color-success)`
+- Factoricé `formatPrice` y `formatSubtotal` (lógica repetida).
+- Bonus: agregué `aria-label="Eliminar material"` al botón ×.
+- Bonus: `accident-color: var(--color-primary)` en el checkbox para que el ✓ use el color del tema.
+
+**Fix types en call sites** (`BudgetFormSpecs.tsx:43` + `WorkOrderFormSpecs.tsx:39`):
+- `mat={mat as unknown as Record<string, unknown>}` → `mat={mat as unknown as import('../../types/budget').MaterialInForm}` para satisfacer la nueva prop tipada.
+
+**Verificación Playwright (computed styles):**
+
+| Propiedad | Dark | Light |
+|---|---|---|
+| card.bg | `rgb(15, 23, 42)` (slate-900) | `rgb(255, 255, 255)` |
+| card.border | `rgb(51, 65, 85)` (slate-700) | `rgb(231, 224, 208)` (sepia) |
+| title.color | `rgb(241, 245, 249)` (slate-100) | `rgb(28, 25, 23)` (slate-900) |
+| footer.bg | `rgb(30, 41, 59)` (slate-800) | `rgb(245, 240, 232)` (warm beige) |
+
+Las 4 propiedades cambian entre modos → theme-aware ✅ · sin `style="background:..."` inline.
+
+**PoolCard** (`components/features/materials/PoolCard.tsx`) **aún tiene inline styles hardcoded** — fuera de scope de este ticket pero seguiría el mismo patrón cuando se migre.
 
 ---
 
@@ -814,9 +991,30 @@ c98228c5 (origin/refactor)     "feat: migrate 6 list pages to BEM/CSS Modules"
 f83f8b95 (origin/refactor)     "refactor: complete English naming + BEM foundation"
 ```
 
-## Commits locales sin pushear (119 archivos modificados, 1 nuevo)
+## Commits locales sin pushear
 
-### Backend (5 archivos modificados)
+### Sesión actual: clients module + MaterialCard theming
+
+**Backend (4 archivos modificados):**
+- `afamar-backend/app/api/routers/clients.py` — `count_dependent_records` + `ConflictError(409)` en DELETE; usa `list_with_stats`/`get_with_history` para GET
+- `afamar-backend/app/services/client.py` — nuevos métodos `list_with_stats` y `get_with_history` (single round-trip, 3 queries agregadas)
+- `afamar-backend/app/services/budget.py` — `create()` ahora popula `snapshot_name/phone/email/address` del Client resuelto
+- `afamar-backend/app/services/work_order.py` — mismo fix en `create()`
+
+**Frontend (8 archivos modificados, 1 nuevo):**
+- `afamar-frontend/src/components/features/orders/ClientSection.tsx` — `e.stopPropagation()` después de `preventDefault()` en `handleCreateClient` (evita synthetic submit bubble a través del portal)
+- `afamar-frontend/src/components/features/materials/MaterialCard.tsx` — removí `// @ts-nocheck`, tipé con `MaterialInForm`, removí inline styles → CSS module
+- `afamar-frontend/src/components/features/materials/MaterialCard.module.css` (nuevo) — BEM + theme vars
+- `afamar-frontend/src/hooks/useFormReferences.ts` — refactor a `async/await`, carga clientes ANTES de la entidad, helper `resolveClientFields` con fallback a clientes list
+- `afamar-frontend/src/pages/budgets/BudgetFormSpecs.tsx` — type cast fix (`MaterialInForm` en lugar de `Record<string, unknown>`)
+- `afamar-frontend/src/pages/work-orders/WorkOrderFormSpecs.tsx` — mismo type cast fix
+- `afamar-frontend/src/pages/clients/ClientsListPage.tsx` — `useNotify` + try/catch en `handleDelete`; nueva columna Presupuestos; `LocalClient` renombrado a snake_case
+- `afamar-frontend/src/pages/clients/ClientFormPage.tsx` — card Presupuestos asociados; layout 2×2 grid; empty states en cards
+- `afamar-frontend/src/pages/clients/ClientFormPage.module.css` — `__row`→`__form-row` (renombre), `__row` (grid row), `__col`, `__card--fill`, items-list genérico
+
+### Sesiones previas en `refactor` (119 archivos modificados, 1 nuevo)
+
+**Backend (5 archivos):**
 - `afamar-backend/app/api/routers/budgets.py` — `_BUDGET_FIELD_MAP` + try/except en `preview-pdf`
 - `afamar-backend/app/api/routers/work_orders.py` — try/except en `preview-pdf`
 - `afamar-backend/app/api/routers/settings.py` — `upload-logo` convierte a PNG con Pillow

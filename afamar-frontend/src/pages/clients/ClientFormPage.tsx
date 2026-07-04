@@ -50,6 +50,7 @@ export default function ClientForm() {
         total_purchased: (clientData.total_purchased as number) || 0,
         last_order: clientData.last_order_number as string | null,
         orders: (clientData.orders as Record<string, unknown>[]) || [],
+        budgets: (clientData.budgets as Record<string, unknown>[]) || [],
         created_at: clientData.created_at as string,
       }
     : null;
@@ -99,95 +100,137 @@ export default function ClientForm() {
       </h1>
 
       <div className={s['client-form__layout']}>
-        <form onSubmit={handleSubmit} className={s['client-form__main']}>
-          <div className={s['client-form__card']}>
-            <h3 className={s['client-form__section']}>Datos del cliente</h3>
-            <div className={s['client-form__row']}>
-              <div className={s['client-form__group']}>
-                <label className={s['client-form__label']}>Nombre *</label>
-                <input className="input" required value={cliente.name} onChange={(e) => setCliente({ ...cliente, name: e.target.value })} />
+        {/* Row 1: Datos del cliente (left) + Historial del cliente (right) */}
+        <div className={s['client-form__row']}>
+          <div className={s['client-form__col']}>
+            <form onSubmit={handleSubmit} className={`${s['client-form__card']} ${s['client-form__card--fill']}`}>
+              <h3 className={s['client-form__section']}>Datos del cliente</h3>
+              <div className={s['client-form__form-row']}>
+                <div className={s['client-form__group']}>
+                  <label className={s['client-form__label']}>Nombre *</label>
+                  <input className="input" required value={cliente.name} onChange={(e) => setCliente({ ...cliente, name: e.target.value })} />
+                </div>
+                <div className={s['client-form__group']}>
+                  <label className={s['client-form__label']}>Teléfono</label>
+                  <input className="input" value={cliente.phone || ''} onChange={(e) => setCliente({ ...cliente, phone: e.target.value })} />
+                </div>
+              </div>
+              <div className={s['client-form__form-row']}>
+                <div className={s['client-form__group']}>
+                  <label className={s['client-form__label']}>Email</label>
+                  <input className="input" type="email" value={cliente.email || ''} onChange={(e) => setCliente({ ...cliente, email: e.target.value })} />
+                </div>
+                <div className={s['client-form__group']}>
+                  <label className={s['client-form__label']}>Dirección</label>
+                  <input className="input" value={cliente.address || ''} onChange={(e) => setCliente({ ...cliente, address: e.target.value })} />
+                </div>
               </div>
               <div className={s['client-form__group']}>
-                <label className={s['client-form__label']}>Teléfono</label>
-                <input className="input" value={cliente.phone || ''} onChange={(e) => setCliente({ ...cliente, phone: e.target.value })} />
+                <label className={s['client-form__label']}>Observaciones</label>
+                <textarea className="input" rows={3} value={cliente.notes || ''} onChange={(e) => setCliente({ ...cliente, notes: e.target.value })} />
               </div>
-            </div>
-            <div className={s['client-form__row']}>
-              <div className={s['client-form__group']}>
-                <label className={s['client-form__label']}>Email</label>
-                <input className="input" type="email" value={cliente.email || ''} onChange={(e) => setCliente({ ...cliente, email: e.target.value })} />
-              </div>
-              <div className={s['client-form__group']}>
-                <label className={s['client-form__label']}>Dirección</label>
-                <input className="input" value={cliente.address || ''} onChange={(e) => setCliente({ ...cliente, address: e.target.value })} />
-              </div>
-            </div>
-            <div className={s['client-form__group']}>
-              <label className={s['client-form__label']}>Observaciones</label>
-              <textarea className="input" rows={3} value={cliente.notes || ''} onChange={(e) => setCliente({ ...cliente, notes: e.target.value })} />
-            </div>
 
-            <FormActions
-              loading={saving}
-              submitLabel={isEdit ? 'Actualizar' : 'Crear Cliente'}
-              onCancel={() => navigate('/admin/clients')}
-            />
+              <FormActions
+                loading={saving}
+                submitLabel={isEdit ? 'Actualizar' : 'Crear Cliente'}
+                onCancel={() => navigate('/admin/clients')}
+              />
+            </form>
           </div>
-        </form>
 
-        {isEdit && historial && (
-          <div className={s['client-form__side']}>
-            <div className={s['client-form__card']}>
-              <h3 className={s['client-form__section']}>Historial del cliente</h3>
-              <div className={s['client-form__stats']}>
-                <div className={s['client-form__stat']}>
-                  <FileText size={20} color="#3b82f6" className={s['client-form__stat-icon']} />
-                  <div className={s['client-form__stat-value']}>{(historial.total_budgets as number)}</div>
-                  <div className={s['client-form__stat-label']}>Presupuestos</div>
-                </div>
-                <div className={s['client-form__stat']}>
-                  <ClipboardList size={20} color="#059669" className={s['client-form__stat-icon']} />
-                  <div className={s['client-form__stat-value']}>{(historial.total_orders as number)}</div>
-                  <div className={s['client-form__stat-label']}>Órdenes</div>
-                </div>
-                <div className={s['client-form__stat']}>
-                  <DollarSign size={20} color="#d97706" className={s['client-form__stat-icon']} />
-                  <div className={s['client-form__stat-value']}>{formatCurrency(historial.total_purchased as number)}</div>
-                  <div className={s['client-form__stat-label']}>Total facturado</div>
-                </div>
-                <div className={s['client-form__stat']}>
-                  <Calendar size={20} color="#8b5cf6" className={s['client-form__stat-icon']} />
-                  <div className={s['client-form__stat-value']}>{(historial.last_order as string | null) || '-'}</div>
-                  <div className={s['client-form__stat-label']}>Última orden</div>
+          {isEdit && historial && (
+            <div className={s['client-form__col']}>
+              <div className={`${s['client-form__card']} ${s['client-form__card--fill']}`}>
+                <h3 className={s['client-form__section']}>Historial del cliente</h3>
+                <div className={s['client-form__stats']}>
+                  <div className={s['client-form__stat']}>
+                    <FileText size={20} color="#3b82f6" className={s['client-form__stat-icon']} />
+                    <div className={s['client-form__stat-value']}>{(historial.total_budgets as number)}</div>
+                    <div className={s['client-form__stat-label']}>Presupuestos</div>
+                  </div>
+                  <div className={s['client-form__stat']}>
+                    <ClipboardList size={20} color="#059669" className={s['client-form__stat-icon']} />
+                    <div className={s['client-form__stat-value']}>{(historial.total_orders as number)}</div>
+                    <div className={s['client-form__stat-label']}>Órdenes</div>
+                  </div>
+                  <div className={s['client-form__stat']}>
+                    <DollarSign size={20} color="#d97706" className={s['client-form__stat-icon']} />
+                    <div className={s['client-form__stat-value']}>{formatCurrency(historial.total_purchased as number)}</div>
+                    <div className={s['client-form__stat-label']}>Total facturado</div>
+                  </div>
+                  <div className={s['client-form__stat']}>
+                    <Calendar size={20} color="#8b5cf6" className={s['client-form__stat-icon']} />
+                    <div className={s['client-form__stat-value']}>{(historial.last_order as string | null) || '-'}</div>
+                    <div className={s['client-form__stat-label']}>Última orden</div>
+                  </div>
                 </div>
               </div>
             </div>
+          )}
+        </div>
 
-            {(historial.orders as Record<string, unknown>[]).length > 0 && (
-              <div className={s['client-form__card']} style={{ marginTop: 16 }}>
-                <h3 className={s['client-form__section']}>Órdenes asociadas</h3>
-                <div className={s['client-form__orders']}>
-                  {(historial.orders as Record<string, unknown>[]).map((o: Record<string, unknown>) => (
-                    <div
-                      key={o.number as string}
-                      className={s['client-form__order']}
-                      onClick={() => navigate(`/admin/work-orders/${o.id as number}`)}
-                    >
-                      <div className={s['client-form__order-left']}>
-                        <span className={s['client-form__order-num']}>{o.number as string}</span>
-                        <StatusBadge status={o.status as string} />
+        {/* Row 2: Presupuestos asociados (left) + Órdenes asociadas (right) */}
+        {isEdit && historial && (
+          <div className={s['client-form__row']}>
+            <div className={s['client-form__col']}>
+              <div className={`${s['client-form__card']} ${s['client-form__card--fill']}`}>
+                <h3 className={s['client-form__section']}>Presupuestos asociados</h3>
+                {(historial.budgets as Record<string, unknown>[]).length > 0 ? (
+                  <div className={s['client-form__items-list']}>
+                    {(historial.budgets as Record<string, unknown>[]).map((b: Record<string, unknown>) => (
+                      <div
+                        key={b.number as string}
+                        className={s['client-form__item']}
+                        onClick={() => navigate(`/admin/budgets/${b.id as number}`)}
+                      >
+                        <div className={s['client-form__item-left']}>
+                          <span className={s['client-form__item-num']}>{b.number as string}</span>
+                          <StatusBadge status={b.status as string} />
+                        </div>
+                        <div className={s['client-form__item-right']}>
+                          <span className={s['client-form__item-total']}>
+                            ${Number((b.total as number) || 0).toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                          </span>
+                          <ArrowRight size={14} color="#94a3b8" />
+                        </div>
                       </div>
-                      <div className={s['client-form__order-right']}>
-                        <span className={s['client-form__order-total']}>
-                          ${Number((o.total as number) || 0).toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                        </span>
-                        <ArrowRight size={14} color="#94a3b8" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className={s['client-form__item-empty']}>Sin presupuestos asociados.</div>
+                )}
               </div>
-            )}
+            </div>
+
+            <div className={s['client-form__col']}>
+              <div className={`${s['client-form__card']} ${s['client-form__card--fill']}`}>
+                <h3 className={s['client-form__section']}>Órdenes asociadas</h3>
+                {(historial.orders as Record<string, unknown>[]).length > 0 ? (
+                  <div className={s['client-form__items-list']}>
+                    {(historial.orders as Record<string, unknown>[]).map((o: Record<string, unknown>) => (
+                      <div
+                        key={o.number as string}
+                        className={s['client-form__item']}
+                        onClick={() => navigate(`/admin/work-orders/${o.id as number}`)}
+                      >
+                        <div className={s['client-form__item-left']}>
+                          <span className={s['client-form__item-num']}>{o.number as string}</span>
+                          <StatusBadge status={o.status as string} />
+                        </div>
+                        <div className={s['client-form__item-right']}>
+                          <span className={s['client-form__item-total']}>
+                            ${Number((o.total as number) || 0).toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                          </span>
+                          <ArrowRight size={14} color="#94a3b8" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className={s['client-form__item-empty']}>Sin órdenes asociadas.</div>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </div>

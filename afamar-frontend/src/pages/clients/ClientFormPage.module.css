@@ -1,28 +1,30 @@
 /* ClientFormPage — BEM
-   .client-form              block
-   .client-form__title       page title
-   .client-form__layout       two-column layout
-   .client-form__main         main form column
-   .client-form__side         side history column
-   .client-form__card         form card
-   .client-form__section      section title
-   .client-form__row          form row (2 columns)
-   .client-form__group        form group
-   .client-form__label        form label
-   .client-form__actions      action buttons row
-   .client-form__stats        stats grid
-   .client-form__stat         single stat card
-   .client-form__stat-icon    stat icon
-   .client-form__stat-value   stat value
-   .client-form__stat-label   stat label
-   .client-form__orders       orders list
-   .client-form__order        single order row
-   .client-form__order-left   order number + badge
-   .client-form__order-num    order number
-   .client-form__order-right  order total + arrow
-   .client-form__order-total  order total
-   .client-form__loading      loading state
-   .client-form__error        error state
+   .client-form                block
+   .client-form__title         page title
+   .client-form__layout        two-row × two-col grid (stacks on narrow screens)
+   .client-form__row           single grid row (two equal columns)
+   .client-form__col           wrapper that lets its child fill the cell height
+   .client-form__card          form card
+   .client-form__card--fill    card variant that stretches to row height
+   .client-form__section       section title
+   .client-form__form-row      form row (2 columns)
+   .client-form__group         form group
+   .client-form__label         form label
+   .client-form__actions       action buttons row
+   .client-form__stats         stats grid
+   .client-form__stat          single stat card
+   .client-form__stat-icon     stat icon
+   .client-form__stat-value    stat value
+   .client-form__stat-label    stat label
+   .client-form__items-list    recent items list (orders / budgets)
+   .client-form__item          single item row
+   .client-form__item-left     item number + badge
+   .client-form__item-num      item number
+   .client-form__item-right    item total + arrow
+   .client-form__item-total    item total
+   .client-form__item-empty    empty-state hint when there are 0 items
+   .client-form__loading       loading state
+   .client-form__error         error state
 */
 
 .client-form {
@@ -39,18 +41,31 @@
 
 .client-form__layout {
   display: flex;
+  flex-direction: column;
   gap: 16px;
-  flex-wrap: wrap;
 }
 
-.client-form__main {
-  flex: 1;
-  min-width: 400px;
+.client-form__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: stretch;
 }
 
-.client-form__side {
+.client-form__col {
+  display: flex;
+  min-width: 0;
+}
+
+.client-form__col > * {
   flex: 1;
-  min-width: 350px;
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .client-form__row {
+    grid-template-columns: 1fr;
+  }
 }
 
 .client-form__card {
@@ -59,6 +74,13 @@
   border-radius: 12px;
   padding: 20px;
   box-shadow: 0 1px 3px var(--shadow-color);
+  display: flex;
+  flex-direction: column;
+}
+
+.client-form__card--fill {
+  flex: 1;
+  min-height: 0;
 }
 
 .client-form__section {
@@ -70,14 +92,14 @@
   border-bottom: 1px solid var(--border-color);
 }
 
-.client-form__row {
+.client-form__form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
   margin-bottom: 12px;
 }
 
-.client-form__row .client-form__group {
+.client-form__form-row .client-form__group {
   margin-bottom: 0;
 }
 
@@ -132,13 +154,13 @@
   margin-top: 2px;
 }
 
-.client-form__orders {
+.client-form__items-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.client-form__order {
+.client-form__item {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -149,32 +171,42 @@
   transition: background 0.15s;
 }
 
-.client-form__order:hover {
+.client-form__item:hover {
   background: var(--border-color);
 }
 
-.client-form__order-left {
+.client-form__item-left {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.client-form__order-num {
+.client-form__item-num {
   font-weight: 600;
   font-size: 14px;
   color: var(--text-primary);
 }
 
-.client-form__order-right {
+.client-form__item-right {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.client-form__order-total {
+.client-form__item-total {
   font-weight: 600;
   font-size: 13px;
   color: var(--text-primary);
+}
+
+.client-form__item-empty {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 8px 12px;
+  background: var(--surface-alt-bg);
+  border-radius: 6px;
+  text-align: center;
 }
 
 .client-form__loading,

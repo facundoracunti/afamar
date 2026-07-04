@@ -1,8 +1,11 @@
-// @ts-nocheck
 import React from 'react';
+import type { MaterialInForm } from '../../../types/budget';
+import styles from './MaterialCard.module.css';
+
+const s = styles as unknown as Record<string, string>;
 
 interface MaterialCardProps {
-  mat: Record<string, unknown>;
+  mat: MaterialInForm;
   idx: number;
   readOnly: boolean;
   updateMaterial: (idx: number, field: string, value: unknown) => void;
@@ -10,55 +13,109 @@ interface MaterialCardProps {
   num: (v: unknown) => number;
 }
 
-export default function MaterialCard({ mat, idx, readOnly, updateMaterial, removeMaterial, num }: MaterialCardProps) {
+export default function MaterialCard({
+  mat, idx, readOnly, updateMaterial, removeMaterial, num,
+}: MaterialCardProps) {
   const m2 = Number(mat.length || 0) * Number(mat.width || 0) * (mat.quantity || 1);
   const subtotal = m2 * (mat.currency === 'USD' ? (mat.price_m2_usd || 0) : (mat.price_m2 || 0));
+
+  const formatPrice = (n: number, currency: 'ARS' | 'USD'): string =>
+    currency === 'USD'
+      ? `USD ${n.toLocaleString('es-AR')}`
+      : `$ ${n.toLocaleString('es-AR')}`;
+
+  const formatSubtotal = (n: number, currency: 'ARS' | 'USD'): string =>
+    currency === 'USD'
+      ? `USD ${n.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
+      : `$ ${n.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
+
   return (
-    <div key={idx} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <div>
-          <span style={{ fontSize: 16, fontWeight: 700, textTransform: 'uppercase', color: '#1a202c' }}>{mat.name as string}</span>
-          <span style={{ marginLeft: 8, fontSize: 12, color: '#718096', background: '#edf2f7', padding: '2px 8px', borderRadius: 4 }}>{mat.category as string}</span>
+    <div className={s['material-card']}>
+      <div className={s['material-card__header']}>
+        <div className={s['material-card__title-group']}>
+          <span className={s['material-card__title']}>{mat.name}</span>
+          {mat.category && (
+            <span className={s['material-card__category']}>{mat.category}</span>
+          )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <label style={{ fontSize: 11, color: '#4a5568', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <input type="checkbox" checked={mat.is_alternative as boolean || false}
+        <div className={s['material-card__actions']}>
+          <label className={s['material-card__alt-label']}>
+            <input
+              type="checkbox"
+              className={s['material-card__alt-checkbox']}
+              checked={mat.is_alternative ?? false}
               onChange={(e) => updateMaterial(idx, 'is_alternative', e.target.checked)}
-              disabled={readOnly} style={{ width: 14, height: 14 }} />
+              disabled={readOnly}
+            />
             <span>Alternativa</span>
           </label>
-          <button type="button" onClick={() => removeMaterial(idx)} style={{ color: '#e53e3e', background: 'none', border: 'none', cursor: 'pointer', fontSize: 18 }} disabled={readOnly}>✕</button>
+          <button
+            type="button"
+            className={s['material-card__remove']}
+            onClick={() => removeMaterial(idx)}
+            disabled={readOnly}
+            aria-label="Eliminar material"
+          >
+            ✕
+          </button>
         </div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
-        <div>
-          <label style={{ fontSize: 11, color: '#4a5568', display: 'block', marginBottom: 2 }}>Cant.</label>
-          <input className="input" type="number" min="1" style={{ width: '100%', padding: '5px 6px', fontSize: 12 }}
-            value={mat.quantity || 1} onChange={(e) => updateMaterial(idx, 'quantity', num(e.target.value))} disabled={readOnly} />
+
+      <div className={s['material-card__fields']}>
+        <div className={s['material-card__field']}>
+          <label className={s['material-card__label']}>Cant.</label>
+          <input
+            className={`input ${s['material-card__input']}`}
+            type="number"
+            min="1"
+            value={mat.quantity || 1}
+            onChange={(e) => updateMaterial(idx, 'quantity', num(e.target.value))}
+            disabled={readOnly}
+          />
         </div>
-        <div>
-          <label style={{ fontSize: 11, color: '#4a5568', display: 'block', marginBottom: 2 }}>Largo (mts)</label>
-          <input className="input" type="number" step="0.01" style={{ width: '100%', padding: '5px 6px', fontSize: 12 }}
-            value={mat.length || ''} onChange={(e) => updateMaterial(idx, 'length', num(e.target.value))} disabled={readOnly} />
+        <div className={s['material-card__field']}>
+          <label className={s['material-card__label']}>Largo (mts)</label>
+          <input
+            className={`input ${s['material-card__input']}`}
+            type="number"
+            step="0.01"
+            value={mat.length || ''}
+            onChange={(e) => updateMaterial(idx, 'length', num(e.target.value))}
+            disabled={readOnly}
+          />
         </div>
-        <div>
-          <label style={{ fontSize: 11, color: '#4a5568', display: 'block', marginBottom: 2 }}>Ancho (mts)</label>
-          <input className="input" type="number" step="0.01" style={{ width: '100%', padding: '5px 6px', fontSize: 12 }}
-            value={mat.width || ''} onChange={(e) => updateMaterial(idx, 'width', num(e.target.value))} disabled={readOnly} />
+        <div className={s['material-card__field']}>
+          <label className={s['material-card__label']}>Ancho (mts)</label>
+          <input
+            className={`input ${s['material-card__input']}`}
+            type="number"
+            step="0.01"
+            value={mat.width || ''}
+            onChange={(e) => updateMaterial(idx, 'width', num(e.target.value))}
+            disabled={readOnly}
+          />
         </div>
-        <div>
-          <label style={{ fontSize: 11, color: '#4a5568', display: 'block', marginBottom: 2 }}>Precio M²</label>
-          <div style={{ fontSize: 13, fontWeight: 700, color: mat.currency === 'USD' ? '#059669' : '#1e293b', padding: '5px 6px' }}>
-            {mat.currency === 'USD' ? `USD ${(mat.price_m2_usd || 0).toLocaleString('es-AR')}` : `$ ${(mat.price_m2 || 0).toLocaleString('es-AR')}`}
+        <div className={s['material-card__field']}>
+          <label className={s['material-card__label']}>Precio M²</label>
+          <div
+            className={`${s['material-card__price']}${mat.currency === 'USD' ? ` ${s['material-card__price--usd']}` : ''}`}
+          >
+            {formatPrice(mat.currency === 'USD' ? (mat.price_m2_usd || 0) : (mat.price_m2 || 0), mat.currency)}
           </div>
         </div>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f7fafc', padding: 10, borderRadius: 6 }}>
-        <div style={{ fontSize: 13, color: '#4a5568' }}>
-          <span>Rendimiento: <strong style={{ color: '#2b6cb0' }}>{m2.toFixed(3)} m²</strong></span>
+
+      <div className={s['material-card__footer']}>
+        <div className={s['material-card__m2']}>
+          <span>
+            Rendimiento:{' '}
+            <strong className={s['material-card__m2-value']}>
+              {m2.toFixed(3)} m²
+            </strong>
+          </span>
         </div>
-        <div style={{ fontSize: 15, fontWeight: 700, color: '#2f855a' }}>
-          Subtotal: {mat.currency === 'USD' ? `USD ${subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}` : `$ ${subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}
+        <div className={s['material-card__subtotal']}>
+          Subtotal: {formatSubtotal(subtotal, mat.currency)}
         </div>
       </div>
     </div>

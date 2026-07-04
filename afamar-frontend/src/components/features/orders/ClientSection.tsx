@@ -71,6 +71,12 @@ export default function ClientSection({
 
   const handleCreateClient = async (e: React.FormEvent) => {
     e.preventDefault();
+    // The Modal renders via createPortal into document.body, but React's
+    // synthetic-event system still bubbles through the React tree — so a
+    // submit here would also trigger the parent BudgetFormPage/WorkOrderFormPage
+    // `<form onSubmit>` and POST the budget/work-order. stopPropagation keeps
+    // the event scoped to this modal.
+    e.stopPropagation();
     if (!newClient.name.trim()) return;
     setSaving(true);
     try {

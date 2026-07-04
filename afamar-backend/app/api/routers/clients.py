@@ -2,11 +2,11 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user, get_db
-from app.core.exceptions import NotFoundError
-from app.utils.responses import created, success
+from app.core.exceptions import ConflictError, NotFoundError
+from app.utils.pagination import Page
+from app.utils.responses import PaginationInfo, created, success
 from app.schemas.client import ClientCreate, ClientUpdate
 from app.services.client import ClientService
-from app.utils.pagination import paginate
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
 
@@ -14,8 +14,9 @@ router = APIRouter(dependencies=[Depends(get_current_user)])
 @router.get("")
 def list_clients(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     service = ClientService(db)
-    query = service.repo.db.query(service.repo.model)
-    page = paginate(db, query, skip, limit)
+    total = service.repo.db.query(service.repo.model).count() or 0
+    items = service.list_with_stats(skip, limit)
+    page = Page(items=items, pagination=PaginationInfo(total=total, skip=skip, limit=limit))
     return success(page.items, page.pagination)
 
 
@@ -28,10 +29,10 @@ def search_clients(q: str, db: Session = Depends(get_db)):
 @router.get("/{client_id}")
 def get_client(client_id: int, db: Session = Depends(get_db)):
     service = ClientService(db)
-    client = service.get_by_id(client_id)
-    if not client:
+    data = service.get_with_history(client_id)
+    if not data:
         raise NotFoundError("Client")
-    return success(client)
+    return success(data)
 
 
 @router.get("/{client_id}/history")
@@ -61,5 +62,23 @@ def update_client(client_id: int, data: ClientUpdate, db: Session = Depends(get_
 @router.delete("/{client_id}", status_code=204)
 def delete_client(client_id: int, db: Session = Depends(get_db)):
     service = ClientService(db)
-    if not service.delete(client_id):
+    client = service.get_by_id(client_id)
+    if not client:
         raise NotFoundError("Client")
+    counts = service.count_dependent_records(client_id)
+    if counts["budgets"] or counts["work_orders"]:
+        parts = []
+        if counts["budgets"]:
+            n = counts["budgets"]
+            parts.append(f"{n} presupuesto{'s' if n != 1 else ''} asociado{'s' if n != 1 else ''}")
+        if counts["work_orders"]:
+            n = counts["work_orders"]
+            base = "orden de trabajo" if n == 1 else "ordenes de trabajo"
+            parts.append(f"{n} {base} asociada{'s' if n != 1 else ''}")
+        detail = (
+            "No se puede eliminar el cliente porque tiene "
+            + " y ".join(parts)
+            + ". Eliminá o reasigná esos registros primero."
+        )
+        raise ConflictError(detail)
+    service.delete(client_id)

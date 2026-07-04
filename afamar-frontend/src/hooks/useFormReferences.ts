@@ -31,6 +31,45 @@ interface UseFormReferencesReturn {
 }
 
 /**
+ * Resolve the client name/phone/email/address fields on an entity loaded
+ * from the backend. Newer entities carry a frozen copy in `snapshot_*`;
+ * rows created before snapshots were populated (legacy data) get the
+ * current client row instead so the form still shows accurate data.
+ *
+ * Whichever source wins, the result is shaped so `mapApiToForm` can read
+ * `client_name`/`client_phone`/`client_email`/`client_address` directly.
+ */
+function resolveClientFields(
+  data: Record<string, unknown>,
+  clientes: Client[],
+): Record<string, unknown> {
+  const snapshotName = data.snapshot_name as string | null | undefined;
+  if (snapshotName) {
+    return {
+      ...data,
+      client_name: snapshotName,
+      client_phone: (data.snapshot_phone as string) || '',
+      client_email: (data.snapshot_email as string) || '',
+      client_address: (data.snapshot_address as string) || '',
+    };
+  }
+  const clientId = data.client_id as number | undefined;
+  if (clientId) {
+    const client = clientes.find((c) => c.id === clientId);
+    if (client) {
+      return {
+        ...data,
+        client_name: client.name || '',
+        client_phone: client.phone || '',
+        client_email: client.email || '',
+        client_address: client.address || '',
+      };
+    }
+  }
+  return data;
+}
+
+/**
  * Composable: loads the reference data (materials, pools, clients) plus
  * the company logo from /api/v1/settings, fetches the next entity number
  * for new entities, and pre-fills the form when editing.
@@ -76,46 +115,76 @@ export function useFormReferences({
   };
 
   useEffect(() => {
-    services.getMaterials({ limit: 500 }).then((res) => {
-      setMateriales((res.data as unknown as Material[]) || []);
-    });
-    services.getPools().then((res) => {
-      setPiletas((res.data as unknown as Pool[]) || []);
-    });
-    fetchClientes();
-    api
-      .get('/settings')
-      .then((res) => {
-        const configs = (res as unknown as Record<string, unknown>).data as Record<string, unknown>;
-        const logoValue = configs?.['company_logo'] || configs?.['logo'];
-        if (logoValue && typeof logoValue === 'string') {
-          const base = (api.defaults.baseURL || '').replace(/\/api\/v\d+$/, '').replace(/\/api$/, '');
-          setLogoUrl(`${base}${logoValue.startsWith('/') ? '' : '/'}${logoValue}`);
-        }
-      })
-      .catch(() => {
-        /* logo is optional */
-      });
+    let cancelled = false;
 
-    if (!isEdit && services.getNextNumero) {
-      services
-        .getNextNumero()
-        .then((res) => {
-          setForm((prev) => ({
-            ...prev,
-            number: (res.data as Record<string, unknown>).number as string,
-          }));
-        })
-        .catch(() => {});
+    async function loadEverything() {
+      try {
+        // Clients first so the resolver below can fall back to current data
+        // when an entity has no snapshot (legacy rows).
+        const clientsRes = await services.getClients({ limit: 500 });
+        if (cancelled) return;
+        const loadedClientes = (clientsRes.data as unknown as Client[]) || [];
+        setClientes(loadedClientes);
+
+        // Materials + pools in parallel (independent of clients).
+        const [materialsRes, poolsRes] = await Promise.all([
+          services.getMaterials({ limit: 500 }),
+          services.getPools(),
+        ]);
+        if (cancelled) return;
+        setMateriales((materialsRes.data as unknown as Material[]) || []);
+        setPiletas((poolsRes.data as unknown as Pool[]) || []);
+
+        // Settings (logo) — fire and forget; the logo is optional.
+        api
+          .get('/settings')
+          .then((res) => {
+            const configs = (res as unknown as Record<string, unknown>).data as Record<string, unknown>;
+            const logoValue = configs?.['company_logo'] || configs?.['logo'];
+            if (logoValue && typeof logoValue === 'string') {
+              const base = (api.defaults.baseURL || '').replace(/\/api\/v\d+$/, '').replace(/\/api$/, '');
+              setLogoUrl(`${base}${logoValue.startsWith('/') ? '' : '/'}${logoValue}`);
+            }
+          })
+          .catch(() => {
+            /* logo is optional */
+          });
+
+        // Next number for new entities.
+        if (!isEdit && services.getNextNumero) {
+          try {
+            const res = await services.getNextNumero();
+            if (cancelled) return;
+            setForm((prev) => ({
+              ...prev,
+              number: (res.data as Record<string, unknown>).number as string,
+            }));
+          } catch {
+            /* not critical */
+          }
+        }
+
+        // Load the entity last so `clientes` is already populated for the
+        // resolver fallback.
+        if (id) {
+          const res = await services.getById(id);
+          if (cancelled) return;
+          const d = res.data as Record<string, unknown>;
+          const resolved = resolveClientFields(d, loadedClientes);
+          setForm(mapApiToForm(resolved, defaultEstado));
+          onLoaded?.(d);
+          setLoading(false);
+        }
+      } catch (err) {
+        if (!cancelled) console.error('useFormReferences load error:', err);
+      }
     }
-    if (id) {
-      services.getById(id).then((res) => {
-        const d = res.data as Record<string, unknown>;
-        setForm(mapApiToForm(d, defaultEstado));
-        onLoaded?.(d);
-        setLoading(false);
-      });
-    }
+
+    loadEverything();
+
+    return () => {
+      cancelled = true;
+    };
     // We intentionally do not depend on `defaultEstado` — it's captured at mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isEdit]);

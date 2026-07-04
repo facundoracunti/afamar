@@ -8,19 +8,22 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { useNotify } from '../../context/NotificationContext';
 import styles from './ClientsListPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
 
-// Local interface — matches English `Client` type
+// Local interface — `total_budgets`, `total_orders`, `last_order_number`
+// are filled by the backend list endpoint (see ClientService.list_with_stats).
 interface LocalClient {
   id: number;
   name?: string;
   phone?: string | null;
   email?: string | null;
   address?: string | null;
-  totalOrders?: number;
-  lastOrderNumber?: string | null;
+  total_budgets?: number;
+  total_orders?: number;
+  last_order_number?: string | null;
   created_at?: string | null;
 }
 
@@ -30,6 +33,7 @@ export default function ClientsList() {
   const [search, setSearch] = useState('');
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const navigate = useNavigate();
+  const notify = useNotify();
 
   const { items: clients, loading } = useList<LocalClient>(
     [...CLIENTS_KEY, search],
@@ -49,8 +53,13 @@ export default function ClientsList() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    await deleteMutation.mutateAsync(deleteId);
-    setDeleteId(null);
+    try {
+      await deleteMutation.mutateAsync(deleteId);
+      setDeleteId(null);
+      notify('Cliente eliminado correctamente', 'success');
+    } catch (err) {
+      notify((err as Error).message || 'Error al eliminar cliente', 'error');
+    }
   };
 
   const formatDate = (d: string | null | undefined): string => {
@@ -93,6 +102,7 @@ export default function ClientsList() {
                 <th>Telefono</th>
                 <th>Email</th>
                 <th>Direccion</th>
+                <th style={{ textAlign: 'center' }}>Presupuestos</th>
                 <th style={{ textAlign: 'center' }}>Ordenes</th>
                 <th>Ultima orden</th>
                 <th>Fecha alta</th>
@@ -112,9 +122,12 @@ export default function ClientsList() {
                   <td>{c.email || '-'}</td>
                   <td>{c.address || '-'}</td>
                   <td style={{ textAlign: 'center' }}>
-                    <span className="badge badge-approved">{c.totalOrders || 0}</span>
+                    <span className="badge badge-pending">{c.total_budgets ?? 0}</span>
                   </td>
-                  <td style={{ fontSize: 13, color: '#64748b' }}>{c.lastOrderNumber || '-'}</td>
+                  <td style={{ textAlign: 'center' }}>
+                    <span className="badge badge-approved">{c.total_orders ?? 0}</span>
+                  </td>
+                  <td style={{ fontSize: 13, color: '#64748b' }}>{c.last_order_number || '-'}</td>
                   <td style={{ fontSize: 13, color: '#64748b' }}>{formatDate(c.created_at)}</td>
                   <td>
                     <div
@@ -143,7 +156,7 @@ export default function ClientsList() {
               ))}
               {clients.length === 0 && (
                 <tr>
-                  <td colSpan={9}>
+                  <td colSpan={10}>
                     <EmptyState message="No hay clientes registrados" />
                   </td>
                 </tr>

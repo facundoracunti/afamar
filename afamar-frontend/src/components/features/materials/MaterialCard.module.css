@@ -1,0 +1,157 @@
+/* MaterialCard — BEM
+   .material-card                       block
+   .material-card__header               top row: title + actions
+   .material-card__title-group          wraps name + category badge
+   .material-card__title                material name
+   .material-card__category             category badge
+   .material-card__actions              alt checkbox + remove button
+   .material-card__alt-label            "Alternativa" checkbox wrapper
+   .material-card__alt-checkbox         the checkbox itself
+   .material-card__remove               × delete button
+   .material-card__fields               2-column inputs grid
+   .material-card__field                single field cell
+   .material-card__label                field caption
+   .material-card__input                shared input style (compact)
+   .material-card__price                displayed price (ARS)
+   .material-card__price--usd           displayed price (USD)
+   .material-card__footer               bottom row: m² + subtotal
+   .material-card__m2                   m² label
+   .material-card__m2-value             m² number
+   .material-card__subtotal             right column of footer
+   .material-card__subtotal-value       the dollar figure
+*/
+
+.material-card {
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 1px 3px var(--shadow-color);
+}
+
+.material-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.material-card__title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.material-card__title {
+  font-size: 16px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+}
+
+.material-card__category {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--surface-alt-bg);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.material-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.material-card__alt-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  user-select: none;
+}
+
+.material-card__alt-checkbox {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--color-primary);
+}
+
+.material-card__remove {
+  color: var(--color-danger);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.material-card__remove:hover {
+  color: var(--color-danger-hover);
+}
+
+.material-card__fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.material-card__field {
+  display: flex;
+  flex-direction: column;
+}
+
+.material-card__label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.material-card__input {
+  width: 100%;
+  padding: 5px 6px;
+  font-size: 12px;
+}
+
+.material-card__price {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  padding: 5px 6px;
+}
+
+.material-card__price--usd {
+  color: var(--color-success);
+}
+
+.material-card__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--surface-alt-bg);
+  padding: 10px;
+  border-radius: 6px;
+}
+
+.material-card__m2 {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.material-card__m2-value {
+  color: var(--color-info);
+  font-weight: 700;
+}
+
+.material-card__subtotal {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-success);
+}

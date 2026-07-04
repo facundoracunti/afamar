@@ -189,6 +189,16 @@ class WorkOrderService:
                 data["client_id"] = client.id
             else:
                 raise ValueError("client_id or client_name is required")
+        # Freeze a snapshot of the client so the order keeps the historical
+        # data even if the client is later renamed or deleted. The frontend
+        # also falls back to the loaded `clients` cache if `snapshot_*` is
+        # empty (legacy rows created before this fix).
+        client = self.repo.db.query(Client).filter(Client.id == data["client_id"]).first()
+        if client:
+            data["snapshot_name"] = client.name
+            data["snapshot_phone"] = client.phone or ""
+            data["snapshot_email"] = client.email or ""
+            data["snapshot_address"] = client.address or ""
         data.pop("client_name", None)
         data.pop("client_phone", None)
         data.pop("client_email", None)

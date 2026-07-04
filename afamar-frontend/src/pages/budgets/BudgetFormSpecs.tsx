@@ -40,7 +40,7 @@ export default function BudgetFormSpecs({
         {(form.materials_data || []).map((mat, idx) => (
           <MaterialCard
             key={idx}
-            mat={mat as unknown as Record<string, unknown>}
+            mat={mat as unknown as import('../../types/budget').MaterialInForm}
             idx={idx}
             readOnly={readOnly}
             updateMaterial={updateMaterial}
