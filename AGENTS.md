@@ -1,9 +1,31 @@
 # AGENTS.md
 
-> **Estado:** Rama `refactor` con commits pendientes: logo PNG upload, PDF preview backend, sidebar colapsable, configuration page refactor, **rename completo a inglés**, **client select dropdown + new client modal**, **stock deduction fixes**, **dead code cleanup**, **`default_usd_rate` setting**, **layout fixes**.
+> **Estado:** Rama `refactor` con commits pendientes: logo PNG upload, PDF preview backend, sidebar colapsable, configuration page refactor, **rename completo a inglés**, **client select dropdown + new client modal**, **stock deduction fixes**, **dead code cleanup**, **`default_usd_rate` setting**, **layout fixes**, **dark/light theme system**, **USD auto-fill from dolarapi.com**, **PdfPreviewModal theme fix**.
 > Ver `PLAN.md` para el roadmap completo de migración.
 
-## Stock deduction & dead-code cleanup (sesión actual)
+## Dark/Light theme + USD auto-fill + PdfPreviewModal theme (sesión actual)
+
+### Dark/Light theme system ✅
+- `src/context/ThemeContext.tsx` (new): dark default, light via `data-theme="light"`, localStorage persistence
+- `index.html`: inline script for FOUC prevention (sets `data-theme` before React)
+- `src/index.css`: 40+ CSS vars for dark + light themes; all global utility classes (.btn, .input, .card, .table, .badges) refactored to use vars
+- `MainLayout.module.css`: all hardcoded colors replaced with `var(--sidebar-*)`, `var(--topbar-*)`, `var(--text-*)`, etc.
+- `MainLayout.tsx`: imports `useTheme`, adds Moon/Sun toggle in profile dropdown
+- **25+ page CSS modules** refactored from 348→69 hardcoded colors (80% reduction)
+- SignatureCanvas adapted to theme (background `#0f172a`/ink `#f1f5f9` in dark mode)
+- Sidebar active item contrast improved (slate-700 bg + light text)
+- BudgetPanel.module.css created with 11 themed classes
+- OnlineItemsTable inputStyle uses `var(--input-bg)`, `var(--input-border)`, `var(--input-text)`
+- TermsEditor, Modal, BudgetPanel all themed
+
+### USD auto-fill desde dolarapi.com ✅
+- `src/utils/dolarApi.ts` (new): función `fetchUsdVenta()` que pega a `https://dolarapi.com/v1/dolares/oficial` y retorna `data.venta`
+- `OnlineBudgetHeader.tsx`: botón "Actualizar" al lado del input "DOLAR DEL DIA" en `/admin/online-budgets/new`
+
+### PdfPreviewModal dark mode fix ✅
+- Reemplazados colores hardcodeados (`#fff`, `#e5e7eb`, `#f3f4f6`, `#6b7280`, `#9ca3af`) por CSS vars (`var(--surface-bg)`, `var(--border-color)`, `var(--surface-alt-bg)`, `var(--text-muted)`)
+
+## Stock deduction & dead-code cleanup (sesión anterior)
 
 ### TanStack Query migration — PLAN.md #10 ✅ (round 2)
 
