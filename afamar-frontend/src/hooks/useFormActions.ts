@@ -15,6 +15,9 @@ interface UseFormActionsParams {
    *  alongside the regular form state, so the saved entity round-trips
    *  into a later PDF download with the same custom terms. */
   extraPayloadFields?: () => Record<string, unknown>;
+  /** Called instead of the legacy `alert()` when an action fails. The form
+   *  page wires this to `useNotify()` so failures surface as a toast. */
+  onError?: (message: string) => void;
 }
 
 /**
@@ -36,9 +39,10 @@ export function useFormActions({
   navigate,
   buildPayload,
   extraPayloadFields,
+  onError,
 }: UseFormActionsParams) {
   const handleSubmit = useCallback(
-    async (e?: React.FormEvent) => {
+    async (e?: React.FormEvent): Promise<boolean> => {
       if (e) e.preventDefault();
       setSaving(true);
       try {
@@ -67,13 +71,16 @@ export function useFormActions({
           setForm((prev) => ({ ...prev, status: 'PENDING' }));
         }
         navigate(services.listPath);
-      } catch {
-        alert('Error al guardar');
+        return true;
+      } catch (err: unknown) {
+        const detail = (err as Error)?.message || 'Error al guardar';
+        onError?.(detail);
+        return false;
       } finally {
         setSaving(false);
       }
     },
-    [isEdit, id, services, navigate, form.status, form.payment_method, form.total, form.total_usd, buildPayload, extraPayloadFields, setSaving, setForm]
+    [isEdit, id, services, navigate, form.status, form.payment_method, form.total, form.total_usd, buildPayload, extraPayloadFields, setSaving, setForm, onError]
   );
 
   const handleDelete = useCallback(async () => {
@@ -106,13 +113,14 @@ export function useFormActions({
         }
         await services.update(id as string, payload);
         setForm((prev) => ({ ...prev, ...payload, status: newStatus }));
-      } catch {
-        alert('Error al cambiar estado');
+      } catch (err: unknown) {
+        const detail = (err as Error)?.message || 'Error al cambiar estado';
+        onError?.(detail);
       } finally {
         setSaving(false);
       }
     },
-    [id, form.total, form.total_usd, form.payment_method, services, setForm, setSaving]
+    [id, form.total, form.total_usd, form.payment_method, services, setForm, setSaving, onError]
   );
 
   const handlePrint = useCallback(() => {

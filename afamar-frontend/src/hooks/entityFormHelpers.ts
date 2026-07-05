@@ -147,7 +147,7 @@ export function buildPayload(form: EntityFormState): Record<string, unknown> {
     fabrication_details: jsonStringify(form.fabrication_details),
     materials_data: jsonStringify(form.materials_data),
     pools_data: jsonStringify(form.pools_data),
-    sketch_elements: form.sketch_elements,
+    sketch_elements: flattenSketchElements(form.sketch_elements),
   };
 }
 
@@ -161,6 +161,114 @@ function jsonStringify(value: unknown): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Flatten the CroquisEditor's `savePayload()` shape into the flat list of
+ * `{type, data, order}` that the backend's `BudgetSketchElementCreate`
+ * schema expects. **All geometry (points, x, y, stroke, strokeWidth, id, ...)**
+ * is serialized into `data` so the round-trip preserves the exact drawing.
+ *
+ * `useCroquisState.savePayload()` returns:
+ *   [{ pagina_id, name, dibujo: [{ type, x, y, points, stroke, ...id }] }, ...]
+ *
+ * Accepts that shape plus a few legacy shapes for backward-compat:
+ *  - { pages: [{ elements: [...] }], pageIdx }
+ *  - { elements: [...] }
+ *  - [...] (already flat)
+ */
+function flattenSketchElements(raw: unknown): { type: string; data: string | null; order: number }[] {
+  if (!raw) return [];
+  const out: { type: string; data: string | null; order: number }[] = [];
+  const tryPush = (e: Record<string, unknown>, fallbackOrder: number) => {
+    if (typeof e.type !== 'string') return;
+    // Build a copy of the element without `type` and `order` (which are
+    // stored as separate columns) so the geometry survives the round-trip.
+    const { type: _t, order: _o, ...rest } = e;
+    void _t;
+    void _o;
+    let dataStr: string | null = null;
+    try {
+      dataStr = JSON.stringify(rest);
+    } catch {
+      dataStr = null;
+    }
+    out.push({
+      type: e.type,
+      data: dataStr,
+      order: typeof e.order === 'number' ? e.order : fallbackOrder,
+    });
+  };
+
+  // The current editor shape: ARRAY of pages, each with `dibujo: []` of
+  // elements. `pagina_id` and `name` are page-level metadata we discard.
+  if (Array.isArray(raw)) {
+    const looksLikePagesArray = raw.length === 0 || raw.every((p) => p && typeof p === 'object' && ('dibujo' in p || 'pagina_id' in p || 'elements' in p));
+    if (looksLikePagesArray) {
+      let order = 0;
+      raw.forEach((page: unknown) => {
+        const obj = page as Record<string, unknown> | null;
+        if (!obj) return;
+        const dibujo = obj.dibujo;
+        if (Array.isArray(dibujo)) {
+          dibujo.forEach((e) => tryPush(e as Record<string, unknown>, order++));
+        } else if (Array.isArray(obj.elements)) {
+          obj.elements.forEach((e) => tryPush(e as Record<string, unknown>, order++));
+        }
+      });
+      return out;
+    }
+    // Direct flat list of elements.
+    raw.forEach((e, idx) => tryPush(e as Record<string, unknown>, idx));
+    return out;
+  }
+
+  if (typeof raw === 'object') {
+    const obj = raw as Record<string, unknown>;
+    if (Array.isArray(obj.pages)) {
+      // Legacy editor shape: { pages: [{ elements: [...] }], pageIdx }
+      let order = 0;
+      obj.pages.forEach((page: unknown) => {
+        const elements = (page as Record<string, unknown> | null)?.elements;
+        if (Array.isArray(elements)) {
+          elements.forEach((e) => tryPush(e as Record<string, unknown>, order++));
+        }
+      });
+    } else if (Array.isArray(obj.elements)) {
+      let order = 0;
+      obj.elements.forEach((e) => tryPush(e as Record<string, unknown>, order++));
+    }
+  }
+  return out;
+}
+
+/**
+ * Reverse of `flattenSketchElements`. The backend returns a flat list of
+ * `{type, data, order}` where `data` is a JSON string holding the full
+ * element (minus type/order). We re-hydrate each element by merging
+ * `type` back in and wrap the result in a single editor page so the
+ * CroquisEditor can render it as-is.
+ */
+function unflattenSketchElements(raw: unknown): { pagina_id: number; name: string; dibujo: unknown[] }[] {
+  if (!Array.isArray(raw) || raw.length === 0) return [];
+  return [{
+    pagina_id: 1,
+    name: 'Página 1',
+    dibujo: raw.map((e) => {
+      if (!e || typeof e !== 'object') return e;
+      const obj = e as Record<string, unknown>;
+      const { type, data, order: _o, ...rest } = obj;
+      void _o;
+      // data is the JSON-serialized element (without type/order). Re-hydrate.
+      let parsed: Record<string, unknown> = {};
+      if (typeof data === 'string' && data.length > 0) {
+        try { parsed = JSON.parse(data) as Record<string, unknown>; } catch { parsed = {}; }
+      } else if (data && typeof data === 'object') {
+        parsed = data as Record<string, unknown>;
+      }
+      return { ...parsed, type };
+    }),
+  }];
 }
 
 /** Parse a JSON-encoded string from the API into a list. Returns `[]`
@@ -235,7 +343,7 @@ export function mapApiToForm(d: Record<string, unknown>, defaultStatus: string):
     fabrication_details: jsonParseList(d.fabrication_details) as EntityFormState['fabrication_details'],
     materials_data: jsonParseList(d.materials_data),
     pools_data: jsonParseList(d.pools_data),
-    sketch_elements: ((d.sketch_elements as unknown[]) || []) as unknown[],
+    sketch_elements: unflattenSketchElements(d.sketch_elements) as unknown[],
   };
 }
 

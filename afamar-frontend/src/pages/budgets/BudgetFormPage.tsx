@@ -89,6 +89,7 @@ export default function BudgetForm() {
     onLoaded: (data: Record<string, unknown>) => {
       setWorkOrderNumber((data.work_order_number as string) || null);
     },
+    onError: (msg) => notify(msg, 'error'),
   });
 
   // Auto-fill USD rate from dolarapi.com on new budget creation. When editing,
@@ -108,7 +109,8 @@ export default function BudgetForm() {
   // keep the previous list visible after navigation).
   const handleSubmit = async (e?: React.FormEvent) => {
     const wasRejected = form.status === 'REJECTED';
-    await legacyHandleSubmit(e);
+    const ok = await legacyHandleSubmit(e);
+    if (!ok) return; // error already notified via onError
     queryClient.invalidateQueries({ queryKey: ['budgets'] });
     if (wasRejected) {
       notify('Presupuesto guardado. Estado restablecido a Pendiente — podes volver a aprobarlo.', 'success');

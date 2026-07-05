@@ -83,13 +83,15 @@ export default function WorkOrderForm() {
       delivery_terms_override: encodeTerms(deliveryTerms),
       warranty_override: encodeTerms(warrantyTerms),
     }),
+    onError: (msg) => notify(msg, 'error'),
   });
 
   // Wrap the legacy submit so the work-orders list cache is invalidated
   // on every successful save (5min staleTime would otherwise keep the
   // previous list visible after navigation).
   const handleSubmit = async (e?: React.FormEvent) => {
-    await legacyHandleSubmit(e);
+    const ok = await legacyHandleSubmit(e);
+    if (!ok) return; // error already notified via onError
     queryClient.invalidateQueries({ queryKey: ['work-orders'] });
   };
 

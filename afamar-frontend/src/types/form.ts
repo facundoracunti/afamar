@@ -159,7 +159,7 @@ export interface UseEntityFormReturn {
   addPileta: (pid: string) => void;
   removePileta: (idx: number) => void;
   updatePileta: (idx: number, field: string, value: unknown) => void;
-  handleSubmit: (e?: React.FormEvent) => Promise<void>;
+  handleSubmit: (e?: React.FormEvent) => Promise<boolean>;
   handleDelete: () => Promise<void>;
   handleStatusChangeAction: (newStatus: string) => Promise<void>;
   handlePrint: () => void;

@@ -58,7 +58,7 @@ const QuoteOptionsGrid = ({
 
   const formatMonto = (n: number, enUSD: boolean): string => {
     if (modoUSD && t_cambio > 0) return `USD $${(n / t_cambio).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    if (enUSD) return `USD $${n.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+    if (enUSD) return `USD $${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     return `$ ${n.toLocaleString('es-AR')}`;
   };
 
@@ -104,7 +104,7 @@ const QuoteOptionsGrid = ({
                   <span className={s['quote-options__detail-value-usd']}>
                     {esTarjetaUSD
                       ? `≈ $ ${Math.round(mat.costoMaterialBase * t_cambio).toLocaleString('es-AR')}`
-                      : `≈ USD $${(mat.costoMaterialBase / t_cambio).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                      : `≈ USD $${(mat.costoMaterialBase / t_cambio).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                   </span>
                 )}
               </span>
@@ -124,14 +124,14 @@ const QuoteOptionsGrid = ({
                   <span>
                     <span className={s['quote-options__detail-value--muted']}>
                       {jobEsUSD
-                        ? `USD $${job.total.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                        ? `USD $${job.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                         : `$ ${job.total.toLocaleString('es-AR')}`}
                     </span>
                     {t_cambio > 0 && (
                       <span className={s['quote-options__detail-value-usd']}>
                         {jobEsUSD
                           ? `≈ $ ${Math.round(job.total * t_cambio).toLocaleString('es-AR')}`
-                          : `≈ USD ${(job.total / t_cambio).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                          : `≈ USD $${(job.total / t_cambio).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                       </span>
                     )}
                   </span>
@@ -153,14 +153,14 @@ const QuoteOptionsGrid = ({
                   <span>
                     <span className={s['quote-options__detail-value--muted']}>
                       {jobEsUSD
-                        ? `USD $${job.total.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                        ? `USD $${job.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                         : `$ ${job.total.toLocaleString('es-AR')}`}
                     </span>
                     {t_cambio > 0 && (
                       <span className={s['quote-options__detail-value-usd']}>
                         {jobEsUSD
                           ? `≈ $ ${Math.round(job.total * t_cambio).toLocaleString('es-AR')}`
-                          : `≈ USD ${(job.total / t_cambio).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                          : `≈ USD $${(job.total / t_cambio).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                       </span>
                     )}
                   </span>
@@ -182,7 +182,7 @@ const QuoteOptionsGrid = ({
               <span className={s['quote-options__total-usd']}>
                 {modoUSD
                   ? `≈ $ ${Math.round(mat.totalFinalARS).toLocaleString('es-AR')}`
-                  : `≈ USD $${(mat.totalFinalARS / t_cambio).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                  : `≈ USD $${(mat.totalFinalARS / t_cambio).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
               </span>
             )}
           </div>
@@ -204,12 +204,9 @@ const QuoteOptionsGrid = ({
 
   return (
     <div className={s['quote-options']}>
-      <h3 className={s['quote-options__title']}>
-        {listaPrincipales.length > 0 ? 'Materiales y Opciones de Cotización' : 'Opciones de Cotización Disponibles'}
-      </h3>
+      <h3 className={s['quote-options__title']}>Opciones de Cotización Disponibles</h3>
 
       <div className={s['quote-options__grid']}>
-        {listaPrincipales.map((mat, idx) => renderCard(mat, idx, true))}
         {listaAlternativas.map((mat, idx) => renderCard(mat, idx, false))}
       </div>
     </div>

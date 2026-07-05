@@ -20,6 +20,9 @@ export interface UseEntityFormParams {
   /** Optional extra fields merged into the payload on every save
    *  (e.g. per-order terms override `delivery_terms_override`). */
   extraPayloadFields?: () => Record<string, unknown>;
+  /** Forwarded to useFormActions — fires on submit/status-change errors
+   *  so the parent form can surface a toast instead of the legacy `alert()`. */
+  onError?: (message: string) => void;
 }
 
 export default function useEntityForm({
@@ -30,6 +33,7 @@ export default function useEntityForm({
   navigate,
   onLoaded,
   extraPayloadFields: _extraPayloadFields,
+  onError,
 }: UseEntityFormParams): UseEntityFormReturn {
   void entityType; // entityType kept for future per-type branching
   const isEdit = !!id;
@@ -127,6 +131,7 @@ export default function useEntityForm({
     navigate,
     buildPayload: buildPayloadFn,
     extraPayloadFields: _extraPayloadFields,
+    onError,
   });
 
   // ----- Outside-click dismiss for menu/dropdown
