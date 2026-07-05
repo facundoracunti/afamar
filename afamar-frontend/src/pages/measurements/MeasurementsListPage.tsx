@@ -4,6 +4,7 @@ import { Plus, Search, Eye, Trash2 } from 'lucide-react';
 import { getMeasurements, deleteMeasurement } from '@/api/resources/measurements';
 import { useList, useDelete } from '../../api/hooks';
 import { measurementStatuses, formatDate } from '../../utils/formatters';
+import { t } from '../../utils/translate';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import type { Measurement } from '../../types/measurement';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
@@ -67,7 +68,7 @@ export default function MeasurementsList() {
           onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEstadoFiltro(e.target.value)}
         >
           <option value="">Todos los estados</option>
-          {measurementStatuses.map((e: string) => <option key={e} value={e}>{e}</option>)}
+          {measurementStatuses.map((e: string) => <option key={e} value={e}>{t(e)}</option>)}
         </select>
       </div>
 
@@ -88,11 +89,11 @@ export default function MeasurementsList() {
             <tbody>
               {data.map((m: Measurement) => (
                 <tr key={m.id}>
-                  <td style={{ fontWeight: 600 }}>{m.clientName}</td>
-                  <td>{m.clientPhone || '-'}</td>
-                  <td>{m.clientAddress || '-'}</td>
-                  <td>{formatDate(m.scheduledDate)}</td>
-                  <td>{m.scheduledTime || '-'}</td>
+                  <td style={{ fontWeight: 600 }}>{m.client_name}</td>
+                  <td>{m.client_phone || '-'}</td>
+                  <td>{m.client_address || '-'}</td>
+                  <td>{formatDate(m.scheduled_date)}</td>
+                  <td>{m.scheduled_time || '-'}</td>
                   <td><StatusBadge status={m.status || ''} /></td>
                   <td>
                     <div className={s['measurements__cell-actions']}>

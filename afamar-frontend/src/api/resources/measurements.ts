@@ -17,10 +17,26 @@ const MEASUREMENT_FIELD_MAP: Record<string, string> = {
   photos: 'photos_data',
 };
 
+// `sketch_data` and `photos_data` are stored as JSON-encoded strings in
+// TEXT columns on the backend. Pydantic v2 won't auto-coerce arrays to
+// strings, so we serialize here before sending.
+const JSON_STRINGIFIED_FIELDS = new Set(['sketch_data', 'photos_data']);
+
 function mapMeasurementToApi(data: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(data)) {
-    out[MEASUREMENT_FIELD_MAP[k] || k] = v;
+    const target = MEASUREMENT_FIELD_MAP[k] || k;
+    if (JSON_STRINGIFIED_FIELDS.has(target)) {
+      if (v === null || v === undefined) {
+        out[target] = null;
+      } else if (typeof v === 'string') {
+        out[target] = v;
+      } else {
+        try { out[target] = JSON.stringify(v); } catch { out[target] = null; }
+      }
+    } else {
+      out[target] = v;
+    }
   }
   return out;
 }

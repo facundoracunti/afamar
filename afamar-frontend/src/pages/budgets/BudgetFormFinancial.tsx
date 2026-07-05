@@ -19,7 +19,6 @@ interface BudgetFormFinancialProps {
   num: (v: string) => number | null;
   alternativasTop: React.ReactNode | null;
   alternativasGrid: React.ReactNode | null;
-  descuentoBlock: React.ReactNode | null;
   onConfirmarPago: () => Promise<void>;
 }
 
@@ -40,7 +39,6 @@ export default function BudgetFormFinancial({
   num,
   alternativasTop,
   alternativasGrid,
-  descuentoBlock,
   onConfirmarPago,
 }: BudgetFormFinancialProps) {
   return (
@@ -63,7 +61,6 @@ export default function BudgetFormFinancial({
         hidePaymentSection={hayAlternativas}
         alternativasTop={alternativasTop}
         alternativasGrid={alternativasGrid}
-        descuentoBlock={descuentoBlock}
         onConfirmarPago={onConfirmarPago}
       />
     </>

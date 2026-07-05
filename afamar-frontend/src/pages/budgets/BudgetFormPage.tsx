@@ -203,7 +203,20 @@ export default function BudgetForm() {
         aprobado.balance_paid_at = new Date().toISOString().split('T')[0];
       }
       await updateBudget(id as string, aprobado as unknown as Record<string, unknown>);
-      setForm((prev) => ({ ...prev, ...aprobado, status: 'APPROVED' } as unknown as EntityFormState));
+      // Only reflect the user-facing changes back into the form. Spreading
+      // the whole `aprobado` payload would overwrite `materials_data` (a JSON
+      // string in the payload) over the in-memory array, breaking
+      // `useFormMaterials` on the next render.
+      setForm((prev) => ({
+        ...prev,
+        status: 'APPROVED',
+        deposit_received: aprobado.deposit_received ?? prev.deposit_received,
+        deposit_usd: aprobado.deposit_usd ?? prev.deposit_usd,
+        balance_due: aprobado.balance_due ?? prev.balance_due,
+        balance_due_usd: aprobado.balance_due_usd ?? prev.balance_due_usd,
+        balance_paid: aprobado.balance_paid ?? prev.balance_paid,
+        balance_paid_at: aprobado.balance_paid_at ?? prev.balance_paid_at,
+      }));
       notify('Presupuesto aprobado', 'success');
       queryClient.invalidateQueries({ queryKey: ['budgets'] });
     } catch (err: unknown) {
@@ -394,42 +407,6 @@ const buildOptionFromMaterial = (mat: MaterialInForm): import('../../components/
     />
   ) : null;
 
-  const descuentoBlock = form.payment_method === 'EFECTIVO' ? (
-    <div style={{ marginTop: 8, padding: '8px 10px', background: '#fffbe6', border: '1px solid #fde68a', borderRadius: 8 }}>
-      <label style={{ fontSize: 12, fontWeight: 700, color: '#92400e', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
-        🔒 Descuento Comercial (Solo Vendedor)
-      </label>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>%</span>
-          <input type="number" className="input" style={{ width: 70, textAlign: 'right' }}
-            placeholder="0" min="0" max="100"
-            value={form.discount_percentage || ''}
-            onChange={(e) => {
-              const val = Number(e.target.value) || 0;
-              setForm({ ...form, discount_percentage: val, discount_fixed_amount: val > 0 ? 0 : form.discount_percentage });
-            }}
-            disabled={readOnly} />
-        </div>
-        <span style={{ fontSize: 12, color: '#9ca3af' }}>o</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>$</span>
-          <input type="number" className="input" style={{ width: 100, textAlign: 'right' }}
-            placeholder="Monto fijo"
-            value={form.discount_fixed_amount || ''}
-            onChange={(e) => {
-              const val = Number(e.target.value) || 0;
-              setForm({ ...form, discount_fixed_amount: val, discount_percentage: val > 0 ? 0 : form.discount_percentage });
-            }}
-            disabled={readOnly} />
-        </div>
-      </div>
-      <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 4, fontStyle: 'italic' }}>
-        Este descuento modifica el TOTAL ARS final pero no se muestra en el PDF del cliente.
-      </div>
-    </div>
-  ) : null;
-
   const handleConfirmarPago = async () => {
     if (!id) return;
     const nuevo = !form.balance_paid;
@@ -561,7 +538,6 @@ const buildOptionFromMaterial = (mat: MaterialInForm): import('../../components/
             num={num as (v: unknown) => number}
             alternativasTop={alternativasTop}
             alternativasGrid={alternativasGrid}
-            descuentoBlock={descuentoBlock}
             onConfirmarPago={handleConfirmarPago}
           />
 

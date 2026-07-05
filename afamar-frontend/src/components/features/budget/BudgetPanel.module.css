@@ -277,7 +277,8 @@
 }
 
 .budget-panel__installments-select {
-  width: 160px;
+  min-width: 200px;
+  flex: 1;
 }
 
 .budget-panel__currency-switch {
