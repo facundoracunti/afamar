@@ -43,7 +43,7 @@ export function usePaginatedList<T>(
   const result = useQuery({
     queryKey,
     queryFn: async () => fetcher({ skip, limit: pageSize }),
-    keepPreviousData: true,
+    placeholderData: (previousData) => previousData,
   });
 
   const res = result.data as AxiosResponseWithPagination<T[]> | undefined;
