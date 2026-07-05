@@ -77,7 +77,7 @@ export default function PoolSection({
       {(formPiletas || []).map((pt, idx) => (
         <PoolCard
           key={idx}
-          pt={pt as unknown as Record<string, unknown>}
+          pt={pt as unknown as import('../../../types/budget').PoolInForm}
           idx={idx}
           piletas={piletas}
           readOnly={readOnly}

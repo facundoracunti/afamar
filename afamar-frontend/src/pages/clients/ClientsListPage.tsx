@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Edit, Trash2 } from 'lucide-react';
 import { getClients, deleteClient } from '@/api/resources/clients';
-import { useList, useDelete } from '../../api/hooks';
+import { usePaginatedList, useDelete } from '../../api/hooks';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { Pagination } from '../../components/ui/Pagination';
 import { useNotify } from '../../context/NotificationContext';
 import styles from './ClientsListPage.module.css';
 
@@ -35,12 +36,12 @@ export default function ClientsList() {
   const navigate = useNavigate();
   const notify = useNotify();
 
-  const { items: clients, loading } = useList<LocalClient>(
+  const { items: clients, loading, total, page, pageSize, setPage } = usePaginatedList<LocalClient>(
     [...CLIENTS_KEY, search],
-    async () => {
-      const res = await getClients({ search: search || undefined });
-      return (res.data as LocalClient[]) || [];
-    }
+    async ({ skip, limit }) => {
+      return getClients({ search: search || undefined, skip, limit });
+    },
+    { pageSize: 10 },
   );
 
   const deleteMutation = useDelete<unknown, number>(
@@ -175,6 +176,8 @@ export default function ClientsList() {
         confirmLabel="Eliminar"
         danger
       />
+
+      <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} label="clientes" />
     </div>
   );
 }

@@ -1,6 +1,5 @@
 import React from 'react';
 import BudgetPanel from '../../components/features/budget/BudgetPanel';
-import ApprovalSection from '../../components/features/orders/ApprovalSection';
 import type { EntityFormState } from '../../types';
 
 interface BudgetFormFinancialProps {
@@ -67,7 +66,6 @@ export default function BudgetFormFinancial({
         descuentoBlock={descuentoBlock}
         onConfirmarPago={onConfirmarPago}
       />
-      <ApprovalSection form={form} readOnly={readOnly} update={update as (field: string, value: unknown) => void} />
     </>
   );
 }

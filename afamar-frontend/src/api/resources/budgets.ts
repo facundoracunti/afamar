@@ -1,4 +1,5 @@
 import http from '../http';
+import type { UnifiedBudget } from '../../types/budget';
 
 export const getBudgets = (params?: Record<string, unknown>) => http.get('/budgets', { params });
 export const getBudgetsUnified = (params?: Record<string, unknown>) => http.get('/budgets/unified', { params });
@@ -13,6 +14,18 @@ export const getNextBudgetNumber = () => http.get('/budgets/next-number');
 export const getBudgetPdf = (id: number | string) => `${http.defaults.baseURL}/budgets/${id}/pdf`;
 export const previewBudgetPdf = (data: Record<string, unknown>) =>
   http.post('/budgets/preview-pdf', data, { responseType: 'blob' });
+
+/**
+ * Fetch the saved budget PDF with the bearer token and return a Blob URL
+ * suitable for embedding in an iframe. Use this instead of `getBudgetPdf`
+ * (which returns a raw URL and gets 401 in a new browser tab because the
+ * Authorization header is only attached by axios).
+ * Caller is responsible for revoking the URL when done.
+ */
+export async function getBudgetPdfBlob(id: number | string): Promise<string> {
+  const res = await http.get<Blob>(`/budgets/${id}/pdf`, { responseType: 'blob' });
+  return URL.createObjectURL(res.data);
+}
 export const convertAlternativeToWorkOrder = (budgetId: number | string, idx: number) =>
   http.post(`/budgets/${budgetId}/alternatives/${idx}/convert-to-work-order`);
 
@@ -25,3 +38,46 @@ export const mapBudgetStatusToApi = (status: string): Record<string, unknown> =>
     'CONVERTIDO A OT': 'CONVERTED_TO_OT',
   }[status] || status,
 });
+
+interface UnifiedBudgetRaw {
+  id: number;
+  tipo?: string;
+  number?: string;
+  date?: string | null;
+  client_name?: string | null;
+  client_phone?: string | null;
+  material?: string | null;
+  total?: number;
+  total_usd?: number;
+  status?: string;
+  work_order_number?: string | null;
+  created_at?: string;
+  deposit_received?: number;
+  balance_due?: number;
+  design_observations?: string | null;
+  materials?: Array<{ name: string }>;
+  items?: Array<{ detail: string; material?: string }>;
+}
+
+/**
+ * Backend `GET /budgets/unified` returns snake_case keys plus `tipo` instead of
+ * `type`. This mapper translates them so the frontend can keep using camelCase
+ * fields on `UnifiedBudget` (which is what the rest of the code expects).
+ */
+export function mapUnifiedBudget(raw: UnifiedBudgetRaw): UnifiedBudget {
+  return {
+    type: raw.tipo === 'online' ? 'online' : 'local',
+    id: raw.id,
+    number: raw.number || '',
+    workOrderNumber: raw.work_order_number || undefined,
+    date: raw.date || '',
+    clientName: raw.client_name || undefined,
+    clientPhone: raw.client_phone || undefined,
+    materials: raw.materials,
+    items: raw.items,
+    material: raw.material || undefined,
+    designObservations: raw.design_observations || undefined,
+    total: raw.total || 0,
+    status: raw.status || '',
+  };
+}

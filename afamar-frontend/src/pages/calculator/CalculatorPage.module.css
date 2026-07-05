@@ -139,3 +139,199 @@
 .calculator__progressBar--mid {
   background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%);
 }
+
+/* ------------------------------------------------------------------ */
+/* Placa estándar card (sky-tinted info block)                        */
+/* ------------------------------------------------------------------ */
+
+.calculator__plateCard {
+  margin-bottom: 16px;
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 16px;
+  border-left: 4px solid var(--color-info);
+}
+
+.calculator__plateRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.calculator__plateIconWrap {
+  padding: 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-info) 15%, transparent);
+  color: var(--color-info);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calculator__plateBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.calculator__plateTitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+
+.calculator__plateDimensions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.calculator__plateInput {
+  width: 70px;
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+  padding: 4px 6px;
+}
+
+.calculator__plateSeparator {
+  font-size: 18px;
+  color: var(--text-muted);
+}
+
+.calculator__plateTotal {
+  font-size: 14px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.calculator__plateNote {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Results stat cards                                                 */
+/* ------------------------------------------------------------------ */
+
+.calculator__statGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.calculator__statCard {
+  padding: 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--surface-bg);
+  text-align: center;
+  border-left-width: 4px;
+}
+
+.calculator__statCard--info {
+  border-left-color: var(--color-info);
+}
+
+.calculator__statCard--success {
+  border-left-color: var(--color-success);
+}
+
+.calculator__statCard--danger {
+  border-left-color: var(--color-danger);
+}
+
+.calculator__statLabel {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.calculator__statValue {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.calculator__statValue--info { color: var(--color-info); }
+.calculator__statValue--success { color: var(--color-success); }
+.calculator__statValue--danger { color: var(--color-danger); }
+
+/* ------------------------------------------------------------------ */
+/* Utilization progress bar                                           */
+/* ------------------------------------------------------------------ */
+
+.calculator__progressMeta {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.calculator__progressValue {
+  font-weight: 600;
+}
+
+.calculator__progressTrack {
+  width: 100%;
+  height: 24px;
+  background: var(--surface-alt-bg);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.calculator__progressFill {
+  height: 100%;
+  border-radius: 12px;
+  transition: width 0.4s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: white;
+  min-width: 32px;
+}
+
+.calculator__progressFill--high { background: var(--color-success); }
+.calculator__progressFill--mid { background: #f59e0b; }
+.calculator__progressFill--low { background: var(--color-danger); }
+
+.calculator__progressScale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ------------------------------------------------------------------ */
+/* Pieces table tfoot (TOTAL row)                                     */
+/* ------------------------------------------------------------------ */
+
+.calculator__tfootRow {
+  background: var(--surface-alt-bg);
+}
+
+.calculator__tfootCell {
+  font-weight: 700;
+  border-top: 2px solid var(--border-color);
+}
+
+.calculator__tfootCell--highlight {
+  color: var(--color-info);
+}
+
+/* ------------------------------------------------------------------ */
+/* Empty state in pieces table                                        */
+/* ------------------------------------------------------------------ */
+
+.calculator__emptyRow {
+  text-align: center;
+  padding: 32px;
+  color: var(--text-muted);
+}

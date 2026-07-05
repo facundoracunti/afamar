@@ -1,0 +1,87 @@
+/* PoolCard — BEM
+   .pool-card                       block
+   .pool-card__header               top row: brand-model + remove
+   .pool-card__title                brand - model text
+   .pool-card__remove               × delete button
+   .pool-card__fields               bottom row: cant / moneda / precio
+   .pool-card__field                single field cell
+   .pool-card__label                field caption
+   .pool-card__input                shared compact input style
+   .pool-card__select               shared compact select style
+*/
+
+.pool-card {
+  margin-bottom: 8px;
+  padding: 10px;
+  background: var(--surface-alt-bg);
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
+.pool-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.pool-card__title {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.pool-card__remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-danger);
+  font-size: 16px;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.pool-card__remove:hover:not(:disabled) {
+  color: var(--color-danger-hover);
+}
+
+.pool-card__remove:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pool-card__fields {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.pool-card__field {
+  margin: 0;
+}
+
+.pool-card__field--cant {
+  width: 70px;
+}
+
+.pool-card__field--moneda {
+  flex: 1;
+}
+
+.pool-card__field--precio {
+  flex: 2;
+}
+
+.pool-card__label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.pool-card__input,
+.pool-card__select {
+  font-size: 12px;
+  padding: 4px 6px;
+  width: 100%;
+}

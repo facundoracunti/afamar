@@ -10,6 +10,18 @@ export const getWorkOrderPdf = (id: number | string) => `${http.defaults.baseURL
 export const previewWorkOrderPdf = (data: Record<string, unknown>) =>
   http.post('/work-orders/preview-pdf', data, { responseType: 'blob' });
 
+/**
+ * Fetch the saved work-order PDF with the bearer token and return a Blob URL
+ * suitable for embedding in an iframe. Use this instead of `getWorkOrderPdf`
+ * (which returns a raw URL and gets 401 in a new browser tab because the
+ * Authorization header is only attached by axios).
+ * Caller is responsible for revoking the URL when done.
+ */
+export async function getWorkOrderPdfBlob(id: number | string): Promise<string> {
+  const res = await http.get<Blob>(`/work-orders/${id}/pdf`, { responseType: 'blob' });
+  return URL.createObjectURL(res.data);
+}
+
 function mapWorkOrderStatusValue(status: string): string {
   const statusMap: Record<string, string> = {
     'MEDICION': 'MEASUREMENT',

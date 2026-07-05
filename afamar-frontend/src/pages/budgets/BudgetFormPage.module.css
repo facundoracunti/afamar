@@ -13,7 +13,7 @@
    .budget-form__materials-empty  empty state for materials
    .budget-form__obs         observations textarea group
    .budget-form__add-row     add material/pool select row
-   .budget-form__bottom      bottom 2-col grid
+   .budget-form__bottom      bottom single-column stack
    .budget-form__btn-success  green action button
    .budget-form__btn-approve  blue action button
    .budget-form__btn-convert  red action button
@@ -47,13 +47,14 @@
 
 .budget-form__layout {
   display: grid;
-  grid-template-columns: 7fr 3fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 16px;
   margin-top: 16px;
+  align-items: start;
 }
 
 .budget-form__layout--no-sketch {
-  grid-template-columns: 1fr;
+  grid-template-columns: 1fr 1fr;
 }
 
 .budget-form__sketch,
@@ -118,7 +119,7 @@
 
 .budget-form__bottom {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 16px;
   margin-top: 16px;
 }

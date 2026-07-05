@@ -107,6 +107,14 @@ class Budget(Base):
     work_order = relationship("WorkOrder", back_populates="budget", uselist=False)
     pool = relationship("PoolStock", foreign_keys=[pool_id])
 
+    @property
+    def work_order_id(self) -> int | None:
+        return self.work_order.id if self.work_order else None
+
+    @property
+    def work_order_number(self) -> str | None:
+        return self.work_order.number if self.work_order else None
+
 
 class BudgetItem(Base):
     __tablename__ = "budget_items"

@@ -115,7 +115,8 @@ export default function Calculator() {
     desperdicio = 100 - utilizacion;
   }
 
-  const barColor = utilizacion >= 80 ? '#22c55e' : utilizacion >= 60 ? '#f59e0b' : '#ef4444';
+  const barModifier: 'high' | 'mid' | 'low' = utilizacion >= 80 ? 'high' : utilizacion >= 60 ? 'mid' : 'low';
+  const barTextClass = `${s['calculator__progressFill']} ${s[`calculator__progressFill--${barModifier}`]}`;
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -136,22 +137,22 @@ export default function Calculator() {
         )}
       </div>
 
-      <div className="card" style={{ marginBottom: 16, background: '#f0f9ff', border: '1px solid #bae6fd' } as React.CSSProperties}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 } as React.CSSProperties}>
-          <div style={{ padding: 8, borderRadius: 8, background: '#e0f2fe' } as React.CSSProperties}>
-            <Grid3x3 size={20} color="#0284c7" />
+      <div className={s['calculator__plateCard']}>
+        <div className={s['calculator__plateRow']}>
+          <div className={s['calculator__plateIconWrap']}>
+            <Grid3x3 size={20} />
           </div>
-          <div>
-            <div style={{ fontSize: 13, color: '#475569', marginBottom: 2 } as React.CSSProperties}>Placa estándar</div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' } as React.CSSProperties}>
-              <input className="input" type="number" step="0.01" style={{ width: 70, fontSize: 16, fontWeight: 700, textAlign: 'center', padding: '4px 6px' } as React.CSSProperties}
+          <div className={s['calculator__plateBody']}>
+            <div className={s['calculator__plateTitle']}>Placa estándar</div>
+            <div className={s['calculator__plateDimensions']}>
+              <input className={`input ${s['calculator__plateInput']}`} type="number" step="0.01"
                 value={plateW} onChange={(e) => setPlateW(Number(e.target.value) || 0)} />
-              <span style={{ fontSize: 18, color: '#64748b' } as React.CSSProperties}>×</span>
-              <input className="input" type="number" step="0.01" style={{ width: 70, fontSize: 16, fontWeight: 700, textAlign: 'center', padding: '4px 6px' } as React.CSSProperties}
+              <span className={s['calculator__plateSeparator']}>×</span>
+              <input className={`input ${s['calculator__plateInput']}`} type="number" step="0.01"
                 value={plateH} onChange={(e) => setPlateH(Number(e.target.value) || 0)} />
-              <span style={{ fontSize: 14, color: '#64748b', fontWeight: 400 } as React.CSSProperties}>(Total: {plateArea.toFixed(2)} m&sup2;)</span>
+              <span className={s['calculator__plateTotal']}>(Total: {plateArea.toFixed(2)} m²)</span>
             </div>
-            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 } as React.CSSProperties}>
+            <div className={s['calculator__plateNote']}>
               Corte de disco: +3 mm por lado por pieza
             </div>
           </div>
@@ -238,7 +239,7 @@ export default function Calculator() {
               ))}
               {piezas.length === 0 && (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: 32, color: '#94a3b8' } as React.CSSProperties}>
+                  <td colSpan={7} className={s['calculator__emptyRow']}>
                     No hay piezas agregadas. Agregue piezas para comenzar el cálculo.
                   </td>
                 </tr>
@@ -246,13 +247,13 @@ export default function Calculator() {
             </tbody>
             {piezas.length > 0 && (
               <tfoot>
-                <tr style={{ background: '#f8fafc' } as React.CSSProperties}>
+                <tr className={s['calculator__tfootRow']}>
                   <td colSpan={4}></td>
-                  <td style={{ fontWeight: 700, borderTop: '2px solid #e2e8f0' } as React.CSSProperties}>TOTAL</td>
-                  <td style={{ fontWeight: 700, borderTop: '2px solid #e2e8f0', color: '#1e40af' } as React.CSSProperties}>
-                    {totalM2.toFixed(5)} m&sup2;
+                  <td className={s['calculator__tfootCell']}>TOTAL</td>
+                  <td className={`${s['calculator__tfootCell']} ${s['calculator__tfootCell--highlight']}`}>
+                    {totalM2.toFixed(5)} m²
                   </td>
-                  <td style={{ borderTop: '2px solid #e2e8f0' } as React.CSSProperties}></td>
+                  <td className={s['calculator__tfootCell']}></td>
                 </tr>
               </tfoot>
             )}
@@ -264,49 +265,39 @@ export default function Calculator() {
         <div className="card">
           <h2 className="section-title" style={{ fontSize: 15, marginBottom: 16 } as React.CSSProperties}>Resultados</h2>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 20 } as React.CSSProperties}>
-            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: 10, border: '1px solid #e2e8f0', textAlign: 'center' } as React.CSSProperties}>
-              <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4 } as React.CSSProperties}>Total M²</div>
-              <div style={{ fontSize: 24, fontWeight: 700 } as React.CSSProperties}>{totalM2.toFixed(2)}</div>
+          <div className={s['calculator__statGrid']}>
+            <div className={s['calculator__statCard']}>
+              <div className={s['calculator__statLabel']}>Total M²</div>
+              <div className={s['calculator__statValue']}>{totalM2.toFixed(2)}</div>
             </div>
-            <div style={{ background: '#f0f9ff', padding: '16px', borderRadius: 10, border: '1px solid #bae6fd', textAlign: 'center' } as React.CSSProperties}>
-              <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4 } as React.CSSProperties}>Placas necesarias</div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: '#1e40af' } as React.CSSProperties}>{placasNecesarias}</div>
+            <div className={`${s['calculator__statCard']} ${s['calculator__statCard--info']}`}>
+              <div className={s['calculator__statLabel']}>Placas necesarias</div>
+              <div className={`${s['calculator__statValue']} ${s['calculator__statValue--info']}`}>{placasNecesarias}</div>
             </div>
-            <div style={{ background: '#f0fdf4', padding: '16px', borderRadius: 10, border: '1px solid #bbf7d0', textAlign: 'center' } as React.CSSProperties}>
-              <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4 } as React.CSSProperties}>Utilización</div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: '#16a34a' } as React.CSSProperties}>{utilizacion.toFixed(1)}%</div>
+            <div className={`${s['calculator__statCard']} ${s['calculator__statCard--success']}`}>
+              <div className={s['calculator__statLabel']}>Utilización</div>
+              <div className={`${s['calculator__statValue']} ${s['calculator__statValue--success']}`}>{utilizacion.toFixed(1)}%</div>
             </div>
-            <div style={{ background: '#fef2f2', padding: '16px', borderRadius: 10, border: '1px solid #fecaca', textAlign: 'center' } as React.CSSProperties}>
-              <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4 } as React.CSSProperties}>Desperdicio</div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: '#dc2626' } as React.CSSProperties}>{desperdicio.toFixed(1)}%</div>
+            <div className={`${s['calculator__statCard']} ${s['calculator__statCard--danger']}`}>
+              <div className={s['calculator__statLabel']}>Desperdicio</div>
+              <div className={`${s['calculator__statValue']} ${s['calculator__statValue--danger']}`}>{desperdicio.toFixed(1)}%</div>
             </div>
           </div>
 
           <div style={{ marginTop: 8 } as React.CSSProperties}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 13, color: '#64748b' } as React.CSSProperties}>
+            <div className={s['calculator__progressMeta']}>
               <span>Utilización</span>
-              <span style={{ fontWeight: 600, color: barColor } as React.CSSProperties}>{utilizacion.toFixed(1)}%</span>
+              <span className={s['calculator__progressValue']}>{utilizacion.toFixed(1)}%</span>
             </div>
-            <div style={{ width: '100%', height: 24, background: '#e2e8f0', borderRadius: 12, overflow: 'hidden' } as React.CSSProperties}>
-              <div style={{
-                width: `${Math.min(utilizacion, 100)}%`,
-                height: '100%',
-                background: barColor,
-                borderRadius: 12,
-                transition: 'width 0.4s ease',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 11,
-                fontWeight: 700,
-                color: 'white',
-                minWidth: utilizacion > 0 ? '32px' : '0',
-              } as React.CSSProperties}>
+            <div className={s['calculator__progressTrack']}>
+              <div
+                className={barTextClass}
+                style={{ width: `${Math.min(utilizacion, 100)}%` } as React.CSSProperties}
+              >
                 {utilizacion >= 15 && `${utilizacion.toFixed(0)}%`}
               </div>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 11, color: '#94a3b8' } as React.CSSProperties}>
+            <div className={s['calculator__progressScale']}>
               <span>0%</span>
               <span>100%</span>
             </div>

@@ -68,6 +68,8 @@ def search_budgets(q: str = Query(min_length=1), db: Session = Depends(get_db)):
 def list_unified_budgets(
     q: str | None = Query(None),
     status: str | None = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
 ):
     from app.models.client import Client
@@ -77,10 +79,17 @@ def list_unified_budgets(
     locales = service.repo.db.query(service.repo.model)
     onlines = db.query(OnlineBudget).all()
 
-    if status:
+    if status == "ALL":
+        pass  # explicit "no filter": include CONVERTED_TO_OT too
+    elif status:
         locales = locales.filter(service.repo.model.status == status)
+        onlines = [o for o in onlines if (o.status or "ONLINE") == status]
     else:
-        locales = locales.filter(service.repo.model.status != "APPROVED")
+        # Default landing page: hide converted work orders (they live in
+        # /admin/work-orders). APPROVED is shown so the user can still click
+        # "Convertir a OT" from the list.
+        locales = locales.filter(service.repo.model.status != "CONVERTED_TO_OT")
+        onlines = [o for o in onlines if (o.status or "ONLINE") != "CONVERTED_TO_OT"]
 
     if q:
         locales = locales.outerjoin(Client).filter(
@@ -138,7 +147,9 @@ def list_unified_budgets(
             "design_observations": "",
         })
     result.sort(key=lambda x: x.get("created_at") or "", reverse=True)
-    return success(result)
+    total = len(result)
+    page_items = result[skip:skip + limit]
+    return success(page_items, pagination={"total": total, "skip": skip, "limit": limit})
 
 
 @router.get("/next-number")
@@ -156,13 +167,14 @@ def get_budget(budget_id: int, db: Session = Depends(get_db)):
     budget = service.get_by_id(budget_id)
     if not budget:
         raise NotFoundError("Budget")
-    return success(budget)
+    return success(BudgetResponse.model_validate(budget).model_dump())
 
 
 @router.post("", status_code=201)
 def create_budget(data: BudgetCreate, db: Session = Depends(get_db)):
     service = BudgetService(db)
-    return created(service.create(data.model_dump()))
+    budget = service.create(data.model_dump())
+    return created(BudgetResponse.model_validate(budget).model_dump())
 
 
 @router.put("/{budget_id}")
@@ -171,7 +183,7 @@ def update_budget(budget_id: int, data: BudgetUpdate, db: Session = Depends(get_
     budget = service.update(budget_id, data.model_dump(exclude_unset=True))
     if not budget:
         raise NotFoundError("Budget")
-    return success(budget)
+    return success(BudgetResponse.model_validate(budget).model_dump())
 
 
 @router.delete("/{budget_id}", status_code=204)

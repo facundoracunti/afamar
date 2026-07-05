@@ -18,14 +18,17 @@ class APIResponse(BaseModel):
     pagination: PaginationInfo | None = None
 
 
-def _build(success: bool, data: Any = None, error: str | None = None, pagination: PaginationInfo | None = None) -> dict:
+def _build(success: bool, data: Any = None, error: str | None = None, pagination: PaginationInfo | dict | None = None) -> dict:
     body: dict[str, Any] = {"success": success, "data": jsonable_encoder(data), "error": error}
     if pagination is not None:
-        body["pagination"] = pagination.model_dump()
+        if isinstance(pagination, dict):
+            body["pagination"] = pagination
+        else:
+            body["pagination"] = pagination.model_dump()
     return body
 
 
-def success(data: Any = None, pagination: PaginationInfo | None = None) -> JSONResponse:
+def success(data: Any = None, pagination: PaginationInfo | dict | None = None) -> JSONResponse:
     return JSONResponse(content=_build(True, data, pagination=pagination), status_code=200)
 
 

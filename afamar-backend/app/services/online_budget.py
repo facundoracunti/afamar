@@ -40,7 +40,11 @@ class OnlineBudgetService:
         if not online_budget:
             raise ValueError("Online budget not found")
         if online_budget.status == "CONVERTED_TO_OT":
-            raise ValueError("Online budget already converted")
+            raise ValueError("Online budget already converted to a work order")
+        if online_budget.status != "APPROVED":
+            raise ValueError(
+                f"Online budget must be approved to convert (current status: {online_budget.status})"
+            )
 
         items_json = online_budget.items_data or "[]"
         try:

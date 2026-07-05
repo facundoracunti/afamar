@@ -55,7 +55,8 @@ def convert_online_budget_to_work_order(budget_id: int, db: Session = Depends(ge
     try:
         work_order = service.convert_to_work_order(budget_id)
     except ValueError as e:
-        raise NotFoundError(str(e))
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=str(e))
     return created(work_order)
 
 

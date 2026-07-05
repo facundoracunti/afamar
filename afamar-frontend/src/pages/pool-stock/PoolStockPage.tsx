@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { Search, Plus, PackagePlus, PackageMinus, Trash2 } from 'lucide-react';
 import { getPoolStock, createPool, updatePool, deletePool, getPoolMovements, createPoolMovement } from '@/api/resources/poolStock';
 import http from '@/api/http';
-import { useList, useDelete } from '../../api/hooks';
+import { useList, usePaginatedList, useDelete } from '../../api/hooks';
 import { Modal } from '../../components/ui/Modal';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { Pagination } from '../../components/ui/Pagination';
 import type { Pool, PoolMovement, PoolType } from '../../types/poolStock';
 import styles from './PoolStockPage.module.css';
 
@@ -32,12 +33,12 @@ export default function PoolStockPage() {
   const [form, setForm] = useState<{ brand: string; model: string; description: string; material: string; quantity: number; price: number; price_usd: number; pool_type_id: number | string }>({ brand: '', model: '', description: '', material: '', quantity: 0, price: 0, price_usd: 0, pool_type_id: 1 });
   const [movForm, setMovForm] = useState<{ type: string; quantity: number; description: string }>({ type: 'Ingreso', quantity: 1, description: '' });
 
-  const { items: data, loading, load } = useList<Pool>(
+  const { items: data, loading, total, page, pageSize, setPage, refetch } = usePaginatedList<Pool>(
     [...POOL_STOCK_KEY, search],
-    async () => {
-      const res = await getPoolStock({ search: search || undefined });
-      return (res.data as Pool[]) || [];
-    }
+    async ({ skip, limit }) => {
+      return getPoolStock({ search: search || undefined, skip, limit });
+    },
+    { pageSize: 10 },
   );
 
   const deleteMutation = useDelete<unknown, number>(
@@ -66,7 +67,7 @@ export default function PoolStockPage() {
         await createPool(form);
       }
       setShowForm(false);
-      load();
+      refetch();
     } catch (err: unknown) {
       alert('Error al guardar');
     }
@@ -92,7 +93,7 @@ export default function PoolStockPage() {
       await createPoolMovement(showMov.id, movForm);
       const res = await getPoolMovements(showMov.id);
       setMovimientos(res.data);
-      load();
+      refetch();
     setMovForm({ type: 'Ingreso', quantity: 1, description: '' });
     } catch (err: unknown) {
       alert('Error al registrar movimiento');
@@ -258,6 +259,8 @@ export default function PoolStockPage() {
       </Modal>
 
       <ConfirmDialog open={!!deleteId} onCancel={() => setDeleteId(null)} onConfirm={handleDelete} title="Eliminar pileta" message="¿Estás seguro?" confirmLabel="Eliminar" danger />
+
+      <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} label="piletas" />
     </div>
   );
 }

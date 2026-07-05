@@ -2,13 +2,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Edit, Trash2, FolderTree, Image as ImageIcon } from 'lucide-react';
 import { getMaterials, deleteMaterial, getMaterialCategories, type MaterialCategory } from '@/api/resources/materials';
-import { useList, useDelete } from '../../api/hooks';
+import { useList, usePaginatedList, useDelete } from '../../api/hooks';
 import type { Material } from '../../types/material';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { Pagination } from '../../components/ui/Pagination';
 import { Modal } from '../../components/ui/Modal';
 import { MaterialFormModal } from '../../components/features/materials/MaterialFormModal';
 import styles from './MaterialsListPage.module.css';
@@ -28,12 +29,12 @@ export default function MaterialsList() {
   const [lightboxName, setLightboxName] = useState<string>('');
   const navigate = useNavigate();
 
-  const { items: data, loading } = useList<Material>(
+  const { items: data, loading, total, page, pageSize, setPage } = usePaginatedList<Material>(
     [...MATERIALS_KEY, search, categoria],
-    async () => {
-      const res = await getMaterials({ search: search || undefined, categoria: categoria || undefined });
-      return (res.data as Material[]) || [];
-    }
+    async ({ skip, limit }) => {
+      return getMaterials({ search: search || undefined, categoria: categoria || undefined, skip, limit });
+    },
+    { pageSize: 10 },
   );
 
   const { items: categorias } = useList<MaterialCategory>(
@@ -260,6 +261,8 @@ export default function MaterialsList() {
           </div>
         )}
       </Modal>
+
+      <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} label="materiales" />
     </div>
   );
 }

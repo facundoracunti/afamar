@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import MaterialCard from '../../components/features/materials/MaterialCard';
+import { useList } from '../../api/hooks';
+import { getMaterialCategories, type MaterialCategory } from '../../api/resources/materials';
 import type { EntityFormState } from '../../types';
 
 interface BudgetFormSpecsProps {
@@ -23,13 +25,40 @@ export default function BudgetFormSpecs({
   update,
   num,
 }: BudgetFormSpecsProps) {
+  const { items: categorias } = useList<MaterialCategory>(
+    ['material-categories', 'all'],
+    async () => {
+      const res = await getMaterialCategories();
+      return (res.data as MaterialCategory[]) || [];
+    }
+  );
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
+
+  const materialesFiltrados = useMemo(() => {
+    if (!selectedCategoryId) return materiales;
+    return materiales.filter((m: Record<string, unknown>) => String(m.category_id ?? '') === selectedCategoryId);
+  }, [materiales, selectedCategoryId]);
+
   return (
     <div className="card" style={{ height: '100%' }}>
       <h3 className="section-title">MATERIALES</h3>
       <div className="form-group">
+        <select
+          className="input"
+          value={selectedCategoryId}
+          onChange={(e) => setSelectedCategoryId(e.target.value)}
+          disabled={readOnly}
+        >
+          <option value="">Todas las categorías</option>
+          {categorias.map((c) => (
+            <option key={c.id} value={String(c.id)}>{c.name}</option>
+          ))}
+        </select>
+      </div>
+      <div className="form-group">
         <select className="input" value="" onChange={(e) => { addMaterial(e.target.value); e.target.value = ''; }} disabled={readOnly}>
           <option value="">+ AGREGAR MATERIAL</option>
-          {materiales.filter((m: Record<string, unknown>) => m.name).map((m: Record<string, unknown>) => (
+          {materialesFiltrados.filter((m: Record<string, unknown>) => m.name).map((m: Record<string, unknown>) => (
             <option key={m.id as number} value={m.name as string}>
               {m.name as string}{m.color ? ` - ${m.color as string}` : ''}
             </option>

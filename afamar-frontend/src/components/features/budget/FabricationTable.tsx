@@ -71,9 +71,9 @@ export default function FabricationTable({ detalles, readOnly, handleDetailChang
               </td>
               <td>
                 {M2_CONCEPTS.includes(d.concept as string) ? (
-                  <span style={{ fontSize: 12, fontWeight: 600, color: (d.currency as string) === 'USD' ? '#059669' : '#1e293b' }}>{(d.currency as string) === 'USD' ? 'USD ' : '$'}{Number(d.price || 0).toLocaleString('es-AR')}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: (d.currency as string) === 'USD' ? '#059669' : '#64748b' }}>{(d.currency as string) === 'USD' ? 'USD ' : '$'}{Number(d.price || 0).toLocaleString('es-AR')}</span>
                 ) : d.concept === 'OTHER' ? (
-                  <span style={{ fontSize: 12, fontWeight: 600, color: (d.currency as string) === 'USD' ? '#059669' : '#1e293b' }}>{(d.currency as string) === 'USD' ? 'USD ' : '$'}{Number(d.price || 0).toLocaleString('es-AR')}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: (d.currency as string) === 'USD' ? '#059669' : '#64748b' }}>{(d.currency as string) === 'USD' ? 'USD ' : '$'}{Number(d.price || 0).toLocaleString('es-AR')}</span>
                 ) : ['CUTOUT_SINK', 'CUTOUT_COOKTOP', 'CUTOUT_DROPIN_SINK'].includes(d.concept as string) ? (
                   <input className="input" type="number" step="0.01" min="0" style={{ fontSize: 12, padding: '4px 8px', width: '100%' }} value={d.price || ''} onChange={(e) => handleDetailChange(i, 'price', num(e.target.value))} placeholder="0" disabled={readOnly} />
                 ) : (

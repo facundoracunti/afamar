@@ -211,3 +211,5 @@ class BudgetResponse(BudgetBase, BaseResponse):
     items: list[BudgetItemResponse] = []
     adicionales: list[BudgetAdicionalResponse] = []
     sketch_elements: list[BudgetSketchElementResponse] = []
+    work_order_id: int | None = None
+    work_order_number: str | None = None

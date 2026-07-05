@@ -6,6 +6,7 @@ import { getMaterials } from '@/api/resources/materials';
 import { getPoolStock } from '@/api/resources/poolStock';
 import { getNextBudgetNumber } from '@/api/resources/budgets';
 import { useGet, useList } from '../../api/hooks';
+import { fetchUsdVenta } from '../../utils/dolarApi';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import OnlineBudgetHeader from '../../components/features/budget/OnlineBudgetHeader';
 import OnlineItemsTable, { createOption, parseNum, type OptionTab, type OnlineBudgetItemLocal, SPECIAL_NAMES, INITIAL_ROWS, INITIAL_SPECIALS, emptyItem } from '../../components/features/budget/OnlineItemsTable';
@@ -68,6 +69,18 @@ export default function OnlineBudgetForm() {
   useEffect(() => {
     if (fetchedNextNumber) setNumberValue(fetchedNextNumber);
   }, [fetchedNextNumber]);
+
+  // Auto-fill USD rate from dolarapi.com on new budget creation (AGENTS.md:
+  // "USD auto-fill desde dolarapi.com"). Only on new budgets — when editing,
+  // we use the value stored in the DB.
+  useEffect(() => {
+    if (isEdit) return;
+    let cancelled = false;
+    fetchUsdVenta()
+      .then((venta) => { if (!cancelled) setUsdRate(venta); })
+      .catch(() => { /* keep default 1000 if API is down */ });
+    return () => { cancelled = true; };
+  }, [isEdit]);
 
   // Auto-recalculate totals when active tab, opciones, or usdRate change
   useEffect(() => {

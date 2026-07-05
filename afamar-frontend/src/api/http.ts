@@ -32,6 +32,11 @@ http.interceptors.response.use(
       if (!res.data.success) {
         return Promise.reject(new Error(res.data.error || "Error"));
       }
+      // Lift pagination to a sibling property before unwrapping `data`,
+      // so non-paginated callers keep their `res.data as T` shape.
+      if (res.data.pagination) {
+        (res as typeof res & { pagination?: unknown }).pagination = res.data.pagination;
+      }
       res.data = res.data.data;
     }
     return res;

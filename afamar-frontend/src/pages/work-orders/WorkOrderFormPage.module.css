@@ -13,7 +13,7 @@
    .work-order-form__materials-grid  materials grid
    .work-order-form__materials-empty  empty state
    .work-order-form__obs         observations group
-   .work-order-form__bottom      bottom 2-col grid
+   .work-order-form__bottom      bottom single-column stack
    .work-order-form__comparative  m² comparativa section
    .work-order-form__comparative-title  comparativa title
    .work-order-form__comparative-table   comparativa table
@@ -51,13 +51,14 @@
 
 .work-order-form__layout {
   display: grid;
-  grid-template-columns: 7fr 3fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 16px;
   margin-top: 16px;
+  align-items: start;
 }
 
 .work-order-form__layout--no-sketch {
-  grid-template-columns: 1fr;
+  grid-template-columns: 1fr 1fr;
 }
 
 .work-order-form__sketch,
@@ -122,7 +123,7 @@
 
 .work-order-form__bottom {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 16px;
   margin-top: 16px;
 }

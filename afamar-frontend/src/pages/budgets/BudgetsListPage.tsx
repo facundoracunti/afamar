@@ -7,20 +7,28 @@ import {
   updateBudget,
   convertBudgetToWorkOrder,
   getBudgetPdf,
+  getBudgetPdfBlob,
   sendBudgetEmail,
   mapBudgetStatusToApi,
+  mapUnifiedBudget,
 } from '@/api/resources/budgets';
+import { updateOnlineBudget } from '@/api/resources/onlineBudgets';
 import {
   deleteOnlineBudget,
   convertOnlineBudgetToWorkOrder,
 } from '@/api/resources/onlineBudgets';
-import { useList, useDelete } from '../../api/hooks';
+import { usePaginatedList, useDelete } from '../../api/hooks';
+import type { AxiosResponse } from 'axios';
 import { formatDate } from '../../utils/formatters';
+import { t as translateStatus } from '../../utils/translate';
 import CurrencyDisplay from '../../components/ui/CurrencyDisplay';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { Pagination } from '../../components/ui/Pagination';
+import PdfPreviewModal from '../../components/common/PdfPreviewModal';
+import { useNotify } from '../../context/NotificationContext';
 import type { UnifiedBudget } from '../../types/budget';
 import styles from './BudgetsListPage.module.css';
 
@@ -28,25 +36,46 @@ const s = styles as unknown as Record<string, string>;
 
 const BUDGETS_KEY = ['budgets', 'unified'] as const;
 
+interface PendingConvert {
+  id: string | number;
+  tipo: 'online' | 'local';
+}
+
 export default function BudgetsList() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
-  const [estado, setEstado] = useState(searchParams.get('estado') || '');
+  const [estado, setEstado] = useState(searchParams.get('status') || '');
   const [deleteId, setDeleteId] = useState<string | number | null>(null);
   const [deleteTipo, setDeleteTipo] = useState<string | null>(null);
+  const [pendingConvert, setPendingConvert] = useState<PendingConvert | null>(null);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
+  const [pdfPreviewTitle, setPdfPreviewTitle] = useState<string>('Vista previa PDF');
 
   useEffect(() => {
-    const e = searchParams.get('estado') || 'PENDIENTE';
-    setEstado(e);
+    setEstado(searchParams.get('status') || '');
   }, [searchParams]);
 
-  const { items: data, loading, load } = useList<UnifiedBudget>(
+  const notify = useNotify();
+
+  const { items: data, loading, total, page, pageSize, setPage, refetch } = usePaginatedList<UnifiedBudget>(
     [...BUDGETS_KEY, search, estado],
-    async () => {
-      const res = await getBudgetsUnified({ search: search || undefined, estado: estado || undefined });
-      return (res.data as UnifiedBudget[]) || [];
-    }
+    async ({ skip, limit }) => {
+      // '' = active default (backend hides CONVERTED_TO_OT), 'ALL' = explicit no filter
+      const statusParam = estado === 'ALL' ? 'ALL' : (estado || undefined);
+      const res = (await getBudgetsUnified({
+        search: search || undefined,
+        status: statusParam,
+        skip,
+        limit,
+      })) as AxiosResponse<Record<string, unknown>[]>;
+      // Map snake_case → UnifiedBudget (type guard handled in the mapper)
+      const mapped = (res.data || []).map((r) => mapUnifiedBudget(r as unknown as Parameters<typeof mapUnifiedBudget>[0]));
+      // Replace `data` so the hook sees the mapped items in `items`.
+      return Object.assign(res, { data: mapped }) as AxiosResponse<UnifiedBudget[]>;
+    },
+    { pageSize: 25 },
   );
 
   const deleteMutation = useDelete<unknown, string | number>(
@@ -60,36 +89,62 @@ export default function BudgetsList() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    await deleteMutation.mutateAsync(deleteId);
-    setDeleteId(null);
-    setDeleteTipo(null);
-  };
-
-  const handleCambiarEstado = async (id: string | number, nuevoEstado: string) => {
-    await updateBudget(id as string, mapBudgetStatusToApi(nuevoEstado));
-    load();
-  };
-
-  const handleConvertirOnline = async (id: string | number) => {
-    if (!window.confirm('Convertir este presupuesto online en Orden de Trabajo? Se copiaran todos los items.')) return;
     try {
-      const res = await convertOnlineBudgetToWorkOrder(id as string);
-      navigate(`/admin/work-orders/${(res.data as Record<string, unknown>).orden_id as string}`);
+      await deleteMutation.mutateAsync(deleteId);
+      notify('Presupuesto eliminado correctamente', 'success');
+      setDeleteId(null);
+      setDeleteTipo(null);
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { detail?: string } } };
-      alert(error.response?.data?.detail || 'Error al convertir');
+      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+        || (err as Error).message
+        || 'Error al eliminar';
+      notify(detail, 'error');
     }
   };
 
-  const handleConvertir = async (id: string | number) => {
-    if (!window.confirm('Convertir este presupuesto en Orden de Trabajo? Se copiara toda la informacion.')) return;
+  const handleCambiarEstado = async (budget: UnifiedBudget, nuevoEstado: string) => {
     try {
-      const res = await convertBudgetToWorkOrder(id as string);
-      navigate(`/admin/work-orders/${(res.data as Record<string, unknown>).id as string}`);
+      const payload = mapBudgetStatusToApi(nuevoEstado);
+      if (budget.type === 'online') {
+        await updateOnlineBudget(budget.id, payload);
+      } else {
+        await updateBudget(String(budget.id), payload);
+      }
+      notify(`Estado actualizado a ${nuevoEstado}`, 'success');
+      refetch();
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { detail?: string } } };
-      alert(error.response?.data?.detail || 'Error al convertir');
+      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+        || (err as Error).message
+        || 'Error al cambiar estado';
+      notify(detail, 'error');
     }
+  };
+
+  const performConvert = async (pending: PendingConvert) => {
+    try {
+      if (pending.tipo === 'online') {
+        const res = await convertOnlineBudgetToWorkOrder(pending.id as string);
+        notify(`Orden ${(res.data as Record<string, unknown>).number as string} creada exitosamente`, 'success');
+        navigate(`/admin/work-orders/${(res.data as Record<string, unknown>).id as string}`);
+      } else {
+        const res = await convertBudgetToWorkOrder(pending.id as string);
+        notify(`Orden ${(res.data as Record<string, unknown>).number as string} creada exitosamente`, 'success');
+        navigate(`/admin/work-orders/${(res.data as Record<string, unknown>).id as string}`);
+      }
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+        || (err as Error).message
+        || 'Error al convertir';
+      notify(detail, 'error');
+    }
+  };
+
+  const handleConvertir = (id: string | number) => {
+    setPendingConvert({ id, tipo: 'local' });
+  };
+
+  const handleConvertirOnline = (id: string | number) => {
+    setPendingConvert({ id, tipo: 'online' });
   };
 
   const handleEnviarWhatsApp = (presupuesto: UnifiedBudget) => {
@@ -107,17 +162,41 @@ export default function BudgetsList() {
   const handleEnviarEmail = async (id: string | number) => {
     try {
       await sendBudgetEmail(id as string);
-      alert('Email enviado correctamente');
+      notify('Email enviado correctamente', 'success');
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { detail?: string } } };
-      alert(error.response?.data?.detail || 'Error al enviar email');
+      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+        || (err as Error).message
+        || 'Error al enviar email';
+      notify(detail, 'error');
     }
+  };
+
+  const handleOpenPdf = async (budget: UnifiedBudget) => {
+    setPdfPreviewLoading(true);
+    setPdfPreviewTitle(`Vista previa — ${budget.number || 'Presupuesto'}`);
+    setPdfPreviewUrl(null);
+    try {
+      const url = await getBudgetPdfBlob(budget.id);
+      setPdfPreviewUrl(url);
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+        || (err as Error).message
+        || 'Error al generar PDF';
+      notify(detail, 'error');
+    } finally {
+      setPdfPreviewLoading(false);
+    }
+  };
+
+  const handleClosePdfPreview = () => {
+    if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
+    setPdfPreviewUrl(null);
   };
 
   return (
     <div className={s['budgets']}>
       <PageHeader
-        title="PRESUPUESTOS LOCAL / WHATSAPP"
+        title="PRESUPUESTOS"
         actions={
           <button
             type="button"
@@ -145,8 +224,13 @@ export default function BudgetsList() {
           value={estado}
           onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEstado(e.target.value)}
         >
-          <option value="PENDIENTE">PRESUPUESTO LOCAL / WHATSAPP</option>
-          <option value="CONVERTIDO A OT">PRESUPUESTOS REALIZADOS</option>
+          <option value="">Activos (excluye Convertidos a OT)</option>
+          <option value="PENDING">Pendiente</option>
+          <option value="ONLINE">Online</option>
+          <option value="APPROVED">Aprobado</option>
+          <option value="REJECTED">Rechazado</option>
+          <option value="CONVERTED_TO_OT">Convertido a OT</option>
+          <option value="ALL">Todos</option>
         </select>
       </div>
 
@@ -251,6 +335,14 @@ export default function BudgetsList() {
                       <span className={s['budgets__status'] + ' ' + s['budgets__status--done']}>
                         CONCRETADO
                       </span>
+                    ) : p.status === 'APPROVED' ? (
+                      <span className={s['budgets__status'] + ' ' + s['budgets__status--approved']}>
+                        APROBADO
+                      </span>
+                    ) : p.status === 'REJECTED' ? (
+                      <span className={s['budgets__status'] + ' ' + s['budgets__status--rejected']}>
+                        RECHAZADO
+                      </span>
                     ) : p.type === 'online' ? (
                       <span
                         className={
@@ -261,7 +353,7 @@ export default function BudgetsList() {
                       </span>
                     ) : (
                       <span className={s['budgets__status'] + ' ' + s['budgets__status--pending']}>
-                        PENDIENTE
+                        {translateStatus(p.status)}
                       </span>
                     )}
                   </td>
@@ -284,32 +376,22 @@ export default function BudgetsList() {
                       >
                         <Eye size={12} /> Ver
                       </button>
-                      {p.type !== 'online' && p.status === 'PENDING' && (
+                      {['PENDING', 'ONLINE'].includes(p.status) && (
                         <button
                           type="button"
                           className="btn btn-success"
                           style={{ padding: '3px 8px', fontSize: 11 }}
-                          onClick={() => handleCambiarEstado(p.id, 'APPROVED')}
+                          onClick={() => handleCambiarEstado(p, 'APPROVED')}
                         >
                           Aprobar
                         </button>
                       )}
-                      {p.type !== 'online' && p.status === 'APPROVED' && (
+                      {p.status === 'APPROVED' && (
                         <button
                           type="button"
                           className="btn"
                           style={{ padding: '3px 8px', fontSize: 11, background: '#b91c1c', color: '#fff', border: 'none', borderRadius: 4 }}
-                          onClick={() => handleConvertir(p.id)}
-                        >
-                          <FileOutput size={11} /> Convertir a OT
-                        </button>
-                      )}
-                      {p.type === 'online' && (
-                        <button
-                          type="button"
-                          className="btn"
-                          style={{ padding: '3px 8px', fontSize: 11, background: '#b91c1c', color: '#fff', border: 'none', borderRadius: 4 }}
-                          onClick={() => handleConvertirOnline(p.id)}
+                          onClick={() => p.type === 'online' ? handleConvertirOnline(p.id) : handleConvertir(p.id)}
                         >
                           <FileOutput size={11} /> Convertir a OT
                         </button>
@@ -323,12 +405,12 @@ export default function BudgetsList() {
                           OT {p.workOrderNumber}
                         </button>
                       )}
-                      {p.type !== 'online' && ['PENDING', 'APPROVED'].includes(p.status) && (
+                      {['PENDING', 'ONLINE', 'APPROVED'].includes(p.status) && (
                         <button
                           type="button"
                           className="btn btn-danger"
                           style={{ padding: '3px 8px', fontSize: 11 }}
-                          onClick={() => handleCambiarEstado(p.id, 'REJECTED')}
+                          onClick={() => handleCambiarEstado(p, 'REJECTED')}
                         >
                           Rechazar
                         </button>
@@ -339,7 +421,7 @@ export default function BudgetsList() {
                         type="button"
                         className="btn btn-outline"
                         style={{ padding: '3px 8px', fontSize: 11 }}
-                        onClick={() => window.open(getBudgetPdf(p.id as unknown as string), '_blank')}
+                        onClick={() => handleOpenPdf(p)}
                       >
                         <FileDown size={12} /> PDF
                       </button>
@@ -395,6 +477,35 @@ export default function BudgetsList() {
         confirmLabel="Eliminar"
         danger
       />
+
+      <ConfirmDialog
+        open={!!pendingConvert}
+        onCancel={() => setPendingConvert(null)}
+        onConfirm={() => {
+          if (pendingConvert) {
+            const pc = pendingConvert;
+            setPendingConvert(null);
+            void performConvert(pc);
+          }
+        }}
+        title="Convertir a Orden de Trabajo"
+        message={
+          pendingConvert?.tipo === 'online'
+            ? 'Se convertira este presupuesto ONLINE en una Orden de Trabajo copiando todos los items.'
+            : 'Se convertira este presupuesto en una Orden de Trabajo copiando toda la informacion (croquis, material, detalles, pileta, firma, precios y condiciones comerciales).'
+        }
+        confirmLabel="Convertir"
+      />
+
+      <PdfPreviewModal
+        isOpen={!!pdfPreviewUrl || pdfPreviewLoading}
+        onClose={handleClosePdfPreview}
+        pdfUrl={pdfPreviewUrl}
+        loading={pdfPreviewLoading}
+        title={pdfPreviewTitle}
+      />
+
+      <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} label="presupuestos" />
     </div>
   );
 }

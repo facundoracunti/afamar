@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Eye, Save, FileOutput, Check, Send } from 'lucide-react';
@@ -16,6 +16,7 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import PdfPreviewModal from '../../components/common/PdfPreviewModal';
 import TermsEditor from '../../components/common/TermsEditor';
 import { useNotify } from '../../context/NotificationContext';
+import { fetchUsdVenta } from '../../utils/dolarApi';
 import QuoteOptionsGrid from '../../components/features/budget/QuoteOptionsGrid';
 
 import ObservationsSection from '../../components/features/orders/ObservationsSection';
@@ -55,6 +56,8 @@ export default function BudgetForm() {
   const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
   const [budgetTerms, setBudgetTerms] = useState<string[]>([]);
   const [warrantyTerms, setWarrantyTerms] = useState<string[]>([]);
+  const [showConvertDialog, setShowConvertDialog] = useState(false);
+  const [pendingAltIdx, setPendingAltIdx] = useState<number | null>(null);
   const notify = useNotify();
   const num = (v: string): number | null => v === '' ? null : parseFloat(v);
 
@@ -87,12 +90,30 @@ export default function BudgetForm() {
     },
   });
 
+  // Auto-fill USD rate from dolarapi.com on new budget creation. When editing,
+  // we use the value stored in the DB. If the API is down we keep the
+  // INITIAL_FORM default (1000) so the form still works.
+  useEffect(() => {
+    if (isEdit) return;
+    let cancelled = false;
+    fetchUsdVenta()
+      .then((venta) => { if (!cancelled) setForm((prev) => ({ ...prev, usd_rate: venta })); })
+      .catch(() => { /* keep default 1000 if API is down */ });
+    return () => { cancelled = true; };
+  }, [isEdit, setForm]);
+
   // Wrap the legacy submit so the budgets list cache is invalidated on
   // every successful save (the default 5min staleTime would otherwise
   // keep the previous list visible after navigation).
   const handleSubmit = async (e?: React.FormEvent) => {
+    const wasRejected = form.status === 'REJECTED';
     await legacyHandleSubmit(e);
     queryClient.invalidateQueries({ queryKey: ['budgets'] });
+    if (wasRejected) {
+      notify('Presupuesto guardado. Estado restablecido a Pendiente — podes volver a aprobarlo.', 'success');
+    } else {
+      notify('Presupuesto guardado correctamente', 'success');
+    }
   };
 
   const buildPayloadWithTerms = (): Record<string, unknown> => ({
@@ -102,7 +123,6 @@ export default function BudgetForm() {
   });
 
   const handleConvertirGuardar = async () => {
-    if (!window.confirm('¿Convertir este presupuesto en Orden de Trabajo?\n\nSe guardará y copiará toda la información: croquis, material, detalles de fabricación, pileta, firma, precios y condiciones comerciales.')) return;
     setSaving(true);
     try {
       const payload = buildPayload();
@@ -110,30 +130,40 @@ export default function BudgetForm() {
       const res = await convertBudgetToWorkOrder(id as string);
       setWorkOrderNumber(res.data.number);
       setForm((prev) => ({ ...prev, status: 'CONVERTED_TO_OT' }));
-      alert(`¡Orden ${res.data.number} creada exitosamente!`);
+      notify(`¡Orden ${res.data.number} creada exitosamente!`, 'success');
       // Both lists change: budget becomes CONVERTED_TO_OT, OT is created.
       queryClient.invalidateQueries({ queryKey: ['budgets'] });
       queryClient.invalidateQueries({ queryKey: ['work-orders'] });
+      navigate(`/admin/work-orders/${res.data.id}`);
     } catch (err: unknown) {
-      alert((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || 'Error al convertir');
+      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+        || (err as Error).message
+        || 'Error al convertir';
+      notify(detail, 'error');
     } finally {
       setSaving(false);
     }
   };
 
   const handleConvertirAlternativa = async (idx: number) => {
-    if (!id) { alert('Primero guardá el presupuesto para poder convertir una alternativa.'); return; }
-    if (!window.confirm('¿Convertir esta alternativa en Orden de Trabajo? Se creará una nueva OT con el material de esta opción más los trabajos comunes.')) return;
+    if (!id) {
+      notify('Primero guardá el presupuesto para poder convertir una alternativa.', 'error');
+      return;
+    }
     setSaving(true);
     try {
       const res = await convertAlternativeToWorkOrder(id as string, idx);
       if (res.status === 201) {
-        alert(`¡Orden ${res.data.number} creada exitosamente desde alternativa "${res.data.alternative_name}"!`);
+        notify(`¡Orden ${res.data.number} creada exitosamente desde alternativa "${res.data.alternative_name}"!`, 'success');
         queryClient.invalidateQueries({ queryKey: ['budgets'] });
         queryClient.invalidateQueries({ queryKey: ['work-orders'] });
+        navigate(`/admin/work-orders/${res.data.id}`);
       }
     } catch (err: unknown) {
-      alert((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || 'Error al convertir la alternativa');
+      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+        || (err as Error).message
+        || 'Error al convertir la alternativa';
+      notify(detail, 'error');
     } finally {
       setSaving(false);
     }
@@ -144,9 +174,13 @@ export default function BudgetForm() {
     try {
       const payload = buildPayload();
       await updateBudget(id as string, payload);
+      notify('Presupuesto guardado correctamente', 'success');
       queryClient.invalidateQueries({ queryKey: ['budgets'] });
-    } catch {
-      alert('Error al guardar');
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+        || (err as Error).message
+        || 'Error al guardar';
+      notify(detail, 'error');
     } finally {
       setSaving(false);
     }
@@ -167,9 +201,13 @@ export default function BudgetForm() {
       }
       await updateBudget(id as string, aprobado as unknown as Record<string, unknown>);
       setForm((prev) => ({ ...prev, ...aprobado, status: 'APPROVED' } as unknown as EntityFormState));
+      notify('Presupuesto aprobado', 'success');
       queryClient.invalidateQueries({ queryKey: ['budgets'] });
-    } catch {
-      alert('Error al aprobar');
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+        || (err as Error).message
+        || 'Error al aprobar';
+      notify(detail, 'error');
     } finally {
       setSaving(false);
     }
@@ -292,7 +330,7 @@ export default function BudgetForm() {
       detalleTrabajosComunes={detalleTrabajosComunes}
       tipoCambio={Number(form.usd_rate) || 1}
       presupuestoId={id}
-      onConvertirAlternativa={handleConvertirAlternativa}
+      onConvertirAlternativa={setPendingAltIdx}
       modoUSD={modoUSD}
     />
   ) : null;
@@ -370,7 +408,7 @@ export default function BudgetForm() {
               <FileOutput size={16} /> OT {workOrderNumber}
             </button>
           ) : form.status === 'APPROVED' ? (
-            <button type="button" className={s['budget-form__btn-convert']} onClick={handleConvertirGuardar}
+            <button type="button" className={s['budget-form__btn-convert']} onClick={() => setShowConvertDialog(true)}
               disabled={saving}>
               <FileOutput size={16} /> {saving ? 'CONVIRTIENDO...' : 'CONVERTIR A ORDEN'}
             </button>
@@ -417,6 +455,18 @@ export default function BudgetForm() {
               num={num}
             />
           </div>
+          <div className={s['budget-form__right']}>
+            <BudgetFormAdicionales
+              form={form}
+              readOnly={readOnly}
+              piletas={piletas}
+              update={update}
+              updatePileta={updatePileta}
+              removePileta={removePileta}
+              addPileta={addPileta}
+              num={num}
+            />
+          </div>
         </div>
 
         <div className={s['budget-form__bottom']}>
@@ -429,17 +479,6 @@ export default function BudgetForm() {
             handleDetailChange={handleDetailChange}
             addDetalle={addDetalle}
             removeDetalle={removeDetalle}
-          />
-
-          <BudgetFormAdicionales
-            form={form}
-            readOnly={readOnly}
-            piletas={piletas}
-            update={update}
-            updatePileta={updatePileta}
-            removePileta={removePileta}
-            addPileta={addPileta}
-            num={num}
           />
 
           <BudgetFormFinancial
@@ -499,6 +538,33 @@ export default function BudgetForm() {
       </form>
 
       <ConfirmDialog open={deleteConfirm} onCancel={() => setDeleteConfirm(false)} onConfirm={handleDelete} title="Eliminar presupuesto" message="¿Estás seguro de eliminar este PRESUPUESTO LOCAL?" confirmLabel="Eliminar" danger />
+
+      <ConfirmDialog
+        open={showConvertDialog}
+        onCancel={() => setShowConvertDialog(false)}
+        onConfirm={() => {
+          setShowConvertDialog(false);
+          void handleConvertirGuardar();
+        }}
+        title="Convertir a Orden de Trabajo"
+        message="Se guardará y copiará toda la información: croquis, material, detalles de fabricación, pileta, firma, precios y condiciones comerciales."
+        confirmLabel="Convertir"
+      />
+
+      <ConfirmDialog
+        open={pendingAltIdx !== null}
+        onCancel={() => setPendingAltIdx(null)}
+        onConfirm={() => {
+          if (pendingAltIdx !== null) {
+            const idx = pendingAltIdx;
+            setPendingAltIdx(null);
+            void handleConvertirAlternativa(idx);
+          }
+        }}
+        title="Convertir alternativa"
+        message="Se creará una nueva Orden de Trabajo con el material de esta opción más los trabajos comunes."
+        confirmLabel="Convertir"
+      />
 
       <PdfPreviewModal
         isOpen={!!pdfPreviewUrl || pdfPreviewLoading}

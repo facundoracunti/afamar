@@ -135,6 +135,16 @@
   color: #065f46;
 }
 
+.budgets__status--approved {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.budgets__status--rejected {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
 .budgets__row {
   cursor: pointer;
 }

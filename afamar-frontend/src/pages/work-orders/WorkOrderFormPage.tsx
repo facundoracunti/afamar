@@ -16,13 +16,13 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import PdfPreviewModal from '../../components/common/PdfPreviewModal';
 import TermsEditor from '../../components/common/TermsEditor';
-import ApprovalSection from '../../components/features/orders/ApprovalSection';
 import FormHeader from '../../components/features/orders/FormHeader';
 import FormFooter from '../../components/features/orders/FormFooter';
 import WorkOrderFormBasic from './WorkOrderFormBasic';
 import WorkOrderFormSpecs from './WorkOrderFormSpecs';
 import WorkOrderFormFinancial from './WorkOrderFormFinancial';
 import FabricationSection from '../../components/features/budget/FabricationSection';
+import BudgetFormAdicionales from '../budgets/BudgetFormAdicionales';
 import WorkOrderFormObservations from './WorkOrderFormObservations';
 import WorkOrderFormSnapshot from './WorkOrderFormSnapshot';
 import type { EntityFormState, EntityServices, MaterialInForm, PoolInForm } from '../../types';
@@ -315,6 +315,18 @@ export default function WorkOrderForm() {
               num={num}
             />
           </div>
+          <div className={s['work-order-form__right']}>
+            <BudgetFormAdicionales
+              form={form}
+              readOnly={readOnly}
+              piletas={piletas}
+              update={update}
+              updatePileta={updatePileta}
+              removePileta={removePileta}
+              addPileta={addPileta}
+              num={num}
+            />
+          </div>
         </div>
 
         <div className={s['work-order-form__bottom']}>
@@ -357,8 +369,6 @@ export default function WorkOrderForm() {
             mostrarToggleTitle={true}
             mostrarToggleColumns={false}
           />
-
-          <ApprovalSection form={form} readOnly={readOnly} update={update as (field: string, value: unknown) => void} />
         </div>
 
         <WorkOrderFormObservations

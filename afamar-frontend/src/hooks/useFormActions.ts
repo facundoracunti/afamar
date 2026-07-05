@@ -43,6 +43,13 @@ export function useFormActions({
       setSaving(true);
       try {
         const payload = { ...buildPayload(), ...(extraPayloadFields?.() ?? {}) };
+        // Saving a rejected budget resets its status to PENDING so the user
+        // can re-approve it (and eventually convert to a work order).
+        // Work orders have no REJECTED status so this is a no-op there.
+        const wasRejected = form.status === 'REJECTED';
+        if (wasRejected) {
+          payload.status = 'PENDING';
+        }
         if (['TARJETA DE CRÉDITO', 'TARJETA DE DÉBITO'].includes(form.payment_method)) {
           payload.deposit_received = Number(form.total);
           payload.balance_due = 0;
@@ -56,6 +63,9 @@ export function useFormActions({
         } else {
           await services.create(payload);
         }
+        if (wasRejected) {
+          setForm((prev) => ({ ...prev, status: 'PENDING' }));
+        }
         navigate(services.listPath);
       } catch {
         alert('Error al guardar');
@@ -63,7 +73,7 @@ export function useFormActions({
         setSaving(false);
       }
     },
-    [isEdit, id, services, navigate, form.payment_method, form.total, form.total_usd, buildPayload, extraPayloadFields, setSaving]
+    [isEdit, id, services, navigate, form.status, form.payment_method, form.total, form.total_usd, buildPayload, extraPayloadFields, setSaving, setForm]
   );
 
   const handleDelete = useCallback(async () => {

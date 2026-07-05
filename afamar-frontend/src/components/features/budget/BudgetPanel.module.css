@@ -1,3 +1,381 @@
+/* BudgetPanel — BEM
+   Existing classes (unchanged, still referenced by JSX):
+     .panelTotals / .panelTotals__row / .panelTotals__col
+     .panelTotals__label / .panelTotals__value / .panelTotals__value--ars / .panelTotals__value--usd
+     .paymentStatus / .paymentStatus--paid / .paymentStatus--pending
+     .paymentStatus__row / .paymentStatus__label / .paymentStatus__date
+     .paymentStatus__button / .paymentStatus__button--paid / .paymentStatus__button--pending
+     .usdDivider / .usdDivider__row / .usdDivider__total / .usdDivider__value
+     .balanceRow / .balanceRow__label / .balanceRow__value
+     .subsectionHeader / .lineItem / .lineItem__value
+
+   New classes (added for inline-styled parts):
+     .budget-panel__header              title bar (.section-title override)
+     .budget-panel__toggle              USD/ARS toggle (header variant)
+     .budget-panel__toggle--active      modifier when modoUSD
+     .budget-panel__toggle-inline       inline variant (when no alternativas)
+     .budget-panel__columns             columns wrapper (flex, gap)
+     .budget-panel__col                 single column
+     .budget-panel__col--main           modifier: full width
+     .budget-panel__subtotal-header     SUBTOTALES (label)
+     .budget-panel__subtotal-block      border-bottom block containing rows
+     .budget-panel__field-row           flex row (Traslado, Seña, etc.)
+     .budget-panel__field-row-label
+     .budget-panel__field-row-label--strong  (DOLAR DEL DÍA bold)
+     .budget-panel__field-row-input     width: 130px text-align: right
+     .budget-panel__total-block         border-top section
+     .budget-panel__total-row           inside flex row
+     .budget-panel__total-label
+     .budget-panel__total-value
+     .budget-panel__total-value--ars
+     .budget-panel__total-value--usd
+     .budget-panel__deposit-currency          combined select+input wrapper
+     .budget-panel__deposit-currency-select   the ARS/USD select
+     .budget-panel__deposit-input             the numeric input
+     .budget-panel__usd-rate-label            DOLAR DEL DÍA label
+     .budget-panel__usd-rate-input            DOLAR DEL DÍA input
+     .budget-panel__balance-row
+     .budget-panel__balance-label
+     .budget-panel__balance-value
+     .budget-panel__balance-value--ars
+     .budget-panel__balance-value--usd
+     .budget-panel__payment-method-row        forma de pago + installments wrapper
+     .budget-panel__payment-method-controls   flex row
+     .budget-panel__payment-method-select
+     .budget-panel__installments-select
+     .budget-panel__discount-box              yellow cash-discount box (status colors)
+     .budget-panel__discount-label
+     .budget-panel__discount-row
+     .budget-panel__discount-group
+     .budget-panel__discount-symbol
+     .budget-panel__discount-input
+     .budget-panel__discount-input--pct
+     .budget-panel__discount-input--fixed
+     .budget-panel__discount-separator
+     .budget-panel__discount-note
+     .budget-panel__delivery-row
+*/
+
+/* ------------------------------------------------------------------ */
+/* Header + USD/ARS toggle                                            */
+/* ------------------------------------------------------------------ */
+
+.budget-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.budget-panel__toggle {
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid var(--border-color);
+  background: var(--surface-alt-bg);
+  color: var(--text-secondary);
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.budget-panel__toggle--active {
+  background: var(--color-success);
+  color: var(--text-inverse);
+  border-color: var(--color-success);
+}
+
+.budget-panel__toggle-inline {
+  margin-bottom: 8px;
+}
+
+.budget-panel__toggle-inline .budget-panel__toggle {
+  padding: 3px 10px;
+  font-size: 11px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Two-column layout                                                  */
+/* ------------------------------------------------------------------ */
+
+.budget-panel__columns {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.budget-panel__col {
+  flex: 1 1 280px;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.budget-panel__col--main {
+  flex: 1 1 100%;
+}
+
+/* ------------------------------------------------------------------ */
+/* Subtotals block                                                    */
+/* ------------------------------------------------------------------ */
+
+.budget-panel__subtotal-header {
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.budget-panel__subtotal-block {
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Field rows (Traslado, Seña, DOLAR DEL DÍA)                         */
+/* ------------------------------------------------------------------ */
+
+.budget-panel__field-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.budget-panel__field-row-label {
+  margin: 0;
+  font-weight: 600;
+}
+
+.budget-panel__field-row-label--strong {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.budget-panel__field-row-input {
+  width: 130px;
+  text-align: right;
+}
+
+/* ------------------------------------------------------------------ */
+/* TOTAL block (border-top)                                           */
+/* ------------------------------------------------------------------ */
+
+.budget-panel__total-block {
+  border-top: 2px solid var(--border-color);
+  padding-top: 6px;
+  margin-bottom: 4px;
+}
+
+.budget-panel__total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.budget-panel__total-label {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.budget-panel__total-value {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.budget-panel__total-value--ars { color: var(--color-danger); }
+.budget-panel__total-value--usd { color: var(--color-success); }
+
+/* ------------------------------------------------------------------ */
+/* Seña combinada (select + input wrapper)                            */
+/* ------------------------------------------------------------------ */
+
+.budget-panel__deposit-currency {
+  display: flex;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  width: 180px;
+}
+
+.budget-panel__deposit-currency-select {
+  background: var(--surface-alt-bg);
+  border-right: 1px solid var(--border-color);
+  padding: 4px 6px;
+  font-size: 12px;
+  font-weight: 700;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+}
+
+.budget-panel__deposit-input {
+  flex: 1;
+  text-align: right;
+  border-radius: 0;
+  border: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* DOLAR DEL DÍA (blue accent)                                        */
+/* ------------------------------------------------------------------ */
+
+.budget-panel__usd-rate-label {
+  margin: 0;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--color-info);
+}
+
+.budget-panel__usd-rate-input {
+  width: 130px;
+  text-align: right;
+  font-weight: 700;
+  color: var(--color-info);
+  border-color: var(--color-info);
+}
+
+/* ------------------------------------------------------------------ */
+/* Saldo pendiente                                                    */
+/* ------------------------------------------------------------------ */
+
+.budget-panel__balance-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.budget-panel__balance-label {
+  font-weight: 600;
+}
+
+.budget-panel__balance-value {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.budget-panel__balance-value--ars { color: var(--color-info); }
+.budget-panel__balance-value--usd { color: var(--color-success); }
+
+/* ------------------------------------------------------------------ */
+/* Forma de pago + installments                                       */
+/* ------------------------------------------------------------------ */
+
+.budget-panel__payment-method-row {
+  margin-top: 8px;
+}
+
+.budget-panel__payment-method-controls {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.budget-panel__payment-method-select {
+  flex: 1;
+}
+
+.budget-panel__installments-select {
+  width: 160px;
+}
+
+.budget-panel__currency-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.budget-panel__currency-switch-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.budget-panel__currency-switch-select {
+  width: auto;
+  min-width: 64px;
+  max-width: 72px;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 4px 6px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Cash discount box (status colors — semantically yellow/green,      */
+/* not theme-dependent)                                                */
+/* ------------------------------------------------------------------ */
+
+.budget-panel__discount-box {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: #fffbe6;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+}
+
+.budget-panel__discount-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #92400e;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.budget-panel__discount-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.budget-panel__discount-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.budget-panel__discount-symbol {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.budget-panel__discount-input {
+  text-align: right;
+}
+
+.budget-panel__discount-input--pct { width: 70px; }
+.budget-panel__discount-input--fixed { width: 100px; }
+
+.budget-panel__discount-separator {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.budget-panel__discount-note {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  font-style: italic;
+}
+
+/* ------------------------------------------------------------------ */
+/* Fecha de entrega                                                   */
+/* ------------------------------------------------------------------ */
+
+.budget-panel__delivery-row {
+  margin-top: 8px;
+}
+
+/* ================================================================== */
+/* Existing classes (kept unchanged for backward compat)               */
+/* ================================================================== */
+
 .panelTotals {
   margin-top: 12px;
   padding: 10px 14px;
@@ -27,7 +405,7 @@
 }
 
 .panelTotals__value--ars { color: var(--color-danger); }
-.panelTotals__value--usd { color: #16a34a; }
+.panelTotals__value--usd { color: var(--color-success); }
 
 .paymentStatus {
   margin-top: 12px;
@@ -75,7 +453,7 @@
 }
 
 .paymentStatus__button--paid { background: #ef4444; }
-.paymentStatus__button--pending { background: #16a34a; }
+.paymentStatus__button--pending { background: var(--color-success); }
 
 .paymentStatus__button:disabled {
   opacity: 0.6;
@@ -102,7 +480,7 @@
 .usdDivider__value {
   font-size: 18px;
   font-weight: 700;
-  color: #16a34a;
+  color: var(--color-success);
 }
 
 .balanceRow {
@@ -119,7 +497,7 @@
 .balanceRow__value {
   font-size: 16px;
   font-weight: 700;
-  color: #16a34a;
+  color: var(--color-success);
 }
 
 .subsectionHeader {

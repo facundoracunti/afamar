@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Search, Trash2, ChevronRight, ChevronLeft, FileDown } from 'lucide-react';
-import { getWorkOrders, deleteWorkOrder, updateWorkOrder, getWorkOrderPdf, mapWorkOrderStatusToApi } from '@/api/resources/workOrders';
-import { useList, useDelete } from '../../api/hooks';
+import { getWorkOrders, deleteWorkOrder, updateWorkOrder, getWorkOrderPdf, getWorkOrderPdfBlob, mapWorkOrderStatusToApi } from '@/api/resources/workOrders';
+import { usePaginatedList, useDelete } from '../../api/hooks';
 import { formatDate, orderStatuses } from '../../utils/formatters';
 import CurrencyDisplay from '../../components/ui/CurrencyDisplay';
 import { StatusBadge } from '../../components/ui/StatusBadge';
@@ -11,6 +11,9 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { Pagination } from '../../components/ui/Pagination';
+import PdfPreviewModal from '../../components/common/PdfPreviewModal';
+import { useNotify } from '../../context/NotificationContext';
 import styles from './WorkOrdersListPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -21,20 +24,25 @@ export default function WorkOrdersList() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [search, setSearch] = useState<string>(searchParams.get('search') || '');
-  const [estado, setEstado] = useState<string>(searchParams.get('estado') || '');
+  const [estado, setEstado] = useState<string>(searchParams.get('status') || '');
   const [deleteId, setDeleteId] = useState<number | string | null>(null);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
+  const [pdfPreviewTitle, setPdfPreviewTitle] = useState<string>('Vista previa PDF');
+
+  const notify = useNotify();
 
   useEffect(() => {
     setSearch(searchParams.get('search') || '');
-    setEstado(searchParams.get('estado') || '');
+    setEstado(searchParams.get('status') || '');
   }, [searchParams]);
 
-  const { items: data, loading, load } = useList<Record<string, unknown>>(
+  const { items: data, loading, total, page, pageSize, setPage, refetch } = usePaginatedList<Record<string, unknown>>(
     [...WORK_ORDERS_KEY, search, estado],
-    async () => {
-      const res = await getWorkOrders({ search: search || undefined, estado: estado || undefined });
-      return (res.data as Record<string, unknown>[]) || [];
-    }
+    async ({ skip, limit }) => {
+      return getWorkOrders({ search: search || undefined, status: estado || undefined, skip, limit });
+    },
+    { pageSize: 25 },
   );
 
   const deleteMutation = useDelete<unknown, number | string>(
@@ -53,7 +61,7 @@ export default function WorkOrdersList() {
     const idx = orderStatuses.indexOf(o.status as string);
     if (idx < orderStatuses.length - 1) {
       await updateWorkOrder(o.id as string, mapWorkOrderStatusToApi(orderStatuses[idx + 1]));
-      load();
+      refetch();
     }
   };
 
@@ -61,8 +69,30 @@ export default function WorkOrdersList() {
     const idx = orderStatuses.indexOf(o.status as string);
     if (idx > 0) {
       await updateWorkOrder(o.id as string, mapWorkOrderStatusToApi(orderStatuses[idx - 1]));
-      load();
+      refetch();
     }
+  };
+
+  const handleOpenPdf = async (o: Record<string, unknown>) => {
+    setPdfPreviewLoading(true);
+    setPdfPreviewTitle(`Vista previa — ${(o.number as string) || 'Orden de Trabajo'}`);
+    setPdfPreviewUrl(null);
+    try {
+      const url = await getWorkOrderPdfBlob(o.id as number);
+      setPdfPreviewUrl(url);
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+        || (err as Error).message
+        || 'Error al generar PDF';
+      notify(detail, 'error');
+    } finally {
+      setPdfPreviewLoading(false);
+    }
+  };
+
+  const handleClosePdfPreview = () => {
+    if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
+    setPdfPreviewUrl(null);
   };
 
   return (
@@ -89,9 +119,12 @@ export default function WorkOrdersList() {
           value={estado}
           onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEstado(e.target.value)}
         >
-          <option value="">Activas (En Medicion / Taller)</option>
-          <option value="TERMINADA">Terminadas (En Local)</option>
-          <option value="ENTREGADA">Entregadas</option>
+          <option value="">Todas</option>
+          <option value="MEASUREMENT">En Medicion</option>
+          <option value="WORKSHOP">En Taller</option>
+          <option value="FINISHED">Terminadas (En Local)</option>
+          <option value="DELIVERED">Entregadas</option>
+          <option value="CANCELLED">Canceladas</option>
         </select>
       </div>
 
@@ -133,7 +166,7 @@ export default function WorkOrdersList() {
                             <ChevronRight size={14} />
                           </button>
                         )}
-                        <button className="btn btn-outline" style={{ padding: '4px 6px' } as React.CSSProperties}                         onClick={() => window.open(getWorkOrderPdf((o as Record<string, unknown>).id as string), '_blank')} title="Descargar PDF">
+                        <button className="btn btn-outline" style={{ padding: '4px 6px' } as React.CSSProperties}                         onClick={() => handleOpenPdf(o)} title="Ver PDF">
                           <FileDown size={14} />
                         </button>
                         <button className="btn btn-danger" style={{ padding: '4px 6px' } as React.CSSProperties} onClick={() => setDeleteId((o as Record<string, unknown>).id as number)}>
@@ -153,6 +186,16 @@ export default function WorkOrdersList() {
       )}
 
       <ConfirmDialog open={!!deleteId} onCancel={() => setDeleteId(null)} onConfirm={handleDelete} title="Eliminar orden" message="¿Estás seguro?" confirmLabel="Eliminar" danger />
+
+      <PdfPreviewModal
+        isOpen={!!pdfPreviewUrl || pdfPreviewLoading}
+        onClose={handleClosePdfPreview}
+        pdfUrl={pdfPreviewUrl}
+        loading={pdfPreviewLoading}
+        title={pdfPreviewTitle}
+      />
+
+      <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} label="ordenes" />
     </div>
   );
 }
