@@ -10,7 +10,6 @@ import { getClients } from '@/api/resources/clients';
 import { formatCurrency } from '../../utils/formatters';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import useEntityForm from '../../hooks/useEntityForm';
-import CroquisEditor from '../../components/features/sketch/CroquisEditor';
 import BudgetPanel from '../../components/features/budget/BudgetPanel';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
@@ -23,6 +22,7 @@ import WorkOrderFormSpecs from './WorkOrderFormSpecs';
 import WorkOrderFormFinancial from './WorkOrderFormFinancial';
 import FabricationSection from '../../components/features/budget/FabricationSection';
 import BudgetFormAdicionales from '../budgets/BudgetFormAdicionales';
+import SketchSection from '../../components/features/sketch/SketchSection';
 import WorkOrderFormObservations from './WorkOrderFormObservations';
 import WorkOrderFormSnapshot from './WorkOrderFormSnapshot';
 import type { EntityFormState, EntityServices, MaterialInForm, PoolInForm } from '../../types';
@@ -298,11 +298,6 @@ export default function WorkOrderForm() {
         <WorkOrderFormSnapshot form={form} readOnly={readOnly} />
 
         <div className={`${s['work-order-form__layout']}${showCroquis ? '' : ' ' + s['work-order-form__layout--no-sketch']}`}>
-          {showCroquis && (
-            <div className={s['work-order-form__sketch']}>
-              <CroquisEditor croquis={form.sketch_elements} onChange={(v: unknown) => update('sketch_elements', v)} readOnly={readOnly} />
-            </div>
-          )}
           <div className={s['work-order-form__right']}>
             <WorkOrderFormSpecs
               form={form}
@@ -343,6 +338,15 @@ export default function WorkOrderForm() {
             materialsData={form.materials_data as unknown as import('../../types').MaterialInForm[]}
           />
 
+          <SketchSection
+            showCroquis={showCroquis}
+            setShowCroquis={setShowCroquis}
+            sketchElements={form.sketch_elements}
+            onChange={(v) => update('sketch_elements', v)}
+            readOnly={readOnly}
+            toggleLabel="Diseño / Croquis"
+          />
+
           <WorkOrderFormFinancial
             form={form}
             modoUSD={modoUSD}
@@ -358,10 +362,6 @@ export default function WorkOrderForm() {
             setForm={setForm}
             update={update as (field: string, value: unknown) => void}
             num={num}
-            piletas={piletas}
-            addPileta={addPileta}
-            updatePileta={updatePileta}
-            removePileta={removePileta}
             alternativasGrid={alternativasGrid}
             descuentoBlock={descuentoBlock}
             onConfirmarPago={handleConfirmarPago}
@@ -374,8 +374,6 @@ export default function WorkOrderForm() {
         <WorkOrderFormObservations
           form={form}
           readOnly={readOnly}
-          showCroquis={showCroquis}
-          setShowCroquis={setShowCroquis}
           update={update}
         />
 

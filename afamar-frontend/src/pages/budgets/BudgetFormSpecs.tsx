@@ -75,6 +75,7 @@ export default function BudgetFormSpecs({
             updateMaterial={updateMaterial}
             removeMaterial={removeMaterial}
             num={num}
+            usdRate={Number(form.usd_rate) || 0}
           />
         ))}
       </div>

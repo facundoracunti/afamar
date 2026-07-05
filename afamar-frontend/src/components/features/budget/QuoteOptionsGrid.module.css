@@ -1,0 +1,274 @@
+/* QuoteOptionsGrid — BEM
+   .quote-options                     block
+   .quote-options__title              section heading
+   .quote-options__grid               responsive columns grid
+   .quote-options__card               single alternative card
+   .quote-options__card--main         modifier for the main/principal material
+   .quote-options__card-stripe        colored top stripe
+   .quote-options__card-stripe--ars
+   .quote-options__card-stripe--usd
+   .quote-options__card-head          top row (badge + qty)
+   .quote-options__badge              Alternativa A/B/C pill
+   .quote-options__badge--main        modifier for principal pill
+   .quote-options__qty                 qty + m² on the right
+   .quote-options__name               material name (h4)
+   .quote-options__category           category label
+   .quote-options__detail-box         the inner box (cost + trabajos comunes)
+   .quote-options__detail-header      Concepto / Subtotal header row
+   .quote-options__detail-row         one detail row (concept + value)
+   .quote-options__detail-row--dashed  separator modifier
+   .quote-options__detail-label
+   .quote-options__detail-value
+   .quote-options__detail-value-pill   boxed value
+   .quote-options__total-wrap          wraps the total card
+   .quote-options__total              blue total card
+   .quote-options__total-label         uppercase label inside
+   .quote-options__total-value         the big total figure
+   .quote-options__total-ref           USD ref pill below total
+   .quote-options__convert             "Convertir en OT" button
+*/
+
+.quote-options {
+  font-family: system-ui, sans-serif;
+  margin-top: 24px;
+  width: 100%;
+}
+
+.quote-options__title {
+  font-size: 12px;
+  font-weight: 900;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 16px;
+}
+
+.quote-options__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px;
+}
+
+.quote-options__card {
+  background-color: var(--surface-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 6px -1px var(--shadow-color);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+}
+
+.quote-options__card--main {
+  border-color: var(--color-success);
+  border-width: 2px;
+}
+
+.quote-options__card-stripe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+}
+
+.quote-options__card-stripe--ars {
+  background-color: var(--color-info);
+}
+
+.quote-options__card-stripe--usd {
+  background-color: var(--color-warning);
+}
+
+.quote-options__card-stripe--main {
+  background-color: var(--color-success);
+}
+
+.quote-options__card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.quote-options__badge {
+  font-size: 10px;
+  font-weight: 900;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  background-color: color-mix(in srgb, var(--color-info) 12%, transparent);
+  color: var(--color-info);
+  text-transform: uppercase;
+}
+
+.quote-options__badge--usd {
+  background-color: color-mix(in srgb, var(--color-warning) 18%, transparent);
+  color: var(--color-warning);
+}
+
+.quote-options__badge--main {
+  background-color: color-mix(in srgb, var(--color-success) 18%, transparent);
+  color: var(--color-success);
+}
+
+.quote-options__qty {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.quote-options__name {
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--text-primary);
+  margin: 0 0 4px 0;
+  text-transform: uppercase;
+}
+
+.quote-options__category {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+
+.quote-options__detail-box {
+  background-color: var(--surface-alt-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.quote-options__detail-header {
+  display: flex;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.quote-options__detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.quote-options__detail-row--dashed {
+  padding-top: 12px;
+  border-top: 1px dashed var(--border-color);
+}
+
+.quote-options__detail-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.quote-options__detail-label--muted {
+  font-size: 12px;
+  color: var(--text-muted);
+  max-width: 65%;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+.quote-options__detail-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  background-color: var(--surface-bg);
+  border: 1px solid var(--border-color);
+  padding: 2px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.quote-options__detail-value--muted {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  padding-left: 8px;
+}
+
+.quote-options__detail-value-usd {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.quote-options__total-usd {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--text-inverse) 80%, transparent);
+  margin-top: 4px;
+}
+
+.quote-options__total-wrap {
+  margin-top: 24px;
+}
+
+.quote-options__total {
+  background-color: var(--color-info);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+  box-shadow: 0 4px 6px -1px color-mix(in srgb, var(--color-info) 20%, transparent);
+  color: var(--text-inverse);
+}
+
+.quote-options__total-label {
+  display: block;
+  font-size: 9px;
+  font-weight: 800;
+  color: color-mix(in srgb, var(--text-inverse) 70%, transparent);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.quote-options__total-value {
+  display: block;
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  margin-top: 2px;
+  color: var(--text-inverse);
+}
+
+.quote-options__convert {
+  margin-top: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  background-color: var(--color-success);
+  color: var(--text-inverse);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.quote-options__convert:hover:not(:disabled) {
+  background-color: var(--color-success-hover);
+}
+
+.quote-options__convert-icon {
+  font-size: 14px;
+  line-height: 1;
+}

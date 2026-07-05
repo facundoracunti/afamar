@@ -47,7 +47,7 @@
 
 .budget-form__layout {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 16px;
   margin-top: 16px;
   align-items: start;
@@ -162,4 +162,95 @@
 .budget-form__btn-approve:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* ------------------------------------------------------------------ */
+/* "Detalle de fabricación y accesorios comunes" card                  */
+/* ------------------------------------------------------------------ */
+
+.budget-form__detail-card {
+  background: var(--surface-alt-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 3px var(--shadow-color);
+}
+
+.budget-form__detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+
+.budget-form__detail-title {
+  font-size: 13px;
+  font-weight: 900;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+
+.budget-form__detail-subtitle {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 4px 0 0;
+}
+
+.budget-form__detail-rateBox {
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
+  padding: 4px 12px;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.budget-form__detail-rateLabel {
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.budget-form__detail-rateInput {
+  width: 100px;
+  font-size: 12px;
+  font-weight: 900;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 2px 6px;
+  text-align: center;
+  background: var(--surface-bg);
+}
+
+.budget-form__detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 4px 16px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.budget-form__detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--border-color);
+}
+
+.budget-form__detail-rowValue {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.budget-form__detail-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
 }

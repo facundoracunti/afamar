@@ -7,9 +7,9 @@ import { getMaterials } from '@/api/resources/materials';
 import { getPoolStock } from '@/api/resources/poolStock';
 import { getClients } from '@/api/resources/clients';
 import { formatCurrency, fabricationConcepts } from '../../utils/formatters';
+import { t as translateConcept } from '../../utils/translate';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import useEntityForm from '../../hooks/useEntityForm';
-import CroquisEditor from '../../components/features/sketch/CroquisEditor';
 import BudgetPanel from '../../components/features/budget/BudgetPanel';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
@@ -23,6 +23,7 @@ import ObservationsSection from '../../components/features/orders/ObservationsSe
 import FormHeader from '../../components/features/orders/FormHeader';
 import FormFooter from '../../components/features/orders/FormFooter';
 import BudgetFormClient from './BudgetFormClient';
+import SketchSection from '../../components/features/sketch/SketchSection';
 import BudgetFormSpecs from './BudgetFormSpecs';
 import BudgetFormFinancial from './BudgetFormFinancial';
 import BudgetFormAdicionales from './BudgetFormAdicionales';
@@ -260,73 +261,129 @@ export default function BudgetForm() {
 
   const dd2 = Number(form.usd_rate) || 1;
   let sumatoriaAdicionalesARS = Number(form.transport || 0);
-  const detalleTrabajosComunes: { concept: string; quantity: number; total: number }[] = [];
+  const detalleTrabajosComunes: { concept: string; quantity: number; total: number; currency: 'ARS' | 'USD' }[] = [];
   if (Number(form.transport || 0) > 0) {
-    detalleTrabajosComunes.push({ concept: 'Traslado', quantity: 1, total: Number(form.transport) });
+    detalleTrabajosComunes.push({ concept: 'Traslado', quantity: 1, total: Number(form.transport), currency: 'ARS' });
   }
   (form.fabrication_details || []).forEach((item) => {
     const totalItem = Number(item.price || 0) * Number(item.quantity || 1);
-    const totalItemARS = item.currency === 'USD' ? (dd2 > 0 ? totalItem * dd2 : 0) : totalItem;
-    if (totalItemARS > 0) {
+    const itemCurrency = (item.currency === 'USD' ? 'USD' : 'ARS') as 'ARS' | 'USD';
+    const totalItemARS = itemCurrency === 'USD' ? (dd2 > 0 ? totalItem * dd2 : 0) : totalItem;
+    if (totalItem > 0) {
       sumatoriaAdicionalesARS += totalItemARS;
-      detalleTrabajosComunes.push({ concept: (item.concept as string) + (item.detail ? ` - ${item.detail as string}` : ''), quantity: Number(item.quantity || 1), total: totalItemARS });
+      const baseLabel = item.concept === 'OTHER' && item.detail ? translateConcept('OTHER') + ' - ' + (item.detail as string) : translateConcept(item.concept as string);
+      detalleTrabajosComunes.push({ concept: baseLabel, quantity: Number(item.quantity || 1), total: totalItem, currency: itemCurrency });
     }
   });
   (form.pools_data || []).forEach((pil) => {
     const pool = pil as unknown as PoolInForm & Record<string, unknown>;
     const totalPil = Number(pool.price || 0) * Number(pool.quantity || 1);
-    const totalPilARS = pool.currency === 'USD' ? (dd2 > 0 ? totalPil * dd2 : 0) : totalPil;
-    if (totalPilARS > 0) {
+    const poolCurrency = (pool.currency === 'USD' ? 'USD' : 'ARS') as 'ARS' | 'USD';
+    const totalPilARS = poolCurrency === 'USD' ? (dd2 > 0 ? totalPil * dd2 : 0) : totalPil;
+    if (totalPil > 0) {
       sumatoriaAdicionalesARS += totalPilARS;
-      detalleTrabajosComunes.push({ concept: `Pileta ${(pool.brand as string) || ''} ${(pool.model as string) || ''}`.trim(), quantity: Number(pool.quantity || 1), total: totalPilARS });
+      detalleTrabajosComunes.push({ concept: `Pileta ${(pool.brand as string) || ''} ${(pool.model as string) || ''}`.trim(), quantity: Number(pool.quantity || 1), total: totalPil, currency: poolCurrency });
     }
   });
+  // Principal (non-alternative) materials — broken out separately so they
+  // render right after "Costo Material base" in the comparison cards.
+  const principalesBreakdown: { concept: string; quantity: number; total: number; currency: 'ARS' | 'USD' }[] = [];
+  if (hayAlternativas) {
+    ((form.materials_data as unknown as MaterialInForm[]) || [])
+      .filter((m) => !m.is_alternative)
+      .forEach((m) => {
+        const m2 = Number(m.length || 0) * Number(m.width || 0) * (m.quantity || 1);
+        const costoMat = m.currency === 'USD' ? m2 * (m.price_m2_usd || 0) : m2 * (m.price_m2 || 0);
+        const mCurrency = (m.currency === 'USD' ? 'USD' : 'ARS') as 'ARS' | 'USD';
+        if (costoMat > 0) {
+          principalesBreakdown.push({
+            concept: `Material Principal — ${m.name || ''}${m.color ? ' (' + m.color + ')' : ''}`,
+            quantity: m.quantity || 1,
+            total: costoMat,
+            currency: mCurrency,
+          });
+        }
+      });
+  }
   const matsMain = hayAlternativas ? (form.materials_data as unknown as MaterialInForm[] || []).filter((m) => !m.is_alternative) : (form.materials_data as unknown as MaterialInForm[] || []);
   const matsAlt = (form.materials_data as unknown as MaterialInForm[] || []).filter((m) => m.is_alternative);
 
   const alternativasTop = hayAlternativas ? (
     <div style={{ marginTop: 0 }}>
-      <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #e2e8f0', paddingBottom: 12, marginBottom: 16 }}>
+      <div className={s['budget-form__detail-card']}>
+        <div className={s['budget-form__detail-header']}>
           <div>
-            <h3 style={{ fontSize: 13, fontWeight: 900, color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+            <h3 className={s['budget-form__detail-title']}>
               DETALLE DE FABRICACIÓN Y ACCESORIOS COMUNES
             </h3>
-            <p style={{ fontSize: 11, color: '#94a3b8', margin: '4px 0 0 0' }}>
+            <p className={s['budget-form__detail-subtitle']}>
               Estos trabajos se aplican y ya están sumados en cada una de las opciones de abajo.
             </p>
           </div>
-          <div style={{ background: 'white', border: '1px solid #e2e8f0', padding: '4px 12px', borderRadius: 6, textAlign: 'center' }}>
-            <span style={{ display: 'block', fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Dólar Ref.</span>
-            <input type="number" style={{ width: 100, fontSize: 12, fontWeight: 900, color: '#334155', border: '1px solid #e2e8f0', borderRadius: 4, padding: '2px 6px', textAlign: 'center', background: '#fff' }} value={form.usd_rate || ''} onChange={(e) => setForm({ ...form, usd_rate: Number(e.target.value) || 0 })} />
+          <div className={s['budget-form__detail-rateBox']}>
+            <span className={s['budget-form__detail-rateLabel']}>Dólar Ref.</span>
+            <input
+              type="number"
+              className={`input ${s['budget-form__detail-rateInput']}`}
+              value={form.usd_rate || ''}
+              onChange={(e) => setForm({ ...form, usd_rate: Number(e.target.value) || 0 })}
+            />
           </div>
         </div>
         {detalleTrabajosComunes.length > 0 ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '4px 16px', fontSize: 12, fontWeight: 500, color: '#475569' }}>
+          <div className={s['budget-form__detail-grid']}>
             {detalleTrabajosComunes.map((job, idx) => (
-              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px dashed #e2e8f0' }}>
+              <div key={idx} className={s['budget-form__detail-row']}>
                 <span>✓ {job.concept} ({job.quantity > 1 ? `x${job.quantity}` : 'x1'})</span>
-                <span style={{ color: '#1e293b', fontWeight: 700 }}>$ {job.total.toLocaleString('es-AR')}</span>
+                <span className={s['budget-form__detail-rowValue']}>
+                  $ {job.total.toLocaleString('es-AR')}
+                </span>
               </div>
             ))}
           </div>
         ) : (
-          <p style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>No hay trabajos adicionales comunes configurados.</p>
+          <p className={s['budget-form__detail-empty']}>
+            No hay trabajos adicionales comunes configurados.
+          </p>
         )}
       </div>
     </div>
   ) : null;
 
+  // Every card's TOTAL should include all principals (non-alternatives) +
+// this card's own material + common works (transport, fabrication, pools).
+// Alternatives are additive, not replacements.
+const sumatoriaMaterialesPrincipalARS = matsMain.reduce((sum, m) => {
+  const ddLocal = Number(form.usd_rate) || 1;
+  const m2 = Number(m.length || 0) * Number(m.width || 0) * (m.quantity || 1);
+  const costoMat = m.currency === 'USD' ? m2 * (m.price_m2_usd || 0) : m2 * (m.price_m2 || 0);
+  const costoMatArs = m.currency === 'USD' ? (ddLocal > 0 ? costoMat * ddLocal : 0) : costoMat;
+  return sum + costoMatArs;
+}, 0);
+
+const buildOptionFromMaterial = (mat: MaterialInForm): import('../../components/features/budget/QuoteOptionsGrid').Alternativa => {
+    const ddLocal = Number(form.usd_rate) || 1;
+    const m2 = Number(mat.length || 0) * Number(mat.width || 0) * (mat.quantity || 1);
+    const costoMat = mat.currency === 'USD' ? m2 * (mat.price_m2_usd || 0) : m2 * (mat.price_m2 || 0);
+    const costoMatArs = mat.currency === 'USD' ? (ddLocal > 0 ? costoMat * ddLocal : 0) : costoMat;
+    const totalFinalARS = sumatoriaMaterialesPrincipalARS + costoMatArs + sumatoriaAdicionalesARS;
+    return {
+      name: mat.name || '',
+      category: mat.category || '',
+      currency: mat.currency || 'ARS',
+      costoMaterialBase: costoMat,
+      totalFinalARS,
+      length: Number(mat.length || 0),
+      width: Number(mat.width || 0),
+      quantity: mat.quantity || 1,
+    };
+  };
+
   const alternativasGrid = hayAlternativas && materiales ? (
     <QuoteOptionsGrid
-      alternativas={matsAlt.map((mat: MaterialInForm, altIdx: number) => {
-        const ddLocal = Number(form.usd_rate) || 1;
-        const m2 = Number(mat.length || 0) * Number(mat.width || 0) * (mat.quantity || 1);
-        const costoMat = mat.currency === 'USD' ? m2 * (mat.price_m2_usd || 0) : m2 * (mat.price_m2 || 0);
-        const costoMatArs = mat.currency === 'USD' ? (ddLocal > 0 ? costoMat * ddLocal : 0) : costoMat;
-        const totalFinalARS = costoMatArs + sumatoriaAdicionalesARS;
-        return { name: mat.name || '', category: mat.category || '', currency: mat.currency || 'ARS', costoMaterialBase: costoMat, totalFinalARS, length: Number(mat.length || 0), width: Number(mat.width || 0), quantity: mat.quantity || 1 };
-      })}
+      mainMaterials={matsMain.map(buildOptionFromMaterial)}
+      alternativas={matsAlt.map(buildOptionFromMaterial)}
+      principalesBreakdown={principalesBreakdown}
       detalleTrabajosComunes={detalleTrabajosComunes}
       tipoCambio={Number(form.usd_rate) || 1}
       presupuestoId={id}
@@ -438,11 +495,6 @@ export default function BudgetForm() {
         />
 
         <div className={`${s['budget-form__layout']}${showCroquis ? '' : ' ' + s['budget-form__layout--no-sketch']}`}>
-          {showCroquis && (
-            <div className={s['budget-form__sketch']}>
-              <CroquisEditor croquis={form.sketch_elements} onChange={(v: unknown) => update('sketch_elements', v)} readOnly={readOnly} />
-            </div>
-          )}
           <div className={s['budget-form__right']}>
             <BudgetFormSpecs
               form={form}
@@ -481,6 +533,15 @@ export default function BudgetForm() {
             removeDetalle={removeDetalle}
           />
 
+          <SketchSection
+            showCroquis={showCroquis}
+            setShowCroquis={setShowCroquis}
+            sketchElements={form.sketch_elements}
+            onChange={(v) => update('sketch_elements', v)}
+            readOnly={readOnly}
+            toggleLabel="Diseño / Croquis"
+          />
+
           <BudgetFormFinancial
             form={form}
             modoUSD={modoUSD}
@@ -508,8 +569,6 @@ export default function BudgetForm() {
           form={form}
           readOnly={readOnly}
           update={update}
-          showCroquis={showCroquis}
-          setShowCroquis={setShowCroquis}
         />
 
         <div className={s['budget-form__card']} style={{ marginTop: 16 }}>

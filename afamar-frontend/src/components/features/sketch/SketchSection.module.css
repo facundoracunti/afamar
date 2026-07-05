@@ -1,0 +1,31 @@
+.sketch-section {
+  margin-bottom: 16px;
+}
+
+.sketch-section__header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.sketch-section__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  padding: 6px 14px;
+}
+
+.sketch-section__hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.sketch-section__editor {
+  margin-top: 12px;
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+}

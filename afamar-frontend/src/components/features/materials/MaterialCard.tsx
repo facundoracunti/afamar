@@ -11,13 +11,17 @@ interface MaterialCardProps {
   updateMaterial: (idx: number, field: string, value: unknown) => void;
   removeMaterial: (idx: number) => void;
   num: (v: unknown) => number;
+  /** Current USD sell rate (peso → dollar). Used to show the dollar equivalent
+   *  next to the native ARS price. Defaults to 0 = no conversion shown. */
+  usdRate?: number;
 }
 
 export default function MaterialCard({
-  mat, idx, readOnly, updateMaterial, removeMaterial, num,
+  mat, idx, readOnly, updateMaterial, removeMaterial, num, usdRate = 0,
 }: MaterialCardProps) {
   const m2 = Number(mat.length || 0) * Number(mat.width || 0) * (mat.quantity || 1);
   const subtotal = m2 * (mat.currency === 'USD' ? (mat.price_m2_usd || 0) : (mat.price_m2 || 0));
+  const subtotalUsd = mat.currency === 'ARS' && usdRate > 0 ? subtotal / usdRate : null;
 
   const formatPrice = (n: number, currency: 'ARS' | 'USD'): string =>
     currency === 'USD'
@@ -101,6 +105,11 @@ export default function MaterialCard({
             className={`${s['material-card__price']}${mat.currency === 'USD' ? ` ${s['material-card__price--usd']}` : ''}`}
           >
             {formatPrice(mat.currency === 'USD' ? (mat.price_m2_usd || 0) : (mat.price_m2 || 0), mat.currency)}
+            {mat.currency === 'ARS' && usdRate > 0 && (
+              <span className={s['material-card__price-usd']}>
+                {' '}≈ USD {(mat.price_m2 / usdRate).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -116,6 +125,11 @@ export default function MaterialCard({
         </div>
         <div className={s['material-card__subtotal']}>
           Subtotal: {formatSubtotal(subtotal, mat.currency)}
+          {subtotalUsd !== null && (
+            <span className={s['material-card__subtotal-usd']}>
+              {' '}≈ USD {subtotalUsd.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+            </span>
+          )}
         </div>
       </div>
     </div>
