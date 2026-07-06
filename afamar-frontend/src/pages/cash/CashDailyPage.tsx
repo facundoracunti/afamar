@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Printer, Lock, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
 import { getDailyCash, createCashMovement, deleteCashMovement, setPreviousBalance, closeDailyCash } from '@/api/resources/cash';
 import { useGet } from '../../api/hooks';
@@ -12,6 +12,7 @@ import CashTotalCards from '../../components/cash/CashTotalCards/CashTotalCards'
 import IncomeModal from '../../components/cash/IncomeModal/IncomeModal';
 import ExpenseModal from '../../components/cash/ExpenseModal/ExpenseModal';
 import CloseCashModal from '../../components/cash/CloseCashModal/CloseCashModal';
+import { useNotify } from '../../context/NotificationContext';
 import styles from './CashDailyPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -29,6 +30,8 @@ export default function CashDailyPage() {
 
   const [showClose, setShowClose] = useState<boolean>(false);
   const [closed, setClosed] = useState<boolean>(false);
+
+  const notify = useNotify();
 
   const { data: cashData, loading, load: loadCaja } = useGet<Record<string, unknown>>(
     ['cash', 'daily', date],
@@ -51,8 +54,8 @@ export default function CashDailyPage() {
       await setPreviousBalance(date, previousBalance);
       setPreviousBalanceEdit(false);
       loadCaja();
-    } catch {
-      alert('Error al guardar saldo anterior');
+    } catch (err: unknown) {
+      notify((err as Error).message || 'Error al guardar saldo anterior', 'error');
     }
   };
 
@@ -61,8 +64,8 @@ export default function CashDailyPage() {
       await createCashMovement({ ...data, date: date });
       setShowIncome(false);
       await loadCaja();
-    } catch {
-      alert('Error al registrar ingreso');
+    } catch (err: unknown) {
+      notify((err as Error).message || 'Error al registrar ingreso', 'error');
     }
   };
 
@@ -71,8 +74,8 @@ export default function CashDailyPage() {
       await createCashMovement({ ...data, date: date });
       setShowExpense(false);
       await loadCaja();
-    } catch {
-      alert('Error al registrar egreso');
+    } catch (err: unknown) {
+      notify((err as Error).message || 'Error al registrar egreso', 'error');
     }
   };
 
@@ -82,8 +85,8 @@ export default function CashDailyPage() {
       await deleteCashMovement(deleteId);
       setDeleteId(null);
       await loadCaja();
-    } catch {
-      alert('Error al eliminar movimiento');
+    } catch (err: unknown) {
+      notify((err as Error).message || 'Error al eliminar movimiento', 'error');
     }
   };
 
@@ -92,28 +95,28 @@ export default function CashDailyPage() {
       await closeDailyCash(date, notes || undefined);
       setShowClose(false);
       await loadCaja();
-    } catch {
-      alert('Error al cerrar la caja');
+    } catch (err: unknown) {
+      notify((err as Error).message || 'Error al cerrar la caja', 'error');
     }
   };
 
   const handlePrint = () => window.print();
 
-  const ingresos = movements.filter((m: Record<string, unknown>) => m.type === 'INCOME');
-  const egresos = movements.filter((m: Record<string, unknown>) => m.type === 'EXPENSE');
+  const incomes = movements.filter((m: Record<string, unknown>) => m.type === 'INCOME');
+  const expenses = movements.filter((m: Record<string, unknown>) => m.type === 'EXPENSE');
 
-  const totalIngresos = ingresos.reduce((s: number, m: Record<string, unknown>) => s + ((m.amount as number) || 0), 0);
-  const totalSalidas = egresos.reduce((s: number, m: Record<string, unknown>) => s + ((m.amount as number) || 0), 0);
+  const totalIngresos = incomes.reduce((s: number, m: Record<string, unknown>) => s + ((m.amount as number) || 0), 0);
+  const totalSalidas = expenses.reduce((s: number, m: Record<string, unknown>) => s + ((m.amount as number) || 0), 0);
   const suma = (previousBalance || 0) + totalIngresos;
-  const saldoActualNum = suma - totalSalidas;
+  const currentBalance = suma - totalSalidas;
 
-  const ingresosEfectivo = ingresos
+  const cashIncome = incomes
     .filter((m: Record<string, unknown>) => ((m.payment_method as string) || '').toUpperCase() === 'CASH')
     .reduce((s: number, m: Record<string, unknown>) => s + ((m.amount as number) || 0), 0);
-  const totalTB = egresos
+  const totalBankTransfers = expenses
     .filter((m: Record<string, unknown>) => (m.expense_type as string) === 'BANK_TRANSFER')
     .reduce((s: number, m: Record<string, unknown>) => s + ((m.amount as number) || 0), 0);
-  const efectivoReal = (previousBalance || 0) + ingresosEfectivo - (totalSalidas - totalTB);
+  const efectivoReal = (previousBalance || 0) + cashIncome - (totalSalidas - totalBankTransfers);
 
   const isToday = date === today;
 
@@ -185,7 +188,7 @@ export default function CashDailyPage() {
                 icon={<ArrowUpCircle size={20} />}
                 addLabel="Agregar Ingreso"
                 emptyMessage="Sin ingresos registrados"
-                movements={ingresos}
+                movements={incomes}
                 columns={[
                   { key: 'order_number', label: 'N° Orden', width: 90, render: (m) => <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{(m as Record<string, unknown>).order_number as string || '-'}</span> },
                   { key: 'client_name', label: 'Cliente', render: (m) => ((m as Record<string, unknown>).client_name as string) || '-' },
@@ -219,7 +222,7 @@ export default function CashDailyPage() {
                 icon={<ArrowDownCircle size={20} />}
                 addLabel="Agregar Egreso"
                 emptyMessage="Sin egresos registrados"
-                movements={egresos}
+                movements={expenses}
                 columns={[
                   { key: 'description', label: 'Concepto', render: (m) => ((m as Record<string, unknown>).description as string) || '-' },
                   { key: 'amount', label: 'Monto', width: 110, render: (m) => <span style={{ fontWeight: 600, color: '#dc2626' }}>{formatCurrency((m as Record<string, unknown>).amount as number)}</span> },
@@ -236,7 +239,7 @@ export default function CashDailyPage() {
               />
             </div>
 
-            <CashTotalCards suma={suma} totalSalidas={totalSalidas} saldoActualNum={saldoActualNum} efectivoReal={efectivoReal} />
+            <CashTotalCards suma={suma} totalSalidas={totalSalidas} currentBalance={currentBalance} efectivoReal={efectivoReal} />
           </>
         )}
 

@@ -1,5 +1,10 @@
 const DOLAR_API_URL = 'https://dolarapi.com/v1/dolares/oficial';
 
+/**
+ * Shape returned by https://dolarapi.com/v1/dolares/oficial.
+ * Field names are kept as the upstream service returns them (Spanish) — we
+ * only consume `venta`, so renaming the rest is not worth a transform step.
+ */
 interface DolarApiResponse {
   moneda: string;
   casa: string;

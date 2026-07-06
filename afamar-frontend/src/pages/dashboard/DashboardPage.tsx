@@ -30,7 +30,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
 
   if (loading) return <LoadingSpinner />;
-  if (error || !data) return <div className={s['dashboard__error']}>Error al cargar el dashboard</div>;
+  if (error || !data) return <div className={s['dashboard__error']}>Error al cargar el panel</div>;
 
   const ing = (data.total_revenue ?? 0).toLocaleString();
   const pendiente = (data.total_pending_payments ?? 0).toLocaleString();
@@ -91,7 +91,7 @@ export default function Dashboard() {
             <div className={s['dashboard__metric-value']}>{String(data.total_budgets ?? 0)}</div>
           </div>
           <div className={s['dashboard__metric']}>
-            <div className={s['dashboard__metric-label']}>Total ordenes</div>
+            <div className={s['dashboard__metric-label']}>Total órdenes</div>
             <div className={s['dashboard__metric-value']}>{String(data.total_orders ?? 0)}</div>
           </div>
           <div className={s['dashboard__metric']}>

@@ -1,9 +1,9 @@
 ﻿import { Line } from 'react-konva';
 import type Konva from 'konva';
-import type { CroquisLine } from '@/types/croquis';
+import type { SketchLine } from '@/types/sketch';
 
 interface LineShapeProps {
-  element: CroquisLine;
+  element: SketchLine;
   isDraggable: boolean;
   onDragEnd: (e: Konva.KonvaEventObject<DragEvent>, id: string) => void;
   onTransformEnd: (e: Konva.KonvaEventObject<Event>) => void;

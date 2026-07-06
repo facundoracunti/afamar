@@ -367,21 +367,19 @@ class WorkOrderService:
 
         from app.services.budget_calculator import (
             apply_surcharge,
-            calculate_material_totals,
             compute_surcharge,
             filter_main_materials,
             parse_materials_data,
         )
 
+        # The budget already carries the canonical totals (subtotal, total,
+        # balance_due, etc.) computed and submitted by the frontend when the
+        # user approved it. Recomputing from materials_data here would lose
+        # any fabrication_details / surcharge logic the frontend baked in,
+        # so we trust the budget's numbers and only derive a few display
+        # fields from materials_data (material name + price_m2 fallback).
         materials_raw = parse_materials_data(budget.materials_data)
         main_materials = filter_main_materials(materials_raw)
-        mat_totals = calculate_material_totals(main_materials, budget.usd_rate or 1000.0)
-
-        subtotal_ars = mat_totals["ars"] + float(budget.subtotal_materials or 0)
-        subtotal_usd = mat_totals["usd"] + float(budget.subtotal_materials or 0) / (budget.usd_rate or 1000.0) if budget.usd_rate else 0
-
-        surcharge_info = compute_surcharge(budget.payment_method, budget.installments or 1)
-        surcharge_result = apply_surcharge(subtotal_ars, subtotal_usd, surcharge_info["percentage"])
 
         if main_materials:
             material_nombre = main_materials[0].get("nombre") or main_materials[0].get("name") or budget.material or ""
@@ -390,27 +388,25 @@ class WorkOrderService:
             material_nombre = budget.material or ""
             material_precio_m2 = budget.material_price_m2 or 0
 
+        # Surcharge is applied budget-side; mirror it here so the WO's totals
+        # match what the customer signed. If the budget already includes
+        # surcharge in its `total`, we keep that exact figure.
+        surcharge_info = compute_surcharge(budget.payment_method, budget.installments or 1)
+        budget_total_ars = float(budget.total or 0)
+        budget_total_usd = float(budget.total_usd or 0)
+        surcharge_result = apply_surcharge(
+            budget_total_ars,
+            budget_total_usd,
+            surcharge_info["percentage"],
+        )
+
         last_number = self.repo.get_last_number()
 
-        materials_dict = {"materials": materials_raw}
-        if budget.items:
-            materials_dict["items"] = [
-                {
-                    "sector": item.sector,
-                    "description": item.description,
-                    "unit_length": item.unit_length,
-                    "unit_width": item.unit_width,
-                    "length": item.length,
-                    "width": item.width,
-                    "m2": item.m2,
-                    "quantity": item.quantity,
-                    "price_m2": item.price_m2,
-                    "unit_price": item.unit_price,
-                    "total": item.total,
-                }
-                for item in budget.items
-            ]
-
+        # Persist materials_data as a JSON array (matching the format the
+        # frontend reads back with `jsonParseList` + casts as MaterialInForm[]).
+        # Wrapping it in `{"materials": [...]}` broke WorkOrderFormPage's
+        # `(form.materials_data as MaterialInForm[])` cast.
+        materiales_json = json.dumps(materials_raw) if materials_raw else None
         adicionales_list = []
         if budget.adicionales:
             adicionales_list = [
@@ -443,7 +439,7 @@ class WorkOrderService:
             "origin": "Budget",
             "material": material_nombre,
             "material_price_m2": material_precio_m2,
-            "materials_data": json.dumps(materials_dict),
+            "materials_data": materiales_json,
             "adicionales_data": json.dumps(adicionales_list) if adicionales_list else None,
             "budgeted_details": json.dumps(sketch_list) if sketch_list else None,
             "color": budget.color,
@@ -453,21 +449,21 @@ class WorkOrderService:
             "anafe": budget.anafe,
             "currency": budget.currency,
             "usd_rate": budget.usd_rate or 1000.0,
-            "subtotal": round(subtotal_ars),
+            "subtotal": float(budget.subtotal or 0),
             "transport": budget.transport or 0,
             "installation": budget.installation or 0,
             "discount": budget.discount or 0,
             "discount_percentage": budget.discount_percentage or 0,
             "discount_fixed_amount": budget.discount_fixed_amount or 0,
-            "total": surcharge_result["total_with_surcharge_ars"],
-            "subtotal_usd": round(subtotal_usd, 2),
+            "total": budget_total_ars,
+            "subtotal_usd": float(budget.subtotal_usd or 0),
             "transport_usd": budget.transport_usd or 0,
-            "total_usd": surcharge_result["total_with_surcharge_usd"],
+            "total_usd": budget_total_usd,
             "deposit_received": budget.deposit_received or 0,
             "deposit_currency": budget.deposit_currency or "ARS",
             "deposit_usd": budget.deposit_usd or 0,
-            "balance_due": surcharge_result["total_with_surcharge_ars"] - (budget.deposit_received or 0),
-            "balance_due_usd": round(surcharge_result["total_with_surcharge_usd"] - (budget.deposit_usd or 0), 2),
+            "balance_due": budget.balance_due or 0,
+            "balance_due_usd": budget.balance_due_usd or 0,
             "balance_paid": budget.balance_paid or False,
             "payment_method": budget.payment_method,
             "installments": budget.installments or 1,
@@ -487,9 +483,18 @@ class WorkOrderService:
         budget.status = "CONVERTED_TO_OT"
         order = self.repo.create(data)
 
+        # Stock deduction: if the budget hadn't yet debited pool stock
+        # (the usual case — stock is debited at conversion time, not at
+        # approval), do it now and mark the budget. Then carry the final
+        # flag over to the order so subsequent re-renders / cancellations
+        # see the truth.
         if not budget.stock_deducted:
             deduct_pool_stock(self.repo.db, budget.pool_id, budget.pools_data, order.number)
             budget.stock_deducted = True
+        order.stock_deducted = budget.stock_deducted
+        self.repo.db.commit()
+        self.repo.db.refresh(order)
+
         if budget.client_id:
             _update_client_total_purchased(self.repo.db, budget.client_id)
         if budget.deposit_received:

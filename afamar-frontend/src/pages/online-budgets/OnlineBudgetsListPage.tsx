@@ -9,6 +9,7 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinne
 import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
 import { SearchInput } from '../../components/ui/SearchInput/SearchInput';
 import { EmptyState } from '../../components/ui/EmptyState/EmptyState';
+import { useNotify } from '../../context/NotificationContext';
 import styles from './OnlineBudgetsListPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -17,6 +18,7 @@ const ONLINE_BUDGETS_KEY = ['online-budgets'] as const;
 
 export default function OnlineBudgetsList() {
   const navigate = useNavigate();
+  const notify = useNotify();
   const [search, setSearch] = useState('');
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
@@ -35,13 +37,13 @@ export default function OnlineBudgetsList() {
   );
 
   const enviarPorWhatsApp = (p: Record<string, unknown>) => {
-    const telefonoLimpio = ((p.phone as string) || '').replace(/\D/g, '');
-    if (!telefonoLimpio) { alert('El presupuesto no tiene teléfono de WhatsApp'); return; }
+    const cleanPhone = ((p.phone as string) || '').replace(/\D/g, '');
+    if (!cleanPhone) { notify('El presupuesto no tiene teléfono de WhatsApp', 'error'); return; }
     const mensaje = `Hola *${(p.clientName as string) || (p.client_name as string) || '-'}*! Te pasamos la cotización de Afamar para tu obra (${(p.workType as string) || (p.work_type as string) || 'sin especificar'}).%0A%0A` +
                     `Podés ver el detalle interactivo y las opciones disponibles ingresando acá:%0A` +
                     `👉 https://afamar.com.ar/presupuesto-online/${p.id as number}%0A%0A` +
                     `Cualquier duda nos avisás!`;
-    window.open(`https://wa.me/${telefonoLimpio}?text=${mensaje}`, '_blank');
+    window.open(`https://wa.me/${cleanPhone}?text=${mensaje}`, '_blank');
   };
 
   const handleDelete = async () => {

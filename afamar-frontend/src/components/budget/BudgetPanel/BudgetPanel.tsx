@@ -28,7 +28,7 @@ interface BudgetPanelProps {
   hidePaymentSection: boolean;
   alternativasTop?: React.ReactNode;
   alternativasGrid?: React.ReactNode;
-  descuentoBlock?: React.ReactNode;
+  discountBlock?: React.ReactNode;
   onConfirmarPago?: () => Promise<void>;
   sectionTitle?: string;
   mostrarToggleTitle?: boolean;
@@ -48,7 +48,7 @@ export default function BudgetPanel({
   form, modoUSD, toggleModoUSD, hayUSD, hayAlternativas,
   readOnly, saving, handleTransportChange, handleDepositCurrencyChange,
   handleDepositAmountChange, handleUsdRateChange, setForm, update, num,
-  hidePaymentSection, alternativasTop, alternativasGrid, descuentoBlock,
+  hidePaymentSection, alternativasTop, alternativasGrid, discountBlock,
   onConfirmarPago, sectionTitle = 'PRESUPUESTO',
   mostrarToggleTitle: _mostrarToggleTitle = false,
   mostrarToggleColumns: _mostrarToggleColumns = true,
@@ -387,7 +387,7 @@ export default function BudgetPanel({
             </select>
           </div>
 
-          {descuentoBlock}
+          {discountBlock}
 
           <div className={`form-group ${s['budget-panel__payment-method-row']}`}>
             <label>Forma de pago</label>

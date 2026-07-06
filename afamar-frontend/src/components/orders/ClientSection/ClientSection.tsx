@@ -277,7 +277,7 @@ export default function ClientSection({
           </div>
           <div className="form-group">
             <label>E-mail</label>
-            <input className="input" value={form.client_email} onChange={(e) => update('client_email', e.target.value)} placeholder="Email" disabled={readOnly} />
+            <input className="input" value={form.client_email} onChange={(e) => update('client_email', e.target.value)} placeholder="Correo" disabled={readOnly} />
           </div>
         </div>
         <div className="form-group" style={{ marginTop: 8 }}>
@@ -304,7 +304,7 @@ export default function ClientSection({
               <input className="input" value={newClient.phone} onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })} />
             </div>
             <div className="form-group">
-              <label>Email</label>
+              <label>Correo</label>
               <input className="input" type="email" value={newClient.email} onChange={(e) => setNewClient({ ...newClient, email: e.target.value })} />
             </div>
           </div>

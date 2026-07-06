@@ -2,16 +2,19 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Eye, Trash2 } from 'lucide-react';
 import { getMeasurements, deleteMeasurement } from '@/api/resources/measurements';
-import { useList, useDelete } from '../../api/hooks';
+import { getWorkOrders } from '@/api/resources/workOrders';
+import { useList, useDelete, useGet } from '../../api/hooks';
 import { measurementStatuses, formatDate } from '../../utils/formatters';
 import { t } from '../../utils/translate';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import type { Measurement } from '../../types/measurement';
+import type { WorkOrderListItem } from '../../types/workOrder';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
 import { SearchInput } from '../../components/ui/SearchInput/SearchInput';
 import { EmptyState } from '../../components/ui/EmptyState/EmptyState';
+import PendingMeasurementCards from '../../components/measurements/PendingMeasurementCards/PendingMeasurementCards';
 import styles from './MeasurementsListPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -20,14 +23,14 @@ const MEASUREMENTS_KEY = ['measurements'] as const;
 
 export default function MeasurementsList() {
   const [search, setSearch] = useState('');
-  const [estadoFiltro, setEstadoFiltro] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const navigate = useNavigate();
 
   const { items: data, loading } = useList<Measurement>(
-    [...MEASUREMENTS_KEY, search, estadoFiltro],
+    [...MEASUREMENTS_KEY, search, statusFilter],
     async () => {
-      const res = await getMeasurements({ search: search || undefined, status: estadoFiltro || undefined });
+      const res = await getMeasurements({ search: search || undefined, status: statusFilter || undefined });
       return (res.data as Measurement[]) || [];
     }
   );
@@ -36,6 +39,16 @@ export default function MeasurementsList() {
     MEASUREMENTS_KEY,
     async (id) => { await deleteMeasurement(id); },
     { invalidateKeys: [MEASUREMENTS_KEY] }
+  );
+
+  // Work orders currently in MEASUREMENT status — surfaced as clickable cards
+  // above the main table so the user can start a new measurement in one click.
+  const { data: pendingOrders, loading: pendingLoading } = useGet<WorkOrderListItem[]>(
+    ['work-orders', 'pending-measurement'],
+    async () => {
+      const res = await getWorkOrders({ status: 'MEASUREMENT', limit: 100 });
+      return (res.data as WorkOrderListItem[]) || [];
+    }
   );
 
   const handleDelete = async (): Promise<void> => {
@@ -47,13 +60,15 @@ export default function MeasurementsList() {
   return (
     <div className={s['measurements']}>
       <PageHeader
-        title="Agenda de Mediciones"
+        title="Agenda de Medición"
         actions={
           <button className="btn btn-primary" onClick={() => navigate('/admin/measurements/new')}>
             <Plus size={16} /> Nueva Medición
           </button>
         }
       />
+
+      <PendingMeasurementCards orders={pendingOrders || []} loading={pendingLoading} />
 
       <div className={s['measurements__filters']}>
         <SearchInput
@@ -64,8 +79,8 @@ export default function MeasurementsList() {
         />
         <select
           className={`input ${s['measurements__filter']}`}
-          value={estadoFiltro}
-          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEstadoFiltro(e.target.value)}
+          value={statusFilter}
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setStatusFilter(e.target.value)}
         >
           <option value="">Todos los estados</option>
           {measurementStatuses.map((e: string) => <option key={e} value={e}>{t(e)}</option>)}

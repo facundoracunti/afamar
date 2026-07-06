@@ -16,7 +16,7 @@ import { SearchInput } from '../../components/ui/SearchInput/SearchInput';
 import { EmptyState } from '../../components/ui/EmptyState/EmptyState';
 import { Pagination } from '../../components/ui/Pagination';
 import PdfPreviewModal from '../../components/ui/PdfPreviewModal/PdfPreviewModal';
-import CroquisImageExtractor from '../../components/ui/PdfPreviewModal/CroquisImageExtractor';
+import SketchImageExtractor from '../../components/ui/PdfPreviewModal/SketchImageExtractor';
 import { useNotify } from '../../context/NotificationContext';
 import type { WorkOrderListItem } from '../../types/workOrder';
 import styles from './WorkOrdersListPage.module.css';
@@ -137,12 +137,12 @@ export default function WorkOrdersList() {
   };
 
   const handleEnviarWhatsApp = (o: WorkOrderListItem): void => {
-    const telefono = (o.client_phone || '').replace(/[^\d]/g, '');
+    const phone = (o.client_phone || '').replace(/[^\d]/g, '');
     const nombre = o.client_name || '';
     const saludo = nombre ? `Hola ${nombre}! ` : '';
     const mensaje = `${saludo}Te compartimos la información de tu Orden de Trabajo AFAMAR.`;
-    const whatsappUrl = telefono
-      ? `https://api.whatsapp.com/send?phone=${telefono}&text=${encodeURIComponent(mensaje)}`
+    const whatsappUrl = phone
+      ? `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(mensaje)}`
       : `https://api.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
     window.open(whatsappUrl, '_blank');
   };
@@ -176,7 +176,7 @@ export default function WorkOrdersList() {
           onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEstado(e.target.value)}
         >
           <option value="">Todas</option>
-          <option value="MEASUREMENT">En Medicion</option>
+          <option value="MEASUREMENT">En Medición</option>
           <option value="WORKSHOP">En Taller</option>
           <option value="FINISHED">Terminadas (En Local)</option>
           <option value="DELIVERED">Entregadas</option>
@@ -322,14 +322,13 @@ export default function WorkOrdersList() {
                           className={btnCls('info')}
                           onClick={() => {
                             // TODO: hook send-work-order-email endpoint when available.
-                            notify('Email de OT todavía no implementado', 'info');
+                            notify('Correo de OT todavía no implementado', 'info');
                           }}
-                          title="Enviar PDF por email"
+                          title="Enviar PDF por correo"
                           disabled
                           style={{ opacity: 0.4, cursor: 'not-allowed' }}
                         >
-                          <Mail size={12} /> Email
-                        </button>
+                          <Mail size={12} />Correo</button>
                       </div>
                     </td>
 
@@ -378,7 +377,7 @@ export default function WorkOrdersList() {
       />
 
       {sketchExtractorActive && pendingFormData && (
-        <CroquisImageExtractor
+        <SketchImageExtractor
           sketchElements={pendingFormData.sketch_elements}
           onReady={handleSketchImagesReady}
         />

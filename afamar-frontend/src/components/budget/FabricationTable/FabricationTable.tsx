@@ -9,7 +9,7 @@ interface FabricationTableProps {
   handleDetailChange: (i: number, field: string, value: unknown) => void;
   addDetalle: () => void;
   removeDetalle: (i: number) => void;
-  materiales: Record<string, unknown>[];
+  materials: Record<string, unknown>[];
   M2_CONCEPTS: string[];
   fabricationConcepts: string[];
   num: (v: unknown) => number;
@@ -17,7 +17,7 @@ interface FabricationTableProps {
 
 // FabricationDetail uses Spanish field names internally (concepto, detalle, etc.)
 // because the backend serializes fabrication_details as a JSON string column, not typed fields.
-export default function FabricationTable({ detalles, readOnly, handleDetailChange, addDetalle, removeDetalle, materiales, M2_CONCEPTS, fabricationConcepts, num }: FabricationTableProps) {
+export default function FabricationTable({ detalles, readOnly, handleDetailChange, addDetalle, removeDetalle, materials, M2_CONCEPTS, fabricationConcepts, num }: FabricationTableProps) {
   return (
     <>
       <h3 className="section-title">DETALLE DE FABRICACIÓN Y ADICIONALES</h3>
@@ -44,7 +44,7 @@ export default function FabricationTable({ detalles, readOnly, handleDetailChang
                 {M2_CONCEPTS.includes(d.concept as string) ? (
                   <select className="input" style={{ fontSize: 11, padding: '4px 4px' }} value={d.material as string || ''} onChange={(e) => handleDetailChange(i, 'material', e.target.value)} disabled={readOnly}>
                     <option value="">--</option>
-                    {materiales.map((m: Record<string, unknown>) => <option key={m.id as number} value={m.name as string}>{m.name as string}</option>)}
+                    {materials.map((m: Record<string, unknown>) => <option key={m.id as number} value={m.name as string}>{m.name as string}</option>)}
                   </select>
                 ) : null}
               </td>

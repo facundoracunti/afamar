@@ -4,7 +4,7 @@
  *
  * The croquis data lives in `form.sketch_elements` as the `savePayload()`
  * shape produced by `useCroquisState`:
- *   `[{ pagina_id, name, dibujo: CroquisElement[] }, ...]`
+ *   `[{ pagina_id, name, dibujo: SketchElement[] }, ...]`
  *
  * We re-render the same shapes (Line / Rect / Cutout / Text) into a hidden
  * Stage so the PDF can embed them as raster images. Konva requires the
@@ -15,12 +15,12 @@
 import React, { useEffect, useRef } from 'react';
 import { Stage, Layer, Line, Rect, Text } from 'react-konva';
 import type Konva from 'konva';
-import type { CroquisElement, CroquisPage } from '../../../types/croquis';
+import type { SketchElement, SketchPage } from '../../../types/sketch';
 
 const STAGE_W = 800;
 const STAGE_H = 600;
 
-interface CroquisImageExtractorProps {
+interface SketchImageExtractorProps {
   sketchElements: unknown;
   onReady: (images: string[]) => void;
 }
@@ -30,7 +30,7 @@ interface CroquisImageExtractorProps {
  *  1. Editor format: `[{ pagina_id, name, dibujo: [...] }, ...]` (from useEntityForm)
  *  2. Backend format: `[{ type, data, order }, ...]` (flat list from GET /budgets/{id})
  *  3. Legacy: `{ pages: [{ elements: [...] }] }` */
-function normalizePages(raw: unknown): CroquisPage[] {
+function normalizePages(raw: unknown): SketchPage[] {
   if (!Array.isArray(raw) || raw.length === 0) return [];
 
   // Detect backend flat list: each item has `type` + `data` but no `dibujo`/`elements`
@@ -48,14 +48,14 @@ function normalizePages(raw: unknown): CroquisPage[] {
       } else if (data && typeof data === 'object') {
         parsed = data as Record<string, unknown>;
       }
-      return { ...parsed, type } as unknown as CroquisElement;
+      return { ...parsed, type } as unknown as SketchElement;
     });
     return [{ id: 1, name: 'Página 1', elements }];
   }
 
-  const pages: CroquisPage[] = [];
+  const pages: SketchPage[] = [];
   for (const p of raw as Record<string, unknown>[]) {
-    const dibujo = (p.dibujo || p.elements || []) as CroquisElement[];
+    const dibujo = (p.dibujo || p.elements || []) as SketchElement[];
     if (!Array.isArray(dibujo)) continue;
     pages.push({
       id: (p.pagina_id as number) || 0,
@@ -66,7 +66,7 @@ function normalizePages(raw: unknown): CroquisPage[] {
   return pages;
 }
 
-function renderElement(el: CroquisElement, key: string): React.ReactNode {
+function renderElement(el: SketchElement, key: string): React.ReactNode {
   if (el.type === 'line') {
     const points = el.points || [];
     return (
@@ -111,7 +111,7 @@ function renderElement(el: CroquisElement, key: string): React.ReactNode {
   );
 }
 
-export default function CroquisImageExtractor({ sketchElements, onReady }: CroquisImageExtractorProps) {
+export default function SketchImageExtractor({ sketchElements, onReady }: SketchImageExtractorProps) {
   const pages = normalizePages(sketchElements);
   const stageRefs = useRef<(Konva.Stage | null)[]>([]);
 

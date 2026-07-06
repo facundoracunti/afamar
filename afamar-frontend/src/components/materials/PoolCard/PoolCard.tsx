@@ -7,7 +7,7 @@ const s = styles as unknown as Record<string, string>;
 interface PoolCardProps {
   pt: PoolInForm;
   idx: number;
-  piletas: Record<string, unknown>[];
+  pools: Record<string, unknown>[];
   readOnly: boolean;
   updatePileta: (idx: number, field: string, value: unknown) => void;
   removePileta: (idx: number) => void;
@@ -17,7 +17,7 @@ interface PoolCardProps {
 }
 
 export default function PoolCard({
-  pt, idx, piletas, readOnly, updatePileta, removePileta, formPiletas, update, num,
+  pt, idx, pools, readOnly, updatePileta, removePileta, formPiletas, update, num,
 }: PoolCardProps) {
   return (
     <div className={s['pool-card']}>
@@ -52,7 +52,7 @@ export default function PoolCard({
             value={pt.currency}
             onChange={(e) => {
               const mon = e.target.value;
-              const pdata = piletas.find((p) => p.id === Number(pt.pool_id));
+              const pdata = pools.find((p) => p.id === Number(pt.pool_id));
               const precio = pdata
                 ? (mon === 'USD' ? Number(pdata.price_usd ?? 0) : Number(pdata.price ?? 0))
                 : Number(pt.price ?? 0);

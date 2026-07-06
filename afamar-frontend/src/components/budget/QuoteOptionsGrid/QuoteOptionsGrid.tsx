@@ -30,7 +30,7 @@ interface Props {
   principalesBreakdown?: TrabajoComun[];
   detalleTrabajosComunes?: TrabajoComun[];
   tipoCambio?: number;
-  presupuestoId?: number | string;
+  budgetId?: number | string;
   onConvertirAlternativa?: (idx: number) => void;
   modoUSD?: boolean;
 }
@@ -42,7 +42,7 @@ const QuoteOptionsGrid = ({
   principalesBreakdown,
   detalleTrabajosComunes,
   tipoCambio = 1000,
-  presupuestoId,
+  budgetId,
   onConvertirAlternativa,
   modoUSD = false,
 }: Props) => {
@@ -188,7 +188,7 @@ const QuoteOptionsGrid = ({
           </div>
         </div>
 
-        {!isMain && presupuestoId && onConvertirAlternativa && (
+        {!isMain && budgetId && onConvertirAlternativa && (
           <button
             type="button"
             className={s['quote-options__convert']}

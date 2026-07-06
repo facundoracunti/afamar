@@ -1,15 +1,15 @@
 /**
  * PDF preview modal — supports two rendering modes:
  *
- * 1. **react-pdf mode** (form pages): pass `data: PdfDocumentData` and the
+ * 1. **react-pdf mode** (active): pass `data: PdfDocumentData` and the
  *    modal renders the document with `<PDFViewer>` (interactive preview +
- *    download button). Used by BudgetFormPage and WorkOrderFormPage where
- *    the PDF is built entirely in the browser from live form state.
+ *    download button). Used by BudgetFormPage, WorkOrderFormPage,
+ *    BudgetsListPage and WorkOrdersListPage — the PDF is built entirely
+ *    in the browser from form state or from the GET response.
  *
- * 2. **blob URL mode** (list pages): pass `pdfUrl: string` (a Blob URL from
- *    `getBudgetPdfBlob`/`getWorkOrderPdfBlob`) and the modal shows it in an
- *    `<iframe>`. Used by BudgetsListPage and WorkOrdersListPage where the
- *    PDF is fetched from the backend's saved entity.
+ * 2. **blob URL mode** (legacy, kept for forward compat): pass
+ *    `pdfUrl: string` (a Blob URL) and the modal shows it in an `<iframe>`.
+ *    No current consumer — the backend no longer serves PDF blobs.
  *
  * The two modes are mutually exclusive — whichever prop is provided wins.
  */
@@ -94,18 +94,8 @@ export default function PdfPreviewModal({
               <PDFDownloadLink
                 document={<DocumentPdf data={data} />}
                 fileName={fileName}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '6px 14px',
-                  fontSize: 14,
-                  background: 'var(--color-primary, #1e40af)',
-                  color: '#fff',
-                  borderRadius: 6,
-                  textDecoration: 'none',
-                  cursor: 'pointer',
-                }}
+                className="btn btn-primary"
+                style={{ padding: '6px 14px', fontSize: 14 }}
               >
                 {({ loading: dlLoading }) => (
                   <>

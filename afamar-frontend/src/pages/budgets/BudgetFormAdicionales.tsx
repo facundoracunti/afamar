@@ -5,7 +5,7 @@ import type { EntityFormState } from '../../types';
 interface BudgetFormAdicionalesProps {
   form: EntityFormState;
   readOnly: boolean;
-  piletas: Record<string, unknown>[];
+  pools: Record<string, unknown>[];
   update: (field: string, value: unknown) => void;
   updatePileta: (idx: number, field: string, value: unknown) => void;
   removePileta: (idx: number) => void;
@@ -16,7 +16,7 @@ interface BudgetFormAdicionalesProps {
 export default function BudgetFormAdicionales({
   form,
   readOnly,
-  piletas,
+  pools,
   update,
   updatePileta,
   removePileta,
@@ -25,7 +25,7 @@ export default function BudgetFormAdicionales({
 }: BudgetFormAdicionalesProps) {
   return (
     <PoolSection
-      piletas={piletas}
+      pools={pools}
       formPiletas={form.pools_data as unknown as Record<string, unknown>[]}
       readOnly={readOnly}
       addPileta={addPileta}

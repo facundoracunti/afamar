@@ -23,7 +23,7 @@ export interface MeasurementFormData {
   scheduledDate: string;
   scheduledTime: string;
   observations: string;
-  croquis: unknown[];
+  sketch: unknown[];
   photos: string[];
   status: string;
   workOrderId?: number | '';

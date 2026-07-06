@@ -1,5 +1,5 @@
 import React from 'react';
-import CroquisEditor from '../CroquisEditor/CroquisEditor';
+import SketchEditor from '../SketchEditor/SketchEditor';
 import styles from './SketchSection.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -36,7 +36,7 @@ export default function SketchSection({
       </div>
       {showCroquis && (
         <div className={s['sketch-section__editor']}>
-          <CroquisEditor croquis={sketchElements as never} onChange={onChange} readOnly={readOnly} />
+          <SketchEditor sketch={sketchElements as never} onChange={onChange} readOnly={readOnly} />
         </div>
       )}
     </div>

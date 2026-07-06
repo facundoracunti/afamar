@@ -50,8 +50,8 @@ export function useBudgetCalculations(
       totalConDescuento = Math.max(0, totalBase - descFijo);
     }
 
-    const recargoArs = Math.round(totalConDescuento * pctRecargo / 100);
-    const total = totalConDescuento + recargoArs;
+    const surchargeArs = Math.round(totalConDescuento * pctRecargo / 100);
+    const total = totalConDescuento + surchargeArs;
 
     const depositArs = Number(form.deposit_received) || 0;
     const depositUsdVal = Number(form.deposit_usd) || 0;
@@ -68,8 +68,8 @@ export function useBudgetCalculations(
     } else if (descFijo > 0 && dd > 0) {
       totalConDescuentoUsd = Math.max(0, totalBaseUsd - descFijo / dd);
     }
-    const recargoUsd = Math.round(totalConDescuentoUsd * pctRecargo / 100);
-    const total_usd = totalConDescuentoUsd + recargoUsd;
+    const surchargeUsd = Math.round(totalConDescuentoUsd * pctRecargo / 100);
+    const total_usd = totalConDescuentoUsd + surchargeUsd;
     const balance_due_usd = Math.max(0, total_usd - depositTotalUsd);
 
     const hasAlternative = materialsData.some((m: MaterialInForm) => m.is_alternative);

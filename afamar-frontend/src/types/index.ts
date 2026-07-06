@@ -28,7 +28,7 @@ export type {
 } from './form';
 
 // Croquis
-export type { CroquisElement, CroquisPage, CroquisEditorProps } from './croquis';
+export type { SketchElement, SketchPage, SketchEditorProps } from './sketch';
 
 // Auth
 export type { User, LoginCredentials, AuthResponse } from './auth';

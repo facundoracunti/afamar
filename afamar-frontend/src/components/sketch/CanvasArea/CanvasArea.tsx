@@ -1,7 +1,7 @@
 ﻿import React, { useEffect, useRef, useState } from 'react';
 import { Stage, Layer, Line, Rect, Transformer } from 'react-konva';
 import type Konva from 'konva';
-import type { CroquisToolType, CroquisElement, CroquisPage, Point } from '@/types/croquis';
+import type { SketchToolType, SketchElement, SketchPage, Point } from '@/types/sketch';
 import LineShape from '../LineShape/LineShape';
 import RectangleShape from '../RectangleShape/RectangleShape';
 import TextShape from '../TextShape/TextShape';
@@ -16,23 +16,23 @@ function genId(): string {
 }
 
 interface CanvasAreaProps {
-  tool: CroquisToolType;
+  tool: SketchToolType;
   snap: boolean;
   sid: string | null;
   isDrawing: boolean;
   drawStart: Point | null;
   drawEnd: Point | null;
-  currentShapes: CroquisElement[];
+  currentShapes: SketchElement[];
   readOnly: boolean;
   shiftRef: React.MutableRefObject<boolean>;
   pageIdx: number;
-  pages: CroquisPage[];
+  pages: SketchPage[];
 
   setSid: (id: string | null) => void;
   setIsDrawing: (v: boolean) => void;
   setDrawStart: (p: Point | null) => void;
   setDrawEnd: (p: Point | null) => void;
-  addShape: (shape: CroquisElement) => void;
+  addShape: (shape: SketchElement) => void;
   updateElementPosition: (id: string, offsetX: number, offsetY: number) => void;
   updateElementTransform: (id: string, scaleX: number, scaleY: number, rotation: number) => void;
 
@@ -139,7 +139,7 @@ export default function CanvasArea({
           text: value.trim(),
           fontSize: 16,
           fill: '#000',
-        } as CroquisElement);
+        } as SketchElement);
       }
       input.remove();
     };
@@ -197,14 +197,14 @@ export default function CanvasArea({
       return;
     }
 
-    const el: CroquisElement = tool === 'line'
+    const el: SketchElement = tool === 'line'
       ? {
           id: genId(),
           type: 'line',
           points: [snapCoord(drawStart.x), snapCoord(drawStart.y), snapCoord(drawEnd.x), snapCoord(drawEnd.y)],
           stroke: '#000',
           strokeWidth: 2,
-        } as CroquisElement
+        } as SketchElement
       : {
           id: genId(),
           type: tool === 'cutout' ? 'cutout' : 'rect',
@@ -216,7 +216,7 @@ export default function CanvasArea({
           stroke: tool === 'cutout' ? '#dc2626' : '#000',
           strokeWidth: 2,
           ...(tool === 'cutout' ? { dash: [4, 4] } : {}),
-        } as CroquisElement;
+        } as SketchElement;
 
     addShape(el);
     setIsDrawing(false);

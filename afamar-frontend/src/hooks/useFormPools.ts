@@ -7,7 +7,7 @@ interface UseFormPoolsParams {
   form: EntityFormState;
   setForm: React.Dispatch<React.SetStateAction<EntityFormState>>;
   update: (field: FormField, value: unknown) => void;
-  piletas: Pool[];
+  pools: Pool[];
 }
 
 interface UseFormPoolsReturn {
@@ -25,7 +25,7 @@ interface UseFormPoolsReturn {
 export function useFormPools({
   form,
   update,
-  piletas,
+  pools,
 }: UseFormPoolsParams): UseFormPoolsReturn {
   const handlePoolImage = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -40,10 +40,10 @@ export function useFormPools({
 
   const addPileta = useCallback(
     (pid: string) => {
-      const list = addPoolToList(form, piletas, pid);
+      const list = addPoolToList(form, pools, pid);
       if (list) update('pools_data', list);
     },
-    [form, piletas, update]
+    [form, pools, update]
   );
 
   const removePileta = useCallback(

@@ -12,6 +12,8 @@ import OnlineBudgetHeader from '../../components/budget/OnlineBudgetHeader/Onlin
 import OnlineItemsTable, { createOption, parseNum, type OptionTab, type OnlineBudgetItemLocal, SPECIAL_NAMES, INITIAL_ROWS, INITIAL_SPECIALS, emptyItem } from '../../components/budget/OnlineItemsTable/OnlineItemsTable';
 import OnlineBudgetTotals from '../../components/budget/OnlineBudgetTotals/OnlineBudgetTotals';
 import OnlineBudgetFooter from '../../components/budget/OnlineBudgetFooter/OnlineBudgetFooter';
+import { useNotify } from '../../context/NotificationContext';
+import { useConfirm } from '../../components/ui/useConfirm/useConfirm';
 import type { Material } from '../../types/material';
 import type { Pool } from '../../types/poolStock';
 import type { ConvertOptionResponse } from '../../types/workOrder';
@@ -39,7 +41,10 @@ export default function OnlineBudgetForm() {
   const [numberValue, setNumberValue] = useState<string>('');
   const [convertingOption, setConvertingOption] = useState<number | null>(null);
 
-  const { items: materiales } = useList<Material>(
+  const notify = useNotify();
+  const { confirm, dialog: confirmDialog } = useConfirm();
+
+  const { items: materials } = useList<Material>(
     ['materials', 'all'],
     async () => {
       const res = await getMaterials({ limit: 500 });
@@ -47,7 +52,7 @@ export default function OnlineBudgetForm() {
     }
   );
 
-  const { items: piletas } = useList<Pool>(
+  const { items: pools } = useList<Pool>(
     ['pool-stock', 'all'],
     async () => {
       const res = await getPoolStock({});
@@ -107,11 +112,11 @@ export default function OnlineBudgetForm() {
     !!id
   );
 
-  const loading = (isEdit && loadingBudget) || !materiales || !piletas;
+  const loading = (isEdit && loadingBudget) || !materials || !pools;
 
   useEffect(() => {
     if (!onlineBudget || !id) return;
-    const matData = materiales;
+    const matData = materials;
     setClient((onlineBudget.client_name as string) || '');
     setPhone((onlineBudget.phone as string) || '');
     setWorkType((onlineBudget.work_type as string) || '');
@@ -159,23 +164,27 @@ export default function OnlineBudgetForm() {
     } else {
       setOpciones([createOption()]);
     }
-  }, [onlineBudget, id, materiales]);
+  }, [onlineBudget, id, materials]);
 
   const handleConvertirOpcion = async (opcionIdx: number) => {
     if (!id) return;
-    if (!window.confirm(`¿Convertir a Orden de Trabajo la "${opciones[opcionIdx]?.nombre}"? Solo se copiarán los ítems de esta opción.`)) return;
+    const ok = await confirm(
+      `¿Convertir a Orden de Trabajo la "${opciones[opcionIdx]?.nombre}"? Solo se copiarán los ítems de esta opción.`,
+      'Convertir a OT',
+    );
+    if (!ok) return;
     setConvertingOption(opcionIdx);
     try {
       const res = await convertOnlineBudgetToWorkOrderOption(id as string, opcionIdx);
       const data: ConvertOptionResponse = res.data;
-      alert(`Orden ${data.number} creada a partir de ${opciones[opcionIdx]?.nombre}.`);
+      notify(`Orden ${data.number} creada a partir de ${opciones[opcionIdx]?.nombre}.`, 'success');
       // Converting an online budget option creates a work order, so both
       // lists become stale.
       queryClient.invalidateQueries({ queryKey: ['online-budgets'] });
       queryClient.invalidateQueries({ queryKey: ['work-orders'] });
       navigate('/admin/work-orders');
     } catch (err: unknown) {
-      alert('Error al convertir la opción a orden de trabajo.');
+      notify((err as Error).message || 'Error al convertir la opción a orden de trabajo.', 'error');
     } finally {
       setConvertingOption(null);
     }
@@ -183,20 +192,24 @@ export default function OnlineBudgetForm() {
 
   const handleWhatsApp = () => {
     navigator.clipboard.writeText(generarWhatsApp());
-    alert('Copiado! Pegalo en WhatsApp.');
+    notify('Copiado! Pegalo en WhatsApp.', 'success');
   };
 
   const handleConvertirAll = async () => {
-    if (!window.confirm('¿Convertir a Orden de Trabajo? Se copiarán todos los ítems.')) return;
+    const ok = await confirm(
+      '¿Convertir a Orden de Trabajo? Se copiarán todos los ítems.',
+      'Convertir a OT',
+    );
+    if (!ok) return;
     try {
       const res = await convertOnlineBudgetToWorkOrder(id as string);
-      alert(`Orden ${(res.data as Record<string, unknown>).number} creada.`);
+      notify(`Orden ${(res.data as Record<string, unknown>).number} creada.`, 'success');
       // Both the online-budgets and work-orders lists change.
       queryClient.invalidateQueries({ queryKey: ['online-budgets'] });
       queryClient.invalidateQueries({ queryKey: ['work-orders'] });
       navigate('/admin/work-orders');
-    } catch {
-      alert('Error');
+    } catch (err: unknown) {
+      notify((err as Error).message || 'Error al convertir el presupuesto a orden de trabajo', 'error');
     }
   };
 
@@ -226,7 +239,7 @@ export default function OnlineBudgetForm() {
       else await createOnlineBudget(payload);
       queryClient.invalidateQueries({ queryKey: ['online-budgets'] });
       navigate('/admin/online-budgets');
-    } catch (err: unknown) { alert('Error al guardar'); }
+    } catch (err: unknown) { notify((err as Error).message || 'Error al guardar', 'error'); }
     finally { setSaving(false); }
   };
 
@@ -311,8 +324,8 @@ export default function OnlineBudgetForm() {
           setOpciones={setOpciones}
           activeOpcion={activeOption}
           setActiveOpcion={setActiveOption}
-          materiales={materiales}
-          piletas={piletas}
+          materials={materials}
+          pools={pools}
           isEdit={isEdit}
           convertingOpcion={convertingOption}
           onConvertirOpcion={handleConvertirOpcion}
@@ -334,6 +347,7 @@ export default function OnlineBudgetForm() {
           saving={saving}
         />
       </form>
+      {confirmDialog}
     </div>
   );
 }

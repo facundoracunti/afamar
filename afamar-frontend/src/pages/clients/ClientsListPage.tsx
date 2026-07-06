@@ -87,7 +87,7 @@ export default function ClientsList() {
       <SearchInput
         value={search}
         onChange={setSearch}
-        placeholder="Buscar por nombre, telefono o direccion..."
+        placeholder="Buscar por nombre, teléfono o dirección..."
         leftIcon={<Search size={18} color="#94a3b8" />}
       />
 
@@ -101,11 +101,11 @@ export default function ClientsList() {
                 <th style={{ width: 60 }}>ID</th>
                 <th>Nombre</th>
                 <th>Telefono</th>
-                <th>Email</th>
+                <th>Correo</th>
                 <th>Direccion</th>
                 <th style={{ textAlign: 'center' }}>Presupuestos</th>
-                <th style={{ textAlign: 'center' }}>Ordenes</th>
-                <th>Ultima orden</th>
+                <th style={{ textAlign: 'center' }}>Órdenes</th>
+                <th>Última orden</th>
                 <th>Fecha alta</th>
                 <th style={{ width: 100 }}>Acciones</th>
               </tr>

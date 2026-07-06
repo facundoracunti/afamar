@@ -31,7 +31,7 @@ import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
 import { EmptyState } from '../../components/ui/EmptyState/EmptyState';
 import { Pagination } from '../../components/ui/Pagination';
 import PdfPreviewModal from '../../components/ui/PdfPreviewModal/PdfPreviewModal';
-import CroquisImageExtractor from '../../components/ui/PdfPreviewModal/CroquisImageExtractor';
+import SketchImageExtractor from '../../components/ui/PdfPreviewModal/SketchImageExtractor';
 import { useNotify } from '../../context/NotificationContext';
 import type { UnifiedBudget } from '../../types/budget';
 import styles from './BudgetsListPage.module.css';
@@ -168,13 +168,13 @@ export default function BudgetsList() {
   };
 
   const handleEnviarWhatsApp = (presupuesto: UnifiedBudget) => {
-    const telefono = (presupuesto.clientPhone || '').replace(/[^\d]/g, '');
+    const phone = (presupuesto.clientPhone || '').replace(/[^\d]/g, '');
     const nombre = presupuesto.clientName || '';
     const pdfUrl = getBudgetPdf(presupuesto.id as unknown as string);
     const saludo = nombre ? `Hola ${nombre}! ` : '';
     const mensaje = `${saludo}Te enviamos el presupuesto formal de AFAMAR Marmoles & Granitos. Podes revisarlo e imprimirlo desde el siguiente link: ${pdfUrl}`;
-    const whatsappUrl = telefono
-      ? `https://api.whatsapp.com/send?phone=${telefono}&text=${encodeURIComponent(mensaje)}`
+    const whatsappUrl = phone
+      ? `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(mensaje)}`
       : `https://api.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
     window.open(whatsappUrl, '_blank');
   };
@@ -182,7 +182,7 @@ export default function BudgetsList() {
   const handleEnviarEmail = async (id: string | number) => {
     try {
       await sendBudgetEmail(id as string);
-      notify('Email enviado correctamente', 'success');
+      notify('Correo enviado correctamente', 'success');
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
         || (err as Error).message
@@ -264,7 +264,7 @@ export default function BudgetsList() {
           <Search size={18} color="#94a3b8" />
           <input
             className="input"
-            placeholder="Buscar por Nro / Cliente / Telefono / Material..."
+            placeholder="Buscar por Nro / Cliente / Teléfono / Material..."
             value={search}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
           />
@@ -292,7 +292,7 @@ export default function BudgetsList() {
           <table>
             <thead>
               <tr>
-                <th className={s['budgets__th']} style={{ width: 90 }}>Numero</th>
+                <th className={s['budgets__th']} style={{ width: 90 }}>Número</th>
                 <th className={s['budgets__th']} style={{ width: 95, fontSize: 12 }}>Fecha</th>
                 <th className={s['budgets__th']} style={{ width: 160 }}>Cliente</th>
                 <th className={s['budgets__th']} style={{ width: 110 }}>Telefono</th>
@@ -435,7 +435,7 @@ export default function BudgetsList() {
                     </div>
                   </td>
 
-                  {/* Column 10 — Notificar: WhatsApp / Email */}
+                  {/* Column 10 — Notificar: WhatsApp / Correo */}
                   <td
                     className={`${s['budgets__td']} ${s['budgets__actions-cell']}`}
                     onClick={(e: React.MouseEvent) => e.stopPropagation()}
@@ -465,10 +465,9 @@ export default function BudgetsList() {
                         type="button"
                         className={btnCls('info')}
                         onClick={() => handleEnviarEmail(p.id)}
-                        title="Enviar PDF por email"
+                        title="Enviar PDF por correo"
                       >
-                        <Mail size={12} /> Email
-                      </button>
+                        <Mail size={12} />Correo</button>
                     </div>
                   </td>
 
@@ -543,7 +542,7 @@ export default function BudgetsList() {
       />
 
       {sketchExtractorActive && pendingFormData && (
-        <CroquisImageExtractor
+        <SketchImageExtractor
           sketchElements={pendingFormData.sketch_elements}
           onReady={handleSketchImagesReady}
         />

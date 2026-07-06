@@ -7,7 +7,7 @@ interface UseFormDetailsParams {
   form: EntityFormState;
   setForm: React.Dispatch<React.SetStateAction<EntityFormState>>;
   update: (field: FormField, value: unknown) => void;
-  materiales: Material[];
+  materials: Material[];
 }
 
 interface UseFormDetailsReturn {
@@ -29,7 +29,7 @@ export function useFormDetails({
   form,
   setForm,
   update,
-  materiales,
+  materials,
 }: UseFormDetailsParams): UseFormDetailsReturn {
   const materialPrecioRef = useRef<number>(0);
   const materialUsdRef = useRef<number>(0);
@@ -48,7 +48,7 @@ export function useFormDetails({
         const d = list[idx];
 
         if (field === 'material') {
-          const mat = materiales.find((m) => m.name === value);
+          const mat = materials.find((m) => m.name === value);
           if (mat) {
             list[idx].material = value as string;
             list[idx].currency = mat.currency || 'ARS';
@@ -77,7 +77,7 @@ export function useFormDetails({
           const currency = d.currency || 'ARS';
           let pm2 = 0;
           if (d.material) {
-            const mat = materiales.find((m) => m.name === d.material);
+            const mat = materials.find((m) => m.name === d.material);
             if (mat) {
               pm2 = currency === 'USD' ? (mat.price_usd || 0) : (mat.base_price || 0);
             }
@@ -92,7 +92,7 @@ export function useFormDetails({
         return { ...prev, fabrication_details: list };
       });
     },
-    [materiales]
+    [materials]
   );
 
   const addDetalle = useCallback(() => {

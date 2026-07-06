@@ -56,7 +56,7 @@ export default function useEntityForm({
   }, []);
 
   // ----- References (materials/pools/clients/logo/next#/initial load)
-  const { materiales, piletas, clientes, logoUrl, addOrRefreshClientes } = useFormReferences({
+  const { materials, pools, clientes, logoUrl, addOrRefreshClientes } = useFormReferences({
     services,
     defaultEstado,
     id,
@@ -78,7 +78,7 @@ export default function useEntityForm({
     removeDetalle,
     materialPrecioRef,
     materialUsdRef,
-  } = useFormDetails({ form, setForm, update, materiales });
+  } = useFormDetails({ form, setForm, update, materials });
 
   // ----- Materials CRUD
   const {
@@ -92,7 +92,7 @@ export default function useEntityForm({
     form,
     setForm,
     update,
-    materiales,
+    materials,
     materialPrecioRef,
     materialUsdRef,
   });
@@ -102,7 +102,7 @@ export default function useEntityForm({
     form,
     setForm,
     update,
-    piletas,
+    pools,
   });
 
   // ----- Client autocomplete
@@ -149,8 +149,8 @@ export default function useEntityForm({
     form,
     loading,
     saving,
-    materiales: materiales as unknown as Record<string, unknown>[],
-    piletas: piletas as unknown as Record<string, unknown>[],
+    materials: materials as unknown as Record<string, unknown>[],
+    pools: pools as unknown as Record<string, unknown>[],
     clientes: clientes as unknown as Record<string, unknown>[],
     addOrRefreshClientes,
     logoUrl,
@@ -170,7 +170,7 @@ export default function useEntityForm({
     clientRef,
     materialPrecioRef,
     materialUsdRef,
-    materialesAgrupados: materiales.filter((m) => m.name) as unknown[],
+    groupedMaterials: materials.filter((m) => m.name) as unknown[],
     M2_CONCEPTS,
     setForm,
     setLoading,

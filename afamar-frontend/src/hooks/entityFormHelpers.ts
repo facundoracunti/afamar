@@ -213,7 +213,7 @@ function jsonStringify(value: unknown): string | null {
 }
 
 /**
- * Flatten the CroquisEditor's `savePayload()` shape into the flat list of
+ * Flatten the SketchEditor's `savePayload()` shape into the flat list of
  * `{type, data, order}` that the backend's `BudgetSketchElementCreate`
  * schema expects. **All geometry (points, x, y, stroke, strokeWidth, id, ...)**
  * is serialized into `data` so the round-trip preserves the exact drawing.
@@ -296,7 +296,7 @@ function flattenSketchElements(raw: unknown): { type: string; data: string | nul
  * `{type, data, order}` where `data` is a JSON string holding the full
  * element (minus type/order). We re-hydrate each element by merging
  * `type` back in and wrap the result in a single editor page so the
- * CroquisEditor can render it as-is.
+ * SketchEditor can render it as-is.
  */
 function unflattenSketchElements(raw: unknown): { pagina_id: number; name: string; dibujo: unknown[] }[] {
   if (!Array.isArray(raw) || raw.length === 0) return [];

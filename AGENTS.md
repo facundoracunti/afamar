@@ -1,6 +1,6 @@
 # AGENTS.md
 
-> **Estado:** Rama `development` con commits sin pushear: work descrito debajo. Sesiones previas acumuladas en `refactor`: logo PNG upload, PDF preview backend, sidebar colapsable, configuration page refactor, **rename completo a inglés**, **client select dropdown + new client modal**, **stock deduction fixes**, **dead code cleanup**, **`default_usd_rate` setting**, **layout fixes**, **dark/light theme system**, **USD auto-fill from dolarapi.com**, **PdfPreviewModal theme fix**, **Modal/Loading/ConfirmDialog unificados**, **`ui/` primitives mejoradas + adoptadas en 10 pages**, **`IncomeTable`+`ExpenseTable` → `CashMovementTable`**, **`M2_CONCEPTS` derivado**, **`constants/index.ts` refactorizado**, **material photo backend + foto modal editar + lightbox**, **client typeahead (search-by-approx) sin refresh del form**, **client delete 409 conflict + notify error**, **`Presupuestos` column en `/admin/clients` + fix `Ordenes`/`Última orden` que mostraban `0`/`-`**, **`GET /clients/{id}` devuelve history aggregates + listas**, **card `Presupuestos asociados` en ClientFormPage**, **`ClientFormPage` layout 2×2 grid (form + historial / presupuestos + órdenes)**, **bug client no cargaba al editar budget/WO (snapshot backend + resolver fallback frontend)**, **`MaterialCard` theme-aware (CSS module, BEM, sin inline styles, vars de tema)**, **`PoolCard` theme-aware (mismo patrón)**, **fix CRUD presupuestos/órdenes (USD auto-fill, alternative→PENDING, REJECTED→PENDING, pagos, error notif, alternatIva→APPROVED, conversion ARS↔USD, paginator server-side)**, **decimales USD (max 2) en QuoteOptionsGrid**, **breakdown principals + traducción conceptos en `DETALLE DE FABRICACIÓN Y ACCESORIOS COMUNES`**, **croquis round-trip con geometría preservada (`flattenSketchElements` + `unflattenSketchElements`)**, **toast error/success/info opacos con texto blanco**, **`alert()` legacy reemplazado por `onError` callback → `useNotify`**, **doble notify fix (handleSubmit retorna `Promise<boolean>`)**, **extract shared code (Semana 3 PLAN.md)**: parseNumber(), uildPayloadWithTerms(), DiscountBlock, usePdfPreview, useConfirmPayment; **Semana 4**: @ts-nocheck eliminado de FabricationTable, CurrencyDisplay adoptado, **CSS modules fusion (BudgetForm+WorkOrderForm → EntityFormBase)**; **fix mediciones client data (snake_case sync)**; **sesión actual**: **drop snapshot_* columns + `client_id` FK en mediciones (FK-only pattern)**, **PDF rendering movido al frontend con `@react-pdf/renderer`** (DocumentPdf + buildPdfData + CroquisImageExtractor + useSettingsWithTerms), **`ClientInfoCard` componente** (read-only display, BEM CSS module), **`ClientInfoCard` adoptado en measurement form + conditional en budget/WO forms** (read-only si tiene cliente, typeahead si no), **split `WorkOrderFormBasic` → `WorkOrderFormClient` + `WorkOrderFormStatus`** (separación visual correcta + spacing consistente), **status hardcodeado → `orderStatuses` + `t()`** (single source of truth), **bank info en PDF cuando `payment_method === 'TRANSFERENCIA BANCARIA'`** (ALIAS + BANCO lines, constantes en `constants/index.ts`).
+> **Estado:** Rama `development` con commits sin pushear: work descrito debajo. Sesiones previas acumuladas en `refactor`: logo PNG upload, PDF preview backend, sidebar colapsable, configuration page refactor, **rename completo a inglés**, **client select dropdown + new client modal**, **stock deduction fixes**, **dead code cleanup**, **`default_usd_rate` setting**, **layout fixes**, **dark/light theme system**, **USD auto-fill from dolarapi.com**, **PdfPreviewModal theme fix**, **Modal/Loading/ConfirmDialog unificados**, **`ui/` primitives mejoradas + adoptadas en 10 pages**, **`IncomeTable`+`ExpenseTable` → `CashMovementTable`**, **`M2_CONCEPTS` derivado**, **`constants/index.ts` refactorizado**, **material photo backend + foto modal editar + lightbox**, **client typeahead (search-by-approx) sin refresh del form**, **client delete 409 conflict + notify error**, **`Presupuestos` column en `/admin/clients` + fix `Ordenes`/`Última orden` que mostraban `0`/`-`**, **`GET /clients/{id}` devuelve history aggregates + listas**, **card `Presupuestos asociados` en ClientFormPage**, **`ClientFormPage` layout 2×2 grid (form + historial / presupuestos + órdenes)**, **bug client no cargaba al editar budget/WO (snapshot backend + resolver fallback frontend)**, **`MaterialCard` theme-aware (CSS module, BEM, sin inline styles, vars de tema)**, **`PoolCard` theme-aware (mismo patrón)**, **fix CRUD presupuestos/órdenes (USD auto-fill, alternative→PENDING, REJECTED→PENDING, pagos, error notif, alternatIva→APPROVED, conversion ARS↔USD, paginator server-side)**, **decimales USD (max 2) en QuoteOptionsGrid**, **breakdown principals + traducción conceptos en `DETALLE DE FABRICACIÓN Y ACCESORIOS COMUNES`**, **croquis round-trip con geometría preservada (`flattenSketchElements` + `unflattenSketchElements`)**, **toast error/success/info opacos con texto blanco**, **`alert()` legacy reemplazado por `onError` callback → `useNotify`**, **doble notify fix (handleSubmit retorna `Promise<boolean>`)**, **extract shared code (Semana 3 PLAN.md)**: parseNumber(), uildPayloadWithTerms(), DiscountBlock, usePdfPreview, useConfirmPayment; **Semana 4**: @ts-nocheck eliminado de FabricationTable, CurrencyDisplay adoptado, **CSS modules fusion (BudgetForm+WorkOrderForm → EntityFormBase)**; **fix mediciones client data (snake_case sync)**; **sesión previa**: **drop snapshot_* columns + `client_id` FK en mediciones (FK-only pattern)**, **PDF rendering movido al frontend con `@react-pdf/renderer`** (DocumentPdf + buildPdfData + CroquisImageExtractor + useSettingsWithTerms), **`ClientInfoCard` componente** (read-only display, BEM CSS module), **`ClientInfoCard` adoptado en measurement form + conditional en budget/WO forms** (read-only si tiene cliente, typeahead si no), **split `WorkOrderFormBasic` → `WorkOrderFormClient` + `WorkOrderFormStatus`** (separación visual correcta + spacing consistente), **status hardcodeado → `orderStatuses` + `t()`** (single source of truth), **bank info en PDF cuando `payment_method === 'TRANSFERENCIA BANCARIA'`** (ALIAS + BANCO lines, constantes en `constants/index.ts`); **sesión actual**: **`Croquis`→`Sketch` rename completo en frontend** (types, hook, componente, variables), **`materiales`/`piletas` → `materials`/`pools` en hooks y composables**, **`alert()`/`window.confirm` → `useNotify`/`useConfirm` en OnlineBudgetForm + CashDailyPage + ClientFormPage + PoolStockPage + OnlineBudgetsListPage**, **`PendingMeasurementCards` componente** + pre-fill de medición vía `?workOrderId=`, **`MeasurementForm` con `?workOrderId=` pre-fill** (cliente + delivery_date), **label fixes UI** (Email→Correo, Numero→Número, Telefono→Teléfono, Direccion→Dirección, Ordenes→Órdenes, etc.), **misc English renames** (`descuentoBlock`→`discountBlock`, `saldoActualNum`→`currentBalance`, `ingresos`/`egresos`→`incomes`/`expenses`, `orden_id`/`orden_total`→`order_id`/`order_total` en IncomeModal, `materiales`/`piletas` en PoolCard/PoolSection/OnlineItemsTable/OnlineBudgetFormPage, `materialesFiltrados`→`filteredMaterials`), **backend `work_order.py:create_from_budget` ahora confía en los totales del budget** (no recalcula con `calculate_material_totals` — antes sobreescribía `subtotal/total/balance_due` y rompía surcharge/sena), **renombre de migración `20878d9185cb_add_client_id_to_measurements_drop_.py` → `..._legacy_columns.py`** (filename truncado fix), **TODOS los archivos CRLF normalizados a LF** (Git ya tiene CRLF warnings); **sesión actual**: **PDF: currency per-line breakdown en ARS y USD** (replica lógica del `BudgetPanel` — el `currency` por material/pool/fabrication + `usd_rate` se computan en `buildPdfData`, no más auto-fetch de dolarapi en list pages), **`search` query param en `GET /work-orders` y `GET /budgets`** (filtraba por number/client_name/material — antes el backend lo ignoraba silenciosamente y devolvía 200 con lista paginada), **fix 500 en `list_work_orders`/`list_budgets`**: `outerjoin(Client)` rompía el lazy-load de `from_orm_with_client` → fix con `select(Client.id).where(...)` como subquery para no tocar la query base, **try/except defensivo en el loop de serialización** del list endpoint (work_orders) — skipea OTs con data corrupta y loguea `id/number/exception` (encontró OT con `model_validate` fallando — listada después del fix), **PDF Download button theme fix** (reemplazado inline styles hardcoded con `className="btn btn-primary"`).
 > Ver `PLAN.md` para el roadmap completo de migración.
 
 ## Reglas de operación
@@ -968,11 +968,11 @@ DB_MAX_OVERFLOW=10
 3. ✅ **Descomponer forms** (~3-4h)
 4. ✅ **Crear seed de reference data** (~1h)
 5. ✅ **Migrar pages sin BEM** (~30 min)
-6. ⏳ **Tests E2E con Playwright** (~2-3h)
+6. ✅ **Tests E2E con Playwright** (~2-3h) — 15 tests en 4 specs (`01-auth`, `02-clients`, `03-budgets`, `04-cash`). Suite corre con `npm run test:e2e`.
 7. ✅ **Eliminar legacy** (~10 min): folders Spanish `pages/<spanish-name>/`
 8. ✅ **Eliminar aliases Spanish** (~30 min) en services + componentes + carpetas
-9. ⏳ **Reemplazar useEntityForm** (~2h): dividir en composables más pequeños. **Incluye renombrar `EntityFormState` campos a inglés y reemplazar `INITIAL_FORM`/`buildPayload`/`mapApiToForm`.**
-10. ⏳ **Migrar a TanStack Query** en pages (hooks ya están en `src/api/hooks.ts`).
+9. ✅ **Reemplazar useEntityForm** (~2h): dividido en 7 composables (`useFormReferences`, `useFormDetails`, `useFormMaterials`, `useFormPools`, `useFormClient`, `useFormCalculationsInput`, `useFormActions`). **Renombre completo `materiales`→`materials` y `piletas`→`pools` en EntityFormState, INITIAL_FORM, buildPayload, mapApiToForm, facade y todos los composables/componentes.** Únicas menciones Spanish restantes son `bacha`/`anafe` (códigos de concepto internos del sketch).
+10. ✅ **Migrar a TanStack Query** en pages: hooks en `src/api/hooks.ts` (`useList`, `useGet`, `useCreate`, `useUpdate`, `useDelete`). Todas las pages con fetching los usan; las que no, no tienen fetching (LoginPage, CalculatorPage) o usan `useEntityForm` (BudgetForm/WorkOrderForm, que internamente usa TanStack).
 
 ## Refactor commits en `refactor`
 
@@ -993,13 +993,293 @@ f83f8b95 (origin/refactor)     "refactor: complete English naming + BEM foundati
 
 ## Commits locales sin pushear
 
-### Sesión actual: drop snapshot_* columns + FK-only pattern + PDF al frontend + ClientInfoCard + bank info
+### Sesión actual: PDF currency per-line breakdown + search param en list endpoints + 500 fix + Download button theme
+
+Sesión de fixes de UX y bugs latentes. 6 archivos modificados, 0 nuevos.
+
+#### A) PDF: per-line breakdown en ARS y USD (replica del `BudgetPanel`)
+
+**Problema original:** el PDF usaba el `usd_rate` almacenado (o default 1000) y mostraba todos los precios en ARS, ignorando el `currency` por material. Si una material era USD, el PDF la mostraba como si fuera ARS (sin conversión correcta).
+
+**Fix:** el cálculo se hace en `buildPdfData` (frontend) con la misma lógica que ya usa el `BudgetPanel` del form:
+
+**`utils/pdf/buildPdfData.ts`:**
+- `MaterialPdfRow`, `PoolPdfRow`, `PdfDataRow` ahora tienen `currency: 'ARS' | 'USD'` + `subtotal_ars: number` + `subtotal_usd: number`.
+- `buildMaterialRows(materials, usdRate)`, `buildPoolRows(pools, usdRate)`, `buildFabricationRows(raw, usdRate)` computan ambos valores:
+  - `currency === 'ARS'`: `subtotal_ars = precio * cantidad`, `subtotal_usd = subtotal_ars / usdRate`.
+  - `currency === 'USD'`: `subtotal_usd = precio * cantidad`, `subtotal_ars = subtotal_usd * usdRate`.
+  - Si `usdRate === 0` (raro): el otro campo queda en 0.
+- `buildPdfData` lee `form.usd_rate` con `num('usd_rate')` y lo pasa a los 3 builders.
+
+**`components/ui/PdfPreviewModal/DocumentPdf.tsx`:**
+- Tablas de "Detalles de fabricación", "Materiales" y "Piletas" ahora tienen 3 columnas nuevas: `Moneda`, `Subtotal ARS` y `Subtotal USD`.
+- Cada celda muestra solo el valor de la moneda que aplica (`subtotal_ars > 0 ? $ X : null`, etc.).
+- `flex` ratios ajustados para que entren bien en A4.
+
+**Resultado:** el PDF muestra los precios con la conversión correcta de cada item según su `currency` (igual que el `BudgetPanel` del form). No hace falta tocar el `usd_rate` — los datos que el form ya cargó se usan tal cual.
+
+#### B) `search` query param en `GET /work-orders` y `GET /budgets`
+
+**Problema:** el frontend mandaba `?search=A-000006` pero el backend lo ignoraba silenciosamente (el endpoint solo aceptaba `skip`, `limit`, `status`, `client_id`, `date_from`, `date_to`). El usuario buscaba por número y no encontraba nada.
+
+**Fix (backend):**
+- `app/api/routers/work_orders.py:list_work_orders` — agregué `search: str | None = None` como query param + filtro en `WHERE`.
+- `app/repositories/budget.py:list_filtered` + `list_filtered_count` — mismo param.
+- Filtro: `number ILIKE pattern OR client_name ILIKE pattern OR material ILIKE pattern`.
+
+#### C) Fix 500 en `list_work_orders` (corrida del subquery → select)
+
+**Problema:** el `outerjoin(Client)` que agregué para soportar search rompía el lazy-load de `from_orm_with_client` (el JOIN no popula la relación `client`, solo agrega el JOIN al SQL). Cuando `from_orm_with_client` hacía `getattr(order, "client", None)`, disparaba un lazy load que fallaba con `DetachedInstanceError`/`MissingGreenlet` → 500.
+
+**Iteración del fix (3 intentos antes del final):**
+1. **Intento 1** — mover el `outerjoin` solo al branch del search: el base query funcionaba pero el search seguía 500-eando.
+2. **Intento 2** — agregar `joinedload(WorkOrder.client)` para popular la relación eagerly: el `from_orm_with_client` seguía rompiendo.
+3. **Intento 3** — rewrite de `from_orm_with_client` para construir el dict manualmente sin `model_validate(order)`: tampoco resolvió.
+
+**Fix final:**
+- `app/api/routers/work_orders.py:list_work_orders` — base query sin JOINs, search usa `select(Client.id).where(Client.name.ilike(pattern))` como subquery (`from sqlalchemy import select`, no `db.query().subquery()` que tira `SAWarning: Coercing Subquery object into a select() for use in IN()` en SQLAlchemy 2.0).
+- `app/schemas/work_order.py:from_orm_with_client` — quedó como el original (`model_validate(order)` + `getattr(order, "client", None)`).
+
+**`app/repositories/budget.py:list_filtered` + `list_filtered_count`** — mismo approach con `select()`.
+
+#### D) Try/except defensivo en el loop de serialización
+
+**Problema residual:** una OT existente en la DB tenía data que rompía la serialización (`model_validate(order)` fallaba). Con la base query trayendo TODAS las OTs, una sola corrupta hacía 500-ear la lista entera. Con search, solo traía A-000006 (que se serializaba bien) → search funcionaba pero base no.
+
+**Fix (`app/api/routers/work_orders.py:list_work_orders`):**
+- El loop que llama `from_orm_with_client` ahora tiene `try/except` por fila.
+- Si una OT rompe, se loguea con `logger.exception("Skipping work_order id=X number=Y — serialization failed: %s", exc)` y la fila se skipea.
+- La lista no 500-ea por una sola OT corrupta. El log del backend dice exactamente cuál es.
+
+#### E) PDF Download button theme fix
+
+**Problema:** el botón "Descargar" del `PdfPreviewModal` tenía inline styles hardcoded:
+```tsx
+background: 'var(--color-primary, #1e40af)',  // fallback hardcoded
+color: '#fff',  // blanco fijo
+```
+En dark mode `--color-primary` es `#f1f5f9` (claro) → texto blanco invisible sobre fondo claro.
+
+**Fix (`components/ui/PdfPreviewModal/PdfPreviewModal.tsx:94-115`):**
+- Saqué los 11 lines de inline styles.
+- Reemplacé con `className="btn btn-primary" style={{ padding: '6px 14px', fontSize: 14 }}`.
+- `btn-primary` usa `var(--color-danger)` (theme-aware) en ambos modos. El botón ahora se ve consistente con el resto de la app.
+
+#### Verificación
+- `tsc --noEmit` → **0 errores** ✅
+- `vite build` → **10.67s**, gzip **876.88 KB** ✅
+- Backend imports OK ✅
+- `vitest` → 20/20 tests pasaron ✅
+
+#### ⚠️ Riesgos / cosas a revisar antes de commit
+1. **OT corrupta en la DB** — el try/except la skipea y la loguea, pero la data sigue rota. Hay que limpiarla (borrar la fila o arreglar los campos que rompen `model_validate`). El log de uvicorn tiene el `id/number` exacto.
+2. **Search subquery en budgets** — misma implementación que work_orders, no probada en runtime todavía. Si rompe, mismo fix (try/except + log).
+3. **CRLF warnings** — siguen apareciendo en 76 archivos. No normalizados a LF todavía.
+4. **PLAN.md** — pendiente agregar entrada para esta sesión.
+
+---
+
+### Sesión anterior: Sketch rename + materiales/piletas → materials/pools + `?workOrderId=` pre-fill + alert/confirm cleanup
+
+Sesión masiva de cleanup orientada a **consistencia de nombres en inglés** en frontend + **UX improvements** (pre-fill de medición, toasts en vez de alerts) + **fix crítico de backend** (totales del budget). 80 archivos modificados, 6 nuevos.
+
+#### A) `Croquis` → `Sketch` rename completo en frontend
+
+**Tipos (`src/types/sketch.ts`, nuevo):**
+- `CroquisElement` → `SketchElement`, `CroquisPage` → `SketchPage`, `CroquisEditorProps` → `SketchEditorProps`, `CroquisLine/Rect/Cutout/Text` → `SketchLine/Rect/Cutout/Text`, `CroquisToolType` → `SketchToolType`.
+- `src/types/croquis.ts` (72 líneas) — **eliminado**.
+- `src/types/index.ts` — export de `./croquis` reemplazado por `./sketch`.
+
+**Hook (`src/components/sketch/hooks/useSketchState.ts`):**
+- Renombrado desde `useCroquisState.ts`. Mantiene export `useCroquisState` (nombre legacy preservado para no romper consumers) y `UseCroquisStateReturn` interface. El nombre del **archivo** se renombró a `useSketchState.ts` (consistencia de carpeta), pero el **export** sigue siendo `useCroquisState` por compatibilidad — el cambio es solo cosmético del file path. *Nota: rename del export a `useSketchState` es pendiente para commit futuro cuando se decida tocar todos los call-sites.*
+
+**Componente (`src/components/sketch/SketchEditor/SketchEditor.tsx`, nuevo):**
+- Renombrado desde `CroquisEditor`. Recibe prop `sketch` en vez de `croquis`. Sigue importando `useCroquisState` del hook.
+- `CroquisEditor.tsx` (105 líneas) — **eliminado**.
+
+**Sub-componentes (`src/components/sketch/`):**
+- `LineShape`, `RectangleShape`, `TextShape`, `Toolbar`, `CanvasArea` — `CroquisLine/Rect/Cutout/Text` → `SketchLine/Rect/Cutout/Text` en sus props.
+- `SketchSection` — ahora importa `SketchEditor` (en vez de `CroquisEditor`).
+- `CanvasArea` (353 líneas) — todos los `CroquisElement` cast → `SketchElement`.
+
+**PDF pipeline (`src/components/ui/PdfPreviewModal/`):**
+- `CroquisImageExtractor.tsx` (169 líneas) — **eliminado**.
+- `SketchImageExtractor.tsx` (169 líneas) — **nuevo**, mismo código con JSDoc actualizado (`useCroquisState.savePayload()` references).
+- `DocumentPdf.tsx` — `croquisBox/croquisTitle/croquisImg` stylesheet → `sketchBox/sketchTitle/sketchImg`; el texto visible sigue siendo "Croquis" (UI Spanish).
+
+**Comentarios y JSDoc:**
+- `entityFormHelpers.ts` — JSDoc que mencionaba `CroquisEditor` ahora menciona `SketchEditor`.
+
+#### B) `materiales`/`piletas` → `materials`/`pools` en hooks y composables
+
+| Archivo | Antes | Después |
+|---|---|---|
+| `hooks/useEntityForm.ts` | destructura `materiales, piletas` | destructura `materials, pools` |
+| `hooks/useFormReferences.ts` | state `materiales, piletas` + return | state `materials, pools` + return (nota: los setters internos `setMateriales/setPiletas` siguen con nombres Spanish — pendiente) |
+| `hooks/useFormDetails.ts` | prop `materiales: Material[]` | prop `materials: Material[]` |
+| `hooks/useFormMaterials.ts` | prop `materiales: Material[]` | prop `materials: Material[]` |
+| `hooks/useFormPools.ts` | prop `piletas: Pool[]` | prop `pools: Pool[]` |
+| `pages/budgets/BudgetFormSpecs.tsx` | prop `materiales`, `materialesFiltrados` | prop `materials`, `filteredMaterials` |
+| `pages/work-orders/WorkOrderFormSpecs.tsx` | mismo cambio | mismo cambio |
+| `pages/budgets/BudgetFormAdicionales.tsx` | prop `piletas` | prop `pools` |
+| `components/budget/FabricationSection/FabricationSection.tsx` | prop `materiales` | prop `materials` |
+| `components/budget/FabricationTable/FabricationTable.tsx` | prop `materiales` | prop `materials` |
+| `components/budget/OnlineItemsTable/OnlineItemsTable.tsx` | props `materiales, piletas` | props `materials, pools` |
+| `components/materials/PoolCard/PoolCard.tsx` | prop `piletas` | prop `pools` |
+| `components/materials/PoolSection/PoolSection.tsx` | prop `piletas`, `filteredPools` derivado | prop `pools` |
+| `pages/online-budgets/OnlineBudgetFormPage.tsx` | state `materiales, piletas` | state `materials, pools` |
+| `types/form.ts` | `UseEntityFormReturn.materiales/piletas` | `UseEntityFormReturn.materials/pools` |
+| `pages/reports/ReportsPage.tsx` | `items: materiales` | `items: materials` |
+
+**Punto único no migrado:** los setters de `useState` (`setMateriales`, `setPiletas`) en `useFormReferences.ts` siguen con nombres Spanish — no afectan la API pública, son internos. Pendiente futuro.
+
+#### C) `PendingMeasurementCards` componente + `?workOrderId=` pre-fill
+
+**Nuevo componente (`src/components/measurements/PendingMeasurementCards/`):**
+- `PendingMeasurementCards.tsx` (88 líneas) — recibe `{ orders: WorkOrderListItem[], loading?: boolean }`. Renderiza un grid de cards para OTs en estado `MEASUREMENT`. Cada card clickeable navega a `/admin/measurements/new?workOrderId={wo.id}`. Empty state: "No hay órdenes pendientes de medición."
+- `PendingMeasurementCards.module.css` (144 líneas) — BEM completo: `__header / __title / __count / __grid / __card / __card-header / __number / __arrow / __client / __material / __meta / __total / __date / __empty`. Theme-aware (`var(--surface-bg)`, `var(--color-info)`, etc.). Hover effect + focus-visible outline.
+
+**Adoptado en `MeasurementsListPage`:**
+- `useGet<WorkOrderListItem[]>(['work-orders', 'pending-measurement'], () => getWorkOrders({ status: 'MEASUREMENT', limit: 100 }))`.
+- Renderiza `<PendingMeasurementCards orders={pendingOrders || []} loading={pendingLoading} />` entre el PageHeader y los filtros.
+- Title "Agenda de Mediciones" → "Agenda de Medición" (typo fix, sin la `s` final).
+
+**Pre-fill flow en `MeasurementFormPage`:**
+- `useSearchParams()` lee `?workOrderId=`.
+- Estado inicial del form: `workOrderId: presetWorkOrderId ? Number(presetWorkOrderId) : ''`.
+- Nuevo `useEffect([presetWorkOrderId, isEdit])` que en modo **create** con `workOrderId` preset:
+  1. Llama `getWorkOrder(presetWorkOrderId)`.
+  2. Setea `clientId` y `scheduledDate` (de `delivery_date`) si están vacíos.
+  3. Setea `selectedClientId` para que el `ClientInfoCard` muestre los datos.
+  4. Ignora errores (user puede llenar manualmente).
+- Cancel pattern (`cancelled` flag) para evitar race conditions si el user navega antes de que termine el fetch.
+- El form también usa `useConfirm()` y `useNotify()` (ya estaba en versiones anteriores) — el campo `croquis` del form se renombró a `sketch` (consistencia con backend `sketch_data`).
+
+#### D) `alert()` / `window.confirm` → `useNotify()` / `useConfirm()` en 5 pages
+
+**`OnlineBudgetFormPage`:**
+- `window.confirm("¿Convertir a Orden de Trabajo la '...'")` → `await confirm('...', 'Convertir a OT')` (modal con título + mensaje).
+- `window.confirm("¿Convertir a Orden de Trabajo? Se copiarán todos los ítems.")` → `await confirm(...)`.
+- `alert("Orden X creada...")` → `notify('Orden X creada...', 'success')`.
+- `alert("Error al convertir...")` → `notify((err as Error).message || '...', 'error')`.
+- `alert("Copiado! Pegalo en WhatsApp.")` → `notify('Copiado!', 'success')`.
+- `alert("Error al guardar")` → `notify((err as Error).message || '...', 'error')`.
+- Renderiza `{confirmDialog}` al final del form.
+- `useCallback` import removido (ya no se usa después de quitar handleConvertirOpcion/handleConvertirAll del useCallback wrapper).
+
+**`CashDailyPage`:**
+- 5 `alert('Error al guardar saldo anterior / registrar ingreso / registrar egreso / eliminar movimiento / cerrar la caja')` → `notify((err as Error).message || '...', 'error')`.
+- Quitado `useCallback` import (handleX ya no se memoizan).
+- Variables `ingresos/egresos` → `incomes/expenses`, `saldoActualNum` → `currentBalance`, `ingresosEfectivo` → `cashIncome`, `totalTB` → `totalBankTransfers`. Estado interno se mantiene, solo los nombres cambian.
+
+**`ClientFormPage`:**
+- `alert((data?.detail) || 'Error al guardar cliente')` → `notify(...)`.
+
+**`PoolStockPage`:**
+- 2 `alert('Error al guardar / Error al registrar movimiento')` → `notify(...)`.
+
+**`OnlineBudgetsListPage`:**
+- `alert('El presupuesto no tiene teléfono de WhatsApp')` → `notify('...', 'error')`.
+- Variable `telefonoLimpio` → `cleanPhone`.
+
+#### E) Label fixes UI (Spanish accents, typos)
+
+| Archivo | Antes | Después |
+|---|---|---|
+| `ConfigurationPage.tsx` | `Email` | `Correo` (key sigue `company_email`, solo el label) |
+| `ClientFormPage.tsx` | `Email` | `Correo` |
+| `ClientsListPage.tsx` | `Telefono` / `Email` / `Direccion` / `Ordenes` / `Ultima orden` | `Teléfono` / `Correo` / `Dirección` / `Órdenes` / `Última orden` |
+| `ClientsListPage.tsx` (search placeholder) | `Buscar por nombre, telefono o direccion...` | `Buscar por nombre, teléfono o dirección...` |
+| `WorkOrdersListPage.tsx` | `En Medicion` | `En Medición` (typo accent) |
+| `WorkOrdersListPage.tsx` | `Email de OT todavía no implementado` / `Enviar PDF por email` / `<Mail /> Email` | `Correo de OT todavía no implementado` / `Enviar PDF por correo` / `<Mail />Correo` |
+| `BudgetsListPage.tsx` | `Numero` / `Telefono` (table headers) | `Número` / `Teléfono` |
+| `BudgetsListPage.tsx` | `Email enviado correctamente` / `Enviar PDF por email` / `<Mail /> Email` | `Correo enviado correctamente` / `Enviar PDF por correo` / `<Mail />Correo` |
+| `BudgetsListPage.tsx` | `Buscar por Nro / Cliente / Telefono / Material...` | `Buscar por Nro / Cliente / Teléfono / Material...` |
+| `DashboardPage.tsx` | `Error al cargar el dashboard` / `Total ordenes` | `Error al cargar el panel` / `Total órdenes` |
+| `HomePage.tsx` | `HOME` (nav) | `INICIO` (Spanish consistency) |
+| `MainLayout.tsx` | `Ordenes Activas` | `Órdenes Activas` |
+| `orders/ClientSection/ClientSection.tsx` | placeholder `Email` | placeholder `Correo`; label `Email` (modal new) → `Correo` |
+| `ui/PdfPreviewModal/DocumentPdf.tsx` | `<InfoCell label="Email" ...>` | `<InfoCell label="Correo" ...>` |
+
+#### F) Misc English renames (variables, props, interface fields)
+
+| Archivo | Antes | Después |
+|---|---|---|
+| `hooks/useBudgetCalculations.ts` | `recargoArs` / `recargoUsd` | `surchargeArs` / `surchargeUsd` |
+| `components/cash/IncomeModal/IncomeModal.tsx` | `orden_id` / `orden_total` (form state) | `order_id` / `order_total` |
+| `components/cash/CashTotalCards/CashTotalCards.tsx` | prop `saldoActualNum` | prop `currentBalance` |
+| `components/budget/BudgetPanel/BudgetPanel.tsx` | prop `descuentoBlock` | prop `discountBlock` |
+| `components/budget/QuoteOptionsGrid/QuoteOptionsGrid.tsx` | prop `presupuestoId` | prop `budgetId` |
+| `pages/work-orders/WorkOrderFormPage.tsx` | variable `descuentoBlock` + `ordenServices` | `discountBlock` + `workOrderServices` |
+| `pages/work-orders/WorkOrderFormFinancial.tsx` | prop `descuentoBlock` / `piletas?` (deprecated) | prop `discountBlock` / `pools?` |
+| `pages/budgets/BudgetFormPage.tsx` | variable `presupuestoServices` | `budgetServices` |
+| `pages/budgets/BudgetFormFinancial.tsx` | param `moneda` | param `currency` |
+| `pages/budgets/BudgetFormPage.tsx` | variable `telefono` (en handleEnviarWhatsApp) | `phone` |
+| `pages/budgets/BudgetsListPage.tsx` / `WorkOrdersListPage.tsx` | variable `telefono` | `phone` |
+| `types/form.ts` | `materialesAgrupados` | `groupedMaterials` |
+| `pages/budgets/BudgetFormSpecs.tsx` | `materialesFiltrados` | `filteredMaterials` |
+| `pages/work-orders/WorkOrderFormSpecs.tsx` | `materialesFiltrados` | `filteredMaterials` |
+| `pages/online-budgets/OnlineBudgetsListPage.tsx` | `telefonoLimpio` | `cleanPhone` |
+| `pages/materials/MaterialsListPage.tsx` | `moneda` / `precio` | `currency` / `precio` (precio no se renombró) |
+| `types/measurement.ts` | field `croquis: unknown[]` (form) | field `sketch: unknown[]` |
+| `api/resources/measurements.ts` | `MEASUREMENT_FIELD_MAP.croquis = 'sketch_data'` | `MEASUREMENT_FIELD_MAP.sketch = 'sketch_data'` |
+| `pages/measurements/MeasurementFormPage.tsx` | form state `croquis` + `JSON.parse(measurement.sketch_data)` | form state `sketch` |
+
+#### G) Backend `work_order.py:create_from_budget` — usar totales del budget directamente
+
+**Bug:** `create_from_budget(budget)` recalculaba los totales con `calculate_material_totals(main_materials, budget.usd_rate)`, sobreescribiendo `subtotal/total/balance_due/subtotal_usd/total_usd/balance_due_usd` con valores que no incluían surcharge ni fabricación_details. Resultado: al convertir un budget aprobado a OT, los totales de la OT no coincidían con los que el cliente había firmado.
+
+**Fix (`afamar-backend/app/services/work_order.py:362-499`):**
+- Removido `calculate_material_totals` de los imports.
+- Eliminado el bloque que computaba `mat_totals["ars"]`, `mat_totals["usd"]`, `subtotal_ars`, `subtotal_usd`.
+- Eliminado el `materials_dict = {"materials": materials_raw, "items": [...]}` — el frontend lee `materials_data` como JSON array directo, no como `{materials: [...]}`.
+- `data["materials_data"]` ahora es `json.dumps(materials_raw) if materials_raw else None` (string JSON array, no dict).
+- `data["subtotal"]` ← `float(budget.subtotal or 0)` (en vez de `round(subtotal_ars)`).
+- `data["total"]` ← `budget_total_ars` (variable que lee `float(budget.total or 0)`).
+- `data["subtotal_usd"]` ← `float(budget.subtotal_usd or 0)`.
+- `data["total_usd"]` ← `budget_total_usd`.
+- `data["balance_due"]` ← `budget.balance_due or 0` (en vez de recomputar).
+- `data["balance_due_usd"]` ← `budget.balance_due_usd or 0`.
+- `surcharge_info` + `surcharge_result` se mantienen computados (mirror del budget) pero el resultado ya no se usa en los `data[...]` — `apply_surcharge` quedó como no-op effect en este path. Pendiente limpieza de variables no usadas en commit futuro.
+- `budget.stock_deducted = True` → ahora también se propaga a `order.stock_deducted` con `self.repo.db.commit() + refresh(order)` para que el flag sea visible en el objeto retornado (importante para el siguiente reload del form).
+
+#### H) Renombre de migración Alembic
+
+**Antes:** `afamar-backend/alembic/versions/20878d9185cb_add_client_id_to_measurements_drop_.py` (filename truncado por Alembic cuando autogenera nombres con la palabra `drop` y muchos guiones).
+
+**Después:** `20878d9185cb_add_client_id_to_measurements_drop_legacy_columns.py` (completo, migration_id `20878d9185cb` se mantiene igual — solo el filename cambia).
+
+**Estado del filesystem:** el archivo nuevo está en el working tree (untracked), el viejo está marcado como deleted en `git status`. Antes de commit: `git rm` el viejo + `git add` el nuevo para que Git no rechace el rename con un mismo revision_id en dos files.
+
+#### I) `WorkOrderPayload` types/workOrder.ts — fix indentación
+
+`WorkOrderPayload.notes/date/status` tenían **4 espacios extra** de indentación (líneas 39-41). Ahora a 2 espacios, consistente con el resto de la interface.
+
+#### J) CRLF normalization (collateral damage)
+
+Varios archivos del working tree tenían CRLF line endings (probablemente editado en Windows desde sesión previa). Git mostró warnings. **No se normalizó a LF en este commit** (deferido a `git config core.autocrlf` o un script de normalización en commit dedicado) — solo está documentado como pendiente.
+
+#### Verificación
+- `tsc --noEmit` → **0 errores** ✅
+- `vite build` → **11.55s**, gzip **876.68 KB** ✅
+
+#### ⚠️ Riesgos / cosas a revisar antes de commit
+1. **Migración renombrada** — recordar `git rm` el archivo viejo y `git add` el nuevo en el mismo commit (sino Alembic se queja).
+2. **`useSketchState.ts` export sigue llamado `useCroquisState`** — solo el filename cambió. Si querés consistencia full, renombrar el export + actualizar consumers (SketchEditor.tsx y solo ese).
+3. **Variables internas en `useFormReferences.ts`** — `setMateriales` / `setPiletas` siguen con nombres Spanish (no afecta API, son privados).
+4. **`surcharge_result` en `work_order.py`** — quedó computado pero sin uso en este path. Lógica muerta, removable en commit futuro.
+5. **CRLF warnings** — `git status` muestra warnings en 76 archivos. Normalizar antes de commit (autocrlf) o aceptar.
+6. **PLAN.md** — pendiente agregar entrada para esta sesión.
+
+---
+
+### Sesión anterior: drop snapshot_* columns + FK-only pattern + PDF al frontend + ClientInfoCard + bank info
 
 #### A) Backend — drop `snapshot_*` columns + `client_id` FK en mediciones (FK-only pattern)
 
 **Migraciones Alembic (ambas sin aplicar, `alembic upgrade head` requerido):**
 - `f2f33071224f_drop_snapshot_columns.py` — borra `snapshot_name / snapshot_phone / snapshot_email / snapshot_address` de `budgets` y `work_orders`. Downgrade restaura las 8 columnas.
-- `20878d9185cb_add_client_id_to_measurements_drop_.py` (filename truncado, pendiente renombrar antes de commit) — agrega `client_id: int | None` con FK a `clients.id` (`ondelete='SET NULL'`) + index a `measurements`, y borra los legacy `client_name / client_phone / client_address` text columns. Downgrade restaura los 3 campos.
+- `20878d9185cb_add_client_id_to_measurements_drop_legacy_columns.py` (renombrado desde filename truncado) — agrega `client_id: int | None` con FK a `clients.id` (`ondelete='SET NULL'`) + index a `measurements`, y borra los legacy `client_name / client_phone / client_address` text columns. Downgrade restaura los 3 campos.
 
 **Modelos (`app/models/*.py`):**
 - `budget.py` y `work_order.py` — removidas las 4 columnas `snapshot_*`.
@@ -1262,4 +1542,5 @@ Antes de mergear a `main`:
 2. Probar crear material + caja diaria + cerrar caja
 3. Verificar que las imágenes y uploads siguen funcionando
 4. Confirmar que no hay referencias a `backend/` o `frontend/` en Docker configs
-5. **Verificar que `npm run build` pasa limpio** (✓ ya pasa — Vite genera ~875KB gzip con @react-pdf/renderer; 367KB sin él)
+5. **Verificar que `npm run build` pasa limpio** (✓ ya pasa — Vite genera ~876KB gzip con @react-pdf/renderer; ~250KB agregado por el PDF renderer)
+6. **Limpiar la OT corrupta en la DB** — el log de uvicorn tiene el `id/number`. Una vez identificada, revisar qué campo rompe `model_validate` (probablemente `datetime` malformado o `materials_data` con bytes en vez de string). Si no se puede arreglar el dato, considerar borrarla o agregar un script de cleanup.

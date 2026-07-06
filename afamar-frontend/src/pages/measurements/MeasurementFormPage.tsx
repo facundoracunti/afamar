@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Save, X, Plus } from 'lucide-react';
 import { getMeasurement, createMeasurement, updateMeasurement } from '@/api/resources/measurements';
 import { getClients } from '@/api/resources/clients';
-import { getWorkOrders } from '@/api/resources/workOrders';
+import { getWorkOrders, getWorkOrder } from '@/api/resources/workOrders';
 import { measurementStatuses, formatDate } from '../../utils/formatters';
 import { t } from '../../utils/translate';
 import { useGet, useList } from '../../api/hooks';
@@ -33,6 +33,8 @@ async function fetchWorkOrdersForClient(clientId?: number | null): Promise<WorkO
 
 export default function MeasurementForm() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const presetWorkOrderId = searchParams.get('workOrderId');
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isEdit = !!id;
@@ -45,10 +47,10 @@ export default function MeasurementForm() {
     scheduledDate: '',
     scheduledTime: '',
     observations: '',
-    croquis: [],
+    sketch: [],
     photos: [],
     status: 'PENDING',
-    workOrderId: '',
+    workOrderId: presetWorkOrderId ? Number(presetWorkOrderId) : '',
   });
 
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
@@ -92,16 +94,16 @@ export default function MeasurementForm() {
 
   useEffect(() => {
     if (!measurement) return;
-    let croquis: unknown[] = [];
+    let sketch: unknown[] = [];
     let photos: string[] = [];
-    try { if (measurement.sketch_data) croquis = JSON.parse(measurement.sketch_data); } catch {}
+    try { if (measurement.sketch_data) sketch = JSON.parse(measurement.sketch_data); } catch {}
     try { if (measurement.photos_data) photos = JSON.parse(measurement.photos_data); } catch {}
     setForm({
       clientId: measurement.client_id ?? null,
       scheduledDate: measurement.scheduled_date ? measurement.scheduled_date.split('T')[0] : '',
       scheduledTime: measurement.scheduled_time || '',
       observations: measurement.notes || '',
-      croquis,
+      sketch,
       photos,
       status: measurement.status || 'PENDING',
       workOrderId: measurement.work_order_id ?? '',
@@ -110,6 +112,33 @@ export default function MeasurementForm() {
     setFotosPreview(photos);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [measurement]);
+
+  // When arriving via `?workOrderId=` from the pending-measurement cards, fetch
+  // the source work order and pre-fill client + delivery date so the user only
+  // has to pick the time + add notes.
+  useEffect(() => {
+    if (isEdit || !presetWorkOrderId) return;
+    let cancelled = false;
+    getWorkOrder(presetWorkOrderId)
+      .then((res) => {
+        if (cancelled) return;
+        const wo = res.data as Record<string, unknown> | undefined;
+        if (!wo) return;
+        const clientId = (wo.client_id as number | null) ?? null;
+        const deliveryDate = wo.delivery_date
+          ? String(wo.delivery_date).split('T')[0]
+          : '';
+        setForm((prev) => ({
+          ...prev,
+          clientId: prev.clientId ?? clientId,
+          scheduledDate: prev.scheduledDate || deliveryDate,
+        }));
+        if (clientId) setSelectedClientId(clientId);
+      })
+      .catch(() => { /* ignored — user can fill manually */ });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [presetWorkOrderId, isEdit]);
 
   const notify = useNotify();
 
@@ -163,7 +192,7 @@ export default function MeasurementForm() {
         notes: form.observations || null,
         status: form.status,
         photos_data: JSON.stringify(form.photos),
-        sketch_data: JSON.stringify(form.croquis),
+        sketch_data: JSON.stringify(form.sketch),
       };
 
       if (isEdit) {

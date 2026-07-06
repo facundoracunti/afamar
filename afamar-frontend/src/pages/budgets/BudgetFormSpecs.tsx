@@ -7,7 +7,7 @@ import type { EntityFormState } from '../../types';
 interface BudgetFormSpecsProps {
   form: EntityFormState;
   readOnly: boolean;
-  materiales: Record<string, unknown>[];
+  materials: Record<string, unknown>[];
   addMaterial: (name: string) => void;
   updateMaterial: (idx: number, field: string, value: unknown) => void;
   removeMaterial: (idx: number) => void;
@@ -18,7 +18,7 @@ interface BudgetFormSpecsProps {
 export default function BudgetFormSpecs({
   form,
   readOnly,
-  materiales,
+  materials,
   addMaterial,
   updateMaterial,
   removeMaterial,
@@ -34,10 +34,10 @@ export default function BudgetFormSpecs({
   );
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
 
-  const materialesFiltrados = useMemo(() => {
-    if (!selectedCategoryId) return materiales;
-    return materiales.filter((m: Record<string, unknown>) => String(m.category_id ?? '') === selectedCategoryId);
-  }, [materiales, selectedCategoryId]);
+  const filteredMaterials = useMemo(() => {
+    if (!selectedCategoryId) return materials;
+    return materials.filter((m: Record<string, unknown>) => String(m.category_id ?? '') === selectedCategoryId);
+  }, [materials, selectedCategoryId]);
 
   return (
     <div className="card" style={{ height: '100%' }}>
@@ -58,7 +58,7 @@ export default function BudgetFormSpecs({
       <div className="form-group">
         <select className="input" value="" onChange={(e) => { addMaterial(e.target.value); e.target.value = ''; }} disabled={readOnly}>
           <option value="">+ AGREGAR MATERIAL</option>
-          {materialesFiltrados.filter((m: Record<string, unknown>) => m.name).map((m: Record<string, unknown>) => (
+          {filteredMaterials.filter((m: Record<string, unknown>) => m.name).map((m: Record<string, unknown>) => (
             <option key={m.id as number} value={m.name as string}>
               {m.name as string}{m.color ? ` - ${m.color as string}` : ''}
             </option>
@@ -81,7 +81,7 @@ export default function BudgetFormSpecs({
       </div>
       {(form.materials_data || []).length === 0 && (
         <div style={{ padding: 16, textAlign: 'center', color: '#94a3b8' }}>
-          Sin materiales agregados. Usá "+ AGREGAR MATERIAL" para sumar.
+          Sin materials agregados. Usá "+ AGREGAR MATERIAL" para sumar.
         </div>
       )}
       <div className="form-group">

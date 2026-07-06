@@ -17,7 +17,7 @@ import BudgetPanel from '../../components/budget/BudgetPanel/BudgetPanel';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import PdfPreviewModal from '../../components/ui/PdfPreviewModal/PdfPreviewModal';
-import CroquisImageExtractor from '../../components/ui/PdfPreviewModal/CroquisImageExtractor';
+import SketchImageExtractor from '../../components/ui/PdfPreviewModal/SketchImageExtractor';
 import TermsEditor from '../../components/ui/TermsEditor/TermsEditor';
 import { useNotify } from '../../context/NotificationContext';
 import { fetchUsdVenta } from '../../utils/dolarApi';
@@ -38,7 +38,7 @@ import styles from './BudgetFormPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
 
-const presupuestoServices: EntityServices = {
+const budgetServices: EntityServices = {
   getById: getBudget as EntityServices['getById'],
   create: createBudget as EntityServices['create'],
   update: updateBudget as EntityServices['update'],
@@ -69,7 +69,7 @@ export default function BudgetForm() {
   const { company, globalTerms } = useSettingsWithTerms();
 
   const {
-    form, loading, saving, materiales, piletas, logoUrl, clientes, addOrRefreshClientes,
+    form, loading, saving, materials, pools, logoUrl, clientes, addOrRefreshClientes,
     menuOpen, deleteConfirm, showCroquis,
     readOnly, hayUSD, hayAlternativas, isEdit,
     modoUSD, toggleModoUSD,
@@ -86,7 +86,7 @@ export default function BudgetForm() {
     M2_CONCEPTS,
   } = useEntityForm({
     entityType: 'budget',
-    services: presupuestoServices,
+    services: budgetServices,
     defaultEstado: 'PENDING',
     id,
     navigate,
@@ -228,16 +228,16 @@ export default function BudgetForm() {
   };
 
   const handleEnviarWhatsApp = () => {
-    const telefono = (form.client_phone || '').replace(/[^\d]/g, '');
-    const nombre = form.client_name || '';
-    const pdfUrl = getBudgetPdf(id as string);
-    const saludo = nombre ? `Hola ${nombre}! ` : '';
-    const mensaje = `${saludo}Te enviamos el presupuesto formal de AFAMAR Mármoles & Granitos. Podés revisarlo e imprimirlo desde el siguiente link: ${pdfUrl}`;
-    const whatsappUrl = telefono
-      ? `https://api.whatsapp.com/send?phone=${telefono}&text=${encodeURIComponent(mensaje)}`
-      : `https://api.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
-    window.open(whatsappUrl, '_blank');
-  };
+      const phone = (form.client_phone || '').replace(/[^\d]/g, '');
+      const nombre = form.client_name || '';
+      const pdfUrl = getBudgetPdf(id as string);
+      const saludo = nombre ? `Hola ${nombre}! ` : '';
+      const mensaje = `${saludo}Te enviamos el presupuesto formal de AFAMAR Mármoles & Granitos. Podés revisarlo e imprimirlo desde el siguiente link: ${pdfUrl}`;
+      const whatsappUrl = phone
+        ? `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(mensaje)}`
+        : `https://api.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
+      window.open(whatsappUrl, '_blank');
+    };
 
   const handlePreviewPdf = () => {
     setPdfPreviewLoading(true);
@@ -389,14 +389,14 @@ const buildOptionFromMaterial = (mat: MaterialInForm): import('../../components/
     };
   };
 
-  const alternativasGrid = hayAlternativas && materiales ? (
+  const alternativasGrid = hayAlternativas && materials ? (
     <QuoteOptionsGrid
       mainMaterials={matsMain.map(buildOptionFromMaterial)}
       alternativas={matsAlt.map(buildOptionFromMaterial)}
       principalesBreakdown={principalesBreakdown}
       detalleTrabajosComunes={detalleTrabajosComunes}
       tipoCambio={Number(form.usd_rate) || 1}
-      presupuestoId={id}
+      budgetId={id}
       onConvertirAlternativa={setPendingAltIdx}
       modoUSD={modoUSD}
     />
@@ -473,7 +473,7 @@ const buildOptionFromMaterial = (mat: MaterialInForm): import('../../components/
             <BudgetFormSpecs
               form={form}
               readOnly={readOnly}
-              materiales={materiales}
+              materials={materials}
               addMaterial={addMaterial}
               updateMaterial={updateMaterial}
               removeMaterial={removeMaterial}
@@ -485,7 +485,7 @@ const buildOptionFromMaterial = (mat: MaterialInForm): import('../../components/
             <BudgetFormAdicionales
               form={form}
               readOnly={readOnly}
-              piletas={piletas}
+              pools={pools}
               update={update}
               updatePileta={updatePileta}
               removePileta={removePileta}
@@ -499,7 +499,7 @@ const buildOptionFromMaterial = (mat: MaterialInForm): import('../../components/
           <FabricationSection
             detalles={form.fabrication_details as unknown as Record<string, unknown>[]}
             readOnly={readOnly}
-            materiales={materiales}
+            materials={materials}
             M2_CONCEPTS={M2_CONCEPTS}
             num={num as (v: unknown) => number}
             handleDetailChange={handleDetailChange}
@@ -608,7 +608,7 @@ const buildOptionFromMaterial = (mat: MaterialInForm): import('../../components/
       />
 
       {sketchExtractorActive && (
-        <CroquisImageExtractor
+        <SketchImageExtractor
           sketchElements={form.sketch_elements}
           onReady={handleSketchImagesReady}
         />

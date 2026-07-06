@@ -17,7 +17,7 @@ import BudgetPanel from '../../components/budget/BudgetPanel/BudgetPanel';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import PdfPreviewModal from '../../components/ui/PdfPreviewModal/PdfPreviewModal';
-import CroquisImageExtractor from '../../components/ui/PdfPreviewModal/CroquisImageExtractor';
+import SketchImageExtractor from '../../components/ui/PdfPreviewModal/SketchImageExtractor';
 import TermsEditor from '../../components/ui/TermsEditor/TermsEditor';
 import FormHeader from '../../components/orders/FormHeader/FormHeader';
 import FormFooter from '../../components/orders/FormFooter/FormFooter';
@@ -35,7 +35,7 @@ import styles from './WorkOrderFormPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
 
-const ordenServices = {
+const workOrderServices = {
   getById: getWorkOrder as EntityServices['getById'],
   create: createWorkOrder as EntityServices['create'],
   update: updateWorkOrder as EntityServices['update'],
@@ -63,7 +63,7 @@ export default function WorkOrderForm() {
   const { company, globalTerms } = useSettingsWithTerms();
 
   const {
-    form, loading, saving, materiales, piletas, logoUrl, clientes, addOrRefreshClientes,
+    form, loading, saving, materials, pools, logoUrl, clientes, addOrRefreshClientes,
     menuOpen, deleteConfirm, showCroquis,
     readOnly, hayUSD, hayAlternativas,
     modoUSD, toggleModoUSD,
@@ -82,7 +82,7 @@ export default function WorkOrderForm() {
     M2_CONCEPTS,
   } = useEntityForm({
     entityType: 'work_order',
-    services: ordenServices,
+    services: workOrderServices,
     defaultEstado: 'MEASUREMENT',
     id,
     navigate,
@@ -209,12 +209,12 @@ export default function WorkOrderForm() {
         })}
       </div>
       <div style={{ fontSize: 10, color: '#9ca3af', textAlign: 'center', marginTop: 12, fontStyle: 'italic' }}>
-        * Todos los totales incluyen la misma configuración de trabajos, piletas y traslados.
+        * Todos los totales incluyen la misma configuración de trabajos, pools y traslados.
       </div>
     </div>
   ) : null;
 
-  const descuentoBlock = (
+  const discountBlock = (
     <>{form.payment_method === 'EFECTIVO' && (
       <div style={{ marginTop: 8, padding: '8px 10px', background: '#fffbe6', border: '1px solid #fde68a', borderRadius: 8 }}>
         <label style={{ fontSize: 12, fontWeight: 700, color: '#92400e', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
@@ -314,7 +314,7 @@ export default function WorkOrderForm() {
             <WorkOrderFormSpecs
               form={form}
               readOnly={readOnly}
-              materiales={materiales}
+              materials={materials}
               addMaterial={addMaterial}
               updateMaterial={updateMaterial}
               removeMaterial={removeMaterial}
@@ -326,7 +326,7 @@ export default function WorkOrderForm() {
             <BudgetFormAdicionales
               form={form}
               readOnly={readOnly}
-              piletas={piletas}
+              pools={pools}
               update={update}
               updatePileta={updatePileta}
               removePileta={removePileta}
@@ -340,7 +340,7 @@ export default function WorkOrderForm() {
           <FabricationSection
             detalles={form.fabrication_details as unknown as Record<string, unknown>[]}
             readOnly={readOnly}
-            materiales={materiales}
+            materials={materials}
             M2_CONCEPTS={M2_CONCEPTS}
             num={num as (v: unknown) => number}
             handleDetailChange={handleDetailChange}
@@ -375,7 +375,7 @@ export default function WorkOrderForm() {
             update={update as (field: string, value: unknown) => void}
             num={num}
             alternativasGrid={alternativasGrid}
-            descuentoBlock={descuentoBlock}
+            discountBlock={discountBlock}
             onConfirmarPago={handleConfirmarPago}
             handleConfirmarPago={handleConfirmarPago}
             mostrarToggleTitle={true}
@@ -424,7 +424,7 @@ export default function WorkOrderForm() {
       />
 
       {sketchExtractorActive && (
-        <CroquisImageExtractor
+        <SketchImageExtractor
           sketchElements={form.sketch_elements}
           onReady={handleSketchImagesReady}
         />

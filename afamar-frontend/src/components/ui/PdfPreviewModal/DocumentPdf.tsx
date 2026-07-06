@@ -76,9 +76,9 @@ const styles = StyleSheet.create({
   obsList: { fontSize: 8.5, marginTop: 2 },
   obsListItem: { marginBottom: 2 },
   // ===== CROQUIS =====
-  croquisBox: { backgroundColor: SLATE_50, border: `1px solid ${SLATE_200}`, padding: 6, marginBottom: 8 },
-  croquisTitle: { fontSize: 8, fontWeight: 'bold', color: SLATE_700, textTransform: 'uppercase', marginBottom: 2 },
-  croquisImg: { maxWidth: '100%', maxHeight: 180, objectFit: 'contain', marginVertical: 4 },
+  sketchBox: { backgroundColor: SLATE_50, border: `1px solid ${SLATE_200}`, padding: 6, marginBottom: 8 },
+  sketchTitle: { fontSize: 8, fontWeight: 'bold', color: SLATE_700, textTransform: 'uppercase', marginBottom: 2 },
+  sketchImg: { maxWidth: '100%', maxHeight: 180, objectFit: 'contain', marginVertical: 4 },
   // ===== SECTION TITLE =====
   sectionTitle: { fontSize: 10, fontWeight: 'bold', color: ACCENT, textTransform: 'uppercase', marginTop: 8, marginBottom: 4, paddingBottom: 2, borderBottom: `1px solid ${ACCENT}` },
   // ===== DATA TABLE =====
@@ -261,7 +261,7 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
       <InfoCell label="Cliente" value={data.client_name} />
       <InfoCell label="Teléfono" value={data.client_phone} />
       <InfoCell label="Domicilio" value={data.client_address} />
-      <InfoCell label="Email" value={data.client_email} />
+      <InfoCell label="Correo" value={data.client_email} />
       <InfoCell label="Fecha" value={data.date} />
     </View>
   );
@@ -283,6 +283,9 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
     { label: 'Ancho', num: true },
     { label: 'M²/Cant', num: true },
     { label: 'Precio', num: true },
+    { label: 'Moneda' },
+    { label: 'Subtotal ARS', num: true },
+    { label: 'Subtotal USD', num: true },
   ];
   const fabricationRows = data.fabrication_details.map((d) => [
     d.concept,
@@ -292,6 +295,9 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
     d.show_width && d.width_str ? d.width_str : null,
     d.show_m2 ? d.m2_label : d.show_quantity ? String(d.quantity) : null,
     `$ ${d.price_str}`,
+    d.currency,
+    d.subtotal_ars > 0 ? `$ ${fmt(d.subtotal_ars)}` : null,
+    d.subtotal_usd > 0 ? `USD ${fmt(d.subtotal_usd)}` : null,
   ]);
 
   const materialHeaders = [
@@ -302,7 +308,9 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
     { label: 'Cant.', num: true },
     { label: 'M²', num: true },
     { label: 'Precio/m²', num: true },
-    { label: 'Subtotal', num: true },
+    { label: 'Moneda' },
+    { label: 'Subtotal ARS', num: true },
+    { label: 'Subtotal USD', num: true },
   ];
   const materialRows = data.materials.map((m) => [
     m.name,
@@ -312,7 +320,9 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
     String(m.quantity),
     m.m2_str,
     `$ ${m.price_m2_str}`,
-    `$ ${m.subtotal_str}`,
+    m.currency,
+    m.subtotal_ars > 0 ? `$ ${fmt(m.subtotal_ars)}` : null,
+    m.subtotal_usd > 0 ? `USD ${fmt(m.subtotal_usd)}` : null,
   ]);
 
   const poolHeaders = [
@@ -320,14 +330,18 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
     { label: 'Modelo' },
     { label: 'Cant.', num: true },
     { label: 'Precio', num: true },
-    { label: 'Subtotal', num: true },
+    { label: 'Moneda' },
+    { label: 'Subtotal ARS', num: true },
+    { label: 'Subtotal USD', num: true },
   ];
   const poolRows = data.pools.map((p) => [
     p.brand,
     p.model,
     String(p.quantity),
     `$ ${p.price_str}`,
-    `$ ${p.subtotal_str}`,
+    p.currency,
+    p.subtotal_ars > 0 ? `$ ${fmt(p.subtotal_ars)}` : null,
+    p.subtotal_usd > 0 ? `USD ${fmt(p.subtotal_usd)}` : null,
   ]);
 
   return (
@@ -346,10 +360,10 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
 
         {/* CROQUIS */}
         {data.sketch_images.length > 0 ? (
-          <View style={styles.croquisBox}>
-            <Text style={styles.croquisTitle}>Croquis</Text>
+          <View style={styles.sketchBox}>
+            <Text style={styles.sketchTitle}>Croquis</Text>
             {data.sketch_images.map((img, i) => (
-              <Image key={i} style={styles.croquisImg} src={img} />
+              <Image key={i} style={styles.sketchImg} src={img} />
             ))}
           </View>
         ) : null}
@@ -358,7 +372,7 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
         {data.fabrication_details.length > 0 ? (
           <View wrap={false}>
             <Text style={styles.sectionTitle}>Detalles de fabricación</Text>
-            <DataTable headers={fabricationHeaders} rows={fabricationRows} flexes={[2, 2, 1.5, 1, 1, 1, 1]} />
+            <DataTable headers={fabricationHeaders} rows={fabricationRows} flexes={[2, 2, 1.5, 1, 1, 1, 1, 0.8, 1.2, 1.2]} />
           </View>
         ) : null}
 
@@ -366,7 +380,7 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
         {data.materials.length > 0 ? (
           <View wrap={false}>
             <Text style={styles.sectionTitle}>Materiales</Text>
-            <DataTable headers={materialHeaders} rows={materialRows} flexes={[2, 1.5, 1, 1, 0.8, 1, 1.2, 1.2]} />
+            <DataTable headers={materialHeaders} rows={materialRows} flexes={[2, 1.2, 1, 1, 0.6, 0.8, 1, 0.6, 1.2, 1.2]} />
           </View>
         ) : null}
 
@@ -374,7 +388,7 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
         {data.pools.length > 0 ? (
           <View wrap={false}>
             <Text style={styles.sectionTitle}>Piletas</Text>
-            <DataTable headers={poolHeaders} rows={poolRows} flexes={[2, 2, 1, 1.5, 1.5]} />
+            <DataTable headers={poolHeaders} rows={poolRows} flexes={[1.5, 1.5, 0.6, 1, 0.6, 1.2, 1.2]} />
           </View>
         ) : null}
 

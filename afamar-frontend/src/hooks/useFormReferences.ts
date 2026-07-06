@@ -17,8 +17,8 @@ interface UseFormReferencesParams {
 }
 
 interface UseFormReferencesReturn {
-  materiales: Material[];
-  piletas: Pool[];
+  materials: Material[];
+  pools: Pool[];
   clientes: Client[];
   logoUrl: string;
   /**
@@ -39,8 +39,8 @@ export function useFormReferences({
   setLoading,
   onLoaded,
 }: UseFormReferencesParams): UseFormReferencesReturn {
-  const [materiales, setMateriales] = useState<Material[]>([]);
-  const [piletas, setPiletas] = useState<Pool[]>([]);
+  const [materials, setMateriales] = useState<Material[]>([]);
+  const [pools, setPiletas] = useState<Pool[]>([]);
   const [clientes, setClientes] = useState<Client[]>([]);
   const [logoUrl, setLogoUrl] = useState<string>('');
 
@@ -140,5 +140,5 @@ export function useFormReferences({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isEdit]);
 
-  return { materiales, piletas, clientes, logoUrl, addOrRefreshClientes };
+  return { materials, pools, clientes, logoUrl, addOrRefreshClientes };
 }

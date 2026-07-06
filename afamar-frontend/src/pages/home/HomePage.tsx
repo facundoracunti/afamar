@@ -105,7 +105,7 @@ export function HomePage() {
           AFAMAR
         </a>
         <ul className={styles.nav__links}>
-          <li><a className={styles.nav__link} onClick={() => scrollTo("hero")}>HOME</a></li>
+          <li><a className={styles.nav__link} onClick={() => scrollTo("hero")}>INICIO</a></li>
           <li><a className={styles.nav__link} onClick={() => scrollTo("materiales")}>MATERIALES</a></li>
           <li><a className={styles.nav__link} onClick={() => scrollTo("about")}>QUIENES SOMOS</a></li>
           <li><a className={styles.nav__link} onClick={() => scrollTo("productos")}>PRODUCTOS</a></li>

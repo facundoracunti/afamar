@@ -8,6 +8,7 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { Pagination } from '../../components/ui/Pagination';
 import type { Pool, PoolMovement, PoolType } from '../../types/poolStock';
+import { useNotify } from '../../context/NotificationContext';
 import styles from './PoolStockPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -21,6 +22,7 @@ export default function PoolStockPage() {
   const [movimientos, setMovimientos] = useState<PoolMovement[]>([]);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editItem, setEditItem] = useState<Pool | null>(null);
+  const notify = useNotify();
 
   const { items: poolTypes } = useList<PoolType>(
     ['pool-types'],
@@ -69,7 +71,7 @@ export default function PoolStockPage() {
       setShowForm(false);
       refetch();
     } catch (err: unknown) {
-      alert('Error al guardar');
+      notify((err as Error).message || 'Error al guardar', 'error');
     }
   };
 
@@ -94,9 +96,9 @@ export default function PoolStockPage() {
       const res = await getPoolMovements(showMov.id);
       setMovimientos(res.data);
       refetch();
-    setMovForm({ type: 'Ingreso', quantity: 1, description: '' });
+      setMovForm({ type: 'Ingreso', quantity: 1, description: '' });
     } catch (err: unknown) {
-      alert('Error al registrar movimiento');
+      notify((err as Error).message || 'Error al registrar movimiento', 'error');
     }
   };
 

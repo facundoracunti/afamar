@@ -5,7 +5,7 @@ import PoolCard from '../PoolCard/PoolCard';
 import type { PoolType } from '../../../types/poolStock';
 
 interface PoolSectionProps {
-  piletas: Record<string, unknown>[];
+  pools: Record<string, unknown>[];
   formPiletas: Record<string, unknown>[];
   readOnly: boolean;
   addPileta: (id: string) => void;
@@ -16,7 +16,7 @@ interface PoolSectionProps {
 }
 
 export default function PoolSection({
-  piletas,
+  pools,
   formPiletas,
   readOnly,
   addPileta,
@@ -40,9 +40,9 @@ export default function PoolSection({
   }, [poolTypeList]);
 
   const filteredPools = useMemo(() => {
-    if (poolTypeFilter === 'all') return piletas;
-    return piletas.filter((p) => (p.pool_type_id as number) === poolTypeFilter);
-  }, [piletas, poolTypeFilter]);
+    if (poolTypeFilter === 'all') return pools;
+    return pools.filter((p) => (p.pool_type_id as number) === poolTypeFilter);
+  }, [pools, poolTypeFilter]);
 
   return (
     <div className="card">
@@ -79,7 +79,7 @@ export default function PoolSection({
           key={idx}
           pt={pt as unknown as import('../../../types/budget').PoolInForm}
           idx={idx}
-          piletas={piletas}
+          pools={pools}
           readOnly={readOnly}
           updatePileta={updatePileta}
           removePileta={removePileta}

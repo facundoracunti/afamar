@@ -1,21 +1,21 @@
 import React from 'react';
-import type { CroquisToolType, CroquisPage, CroquisElement } from '../../../types/croquis';
+import type { SketchToolType, SketchPage, SketchElement } from '../../../types/sketch';
 import styles from './Toolbar.module.css';
 
 const s = styles as unknown as Record<string, string>;
 
 interface ToolbarProps {
-  pages: CroquisPage[];
+  pages: SketchPage[];
   pageIdx: number;
-  tool: CroquisToolType;
+  tool: SketchToolType;
   snap: boolean;
   sid: string | null;
   readOnly: boolean;
   canUndo: boolean;
   canRedo: boolean;
-  currentShapes: CroquisElement[];
+  currentShapes: SketchElement[];
 
-  onSetTool: (t: CroquisToolType) => void;
+  onSetTool: (t: SketchToolType) => void;
   onSetSnap: () => void;
   onSetPageIdx: (i: number) => void;
   onAddPage: () => void;
@@ -28,7 +28,7 @@ interface ToolbarProps {
   onClearAll: () => void;
 }
 
-const toolsList: { id: CroquisToolType; label: string; icon: string }[] = [
+const toolsList: { id: SketchToolType; label: string; icon: string }[] = [
   { id: 'select', label: 'Seleccionar', icon: '⬆' },
   { id: 'line', label: 'Línea', icon: '╱' },
   { id: 'rect', label: 'Rectángulo Mesada', icon: '▭' },

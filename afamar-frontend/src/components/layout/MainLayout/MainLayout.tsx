@@ -51,7 +51,7 @@ const accordionGroups: AccordionGroup[] = [
     icon: ClipboardList,
     subItems: [
       { label: 'Nueva Orden', path: `${PREFIX}/work-orders/new`, icon: Send },
-      { label: 'Ordenes Activas', path: `${PREFIX}/work-orders`, icon: ClipboardList },
+      { label: 'Órdenes Activas', path: `${PREFIX}/work-orders`, icon: ClipboardList },
       { label: 'Terminadas', path: `${PREFIX}/work-orders?status=FINISHED`, icon: Wrench },
       { label: 'Entregado', path: `${PREFIX}/work-orders?status=DELIVERED`, icon: Truck },
     ],

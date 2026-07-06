@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react';
-import { useCroquisState } from '../hooks/useCroquisState';
+import { useCroquisState } from '../hooks/useSketchState';
 import Toolbar from '../Toolbar/Toolbar';
 import CanvasArea from '../CanvasArea/CanvasArea';
-import type { CroquisEditorProps, CroquisToolType } from '../../../types/croquis';
+import type { SketchEditorProps, SketchToolType } from '../../../types/sketch';
 
-const TOOLS: { id: CroquisToolType; label: string }[] = [
+const TOOLS: { id: SketchToolType; label: string }[] = [
   { id: 'select', label: 'Seleccionar' },
   { id: 'line', label: 'Línea' },
   { id: 'rect', label: 'Rectángulo Mesada' },
@@ -12,8 +12,8 @@ const TOOLS: { id: CroquisToolType; label: string }[] = [
   { id: 'text', label: 'Texto' },
 ];
 
-export default function CroquisEditor({ croquis, onChange, readOnly = false }: CroquisEditorProps) {
-  const s = useCroquisState(croquis, onChange, readOnly);
+export default function SketchEditor({ sketch, onChange, readOnly = false }: SketchEditorProps) {
+  const s = useCroquisState(sketch, onChange, readOnly);
   const sRef = useRef(s);
   sRef.current = s;
 

@@ -63,8 +63,8 @@ interface Props {
   setOpciones: React.Dispatch<React.SetStateAction<OptionTab[]>>;
   activeOpcion: number;
   setActiveOpcion: React.Dispatch<React.SetStateAction<number>>;
-  materiales: Material[];
-  piletas: Pool[];
+  materials: Material[];
+  pools: Pool[];
   isEdit: boolean;
   convertingOpcion: number | null;
   onConvertirOpcion: (opcionIdx: number) => void;
@@ -85,7 +85,7 @@ const subtotalUsd = `${s['oit__subtotal']} ${s['oit__subtotal--usd']}`;
 
 export default function OnlineItemsTable({
   opciones, setOpciones, activeOpcion, setActiveOpcion,
-  materiales, piletas, isEdit, convertingOpcion, onConvertirOpcion,
+  materials, pools, isEdit, convertingOpcion, onConvertirOpcion,
 }: Props) {
   const [nuevoEspecial, setNuevoEspecial] = useState<string>('');
 
@@ -226,7 +226,7 @@ export default function OnlineItemsTable({
 
   const handleDetalleChange = (idx: number, value: string, isEspecial: boolean) => {
     if (isEspecial) {
-      const mat = materiales.find((m: Material) => m.name === value);
+      const mat = materials.find((m: Material) => m.name === value);
       setOpciones((prev: OptionTab[]) => {
         const next = [...prev];
         const tab = { ...next[activeOpcion] };
@@ -251,7 +251,7 @@ export default function OnlineItemsTable({
       const next = [...prev];
       const tab = { ...next[activeOpcion] };
       const items = [...tab.items];
-      const mat = materiales.find((m: Material) => m.name === value);
+      const mat = materials.find((m: Material) => m.name === value);
       if (mat) {
         items[idx] = { ...items[idx], detail: value, currency: mat.currency || 'ARS', unitPrice: mat.currency === 'USD' ? (mat.price_usd || 0) : (mat.base_price || 0),  material: mat.name };
         const m2 = items[idx].m2 || 0;
@@ -432,7 +432,7 @@ export default function OnlineItemsTable({
                   <span className={s['oit__detail-label']}>LONGITUD :</span>
                   <select className={`${s['oit__input']} ${s['oit__input--text']} ${s['oit__input--small']}`} value={item.detail} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleDetalleChange(idx, e.target.value, false)}>
                     <option value="">-- sin material --</option>
-                    {materiales.map((m: Material) => <option key={m.id} value={m.name}>{m.name}</option>)}
+                    {materials.map((m: Material) => <option key={m.id} value={m.name}>{m.name}</option>)}
                   </select>
                 </div>
               </td>
@@ -497,7 +497,7 @@ export default function OnlineItemsTable({
                     <span className={s['oit__detail-label']}>PILETA MOD :</span>
                     <select className={`input ${s['oit__input']} ${s['oit__input--small']}`} value={item.pool_id || ''} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                       const pid = e.target.value;
-                      const p = piletas.find((x: Pool) => x.id === Number(pid));
+                      const p = pools.find((x: Pool) => x.id === Number(pid));
                       const precio = p ? (p.price || 0) : 0;
                       setOpciones((prev: OptionTab[]) => {
                         const next = [...prev];
@@ -509,7 +509,7 @@ export default function OnlineItemsTable({
                       });
                     }}>
                       <option value="">Seleccionar...</option>
-                      {piletas.map((p: Pool) => (<option key={p.id} value={p.id}>{p.brand} - {p.model} (Stock: {p.quantity})</option>))}
+                      {pools.map((p: Pool) => (<option key={p.id} value={p.id}>{p.brand} - {p.model} (Stock: {p.quantity})</option>))}
                     </select>
                   </div>
                 ) : item.detail === 'TERMINACION' ? (
@@ -524,7 +524,7 @@ export default function OnlineItemsTable({
                     <span className={s['oit__detail-label']}>{item.detail} :</span>
                     <select className={`${s['oit__input']} ${s['oit__input--text']} ${s['oit__input--small']}`} value={activeMatEsp[idx] || ''} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleDetalleChange(idx, e.target.value, true)}>
                       <option value="">-- sin material --</option>
-                      {materiales.map((m: Material) => <option key={m.id} value={m.name}>{m.name}</option>)}
+                      {materials.map((m: Material) => <option key={m.id} value={m.name}>{m.name}</option>)}
                     </select>
                   </div>
                 )}
@@ -552,7 +552,7 @@ export default function OnlineItemsTable({
                     const list = [...tab.especiales];
                     list[idx] = { ...list[idx], currency: nuevoMoneda };
                     if (item.detail === 'PILETA MOD' && item.pool_id) {
-                      const p = piletas.find((x: Pool) => x.id === Number(item.pool_id));
+                      const p = pools.find((x: Pool) => x.id === Number(item.pool_id));
                       if (p) {
                         const nuevoPrecio = nuevoMoneda === 'USD' ? (p.price_usd || 0) : (p.price || 0);
                         list[idx].unitPrice = nuevoPrecio;

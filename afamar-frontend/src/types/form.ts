@@ -92,8 +92,8 @@ export interface UseEntityFormReturn {
   form: EntityFormState;
   loading: boolean;
   saving: boolean;
-  materiales: Record<string, unknown>[];
-  piletas: Record<string, unknown>[];
+  materials: Record<string, unknown>[];
+  pools: Record<string, unknown>[];
   clientes: Record<string, unknown>[];
   /**
    * Prepend a freshly-created client to the local cache (preferred — keeps
@@ -118,7 +118,7 @@ export interface UseEntityFormReturn {
   clientRef: React.RefObject<HTMLDivElement | null>;
   materialPrecioRef: React.MutableRefObject<number>;
   materialUsdRef: React.MutableRefObject<number>;
-  materialesAgrupados: unknown[];
+  groupedMaterials: unknown[];
   M2_CONCEPTS: string[];
   setForm: React.Dispatch<React.SetStateAction<EntityFormState>>;
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;

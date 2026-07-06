@@ -136,8 +136,8 @@ export default function MaterialsList() {
             </thead>
             <tbody>
               {data.map((m: Material) => {
-                const moneda = m.currency || 'ARS';
-                const precio = moneda === 'USD' ? m.price_usd || 0 : m.base_price || 0;
+                const currency = m.currency || 'ARS';
+                                const precio = currency === 'USD' ? m.price_usd || 0 : m.base_price || 0;
                 const categoryName = m.category_id
                   ? (categoryNameById[Number(m.category_id)] || `Categoria #${m.category_id}`)
                   : '-';
@@ -171,10 +171,10 @@ export default function MaterialsList() {
                       className={s['materials__td'] + ' ' + s['materials__td--right']}
                       style={{
                         fontWeight: 700,
-                        color: moneda === 'USD' ? '#16a34a' : 'var(--text-primary)',
+                        color: currency === 'USD' ? '#16a34a' : 'var(--text-primary)',
                       }}
                     >
-                      {moneda === 'USD'
+                      {currency === 'USD'
                         ? `USD ${precio.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
                         : `$ ${precio.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}
                     </td>

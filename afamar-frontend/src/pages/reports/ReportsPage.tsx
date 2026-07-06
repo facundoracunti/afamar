@@ -20,7 +20,7 @@ export default function Reports() {
     ['reports-monthly-sales'],
     async () => (await getMonthlySales()).data as Record<string, unknown>
   );
-  const { items: materiales, loading: loadingMateriales } = useList<Record<string, unknown>>(
+  const { items: materials, loading: loadingMateriales } = useList<Record<string, unknown>>(
     ['reports-most-used-materials'],
     async () => (await getMostUsedMaterials()).data as Record<string, unknown>[]
   );
@@ -144,12 +144,12 @@ export default function Reports() {
         {activeTab === 'materiales' && (
           <div>
             <h3 className="section-title">Materiales Más Utilizados</h3>
-            {materiales.length > 0 ? (
+            {materials.length > 0 ? (
               <div className="grid-2">
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
-                    <Pie data={materiales} dataKey="total" nameKey="material" cx="50%" cy="50%" outerRadius={100} label={({ material, total }: { material: string; total: number }) => `${material}: ${total}`}>
-                      {materiales.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                    <Pie data={materials} dataKey="total" nameKey="material" cx="50%" cy="50%" outerRadius={100} label={({ material, total }: { material: string; total: number }) => `${material}: ${total}`}>
+                      {materials.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                     </Pie>
                     <Tooltip />
                   </PieChart>
@@ -160,7 +160,7 @@ export default function Reports() {
                       <tr><th>Material</th><th>Veces utilizado</th></tr>
                     </thead>
                     <tbody>
-                      {materiales.map((m, i) => (
+                      {materials.map((m, i) => (
                         <tr key={i}>
                           <td style={{ fontWeight: 600 }}>{(m as Record<string, unknown>).material as string}</td>
                           <td>{(m as Record<string, unknown>).total as number}</td>

@@ -7,6 +7,7 @@ import { useCreate, useUpdate, useGet } from '../../api/hooks';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { FormActions } from '../../components/ui/FormActions/FormActions';
+import { useNotify } from '../../context/NotificationContext';
 import styles from './ClientFormPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -18,6 +19,7 @@ export default function ClientForm() {
   const navigate = useNavigate();
   const isEdit = !!id;
   const [saving, setSaving] = useState(false);
+  const notify = useNotify();
   const [cliente, setCliente] = useState({
     name: '', phone: '', email: '', address: '', notes: '',
   });
@@ -82,7 +84,7 @@ export default function ClientForm() {
       const apiErr = err as Record<string, unknown>;
       const response = apiErr.response as Record<string, unknown> | undefined;
       const data = response?.data as Record<string, unknown> | undefined;
-      alert((data?.detail as string) || 'Error al guardar cliente');
+      notify((data?.detail as string) || 'Error al guardar cliente', 'error');
     } finally {
       setSaving(false);
     }
@@ -117,7 +119,7 @@ export default function ClientForm() {
               </div>
               <div className={s['client-form__form-row']}>
                 <div className={s['client-form__group']}>
-                  <label className={s['client-form__label']}>Email</label>
+                  <label className={s['client-form__label']}>Correo</label>
                   <input className="input" type="email" value={cliente.email || ''} onChange={(e) => setCliente({ ...cliente, email: e.target.value })} />
                 </div>
                 <div className={s['client-form__group']}>

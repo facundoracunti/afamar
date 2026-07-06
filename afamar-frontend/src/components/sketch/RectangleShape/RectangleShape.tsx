@@ -1,9 +1,9 @@
 ﻿import { Rect } from 'react-konva';
 import type Konva from 'konva';
-import type { CroquisRect, CroquisCutout } from '@/types/croquis';
+import type { SketchRect, SketchCutout } from '@/types/sketch';
 
 interface RectangleShapeProps {
-  element: CroquisRect | CroquisCutout;
+  element: SketchRect | SketchCutout;
   isDraggable: boolean;
   onDragEnd: (e: Konva.KonvaEventObject<DragEvent>, id: string) => void;
   onTransformEnd: (e: Konva.KonvaEventObject<Event>) => void;

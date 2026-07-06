@@ -50,11 +50,12 @@ def list_budgets(
     client_id: int | None = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
+    search: str | None = None,
     db: Session = Depends(get_db),
 ):
     service = BudgetService(db)
-    items = service.list_filtered(status, client_id, date_from, date_to, skip, limit)
-    total = service.repo.list_filtered_count(status, client_id, date_from, date_to)
+    items = service.list_filtered(status, client_id, date_from, date_to, search, skip, limit)
+    total = service.repo.list_filtered_count(status, client_id, date_from, date_to, search)
     return success(items, PaginationInfo(total=total, skip=skip, limit=limit))
 
 

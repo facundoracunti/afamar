@@ -11,7 +11,7 @@ interface BudgetFormFinancialProps {
   readOnly: boolean;
   saving: boolean;
   handleTransportChange: (value: string, source: 'ars' | 'usd') => void;
-  handleDepositCurrencyChange: (moneda: string) => void;
+  handleDepositCurrencyChange: (currency: string) => void;
   handleDepositAmountChange: (value: string) => void;
   handleUsdRateChange: (value: string) => void;
   setForm: React.Dispatch<React.SetStateAction<EntityFormState>>;

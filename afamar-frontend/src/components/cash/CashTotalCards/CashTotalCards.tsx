@@ -8,11 +8,11 @@ const s = styles as unknown as Record<string, string>;
 interface Props {
   suma: number;
   totalSalidas: number;
-  saldoActualNum: number;
+  currentBalance: number;
   efectivoReal: number;
 }
 
-export default function CashTotalCards({ suma, totalSalidas, saldoActualNum, efectivoReal }: Props) {
+export default function CashTotalCards({ suma, totalSalidas, currentBalance, efectivoReal }: Props) {
   return (
     <div className={s['cash-totals']}>
       <div className={`card ${s['cash-totals__card']}`}>
@@ -27,7 +27,7 @@ export default function CashTotalCards({ suma, totalSalidas, saldoActualNum, efe
       </div>
       <div className={`card ${s['cash-totals__card']}`}>
         <div className={s['cash-totals__label']}>Saldo Actual</div>
-        <div className={`${s['cash-totals__value']} ${s['cash-totals__value--balance']}`}>{formatCurrency(saldoActualNum)}</div>
+        <div className={`${s['cash-totals__value']} ${s['cash-totals__value--balance']}`}>{formatCurrency(currentBalance)}</div>
         <div className={s['cash-totals__hint']}>Suma - Salidas</div>
       </div>
       <div className={`card ${s['cash-totals__card']} ${s['cash-totals__highlight']}`}>

@@ -1,11 +1,11 @@
-export type CroquisToolType = 'select' | 'line' | 'rect' | 'cutout' | 'text';
+export type SketchToolType = 'select' | 'line' | 'rect' | 'cutout' | 'text';
 
 export interface Point {
   x: number;
   y: number;
 }
 
-export interface CroquisLine {
+export interface SketchLine {
   id: string;
   type: 'line';
   points: number[];
@@ -16,7 +16,7 @@ export interface CroquisLine {
   dash?: number[];
 }
 
-export interface CroquisRect {
+export interface SketchRect {
   id: string;
   type: 'rect';
   x: number;
@@ -30,7 +30,7 @@ export interface CroquisRect {
   rotation?: number;
 }
 
-export interface CroquisCutout {
+export interface SketchCutout {
   id: string;
   type: 'cutout';
   x: number;
@@ -44,7 +44,7 @@ export interface CroquisCutout {
   rotation?: number;
 }
 
-export interface CroquisText {
+export interface SketchText {
   id: string;
   type: 'text';
   x: number;
@@ -55,16 +55,16 @@ export interface CroquisText {
   rotation?: number;
 }
 
-export type CroquisElement = CroquisLine | CroquisRect | CroquisCutout | CroquisText;
+export type SketchElement = SketchLine | SketchRect | SketchCutout | SketchText;
 
-export interface CroquisPage {
+export interface SketchPage {
   id: number;
   name: string;
-  elements: CroquisElement[];
+  elements: SketchElement[];
 }
 
-export interface CroquisEditorProps {
-  croquis: unknown;
+export interface SketchEditorProps {
+  sketch: unknown;
   onChange: (v: unknown) => void;
   readOnly?: boolean;
 }

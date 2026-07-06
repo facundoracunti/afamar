@@ -27,7 +27,10 @@ export interface PdfDataRow {
   readonly width_str: string | null;
   readonly m2_label: string | null;
   readonly quantity: number;
+  readonly currency: 'ARS' | 'USD';
   readonly price_str: string;
+  readonly subtotal_ars: number;
+  readonly subtotal_usd: number;
 }
 
 export interface MaterialPdfRow {
@@ -39,6 +42,9 @@ export interface MaterialPdfRow {
   readonly m2_str: string;
   readonly price_m2_str: string;
   readonly subtotal_str: string;
+  readonly currency: 'ARS' | 'USD';
+  readonly subtotal_ars: number;
+  readonly subtotal_usd: number;
 }
 
 export interface PoolPdfRow {
@@ -47,6 +53,9 @@ export interface PoolPdfRow {
   readonly quantity: number;
   readonly price_str: string;
   readonly subtotal_str: string;
+  readonly currency: 'ARS' | 'USD';
+  readonly subtotal_ars: number;
+  readonly subtotal_usd: number;
 }
 
 export interface CompanyInfo {
@@ -208,7 +217,7 @@ function splitTerms(value: unknown): string[] {
     .filter(Boolean);
 }
 
-function buildFabricationRows(raw: unknown): PdfDataRow[] {
+function buildFabricationRows(raw: unknown, usdRate: number): PdfDataRow[] {
   const items = parseJsonList(raw) as FabricationDetail[];
   if (!items || items.length === 0) return [];
   const result: PdfDataRow[] = [];
@@ -219,6 +228,7 @@ function buildFabricationRows(raw: unknown): PdfDataRow[] {
     const width = Number(d.width || 0);
     const quantity = Number(d.quantity || 1);
     const price = Number(d.price || 0);
+    const currency: 'ARS' | 'USD' = d.currency === 'USD' ? 'USD' : 'ARS';
 
     const isM2 = M2_CONCEPTS.has(conceptCode);
     const isUnit = UNIT_CONCEPTS.has(conceptCode);
@@ -228,6 +238,10 @@ function buildFabricationRows(raw: unknown): PdfDataRow[] {
     const showM2 = isM2;
     const showQuantity = isM2 || isUnit || quantity > 0;
     const m2Value = isM2 ? Math.round(length * width * quantity * 10000) / 10000 : null;
+
+    const lineTotal = price * quantity;
+    const subtotalArs = currency === 'ARS' ? lineTotal : usdRate > 0 ? lineTotal * usdRate : 0;
+    const subtotalUsd = currency === 'USD' ? lineTotal : usdRate > 0 ? lineTotal / usdRate : 0;
 
     result.push({
       concept: conceptToDisplay(conceptCode, custom),
@@ -241,21 +255,31 @@ function buildFabricationRows(raw: unknown): PdfDataRow[] {
       width_str: showWidth && width ? fmtUnit(width, 2, 'm') : null,
       m2_label: isUnit ? 'U' : isM2 ? fmtNum(m2Value) : null,
       quantity: Number.isInteger(quantity) ? quantity : quantity,
+      currency,
       price_str: fmtMoney(price),
+      subtotal_ars: subtotalArs,
+      subtotal_usd: subtotalUsd,
     });
   }
   return result;
 }
 
-function buildMaterialRows(materials: MaterialInForm[]): MaterialPdfRow[] {
+function buildMaterialRows(materials: MaterialInForm[], usdRate: number): MaterialPdfRow[] {
   const result: MaterialPdfRow[] = [];
   for (const src of materials) {
     const length = Number(src.length || 0);
     const width = Number(src.width || 0);
     const quantity = Number(src.quantity || 1);
     const m2 = length * width * quantity;
-    const priceM2 = Number(src.price_m2 || 0);
-    const subtotal = m2 * priceM2;
+    const currency: 'ARS' | 'USD' = src.currency === 'USD' ? 'USD' : 'ARS';
+    const priceM2Ars = Number(src.price_m2 || 0);
+    const priceM2Usd = Number(src.price_m2_usd || 0);
+    const subtotalOriginal = currency === 'USD'
+      ? m2 * priceM2Usd
+      : m2 * priceM2Ars;
+    const subtotalArs = currency === 'ARS' ? subtotalOriginal : usdRate > 0 ? subtotalOriginal * usdRate : 0;
+    const subtotalUsd = currency === 'USD' ? subtotalOriginal : usdRate > 0 ? subtotalOriginal / usdRate : 0;
+    const priceM2 = currency === 'USD' ? priceM2Usd : priceM2Ars;
     result.push({
       name: src.name || '',
       color: src.color || '',
@@ -264,24 +288,33 @@ function buildMaterialRows(materials: MaterialInForm[]): MaterialPdfRow[] {
       quantity: Number.isInteger(quantity) ? quantity : quantity,
       m2_str: fmtNum(m2),
       price_m2_str: fmtMoney(priceM2),
-      subtotal_str: fmtMoney(subtotal),
+      subtotal_str: fmtMoney(subtotalOriginal),
+      currency,
+      subtotal_ars: subtotalArs,
+      subtotal_usd: subtotalUsd,
     });
   }
   return result;
 }
 
-function buildPoolRows(pools: PoolInForm[]): PoolPdfRow[] {
+function buildPoolRows(pools: PoolInForm[], usdRate: number): PoolPdfRow[] {
   const result: PoolPdfRow[] = [];
   for (const p of pools) {
     const quantity = Number(p.quantity || 1);
-    const price = Number(p.price || 0);
-    const subtotal = price * quantity;
+    const currency: 'ARS' | 'USD' = p.currency === 'USD' ? 'USD' : 'ARS';
+    const priceOriginal = Number(p.price || 0);
+    const subtotalOriginal = priceOriginal * quantity;
+    const subtotalArs = currency === 'ARS' ? subtotalOriginal : usdRate > 0 ? subtotalOriginal * usdRate : 0;
+    const subtotalUsd = currency === 'USD' ? subtotalOriginal : usdRate > 0 ? subtotalOriginal / usdRate : 0;
     result.push({
       brand: p.brand || '',
       model: p.model || '',
       quantity: Number.isInteger(quantity) ? quantity : quantity,
-      price_str: fmtMoney(price),
-      subtotal_str: fmtMoney(subtotal),
+      price_str: fmtMoney(priceOriginal),
+      subtotal_str: fmtMoney(subtotalOriginal),
+      currency,
+      subtotal_ars: subtotalArs,
+      subtotal_usd: subtotalUsd,
     });
   }
   return result;
@@ -342,10 +375,11 @@ export function buildPdfData({
   const alternatives = allMaterials.filter((m) => m.is_alternative);
 
   const pools = asPools(form.pools_data);
+  const usdRate = num('usd_rate');
   if (document_type === 'budget') {
     // Budgets show all materials (main + alternatives).
-    const materialRows = buildMaterialRows([...mainMaterials, ...alternatives]);
-    const poolRows = buildPoolRows(pools);
+    const materialRows = buildMaterialRows([...mainMaterials, ...alternatives], usdRate);
+    const poolRows = buildPoolRows(pools, usdRate);
 
     return {
       document_type,
@@ -361,7 +395,7 @@ export function buildPdfData({
       material_thickness: str('thickness'),
       material_finish: str('finish'),
       delivery_date: formatDate(form.delivery_date),
-      fabrication_details: buildFabricationRows(form.fabrication_details),
+      fabrication_details: buildFabricationRows(form.fabrication_details, usdRate),
       materials: materialRows,
       pools: poolRows,
       subtotal: num('subtotal'),
@@ -392,8 +426,8 @@ export function buildPdfData({
   }
 
   // Work order: only main materials (alternatives are budget-side).
-  const materialRows = buildMaterialRows(mainMaterials);
-  const poolRows = buildPoolRows(pools);
+  const materialRows = buildMaterialRows(mainMaterials, usdRate);
+  const poolRows = buildPoolRows(pools, usdRate);
 
   return {
     document_type,
@@ -408,10 +442,10 @@ export function buildPdfData({
     material_color: str('color'),
     material_thickness: str('thickness'),
     material_finish: str('finish'),
-    delivery_date: formatDate(form.delivery_date),
-    fabrication_details: buildFabricationRows(form.fabrication_details),
-    materials: materialRows,
-    pools: poolRows,
+      delivery_date: formatDate(form.delivery_date),
+      fabrication_details: buildFabricationRows(form.fabrication_details, usdRate),
+      materials: materialRows,
+      pools: poolRows,
     subtotal: num('subtotal'),
     transport: num('transport'),
     discount_percentage: num('discount_percentage'),

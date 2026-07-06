@@ -8,7 +8,7 @@ interface UseFormMaterialsParams {
   form: EntityFormState;
   setForm: React.Dispatch<React.SetStateAction<EntityFormState>>;
   update: (field: FormField, value: unknown) => void;
-  materiales: Material[];
+  materials: Material[];
   materialPrecioRef: MutableRefObject<number>;
   materialUsdRef: MutableRefObject<number>;
 }
@@ -37,13 +37,13 @@ export function useFormMaterials({
   form,
   setForm,
   update,
-  materiales,
+  materials,
   materialPrecioRef,
   materialUsdRef,
 }: UseFormMaterialsParams): UseFormMaterialsReturn {
   const handleMaterialChange = useCallback(
     (name: string) => {
-      const m = materiales.find((mat) => mat.name === name);
+      const m = materials.find((mat) => mat.name === name);
       if (m) {
         const currency = m.currency || 'ARS';
         const usdPrice = m.price_usd || 0;
@@ -72,15 +72,15 @@ export function useFormMaterials({
         setForm((prev) => ({ ...prev, material: name, material_price_m2: 0 }));
       }
     },
-    [materiales, materialPrecioRef, materialUsdRef]
+    [materials, materialPrecioRef, materialUsdRef]
   );
 
   const addMaterial = useCallback(
     (name: string) => {
-      const list = addMaterialToList(form, materiales, name);
+      const list = addMaterialToList(form, materials, name);
       if (list) update('materials_data', list);
     },
-    [form, materiales, update]
+    [form, materials, update]
   );
 
   const removeMaterial = useCallback(

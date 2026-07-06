@@ -6,7 +6,7 @@ import type { MaterialInForm } from '../../../types';
 interface FabricationSectionProps {
   detalles: Record<string, unknown>[];
   readOnly: boolean;
-  materiales: Record<string, unknown>[];
+  materials: Record<string, unknown>[];
   M2_CONCEPTS: string[];
   num: (v: unknown) => number;
   handleDetailChange: (idx: number, field: string, value: unknown) => void;
@@ -19,7 +19,7 @@ interface FabricationSectionProps {
 export default function FabricationSection({
   detalles,
   readOnly,
-  materiales,
+  materials,
   M2_CONCEPTS,
   num,
   handleDetailChange,
@@ -36,7 +36,7 @@ export default function FabricationSection({
         handleDetailChange={handleDetailChange}
         addDetalle={addDetalle}
         removeDetalle={removeDetalle}
-        materiales={materiales}
+        materials={materials}
         M2_CONCEPTS={M2_CONCEPTS}
         fabricationConcepts={fabricationConcepts}
         num={num}

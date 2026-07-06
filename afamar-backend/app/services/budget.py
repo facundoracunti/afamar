@@ -57,8 +57,8 @@ class BudgetService:
     def search(self, term: str) -> List[Budget]:
         return self.repo.search(term)
 
-    def list_filtered(self, status: Optional[str] = None, client_id: Optional[int] = None, date_from: Optional[date] = None, date_to: Optional[date] = None, skip: int = 0, limit: int = 100):
-        return self.repo.list_filtered(status, client_id, date_from, date_to, skip, limit)
+    def list_filtered(self, status: Optional[str] = None, client_id: Optional[int] = None, date_from: Optional[date] = None, date_to: Optional[date] = None, search: Optional[str] = None, skip: int = 0, limit: int = 100):
+        return self.repo.list_filtered(status, client_id, date_from, date_to, search, skip, limit)
 
     def create(self, data: dict) -> Budget:
         items_data = data.pop("items", [])

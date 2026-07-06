@@ -1,6 +1,7 @@
 from datetime import date
 from typing import List, Optional
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.budget import Budget
@@ -40,7 +41,11 @@ class BudgetRepository(BaseRepository):
     def get_by_client(self, client_id: int) -> List[Budget]:
         return _eager_query(self.db).filter(Budget.client_id == client_id).order_by(Budget.id.desc()).all()
 
-    def list_filtered(self, status: Optional[str] = None, client_id: Optional[int] = None, date_from: Optional[date] = None, date_to: Optional[date] = None, skip: int = 0, limit: int = 100):
+    def list_filtered(self, status: Optional[str] = None, client_id: Optional[int] = None, date_from: Optional[date] = None, date_to: Optional[date] = None, search: Optional[str] = None, skip: int = 0, limit: int = 100):
+        # Base query keeps the original shape (no Client JOIN) to preserve the
+        # existing lazy-load path in downstream serializers. For the `search`
+        # filter we use a subquery against Client instead of a JOIN so the
+        # main query stays untouched.
         query = _eager_query(self.db)
         if status:
             query = query.filter(Budget.status == status)
@@ -50,9 +55,19 @@ class BudgetRepository(BaseRepository):
             query = query.filter(Budget.date >= date_from)
         if date_to:
             query = query.filter(Budget.date <= date_to)
+        if search:
+            pattern = f"%{search}%"
+            client_id_subquery = (
+                select(Client.id).where(Client.name.ilike(pattern))
+            )
+            query = query.filter(
+                Budget.number.ilike(pattern)
+                | Budget.client_id.in_(client_id_subquery)
+                | Budget.material.ilike(pattern)
+            )
         return query.order_by(Budget.id.desc()).offset(skip).limit(limit).all()
 
-    def list_filtered_count(self, status: Optional[str] = None, client_id: Optional[int] = None, date_from: Optional[date] = None, date_to: Optional[date] = None) -> int:
+    def list_filtered_count(self, status: Optional[str] = None, client_id: Optional[int] = None, date_from: Optional[date] = None, date_to: Optional[date] = None, search: Optional[str] = None) -> int:
         query = self.db.query(Budget)
         if status:
             query = query.filter(Budget.status == status)
@@ -62,6 +77,16 @@ class BudgetRepository(BaseRepository):
             query = query.filter(Budget.date >= date_from)
         if date_to:
             query = query.filter(Budget.date <= date_to)
+        if search:
+            pattern = f"%{search}%"
+            client_id_subquery = (
+                select(Client.id).where(Client.name.ilike(pattern))
+            )
+            query = query.filter(
+                Budget.number.ilike(pattern)
+                | Budget.client_id.in_(client_id_subquery)
+                | Budget.material.ilike(pattern)
+            )
         return query.count()
 
     def search(self, term: str) -> List[Budget]:

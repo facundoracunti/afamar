@@ -1,9 +1,9 @@
 ﻿import { Group, Rect, Text } from 'react-konva';
 import type Konva from 'konva';
-import type { CroquisText } from '@/types/croquis';
+import type { SketchText } from '@/types/sketch';
 
 interface TextShapeProps {
-  element: CroquisText;
+  element: SketchText;
   isDraggable: boolean;
   onDragEnd: (e: Konva.KonvaEventObject<DragEvent>, id: string) => void;
   onTransformEnd: (e: Konva.KonvaEventObject<Event>) => void;

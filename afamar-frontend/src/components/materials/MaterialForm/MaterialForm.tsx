@@ -324,4 +324,3 @@ export default function MaterialForm({ materialId, onSaved, onCancel }: Material
     </form>
   );
 }
-

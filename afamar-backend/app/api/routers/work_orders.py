@@ -5,6 +5,7 @@ from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query
 from fastapi.responses import Response
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
@@ -52,9 +53,15 @@ def list_work_orders(
     client_id: int | None = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
+    search: str | None = None,
     db: Session = Depends(get_db),
 ):
     service = WorkOrderService(db)
+    # Base query keeps the original shape (no Client JOIN). The `from_orm_with_client`
+    # serializer accesses `order.client` which triggers a lazy load — this works
+    # fine while the session is active (after `paginate()` returns), and adding
+    # an explicit JOIN here was causing a 500 (the JOIN doesn't populate the
+    # relationship and breaks the lazy-load path on some sessions).
     query = service.repo.db.query(service.repo.model)
     if status:
         query = query.filter(service.repo.model.status == status)
@@ -64,12 +71,35 @@ def list_work_orders(
         query = query.filter(service.repo.model.date >= date_from)
     if date_to:
         query = query.filter(service.repo.model.date <= date_to)
+    if search:
+        # Use a subquery to filter by client name without adding a JOIN to
+        # the main query (which would break the lazy-load path in the serializer).
+        pattern = f"%{search}%"
+        client_id_subquery = (
+            select(Client.id).where(Client.name.ilike(pattern))
+        )
+        query = query.filter(
+            service.repo.model.number.ilike(pattern)
+            | service.repo.model.client_id.in_(client_id_subquery)
+            | service.repo.model.material.ilike(pattern)
+        )
     query = query.order_by(service.repo.model.created_at.desc())
     page = paginate(db, query, skip, limit)
     # Transform ORM rows through WorkOrderResponse so the response always
     # carries client_name/phone/email/address populated from the snapshot
     # (the model has no client_* columns; see WorkOrderResponse.from_orm_with_client).
-    serialized = [WorkOrderResponse.from_orm_with_client(o) for o in page.items]
+    # Defensive: skip rows that fail to serialize (e.g. legacy rows with
+    # incompatible data) and log the offender so the list endpoint doesn't
+    # 500 the whole page because of one bad row.
+    serialized = []
+    for o in page.items:
+        try:
+            serialized.append(WorkOrderResponse.from_orm_with_client(o))
+        except Exception as exc:
+            logger.exception(
+                "Skipping work_order id=%s number=%s — serialization failed: %s",
+                getattr(o, "id", None), getattr(o, "number", None), exc,
+            )
     return success([o.model_dump(mode="json") for o in serialized], page.pagination)
 
 

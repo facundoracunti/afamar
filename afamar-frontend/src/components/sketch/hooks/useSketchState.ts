@@ -1,15 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type {
-  CroquisToolType,
-  CroquisElement,
-  CroquisLine,
-  CroquisRect,
-  CroquisCutout,
-  CroquisText,
-  CroquisPage,
+  SketchToolType,
+  SketchElement,
+  SketchLine,
+  SketchRect,
+  SketchCutout,
+  SketchText,
+  SketchPage,
   Point,
   RawElement,
-} from '../../../types/croquis';
+} from '../../../types/sketch';
 
 const GRID = 20;
 const SNAP_RANGE = 5;
@@ -28,8 +28,8 @@ function snapNear(v: number, on: boolean): number {
   return Math.abs(v - r) <= SNAP_RANGE ? r : v;
 }
 
-function normEls(arr: RawElement[]): CroquisElement[] {
-  return arr.map((el): CroquisElement => {
+function normEls(arr: RawElement[]): SketchElement[] {
+  return arr.map((el): SketchElement => {
     const id = String(el.id ?? uid());
     const t = el.type as string;
 
@@ -42,7 +42,7 @@ function normEls(arr: RawElement[]): CroquisElement[] {
         y: (el.y as number) ?? 0,
         stroke: (el.stroke as string) || '#000',
         strokeWidth: (el.strokeWidth as number) ?? 2,
-      } as CroquisLine;
+      } as SketchLine;
     }
 
     if (t === 'rect' && typeof el.x === 'number') {
@@ -57,7 +57,7 @@ function normEls(arr: RawElement[]): CroquisElement[] {
         stroke: (el.stroke as string) || '#000',
         strokeWidth: (el.strokeWidth as number) ?? 2,
         rotation: (el.rotation as number) ?? 0,
-      } as CroquisRect;
+      } as SketchRect;
     }
 
     if ((t === 'cutout' || t === 'bacha' || t === 'anafe') && typeof el.x === 'number') {
@@ -73,7 +73,7 @@ function normEls(arr: RawElement[]): CroquisElement[] {
         strokeWidth: 2,
         dash: [4, 4],
         rotation: (el.rotation as number) ?? (el.rotacion as number) ?? 0,
-      } as CroquisCutout;
+      } as SketchCutout;
     }
 
     if (t === 'text' && typeof el.x === 'number') {
@@ -86,7 +86,7 @@ function normEls(arr: RawElement[]): CroquisElement[] {
         fontSize: (el.fontSize as number) ?? 16,
         fill: (el.fill as string) || '#000',
         rotation: (el.rotation as number) ?? 0,
-      } as CroquisText;
+      } as SketchText;
     }
 
     if (t === 'line' && typeof el.x1 === 'number') {
@@ -96,7 +96,7 @@ function normEls(arr: RawElement[]): CroquisElement[] {
         points: [el.x1 as number, el.y1 as number, el.x2 as number, el.y2 as number],
         stroke: (el.color as string) || '#000',
         strokeWidth: 2,
-      } as CroquisLine;
+      } as SketchLine;
     }
 
     if (t === 'path') {
@@ -109,7 +109,7 @@ function normEls(arr: RawElement[]): CroquisElement[] {
         points: flat,
         stroke: (el.color as string) || '#000',
         strokeWidth: 2,
-      } as CroquisLine;
+      } as SketchLine;
     }
 
     if (t === 'measure') {
@@ -119,7 +119,7 @@ function normEls(arr: RawElement[]): CroquisElement[] {
         points: [el.x1 as number, el.y1 as number, el.x2 as number, el.y2 as number],
         stroke: '#000',
         strokeWidth: 1.5,
-      } as CroquisLine;
+      } as SketchLine;
     }
 
     if (t === 'circle' || t === 'hole') {
@@ -135,28 +135,28 @@ function normEls(arr: RawElement[]): CroquisElement[] {
         stroke: '#dc2626',
         strokeWidth: 2,
         dash: [4, 4],
-      } as CroquisCutout;
+      } as SketchCutout;
     }
 
-    return { id, type: (t || 'rect') as CroquisElement['type'], x: 0, y: 0, width: 80, height: 50, fill: 'transparent', stroke: '#000', strokeWidth: 2 } as CroquisElement;
+    return { id, type: (t || 'rect') as SketchElement['type'], x: 0, y: 0, width: 80, height: 50, fill: 'transparent', stroke: '#000', strokeWidth: 2 } as SketchElement;
   });
 }
 
-function normPages(croquis: unknown): CroquisPage[] {
-  if (!Array.isArray(croquis) || !croquis.length) {
+function normPages(sketch: unknown): SketchPage[] {
+  if (!Array.isArray(sketch) || !sketch.length) {
     return [{ id: pid(), name: 'P�gina 1', elements: [] }];
   }
-  if (!croquis[0]?.pagina_id) {
-    return [{ id: pid(), name: 'P�gina 1', elements: normEls(croquis as RawElement[]) }];
+  if (!sketch[0]?.pagina_id) {
+    return [{ id: pid(), name: 'P�gina 1', elements: normEls(sketch as RawElement[]) }];
   }
-  return croquis.map((p: Record<string, unknown>, i: number): CroquisPage => ({
+  return sketch.map((p: Record<string, unknown>, i: number): SketchPage => ({
     id: (p.pagina_id as number) || pid(),
     name: (p.nombre as string) || (p.name as string) || `P�gina ${i + 1}`,
     elements: normEls((p.dibujo || p.elements || []) as RawElement[]),
   }));
 }
 
-function savePayload(pages: CroquisPage[]): unknown {
+function savePayload(pages: SketchPage[]): unknown {
   return pages.map((p) => ({
     pagina_id: p.id,
     name: p.name,
@@ -164,14 +164,14 @@ function savePayload(pages: CroquisPage[]): unknown {
   }));
 }
 
-function clonePages(pages: CroquisPage[]): CroquisPage[] {
+function clonePages(pages: SketchPage[]): SketchPage[] {
   return pages.map((p) => ({ ...p, elements: p.elements.map((el) => ({ ...el })) }));
 }
 
 export interface UseCroquisStateReturn {
-  pages: CroquisPage[];
+  pages: SketchPage[];
   pageIdx: number;
-  tool: CroquisToolType;
+  tool: SketchToolType;
   snap: boolean;
   sid: string | null;
   isDrawing: boolean;
@@ -180,19 +180,19 @@ export interface UseCroquisStateReturn {
   ready: boolean;
   canUndo: boolean;
   canRedo: boolean;
-  currentShapes: CroquisElement[];
+  currentShapes: SketchElement[];
   shiftRef: React.MutableRefObject<boolean>;
 
-  setTool: (t: CroquisToolType) => void;
+  setTool: (t: SketchToolType) => void;
   setSnap: (s: boolean) => void;
   setSid: (s: string | null) => void;
   setPageIdx: (i: number) => void;
   setIsDrawing: (d: boolean) => void;
   setDrawStart: (p: Point | null) => void;
   setDrawEnd: (p: Point | null) => void;
-  setPages: (p: CroquisPage[]) => void;
+  setPages: (p: SketchPage[]) => void;
 
-  addShape: (shape: CroquisElement) => void;
+  addShape: (shape: SketchElement) => void;
   deleteShape: (id: string) => void;
   deleteLast: () => void;
   clearAll: () => void;
@@ -213,20 +213,20 @@ export interface UseCroquisStateReturn {
 }
 
 export function useCroquisState(
-  croquis: unknown,
+  sketch: unknown,
   onChange: (v: unknown) => void,
   readOnly: boolean,
 ): UseCroquisStateReturn {
-  const [pages, setPages] = useState<CroquisPage[]>([]);
+  const [pages, setPages] = useState<SketchPage[]>([]);
   const [pageIdx, setPageIdx] = useState(0);
   const [ready, setReady] = useState(false);
-  const [tool, setTool] = useState<CroquisToolType>('select');
+  const [tool, setTool] = useState<SketchToolType>('select');
   const [snap, setSnap] = useState(true);
   const [sid, setSid] = useState<string | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawStart, setDrawStart] = useState<Point | null>(null);
   const [drawEnd, setDrawEnd] = useState<Point | null>(null);
-  const [history, setHistory] = useState<CroquisPage[][]>([]);
+  const [history, setHistory] = useState<SketchPage[][]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
 
   const shiftRef = useRef(false);
@@ -235,7 +235,7 @@ export function useCroquisState(
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < history.length - 1;
 
-  const persist = useCallback((updatedPages: CroquisPage[]) => {
+  const persist = useCallback((updatedPages: SketchPage[]) => {
     setPages(updatedPages);
     onChange(savePayload(updatedPages));
     setHistory((prev) => {
@@ -248,14 +248,14 @@ export function useCroquisState(
   }, [historyIndex, onChange]);
 
   useEffect(() => {
-    const pp = normPages(croquis);
+    const pp = normPages(sketch);
     setPages(pp);
     setPageIdx(0);
     setSid(null);
     setReady(true);
     setHistory([clonePages(pp)]);
     setHistoryIndex(0);
-  }, [croquis]);
+  }, [sketch]);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => { if (e.key === 'Shift') shiftRef.current = true; };
@@ -267,7 +267,7 @@ export function useCroquisState(
 
   const buildPayload = useCallback((): unknown => savePayload(pages), [pages]);
 
-  const addShape = useCallback((shape: CroquisElement) => {
+  const addShape = useCallback((shape: SketchElement) => {
     const next = pages.map((p, i) =>
       i === pageIdx ? { ...p, elements: [...p.elements, shape] } : p,
     );
@@ -364,7 +364,7 @@ export function useCroquisState(
 const addPage = useCallback(() => {
     const name = prompt('Nombre de la p\u00e1gina:', `P\u00e1gina ${pages.length + 1}`);
     if (!name || !name.trim()) return;
-    const newPage: CroquisPage = { id: pid(), name: name.trim(), elements: [] };
+    const newPage: SketchPage = { id: pid(), name: name.trim(), elements: [] };
     const next = [...pages, newPage];
     setPages(next);
     setPageIdx(next.length - 1);
@@ -391,7 +391,7 @@ const addPage = useCallback(() => {
     onChange(savePayload(next));
   }, [pages, onChange]);
 
-  const handleSetTool = useCallback((t: CroquisToolType) => {
+  const handleSetTool = useCallback((t: SketchToolType) => {
     setTool(t);
     setIsDrawing(false);
     setDrawStart(null);

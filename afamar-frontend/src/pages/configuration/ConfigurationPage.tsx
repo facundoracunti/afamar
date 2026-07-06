@@ -26,7 +26,7 @@ const CONFIG_KEYS: ConfigKey[] = [
   { key: 'company_tagline', label: 'Eslogan / Subtítulo', type: 'text' },
   { key: 'company_address', label: 'Dirección', type: 'text' },
   { key: 'company_phone', label: 'Teléfono', type: 'text' },
-  { key: 'company_email', label: 'Email', type: 'email' },
+  { key: 'company_email', label: 'Correo', type: 'email' },
   { key: 'pdf_footer', label: 'Pie de página PDF', type: 'textarea' },
   {
     key: 'budget_terms',

@@ -36,9 +36,9 @@ export interface WorkOrderPayload extends FinancialBase {
   adicionales_data: string | null;
   design_observations: string | null;
   important_observations: string | null;
-    notes: string | null;
-    date: string | null;
-    status?: string;
+  notes: string | null;
+  date: string | null;
+  status?: string;
 }
 
 /**

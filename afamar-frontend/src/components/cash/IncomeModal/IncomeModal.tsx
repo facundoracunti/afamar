@@ -14,7 +14,7 @@ interface Props {
 export default function IncomeModal({ isOpen, onClose, onSubmit }: Props) {
   const [incomeForm, setIncomeForm] = useState<Record<string, unknown>>({
     amount: '', paymentMethod: 'CASH', folderStatus: 'MEASUREMENT',
-    orderNumber: '', clientName: '', orden_id: null, orden_total: null,
+    orderNumber: '', clientName: '', order_id: null, order_total: null,
   });
   const [orderSearch, setOrderSearch] = useState<string>('');
   const [orderResults, setOrderResults] = useState<Record<string, unknown>[]>([]);
@@ -32,12 +32,12 @@ export default function IncomeModal({ isOpen, onClose, onSubmit }: Props) {
   const selectOrder = (orden: Record<string, unknown>) => {
     setIncomeForm({
       ...incomeForm,
-      orden_id: orden.id as number,
+      order_id: orden.id as number,
       orderNumber: orden.number as string,
       clientName: (orden.client_name as string) || '',
       amount: (orden.total as number) || '',
       folderStatus: (orden.status as string) ? (orden.status as string) : '',
-      orden_total: (orden.total as number) || null,
+      order_total: (orden.total as number) || null,
     });
     setShowOrderSearch(false);
     setOrderSearch('');
@@ -66,15 +66,15 @@ export default function IncomeModal({ isOpen, onClose, onSubmit }: Props) {
         : `Ingreso manual - ${(incomeForm.clientName as string) || ''}`,
       payment_method: incomeForm.paymentMethod,
       folder_status: mapFolderStatus(incomeForm.folderStatus as string),
-      order_id: incomeForm.orden_id,
+      order_id: incomeForm.order_id,
       order_number: incomeForm.orderNumber,
-      order_total: incomeForm.orden_total,
+      order_total: incomeForm.order_total,
       client_name: incomeForm.clientName,
     });
   };
 
   const resetForm = () => {
-    setIncomeForm({ amount: '', paymentMethod: 'CASH', folderStatus: 'MEASUREMENT', orderNumber: '', clientName: '', orden_id: null, orden_total: null });
+    setIncomeForm({ amount: '', paymentMethod: 'CASH', folderStatus: 'MEASUREMENT', orderNumber: '', clientName: '', order_id: null, order_total: null });
     setOrderSearch('');
     setOrderResults([]);
     setShowOrderSearch(false);
@@ -121,13 +121,13 @@ export default function IncomeModal({ isOpen, onClose, onSubmit }: Props) {
           <div style={{ padding: '10px 14px', background: '#f0fdf4', borderRadius: 8, marginBottom: 12, fontSize: 14, color: '#166534', border: '1px solid #bbf7d0' } as React.CSSProperties}>
             Orden seleccionada: <strong>{incomeForm.orderNumber as string}</strong>
             {!!incomeForm.clientName && ` — ${incomeForm.clientName as string}`}
-            {!!incomeForm.orden_total && (
+            {!!incomeForm.order_total && (
               <div style={{ marginTop: 6, fontSize: 13, color: '#475569' } as React.CSSProperties}>
-                Total original: <strong>{formatCurrency(incomeForm.orden_total as number)}</strong>
+                Total original: <strong>{formatCurrency(incomeForm.order_total as number)}</strong>
                 {' | '}Saldo restante estimado:{' '}
                 <strong style={{ color: '#dc2626' } as React.CSSProperties}>
                   {formatCurrency(
-                    Math.max(0, Number(incomeForm.orden_total) - Number((incomeForm.amount as string) || 0))
+                    Math.max(0, Number(incomeForm.order_total) - Number((incomeForm.amount as string) || 0))
                   )}
                 </strong>
               </div>

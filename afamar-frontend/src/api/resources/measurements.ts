@@ -13,7 +13,7 @@ const MEASUREMENT_FIELD_MAP: Record<string, string> = {
   scheduledDate: 'scheduled_date',
   scheduledTime: 'scheduled_time',
   observations: 'notes',
-  croquis: 'sketch_data',
+  sketch: 'sketch_data',
   photos: 'photos_data',
 };
 
