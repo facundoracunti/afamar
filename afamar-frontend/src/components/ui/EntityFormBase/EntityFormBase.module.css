@@ -1,0 +1,50 @@
+/* EntityFormBase — clases compartidas entre BudgetForm y WorkOrderForm
+   .entity-form                   block prefix
+   .entity-form__layout           2-col grid layout
+   .entity-form__layout--no-sketch  layout when sketch hidden
+   .entity-form__right            right column
+   .entity-form__bottom           bottom single-column stack
+   .entity-form__card             themed card
+   .entity-form__card-title       card title
+*/
+
+.entity-form__layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+  align-items: start;
+}
+
+.entity-form__layout--no-sketch {
+  grid-template-columns: 1fr 1fr;
+}
+
+.entity-form__right {
+  min-width: 0;
+}
+
+.entity-form__card {
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 3px var(--shadow-color);
+  height: 100%;
+}
+
+.entity-form__card-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.entity-form__bottom {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}

@@ -4,9 +4,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { FileText, ClipboardList, DollarSign, Calendar, ArrowRight } from 'lucide-react';
 import { getClient, createClient, updateClient } from '@/api/resources/clients';
 import { useCreate, useUpdate, useGet } from '../../api/hooks';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-import { FormActions } from '../../components/ui/FormActions';
+import { FormActions } from '../../components/ui/FormActions/FormActions';
 import styles from './ClientFormPage.module.css';
 
 const s = styles as unknown as Record<string, string>;

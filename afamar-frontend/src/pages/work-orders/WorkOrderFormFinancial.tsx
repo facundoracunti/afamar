@@ -1,5 +1,5 @@
 import React from 'react';
-import BudgetPanel from '../../components/features/budget/BudgetPanel';
+import BudgetPanel from '../../components/budget/BudgetPanel/BudgetPanel';
 import type { EntityFormState } from '../../types';
 
 interface WorkOrderFormFinancialProps {

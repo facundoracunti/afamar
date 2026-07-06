@@ -1,6 +1,6 @@
 # AGENTS.md
 
-> **Estado:** Rama `development` con commits sin pushear: work descrito debajo. Sesiones previas acumuladas en `refactor`: logo PNG upload, PDF preview backend, sidebar colapsable, configuration page refactor, **rename completo a inglés**, **client select dropdown + new client modal**, **stock deduction fixes**, **dead code cleanup**, **`default_usd_rate` setting**, **layout fixes**, **dark/light theme system**, **USD auto-fill from dolarapi.com**, **PdfPreviewModal theme fix**, **Modal/Loading/ConfirmDialog unificados**, **`ui/` primitives mejoradas + adoptadas en 10 pages**, **`IncomeTable`+`ExpenseTable` → `CashMovementTable`**, **`M2_CONCEPTS` derivado**, **`constants/index.ts` refactorizado**, **material photo backend + foto modal editar + lightbox**, **client typeahead (search-by-approx) sin refresh del form**, **client delete 409 conflict + notify error**, **`Presupuestos` column en `/admin/clients` + fix `Ordenes`/`Última orden` que mostraban `0`/`-`**, **`GET /clients/{id}` devuelve history aggregates + listas**, **card `Presupuestos asociados` en ClientFormPage**, **`ClientFormPage` layout 2×2 grid (form + historial / presupuestos + órdenes)**, **bug client no cargaba al editar budget/WO (snapshot backend + resolver fallback frontend)**, **`MaterialCard` theme-aware (CSS module, BEM, sin inline styles, vars de tema)**, **`PoolCard` theme-aware (mismo patrón)**, **fix CRUD presupuestos/órdenes (USD auto-fill, alternative→PENDING, REJECTED→PENDING, pagos, error notif, alternatIva→APPROVED, conversion ARS↔USD, paginator server-side)**, **decimales USD (max 2) en QuoteOptionsGrid**, **breakdown principals + traducción conceptos en `DETALLE DE FABRICACIÓN Y ACCESORIOS COMUNES`**, **croquis round-trip con geometría preservada (`flattenSketchElements` + `unflattenSketchElements`)**, **toast error/success/info opacos con texto blanco**, **`alert()` legacy reemplazado por `onError` callback → `useNotify`**, **doble notify fix (handleSubmit retorna `Promise<boolean>`)**.
+> **Estado:** Rama `development` con commits sin pushear: work descrito debajo. Sesiones previas acumuladas en `refactor`: logo PNG upload, PDF preview backend, sidebar colapsable, configuration page refactor, **rename completo a inglés**, **client select dropdown + new client modal**, **stock deduction fixes**, **dead code cleanup**, **`default_usd_rate` setting**, **layout fixes**, **dark/light theme system**, **USD auto-fill from dolarapi.com**, **PdfPreviewModal theme fix**, **Modal/Loading/ConfirmDialog unificados**, **`ui/` primitives mejoradas + adoptadas en 10 pages**, **`IncomeTable`+`ExpenseTable` → `CashMovementTable`**, **`M2_CONCEPTS` derivado**, **`constants/index.ts` refactorizado**, **material photo backend + foto modal editar + lightbox**, **client typeahead (search-by-approx) sin refresh del form**, **client delete 409 conflict + notify error**, **`Presupuestos` column en `/admin/clients` + fix `Ordenes`/`Última orden` que mostraban `0`/`-`**, **`GET /clients/{id}` devuelve history aggregates + listas**, **card `Presupuestos asociados` en ClientFormPage**, **`ClientFormPage` layout 2×2 grid (form + historial / presupuestos + órdenes)**, **bug client no cargaba al editar budget/WO (snapshot backend + resolver fallback frontend)**, **`MaterialCard` theme-aware (CSS module, BEM, sin inline styles, vars de tema)**, **`PoolCard` theme-aware (mismo patrón)**, **fix CRUD presupuestos/órdenes (USD auto-fill, alternative→PENDING, REJECTED→PENDING, pagos, error notif, alternatIva→APPROVED, conversion ARS↔USD, paginator server-side)**, **decimales USD (max 2) en QuoteOptionsGrid**, **breakdown principals + traducción conceptos en `DETALLE DE FABRICACIÓN Y ACCESORIOS COMUNES`**, **croquis round-trip con geometría preservada (`flattenSketchElements` + `unflattenSketchElements`)**, **toast error/success/info opacos con texto blanco**, **`alert()` legacy reemplazado por `onError` callback → `useNotify`**, **doble notify fix (handleSubmit retorna `Promise<boolean>`)****, **extract shared code (Semana 3 PLAN.md)**: parseNumber(), uildPayloadWithTerms(), DiscountBlock, usePdfPreview, useConfirmPayment; **Semana 4**: @ts-nocheck eliminado de FabricationTable, CurrencyDisplay adoptado, **CSS modules fusion (BudgetForm+WorkOrderForm ? EntityFormBase)**; **fix mediciones client data (snake_case sync)**.
 > Ver `PLAN.md` para el roadmap completo de migración.
 
 ## Reglas de operación
@@ -993,7 +993,40 @@ f83f8b95 (origin/refactor)     "refactor: complete English naming + BEM foundati
 
 ## Commits locales sin pushear
 
-### Sesión actual: clients module + MaterialCard theming
+### Sesión actual: extract shared code (Semana 3 PLAN.md) + @ts-nocheck cleanup
+
+**Semana 3 completa — extracciones BudgetForm/WorkOrderForm:**
+
+| Item | Archivo | Cambio |
+|------|---------|--------|
+| #4d `parseNumber()` | `utils/formatters.ts` | Nuevo helper. BudgetFormPage (4 refs) + WorkOrderFormPage (4 refs) migrados |
+| #4a `buildPayloadWithTerms()` | `hooks/entityFormHelpers.ts` | Nueva función genérica. BudgetFormPage + WorkOrderFormPage migrados |
+| #4e `DiscountBlock` | `components/features/orders/DiscountBlock.tsx` + `.module.css` | Nuevo componente. BudgetPanel + WorkOrderFormPage migrados |
+| #4b `usePdfPreview` | `hooks/usePdfPreview.ts` | Nuevo hook. BudgetFormPage + WorkOrderFormPage migrados |
+| #4c `useConfirmPayment` | `hooks/useConfirmPayment.ts` | Nuevo hook. BudgetFormPage + WorkOrderFormPage migrados |
+
+**Semana 4 (completa):**
+
+| Item | Archivo | Cambio |
+|------|---------|--------|
+| #9 `@ts-nocheck` eliminado | `FabricationTable.tsx` | Rewrite completo — tipado `FabricationDetail[]`, CSS module, sin inline styles. Era el último file con `@ts-nocheck`. `FabricationSection.tsx` props actualizados |
+| #10 `CurrencyDisplay` adoptado | `BudgetPanel.tsx` + `FabricationTable.tsx` | 6 USD + 1 mixed-currency `.toLocaleString()` → `<CurrencyDisplay>` |
+| #4f CSS modules fusion | `pages/common/EntityFormBase.module.css` (nuevo) + 4 TSX files | Clases compartidas (layout, card, bottom, right) extraídas a base común. Budget+WO CSS reducidos ~50%. Sin cambios visuales |
+
+**Verificación:** `tsc --noEmit` 0 errores · `vite build` 10.6s · 372 KB gzip.
+
+### Sesión anterior: fix mediciones client data (snake_case sync)
+
+**Bug:** `Measurement` type usaba camelCase (`clientName`, `clientPhone`, etc.) pero el backend retorna snake_case (`client_name`, `client_phone`, etc.). La lista y el form de mediciones no mostraban datos del cliente.
+
+**Frontend (3 archivos modificados):**
+- `afamar-frontend/src/types/measurement.ts` — `Measurement` interface cambiada a snake_case (`client_name`, `client_phone`, `client_address`, `scheduled_date`, `scheduled_time`, `notes`, `sketch_data`, `photos_data`, `created_at`, `updated_at`). `MeasurementFormData` sin cambios (camelCase, solo del form).
+- `afamar-frontend/src/pages/measurements/MeasurementsListPage.tsx` — tabla ahora lee `m.client_name`, `m.client_phone`, `m.client_address`, `m.scheduled_date`, `m.scheduled_time`.
+- `afamar-frontend/src/pages/measurements/MeasurementFormPage.tsx` — `useEffect` que carga medición existente ahora lee `measurement.client_name`, `measurement.notes` y hace `JSON.parse` de `sketch_data`/`photos_data` (vienen como string del backend).
+
+**Verificación:** `tsc --noEmit` 0 errores · `npm run build` pasa limpio · API confirma campos snake_case.
+
+### Sesión anterior 2: clients module + MaterialCard theming
 
 **Backend (4 archivos modificados):**
 - `afamar-backend/app/api/routers/clients.py` — `count_dependent_records` + `ConflictError(409)` en DELETE; usa `list_with_stats`/`get_with_history` para GET

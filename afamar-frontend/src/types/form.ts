@@ -1,7 +1,8 @@
 import type { FabricationDetail, MaterialInForm, PoolInForm } from './budget';
 import type { Client } from './client';
+import type { FinancialBase } from './shared';
 
-export interface EntityFormState {
+export interface EntityFormState extends FinancialBase {
   // Client info — matches BudgetBase.client_*
   client_name: string;
   client_phone: string;
@@ -26,26 +27,10 @@ export interface EntityFormState {
   pool_currency: string;
   pool_image: string;
 
-  // Money
-  currency: string;
-  usd_rate: number;
-  subtotal: number;
-  transport: number;
-  total: number;
-  subtotal_usd: number;
-  transport_usd: number;
-  total_usd: number;
-  deposit_received: number;
-  deposit_currency: string;
-  deposit_usd: number;
-  balance_due: number;
-  balance_due_usd: number;
+  // Balance payment is form-only (the backend tracks it on work orders via
+  // snapshot fields, but the form wants the boolean + date as-is).
   balance_paid: boolean;
   balance_paid_at: string;
-  payment_method: string;
-  installments: number;
-  discount_percentage: number;
-  discount_fixed_amount: number;
 
   // Dates & signature
   delivery_date: string;

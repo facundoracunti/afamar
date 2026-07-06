@@ -8,8 +8,8 @@ import { getWorkOrders } from '@/api/resources/workOrders';
 import { measurementStatuses } from '../../utils/formatters';
 import { t } from '../../utils/translate';
 import { useGet, useList } from '../../api/hooks';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import ClientSection from '../../components/features/orders/ClientSection';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
+import ClientSection from '../../components/orders/ClientSection/ClientSection';
 import type { Measurement, MeasurementFormData } from '../../types/measurement';
 import type { Client } from '../../types/client';
 import { useNotify } from '../../context/NotificationContext';
@@ -20,8 +20,25 @@ const s = styles as unknown as Record<string, string>;
 interface WorkOrderOption {
   id: number;
   number: string;
+  client_id?: number | null;
   client_name?: string;
   status: string;
+}
+
+const WORK_ORDERS_LIMIT = 200;
+
+/**
+ * Work-order fetch helper. Pulls the latest N work orders without any status
+ * filter, so the dropdown always contains the OT associated with the current
+ * medición (which may have advanced beyond `MEASUREMENT` since the row was
+ * created). When a client is selected we narrow by `client_id` to keep the
+ * list readable.
+ */
+async function fetchWorkOrdersForClient(clientId?: number | null): Promise<WorkOrderOption[]> {
+  const params: Record<string, unknown> = { limit: WORK_ORDERS_LIMIT };
+  if (clientId) params.client_id = clientId;
+  const res = await getWorkOrders(params);
+  return (res.data as WorkOrderOption[]) || [];
 }
 
 export default function MeasurementForm() {
@@ -33,7 +50,7 @@ export default function MeasurementForm() {
   const [fotosPreview, setFotosPreview] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const [form, setForm] = useState<MeasurementFormData & { workOrderId?: number | '' }>({
+  const [form, setForm] = useState<MeasurementFormData>({
     clientName: '',
     clientPhone: '',
     clientAddress: '',
@@ -45,6 +62,10 @@ export default function MeasurementForm() {
     status: 'PENDING',
     workOrderId: '',
   });
+
+  // Client currently selected in the typeahead. We resolve it from
+  // clientName so the WO dropdown narrows by client once the user picks one.
+  const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
 
   const { data: measurement, loading } = useGet<Measurement>(
     ['measurement', id],
@@ -80,15 +101,11 @@ export default function MeasurementForm() {
     }
   }, []);
 
-  // Work orders in MEASUREMENT status — candidates to attach this
-  // medición to. The selected number ends up persisted via `workOrderId`
-  // (backend will ignore the extra field if not yet wired).
-  const { items: workOrders } = useList<WorkOrderOption>(
-    ['work-orders', 'measurement-candidates'],
-    async () => {
-      const res = await getWorkOrders({ status: 'MEASUREMENT', limit: 200 });
-      return (res.data as WorkOrderOption[]) || [];
-    }
+  // Work orders — refresh when the selected client changes (or on first load).
+  const [woKey, setWoKey] = useState(0);
+  const { items: workOrders, loading: loadingWorkOrders } = useList<WorkOrderOption>(
+    ['work-orders', 'measurement-candidates', woKey, selectedClientId],
+    () => fetchWorkOrdersForClient(selectedClientId)
   );
 
   useEffect(() => {
@@ -107,10 +124,16 @@ export default function MeasurementForm() {
       croquis,
       photos,
       status: measurement.status || 'PENDING',
-      workOrderId: '',
+      workOrderId: measurement.work_order_id ?? '',
     });
+    // If the snapshot matches an existing client in our cache, pre-select
+    // it so the WO dropdown narrows to that client.
+    const match = (measurement.client_name
+      && clientes.find((c) => c.name.toLowerCase() === measurement.client_name!.toLowerCase()))
+      || null;
+    setSelectedClientId(match?.id ?? null);
     setFotosPreview(photos);
-  }, [measurement]);
+  }, [measurement, clientes]);
 
   const notify = useNotify();
 
@@ -129,8 +152,6 @@ export default function MeasurementForm() {
         ...prev,
         workOrderId: woId,
         clientName: prev.clientName || wo?.client_name || '',
-        clientPhone: prev.clientPhone || '',
-        clientAddress: prev.clientAddress || '',
       };
     });
   };
@@ -160,12 +181,27 @@ export default function MeasurementForm() {
     e.preventDefault();
     setSaving(true);
     try {
+      // Translate form → backend schema. `workOrderId` is UI-only state and
+      // maps to the persisted `work_order_id` FK on Measurement.
+      const { workOrderId, croquis, photos, ...rest } = form;
       const payload: Record<string, unknown> = {
-        ...form,
+        ...rest,
+        work_order_id: workOrderId === '' || workOrderId === undefined ? null : Number(workOrderId),
         scheduledDate: form.scheduledDate ? new Date(form.scheduledDate).toISOString() : null,
       };
-      // Strip the UI-only field the backend ignores. Keep only the schema fields.
-      delete payload.workOrderId;
+      // Map field names that the backend uses in English snake_case.
+      payload.client_name = (payload as { clientName?: string }).clientName;
+      payload.client_phone = (payload as { clientPhone?: string }).clientPhone;
+      payload.client_address = (payload as { clientAddress?: string }).clientAddress;
+      payload.notes = (payload as { observations?: string }).observations;
+      payload.photos_data = JSON.stringify(photos);
+      payload.sketch_data = JSON.stringify(croquis);
+      delete payload.clientName;
+      delete payload.clientPhone;
+      delete payload.clientAddress;
+      delete payload.observations;
+      delete payload.scheduledDate;
+
       if (isEdit) {
         await updateMeasurement(id as string, payload);
       } else {
@@ -219,7 +255,25 @@ export default function MeasurementForm() {
               client_address: 'clientAddress',
             };
             const key = map[field as string] ?? (field as string);
-            setForm((prev) => ({ ...prev, [key]: value } as unknown as typeof prev));
+
+            // Resolve the client id from the typeahead selection so we can
+            // re-fetch WOs filtered by that client. The `clientId` we get
+            // back from ClientSection is the typeahead's selected id, but
+            // since we don't know which `field` corresponds to it, we also
+            // reconcile from the cached `clientes` list using the latest
+            // name/phone snapshot.
+            setForm((prev) => {
+              const next = { ...prev, [key]: value } as typeof prev;
+              const match = (next.clientName
+                && clientes.find((c) => c.name.toLowerCase() === next.clientName!.toLowerCase()))
+                || null;
+              const nextId = match?.id ?? null;
+              if (nextId !== selectedClientId) {
+                setSelectedClientId(nextId);
+                setWoKey((k) => k + 1);
+              }
+              return next;
+            });
           }}
           clientes={clientes}
           onClientCreated={addOrRefreshClientes}
@@ -233,14 +287,20 @@ export default function MeasurementForm() {
                 className="input"
                 value={form.workOrderId ?? ''}
                 onChange={handleWorkOrderChange}
+                disabled={loadingWorkOrders}
               >
                 <option value="">— Ninguna —</option>
                 {workOrders.map((wo) => (
                   <option key={wo.id} value={wo.id}>
-                    {wo.number}{wo.client_name ? ` — ${wo.client_name}` : ''}
+                    {wo.number}{wo.client_name ? ` — ${wo.client_name}` : ''} ({t(wo.status)})
                   </option>
                 ))}
               </select>
+              {selectedClientId && (
+                <small style={{ color: 'var(--text-muted)' }}>
+                  Filtrado por cliente seleccionado.
+                </small>
+              )}
             </div>
             <div className={s['measurement-form__group']}>
               <label className={s['measurement-form__label']}>Estado</label>

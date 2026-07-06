@@ -150,6 +150,147 @@ def _update_client_total_purchased(db: Session, client_id: int):
     db.flush()
 
 
+def _recalculate_totals_from_items(data: dict) -> None:
+    """Recompute subtotal/total/etc. from the raw line-item arrays so the PDF
+    matches what the form is showing.
+
+    The frontend's `useBudgetCalculations` hook computes these totals on the
+    client, but a few code paths reach `WorkOrderService.create` without that
+    hook ever running (legacy imports, third-party posts, or stale state).
+    Recomputing server-side guarantees the DB always holds a value consistent
+    with the items actually stored, and the PDF / list never show $0 for a row
+    that has fabrications + materials + pools populated.
+
+    NOTE: unlike `budget_calculator.calculate_material_totals`, this helper
+    does NOT divide length × width by 10000 — the form's input units are
+    already in meters, so we keep that semantic. `create_from_budget` still
+    uses the original helper (different units, see its comment).
+    """
+    from app.services.budget_calculator import (
+        compute_pool_totals,
+        filter_main_materials,
+        parse_materials_data,
+    )
+
+    usd_rate = float(data.get("usd_rate") or 1000.0)
+    if usd_rate <= 0:
+        usd_rate = 1000.0
+
+    # Fabrication details (Traforo de pileta, Zócalos, Terminación, …).
+    # We compute these inline (rather than reusing budget_calculator.compute_detail_totals)
+    # because the new schema uses English keys (`price`/`currency`) — the
+    # budget helper still expects Spanish keys (`precio`/`moneda`) and silently
+    # returns 0 for English-only rows.
+    fab_raw = data.get("fabrication_details")
+    fab_items: list = []
+    if fab_raw:
+        import json as _json
+        try:
+            parsed = fab_raw if not isinstance(fab_raw, str) else _json.loads(fab_raw)
+            if isinstance(parsed, list):
+                fab_items = parsed
+        except (_json.JSONDecodeError, TypeError):
+            fab_items = []
+    fab_ars = 0.0
+    fab_usd = 0.0
+    for d in fab_items:
+        price = float(
+            d.get("price") or d.get("precio", 0) or 0
+        )
+        qty = float(
+            d.get("quantity") or d.get("cantidad", 1) or 1
+        )
+        currency = (
+            (d.get("currency") or d.get("moneda") or "ARS").upper()
+        )
+        amount = price * qty
+        if currency == "USD":
+            fab_usd += amount
+        else:
+            fab_ars += amount
+
+    # Materials (main items, exclude alternatives). Here we multiply length
+    # × width × quantity × price_m2 *as-is* — values are already in metres.
+    mats = parse_materials_data(data.get("materials_data"))
+    main_mats = filter_main_materials(mats)
+    mat_ars = 0.0
+    mat_usd = 0.0
+    for m in main_mats:
+        length = float(m.get("length") or m.get("largo", 0) or 0)
+        width = float(m.get("width") or m.get("ancho", 0) or 0)
+        quantity = float(m.get("quantity") or m.get("cantidad", 1) or 1)
+        area = length * width * quantity  # metres × metres × qty
+        currency = m.get("currency") or m.get("moneda", "ARS")
+        if currency == "USD":
+            mat_usd += round(area * float(m.get("price_m2_usd") or m.get("precio_m2_usd", 0) or 0), 2)
+        else:
+            mat_ars += round(area * float(m.get("price_m2") or m.get("precio_m2", 0) or 0), 2)
+
+    # Pools
+    pools = parse_materials_data(data.get("pools_data")) or []
+    pp_ars, pp_usd = compute_pool_totals(pools)
+
+    # Aggregate both currencies, then convert cross-currency with the rate.
+    # Mirror the frontend hook: items in the row's currency stay in that
+    # currency, items in the other currency are converted via usd_rate.
+    subtotal_ars = round(fab_ars + mat_ars + pp_ars + (fab_usd + mat_usd + pp_usd) * usd_rate)
+    subtotal_usd = round((fab_usd + mat_usd + pp_usd + (fab_ars + mat_ars + pp_ars) / usd_rate) * 100) / 100 if usd_rate > 0 else 0.0
+
+    transport = float(data.get("transport") or 0)
+    transport_usd = float(data.get("transport_usd") or 0)
+
+    total_base_ars = max(0.0, subtotal_ars + transport)
+    total_base_usd = max(0.0, subtotal_usd + transport_usd)
+
+    # Discount + surcharge (matches the frontend hook's logic).
+    discount_pct = float(data.get("discount_percentage") or 0)
+    discount_fijo = float(data.get("discount_fixed_amount") or 0)
+    if discount_pct > 0:
+        total_ars = round(total_base_ars * (1 - discount_pct / 100))
+        total_usd = round(total_base_usd * (1 - discount_pct / 100) * 100) / 100
+    elif discount_fijo > 0:
+        total_ars = max(0.0, total_base_ars - discount_fijo)
+        total_usd = max(0.0, round((total_base_usd - discount_fijo / usd_rate) * 100) / 100)
+    else:
+        total_ars = total_base_ars
+        total_usd = total_base_usd
+
+    # Surcharge for credit-card payment methods.
+    payment_method = data.get("payment_method")
+    installments = int(data.get("installments") or 1)
+    surcharge_pct = 0
+    if payment_method == "CREDIT_CARD":
+        surcharge_pct = 0 if installments <= 2 else installments * 5
+    if surcharge_pct > 0:
+        total_ars = round(total_ars + total_ars * surcharge_pct / 100)
+        total_usd = round((total_usd + total_usd * surcharge_pct / 100) * 100) / 100
+
+    # Deposit + balance due. We preserve the deposit value sent in (or recompute
+    # both currencies from it) but never let balance go negative.
+    deposit = float(data.get("deposit_received") or 0)
+    deposit_currency = (data.get("deposit_currency") or "ARS").upper()
+    deposit_usd = float(data.get("deposit_usd") or 0)
+    if deposit > 0 and deposit_usd == 0 and deposit_currency == "ARS" and usd_rate > 0:
+        deposit_usd = round((deposit / usd_rate) * 100) / 100
+    elif deposit > 0 and deposit_usd == 0 and deposit_currency == "USD":
+        deposit_usd = round(deposit * 100) / 100
+
+    balance_due = max(0.0, total_ars - deposit)
+    balance_due_usd = max(0.0, round((total_usd - deposit_usd) * 100) / 100)
+
+    # Persist everything so the PDF / list endpoint never see $0 again.
+    data["subtotal"] = subtotal_ars
+    data["subtotal_usd"] = subtotal_usd
+    data["total"] = total_ars
+    data["total_usd"] = total_usd
+    data["balance_due"] = balance_due
+    data["balance_due_usd"] = balance_due_usd
+    if deposit > 0:
+        data["deposit_received"] = deposit
+    if deposit_usd > 0:
+        data["deposit_usd"] = deposit_usd
+
+
 class WorkOrderService:
     def __init__(self, db: Session):
         self.repo = WorkOrderRepository(db)
@@ -206,9 +347,15 @@ class WorkOrderService:
         # The frontend sends the sketch as `sketch_elements` (an array of
         # pages). The WorkOrder model doesn't have a sketch_elements column
         # (the sketch lives on the Budget), so we serialise it into the
-        # existing `budgeted_details` TEXT column — the same field used
-        # when a WorkOrder is created from a Budget.
+        # existing `budgeted_details` TEXT column — the same field used when
+        # a WorkOrder is created from a Budget.
         _stash_sketch_into_budgeted_details(data)
+        # Always recompute totals from the raw line items (fabrication details,
+        # materials, pools) — never trust the totals the frontend sends. The
+        # WorkOrder PDF + list rows both read `total`, `total_usd`, `subtotal`,
+        # `subtotal_usd` directly from the DB, so a wrong value here means the
+        # PDF shows $0 even though the line items are populated.
+        _recalculate_totals_from_items(data)
         order = self.repo.create(data)
         self.repo.db.commit()
         self.repo.db.refresh(order)
@@ -379,6 +526,48 @@ class WorkOrderService:
         if not order:
             return None
         _stash_sketch_into_budgeted_details(data)
+        # If the update carries line-item arrays (or totals) we recompute
+        # totals server-side. This keeps `total` consistent with the rows
+        # even when the client only sent partial data and patched in stale
+        # `total` / `total_usd` values.
+        if any(
+            key in data
+            for key in (
+                "fabrication_details", "materials_data", "pools_data",
+                "usd_rate", "transport", "transport_usd", "discount_percentage",
+                "discount_fixed_amount", "payment_method", "installments",
+                "deposit_received", "deposit_usd", "deposit_currency",
+            )
+        ):
+            # Merge persisted values with the incoming patch so the helper
+            # can recalculate from a complete picture.
+            merged = {
+                "usd_rate": order.usd_rate,
+                "transport": order.transport,
+                "transport_usd": order.transport_usd,
+                "discount_percentage": order.discount_percentage,
+                "discount_fixed_amount": order.discount_fixed_amount,
+                "payment_method": order.payment_method,
+                "installments": order.installments,
+                "deposit_received": order.deposit_received,
+                "deposit_usd": order.deposit_usd,
+                "deposit_currency": order.deposit_currency,
+                "fabrication_details": order.fabrication_details,
+                "materials_data": order.materials_data,
+                "pools_data": order.pools_data,
+            }
+            for key, value in data.items():
+                if value is not None:
+                    merged[key] = value
+            _recalculate_totals_from_items(merged)
+            # Mirror the recomputed totals into the outgoing payload so the
+            # repo.update() call below writes them back.
+            for key in (
+                "subtotal", "subtotal_usd", "total", "total_usd",
+                "balance_due", "balance_due_usd", "deposit_received", "deposit_usd",
+            ):
+                if key in merged:
+                    data[key] = merged[key]
         old_status = order.status
         new_status = data.get("status", old_status)
 

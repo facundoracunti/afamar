@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import styles from "./Home.module.css";
-import { Container } from "@/components/ui/Container";
-import { Modal } from "@/components/ui/Modal";
+import { Container } from "@/components/ui/Container/Container";
+import { Modal } from "@/components/ui/Modal/Modal";
 import http from "@/api/http";
 import { useList } from "@/api/hooks";
 import type { ProductPhoto } from "@/types/product";

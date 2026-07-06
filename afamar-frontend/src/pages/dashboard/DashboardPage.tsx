@@ -4,7 +4,7 @@ import { DollarSign, FileText, ClipboardList, PackageOpen, Globe, Truck, type Lu
 import type { DashboardData } from '../../types/dashboard';
 import { getDashboard } from '@/api/resources/dashboard';
 import { useGet } from '../../api/hooks';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import styles from './DashboardPage.module.css';
 
 const s = styles as unknown as Record<string, string>;

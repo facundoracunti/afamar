@@ -4,11 +4,11 @@ import { Plus, Search, Trash2, Eye, Send } from 'lucide-react';
 import { getOnlineBudgets, deleteOnlineBudget } from '@/api/resources/onlineBudgets';
 import { useList, useDelete } from '../../api/hooks';
 import { formatDate } from '../../utils/formatters';
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { PageHeader } from '../../components/ui/PageHeader';
-import { SearchInput } from '../../components/ui/SearchInput';
-import { EmptyState } from '../../components/ui/EmptyState';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
+import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
+import { SearchInput } from '../../components/ui/SearchInput/SearchInput';
+import { EmptyState } from '../../components/ui/EmptyState/EmptyState';
 import styles from './OnlineBudgetsListPage.module.css';
 
 const s = styles as unknown as Record<string, string>;

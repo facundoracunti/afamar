@@ -1,0 +1,70 @@
+.cash-totals {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 16px;
+}
+
+.cash-totals__card {
+  text-align: center;
+}
+
+.cash-totals__label {
+  font-size: 13px;
+  color: var(--color-text-light, var(--text-muted));
+  font-weight: 600;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cash-totals__value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.cash-totals__value--expense {
+  color: var(--color-danger);
+}
+
+.cash-totals__value--balance {
+  color: var(--color-info);
+}
+
+.cash-totals__hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.cash-totals__highlight {
+  text-align: center;
+  border: 2px solid var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 10%, var(--surface-bg));
+}
+
+.cash-totals__highlight-label {
+  font-size: 13px;
+  color: var(--color-success);
+  font-weight: 600;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.cash-totals__highlight-value {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--color-success);
+}
+
+.cash-totals__highlight-hint {
+  font-size: 11px;
+  color: var(--color-success);
+  margin-top: 4px;
+  opacity: 0.7;
+}

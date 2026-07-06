@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, Search, Trash2, FileDown, FileOutput, Eye, Send, Mail } from 'lucide-react';
+import { Plus, Search, Trash2, FileDown, FileOutput, Eye, Send, Mail, Check, X } from 'lucide-react';
 import {
   getBudgetsUnified,
   deleteBudget,
@@ -22,12 +22,12 @@ import type { AxiosResponse } from 'axios';
 import { formatDate } from '../../utils/formatters';
 import { t as translateStatus } from '../../utils/translate';
 import CurrencyDisplay from '../../components/ui/CurrencyDisplay';
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { PageHeader } from '../../components/ui/PageHeader';
-import { EmptyState } from '../../components/ui/EmptyState';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
+import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
+import { EmptyState } from '../../components/ui/EmptyState/EmptyState';
 import { Pagination } from '../../components/ui/Pagination';
-import PdfPreviewModal from '../../components/common/PdfPreviewModal';
+import PdfPreviewModal from '../../components/ui/PdfPreviewModal/PdfPreviewModal';
 import { useNotify } from '../../context/NotificationContext';
 import type { UnifiedBudget } from '../../types/budget';
 import styles from './BudgetsListPage.module.css';
@@ -40,6 +40,19 @@ interface PendingConvert {
   id: string | number;
   tipo: 'online' | 'local';
 }
+
+/**
+ * Reusable class for "secondary" outline buttons rendered in the actions
+ * columns. Keeps the TSX concise and prevents inline-style duplication.
+ */
+const btnCls = (variant?: 'success' | 'danger' | 'info' | 'ghost') => {
+  const base = s['budgets__action-btn'];
+  if (!variant) return base;
+  if (variant === 'success') return `${base} ${s['budgets__action-btn--success']}`;
+  if (variant === 'danger') return `${base} ${s['budgets__action-btn--danger']}`;
+  if (variant === 'info') return `${base} ${s['budgets__action-btn--info']}`;
+  return `${base} ${s['budgets__action-btn--ghost']}`;
+};
 
 export default function BudgetsList() {
   const [searchParams] = useSearchParams();
@@ -193,6 +206,21 @@ export default function BudgetsList() {
     setPdfPreviewUrl(null);
   };
 
+  // Helpers ------------------------------------------------------------------
+
+  const isConvertible = (p: UnifiedBudget): boolean =>
+    p.status === 'APPROVED' && !p.workOrderNumber;
+
+  const canAprobar = (p: UnifiedBudget): boolean =>
+    p.status === 'PENDING' || p.status === 'ONLINE';
+
+  const canRechazar = (p: UnifiedBudget): boolean =>
+    p.status === 'PENDING' || p.status === 'ONLINE' || p.status === 'APPROVED';
+
+  const handleView = (p: UnifiedBudget): void => {
+    navigate(p.type === 'online' ? `/admin/online-budgets/${p.id}` : `/admin/budgets/${p.id}`);
+  };
+
   return (
     <div className={s['budgets']}>
       <PageHeader
@@ -241,31 +269,17 @@ export default function BudgetsList() {
           <table>
             <thead>
               <tr>
-                <th className={s['budgets__th']} style={{ width: 90 }}>
-                  Numero
-                </th>
-                <th className={s['budgets__th']} style={{ width: 95, fontSize: 12 }}>
-                  Fecha
-                </th>
-                <th className={s['budgets__th']} style={{ width: 160 }}>
-                  Cliente
-                </th>
-                <th className={s['budgets__th']} style={{ width: 110 }}>
-                  Telefono
-                </th>
-                <th className={s['budgets__th']} style={{ width: 130 }}>
-                  Material
-                </th>
-                <th className={s['budgets__th']}>Detalles</th>
-                <th className={s['budgets__th']} style={{ width: 110 }}>
-                  Total
-                </th>
-                <th className={s['budgets__th']} style={{ width: 100 }}>
-                  Estado
-                </th>
-                <th className={s['budgets__th']} style={{ width: 180 }}>
-                  Acciones
-                </th>
+                <th className={s['budgets__th']} style={{ width: 90 }}>Numero</th>
+                <th className={s['budgets__th']} style={{ width: 95, fontSize: 12 }}>Fecha</th>
+                <th className={s['budgets__th']} style={{ width: 160 }}>Cliente</th>
+                <th className={s['budgets__th']} style={{ width: 110 }}>Telefono</th>
+                <th className={s['budgets__th']} style={{ width: 110 }}>Total</th>
+                <th className={s['budgets__th']} style={{ width: 100 }}>Estado</th>
+                <th className={s['budgets__th']} style={{ width: 130 }}>Flujo</th>
+                <th className={s['budgets__th']} style={{ width: 140 }}>Convertir OT</th>
+                <th className={s['budgets__th']} style={{ width: 130 }}>Vista</th>
+                <th className={s['budgets__th']} style={{ width: 150 }}>Notificar</th>
+                <th className={s['budgets__th']} style={{ width: 70 }}>Eliminar</th>
               </tr>
             </thead>
             <tbody>
@@ -273,9 +287,7 @@ export default function BudgetsList() {
                 <tr
                   key={p.type + '-' + p.id}
                   className={s['budgets__row']}
-                  onClick={() =>
-                    navigate(p.type === 'online' ? `/admin/online-budgets/${p.id}` : `/admin/budgets/${p.id}`)
-                  }
+                  onClick={() => handleView(p)}
                 >
                   <td className={s['budgets__td']}>
                     <div className={s['budgets__numero']}>{p.number}</div>
@@ -288,45 +300,6 @@ export default function BudgetsList() {
                   </td>
                   <td className={s['budgets__td']}>{p.clientName || '-'}</td>
                   <td className={s['budgets__td']}>{p.clientPhone || '-'}</td>
-                  <td className={s['budgets__td'] + ' ' + s['budgets__material']}>
-                    {(() => {
-                      if (p.materials && p.materials.length > 0)
-                        return [...new Set(p.materials.map((m: { name: string }) => m.name.trim()))].join(' - ');
-                      if (p.type === 'online' && p.items?.length) {
-                        const mats = p.items
-                          .filter(
-                            (i: { detail: string }) =>
-                              i.detail &&
-                              i.detail !== 'LONGITUD' &&
-                              ![
-                                'BASEBOARDS',
-                                'CUTOUT_SINK',
-                                'CUTOUT_DROPIN_SINK',
-                                'BRACKETS',
-                                'CUTOUT_COOKTOP',
-                                'FINISHING',
-                                'POOL_MOD',
-                              ].includes(i.detail),
-                          )
-                          .map((i: { detail: string }) => i.detail.trim());
-                        const zocMat = p.items
-                          .filter((i: { material?: string }) => i.material)
-                          .map((i: { material?: string }) => (i.material || '').trim());
-                        const all = [...new Set([...mats, ...zocMat])];
-                        return all.length ? all.join(' - ') : 'Online';
-                      }
-                      return p.material || '-';
-                    })()}
-                  </td>
-                  <td
-                    className={s['budgets__td'] + ' ' + s['budgets__details']}
-                    title={p.designObservations || ''}
-                  >
-                    {(() => {
-                      const txt = p.designObservations || '';
-                      return txt.length > 60 ? txt.slice(0, 60) + '...' : txt || '-';
-                    })()}
-                  </td>
                   <td className={s['budgets__td'] + ' ' + s['budgets__total']}>
                     <CurrencyDisplay value={p.total} />
                   </td>
@@ -344,11 +317,7 @@ export default function BudgetsList() {
                         RECHAZADO
                       </span>
                     ) : p.type === 'online' ? (
-                      <span
-                        className={
-                          s['budgets__status'] + ' ' + s['budgets__status--pending-online']
-                        }
-                      >
+                      <span className={s['budgets__status'] + ' ' + s['budgets__status--pending-online']}>
                         PENDIENTE - ONLINE
                       </span>
                     ) : (
@@ -357,108 +326,152 @@ export default function BudgetsList() {
                       </span>
                     )}
                   </td>
+
+                  {/* Column 7 — Flujo: Aprobar / Rechazar */}
                   <td
-                    className={s['budgets__td']}
+                    className={`${s['budgets__td']} ${s['budgets__actions-cell']}`}
                     onClick={(e: React.MouseEvent) => e.stopPropagation()}
                   >
-                    <div className={s['budgets__cell-actions']}>
+                    <div className={s['budgets__action-pair']}>
+                      {canAprobar(p) && (
+                        <button
+                          type="button"
+                          className={btnCls('success')}
+                          onClick={() => handleCambiarEstado(p, 'APPROVED')}
+                          title="Aprobar presupuesto"
+                        >
+                          <Check size={12} /> Aprobar
+                        </button>
+                      )}
+                      {canRechazar(p) && (
+                        <button
+                          type="button"
+                          className={btnCls('danger')}
+                          onClick={() => handleCambiarEstado(p, 'REJECTED')}
+                          title="Rechazar presupuesto"
+                        >
+                          <X size={12} /> Rechazar
+                        </button>
+                      )}
+                      {!canAprobar(p) && !canRechazar(p) && <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>—</span>}
+                    </div>
+                  </td>
+
+                  {/* Column 8 — Convertir a OT */}
+                  <td
+                    className={`${s['budgets__td']} ${s['budgets__actions-cell']}`}
+                    onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                  >
+                    {isConvertible(p) ? (
                       <button
                         type="button"
-                        className="btn btn-outline"
-                        style={{ padding: '3px 8px', fontSize: 11 }}
+                        className={btnCls('danger')}
                         onClick={() =>
-                          navigate(
-                            p.type === 'online'
-                              ? `/admin/online-budgets/${p.id}`
-                              : `/admin/budgets/${p.id}`,
-                          )
+                          p.type === 'online' ? handleConvertirOnline(p.id) : handleConvertir(p.id)
                         }
+                        title="Convertir presupuesto en Orden de Trabajo"
+                      >
+                        <FileOutput size={11} /> A OT
+                      </button>
+                    ) : p.workOrderNumber ? (
+                      <button
+                        type="button"
+                        className={btnCls('ghost')}
+                        onClick={() => navigate(`/admin/work-orders?search=${p.workOrderNumber}`)}
+                        title={`Ver Orden de Trabajo ${p.workOrderNumber}`}
+                      >
+                        OT {p.workOrderNumber}
+                      </button>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>—</span>
+                    )}
+                  </td>
+
+                  {/* Column 9 — Vista: Ver / PDF */}
+                  <td
+                    className={`${s['budgets__td']} ${s['budgets__actions-cell']}`}
+                    onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                  >
+                    <div className={s['budgets__action-pair']}>
+                      <button
+                        type="button"
+                        className={btnCls()}
+                        onClick={() => handleView(p)}
+                        title="Ver / editar"
                       >
                         <Eye size={12} /> Ver
                       </button>
-                      {['PENDING', 'ONLINE'].includes(p.status) && (
-                        <button
-                          type="button"
-                          className="btn btn-success"
-                          style={{ padding: '3px 8px', fontSize: 11 }}
-                          onClick={() => handleCambiarEstado(p, 'APPROVED')}
-                        >
-                          Aprobar
-                        </button>
-                      )}
-                      {p.status === 'APPROVED' && (
-                        <button
-                          type="button"
-                          className="btn"
-                          style={{ padding: '3px 8px', fontSize: 11, background: '#b91c1c', color: '#fff', border: 'none', borderRadius: 4 }}
-                          onClick={() => p.type === 'online' ? handleConvertirOnline(p.id) : handleConvertir(p.id)}
-                        >
-                          <FileOutput size={11} /> Convertir a OT
-                        </button>
-                      )}
-                      {p.type !== 'online' && p.status === 'CONVERTED_TO_OT' && p.workOrderNumber && (
-                        <button
-                          type="button"
-                          className={s['budgets__ot']}
-                          onClick={() => navigate(`/admin/work-orders?search=${p.workOrderNumber}`)}
-                        >
-                          OT {p.workOrderNumber}
-                        </button>
-                      )}
-                      {['PENDING', 'ONLINE', 'APPROVED'].includes(p.status) && (
-                        <button
-                          type="button"
-                          className="btn btn-danger"
-                          style={{ padding: '3px 8px', fontSize: 11 }}
-                          onClick={() => handleCambiarEstado(p, 'REJECTED')}
-                        >
-                          Rechazar
-                        </button>
-                      )}
-                    </div>
-                    <div className={s['budgets__cell-actions']}>
                       <button
                         type="button"
-                        className="btn btn-outline"
-                        style={{ padding: '3px 8px', fontSize: 11 }}
+                        className={btnCls()}
                         onClick={() => handleOpenPdf(p)}
+                        title="Vista previa del PDF"
                       >
                         <FileDown size={12} /> PDF
                       </button>
+                    </div>
+                  </td>
+
+                  {/* Column 10 — Notificar: WhatsApp / Email */}
+                  <td
+                    className={`${s['budgets__td']} ${s['budgets__actions-cell']}`}
+                    onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                  >
+                    <div className={s['budgets__action-pair']}>
+                      {p.clientPhone ? (
+                        <button
+                          type="button"
+                          className={btnCls('success')}
+                          onClick={() => handleEnviarWhatsApp(p)}
+                          title={`Enviar por WhatsApp a ${p.clientPhone}`}
+                        >
+                          <Send size={12} /> WhatsApp
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className={btnCls()}
+                          disabled
+                          style={{ opacity: 0.4, cursor: 'not-allowed' }}
+                          title="Sin teléfono cargado"
+                        >
+                          <Send size={12} /> WhatsApp
+                        </button>
+                      )}
                       <button
                         type="button"
-                        className="btn btn-success"
-                        style={{ padding: '3px 8px', fontSize: 11 }}
-                        onClick={() => handleEnviarWhatsApp(p)}
-                      >
-                        <Send size={12} /> WhatsApp
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-outline"
-                        style={{ padding: '3px 8px', fontSize: 11 }}
+                        className={btnCls('info')}
                         onClick={() => handleEnviarEmail(p.id)}
+                        title="Enviar PDF por email"
                       >
                         <Mail size={12} /> Email
                       </button>
-                      <button
-                          type="button"
-                          className="btn btn-danger"
-                          style={{ padding: '3px 6px' }}
-                          onClick={() => {
-                            setDeleteId(p.id);
-                            setDeleteTipo(p.type);
-                          }}
-                        >
-                          <Trash2 size={12} />
-                        </button>
                     </div>
+                  </td>
+
+                  {/* Column 11 — Eliminar */}
+                  <td
+                    className={`${s['budgets__td']} ${s['budgets__actions-cell']}`}
+                    onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      className={btnCls('danger')}
+                      onClick={() => {
+                        setDeleteId(p.id);
+                        setDeleteTipo(p.type);
+                      }}
+                      title="Eliminar presupuesto"
+                      style={{ padding: '4px 8px' }}
+                    >
+                      <Trash2 size={12} />
+                    </button>
                   </td>
                 </tr>
               ))}
               {data.length === 0 && (
                 <tr>
-                  <td colSpan={9}>
+                  <td colSpan={11}>
                     <EmptyState message="No hay presupuestos" />
                   </td>
                 </tr>

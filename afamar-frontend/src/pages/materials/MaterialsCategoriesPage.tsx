@@ -9,11 +9,11 @@ import {
 } from '@/api/resources/materials';
 import { useList, useCreate, useUpdate, useDelete } from '../../api/hooks';
 import { useNotify } from '../../context/NotificationContext';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
-import { PageHeader } from '../../components/ui/PageHeader';
-import { SearchInput } from '../../components/ui/SearchInput';
-import { EmptyState } from '../../components/ui/EmptyState';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
+import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
+import { SearchInput } from '../../components/ui/SearchInput/SearchInput';
+import { EmptyState } from '../../components/ui/EmptyState/EmptyState';
 import styles from './MaterialsCategoriesPage.module.css';
 
 const s = styles as unknown as Record<string, string>;

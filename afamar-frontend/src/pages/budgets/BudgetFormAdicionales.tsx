@@ -1,5 +1,5 @@
 import React from 'react';
-import PoolSection from '../../components/features/materials/PoolSection';
+import PoolSection from '../../components/materials/PoolSection/PoolSection';
 import type { EntityFormState } from '../../types';
 
 interface BudgetFormAdicionalesProps {

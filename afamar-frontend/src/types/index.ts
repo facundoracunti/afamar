@@ -1,6 +1,7 @@
 // Barrel re-export — all types use English names.
 export type { Material, MaterialFormData } from './material';
 export type { Client, ClientFormData, ClientHistory } from './client';
+export type { FinancialBase } from './shared';
 export type {
   FabricationDetail,
   BudgetItemSchema,
@@ -10,7 +11,7 @@ export type {
   BudgetPayload,
   UnifiedBudget,
 } from './budget';
-export type { WorkOrderPayload, ConvertOptionResponse } from './workOrder';
+export type { WorkOrderPayload, WorkOrderListItem, ConvertOptionResponse } from './workOrder';
 export type { OnlineBudgetItem, OnlineBudgetPayload } from './onlineBudget';
 export type { Pool, PoolMovement } from './poolStock';
 export type { Measurement, MeasurementFormData } from './measurement';

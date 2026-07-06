@@ -3,7 +3,7 @@ import { getCashHistory } from '@/api/resources/cash';
 import { useList } from '../../api/hooks';
 import CurrencyDisplay from '../../components/ui/CurrencyDisplay';
 import { ArrowUpCircle, ArrowDownCircle, Calendar, FileText } from 'lucide-react';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 
 export default function CashHistoryPage() {
   const { items: cashRecords, loading } = useList<Record<string, unknown>>(

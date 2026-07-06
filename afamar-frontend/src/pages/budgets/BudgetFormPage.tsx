@@ -10,24 +10,24 @@ import { formatCurrency, fabricationConcepts } from '../../utils/formatters';
 import { t as translateConcept } from '../../utils/translate';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import useEntityForm from '../../hooks/useEntityForm';
-import BudgetPanel from '../../components/features/budget/BudgetPanel';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
-import PdfPreviewModal from '../../components/common/PdfPreviewModal';
-import TermsEditor from '../../components/common/TermsEditor';
+import BudgetPanel from '../../components/budget/BudgetPanel/BudgetPanel';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
+import PdfPreviewModal from '../../components/ui/PdfPreviewModal/PdfPreviewModal';
+import TermsEditor from '../../components/ui/TermsEditor/TermsEditor';
 import { useNotify } from '../../context/NotificationContext';
 import { fetchUsdVenta } from '../../utils/dolarApi';
-import QuoteOptionsGrid from '../../components/features/budget/QuoteOptionsGrid';
+import QuoteOptionsGrid from '../../components/budget/QuoteOptionsGrid/QuoteOptionsGrid';
 
-import ObservationsSection from '../../components/features/orders/ObservationsSection';
-import FormHeader from '../../components/features/orders/FormHeader';
-import FormFooter from '../../components/features/orders/FormFooter';
+import ObservationsSection from '../../components/orders/ObservationsSection/ObservationsSection';
+import FormHeader from '../../components/orders/FormHeader/FormHeader';
+import FormFooter from '../../components/orders/FormFooter/FormFooter';
 import BudgetFormClient from './BudgetFormClient';
-import SketchSection from '../../components/features/sketch/SketchSection';
+import SketchSection from '../../components/sketch/SketchSection/SketchSection';
 import BudgetFormSpecs from './BudgetFormSpecs';
 import BudgetFormFinancial from './BudgetFormFinancial';
 import BudgetFormAdicionales from './BudgetFormAdicionales';
-import FabricationSection from '../../components/features/budget/FabricationSection';
+import FabricationSection from '../../components/budget/FabricationSection/FabricationSection';
 import BudgetFormObservations from './BudgetFormObservations';
 import type { BudgetPayload, MaterialInForm, PoolInForm, EntityFormState, EntityServices } from '../../types';
 import styles from './BudgetFormPage.module.css';
@@ -376,7 +376,7 @@ const sumatoriaMaterialesPrincipalARS = matsMain.reduce((sum, m) => {
   return sum + costoMatArs;
 }, 0);
 
-const buildOptionFromMaterial = (mat: MaterialInForm): import('../../components/features/budget/QuoteOptionsGrid').Alternativa => {
+const buildOptionFromMaterial = (mat: MaterialInForm): import('../../components/budget/QuoteOptionsGrid/QuoteOptionsGrid').Alternativa => {
     const ddLocal = Number(form.usd_rate) || 1;
     const m2 = Number(mat.length || 0) * Number(mat.width || 0) * (mat.quantity || 1);
     const costoMat = mat.currency === 'USD' ? m2 * (mat.price_m2_usd || 0) : m2 * (mat.price_m2 || 0);

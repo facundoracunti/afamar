@@ -1,0 +1,64 @@
+.badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.badge--pending,
+.badge--PENDIENTE {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.badge--approved,
+.badge--budgeted,
+.badge--REALIZADO {
+  background: #d4edda;
+  color: #155724;
+}
+
+.badge--rejected,
+.badge--CANCELADO {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.badge--in_production {
+  background: #cce5ff;
+  color: #004085;
+}
+
+/* Work-order statuses — match the order lifecycle. Mapping is done by the
+ * StatusBadge component (`t(status)` translates the English value to Spanish). */
+.badge--MEASUREMENT,
+.badge--measurement {
+  background: #cce5ff;
+  color: #004085;
+}
+
+.badge--WORKSHOP,
+.badge--workshop {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.badge--FINISHED,
+.badge--finished {
+  background: #d4edda;
+  color: #155724;
+}
+
+.badge--DELIVERED,
+.badge--delivered {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.badge--CANCELLED,
+.badge--cancelled {
+  background: #f8d7da;
+  color: #721c24;
+}

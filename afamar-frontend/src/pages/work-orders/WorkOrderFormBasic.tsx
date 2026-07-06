@@ -1,5 +1,5 @@
 import React from 'react';
-import ClientSection from '../../components/features/orders/ClientSection';
+import ClientSection from '../../components/orders/ClientSection/ClientSection';
 import type { EntityFormState } from '../../types';
 import type { Client } from '../../types/client';
 

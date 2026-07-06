@@ -163,10 +163,11 @@
       <td>{{ d.concept or "—" }}</td>
       <td>{{ d.detail or "—" }}</td>
       <td>{{ d.material or "—" }}</td>
-      <td class="num">{{ "%.2f"|format(d.length or 0) }} m</td>
-      <td class="num">{{ "%.2f"|format(d.width or 0) }} m</td>
-      <td class="num">{{ d.quantity or 1 }}</td>
-      <td class="num">$ {{ "{:,.2f}"|format(d.price or 0) }}</td>
+      <td class="num">{{ d.length_str or "—" }}</td>
+      <td class="num">{{ d.width_str or "—" }}</td>
+      <td class="num">{{ d.m2_label or "—" }}</td>
+      <td class="num">{{ d.quantity if d.show_quantity else "—" }}</td>
+      <td class="num">$ {{ d.price_str or "0.00" }}</td>
     </tr>
     {% endfor %}
   </tbody>
@@ -193,12 +194,12 @@
     <tr>
       <td>{{ m.name or "—" }}</td>
       <td>{{ m.color or "—" }}</td>
-      <td class="num">{{ "%.2f"|format(m.length or 0) }} m</td>
-      <td class="num">{{ "%.2f"|format(m.width or 0) }} m</td>
+      <td class="num">{{ m.length_str or "0.00 m" }}</td>
+      <td class="num">{{ m.width_str or "0.00 m" }}</td>
       <td class="num">{{ m.quantity or 1 }}</td>
-      <td class="num">{{ "%.2f"|format(m.m2 or 0) }}</td>
-      <td class="num">$ {{ "{:,.2f}"|format(m.price_m2 or 0) }}</td>
-      <td class="num">$ {{ "{:,.2f}"|format(m.subtotal or 0) }}</td>
+      <td class="num">{{ m.m2_str or "0.00" }}</td>
+      <td class="num">$ {{ m.price_m2_str or "0.00" }}</td>
+      <td class="num">$ {{ m.subtotal_str or "0.00" }}</td>
     </tr>
     {% endfor %}
   </tbody>
@@ -223,8 +224,8 @@
       <td>{{ p.brand or "—" }}</td>
       <td>{{ p.model or "—" }}</td>
       <td class="num">{{ p.quantity or 1 }}</td>
-      <td class="num">$ {{ "{:,.2f}"|format(p.price or 0) }}</td>
-      <td class="num">$ {{ "{:,.2f}"|format(p.subtotal or 0) }}</td>
+      <td class="num">$ {{ p.price_str or "0.00" }}</td>
+      <td class="num">$ {{ p.subtotal_str or "0.00" }}</td>
     </tr>
     {% endfor %}
   </tbody>

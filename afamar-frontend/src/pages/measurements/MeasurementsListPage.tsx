@@ -7,11 +7,11 @@ import { measurementStatuses, formatDate } from '../../utils/formatters';
 import { t } from '../../utils/translate';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import type { Measurement } from '../../types/measurement';
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { PageHeader } from '../../components/ui/PageHeader';
-import { SearchInput } from '../../components/ui/SearchInput';
-import { EmptyState } from '../../components/ui/EmptyState';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
+import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
+import { SearchInput } from '../../components/ui/SearchInput/SearchInput';
+import { EmptyState } from '../../components/ui/EmptyState/EmptyState';
 import styles from './MeasurementsListPage.module.css';
 
 const s = styles as unknown as Record<string, string>;

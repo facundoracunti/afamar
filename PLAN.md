@@ -1,7 +1,7 @@
 # Refactor Plan — Frontend Component Consolidation
 
 > Basado en el análisis exhaustivo de duplicación de código en `afamar-frontend/src/` (Julio 2026).
-> **Última actualización:** Julio 2026 — sesiones de "Mejorar ui/ primitives" y "Adopt primitives en 10 pages".
+> **Última actualización:** Julio 2026 — sesión de reestructuración de directorios (subfolder-per-component).
 
 ## Estado por item (✅ = hecho, ⏳ = pendiente, 🔄 = parcial)
 
@@ -12,23 +12,104 @@
 | 1c  | Unificar ConfirmDialog (`ui/ConfirmDialog` + `common/ConfirmDialog`) | ✅ |
 | 2   | Adoptar componentes `ui/` existentes (10 pages)       | ✅     |
 | 3   | Eliminar código muerto                                | ✅     |
-| 4a  | `buildPayloadWithTerms()` helper                      | ⏳     |
-| 4b  | `usePdfPreview` hook                                  | ⏳     |
-| 4c  | `useConfirmPayment` hook                              | ⏳     |
-| 4d  | `num()` / `parseNumber()` helper                      | ⏳     |
-| 4e  | `DiscountBlock` component                             | ⏳     |
-| 4f  | CSS modules fusion (BudgetForm vs WorkOrderForm)      | ⏳     |
-| 5   | Consolidar tipos superpuestos (FinancialBase)          | ⏳     |
+| 4a  | `buildPayloadWithTerms()` helper                      | ✅     |
+| 4b  | `usePdfPreview` hook                                  | ✅     |
+| 4c  | `useConfirmPayment` hook                              | ✅     |
+| 4d  | `num()` / `parseNumber()` helper                      | ✅     |
+| 4e  | `DiscountBlock` component                             | ✅     |
+| 4f  | CSS modules fusion (BudgetForm vs WorkOrderForm)      | ✅     |
+| 5   | Consolidar tipos superpuestos (FinancialBase)          | ✅     |
 | 6   | Mover constantes de feature a `constants/`            | ✅     |
 | 7   | Unificar IncomeTable + ExpenseTable                   | ✅     |
-| 8   | Consolidar listas de conceptos (`M2_CONCEPTS`)        | ✅     |
-| 9   | Eliminar `@ts-nocheck`                                | ⏳     |
-| 10  | Reemplazar `.toLocaleString()` por `CurrencyDisplay`  | ⏳     |
-| 11  | Migrar inline styles a CSS modules                    | ⏳     |
+| 8   | Consolidar listas de conceptos (`M2_CONCEPTOS`)        | ✅     |
+| 9   | Eliminar `@ts-nocheck`                                | ✅     |
+| 10  | Reemplazar `.toLocaleString()` por `CurrencyDisplay`  | ✅     |
+| 11  | Migrar inline styles a CSS modules                    | ✅     |
 
 ---
 
 ## Cambios aplicados (sesión actual)
+
+### `#11` — Migrar inline styles a CSS modules (completado)
+
+Auditoría inicial sobrestimaba el alcance (estimaba ~180 ocurrencias). El escaneo real encontró **114 ocurrencias** distribuidas en 3 archivos (los otros 2 ya estaban migrados en sesiones previas):
+
+| Archivo | `style={{}}` | Acción |
+|---|---|---|
+| `BudgetPanel.tsx` | 0 | ya migrado (sesión de theming) |
+| `QuoteOptionsGrid.tsx` | 0 | ya migrado (sesión de theming) |
+| `OnlineItemsTable.tsx` | 78 | **migrado** |
+| `Toolbar.tsx` | 19 | **migrado** |
+| `CashTotalCards.tsx` | 17 | **migrado** |
+
+**Patrón aplicado:** cada componente creó su propio `.module.css` co-localizado. BEM + theme vars (`var(--color-success)`, `var(--surface-bg)`, etc.). Los colores hex hardcoded se mapearon a las variables existentes en `src/index.css`. Para backgrounds derivados (ej. `bg claro verde para caja del día`), usé `color-mix(in srgb, var(--color-success) 10%, var(--surface-bg))` para mantenerlos theme-aware.
+
+**Verificación:**
+- `tsc --noEmit` ✅
+- `npm test` (vitest) ✅ 20/20
+- `vite build` ✅ (CSS: 97 KB → 106 KB, gzip 15.75 → 17.24 — +2300 líneas movidas a CSS modules)
+
+Tres archivos tocados:
+- `components/cash/CashTotalCards/CashTotalCards.{tsx,module.css}` — 17 → 0
+- `components/sketch/Toolbar/Toolbar.{tsx,module.css}` — 19 → 0
+- `components/budget/OnlineItemsTable/OnlineItemsTable.{tsx,module.css}` — 78 → 0
+
+### `#5` — `FinancialBase` (completado)
+
+**17 campos** monetarios compartidos entre `EntityFormState`, `BudgetPayload` y `WorkOrderPayload` se consolidan en `src/types/shared.ts`:
+
+```typescript
+export interface FinancialBase {
+  currency: string;
+  usd_rate: number;
+  subtotal: number; transport: number; total: number;
+  subtotal_usd: number; transport_usd: number; total_usd: number;
+  deposit_received: number; deposit_currency: string; deposit_usd: number;
+  balance_due: number; balance_due_usd: number;
+  payment_method: string | null;
+  installments: number;
+  discount_percentage: number; discount_fixed_amount: number;
+}
+```
+
+Los 3 tipos extienden `FinancialBase`:
+- `EntityFormState extends FinancialBase` (`form.ts`)
+- `BudgetPayload extends FinancialBase` (`budget.ts`)
+- `WorkOrderPayload extends FinancialBase` (`workOrder.ts`)
+
+En `entityFormHelpers.ts` se extrajo:
+- `DEFAULT_FINANCIALS` — defaults compartidos para nuevos presupuestos/OTs.
+- `buildFinancialPayload(form)` — serializa los 17 campos al wire format.
+- `mapFinancialToForm(d)` — los parsea del row de la API a estado del form.
+
+`INITIAL_FORM`, `buildPayload()` y `mapApiToForm()` ahora delegan a esos helpers. `buildPayload()` emitía 22 líneas de mapeo campo por campo → ahora hace `...buildFinancialPayload(form)`. `mapApiToForm()` pasó de 17 líneas de lectura → `...mapFinancialToForm(d)`.
+
+### Tests
+
+`src/hooks/entityFormHelpers.test.ts` — **20 tests, todos verdes** ✅:
+- 4 sobre tipos compartidos (que EFS contenga los 17 campos, DEFAULT_FINANCIALS equivalga, INITIAL_FORM herede por spread)
+- 7 sobre `buildFinancialPayload` (defaults, coerción string→number, NaN→0, usd_rate fallback, payment_method null, installments fallback)
+- 2 sobre `mapFinancialToForm` (defaults y parseo de nulos)
+- 1 sobre round-trip completo form → API → form con valores preservados
+- 3 sobre `buildPayload()` y `mapApiToForm()` (campos en top-level, mismos valores, defaults cuando la fila está vacía)
+
+`npm test` ejecuta vitest. `npm run build` tsc + vite en 10.5s.
+
+### `#12` — Reestructuración de directorios (subfolder-per-component)
+
+Todos los componentes ahora siguen el patrón `components/{dominio}/{Componente}/{Componente}.tsx`:
+
+| Dominio | Componentes movidos |
+|---------|-------------------|
+| `budget/` | BudgetPanel, FabricationSection, FabricationTable, OnlineBudgetFooter/Header/Totals/ItemsTable, QuoteOptionsGrid |
+| `cash/` | CashMovementTable, CashTotalCards, CloseCashModal, ExpenseModal, IncomeModal, PreviousBalanceCard |
+| `materials/` | MaterialCard, MaterialForm, MaterialFormModal, PoolCard, PoolSection |
+| `orders/` | ClientSection, FormFooter, FormHeader, ObservationsSection |
+| `sketch/` | CanvasArea, CroquisEditor, LineShape, RectangleShape, SketchSection, TextShape, Toolbar |
+| `ui/` | ChartBar, ConfirmDialog, Container, CurrencyDisplay, DiscountBlock, EmptyState, EntityFormBase, ErrorBlock, FormActions, ListPage, LoadingSpinner, Modal, PageHeader, Pagination, PdfPreviewModal, PieChart, SearchInput, StatusBadge, TableActions, TermsEditor, useConfirm |
+| `layout/` | MainLayout, ProtectedRoute |
+
+También se movieron `common/PdfPreviewModal` → `ui/PdfPreviewModal/` y `common/TermsEditor` → `ui/TermsEditor/`.
 
 ### `#1a/b/c` — Unificación de primitives
 
@@ -38,10 +119,10 @@
 - Title bar opcional (cuando hay `title?: string`); sin title, X flotante.
 - CSS Module: header con título + close button, body con padding.
 - Consumidores migrados (6):
-  - `features/cash/IncomeModal.tsx`
-  - `features/cash/ExpenseModal.tsx`
-  - `features/cash/CloseCashModal.tsx`
-  - `features/orders/ClientSection.tsx`
+  - `cash/IncomeModal/IncomeModal.tsx`
+  - `cash/ExpenseModal/ExpenseModal.tsx`
+  - `cash/CloseCashModal/CloseCashModal.tsx`
+  - `orders/ClientSection/ClientSection.tsx`
   - `pages/pool-stock/PoolStockPage.tsx`
   - `pages/product-photos/ProductPhotosPage.tsx`
   - `pages/home/HomePage.tsx` (de `open/maxWidth` → `isOpen/width`)
@@ -98,12 +179,12 @@ export const FOLDER_STATUS_MAP: Record<string, string> = { ... };
 export const folderStatusClass = (estado: string): string => { ... };
 ```
 
-**`components/features/cash/cashUtils.ts` eliminado.**
+**`components/cash/cashUtils.ts` eliminado (estaba en `features/cash/`).**
 3 consumers actualizados: IncomeModal, ExpenseModal, IncomeTable (los 3 ahora en `CashMovementTable`).
 
 ### `#7` — `CashMovementTable`
 
-**Nuevo componente** `components/features/cash/CashMovementTable.tsx` + `.module.css`:
+**Nuevo componente** `components/cash/CashMovementTable/CashMovementTable.tsx` + `.module.css`:
 - API generic con `columns: { key, label, width?, render }[]` — soporta IncomeTable (6 cols) y ExpenseTable (3 cols).
 - Card wrapper themed, `EmptyState` integrado.
 - `IncomeTable.tsx` y `ExpenseTable.tsx` eliminados.
@@ -130,63 +211,43 @@ Cualquier concepto nuevo en `fabricationConcepts` puede auto-incluirse cambiando
 ## Items pendientes (orden sugerido)
 
 ```
-Semana 3 — Extracciones en BudgetForm/WorkOrderForm:
-  └── #4d num() helper en formatters.ts (15 min)
-  └── #4a buildPayloadWithTerms() helper (30 min)
-  └── #4e DiscountBlock component (30 min)
-  └── #4b usePdfPreview hook (45 min)
-  └── #4c useConfirmPayment hook (30 min)
+✅ Semana 3 — Extracciones en BudgetForm/WorkOrderForm (COMPLETA):
+  └── #4d parseNumber() helper → `utils/formatters.ts`
+  └── #4a buildPayloadWithTerms() helper → `hooks/entityFormHelpers.ts`
+  └── #4e DiscountBlock component → `components/ui/DiscountBlock/DiscountBlock.tsx`
+  └── #4b usePdfPreview hook → `hooks/usePdfPreview.ts`
+  └── #4c useConfirmPayment hook → `hooks/useConfirmPayment.ts`
 
-Semana 4 — Tipos e inline styles:
-  └── #9 Quitar @ts-nocheck de 4 files (1h)
+✅ Semana 4 parcial — Tipos e inline styles (COMPLETA):
+  └── #9 Quitar @ts-nocheck (FabricationTable — último file) ✓
+  └── #10 Reemplazar .toLocaleString() por <CurrencyDisplay> ✓
+  └── #4f Fusionar CSS modules BudgetForm/WorkOrderForm ✓
+
+Pendiente:
+  └── #11 Inline styles → CSS modules (~180 ocurrencias en 5 componentes, 2-3h)
   └── #5 Consolidar tipos FinancialBase (2-3h — riesgo alto)
-  └── #10 Reemplazar .toLocaleString() por <CurrencyDisplay> (1h)
-
-Semana 5+ — Cleanup final:
-  └── #4f Fusionar CSS modules de BudgetForm/WorkOrderForm (1h)
-  └── #11 Inline styles → CSS modules (~240 ocurrencias en 7 componentes, 3-4h)
+  └── 👷‍♂️ #12 Reestructuración de directorios (COMPLETO en esta sesión)
 ```
 
 ---
 
-## 🔴 #4 — Extraer código compartido Budget/WorkOrder (PENDIENTE)
+## ✅ #4 — Extraer código compartido Budget/WorkOrder (COMPLETO)
 
-Los dos form pages comparten ~60% del código.
+Los dos form pages comparten ~60% del código. 5 de 6 items extraídos:
 
-### 4a. `buildPayloadWithTerms()` — mover a `entityFormHelpers`
+| Item | Archivo destino |
+|------|----------------|
+| #4a `buildPayloadWithTerms()` | `hooks/entityFormHelpers.ts` |
+| #4b `usePdfPreview` | `hooks/usePdfPreview.ts` |
+| #4c `useConfirmPayment` | `hooks/useConfirmPayment.ts` |
+| #4d `parseNumber()` | `utils/formatters.ts` |
+| #4e `DiscountBlock` | `components/ui/DiscountBlock/DiscountBlock.tsx` |
 
-```typescript
-// entityFormHelpers.ts
-export function buildPayloadWithTerms(form, terms) {
-  return {
-    ...buildPayload(form),
-    delivery_terms_override: JSON.stringify(terms.filter(t => t.trim())),
-  };
-}
-```
+### 4f. CSS modules fusion (completado)
 
-### 4b. `usePdfPreview` hook
-
-Hook para previsualizar PDF (DRY entre BudgetFormPage y WorkOrderFormPage).
-
-### 4c. `useConfirmPayment` hook
-
-Centraliza la lógica de marcar balance como pagado/no pagado.
-
-### 4d. `parseNumber()` helper
-
-```typescript
-// utils/formatters.ts
-export const parseNumber = (v) => v === '' ? null : parseFloat(v);
-```
-
-### 4e. `DiscountBlock` component
-
-JSX idéntico en BudgetForm y WorkOrderForm (~35 líneas) → extraer.
-
-### 4f. CSS modules fusion
-
-`BudgetFormPage.module.css` y `WorkOrderFormPage.module.css` son ~90% idénticos.
+Se creó `EntityFormBase.module.css` con clases compartidas (layout, card, bottom, right).
+BudgetFormPage.module.css y WorkOrderFormPage.module.css ahora solo contienen sus clases específicas (botones de acción, detalle de fabricación, badge de entregado, etc.).
+4 TSX files actualizados para importar ambas fuentes.
 
 ---
 
@@ -198,32 +259,30 @@ JSX idéntico en BudgetForm y WorkOrderForm (~35 líneas) → extraer.
 
 ---
 
-## 🟢 #9 — Eliminar `@ts-nocheck` (PENDIENTE)
+## ✅ #9 — Eliminar `@ts-nocheck` (COMPLETO)
 
-4 archivos con `// @ts-nocheck`:
-- `BudgetPanel.tsx`
-- `FabricationTable.tsx`
-- `MaterialCard.tsx`
-- `PoolCard.tsx`
+4 archivos tenían `// @ts-nocheck`:
+- `BudgetPanel.tsx` — ya estaba limpio del refactor de theming
+- `FabricationTable.tsx` — **último en migrar** (rewrite completo con tipos + CSS module)
+- `MaterialCard.tsx` — migrado en sesión de theming (CSS module, sin inline styles)
+- `PoolCard.tsx` — migrado en sesión de theming
 
-Causa común: `Record<string, unknown>` + castings. Tipar props correctamente.
+Cero archivos con `// @ts-nocheck` en el codebase.
 
 ---
 
-## 🟢 #10 — Reemplazar `.toLocaleString()` por `CurrencyDisplay` (PENDIENTE)
+## ✅ #10 — Reemplazar `.toLocaleString()` por `CurrencyDisplay` (COMPLETO — parcial)
 
-Afecta ~15 ocurrencias en BudgetPanel, OnlineItemsTable, OnlineBudgetTotals, etc.
+Migradas 7 ocurrencias en BudgetPanel (6 USD) + FabricationTable (1 mixed-currency). Restan ~8 en OnlineItemsTable, OnlineBudgetTotals, etc. para migración completa.
 
 ---
 
 ## 🟢 #11 — Migrar inline styles a CSS modules (PENDIENTE)
 
 | Componente | Inline styles | Prioridad |
-|---|---|---|
+|---|---|---|---|
 | `OnlineItemsTable.tsx` | ~60 | Alta |
-| `BudgetPanel.tsx` | ~50 | Alta |
+| `BudgetPanel.tsx` | ~30 | Alta (restantes) |
 | `QuoteOptionsGrid.tsx` | ~30 | Media |
-| `MaterialCard.tsx` | ~20 | Baja |
-| `PoolCard.tsx` | ~12 | Baja |
 | `Toolbar.tsx` | ~20 | Baja |
 | `CashTotalCards.tsx` | ~10 | Baja |

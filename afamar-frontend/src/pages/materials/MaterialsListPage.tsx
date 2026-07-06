@@ -4,14 +4,14 @@ import { Plus, Search, Edit, Trash2, FolderTree, Image as ImageIcon } from 'luci
 import { getMaterials, deleteMaterial, getMaterialCategories, type MaterialCategory } from '@/api/resources/materials';
 import { useList, usePaginatedList, useDelete } from '../../api/hooks';
 import type { Material } from '../../types/material';
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { PageHeader } from '../../components/ui/PageHeader';
-import { SearchInput } from '../../components/ui/SearchInput';
-import { EmptyState } from '../../components/ui/EmptyState';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
+import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
+import { SearchInput } from '../../components/ui/SearchInput/SearchInput';
+import { EmptyState } from '../../components/ui/EmptyState/EmptyState';
 import { Pagination } from '../../components/ui/Pagination';
-import { Modal } from '../../components/ui/Modal';
-import { MaterialFormModal } from '../../components/features/materials/MaterialFormModal';
+import { Modal } from '../../components/ui/Modal/Modal';
+import { MaterialFormModal } from '../../components/materials/MaterialFormModal/MaterialFormModal';
 import styles from './MaterialsListPage.module.css';
 
 const s = styles as unknown as Record<string, string>;

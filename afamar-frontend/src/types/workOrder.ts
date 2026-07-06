@@ -2,6 +2,7 @@
 // Source of truth: afamar-backend/app/schemas/work_order.py (WorkOrderBase / WorkOrderCreate / WorkOrderUpdate).
 
 import type { FabricationDetail, MaterialInForm, PoolInForm } from './budget';
+import type { FinancialBase } from './shared';
 
 export interface ConvertOptionResponse {
   message: string;
@@ -9,7 +10,7 @@ export interface ConvertOptionResponse {
   number: string;
 }
 
-export interface WorkOrderPayload {
+export interface WorkOrderPayload extends FinancialBase {
   client_name: string | null;
   client_phone: string | null;
   client_email: string | null;
@@ -23,21 +24,6 @@ export interface WorkOrderPayload {
   finish: string | null;
   bacha: string | null;
   anafe: string | null;
-  currency: string;
-  usd_rate: number;
-  subtotal: number;
-  transport: number;
-  total: number;
-  subtotal_usd: number;
-  transport_usd: number;
-  total_usd: number;
-  deposit_received: number;
-  deposit_currency: string;
-  deposit_usd: number;
-  balance_due: number;
-  balance_due_usd: number;
-  payment_method: string | null;
-  installments: number;
   delivery_date: string | null;
   digital_signature: string | null;
   fabrication_details: string | null;
@@ -51,12 +37,47 @@ export interface WorkOrderPayload {
   design_observations: string | null;
   important_observations: string | null;
   notes: string | null;
-  discount_percentage: number;
-  discount_fixed_amount: number;
   snapshot_name: string | null;
   snapshot_phone: string | null;
   snapshot_email: string | null;
   snapshot_address: string | null;
   date: string | null;
   status?: string;
+}
+
+/**
+ * Trimmed shape returned by GET /work-orders (list). The backend now
+ * populates client_name/phone/email/address from the snapshot via
+ * WorkOrderResponse.from_orm_with_snapshot, so the frontend no longer needs
+ * to fall back to a Client cache.
+ */
+export interface WorkOrderListItem {
+  id: number;
+  number: string;
+  status: string;
+  origin?: string;
+  budget_id?: number | null;
+
+  // Client snapshot
+  client_name: string | null;
+  client_phone: string | null;
+  client_email: string | null;
+  client_address: string | null;
+  snapshot_name?: string | null;
+  snapshot_phone?: string | null;
+
+  // Material
+  material: string | null;
+
+  // Money (FinancialBase sub set)
+  currency: string;
+  total: number;
+  total_usd?: number;
+  deposit_received: number;
+  balance_due: number;
+
+  // Dates
+  delivery_date: string | null;
+  date?: string | null;
+  created_at?: string;
 }

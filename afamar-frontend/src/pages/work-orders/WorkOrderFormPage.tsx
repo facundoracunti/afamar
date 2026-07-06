@@ -10,19 +10,19 @@ import { getClients } from '@/api/resources/clients';
 import { formatCurrency } from '../../utils/formatters';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import useEntityForm from '../../hooks/useEntityForm';
-import BudgetPanel from '../../components/features/budget/BudgetPanel';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
-import PdfPreviewModal from '../../components/common/PdfPreviewModal';
-import TermsEditor from '../../components/common/TermsEditor';
-import FormHeader from '../../components/features/orders/FormHeader';
-import FormFooter from '../../components/features/orders/FormFooter';
+import BudgetPanel from '../../components/budget/BudgetPanel/BudgetPanel';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
+import PdfPreviewModal from '../../components/ui/PdfPreviewModal/PdfPreviewModal';
+import TermsEditor from '../../components/ui/TermsEditor/TermsEditor';
+import FormHeader from '../../components/orders/FormHeader/FormHeader';
+import FormFooter from '../../components/orders/FormFooter/FormFooter';
 import WorkOrderFormBasic from './WorkOrderFormBasic';
 import WorkOrderFormSpecs from './WorkOrderFormSpecs';
 import WorkOrderFormFinancial from './WorkOrderFormFinancial';
-import FabricationSection from '../../components/features/budget/FabricationSection';
+import FabricationSection from '../../components/budget/FabricationSection/FabricationSection';
 import BudgetFormAdicionales from '../budgets/BudgetFormAdicionales';
-import SketchSection from '../../components/features/sketch/SketchSection';
+import SketchSection from '../../components/sketch/SketchSection/SketchSection';
 import WorkOrderFormObservations from './WorkOrderFormObservations';
 import WorkOrderFormSnapshot from './WorkOrderFormSnapshot';
 import type { EntityFormState, EntityServices, MaterialInForm, PoolInForm } from '../../types';
@@ -87,12 +87,17 @@ export default function WorkOrderForm() {
   });
 
   // Wrap the legacy submit so the work-orders list cache is invalidated
-  // on every successful save (5min staleTime would otherwise keep the
-  // previous list visible after navigation).
+  // AND immediately refetched on every successful save. The bare
+  // `invalidateQueries({ queryKey: ['work-orders'] })` only marks the
+  // cache as stale — but the list query isn't mounted at submit time, so
+  // the refetch only happens after the user navigates back, which left
+  // the list showing the previous totals until they manually refreshed.
+  // `refetchType: 'all'` forces the refetch right here (the list page
+  // will pick up the fresh data when it mounts).
   const handleSubmit = async (e?: React.FormEvent) => {
     const ok = await legacyHandleSubmit(e);
     if (!ok) return; // error already notified via onError
-    queryClient.invalidateQueries({ queryKey: ['work-orders'] });
+    queryClient.invalidateQueries({ queryKey: ['work-orders'], refetchType: 'all' });
   };
 
   const encodeTerms = (items: string[]) => JSON.stringify(items.filter((t) => t.trim() !== ''));
@@ -125,7 +130,7 @@ export default function WorkOrderForm() {
     }
     await updateWorkOrder(id as string, payload);
     setForm((prev) => ({ ...prev, ...payload } as EntityFormState));
-    queryClient.invalidateQueries({ queryKey: ['work-orders'] });
+    queryClient.invalidateQueries({ queryKey: ['work-orders'], refetchType: 'all' });
   };
 
   const handlePreviewPdf = async () => {

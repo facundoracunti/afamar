@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { getReportsDashboard, getMonthlySales, getMostUsedMaterials } from '@/api/resources/reports';
 import { useGet, useList } from '../../api/hooks';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import styles from './ReportsPage.module.css';
 
 const s = styles as unknown as Record<string, string>;

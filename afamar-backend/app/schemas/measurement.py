@@ -16,6 +16,7 @@ class MeasurementBase(BaseModel):
     sketch_data: str | None = None
     photos_data: str | None = None
     status: str = "PENDING"
+    work_order_id: int | None = None
 
 
 class MeasurementCreate(MeasurementBase):
@@ -32,6 +33,7 @@ class MeasurementUpdate(BaseModel):
     sketch_data: str | None = None
     photos_data: str | None = None
     status: str | None = None
+    work_order_id: int | None = None
 
 
 class MeasurementResponse(MeasurementBase, BaseResponse):

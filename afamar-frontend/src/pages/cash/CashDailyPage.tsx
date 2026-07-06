@@ -4,14 +4,14 @@ import { getDailyCash, createCashMovement, deleteCashMovement, setPreviousBalanc
 import { useGet } from '../../api/hooks';
 import { formatCurrency } from '../../utils/formatters';
 import { folderStatusClass } from '../../constants';
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import PreviousBalanceCard from '../../components/features/cash/PreviousBalanceCard';
-import { CashMovementTable } from '../../components/features/cash/CashMovementTable';
-import CashTotalCards from '../../components/features/cash/CashTotalCards';
-import IncomeModal from '../../components/features/cash/IncomeModal';
-import ExpenseModal from '../../components/features/cash/ExpenseModal';
-import CloseCashModal from '../../components/features/cash/CloseCashModal';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
+import PreviousBalanceCard from '../../components/cash/PreviousBalanceCard/PreviousBalanceCard';
+import { CashMovementTable } from '../../components/cash/CashMovementTable/CashMovementTable';
+import CashTotalCards from '../../components/cash/CashTotalCards/CashTotalCards';
+import IncomeModal from '../../components/cash/IncomeModal/IncomeModal';
+import ExpenseModal from '../../components/cash/ExpenseModal/ExpenseModal';
+import CloseCashModal from '../../components/cash/CloseCashModal/CloseCashModal';
 import styles from './CashDailyPage.module.css';
 
 const s = styles as unknown as Record<string, string>;

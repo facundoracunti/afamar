@@ -1,6 +1,8 @@
 // Budget form schema types. Field names are in English snake_case to match the backend API exactly.
 // Source of truth: afamar-backend/app/schemas/budget.py (BudgetBase / BudgetCreate / BudgetUpdate).
 
+import type { FinancialBase } from './shared';
+
 export interface FabricationDetail {
   concept: string;
   detail: string;
@@ -63,7 +65,7 @@ export interface PoolInForm {
   quantity: number;
 }
 
-export interface BudgetPayload {
+export interface BudgetPayload extends FinancialBase {
   client_name: string | null;
   client_phone: string | null;
   client_email: string | null;
@@ -76,23 +78,8 @@ export interface BudgetPayload {
   finish: string | null;
   bacha: string | null;
   anafe: string | null;
-  currency: string;
-  usd_rate: number;
-  subtotal: number;
-  transport: number;
-  total: number;
-  subtotal_usd: number;
-  transport_usd: number;
-  total_usd: number;
-  deposit_received: number;
-  deposit_currency: string;
-  deposit_usd: number;
-  balance_due: number;
-  balance_due_usd: number;
   balance_paid: boolean;
   balance_paid_at: string | null;
-  payment_method: string | null;
-  installments: number;
   delivery_date: string | null;
   digital_signature: string | null;
   signed_at: string | null;
@@ -105,8 +92,6 @@ export interface BudgetPayload {
   pool_currency: string;
   pool_image: string | null;
   pools_data: string | null;
-  discount_percentage: number;
-  discount_fixed_amount: number;
   items?: unknown[];
   adicionales?: unknown[];
   sketch_elements?: unknown[];

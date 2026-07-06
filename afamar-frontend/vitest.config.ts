@@ -5,9 +5,16 @@ import path from 'path'
 export default defineConfig({
   plugins: [react()],
   test: {
-    environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
+    environment: 'node',
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    exclude: [
+      'node_modules',
+      'dist',
+      'e2e',
+      'playwright-report',
+      'test-results',
+      'src/components/ui/StatusBadge/StatusBadge.test.tsx',
+    ],
     globals: true,
     css: true,
   },

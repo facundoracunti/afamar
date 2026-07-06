@@ -1,5 +1,5 @@
 import React from 'react';
-import ObservationsSection from '../../components/features/orders/ObservationsSection';
+import ObservationsSection from '../../components/orders/ObservationsSection/ObservationsSection';
 import styles from './BudgetFormPage.module.css';
 
 const s = styles as unknown as Record<string, string>;

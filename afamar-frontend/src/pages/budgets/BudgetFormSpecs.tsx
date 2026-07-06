@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import MaterialCard from '../../components/features/materials/MaterialCard';
+import MaterialCard from '../../components/materials/MaterialCard/MaterialCard';
 import { useList } from '../../api/hooks';
 import { getMaterialCategories, type MaterialCategory } from '../../api/resources/materials';
 import type { EntityFormState } from '../../types';

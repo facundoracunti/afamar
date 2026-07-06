@@ -3,8 +3,8 @@ import { Save } from 'lucide-react';
 import http from '@/api/http';
 import { getSettings, updateSettings, uploadLogo } from '@/api/resources/settings';
 import { useNotify } from '../../context/NotificationContext';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import TermsEditor from '../../components/common/TermsEditor';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
+import TermsEditor from '../../components/ui/TermsEditor/TermsEditor';
 import styles from './ConfigurationPage.module.css';
 
 const s = styles as unknown as Record<string, string>;

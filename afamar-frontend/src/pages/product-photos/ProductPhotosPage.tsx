@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
 import { useList, useCreate, useUpdate, useDelete } from '@/api/hooks';
 import { getLatestProductPhotos, createProductPhoto, updateProductPhoto, deleteProductPhoto } from '@/api/resources/productPhotos';
-import { Modal } from '@/components/ui/Modal';
-import { useConfirm } from '@/components/ui/useConfirm';
+import { Modal } from '@/components/ui/Modal/Modal';
+import { useConfirm } from '@/components/ui/useConfirm/useConfirm';
 import { useNotify } from '@/context/NotificationContext';
 import type { ProductPhoto } from '@/types';
 import styles from './ProductPhotosPage.module.css';

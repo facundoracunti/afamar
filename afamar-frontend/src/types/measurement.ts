@@ -11,6 +11,7 @@ export interface Measurement {
   sketch_data?: string;
   photos_data?: string;
   notes?: string;
+  work_order_id?: number | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -25,4 +26,6 @@ export interface MeasurementFormData {
   croquis: unknown[];
   photos: string[];
   status: string;
+  /** Local-only UI state — maps to `work_order_id` on submit. */
+  workOrderId?: number | '';
 }

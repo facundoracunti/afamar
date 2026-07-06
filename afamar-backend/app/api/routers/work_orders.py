@@ -66,7 +66,11 @@ def list_work_orders(
         query = query.filter(service.repo.model.date <= date_to)
     query = query.order_by(service.repo.model.created_at.desc())
     page = paginate(db, query, skip, limit)
-    return success(page.items, page.pagination)
+    # Transform ORM rows through WorkOrderResponse so the response always
+    # carries client_name/phone/email/address populated from the snapshot
+    # (the model has no client_* columns; see WorkOrderResponse.from_orm_with_snapshot).
+    serialized = [WorkOrderResponse.from_orm_with_snapshot(o) for o in page.items]
+    return success([o.model_dump(mode="json") for o in serialized], page.pagination)
 
 
 @router.get("/next-number")
@@ -90,7 +94,7 @@ def get_work_order(order_id: int, db: Session = Depends(get_db)):
     order = service.get_by_id(order_id)
     if not order:
         raise NotFoundError("Work order")
-    return success(order)
+    return success(WorkOrderResponse.from_orm_with_snapshot(order).model_dump(mode="json"))
 
 
 @router.post("", status_code=201)
@@ -226,7 +230,12 @@ def preview_work_order_pdf(data: dict = Body(...), db: Session = Depends(get_db)
 
 
 def _prepare_work_order_payload(order, db: Session) -> tuple[dict, dict, dict, dict]:
-    order_data = WorkOrderResponse.model_validate(order).model_dump(mode="json")
+    # Use the snapshot-aware helper so client_name/phone/email/address are
+    # populated from the snapshot columns even when those fields aren't
+    # selected (the model has no client_* columns — see WorkOrderResponse
+    # docstring for the full story). This also keeps list/get/PDF output
+    # consistent — every endpoint returns the same shape now.
+    order_data = WorkOrderResponse.from_orm_with_snapshot(order).model_dump(mode="json")
     items = []
     if order.materials_data:
         try:
@@ -238,12 +247,25 @@ def _prepare_work_order_payload(order, db: Session) -> tuple[dict, dict, dict, d
         except (json.JSONDecodeError, TypeError):
             pass
     order_data["items"] = items
-    client = order.client
+    # Prefer the *snapshot* of the client that was captured at order-creation
+    # time. Falls back to the live Client row for legacy orders where the
+    # snapshot columns were never populated (this also avoids breaking PDFs
+    # for those rows).
+    snapshot_name = order.snapshot_name
+    snapshot_phone = order.snapshot_phone
+    snapshot_email = order.snapshot_email
+    snapshot_address = order.snapshot_address
+    if not snapshot_name and order.client:
+        client = order.client
+        snapshot_name = client.name or snapshot_name
+        snapshot_phone = client.phone or snapshot_phone
+        snapshot_email = client.email or snapshot_email
+        snapshot_address = client.address or snapshot_address
     client_dict = {
-        "name": client.name,
-        "phone": client.phone,
-        "email": client.email,
-        "address": client.address,
+        "name": snapshot_name or "",
+        "phone": snapshot_phone or "",
+        "email": snapshot_email or "",
+        "address": snapshot_address or "",
     }
     settings_data = _load_settings(db)
     # Per-work-order overrides win over the global config terms.

@@ -101,6 +101,77 @@
   flex-wrap: wrap;
 }
 
+/* Per-action columns: each button gets its own <td>. Buttons stay compact
+ * so a row never wraps; align = center so the row reads cleanly even when
+ * some cells are empty (button gated by status). */
+.budgets__actions-cell {
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+  padding: 8px 6px;
+}
+
+.budgets__action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.budgets__action-btn:hover {
+  background: var(--surface-alt-bg);
+}
+
+.budgets__action-btn--success {
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
+.budgets__action-btn--success:hover {
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+}
+
+.budgets__action-btn--danger {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.budgets__action-btn--danger:hover {
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+}
+
+.budgets__action-btn--info {
+  border-color: var(--color-info);
+  color: var(--color-info);
+}
+
+.budgets__action-btn--info:hover {
+  background: color-mix(in srgb, var(--color-info) 12%, transparent);
+}
+
+.budgets__action-btn--ghost {
+  /* Used for the "OT N-XXXXXX" linked chip when the budget is already
+   * CONVERTED_TO_OT. Renders as a button-like badge, not the original btn. */
+  border-style: dashed;
+  color: var(--color-success);
+  border-color: var(--color-success);
+}
+
+.budgets__action-pair {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
 .budgets__empty {
   padding: 48px;
   text-align: center;

@@ -1,6 +1,7 @@
 import type { EntityFormState, Pool } from '../types';
 import type { Material } from '../types/material';
 import type { MaterialInForm, PoolInForm } from '../types';
+import type { FinancialBase } from '../types/shared';
 import { fabricationConcepts } from '../utils/formatters';
 
 /**
@@ -17,6 +18,84 @@ export const CUTOUT_DETAILS: Record<string, string> = {
   CUTOUT_COOKTOP: 'Apertura de anafe',
   CUTOUT_DROPIN_SINK: 'Apertura pileta de apoyo',
 };
+
+/**
+ * Default values for the 17 FinancialBase fields used at the start of a new
+ * budget / work order. Spread into `INITIAL_FORM` so there's a single source
+ * of truth for both the form state defaults and the wire format.
+ */
+export const DEFAULT_FINANCIALS: FinancialBase = {
+  currency: 'ARS',
+  usd_rate: 1000,
+  subtotal: 0,
+  transport: 0,
+  total: 0,
+  subtotal_usd: 0,
+  transport_usd: 0,
+  total_usd: 0,
+  deposit_received: 0,
+  deposit_currency: 'ARS',
+  deposit_usd: 0,
+  balance_due: 0,
+  balance_due_usd: 0,
+  payment_method: '',
+  installments: 1,
+  discount_percentage: 0,
+  discount_fixed_amount: 0,
+};
+
+/**
+ * Serialize the FinancialBase portion of `EntityFormState` for the API.
+ * Coerces to `number` (drops NaN to 0) and falls back to safe defaults
+ * for empty strings (`currency`, `deposit_currency`).
+ */
+export function buildFinancialPayload(form: EntityFormState): FinancialBase {
+  return {
+    currency: form.currency || 'ARS',
+    usd_rate: Number(form.usd_rate) || 1000,
+    subtotal: Number(form.subtotal),
+    transport: Number(form.transport),
+    total: Number(form.total),
+    subtotal_usd: Number(form.subtotal_usd) || 0,
+    transport_usd: Number(form.transport_usd) || 0,
+    total_usd: Number(form.total_usd) || 0,
+    deposit_received: Number(form.deposit_received),
+    deposit_currency: form.deposit_currency || 'ARS',
+    deposit_usd: Number(form.deposit_usd) || 0,
+    balance_due: Number(form.balance_due),
+    balance_due_usd: Number(form.balance_due_usd) || 0,
+    payment_method: form.payment_method || null,
+    installments: Number(form.installments) || 1,
+    discount_percentage: Number(form.discount_percentage) || 0,
+    discount_fixed_amount: Number(form.discount_fixed_amount) || 0,
+  };
+}
+
+/**
+ * Reverse of `buildFinancialPayload`: parse FinancialBase fields out of an
+ * API response row, applying the same defaults used by `DEFAULT_FINANCIALS`.
+ */
+export function mapFinancialToForm(d: Record<string, unknown>): FinancialBase {
+  return {
+    currency: (d.currency as string) || 'ARS',
+    usd_rate: (d.usd_rate as number) ?? 1000,
+    subtotal: (d.subtotal as number) || 0,
+    transport: (d.transport as number) || 0,
+    total: (d.total as number) || 0,
+    subtotal_usd: (d.subtotal_usd as number) || 0,
+    transport_usd: (d.transport_usd as number) || 0,
+    total_usd: (d.total_usd as number) || 0,
+    deposit_received: (d.deposit_received as number) || 0,
+    deposit_currency: (d.deposit_currency as string) || 'ARS',
+    deposit_usd: (d.deposit_usd as number) || 0,
+    balance_due: (d.balance_due as number) || 0,
+    balance_due_usd: (d.balance_due_usd as number) || 0,
+    payment_method: (d.payment_method as string) || '',
+    installments: (d.installments as number) || 1,
+    discount_percentage: (d.discount_percentage as number) ?? 0,
+    discount_fixed_amount: (d.discount_fixed_amount as number) ?? 0,
+  };
+}
 
 
 // Form state uses snake_case English field names that match the backend API exactly.
@@ -46,26 +125,12 @@ export const INITIAL_FORM: EntityFormState = {
   pool_currency: 'ARS',
   pool_image: '',
 
-  // Money (BudgetBase / WorkOrderBase)
-  currency: 'ARS',
-  usd_rate: 1000,
-  subtotal: 0,
-  transport: 0,
-  total: 0,
-  subtotal_usd: 0,
-  transport_usd: 0,
-  total_usd: 0,
-  deposit_received: 0,
-  deposit_currency: 'ARS',
-  deposit_usd: 0,
-  balance_due: 0,
-  balance_due_usd: 0,
+  // Money (FinancialBase) — defaults shared with both BudgetPayload and
+  // WorkOrderPayload. See DEFAULT_FINANCIALS above.
+  ...DEFAULT_FINANCIALS,
+  // Extra balance-payment fields only present on the form (not in payloads).
   balance_paid: false,
   balance_paid_at: '',
-  payment_method: '',
-  installments: 1,
-  discount_percentage: 0,
-  discount_fixed_amount: 0,
 
   // Dates & signature
   delivery_date: '',
@@ -115,25 +180,9 @@ export function buildPayload(form: EntityFormState): Record<string, unknown> {
     pool_price: Number(form.pool_price) || 0,
     pool_currency: form.pool_currency || 'ARS',
     pool_image: form.pool_image,
-    currency: form.currency || 'ARS',
-    usd_rate: Number(form.usd_rate) || 1000,
-    subtotal: Number(form.subtotal),
-    transport: Number(form.transport),
-    total: Number(form.total),
-    subtotal_usd: Number(form.subtotal_usd) || 0,
-    transport_usd: Number(form.transport_usd) || 0,
-    total_usd: Number(form.total_usd) || 0,
-    deposit_received: Number(form.deposit_received),
-    deposit_currency: form.deposit_currency || 'ARS',
-    deposit_usd: Number(form.deposit_usd) || 0,
-    balance_due: Number(form.balance_due),
-    balance_due_usd: Number(form.balance_due_usd) || 0,
+    ...buildFinancialPayload(form),
     balance_paid: form.balance_paid || false,
     balance_paid_at: form.balance_paid_at || null,
-    payment_method: form.payment_method,
-    installments: form.installments || 1,
-    discount_percentage: Number(form.discount_percentage) || 0,
-    discount_fixed_amount: Number(form.discount_fixed_amount) || 0,
     delivery_date: form.delivery_date ? toIsoFromDate(form.delivery_date) : null,
     digital_signature: form.digital_signature,
     signed_at: form.signed_at ? toIsoFromDate(form.signed_at) : null,
@@ -297,6 +346,7 @@ function jsonParseList(raw: unknown): unknown[] {
 export function mapApiToForm(d: Record<string, unknown>, defaultStatus: string): EntityFormState {
   return {
     ...INITIAL_FORM,
+    ...mapFinancialToForm(d),
     client_name: (d.client_name as string) || '',
     client_phone: (d.client_phone as string) || '',
     client_address: (d.client_address as string) || '',
@@ -315,28 +365,11 @@ export function mapApiToForm(d: Record<string, unknown>, defaultStatus: string):
     pool_price: (d.pool_price as number) || 0,
     pool_currency: (d.pool_currency as string) || 'ARS',
     pool_image: (d.pool_image as string) || '',
-    currency: (d.currency as string) || 'ARS',
-    usd_rate: (d.usd_rate as number) ?? 1000,
-    subtotal: (d.subtotal as number) || 0,
-    transport: (d.transport as number) || 0,
-    total: (d.total as number) || 0,
-    subtotal_usd: (d.subtotal_usd as number) || 0,
-    transport_usd: (d.transport_usd as number) || 0,
-    total_usd: (d.total_usd as number) || 0,
-    deposit_received: (d.deposit_received as number) || 0,
-    deposit_currency: (d.deposit_currency as string) || 'ARS',
-    deposit_usd: (d.deposit_usd as number) || 0,
-    balance_due: (d.balance_due as number) || 0,
-    balance_due_usd: (d.balance_due_usd as number) || 0,
     balance_paid: (d.balance_paid as boolean) || false,
     balance_paid_at: sliceDateToInput(d.balance_paid_at) || '',
-    payment_method: (d.payment_method as string) || '',
-    installments: (d.installments as number) || 1,
-    discount_percentage: (d.discount_percentage as number) ?? 0,
-    discount_fixed_amount: (d.discount_fixed_amount as number) ?? 0,
     delivery_date: sliceDateToInput(d.delivery_date) || '',
     digital_signature: (d.digital_signature as string) || null,
-    signed_at: sliceDateToInput(d.signed_at) || sliceDateToInput(d.signed_at) || '',
+    signed_at: sliceDateToInput(d.signed_at) || '',
     notes: (d.notes as string) || '',
     design_observations: (d.design_observations as string) || '',
     important_observations: (d.important_observations as string) || '',

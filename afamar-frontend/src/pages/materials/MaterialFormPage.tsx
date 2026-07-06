@@ -1,6 +1,6 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
-import MaterialForm from '../../components/features/materials/MaterialForm';
+import MaterialForm from '../../components/materials/MaterialForm/MaterialForm';
 import styles from './MaterialFormPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
