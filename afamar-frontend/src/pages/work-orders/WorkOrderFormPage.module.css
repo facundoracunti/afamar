@@ -36,6 +36,15 @@
   align-items: center;
 }
 
+/* Generic section wrapper — gives every major card the same 16px top
+   spacing as `__layout` / `__bottom` / the inline `style={{ marginTop: 16 }}`
+   used on the terms/warranty cards. The first card (WorkOrderFormClient)
+   doesn't need it since the form starts right after the FormHeader; every
+   subsequent section (status, snapshot, etc.) wraps its card in this. */
+.work-order-form__card-section {
+  margin-top: 16px;
+}
+
 .work-order-form__header-toggle {
   font-size: 13px;
   display: flex;

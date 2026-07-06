@@ -218,15 +218,34 @@ Cualquier concepto nuevo en `fabricationConcepts` puede auto-incluirse cambiando
   └── #4b usePdfPreview hook → `hooks/usePdfPreview.ts`
   └── #4c useConfirmPayment hook → `hooks/useConfirmPayment.ts`
 
-✅ Semana 4 parcial — Tipos e inline styles (COMPLETA):
+✅ Semana 4 — Tipos e inline styles (COMPLETA):
   └── #9 Quitar @ts-nocheck (FabricationTable — último file) ✓
   └── #10 Reemplazar .toLocaleString() por <CurrencyDisplay> ✓
   └── #4f Fusionar CSS modules BudgetForm/WorkOrderForm ✓
 
-Pendiente:
-  └── #11 Inline styles → CSS modules (~180 ocurrencias en 5 componentes, 2-3h)
-  └── #5 Consolidar tipos FinancialBase (2-3h — riesgo alto)
-  └── 👷‍♂️ #12 Reestructuración de directorios (COMPLETO en esta sesión)
+✅ Reestructuración de directorios (#12 — subfolder-per-component):
+  └── Components/{domain}/{Componente}/{Componente}.tsx ✓
+  └── common/ unificado con ui/ ✓
+
+✅ Consolidación de tipos superpuestos (#5 — FinancialBase):
+  └── 17 campos monetarios compartidos extraídos a `types/shared.ts` ✓
+  └── EntityFormState + BudgetPayload + WorkOrderPayload extienden FinancialBase ✓
+
+✅ Migración inline styles → CSS modules (#11):
+  └── 114 ocurrencias en 3 archivos migradas ✓
+  └── BEM + theme vars (color-mix para backgrounds derivados) ✓
+
+Sesión actual (sesión de refactor masivo en development):
+  └── drop snapshot_* columns + FK-only pattern (backend + frontend)
+  └── PDF rendering movido al frontend con @react-pdf/renderer
+  └── ClientInfoCard componente (read-only) + adopción condicional en budget/WO forms
+  └── split WorkOrderFormBasic → WorkOrderFormClient + WorkOrderFormStatus
+  └── status options hardcodeadas → orderStatuses + t()
+  └── bank info en PDF cuando payment_method === 'TRANSFERENCIA BANCARIA'
+
+Pendiente (futuras sesiones):
+  └── #9 Reemplazar useEntityForm con composables más pequeños (PLAN.md original §1.2 #9)
+```
 ```
 
 ---

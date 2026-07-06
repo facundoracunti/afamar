@@ -2,9 +2,11 @@
 
 export interface Measurement {
   id: number;
-  client_name?: string;
-  client_phone?: string;
-  client_address?: string;
+  client_id?: number | null;
+  client_name?: string | null;
+  client_phone?: string | null;
+  client_email?: string | null;
+  client_address?: string | null;
   scheduled_date?: string;
   scheduled_time?: string;
   status?: string;
@@ -17,15 +19,12 @@ export interface Measurement {
 }
 
 export interface MeasurementFormData {
-  clientName: string;
-  clientPhone: string;
-  clientAddress: string;
+  clientId: number | null;
   scheduledDate: string;
   scheduledTime: string;
   observations: string;
   croquis: unknown[];
   photos: string[];
   status: string;
-  /** Local-only UI state — maps to `work_order_id` on submit. */
   workOrderId?: number | '';
 }

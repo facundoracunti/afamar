@@ -78,11 +78,6 @@ class WorkOrder(Base):
     # Optional per-work-order overrides for the PDF terms.
     delivery_terms_override: Mapped[str] = mapped_column(Text, nullable=True)
     warranty_override: Mapped[str] = mapped_column(Text, nullable=True)
-
-    snapshot_name: Mapped[str] = mapped_column(String(200), nullable=True)
-    snapshot_phone: Mapped[str] = mapped_column(String(50), nullable=True)
-    snapshot_email: Mapped[str] = mapped_column(String(200), nullable=True)
-    snapshot_address: Mapped[str] = mapped_column(Text, nullable=True)
     date: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
@@ -96,3 +91,4 @@ class WorkOrder(Base):
     client = relationship("Client", back_populates="work_orders")
     budget = relationship("Budget", back_populates="work_order")
     pool = relationship("PoolStock", foreign_keys=[pool_id])
+    measurement = relationship("Measurement", back_populates="work_order", uselist=False)

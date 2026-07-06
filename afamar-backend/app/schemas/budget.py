@@ -124,10 +124,6 @@ class BudgetBase(BaseModel):
     pool_image: str | None = None
     stock_deducted: bool = False
     pools_data: str | None = None
-    snapshot_name: str | None = None
-    snapshot_phone: str | None = None
-    snapshot_email: str | None = None
-    snapshot_address: str | None = None
 
 
 class BudgetCreate(BudgetBase):
@@ -193,10 +189,6 @@ class BudgetUpdate(BaseModel):
     pool_image: str | None = None
     stock_deducted: bool | None = None
     pools_data: str | None = None
-    snapshot_name: str | None = None
-    snapshot_phone: str | None = None
-    snapshot_email: str | None = None
-    snapshot_address: str | None = None
     items: list[BudgetItemCreate] | None = None
     adicionales: list[BudgetAdicionalCreate] | None = None
     sketch_elements: list[BudgetSketchElementCreate] | None = None
@@ -213,3 +205,18 @@ class BudgetResponse(BudgetBase, BaseResponse):
     sketch_elements: list[BudgetSketchElementResponse] = []
     work_order_id: int | None = None
     work_order_number: str | None = None
+
+    @classmethod
+    def from_orm_with_client(cls, budget) -> "BudgetResponse":
+        """Build a response from a Budget ORM row, populating client_*
+        fields from the related Client (JOIN). The Budget model has no
+        client_name column — only client_id — so without this helper the
+        response would have client_name=None."""
+        data = cls.model_validate(budget).model_dump()
+        client = getattr(budget, "client", None)
+        if client:
+            data["client_name"] = client.name or data.get("client_name") or ""
+            data["client_phone"] = client.phone or data.get("client_phone") or ""
+            data["client_email"] = client.email or data.get("client_email") or ""
+            data["client_address"] = client.address or data.get("client_address") or ""
+        return cls.model_validate(data)

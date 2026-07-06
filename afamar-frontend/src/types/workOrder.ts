@@ -36,35 +36,28 @@ export interface WorkOrderPayload extends FinancialBase {
   adicionales_data: string | null;
   design_observations: string | null;
   important_observations: string | null;
-  notes: string | null;
-  snapshot_name: string | null;
-  snapshot_phone: string | null;
-  snapshot_email: string | null;
-  snapshot_address: string | null;
-  date: string | null;
-  status?: string;
+    notes: string | null;
+    date: string | null;
+    status?: string;
 }
 
 /**
- * Trimmed shape returned by GET /work-orders (list). The backend now
- * populates client_name/phone/email/address from the snapshot via
- * WorkOrderResponse.from_orm_with_snapshot, so the frontend no longer needs
- * to fall back to a Client cache.
+ * Trimmed shape returned by GET /work-orders (list). The backend populates
+ * client_name/phone/email/address from the related Client row.
  */
 export interface WorkOrderListItem {
   id: number;
   number: string;
   status: string;
   origin?: string;
+  client_id?: number | null;
   budget_id?: number | null;
 
-  // Client snapshot
+  // Client
   client_name: string | null;
   client_phone: string | null;
   client_email: string | null;
   client_address: string | null;
-  snapshot_name?: string | null;
-  snapshot_phone?: string | null;
 
   // Material
   material: string | null;

@@ -3,11 +3,11 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Search, Trash2, FileDown, FileOutput, Eye, Send, Mail, Check, X } from 'lucide-react';
 import {
   getBudgetsUnified,
+  getBudget,
   deleteBudget,
   updateBudget,
   convertBudgetToWorkOrder,
   getBudgetPdf,
-  getBudgetPdfBlob,
   sendBudgetEmail,
   mapBudgetStatusToApi,
   mapUnifiedBudget,
@@ -21,6 +21,9 @@ import { usePaginatedList, useDelete } from '../../api/hooks';
 import type { AxiosResponse } from 'axios';
 import { formatDate } from '../../utils/formatters';
 import { t as translateStatus } from '../../utils/translate';
+import { useSettingsWithTerms } from '../../hooks/useSettingsWithTerms';
+import { buildPdfData } from '../../utils/pdf/buildPdfData';
+import type { PdfDocumentData } from '../../utils/pdf/buildPdfData';
 import CurrencyDisplay from '../../components/ui/CurrencyDisplay';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
@@ -28,6 +31,7 @@ import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
 import { EmptyState } from '../../components/ui/EmptyState/EmptyState';
 import { Pagination } from '../../components/ui/Pagination';
 import PdfPreviewModal from '../../components/ui/PdfPreviewModal/PdfPreviewModal';
+import CroquisImageExtractor from '../../components/ui/PdfPreviewModal/CroquisImageExtractor';
 import { useNotify } from '../../context/NotificationContext';
 import type { UnifiedBudget } from '../../types/budget';
 import styles from './BudgetsListPage.module.css';
@@ -62,15 +66,18 @@ export default function BudgetsList() {
   const [deleteId, setDeleteId] = useState<string | number | null>(null);
   const [deleteTipo, setDeleteTipo] = useState<string | null>(null);
   const [pendingConvert, setPendingConvert] = useState<PendingConvert | null>(null);
-  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [pdfData, setPdfData] = useState<PdfDocumentData | null>(null);
   const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
   const [pdfPreviewTitle, setPdfPreviewTitle] = useState<string>('Vista previa PDF');
+  const [sketchExtractorActive, setSketchExtractorActive] = useState(false);
+  const [pendingFormData, setPendingFormData] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
     setEstado(searchParams.get('status') || '');
   }, [searchParams]);
 
   const notify = useNotify();
+  const { company, globalTerms } = useSettingsWithTerms();
 
   const { items: data, loading, total, page, pageSize, setPage, refetch } = usePaginatedList<UnifiedBudget>(
     [...BUDGETS_KEY, search, estado],
@@ -187,23 +194,39 @@ export default function BudgetsList() {
   const handleOpenPdf = async (budget: UnifiedBudget) => {
     setPdfPreviewLoading(true);
     setPdfPreviewTitle(`Vista previa — ${budget.number || 'Presupuesto'}`);
-    setPdfPreviewUrl(null);
+    setPdfData(null);
     try {
-      const url = await getBudgetPdfBlob(budget.id);
-      setPdfPreviewUrl(url);
+      const res = await getBudget(budget.id);
+      const formData = (res as unknown as { data: Record<string, unknown> }).data;
+      setPendingFormData(formData);
+      setSketchExtractorActive(true);
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
         || (err as Error).message
-        || 'Error al generar PDF';
+        || 'Error al cargar el presupuesto';
       notify(detail, 'error');
-    } finally {
       setPdfPreviewLoading(false);
     }
   };
 
+  const handleSketchImagesReady = (images: string[]) => {
+    if (!pendingFormData) { setPdfPreviewLoading(false); return; }
+    const data = buildPdfData({
+      form: pendingFormData,
+      document_type: 'budget',
+      company,
+      globalTerms,
+      sketchImages: images,
+    });
+    setPdfData(data);
+    setPdfPreviewLoading(false);
+    setSketchExtractorActive(false);
+  };
+
   const handleClosePdfPreview = () => {
-    if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
-    setPdfPreviewUrl(null);
+    setPdfData(null);
+    setSketchExtractorActive(false);
+    setPendingFormData(null);
   };
 
   // Helpers ------------------------------------------------------------------
@@ -511,12 +534,20 @@ export default function BudgetsList() {
       />
 
       <PdfPreviewModal
-        isOpen={!!pdfPreviewUrl || pdfPreviewLoading}
+        isOpen={pdfData !== null || pdfPreviewLoading}
         onClose={handleClosePdfPreview}
-        pdfUrl={pdfPreviewUrl}
+        data={pdfData}
         loading={pdfPreviewLoading}
         title={pdfPreviewTitle}
+        fileName={`presupuesto_${pendingFormData?.number || ''}.pdf`}
       />
+
+      {sketchExtractorActive && pendingFormData && (
+        <CroquisImageExtractor
+          sketchElements={pendingFormData.sketch_elements}
+          onReady={handleSketchImagesReady}
+        />
+      )}
 
       <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} label="presupuestos" />
     </div>

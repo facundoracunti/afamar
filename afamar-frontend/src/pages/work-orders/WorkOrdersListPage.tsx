@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Search, Trash2, ChevronRight, ChevronLeft, FileDown, Eye, Send, Mail } from 'lucide-react';
-import { getWorkOrders, deleteWorkOrder, updateWorkOrder, getWorkOrderPdfBlob, mapWorkOrderStatusToApi } from '@/api/resources/workOrders';
+import { getWorkOrders, getWorkOrder, deleteWorkOrder, updateWorkOrder, mapWorkOrderStatusToApi } from '@/api/resources/workOrders';
 import { usePaginatedList, useDelete } from '../../api/hooks';
 import { formatDate, orderStatuses } from '../../utils/formatters';
+import { useSettingsWithTerms } from '../../hooks/useSettingsWithTerms';
+import { buildPdfData } from '../../utils/pdf/buildPdfData';
+import type { PdfDocumentData } from '../../utils/pdf/buildPdfData';
 import CurrencyDisplay from '../../components/ui/CurrencyDisplay';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
@@ -13,6 +16,7 @@ import { SearchInput } from '../../components/ui/SearchInput/SearchInput';
 import { EmptyState } from '../../components/ui/EmptyState/EmptyState';
 import { Pagination } from '../../components/ui/Pagination';
 import PdfPreviewModal from '../../components/ui/PdfPreviewModal/PdfPreviewModal';
+import CroquisImageExtractor from '../../components/ui/PdfPreviewModal/CroquisImageExtractor';
 import { useNotify } from '../../context/NotificationContext';
 import type { WorkOrderListItem } from '../../types/workOrder';
 import styles from './WorkOrdersListPage.module.css';
@@ -35,11 +39,14 @@ export default function WorkOrdersList() {
   const [search, setSearch] = useState<string>(searchParams.get('search') || '');
   const [estado, setEstado] = useState<string>(searchParams.get('status') || '');
   const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [pdfData, setPdfData] = useState<PdfDocumentData | null>(null);
   const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
   const [pdfPreviewTitle, setPdfPreviewTitle] = useState<string>('Vista previa PDF');
+  const [sketchExtractorActive, setSketchExtractorActive] = useState(false);
+  const [pendingFormData, setPendingFormData] = useState<Record<string, unknown> | null>(null);
 
   const notify = useNotify();
+  const { company, globalTerms } = useSettingsWithTerms();
 
   useEffect(() => {
     setSearch(searchParams.get('search') || '');
@@ -94,23 +101,39 @@ export default function WorkOrdersList() {
   const handleOpenPdf = async (o: WorkOrderListItem): Promise<void> => {
     setPdfPreviewLoading(true);
     setPdfPreviewTitle(`Vista previa — ${o.number || 'Orden de Trabajo'}`);
-    setPdfPreviewUrl(null);
+    setPdfData(null);
     try {
-      const url = await getWorkOrderPdfBlob(o.id);
-      setPdfPreviewUrl(url);
+      const res = await getWorkOrder(o.id);
+      const formData = (res as unknown as { data: Record<string, unknown> }).data;
+      setPendingFormData(formData);
+      setSketchExtractorActive(true);
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
         || (err as Error).message
-        || 'Error al generar PDF';
+        || 'Error al cargar la orden';
       notify(detail, 'error');
-    } finally {
       setPdfPreviewLoading(false);
     }
   };
 
+  const handleSketchImagesReady = (images: string[]): void => {
+    if (!pendingFormData) { setPdfPreviewLoading(false); return; }
+    const data = buildPdfData({
+      form: pendingFormData,
+      document_type: 'work_order',
+      company,
+      globalTerms,
+      sketchImages: images,
+    });
+    setPdfData(data);
+    setPdfPreviewLoading(false);
+    setSketchExtractorActive(false);
+  };
+
   const handleClosePdfPreview = (): void => {
-    if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
-    setPdfPreviewUrl(null);
+    setPdfData(null);
+    setSketchExtractorActive(false);
+    setPendingFormData(null);
   };
 
   const handleEnviarWhatsApp = (o: WorkOrderListItem): void => {
@@ -346,12 +369,20 @@ export default function WorkOrdersList() {
       />
 
       <PdfPreviewModal
-        isOpen={!!pdfPreviewUrl || pdfPreviewLoading}
+        isOpen={pdfData !== null || pdfPreviewLoading}
         onClose={handleClosePdfPreview}
-        pdfUrl={pdfPreviewUrl}
+        data={pdfData}
         loading={pdfPreviewLoading}
         title={pdfPreviewTitle}
+        fileName={`orden_${pendingFormData?.number || ''}.pdf`}
       />
+
+      {sketchExtractorActive && pendingFormData && (
+        <CroquisImageExtractor
+          sketchElements={pendingFormData.sketch_elements}
+          onReady={handleSketchImagesReady}
+        />
+      )}
 
       <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} label="ordenes" />
     </div>

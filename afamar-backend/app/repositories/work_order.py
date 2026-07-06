@@ -3,6 +3,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from app.models.work_order import WorkOrder
+from app.models.client import Client
 from app.repositories.base import BaseRepository
 
 
@@ -31,9 +32,10 @@ class WorkOrderRepository(BaseRepository):
         pattern = f"%{term}%"
         return (
             self.db.query(WorkOrder)
+            .outerjoin(Client)
             .filter(
                 WorkOrder.number.ilike(pattern)
-                | WorkOrder.snapshot_name.ilike(pattern)
+                | Client.name.ilike(pattern)
                 | WorkOrder.material.ilike(pattern)
             )
             .order_by(WorkOrder.id.desc())

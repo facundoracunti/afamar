@@ -140,7 +140,6 @@ class OnlineBudgetService:
             "pool_id": online_budget.pool_id,
             "pool_price": online_budget.pool_price or 0.0,
             "pool_currency": "ARS",
-            "snapshot_name": online_budget.client_name or "",
             "date": None,
         }
         wo_svc = WorkOrderService(self.repo.db)

@@ -30,53 +30,6 @@ interface UseFormReferencesReturn {
   addOrRefreshClientes: (newClient?: Client) => void;
 }
 
-/**
- * Resolve the client name/phone/email/address fields on an entity loaded
- * from the backend. Newer entities carry a frozen copy in `snapshot_*`;
- * rows created before snapshots were populated (legacy data) get the
- * current client row instead so the form still shows accurate data.
- *
- * Whichever source wins, the result is shaped so `mapApiToForm` can read
- * `client_name`/`client_phone`/`client_email`/`client_address` directly.
- */
-function resolveClientFields(
-  data: Record<string, unknown>,
-  clientes: Client[],
-): Record<string, unknown> {
-  const snapshotName = data.snapshot_name as string | null | undefined;
-  if (snapshotName) {
-    return {
-      ...data,
-      client_name: snapshotName,
-      client_phone: (data.snapshot_phone as string) || '',
-      client_email: (data.snapshot_email as string) || '',
-      client_address: (data.snapshot_address as string) || '',
-    };
-  }
-  const clientId = data.client_id as number | undefined;
-  if (clientId) {
-    const client = clientes.find((c) => c.id === clientId);
-    if (client) {
-      return {
-        ...data,
-        client_name: client.name || '',
-        client_phone: client.phone || '',
-        client_email: client.email || '',
-        client_address: client.address || '',
-      };
-    }
-  }
-  return data;
-}
-
-/**
- * Composable: loads the reference data (materials, pools, clients) plus
- * the company logo from /api/v1/settings, fetches the next entity number
- * for new entities, and pre-fills the form when editing.
- *
- * Replaces the "useEffect for references / logo / nextNumber / initial load"
- * block from legacy `useEntityForm`.
- */
 export function useFormReferences({
   services,
   defaultEstado,
@@ -119,8 +72,7 @@ export function useFormReferences({
 
     async function loadEverything() {
       try {
-        // Clients first so the resolver below can fall back to current data
-        // when an entity has no snapshot (legacy rows).
+        // Load reference data (clients, materials, pools, logo, next number).
         const clientsRes = await services.getClients({ limit: 500 });
         if (cancelled) return;
         const loadedClientes = (clientsRes.data as unknown as Client[]) || [];
@@ -170,8 +122,7 @@ export function useFormReferences({
           const res = await services.getById(id);
           if (cancelled) return;
           const d = res.data as Record<string, unknown>;
-          const resolved = resolveClientFields(d, loadedClientes);
-          setForm(mapApiToForm(resolved, defaultEstado));
+          setForm(mapApiToForm(d, defaultEstado));
           onLoaded?.(d);
           setLoading(false);
         }

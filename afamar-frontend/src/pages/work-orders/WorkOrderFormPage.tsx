@@ -3,21 +3,26 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Eye, Save } from 'lucide-react';
 import { useNotify } from '../../context/NotificationContext';
-import { getWorkOrder, createWorkOrder, updateWorkOrder, deleteWorkOrder, getNextWorkOrderNumber, getWorkOrderPdf, previewWorkOrderPdf } from '@/api/resources/workOrders';
+import { getWorkOrder, createWorkOrder, updateWorkOrder, deleteWorkOrder, getNextWorkOrderNumber, getWorkOrderPdf } from '@/api/resources/workOrders';
 import { getMaterials } from '@/api/resources/materials';
 import { getPoolStock } from '@/api/resources/poolStock';
 import { getClients } from '@/api/resources/clients';
 import { formatCurrency } from '../../utils/formatters';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import useEntityForm from '../../hooks/useEntityForm';
+import { useSettingsWithTerms } from '../../hooks/useSettingsWithTerms';
+import { buildPdfData } from '../../utils/pdf/buildPdfData';
+import type { PdfDocumentData } from '../../utils/pdf/buildPdfData';
 import BudgetPanel from '../../components/budget/BudgetPanel/BudgetPanel';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import PdfPreviewModal from '../../components/ui/PdfPreviewModal/PdfPreviewModal';
+import CroquisImageExtractor from '../../components/ui/PdfPreviewModal/CroquisImageExtractor';
 import TermsEditor from '../../components/ui/TermsEditor/TermsEditor';
 import FormHeader from '../../components/orders/FormHeader/FormHeader';
 import FormFooter from '../../components/orders/FormFooter/FormFooter';
-import WorkOrderFormBasic from './WorkOrderFormBasic';
+import WorkOrderFormClient from './WorkOrderFormClient';
+import WorkOrderFormStatus from './WorkOrderFormStatus';
 import WorkOrderFormSpecs from './WorkOrderFormSpecs';
 import WorkOrderFormFinancial from './WorkOrderFormFinancial';
 import FabricationSection from '../../components/budget/FabricationSection/FabricationSection';
@@ -50,10 +55,12 @@ export default function WorkOrderForm() {
   const notify = useNotify();
   const num = (v: string): number | null => v === '' ? null : parseFloat(v);
 
-  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [pdfData, setPdfData] = useState<PdfDocumentData | null>(null);
   const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
+  const [sketchExtractorActive, setSketchExtractorActive] = useState(false);
   const [deliveryTerms, setDeliveryTerms] = useState<string[]>([]);
   const [warrantyTerms, setWarrantyTerms] = useState<string[]>([]);
+  const { company, globalTerms } = useSettingsWithTerms();
 
   const {
     form, loading, saving, materiales, piletas, logoUrl, clientes, addOrRefreshClientes,
@@ -102,12 +109,6 @@ export default function WorkOrderForm() {
 
   const encodeTerms = (items: string[]) => JSON.stringify(items.filter((t) => t.trim() !== ''));
 
-  const buildPayloadWithTerms = (): Record<string, unknown> => ({
-    ...buildPayload(),
-    delivery_terms_override: encodeTerms(deliveryTerms),
-    warranty_override: encodeTerms(warrantyTerms),
-  });
-
   if (loading) return <LoadingSpinner />;
 
   const matsMain = hayAlternativas ? (form.materials_data as unknown as MaterialInForm[] || []).filter((m) => !m.is_alternative) : (form.materials_data as unknown as MaterialInForm[] || []);
@@ -133,38 +134,32 @@ export default function WorkOrderForm() {
     queryClient.invalidateQueries({ queryKey: ['work-orders'], refetchType: 'all' });
   };
 
-  const handlePreviewPdf = async () => {
+  const handlePreviewPdf = () => {
     setPdfPreviewLoading(true);
-    setPdfPreviewUrl(null);
-    try {
-      const payload = buildPayloadWithTerms();
-      const res = await previewWorkOrderPdf(payload);
-      const blob = res.data as Blob;
-      const url = URL.createObjectURL(blob);
-      setPdfPreviewUrl(url);
-    } catch (err) {
-      const responseData = (err as { response?: { data?: unknown; status?: number } }).response?.data;
-      const status = (err as { response?: { status?: number } }).response?.status;
-      let detail: string | undefined;
-      if (typeof responseData === 'string') {
-        detail = responseData;
-      } else if (responseData && typeof responseData === 'object' && 'detail' in responseData) {
-        detail = (responseData as { detail?: string }).detail;
-      } else if (responseData && typeof responseData === 'object' && 'error' in responseData) {
-        detail = (responseData as { error?: string }).error;
-      }
-      console.error('[preview-pdf] status:', status, 'data:', responseData, 'err:', err);
-      notify(detail ? `${detail} (status ${status})` : `Error al generar la vista previa del PDF (status ${status})`, 'error');
-    } finally {
-      setPdfPreviewLoading(false);
-    }
+    setPdfData(null);
+    setSketchExtractorActive(true);
+  };
+
+  const handleSketchImagesReady = (images: string[]) => {
+    const data = buildPdfData({
+      form: form as unknown as Record<string, unknown>,
+      document_type: 'work_order',
+      overrides: {
+        delivery_terms: deliveryTerms,
+        warranty_terms: warrantyTerms,
+      },
+      company,
+      globalTerms,
+      sketchImages: images,
+    });
+    setPdfData(data);
+    setPdfPreviewLoading(false);
+    setSketchExtractorActive(false);
   };
 
   const handleClosePdfPreview = () => {
-    if (pdfPreviewUrl) {
-      URL.revokeObjectURL(pdfPreviewUrl);
-      setPdfPreviewUrl(null);
-    }
+    setPdfData(null);
+    setSketchExtractorActive(false);
   };
 
   const alternativasGrid = hayAlternativas ? (
@@ -294,7 +289,7 @@ export default function WorkOrderForm() {
       </FormHeader>
 
       <form onSubmit={handleSubmit} onKeyDown={(e: React.KeyboardEvent<HTMLFormElement>) => { if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') e.preventDefault(); }}>
-        <WorkOrderFormBasic
+        <WorkOrderFormClient
           form={form}
           readOnly={readOnly}
           update={update as (field: string, value: unknown) => void}
@@ -302,7 +297,17 @@ export default function WorkOrderForm() {
           onClientCreated={addOrRefreshClientes}
         />
 
-        <WorkOrderFormSnapshot form={form} readOnly={readOnly} />
+        <div className={s['work-order-form__card-section']}>
+          <WorkOrderFormStatus
+            form={form}
+            readOnly={readOnly}
+            update={update as (field: string, value: unknown) => void}
+          />
+        </div>
+
+        <div className={s['work-order-form__card-section']}>
+          <WorkOrderFormSnapshot form={form} readOnly={readOnly} />
+        </div>
 
         <div className={`${s['work-order-form__layout']}${showCroquis ? '' : ' ' + s['work-order-form__layout--no-sketch']}`}>
           <div className={s['work-order-form__right']}>
@@ -410,12 +415,20 @@ export default function WorkOrderForm() {
       </form>
 
       <PdfPreviewModal
-        isOpen={pdfPreviewUrl !== null || pdfPreviewLoading}
+        isOpen={pdfData !== null || pdfPreviewLoading}
         onClose={handleClosePdfPreview}
-        pdfUrl={pdfPreviewUrl}
+        data={pdfData}
         loading={pdfPreviewLoading}
         title="Vista previa — Orden de Trabajo"
+        fileName={`orden_${form.number || 'nueva'}.pdf`}
       />
+
+      {sketchExtractorActive && (
+        <CroquisImageExtractor
+          sketchElements={form.sketch_elements}
+          onReady={handleSketchImagesReady}
+        />
+      )}
       <ConfirmDialog open={deleteConfirm} onCancel={() => setDeleteConfirm(false)} onConfirm={handleDelete} title="Eliminar orden" message="¿Estás seguro de eliminar esta orden de trabajo?" confirmLabel="Eliminar" danger />
     </div>
   );

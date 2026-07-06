@@ -84,17 +84,9 @@ class BudgetService:
                 data["client_id"] = client.id
             else:
                 raise ValueError("client_id or client_name is required")
-        # Freeze a snapshot of the client into the budget so the form/PDF/
-        # WhatsApp link can render the historical data even if the client is
-        # later renamed or deleted. Old rows have `snapshot_name IS NULL`
-        # and the frontend falls back to the loaded `clients` cache.
-        from app.models.client import Client
-        client = self.repo.db.query(Client).filter(Client.id == data["client_id"]).first()
-        if client:
-            data["snapshot_name"] = client.name
-            data["snapshot_phone"] = client.phone or ""
-            data["snapshot_email"] = client.email or ""
-            data["snapshot_address"] = client.address or ""
+        # client_* fields are not stored on the Budget row — they're only
+        # used to resolve client_id above. The response schema populates
+        # them from the related Client via from_orm_with_client.
         data.pop("client_name", None)
         data.pop("client_phone", None)
         data.pop("client_email", None)
@@ -259,10 +251,6 @@ class BudgetService:
             "budgeted_details": json.dumps(budgeted_details_list),
             "design_observations": budget.design_observations or "",
             "important_observations": budget.important_observations or "",
-            "snapshot_name": budget.snapshot_name,
-            "snapshot_phone": budget.snapshot_phone,
-            "snapshot_email": budget.snapshot_email,
-            "snapshot_address": budget.snapshot_address,
             "date": budget.date,
         }
 

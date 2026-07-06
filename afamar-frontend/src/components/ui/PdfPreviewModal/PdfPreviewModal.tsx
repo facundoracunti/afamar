@@ -1,14 +1,45 @@
+/**
+ * PDF preview modal — supports two rendering modes:
+ *
+ * 1. **react-pdf mode** (form pages): pass `data: PdfDocumentData` and the
+ *    modal renders the document with `<PDFViewer>` (interactive preview +
+ *    download button). Used by BudgetFormPage and WorkOrderFormPage where
+ *    the PDF is built entirely in the browser from live form state.
+ *
+ * 2. **blob URL mode** (list pages): pass `pdfUrl: string` (a Blob URL from
+ *    `getBudgetPdfBlob`/`getWorkOrderPdfBlob`) and the modal shows it in an
+ *    `<iframe>`. Used by BudgetsListPage and WorkOrdersListPage where the
+ *    PDF is fetched from the backend's saved entity.
+ *
+ * The two modes are mutually exclusive — whichever prop is provided wins.
+ */
 import React, { useEffect, useRef } from 'react';
+import { PDFViewer, PDFDownloadLink } from '@react-pdf/renderer';
+import { Download } from 'lucide-react';
+import DocumentPdf from './DocumentPdf';
+import type { PdfDocumentData } from '../../../utils/pdf/buildPdfData';
 
 interface PdfPreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
-  pdfUrl: string | null;
+  /** react-pdf mode: pre-built document data. */
+  data?: PdfDocumentData | null;
+  /** Blob URL mode: URL to a PDF served by the backend. */
+  pdfUrl?: string | null;
   loading: boolean;
   title?: string;
+  fileName?: string;
 }
 
-export default function PdfPreviewModal({ isOpen, onClose, pdfUrl, loading, title = 'Vista previa' }: PdfPreviewModalProps) {
+export default function PdfPreviewModal({
+  isOpen,
+  onClose,
+  data,
+  pdfUrl,
+  loading,
+  title = 'Vista previa',
+  fileName = 'documento.pdf',
+}: PdfPreviewModalProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
@@ -19,49 +50,106 @@ export default function PdfPreviewModal({ isOpen, onClose, pdfUrl, loading, titl
 
   if (!isOpen) return null;
 
+  const hasReactPdf = data != null;
+  const hasBlobUrl = pdfUrl != null;
+
   return (
     <div
       style={{
-        position: 'fixed', inset: 0, zIndex: 9999,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        position: 'fixed',
+        inset: 0,
+        zIndex: 9999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         background: 'rgba(0,0,0,0.5)',
       }}
       onClick={onClose}
     >
       <div
         style={{
-          width: '90vw', height: '90vh',
-          background: 'var(--surface-bg)', borderRadius: 8,
-          display: 'flex', flexDirection: 'column',
+          width: '90vw',
+          height: '90vh',
+          background: 'var(--surface-bg)',
+          borderRadius: 8,
+          display: 'flex',
+          flexDirection: 'column',
           overflow: 'hidden',
         }}
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
       >
-        <div style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          padding: '12px 20px', borderBottom: '1px solid var(--border-color)',
-        }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '12px 20px',
+            borderBottom: '1px solid var(--border-color)',
+            gap: 12,
+          }}
+        >
           <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>{title}</h2>
-          <button
-            className="btn btn-outline"
-            onClick={onClose}
-            style={{ padding: '6px 14px', fontSize: 14 }}
-          >
-            ✕ Cerrar
-          </button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {hasReactPdf && !loading && (
+              <PDFDownloadLink
+                document={<DocumentPdf data={data} />}
+                fileName={fileName}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '6px 14px',
+                  fontSize: 14,
+                  background: 'var(--color-primary, #1e40af)',
+                  color: '#fff',
+                  borderRadius: 6,
+                  textDecoration: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                {({ loading: dlLoading }) => (
+                  <>
+                    <Download size={16} /> {dlLoading ? 'Preparando...' : 'Descargar'}
+                  </>
+                )}
+              </PDFDownloadLink>
+            )}
+            <button
+              className="btn btn-outline"
+              onClick={onClose}
+              style={{ padding: '6px 14px', fontSize: 14 }}
+            >
+              ✕ Cerrar
+            </button>
+          </div>
         </div>
         <div style={{ flex: 1, position: 'relative', background: 'var(--surface-alt-bg)' }}>
           {loading && (
-            <div style={{
-              position: 'absolute', inset: 0, display: 'flex',
-              alignItems: 'center', justifyContent: 'center',
-              background: 'color-mix(in srgb, var(--surface-alt-bg) 80%, transparent)', zIndex: 1,
-              fontSize: 16, color: 'var(--text-muted)',
-            }}>
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'color-mix(in srgb, var(--surface-alt-bg) 80%, transparent)',
+                zIndex: 1,
+                fontSize: 16,
+                color: 'var(--text-muted)',
+              }}
+            >
               Generando PDF...
             </div>
           )}
-          {pdfUrl && (
+          {hasReactPdf && !loading && (
+            <PDFViewer
+              style={{ width: '100%', height: '100%', border: 'none' }}
+              showToolbar
+            >
+              <DocumentPdf data={data} />
+            </PDFViewer>
+          )}
+          {hasBlobUrl && !hasReactPdf && pdfUrl && (
             <iframe
               ref={iframeRef}
               src={pdfUrl}
@@ -69,12 +157,18 @@ export default function PdfPreviewModal({ isOpen, onClose, pdfUrl, loading, titl
               title="Vista previa PDF"
             />
           )}
-          {!loading && !pdfUrl && (
-            <div style={{
-              position: 'absolute', inset: 0, display: 'flex',
-              alignItems: 'center', justifyContent: 'center',
-              fontSize: 14, color: 'var(--text-muted)',
-            }}>
+          {!loading && !hasReactPdf && !hasBlobUrl && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 14,
+                color: 'var(--text-muted)',
+              }}
+            >
               No se pudo generar la vista previa
             </div>
           )}

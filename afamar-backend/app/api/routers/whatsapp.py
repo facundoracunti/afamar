@@ -28,11 +28,11 @@ def send_budget_whatsapp(budget_id: int, data: SendBudgetWhatsAppRequest, db: Se
     if not budget:
         raise NotFoundError("Budget")
 
-    phone = data.phone or (budget.snapshot_phone or "")
+    phone = data.phone or (budget.client.phone if budget.client else "")
     if not phone:
         return error("No se pudo determinar el número de teléfono", 400)
 
-    client_name = budget.snapshot_name or "cliente"
+    client_name = (budget.client.name if budget.client else "") or "cliente"
     msg = build_budget_message(budget.number, client_name, budget.total, budget.total_usd)
     result = send_whatsapp(phone, msg)
     return success(result)
@@ -45,11 +45,11 @@ def send_work_order_whatsapp(order_id: int, data: SendBudgetWhatsAppRequest, db:
     if not order:
         raise NotFoundError("Work order")
 
-    phone = data.phone or (order.snapshot_phone or "")
+    phone = data.phone or (order.client.phone if order.client else "")
     if not phone:
         return error("No se pudo determinar el número de teléfono", 400)
 
-    client_name = order.snapshot_name or "cliente"
+    client_name = (order.client.name if order.client else "") or "cliente"
     msg = build_work_order_message(order.number, client_name, order.status, order.total, order.total_usd)
     result = send_whatsapp(phone, msg)
     return success(result)

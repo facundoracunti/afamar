@@ -1,6 +1,6 @@
 # AGENTS.md
 
-> **Estado:** Rama `development` con commits sin pushear: work descrito debajo. Sesiones previas acumuladas en `refactor`: logo PNG upload, PDF preview backend, sidebar colapsable, configuration page refactor, **rename completo a inglés**, **client select dropdown + new client modal**, **stock deduction fixes**, **dead code cleanup**, **`default_usd_rate` setting**, **layout fixes**, **dark/light theme system**, **USD auto-fill from dolarapi.com**, **PdfPreviewModal theme fix**, **Modal/Loading/ConfirmDialog unificados**, **`ui/` primitives mejoradas + adoptadas en 10 pages**, **`IncomeTable`+`ExpenseTable` → `CashMovementTable`**, **`M2_CONCEPTS` derivado**, **`constants/index.ts` refactorizado**, **material photo backend + foto modal editar + lightbox**, **client typeahead (search-by-approx) sin refresh del form**, **client delete 409 conflict + notify error**, **`Presupuestos` column en `/admin/clients` + fix `Ordenes`/`Última orden` que mostraban `0`/`-`**, **`GET /clients/{id}` devuelve history aggregates + listas**, **card `Presupuestos asociados` en ClientFormPage**, **`ClientFormPage` layout 2×2 grid (form + historial / presupuestos + órdenes)**, **bug client no cargaba al editar budget/WO (snapshot backend + resolver fallback frontend)**, **`MaterialCard` theme-aware (CSS module, BEM, sin inline styles, vars de tema)**, **`PoolCard` theme-aware (mismo patrón)**, **fix CRUD presupuestos/órdenes (USD auto-fill, alternative→PENDING, REJECTED→PENDING, pagos, error notif, alternatIva→APPROVED, conversion ARS↔USD, paginator server-side)**, **decimales USD (max 2) en QuoteOptionsGrid**, **breakdown principals + traducción conceptos en `DETALLE DE FABRICACIÓN Y ACCESORIOS COMUNES`**, **croquis round-trip con geometría preservada (`flattenSketchElements` + `unflattenSketchElements`)**, **toast error/success/info opacos con texto blanco**, **`alert()` legacy reemplazado por `onError` callback → `useNotify`**, **doble notify fix (handleSubmit retorna `Promise<boolean>`)****, **extract shared code (Semana 3 PLAN.md)**: parseNumber(), uildPayloadWithTerms(), DiscountBlock, usePdfPreview, useConfirmPayment; **Semana 4**: @ts-nocheck eliminado de FabricationTable, CurrencyDisplay adoptado, **CSS modules fusion (BudgetForm+WorkOrderForm ? EntityFormBase)**; **fix mediciones client data (snake_case sync)**.
+> **Estado:** Rama `development` con commits sin pushear: work descrito debajo. Sesiones previas acumuladas en `refactor`: logo PNG upload, PDF preview backend, sidebar colapsable, configuration page refactor, **rename completo a inglés**, **client select dropdown + new client modal**, **stock deduction fixes**, **dead code cleanup**, **`default_usd_rate` setting**, **layout fixes**, **dark/light theme system**, **USD auto-fill from dolarapi.com**, **PdfPreviewModal theme fix**, **Modal/Loading/ConfirmDialog unificados**, **`ui/` primitives mejoradas + adoptadas en 10 pages**, **`IncomeTable`+`ExpenseTable` → `CashMovementTable`**, **`M2_CONCEPTS` derivado**, **`constants/index.ts` refactorizado**, **material photo backend + foto modal editar + lightbox**, **client typeahead (search-by-approx) sin refresh del form**, **client delete 409 conflict + notify error**, **`Presupuestos` column en `/admin/clients` + fix `Ordenes`/`Última orden` que mostraban `0`/`-`**, **`GET /clients/{id}` devuelve history aggregates + listas**, **card `Presupuestos asociados` en ClientFormPage**, **`ClientFormPage` layout 2×2 grid (form + historial / presupuestos + órdenes)**, **bug client no cargaba al editar budget/WO (snapshot backend + resolver fallback frontend)**, **`MaterialCard` theme-aware (CSS module, BEM, sin inline styles, vars de tema)**, **`PoolCard` theme-aware (mismo patrón)**, **fix CRUD presupuestos/órdenes (USD auto-fill, alternative→PENDING, REJECTED→PENDING, pagos, error notif, alternatIva→APPROVED, conversion ARS↔USD, paginator server-side)**, **decimales USD (max 2) en QuoteOptionsGrid**, **breakdown principals + traducción conceptos en `DETALLE DE FABRICACIÓN Y ACCESORIOS COMUNES`**, **croquis round-trip con geometría preservada (`flattenSketchElements` + `unflattenSketchElements`)**, **toast error/success/info opacos con texto blanco**, **`alert()` legacy reemplazado por `onError` callback → `useNotify`**, **doble notify fix (handleSubmit retorna `Promise<boolean>`)**, **extract shared code (Semana 3 PLAN.md)**: parseNumber(), uildPayloadWithTerms(), DiscountBlock, usePdfPreview, useConfirmPayment; **Semana 4**: @ts-nocheck eliminado de FabricationTable, CurrencyDisplay adoptado, **CSS modules fusion (BudgetForm+WorkOrderForm → EntityFormBase)**; **fix mediciones client data (snake_case sync)**; **sesión actual**: **drop snapshot_* columns + `client_id` FK en mediciones (FK-only pattern)**, **PDF rendering movido al frontend con `@react-pdf/renderer`** (DocumentPdf + buildPdfData + CroquisImageExtractor + useSettingsWithTerms), **`ClientInfoCard` componente** (read-only display, BEM CSS module), **`ClientInfoCard` adoptado en measurement form + conditional en budget/WO forms** (read-only si tiene cliente, typeahead si no), **split `WorkOrderFormBasic` → `WorkOrderFormClient` + `WorkOrderFormStatus`** (separación visual correcta + spacing consistente), **status hardcodeado → `orderStatuses` + `t()`** (single source of truth), **bank info en PDF cuando `payment_method === 'TRANSFERENCIA BANCARIA'`** (ALIAS + BANCO lines, constantes en `constants/index.ts`).
 > Ver `PLAN.md` para el roadmap completo de migración.
 
 ## Reglas de operación
@@ -993,7 +993,179 @@ f83f8b95 (origin/refactor)     "refactor: complete English naming + BEM foundati
 
 ## Commits locales sin pushear
 
-### Sesión actual: extract shared code (Semana 3 PLAN.md) + @ts-nocheck cleanup
+### Sesión actual: drop snapshot_* columns + FK-only pattern + PDF al frontend + ClientInfoCard + bank info
+
+#### A) Backend — drop `snapshot_*` columns + `client_id` FK en mediciones (FK-only pattern)
+
+**Migraciones Alembic (ambas sin aplicar, `alembic upgrade head` requerido):**
+- `f2f33071224f_drop_snapshot_columns.py` — borra `snapshot_name / snapshot_phone / snapshot_email / snapshot_address` de `budgets` y `work_orders`. Downgrade restaura las 8 columnas.
+- `20878d9185cb_add_client_id_to_measurements_drop_.py` (filename truncado, pendiente renombrar antes de commit) — agrega `client_id: int | None` con FK a `clients.id` (`ondelete='SET NULL'`) + index a `measurements`, y borra los legacy `client_name / client_phone / client_address` text columns. Downgrade restaura los 3 campos.
+
+**Modelos (`app/models/*.py`):**
+- `budget.py` y `work_order.py` — removidas las 4 columnas `snapshot_*`.
+- `measurement.py` — removidas 3 text columns; agregadas `client_id: int | None` (FK) + `client` / `work_order` relationships.
+- `client.py` — agregada `measurements = relationship("Measurement", back_populates="client")`.
+- `work_order.py` — agregada `measurement = relationship("Measurement", back_populates="work_order", uselist=False)`.
+
+**Schemas (`app/schemas/*.py`):**
+- `BudgetResponse` y `WorkOrderResponse` — removidos `snapshot_*` de Base/Update. `from_orm_with_snapshot` renombrado a `from_orm_with_client`, implementación reducida de ~80 líneas a 3 (`model_validate(orm).model_dump()` + overwrite `client_*` desde `orm.client`).
+- `MeasurementResponse` — removidos `client_name/phone/address` de Base/Update; agregados `client_id: int | None` a Base; **re-agregados** `client_name/phone/email/address` (optional) en Response, populados por `from_orm_with_client` JOIN. `email` es nuevo.
+
+**Services (`app/services/*.py`):**
+- `budget.py:create()` y `work_order.py:create()` — quitado el bloque que populaba `client.snapshot_*` (ya no hay columna). `_create_cash_movement_on_deposit` ahora lee `client.name` desde `budget.client` / `order.client` en vez de `snapshot_name`.
+- `online_budget.py` — quitado `"snapshot_name": online_budget.client_name or ""` del convert-to-WO payload.
+- `pdf.py` (reportlab legacy) — removidos fallbacks `or budget_data.get("snapshot_name", "")`; client fields vienen exclusivamente de `client_data` dict.
+
+**Routers (`app/api/routers/*.py`):**
+- `budgets.py` — **eliminado** `POST /budgets/preview-pdf` (~50 líneas, frontend ahora genera PDFs). `GET /budgets` search ahora hace `Client.name.ilike` (sin `snapshot_name`).
+- `work_orders.py` — **eliminado** `POST /work-orders/preview-pdf` (~50 líneas). `_prepare_work_order_payload` lee client data desde `order.client` (live).
+- `measurements.py` — `GET /measurements` ahora acepta `search` + `status` query params (nuevo). Serializa via `from_orm_with_client`.
+- `whatsapp.py` — `order.snapshot_phone` → `order.client.phone`, mismo para name.
+
+**Repositories (`app/repositories/*.py`):**
+- `budget.py` y `work_order.py` search methods — drop `snapshot_name.ilike(...)` clause, agregan `outerjoin(Client) + Client.name.ilike(...)`.
+
+#### B) Frontend — PDF rendering al frontend con `@react-pdf/renderer`
+
+**Dependencia nueva (`package.json`):**
+- `@react-pdf/renderer@^4.5.1` + transitivas (`@noble/ciphers`, `@noble/hashes`, `@react-pdf/fns`, etc.). ~25 nuevas entradas en `package-lock.json`.
+
+**Archivos nuevos (6):**
+- `src/utils/pdf/buildPdfData.ts` (440 líneas) — port TypeScript de los Python helpers `build_budget_pdf_data` / `build_work_order_pdf_data`. Exporta `buildPdfData({ form, document_type, overrides, company, globalTerms, sketchImages })` + types `PdfDocumentData`, `PdfDataRow`, `MaterialPdfRow`, `PoolPdfRow`, `CompanyInfo`, `TermsInfo`. Helpers: `fmtNum`, `fmtMoney`, `conceptToDisplay`, `parseJsonList`, `splitTerms`, `buildFabricationRows`, `buildMaterialRows`, `buildPoolRows`. Lookup tables: `CONCEPT_DISPLAY` (concept code → Spanish label), `STATUS_SUB_MAP`. Sets: `M2_CONCEPTS`, `UNIT_CONCEPTS`, `LINEAR_CONCEPTS`.
+- `src/components/ui/PdfPreviewModal/DocumentPdf.tsx` (481 líneas) — `<Document>` de `@react-pdf/renderer`. **Single source of truth** para budget + work-order PDFs. Mismo layout visual que el legacy `templates/document_pdf.html` (xhtml2pdf + Jinja2) pero con texto seleccionable y flow automático entre páginas.
+- `src/components/ui/PdfPreviewModal/CroquisImageExtractor.tsx` (169 líneas) — hidden off-screen Konva `<Stage>` que re-renderiza las páginas del croquis y emite PNGs base64 vía `stage.toDataURL()`. Normaliza 3 shapes distintas (editor pages, backend flat list, legacy). Llamado por los form pages y list pages antes de construir el PDF.
+- `src/hooks/useSettingsWithTerms.ts` (99 líneas) — bridge entre `GET /api/v1/settings` y el PDF renderer. Carga via TanStack Query (`['settings']` cache key), split en `CompanyInfo` (header/footer) + `TermsInfo` (terms como `string[]`). Retorna `{ company, globalTerms, loading, error, reload }`. Default fallback hardcodea `AFAMAR` + `MÁRMOLES & GRANITOS` + `company_logo: '/uploads/logo.png'`.
+
+**`PdfPreviewModal.tsx` refactor (158 líneas diff):**
+- Nuevo modo react-pdf: `data: PdfDocumentData` → renderiza `<PDFViewer>` (interactivo) + `<PDFDownloadLink>` en el header (nuevo).
+- Modo viejo `pdfUrl: string` (iframe) ahora es dead code en callers pero se mantiene la prop para backward compat.
+- JSDoc banner al top documenta ambos modos.
+- Header restructurado: title left, action group right (Download + Close buttons).
+- Loading overlay con `color-mix(in srgb, var(--surface-alt-bg) 80%, transparent)`.
+- New fallback state: "No se pudo generar la vista previa" cuando no hay `data` ni `pdfUrl`.
+
+**4 call sites migrados al flujo frontend-PDF:**
+- `BudgetFormPage` + `WorkOrderFormPage` (en submit / vista previa).
+- `BudgetsListPage` + `WorkOrdersListPage` (botón PDF por row).
+
+**`useFormReferences.ts` (−53 líneas):**
+- Removido `resolveClientFields(data, clientes)` helper completo. Backend ahora JOIN-ea `Client` y popula `client_*` en la response, así que el frontend pasa la API response directo a `mapApiToForm` sin fallback.
+
+**`types/measurement.ts`:**
+- `Measurement` interface: `clientName/Phone/Address` (camelCase text) → `client_id: number | null` + `client_email: string | null` (nuevo, no estaba en legacy). `client_name/phone/address` marcados como `| null`.
+- `MeasurementFormData`: `clientName/Phone/Address` → `clientId: number | null`.
+
+**`types/workOrder.ts`:**
+- `WorkOrderPayload` — removidos 4 `snapshot_*` fields + 2 docs comments. ⚠️ **Regresión de indentación líneas 39–41** (a corregir antes de commit).
+- `WorkOrderListItem` — removidos 2 `snapshot_*` fields, agregado `client_id: number | null`. Comment actualizado ("from the related Client row").
+
+**`api/resources/budgets.ts` y `workOrders.ts` (−2 líneas c/u):**
+- Removidos `previewBudgetPdf` y `previewWorkOrderPdf` (ya no existen los endpoints backend).
+- `getBudgetPdfBlob` y `getWorkOrderPdfBlob` ahora son **dead code** (a eliminar antes de commit).
+
+**`MeasurementFormPage.tsx` rewrite (−297 líneas):**
+- Form state: `{ clientName, clientPhone, clientAddress }` (text snapshot) → `{ clientId: number | null }` (FK).
+- Eliminado el `<ClientSection>` typeahead de esta página. Layout nuevo 2 columnas: WO + fields (left), `<ClientInfoCard client={selectedClient} />` (right, read-only).
+- Cliente ahora se selecciona **solo** via el WO dropdown (`handleWorkOrderChange` lee `wo.client_id`).
+- `useEffect` ahora depende de `[measurement]` (eslint-disabled) en vez de `[measurement, clientes]`.
+- Pre-select: `selectedClientId` se setea desde `measurement.client_id`.
+
+**`MeasurementFormPage.module.css` (42 líneas diff):**
+- Removido el bloque de documentación BEM al top.
+- Nueva layout 2 columnas: `.measurement-form__layout` (grid `1.4fr 1fr`, gap 16px) + `.measurement-form__left` / `.measurement-form__right` (column wrappers).
+- Quitado `max-width: 700px` de `.measurement-form__card`.
+- `@media (max-width: 800px)` colapsa a 1 columna en mobile.
+- Agregado final newline en EOF.
+
+**`ConfigurationPage.tsx` (−4 líneas):**
+- Removido `import http from '@/api/http'`. `logoSrc` simplificado: `logoPreview || companyLogo || null` (backend ahora devuelve URLs absolutas en `company_logo`).
+
+**`BudgetsListPage.tsx` + `WorkOrdersListPage.tsx` (53 líneas diff c/u):**
+- PDF preview flow: en vez de `getBudgetPdfBlob` (backend), ahora `getBudget(id)` + `buildPdfData({form, company, globalTerms, sketchImages})` + `<PdfPreviewModal data={data}>`. Single round-trip para PDFs.
+
+#### C) Frontend — `ClientInfoCard` componente (read-only client display)
+
+**Archivos nuevos (2):**
+- `src/components/orders/ClientInfoCard/ClientInfoCard.tsx` (39 líneas) — recibe `{ client: Client | undefined }`. Renderiza card con `<h3>Cliente</h3>` + nombre + phone (con `<Phone>` icon) + email (con `<Mail>`) + address (con `<MapPin>`). Empty state: "Seleccioná un cliente para ver sus datos."
+- `src/components/orders/ClientInfoCard/ClientInfoCard.module.css` (30 líneas) — BEM classes: `__title`, `__details`, `__name`, `__field`, `__empty`. Theme-aware (var(--text-primary), var(--text-secondary), var(--text-muted)). Sin inline styles.
+
+**Adoptado en 3 lugares:**
+1. **`MeasurementFormPage.tsx`** (right column del layout 2-col) — siempre read-only, el cliente viene del WO seleccionado.
+2. **`BudgetFormClient.tsx` (modificado)** — wrapper de `ClientSection` con lógica condicional:
+   - Si `form.client_name` matchea un client en `clientes` → renderiza `<ClientInfoCard>` dentro de `<div className="card">`.
+   - Si no matchea → renderiza el typeahead `<ClientSection>`.
+3. **`pages/work-orders/WorkOrderFormClient.tsx` (nuevo, reemplaza a `WorkOrderFormBasic`)** — misma lógica condicional que `BudgetFormClient`.
+
+#### D) Split `WorkOrderFormBasic` → `WorkOrderFormClient` + `WorkOrderFormStatus`
+
+**Problema:** las 2 cards (cliente + status) estaban pegadas sin separación, rompiendo el ritmo vertical consistente del resto del form.
+
+**Cambios:**
+- **Eliminado:** `pages/work-orders/WorkOrderFormBasic.tsx` y `.module.css`.
+- **Nuevo:** `pages/work-orders/WorkOrderFormClient.tsx` — solo el cliente (mismo patrón que `BudgetFormClient`).
+- **Nuevo:** `pages/work-orders/WorkOrderFormStatus.tsx` — la card "ESTADO Y PRIORIDAD" extraída.
+- **Nuevo:** `pages/work-orders/WorkOrderFormStatus.module.css` — `.work-order-form-status__grid` (BEM, sin inline styles).
+- **`WorkOrderFormPage.tsx`**: importa los dos nuevos, los wrappea con `<div className={s['work-order-form__card-section']}>` para dar `margin-top: 16px` consistente con `__layout` y `__bottom`.
+- **`WorkOrderFormPage.module.css`**: agregada `.work-order-form__card-section { margin-top: 16px }` con comment que aclara: "El primer card (WorkOrderFormClient) no la usa, las siguientes sí".
+
+#### E) Status options hardcodeadas → `orderStatuses` + `t()` (single source of truth)
+
+**Problema:** en `WorkOrderFormBasic` el `<select>` de estado tenía options hardcodeadas en español:
+```jsx
+<option value="MEDICION">Medición</option>
+<option value="TALLER">Taller</option>
+<option value="TERMINADA">Terminada</option>
+<option value="ENTREGADA">Entregada</option>
+<option value="CANCELADA">Cancelada</option>
+```
+Y peor, los **values** eran Spanish (legacy), no English como el resto del codebase (DB usa English: `MEASUREMENT`, `WORKSHOP`, `FINISHED`, `DELIVERED`, `CANCELLED`).
+
+**Fix en `WorkOrderFormStatus.tsx`:**
+```jsx
+import { orderStatuses } from '../../utils/formatters';
+import { t } from '../../utils/translate';
+// ...
+{orderStatuses.map((status) => (
+  <option key={status} value={status}>{t(status)}</option>
+))}
+```
+- Values: English (`MEASUREMENT`, etc.) — match con DB y backend.
+- Display: Spanish via `t()` de `utils/translate.ts`.
+- `t()` ya tenía los mappings correctos (PENDING→"Pendiente", MEASUREMENT→"Medición", etc.).
+
+#### F) Bank info en PDF cuando `payment_method === 'TRANSFERENCIA BANCARIA'`
+
+**Problema:** si el cliente paga por transferencia, el PDF no mostraba los datos bancarios (ALIAS/BANCO). El usuario tiene que adivinar o consultar.
+
+**Constantes (`src/constants/index.ts`):**
+- `PAYMENT_METHOD_TRANSFER = 'TRANSFERENCIA BANCARIA'` — string literal que el form guarda.
+- `BANK_INFO = { alias: 'afamar', banco: 'CREDICOOP', titular: 'afamar SRL' }` — single source of truth para datos bancarios.
+
+**Rendering (`DocumentPdf.tsx`):**
+- Después de la línea "Forma de pago: TRANSFERENCIA BANCARIA (X cuotas)", si `data.payment_method === PAYMENT_METHOD_TRANSFER`, renderiza 2 líneas indentadas:
+  ```
+  ALIAS: afamar
+  BANCO: CREDICOOP a nombre de afamar SRL
+  ```
+- Nuevo style `bankRow` (fontSize 8.5, marginLeft 8, color slate-700) — visualmente subordinado al paymentRow, no parece una sección nueva.
+- Funciona en ambos `document_type` (presupuesto y orden de trabajo).
+
+#### Verificación
+- `tsc --noEmit` 0 errores
+- `vite build` 11.05s, gzip 875.66 KB (PDF renderer agrega ~250KB)
+
+#### ⚠️ Riesgos / cosas a revisar antes de commit
+1. **Migraciones sin aplicar** — `alembic upgrade head` antes de levantar backend. Filename truncado: renombrar `20878d9185cb_add_client_id_to_measurements_drop_.py` (terminar la palabra).
+2. **`WorkOrderFormPage.tsx` imports sin usar** — `CurrencyDisplay`, `SketchSection`, `StatusBadge` (a limpiar).
+3. **`WorkOrderPayload` types/workOrder.ts** — regresión de indentación líneas 39–41.
+4. **`getBudgetPdfBlob` y `getWorkOrderPdfBlob`** — dead code en `api/resources/*.ts` (eliminar).
+5. **`pdfUrl` prop en `PdfPreviewModal`** — dead code en callers (considerar eliminar la prop, o dejarla para forward compat).
+6. **Filas existentes de mediciones** — la migración `20878d9185cb` dropea `client_name/phone/address` sin backfill. Si hay mediciones con esos campos poblados, se perderán. Verificar que no hay prod data o hacer backfill antes de aplicar.
+7. **PLAN.md items** — marcar nuevos como completados (#5 FinancialBase, #11 inline styles, #12 reorg, etc.).
+
+---
+
+### Sesión anterior: extract shared code (Semana 3 PLAN.md) + @ts-nocheck cleanup
 
 **Semana 3 completa — extracciones BudgetForm/WorkOrderForm:**
 
@@ -1090,4 +1262,4 @@ Antes de mergear a `main`:
 2. Probar crear material + caja diaria + cerrar caja
 3. Verificar que las imágenes y uploads siguen funcionando
 4. Confirmar que no hay referencias a `backend/` o `frontend/` en Docker configs
-5. **Verificar que `npm run build` pasa limpio** (✓ ya pasa — Vite genera ~362KB gzip)
+5. **Verificar que `npm run build` pasa limpio** (✓ ya pasa — Vite genera ~875KB gzip con @react-pdf/renderer; 367KB sin él)

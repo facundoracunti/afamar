@@ -5,40 +5,30 @@ import { Save, X, Plus } from 'lucide-react';
 import { getMeasurement, createMeasurement, updateMeasurement } from '@/api/resources/measurements';
 import { getClients } from '@/api/resources/clients';
 import { getWorkOrders } from '@/api/resources/workOrders';
-import { measurementStatuses } from '../../utils/formatters';
+import { measurementStatuses, formatDate } from '../../utils/formatters';
 import { t } from '../../utils/translate';
 import { useGet, useList } from '../../api/hooks';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
+import { StatusBadge } from '../../components/ui/StatusBadge';
+import CurrencyDisplay from '../../components/ui/CurrencyDisplay';
 import ClientSection from '../../components/orders/ClientSection/ClientSection';
+import SketchSection from '../../components/sketch/SketchSection/SketchSection';
+import ClientInfoCard from '../../components/orders/ClientInfoCard/ClientInfoCard';
 import type { Measurement, MeasurementFormData } from '../../types/measurement';
 import type { Client } from '../../types/client';
+import type { WorkOrderListItem } from '../../types/workOrder';
 import { useNotify } from '../../context/NotificationContext';
 import styles from './MeasurementFormPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
 
-interface WorkOrderOption {
-  id: number;
-  number: string;
-  client_id?: number | null;
-  client_name?: string;
-  status: string;
-}
-
 const WORK_ORDERS_LIMIT = 200;
 
-/**
- * Work-order fetch helper. Pulls the latest N work orders without any status
- * filter, so the dropdown always contains the OT associated with the current
- * medición (which may have advanced beyond `MEASUREMENT` since the row was
- * created). When a client is selected we narrow by `client_id` to keep the
- * list readable.
- */
-async function fetchWorkOrdersForClient(clientId?: number | null): Promise<WorkOrderOption[]> {
+async function fetchWorkOrdersForClient(clientId?: number | null): Promise<WorkOrderListItem[]> {
   const params: Record<string, unknown> = { limit: WORK_ORDERS_LIMIT };
   if (clientId) params.client_id = clientId;
   const res = await getWorkOrders(params);
-  return (res.data as WorkOrderOption[]) || [];
+  return (res.data as WorkOrderListItem[]) || [];
 }
 
 export default function MeasurementForm() {
@@ -51,9 +41,7 @@ export default function MeasurementForm() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [form, setForm] = useState<MeasurementFormData>({
-    clientName: '',
-    clientPhone: '',
-    clientAddress: '',
+    clientId: null,
     scheduledDate: '',
     scheduledTime: '',
     observations: '',
@@ -63,8 +51,6 @@ export default function MeasurementForm() {
     workOrderId: '',
   });
 
-  // Client currently selected in the typeahead. We resolve it from
-  // clientName so the WO dropdown narrows by client once the user picks one.
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
 
   const { data: measurement, loading } = useGet<Measurement>(
@@ -77,9 +63,6 @@ export default function MeasurementForm() {
     !!id
   );
 
-  // List of all clients, kept in local cache. New clients created from the
-  // typeahead modal are prepended without re-fetching (which would re-render
-  // the form shell and lose the typeahead focus).
   const [clientes, setClientes] = useState<Client[]>([]);
   useEffect(() => {
     let cancelled = false;
@@ -101,9 +84,8 @@ export default function MeasurementForm() {
     }
   }, []);
 
-  // Work orders — refresh when the selected client changes (or on first load).
   const [woKey, setWoKey] = useState(0);
-  const { items: workOrders, loading: loadingWorkOrders } = useList<WorkOrderOption>(
+  const { items: workOrders, loading: loadingWorkOrders } = useList<WorkOrderListItem>(
     ['work-orders', 'measurement-candidates', woKey, selectedClientId],
     () => fetchWorkOrdersForClient(selectedClientId)
   );
@@ -115,9 +97,7 @@ export default function MeasurementForm() {
     try { if (measurement.sketch_data) croquis = JSON.parse(measurement.sketch_data); } catch {}
     try { if (measurement.photos_data) photos = JSON.parse(measurement.photos_data); } catch {}
     setForm({
-      clientName: measurement.client_name || '',
-      clientPhone: measurement.client_phone || '',
-      clientAddress: measurement.client_address || '',
+      clientId: measurement.client_id ?? null,
       scheduledDate: measurement.scheduled_date ? measurement.scheduled_date.split('T')[0] : '',
       scheduledTime: measurement.scheduled_time || '',
       observations: measurement.notes || '',
@@ -126,14 +106,10 @@ export default function MeasurementForm() {
       status: measurement.status || 'PENDING',
       workOrderId: measurement.work_order_id ?? '',
     });
-    // If the snapshot matches an existing client in our cache, pre-select
-    // it so the WO dropdown narrows to that client.
-    const match = (measurement.client_name
-      && clientes.find((c) => c.name.toLowerCase() === measurement.client_name!.toLowerCase()))
-      || null;
-    setSelectedClientId(match?.id ?? null);
+    setSelectedClientId(measurement.client_id ?? null);
     setFotosPreview(photos);
-  }, [measurement, clientes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [measurement]);
 
   const notify = useNotify();
 
@@ -141,8 +117,6 @@ export default function MeasurementForm() {
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
   };
 
-  // Selecting a work-order auto-fills the client fields (when not yet set)
-  // so the medición starts with the right client + numbers.
   const handleWorkOrderChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const woId = Number(e.target.value);
     setForm((prev) => {
@@ -151,7 +125,7 @@ export default function MeasurementForm() {
       return {
         ...prev,
         workOrderId: woId,
-        clientName: prev.clientName || wo?.client_name || '',
+        clientId: prev.clientId ?? wo?.client_id ?? null,
       };
     });
   };
@@ -181,26 +155,16 @@ export default function MeasurementForm() {
     e.preventDefault();
     setSaving(true);
     try {
-      // Translate form → backend schema. `workOrderId` is UI-only state and
-      // maps to the persisted `work_order_id` FK on Measurement.
-      const { workOrderId, croquis, photos, ...rest } = form;
       const payload: Record<string, unknown> = {
-        ...rest,
-        work_order_id: workOrderId === '' || workOrderId === undefined ? null : Number(workOrderId),
-        scheduledDate: form.scheduledDate ? new Date(form.scheduledDate).toISOString() : null,
+        client_id: form.clientId,
+        work_order_id: form.workOrderId === '' || form.workOrderId === undefined ? null : Number(form.workOrderId),
+        scheduled_date: form.scheduledDate ? new Date(form.scheduledDate).toISOString() : null,
+        scheduled_time: form.scheduledTime || null,
+        notes: form.observations || null,
+        status: form.status,
+        photos_data: JSON.stringify(form.photos),
+        sketch_data: JSON.stringify(form.croquis),
       };
-      // Map field names that the backend uses in English snake_case.
-      payload.client_name = (payload as { clientName?: string }).clientName;
-      payload.client_phone = (payload as { clientPhone?: string }).clientPhone;
-      payload.client_address = (payload as { clientAddress?: string }).clientAddress;
-      payload.notes = (payload as { observations?: string }).observations;
-      payload.photos_data = JSON.stringify(photos);
-      payload.sketch_data = JSON.stringify(croquis);
-      delete payload.clientName;
-      delete payload.clientPhone;
-      delete payload.clientAddress;
-      delete payload.observations;
-      delete payload.scheduledDate;
 
       if (isEdit) {
         await updateMeasurement(id as string, payload);
@@ -223,6 +187,9 @@ export default function MeasurementForm() {
 
   if (loading || (isEdit && !measurement)) return <LoadingSpinner />;
 
+  const selectedWo = workOrders.find((w) => w.id === (form.workOrderId ? Number(form.workOrderId) : 0));
+  const selectedClient = clientes.find((c) => c.id === form.clientId);
+
   return (
     <div className={s['measurement-form']}>
       <div className={s['measurement-form__header']}>
@@ -230,140 +197,98 @@ export default function MeasurementForm() {
       </div>
 
       <form onSubmit={handleSubmit}>
-        <ClientSection
-          form={(() => {
-            // ClientSection expects EntityFormState field names (snake_case).
-            // Translate our camelCase form into that shape so the typeahead
-            // updates land on the right fields.
-            const { clientName, clientPhone, clientAddress, ...rest } = form;
-            return {
-              ...rest,
-              client_id: 0,
-              client_name: clientName,
-              client_phone: clientPhone,
-              client_email: '',
-              client_address: clientAddress,
-              date: '',
-            } as unknown as import('../../types/form').EntityFormState;
-          })()}
-          readOnly={false}
-          update={(field, value) => {
-            // Translate back: snake_case (EntityFormState) → camelCase (our form).
-            const map: Record<string, string> = {
-              client_name: 'clientName',
-              client_phone: 'clientPhone',
-              client_address: 'clientAddress',
-            };
-            const key = map[field as string] ?? (field as string);
-
-            // Resolve the client id from the typeahead selection so we can
-            // re-fetch WOs filtered by that client. The `clientId` we get
-            // back from ClientSection is the typeahead's selected id, but
-            // since we don't know which `field` corresponds to it, we also
-            // reconcile from the cached `clientes` list using the latest
-            // name/phone snapshot.
-            setForm((prev) => {
-              const next = { ...prev, [key]: value } as typeof prev;
-              const match = (next.clientName
-                && clientes.find((c) => c.name.toLowerCase() === next.clientName!.toLowerCase()))
-                || null;
-              const nextId = match?.id ?? null;
-              if (nextId !== selectedClientId) {
-                setSelectedClientId(nextId);
-                setWoKey((k) => k + 1);
-              }
-              return next;
-            });
-          }}
-          clientes={clientes}
-          onClientCreated={addOrRefreshClientes}
-        />
-
-        <div className={s['measurement-form__card']}>
-          <div className={s['measurement-form__row']}>
-            <div className={s['measurement-form__group']}>
-              <label className={s['measurement-form__label']}>Orden de Trabajo (Medición)</label>
-              <select
-                className="input"
-                value={form.workOrderId ?? ''}
-                onChange={handleWorkOrderChange}
-                disabled={loadingWorkOrders}
-              >
-                <option value="">— Ninguna —</option>
-                {workOrders.map((wo) => (
-                  <option key={wo.id} value={wo.id}>
-                    {wo.number}{wo.client_name ? ` — ${wo.client_name}` : ''} ({t(wo.status)})
-                  </option>
-                ))}
-              </select>
-              {selectedClientId && (
-                <small style={{ color: 'var(--text-muted)' }}>
-                  Filtrado por cliente seleccionado.
-                </small>
-              )}
-            </div>
-            <div className={s['measurement-form__group']}>
-              <label className={s['measurement-form__label']}>Estado</label>
-              <select className="input" value={form.status} onChange={handleChange('status')}>
-                {measurementStatuses.map((e: string) => <option key={e} value={e}>{t(e)}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div className={s['measurement-form__row']}>
-            <div className={s['measurement-form__group']}>
-              <label className={s['measurement-form__label']}>Fecha programada</label>
-              <input className="input" type="date" value={form.scheduledDate} onChange={handleChange('scheduledDate')} />
-            </div>
-            <div className={s['measurement-form__group']}>
-              <label className={s['measurement-form__label']}>Hora programada</label>
-              <input className="input" type="time" value={form.scheduledTime} onChange={handleChange('scheduledTime')} />
-            </div>
-          </div>
-
-          <div className={s['measurement-form__group']}>
-            <label className={s['measurement-form__label']}>Observaciones</label>
-            <textarea className="input" rows={3} value={form.observations} onChange={handleChange('observations')} />
-          </div>
-
-          <div className={s['measurement-form__group']}>
-            <label className={s['measurement-form__label']}>Fotos</label>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={handleFileSelect}
-              style={{ display: 'none' }}
-            />
-            <button type="button" className="btn btn-outline" onClick={() => fileInputRef.current?.click()}>
-              <Plus size={16} /> Agregar fotos
-            </button>
-            {fotosPreview.length > 0 && (
-              <div className={s['measurement-form__photos']}>
-                {fotosPreview.map((foto: string, idx: number) => (
-                  <div key={idx} className={s['measurement-form__photo']}>
-                    <img src={foto} alt={`Foto ${idx + 1}`} className={s['measurement-form__photo-img']} />
-                    <button
-                      type="button"
-                      className={s['measurement-form__photo-remove']}
-                      onClick={() => handleRemoveFoto(idx)}
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                ))}
+        <div className={s['measurement-form__layout']}>
+          {/* Left column: WO + measurement fields */}
+          <div className={s['measurement-form__left']}>
+            {/* Measurement fields card */}
+            <div className={s['measurement-form__card']}>
+              <div className={s['measurement-form__row']}>
+                <div className={s['measurement-form__group']}>
+                  <label className={s['measurement-form__label']}>Orden de Trabajo (Medición)</label>
+                  <select
+                    className="input"
+                    value={form.workOrderId ?? ''}
+                    onChange={handleWorkOrderChange}
+                    disabled={loadingWorkOrders}
+                  >
+                    <option value="">— Ninguna —</option>
+                    {workOrders.map((wo) => (
+                      <option key={wo.id} value={wo.id}>
+                        {wo.number}{wo.client_name ? ` — ${wo.client_name}` : ''} ({t(wo.status)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className={s['measurement-form__group']}>
+                  <label className={s['measurement-form__label']}>Estado</label>
+                  <select className="input" value={form.status} onChange={handleChange('status')}>
+                    {measurementStatuses.map((e: string) => <option key={e} value={e}>{t(e)}</option>)}
+                  </select>
+                </div>
               </div>
-            )}
+
+              <div className={s['measurement-form__row']}>
+                <div className={s['measurement-form__group']}>
+                  <label className={s['measurement-form__label']}>Fecha programada</label>
+                  <input className="input" type="date" value={form.scheduledDate} onChange={handleChange('scheduledDate')} />
+                </div>
+                <div className={s['measurement-form__group']}>
+                  <label className={s['measurement-form__label']}>Hora programada</label>
+                  <input className="input" type="time" value={form.scheduledTime} onChange={handleChange('scheduledTime')} />
+                </div>
+              </div>
+
+              <div className={s['measurement-form__group']}>
+                <label className={s['measurement-form__label']}>Observaciones</label>
+                <textarea className="input" rows={3} value={form.observations} onChange={handleChange('observations')} />
+              </div>
+
+              <div className={s['measurement-form__group']}>
+                <label className={s['measurement-form__label']}>Fotos</label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleFileSelect}
+                  style={{ display: 'none' }}
+                />
+                <button type="button" className="btn btn-outline" onClick={() => fileInputRef.current?.click()}>
+                  <Plus size={16} /> Agregar fotos
+                </button>
+                {fotosPreview.length > 0 && (
+                  <div className={s['measurement-form__photos']}>
+                    {fotosPreview.map((foto: string, idx: number) => (
+                      <div key={idx} className={s['measurement-form__photo']}>
+                        <img src={foto} alt={`Foto ${idx + 1}`} className={s['measurement-form__photo-img']} />
+                        <button
+                          type="button"
+                          className={s['measurement-form__photo-remove']}
+                          onClick={() => handleRemoveFoto(idx)}
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+                <button type="button" className="btn btn-outline" onClick={() => navigate('/admin/measurements')}>
+                  Cancelar
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={saving}>
+                  <Save size={16} /> {saving ? 'Guardando...' : (isEdit ? 'Actualizar' : 'Crear Medición')}
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
-            <button type="button" className="btn btn-outline" onClick={() => navigate('/admin/measurements')}>
-              Cancelar
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
-              <Save size={16} /> {saving ? 'Guardando...' : (isEdit ? 'Actualizar' : 'Crear Medición')}
-            </button>
+          {/* Right column: client card */}
+          <div className={s['measurement-form__right']}>
+            <div className={s['measurement-form__card']}>
+              <ClientInfoCard client={selectedClient} />
+            </div>
           </div>
         </div>
       </form>

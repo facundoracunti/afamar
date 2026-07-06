@@ -330,16 +330,9 @@ class WorkOrderService:
                 data["client_id"] = client.id
             else:
                 raise ValueError("client_id or client_name is required")
-        # Freeze a snapshot of the client so the order keeps the historical
-        # data even if the client is later renamed or deleted. The frontend
-        # also falls back to the loaded `clients` cache if `snapshot_*` is
-        # empty (legacy rows created before this fix).
-        client = self.repo.db.query(Client).filter(Client.id == data["client_id"]).first()
-        if client:
-            data["snapshot_name"] = client.name
-            data["snapshot_phone"] = client.phone or ""
-            data["snapshot_email"] = client.email or ""
-            data["snapshot_address"] = client.address or ""
+        # client_* fields are not stored on the WorkOrder row — they're only
+        # used to resolve client_id above. The response schema populates
+        # them from the related Client via from_orm_with_client.
         data.pop("client_name", None)
         data.pop("client_phone", None)
         data.pop("client_email", None)
@@ -489,10 +482,6 @@ class WorkOrderService:
             "pools_data": budget.pools_data,
             "design_observations": budget.design_observations or "",
             "important_observations": budget.important_observations or "",
-            "snapshot_name": budget.snapshot_name,
-            "snapshot_phone": budget.snapshot_phone,
-            "snapshot_email": budget.snapshot_email,
-            "snapshot_address": budget.snapshot_address,
             "date": budget.date,
         }
         budget.status = "CONVERTED_TO_OT"
@@ -504,9 +493,12 @@ class WorkOrderService:
         if budget.client_id:
             _update_client_total_purchased(self.repo.db, budget.client_id)
         if budget.deposit_received:
+            client_name = ""
+            if budget.client:
+                client_name = budget.client.name or ""
             _create_cash_movement_on_deposit(
                 self.repo.db, order.number,
-                order.snapshot_name or budget.snapshot_name or "",
+                client_name,
                 budget.deposit_received,
                 budget.deposit_currency,
                 budget.payment_method,
@@ -585,9 +577,12 @@ class WorkOrderService:
         new_deposit = data.get("deposit_received")
         if new_deposit and new_deposit > (order.deposit_received or 0):
             additional = new_deposit - (order.deposit_received or 0)
+            client_name = ""
+            if order.client:
+                client_name = order.client.name or ""
             _create_cash_movement_on_deposit(
                 self.repo.db, order.number,
-                order.snapshot_name or "",
+                client_name,
                 additional,
                 data.get("deposit_currency") or order.deposit_currency,
                 data.get("payment_method") or order.payment_method,

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Save } from 'lucide-react';
-import http from '@/api/http';
 import { getSettings, updateSettings, uploadLogo } from '@/api/resources/settings';
 import { useNotify } from '../../context/NotificationContext';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
@@ -155,8 +154,7 @@ export default function Configuration() {
   if (loading) return <LoadingSpinner />;
 
   const companyLogo = typeof config.company_logo === 'string' ? config.company_logo : '';
-  const logoSrc = logoPreview
-    || (companyLogo ? `${(http.defaults.baseURL || '').replace('/api/v1', '')}${companyLogo}` : null);
+  const logoSrc = logoPreview || companyLogo || null;
 
   const companyNameValue = typeof config.company_name === 'string' ? config.company_name : '';
   const canSave = !!(companyNameValue.trim()) && (configDirty || logoDirty);

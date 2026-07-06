@@ -175,10 +175,10 @@ def generate_budget_pdf(
     E.append(HRFlowable(width="100%", thickness=1, color=RED, spaceBefore=2, spaceAfter=10))
 
     # ── CLIENTE ──
-    client_name = client_data.get("name") or budget_data.get("snapshot_name", "")
-    client_phone = client_data.get("phone") or budget_data.get("snapshot_phone", "")
-    client_email = client_data.get("email") or budget_data.get("snapshot_email", "")
-    client_addr = client_data.get("address") or budget_data.get("snapshot_address", "")
+    client_name = client_data.get("name", "")
+    client_phone = client_data.get("phone", "")
+    client_email = client_data.get("email", "")
+    client_addr = client_data.get("address", "")
 
     E.append(Table([
         [
@@ -532,10 +532,10 @@ def generate_work_order_pdf(
     elements.append(Paragraph(f"<b>Estado:</b> {status_label}", normal))
     elements.append(Spacer(1, 0.2 * cm))
 
-    client_name = client_data.get("name") or order_data.get("snapshot_name", "")
-    client_phone = client_data.get("phone") or order_data.get("snapshot_phone", "")
-    client_email = client_data.get("email") or order_data.get("snapshot_email", "")
-    client_addr = client_data.get("address") or order_data.get("snapshot_address", "")
+    client_name = client_data.get("name", "")
+    client_phone = client_data.get("phone", "")
+    client_email = client_data.get("email", "")
+    client_addr = client_data.get("address", "")
 
     elements.append(Paragraph(f"<b>Cliente:</b> {client_name}", normal))
     if client_phone:

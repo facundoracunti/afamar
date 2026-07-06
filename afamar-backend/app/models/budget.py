@@ -92,11 +92,6 @@ class Budget(Base):
     stock_deducted: Mapped[bool] = mapped_column(Boolean, default=False)
     pools_data: Mapped[str] = mapped_column(Text, nullable=True)
 
-    snapshot_name: Mapped[str] = mapped_column(String(200), nullable=True)
-    snapshot_phone: Mapped[str] = mapped_column(String(50), nullable=True)
-    snapshot_email: Mapped[str] = mapped_column(String(200), nullable=True)
-    snapshot_address: Mapped[str] = mapped_column(Text, nullable=True)
-
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 

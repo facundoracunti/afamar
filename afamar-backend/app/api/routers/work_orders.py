@@ -1,4 +1,4 @@
-import json
+﻿import json
 import logging
 from datetime import date
 from typing import Optional
@@ -68,8 +68,8 @@ def list_work_orders(
     page = paginate(db, query, skip, limit)
     # Transform ORM rows through WorkOrderResponse so the response always
     # carries client_name/phone/email/address populated from the snapshot
-    # (the model has no client_* columns; see WorkOrderResponse.from_orm_with_snapshot).
-    serialized = [WorkOrderResponse.from_orm_with_snapshot(o) for o in page.items]
+    # (the model has no client_* columns; see WorkOrderResponse.from_orm_with_client).
+    serialized = [WorkOrderResponse.from_orm_with_client(o) for o in page.items]
     return success([o.model_dump(mode="json") for o in serialized], page.pagination)
 
 
@@ -94,7 +94,7 @@ def get_work_order(order_id: int, db: Session = Depends(get_db)):
     order = service.get_by_id(order_id)
     if not order:
         raise NotFoundError("Work order")
-    return success(WorkOrderResponse.from_orm_with_snapshot(order).model_dump(mode="json"))
+    return success(WorkOrderResponse.from_orm_with_client(order).model_dump(mode="json"))
 
 
 @router.post("", status_code=201)
@@ -138,7 +138,7 @@ def _build_company_and_terms(settings_data: dict, overrides: dict | None = None)
     """Build the `company` and `terms` dicts for the PDF.
 
     `overrides` is an optional dict with per-work-order keys (delivery_terms_override,
-    warranty_override) — when present and non-empty, they REPLACE the global
+    warranty_override) â€” when present and non-empty, they REPLACE the global
     values from settings_data at the same key.
     Empty JSON arrays (`"[]"`) from the frontend mean "no per-entity override",
     so the global config terms are kept.
@@ -176,66 +176,13 @@ def _build_client_dict_from_form(db: Session, data: dict) -> dict:
     return {"name": name, "phone": phone, "email": email_val, "address": address}
 
 
-@router.post("/preview-pdf")
-def preview_work_order_pdf(data: dict = Body(...), db: Session = Depends(get_db)):
-    """Generate a work order PDF preview without saving to database."""
-    import sys
-    import traceback
-    print("[preview-pdf] HIT", file=sys.stderr, flush=True)
-    try:
-        from app.services.work_order import WorkOrderService
-        from app.utils.numbering import generate_work_order_number
-
-        order_data = dict(data)
-        service = WorkOrderService(db)
-        last = service.repo.get_last_number()
-        order_data["number"] = generate_work_order_number(last)
-
-        client_dict = _build_client_dict_from_form(db, data)
-
-        settings_data = _load_settings(db)
-        overrides = {
-            "delivery_terms_override": data.get("delivery_terms_override"),
-            "warranty_override": data.get("warranty_override"),
-        }
-        company, terms = _build_company_and_terms(settings_data, overrides)
-
-        items = []
-        materials_raw = order_data.get("materials_data")
-        if materials_raw:
-            try:
-                parsed = json.loads(materials_raw) if isinstance(materials_raw, str) else materials_raw
-                items = parsed if isinstance(parsed, list) else parsed.get("items", []) if isinstance(parsed, dict) else []
-            except (json.JSONDecodeError, TypeError):
-                pass
-        order_data["items"] = items
-
-        pdf_data = build_work_order_pdf_data(order_data, client_dict, company, terms)
-        pdf_bytes = generate_work_order_pdf(pdf_data, logo_path=company.get("company_logo")).read()
-
-        return Response(
-            pdf_bytes,
-            media_type="application/pdf",
-            headers={"Content-Disposition": 'inline; filename="vista_previa_orden.pdf"'},
-        )
-    except Exception as exc:
-        tb = traceback.format_exc()
-        print(f"[preview-pdf] FAILED: {type(exc).__name__}: {exc}\n{tb}", file=sys.stderr, flush=True)
-        logger.error("preview_work_order_pdf failed: %s\n%s", exc, tb)
-        return Response(
-            f"Error generando PDF: {type(exc).__name__}: {exc}",
-            status_code=500,
-            media_type="text/plain",
-        )
-
-
 def _prepare_work_order_payload(order, db: Session) -> tuple[dict, dict, dict, dict]:
     # Use the snapshot-aware helper so client_name/phone/email/address are
     # populated from the snapshot columns even when those fields aren't
-    # selected (the model has no client_* columns — see WorkOrderResponse
+    # selected (the model has no client_* columns â€” see WorkOrderResponse
     # docstring for the full story). This also keeps list/get/PDF output
-    # consistent — every endpoint returns the same shape now.
-    order_data = WorkOrderResponse.from_orm_with_snapshot(order).model_dump(mode="json")
+    # consistent â€” every endpoint returns the same shape now.
+    order_data = WorkOrderResponse.from_orm_with_client(order).model_dump(mode="json")
     items = []
     if order.materials_data:
         try:
@@ -247,26 +194,13 @@ def _prepare_work_order_payload(order, db: Session) -> tuple[dict, dict, dict, d
         except (json.JSONDecodeError, TypeError):
             pass
     order_data["items"] = items
-    # Prefer the *snapshot* of the client that was captured at order-creation
-    # time. Falls back to the live Client row for legacy orders where the
-    # snapshot columns were never populated (this also avoids breaking PDFs
-    # for those rows).
-    snapshot_name = order.snapshot_name
-    snapshot_phone = order.snapshot_phone
-    snapshot_email = order.snapshot_email
-    snapshot_address = order.snapshot_address
-    if not snapshot_name and order.client:
-        client = order.client
-        snapshot_name = client.name or snapshot_name
-        snapshot_phone = client.phone or snapshot_phone
-        snapshot_email = client.email or snapshot_email
-        snapshot_address = client.address or snapshot_address
-    client_dict = {
-        "name": snapshot_name or "",
-        "phone": snapshot_phone or "",
-        "email": snapshot_email or "",
-        "address": snapshot_address or "",
-    }
+    # Populate client data from the related Client row (live data, not frozen snapshot).
+    client_dict = {"name": "", "phone": "", "email": "", "address": ""}
+    if order.client:
+        client_dict["name"] = order.client.name or ""
+        client_dict["phone"] = order.client.phone or ""
+        client_dict["email"] = order.client.email or ""
+        client_dict["address"] = order.client.address or ""
     settings_data = _load_settings(db)
     # Per-work-order overrides win over the global config terms.
     overrides = {
@@ -315,3 +249,4 @@ def delete_work_order(order_id: int, db: Session = Depends(get_db)):
     service = WorkOrderService(db)
     if not service.delete(order_id):
         raise NotFoundError("Work order")
+

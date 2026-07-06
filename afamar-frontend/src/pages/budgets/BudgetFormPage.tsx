@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Eye, Save, FileOutput, Check, Send } from 'lucide-react';
-import { getBudget, createBudget, updateBudget, deleteBudget, getNextBudgetNumber, getBudgetPdf, previewBudgetPdf, convertBudgetToWorkOrder, convertAlternativeToWorkOrder } from '@/api/resources/budgets';
+import { getBudget, createBudget, updateBudget, deleteBudget, getNextBudgetNumber, getBudgetPdf, convertBudgetToWorkOrder, convertAlternativeToWorkOrder } from '@/api/resources/budgets';
 import { getMaterials } from '@/api/resources/materials';
 import { getPoolStock } from '@/api/resources/poolStock';
 import { getClients } from '@/api/resources/clients';
@@ -10,10 +10,14 @@ import { formatCurrency, fabricationConcepts } from '../../utils/formatters';
 import { t as translateConcept } from '../../utils/translate';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import useEntityForm from '../../hooks/useEntityForm';
+import { useSettingsWithTerms } from '../../hooks/useSettingsWithTerms';
+import { buildPdfData } from '../../utils/pdf/buildPdfData';
+import type { PdfDocumentData } from '../../utils/pdf/buildPdfData';
 import BudgetPanel from '../../components/budget/BudgetPanel/BudgetPanel';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import PdfPreviewModal from '../../components/ui/PdfPreviewModal/PdfPreviewModal';
+import CroquisImageExtractor from '../../components/ui/PdfPreviewModal/CroquisImageExtractor';
 import TermsEditor from '../../components/ui/TermsEditor/TermsEditor';
 import { useNotify } from '../../context/NotificationContext';
 import { fetchUsdVenta } from '../../utils/dolarApi';
@@ -53,16 +57,16 @@ export default function BudgetForm() {
   const queryClient = useQueryClient();
 
   const [workOrderNumber, setWorkOrderNumber] = useState<string | null>(null);
-  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [pdfData, setPdfData] = useState<PdfDocumentData | null>(null);
   const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
+  const [sketchExtractorActive, setSketchExtractorActive] = useState(false);
   const [budgetTerms, setBudgetTerms] = useState<string[]>([]);
   const [warrantyTerms, setWarrantyTerms] = useState<string[]>([]);
   const [showConvertDialog, setShowConvertDialog] = useState(false);
   const [pendingAltIdx, setPendingAltIdx] = useState<number | null>(null);
   const notify = useNotify();
   const num = (v: string): number | null => v === '' ? null : parseFloat(v);
-
-  const encodeTerms = (items: string[]) => JSON.stringify(items.map((t) => t).filter((t) => t.trim() !== ''));
+  const { company, globalTerms } = useSettingsWithTerms();
 
   const {
     form, loading, saving, materiales, piletas, logoUrl, clientes, addOrRefreshClientes,
@@ -118,12 +122,6 @@ export default function BudgetForm() {
       notify('Presupuesto guardado correctamente', 'success');
     }
   };
-
-  const buildPayloadWithTerms = (): Record<string, unknown> => ({
-    ...buildPayload(),
-    budget_terms_override: encodeTerms(budgetTerms),
-    warranty_override: encodeTerms(warrantyTerms),
-  });
 
   const handleConvertirGuardar = async () => {
     setSaving(true);
@@ -241,35 +239,32 @@ export default function BudgetForm() {
     window.open(whatsappUrl, '_blank');
   };
 
-  const handlePreviewPdf = async () => {
+  const handlePreviewPdf = () => {
     setPdfPreviewLoading(true);
-    setPdfPreviewUrl(null);
-    try {
-      const payload = buildPayloadWithTerms();
-      const res = await previewBudgetPdf(payload);
-      const blob = res.data as Blob;
-      const url = URL.createObjectURL(blob);
-      setPdfPreviewUrl(url);
-    } catch (err) {
-      const responseData = (err as { response?: { data?: unknown } }).response?.data;
-      let detail: string | undefined;
-      if (typeof responseData === 'string') {
-        detail = responseData;
-      } else if (responseData && typeof responseData === 'object' && 'detail' in responseData) {
-        detail = (responseData as { detail?: string }).detail;
-      }
-      console.error('Error al generar la vista previa del PDF:', err);
-      notify(detail || 'Error al generar la vista previa del PDF', 'error');
-    } finally {
-      setPdfPreviewLoading(false);
-    }
+    setPdfData(null);
+    setSketchExtractorActive(true);
+  };
+
+  const handleSketchImagesReady = (images: string[]) => {
+    const data = buildPdfData({
+      form: form as unknown as Record<string, unknown>,
+      document_type: 'budget',
+      overrides: {
+        budget_terms: budgetTerms,
+        warranty_terms: warrantyTerms,
+      },
+      company,
+      globalTerms,
+      sketchImages: images,
+    });
+    setPdfData(data);
+    setPdfPreviewLoading(false);
+    setSketchExtractorActive(false);
   };
 
   const handleClosePdfPreview = () => {
-    if (pdfPreviewUrl) {
-      URL.revokeObjectURL(pdfPreviewUrl);
-      setPdfPreviewUrl(null);
-    }
+    setPdfData(null);
+    setSketchExtractorActive(false);
   };
 
   if (loading) return <LoadingSpinner />;
@@ -604,12 +599,20 @@ const buildOptionFromMaterial = (mat: MaterialInForm): import('../../components/
       />
 
       <PdfPreviewModal
-        isOpen={!!pdfPreviewUrl || pdfPreviewLoading}
+        isOpen={pdfData !== null || pdfPreviewLoading}
         onClose={handleClosePdfPreview}
-        pdfUrl={pdfPreviewUrl}
+        data={pdfData}
         loading={pdfPreviewLoading}
         title="Vista previa — Presupuesto"
+        fileName={`presupuesto_${form.number || 'nuevo'}.pdf`}
       />
+
+      {sketchExtractorActive && (
+        <CroquisImageExtractor
+          sketchElements={form.sketch_elements}
+          onReady={handleSketchImagesReady}
+        />
+      )}
     </div>
   );
 }

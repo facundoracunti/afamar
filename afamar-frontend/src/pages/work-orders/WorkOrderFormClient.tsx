@@ -4,7 +4,7 @@ import ClientInfoCard from '../../components/orders/ClientInfoCard/ClientInfoCar
 import type { EntityFormState } from '../../types';
 import type { Client } from '../../types/client';
 
-interface BudgetFormClientProps {
+interface WorkOrderFormClientProps {
   form: EntityFormState;
   readOnly: boolean;
   update: (field: string, value: unknown) => void;
@@ -12,13 +12,13 @@ interface BudgetFormClientProps {
   onClientCreated: (newClient: Client) => void;
 }
 
-export default function BudgetFormClient({
+export default function WorkOrderFormClient({
   form,
   readOnly,
   update,
   clientes,
   onClientCreated,
-}: BudgetFormClientProps) {
+}: WorkOrderFormClientProps) {
   // A client is considered assigned when `form.client_name` matches a row
   // in the local `clientes` list. In that case we render the read-only
   // ClientInfoCard (the form fields are sourced from the Client row, so
@@ -29,7 +29,7 @@ export default function BudgetFormClient({
 
   if (hasClient) {
     return (
-      <div className="card" style={{ marginTop: 16 }}>
+      <div className="card">
         <ClientInfoCard client={selectedClient} />
       </div>
     );

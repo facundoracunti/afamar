@@ -7,8 +7,6 @@ export const updateWorkOrder = (id: number | string, data: Record<string, unknow
 export const deleteWorkOrder = (id: number | string) => http.delete(`/work-orders/${id}`);
 export const getNextWorkOrderNumber = () => http.get('/work-orders/next-number');
 export const getWorkOrderPdf = (id: number | string) => `${http.defaults.baseURL}/work-orders/${id}/pdf`;
-export const previewWorkOrderPdf = (data: Record<string, unknown>) =>
-  http.post('/work-orders/preview-pdf', data, { responseType: 'blob' });
 
 /**
  * Fetch the saved work-order PDF with the bearer token and return a Blob URL

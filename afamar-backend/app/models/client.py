@@ -21,3 +21,4 @@ class Client(Base):
 
     budgets = relationship("Budget", back_populates="client")
     work_orders = relationship("WorkOrder", back_populates="client")
+    measurements = relationship("Measurement", back_populates="client")

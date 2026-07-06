@@ -4,6 +4,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.budget import Budget
+from app.models.client import Client
 from app.repositories.base import BaseRepository
 
 
@@ -67,9 +68,10 @@ class BudgetRepository(BaseRepository):
         pattern = f"%{term}%"
         return (
             _eager_query(self.db)
+            .outerjoin(Client)
             .filter(
                 Budget.number.ilike(pattern)
-                | Budget.snapshot_name.ilike(pattern)
+                | Client.name.ilike(pattern)
                 | Budget.material.ilike(pattern)
             )
             .order_by(Budget.id.desc())

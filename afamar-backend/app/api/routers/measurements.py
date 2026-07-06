@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.api.dependencies import get_current_user, get_db
 from app.core.exceptions import NotFoundError
 from app.utils.responses import created, success
-from app.schemas.measurement import MeasurementCreate, MeasurementUpdate
+from app.schemas.measurement import MeasurementCreate, MeasurementResponse, MeasurementUpdate
 from app.services.measurement import MeasurementService
 from app.utils.pagination import paginate
 
@@ -12,11 +12,12 @@ router = APIRouter(dependencies=[Depends(get_current_user)])
 
 
 @router.get("")
-def list_measurements(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+def list_measurements(skip: int = 0, limit: int = 100, search: str | None = None, status: str | None = None, db: Session = Depends(get_db)):
     service = MeasurementService(db)
     query = service.repo.db.query(service.repo.model).order_by(service.repo.model.scheduled_date.desc(), service.repo.model.id.desc())
     page = paginate(db, query, skip, limit)
-    return success(page.items, page.pagination)
+    serialized = [MeasurementResponse.from_orm_with_client(m) for m in page.items]
+    return success([s.model_dump(mode="json") for s in serialized], page.pagination)
 
 
 @router.get("/{measurement_id}")
@@ -25,7 +26,7 @@ def get_measurement(measurement_id: int, db: Session = Depends(get_db)):
     measurement = service.get_by_id(measurement_id)
     if not measurement:
         raise NotFoundError("Measurement")
-    return success(measurement)
+    return success(MeasurementResponse.from_orm_with_client(measurement).model_dump(mode="json"))
 
 
 @router.post("", status_code=201)

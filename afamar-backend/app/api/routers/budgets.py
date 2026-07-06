@@ -1,4 +1,4 @@
-import logging
+﻿import logging
 from datetime import date
 from typing import Optional
 
@@ -96,7 +96,6 @@ def list_unified_budgets(
             service.repo.model.number.ilike(f"%{q}%")
             | Client.name.ilike(f"%{q}%")
             | Client.phone.ilike(f"%{q}%")
-            | service.repo.model.snapshot_name.ilike(f"%{q}%")
             | service.repo.model.material.ilike(f"%{q}%")
         )
         onlines = [
@@ -116,8 +115,8 @@ def list_unified_budgets(
             "tipo": "local",
             "number": p.number,
             "date": str(p.date) if p.date else None,
-            "client_name": p.snapshot_name or (c.name if c else None),
-            "client_phone": p.snapshot_phone or (c.phone if c else None),
+            "client_name": c.name if c else None,
+            "client_phone": c.phone if c else None,
             "material": p.material,
             "total": p.total or 0,
             "total_usd": p.total_usd or 0,
@@ -167,14 +166,14 @@ def get_budget(budget_id: int, db: Session = Depends(get_db)):
     budget = service.get_by_id(budget_id)
     if not budget:
         raise NotFoundError("Budget")
-    return success(BudgetResponse.model_validate(budget).model_dump())
+    return success(BudgetResponse.from_orm_with_client(budget).model_dump())
 
 
 @router.post("", status_code=201)
 def create_budget(data: BudgetCreate, db: Session = Depends(get_db)):
     service = BudgetService(db)
     budget = service.create(data.model_dump())
-    return created(BudgetResponse.model_validate(budget).model_dump())
+    return created(BudgetResponse.from_orm_with_client(budget).model_dump())
 
 
 @router.put("/{budget_id}")
@@ -183,7 +182,7 @@ def update_budget(budget_id: int, data: BudgetUpdate, db: Session = Depends(get_
     budget = service.update(budget_id, data.model_dump(exclude_unset=True))
     if not budget:
         raise NotFoundError("Budget")
-    return success(BudgetResponse.model_validate(budget).model_dump())
+    return success(BudgetResponse.from_orm_with_client(budget).model_dump())
 
 
 @router.delete("/{budget_id}", status_code=204)
@@ -232,7 +231,7 @@ def _build_company_and_terms(settings_data: dict, overrides: dict | None = None)
     """Build the `company` and `terms` dicts for the PDF.
 
     `overrides` is an optional dict with per-budget keys (budget_terms_override,
-    warranty_override) — when present and non-empty, they REPLACE the global
+    warranty_override) â€” when present and non-empty, they REPLACE the global
     values from settings_data at the same key.
     Empty JSON arrays (`"[]"`) from the frontend mean "no per-entity override",
     so the global config terms are kept.
@@ -256,7 +255,7 @@ def _has_terms(value) -> bool:
 
 
 def _prepare_budget_payload(budget, db: Session) -> tuple[dict, dict, dict, dict]:
-    budget_data = BudgetResponse.model_validate(budget).model_dump(mode="json")
+    budget_data = BudgetResponse.from_orm_with_client(budget).model_dump(mode="json")
     client = budget.client
     client_dict = {
         "name": client.name,
@@ -282,55 +281,6 @@ def convert_alternative_to_work_order(budget_id: int, idx: int, db: Session = De
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return created(work_order)
-
-
-@router.post("/preview-pdf")
-def preview_budget_pdf(data: dict = Body(...), db: Session = Depends(get_db)):
-    """Generate a budget PDF preview without saving."""
-    import traceback
-    from app.models.budget import Budget
-    from app.utils.numbering import generate_budget_number
-
-    try:
-        last = db.query(Budget.number).order_by(Budget.id.desc()).first()
-        budget_data = dict(data)
-        budget_data["number"] = generate_budget_number(last[0] if last else None)
-
-        budget_data["items"] = budget_data.get("items") or budget_data.get("materials_data") or []
-        budget_data["adicionales"] = budget_data.get("adicionales") or budget_data.get("adicionales_data") or []
-
-        client_name = data.get("client_name") or ""
-        client_phone = data.get("client_phone") or ""
-        client_email = data.get("client_email") or ""
-        client_address = data.get("client_address") or ""
-        if (not client_name or not client_phone) and data.get("client_id"):
-            client = db.query(Client).filter(Client.id == int(data["client_id"])).first()
-            if client:
-                if not client_name: client_name = client.name
-                if not client_phone: client_phone = client.phone or ""
-                if not client_email: client_email = client.email or ""
-                if not client_address: client_address = client.address or ""
-        client_dict = {"name": client_name, "phone": client_phone, "email": client_email, "address": client_address}
-
-        settings_data = _load_settings(db)
-        overrides = {
-            "budget_terms_override": data.get("budget_terms_override"),
-            "warranty_override": data.get("warranty_override"),
-        }
-        company, terms = _build_company_and_terms(settings_data, overrides)
-
-        pdf_data = build_budget_pdf_data(budget_data, client_dict, company, terms)
-        pdf_bytes = generate_budget_pdf(pdf_data, logo_path=company.get("company_logo")).read()
-
-        return Response(pdf_bytes, media_type="application/pdf")
-    except Exception as exc:
-        tb = traceback.format_exc()
-        logger.error("preview_budget_pdf failed: %s\n%s", exc, tb)
-        return Response(
-            f"Error generando PDF: {type(exc).__name__}: {exc}",
-            status_code=500,
-            media_type="text/plain",
-        )
 
 
 @router.get("/{budget_id}/pdf")
@@ -364,3 +314,4 @@ def email_budget(budget_id: int, background_tasks: BackgroundTasks, db: Session 
 
     background_tasks.add_task(_email_budget_background, budget_id)
     return success({"message": "Enviando email en segundo plano"})
+
