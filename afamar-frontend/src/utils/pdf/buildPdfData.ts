@@ -416,6 +416,14 @@ export interface BuildPdfDataParams {
  *   the user picked several main materials).
  * - One section per alternative (label "ALTERNATIVA 1: <name>" etc.).
  *
+ * If every material is marked as an alternative (no main), we DO NOT
+ * create a phantom "PRINCIPAL" page and we DO NOT auto-promote any
+ * alternative to main. Alternatives stay as alternatives. The document
+ * becomes comparison-only — no section has `is_main: true` so no page
+ * renders the grand total / payment method / signatures. The user has to
+ * uncheck one of the "Alternativa" checkboxes in the form before
+ * generating a signing PDF.
+ *
  * Each section is self-contained: it includes the material/option-specific
  * rows (material/pools/fab linked to that option) AND the common "global"
  * extras (fabrication details with no `material` link, plus pools flagged
@@ -476,9 +484,17 @@ function buildSections(
   }
 
   // ---------- 1) Main section ----------
-  // Materials + main-specific fab + main-specific pools + COMMON extras
-  // (so the customer sees the full price of the principal option in a
-  // single block, with no separate "Extras" card at the end).
+  // The "main" section is the one the customer signs (gets the totals,
+  // payment method, and signatures). It exists only when at least one
+  // material is NOT marked as an alternative. If every material is marked
+  // as an alternative, we DON'T create a phantom "PRINCIPAL" page and
+  // we DON'T auto-promote any alternative — alternatives stay as
+  // alternatives. The customer will need to mark one as the principal
+  // (uncheck the "Alternativa" checkbox) before generating the PDF if
+  // they want a signing page; otherwise the PDF is a comparison-only
+  // document with no grand total / signatures.
+  const hasMain = mainMaterials.length > 0;
+
   const mainFabrication: PdfDataRow[] = [...fabricationCommon];
   for (const m of mainMaterials) {
     if (fabricationByMaterial[m.name]) {
@@ -500,24 +516,12 @@ function buildSections(
     mainPoolRows.reduce((s, r) => s + r.subtotal_usd, 0) +
     mainFabrication.reduce((s, r) => s + r.subtotal_usd, 0);
   const mainName = mainMaterials.length === 1 ? mainMaterials[0].name : '';
-  sections.push({
-    title: `PRINCIPAL${mainName ? `: ${mainName}` : ''}`,
-    is_main: true,
-    is_global: false,
-    material_name: mainName,
-    materials: mainMaterialRows,
-    pools: mainPoolRows,
-    fabrication_details: mainFabrication,
-    subtotal_ars: mainSubtotalArs,
-    subtotal_usd: mainSubtotalUsd,
-  });
-  flatMaterials.push(...mainMaterialRows);
-  flatPools.push(...mainPoolRows);
-  flatFabrication.push(...mainFabrication);
 
   // ---------- 2) One section per alternative ----------
   // Each alternative gets its own material + linked fab + linked pools +
   // the COMMON extras (so all options can be compared apples-to-apples).
+  // No auto-promotion — alternatives stay as alternatives with is_main=false.
+  const builtAlternatives: MaterialSection[] = [];
   alternatives.forEach((alt, idx) => {
     const altMaterialRows = buildMaterialRows([alt], usdRate);
     const altFabrication: PdfDataRow[] = [
@@ -536,7 +540,7 @@ function buildSections(
       altMaterialRows.reduce((s, r) => s + r.subtotal_usd, 0) +
       altPools.reduce((s, r) => s + r.subtotal_usd, 0) +
       altFabrication.reduce((s, r) => s + r.subtotal_usd, 0);
-    sections.push({
+    builtAlternatives.push({
       title: `ALTERNATIVA ${idx + 1}: ${alt.name}`,
       is_main: false,
       is_global: false,
@@ -548,10 +552,46 @@ function buildSections(
       subtotal_ars: altSubtotalArs,
       subtotal_usd: altSubtotalUsd,
     });
-    flatMaterials.push(...altMaterialRows);
-    flatPools.push(...altPools);
-    flatFabrication.push(...altFabrication);
   });
+
+  if (hasMain) {
+    // Normal case: there's a real principal material. Push it as a section
+    // and push the alternatives as-is.
+    sections.push({
+      title: `PRINCIPAL${mainName ? `: ${mainName}` : ''}`,
+      is_main: true,
+      is_global: false,
+      material_name: mainName,
+      materials: mainMaterialRows,
+      pools: mainPoolRows,
+      fabrication_details: mainFabrication,
+      subtotal_ars: mainSubtotalArs,
+      subtotal_usd: mainSubtotalUsd,
+    });
+    flatMaterials.push(...mainMaterialRows);
+    flatPools.push(...mainPoolRows);
+    flatFabrication.push(...mainFabrication);
+    sections.push(...builtAlternatives);
+    for (const a of builtAlternatives) {
+      flatMaterials.push(...a.materials);
+      flatPools.push(...a.pools);
+      flatFabrication.push(...a.fabrication_details);
+    }
+  } else {
+    // No main material: every material is marked as an alternative. We
+    // don't create a phantom "PRINCIPAL" page and we don't auto-promote
+    // any alternative. Just render the alternatives as-is. Without a
+    // main section, the document grand total falls back to 0 (only
+    // transport / discount / seña contribute) and no page gets the
+    // signatures / payment method — the customer has to uncheck one of
+    // the "Alternativa" checkboxes in the form to get a signing page.
+    sections.push(...builtAlternatives);
+    for (const a of builtAlternatives) {
+      flatMaterials.push(...a.materials);
+      flatPools.push(...a.pools);
+      flatFabrication.push(...a.fabrication_details);
+    }
+  }
 
   // `subtotalGlobal` is always 0 now — the common extras are folded into
   // every section's rows, so there's no separate "Extras / Global" block
