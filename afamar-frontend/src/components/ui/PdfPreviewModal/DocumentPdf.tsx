@@ -90,9 +90,17 @@ const styles = StyleSheet.create({
   optSectionSubtotalUsd: { fontSize: 8, color: BLUE_700, marginLeft: 6 },
   // ===== SECTION TITLE =====
   // ===== CROQUIS =====
+  // The sketch image is a 800×600px PNG extracted from the same fixed
+  // stage as the editor (see `components/sketch/constants.ts`). 4:3
+  // aspect ratio. The PDF renders it at SKETCH_PDF_WIDTH ×
+  // SKETCH_PDF_HEIGHT (preserving the aspect ratio) inside a light box.
+  // This size was picked so the sketch is large enough to read every
+  // detail in print (a 4:3 canvas maps to ~340×255pt which is
+  // roughly half a page wide) without pushing the other content off
+  // the page.
   sketchBox: { backgroundColor: SLATE_50, border: `1px solid ${SLATE_200}`, padding: 6, marginBottom: 8 },
   sketchTitle: { fontSize: 8, fontWeight: 'bold', color: SLATE_700, textTransform: 'uppercase', marginBottom: 2 },
-  sketchImg: { maxWidth: '100%', maxHeight: 180, objectFit: 'contain', marginVertical: 4 },
+  sketchImg: { width: 340, height: 255, objectFit: 'contain', marginVertical: 4 },
   // ===== SECTION TITLE =====
   sectionTitle: { fontSize: 10, fontWeight: 'bold', color: ACCENT, textTransform: 'uppercase', marginTop: 8, marginBottom: 4, paddingBottom: 2, borderBottom: `1px solid ${ACCENT}` },
   // ===== DATA TABLE =====
@@ -349,23 +357,27 @@ function OptionSectionBlock({ section }: { section: MaterialSection }) {
   if (!hasContent) return null;
 
   return (
-    <View style={{ ...styles.optSectionBlock, ...blockStyle }} wrap={false}>
+    // No `wrap={false}` here: when a section is too large to fit on the
+    // remaining space of the current page, the content needs to flow
+    // across pages (otherwise the first page renders empty with just the
+    // header/footer, and everything starts on page 2). The card chrome
+    // (border/background) will visually repeat at the start of the new
+    // page, which is acceptable for a long table.
+    <View style={{ ...styles.optSectionBlock, ...blockStyle }}>
       <Text style={titleStyle}>{section.title}</Text>
 
+      {matRows.length > 0 ? (
+        <DataTable headers={MAT_HEADERS} rows={matRows} flexes={MAT_FLEXES} />
+      ) : null}
+
       {fabRows.length > 0 ? (
-        <View wrap={false}>
+        <View style={{ marginTop: 4 }}>
           <DataTable headers={FAB_HEADERS} rows={fabRows} flexes={FAB_FLEXES} />
         </View>
       ) : null}
 
-      {matRows.length > 0 ? (
-        <View wrap={false} style={{ marginTop: 4 }}>
-          <DataTable headers={MAT_HEADERS} rows={matRows} flexes={MAT_FLEXES} />
-        </View>
-      ) : null}
-
       {poolRows.length > 0 ? (
-        <View wrap={false} style={{ marginTop: 4 }}>
+        <View style={{ marginTop: 4 }}>
           <DataTable headers={POOL_HEADERS} rows={poolRows} flexes={POOL_FLEXES} />
         </View>
       ) : null}
@@ -630,20 +642,20 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
               ))}
             </View>
           ) : null}
-          {data.fabrication_details.length > 0 ? (
-            <View wrap={false}>
-              <Text style={styles.sectionTitle}>Detalles de fabricación</Text>
-              <DataTable headers={FAB_HEADERS} rows={data.fabrication_details.map(fabRowCells)} flexes={FAB_FLEXES} />
-            </View>
-          ) : null}
           {data.materials.length > 0 ? (
-            <View wrap={false}>
+            <View>
               <Text style={styles.sectionTitle}>Materiales</Text>
               <DataTable headers={MAT_HEADERS} rows={data.materials.map(matRowCells)} flexes={MAT_FLEXES} />
             </View>
           ) : null}
+          {data.fabrication_details.length > 0 ? (
+            <View style={{ marginTop: 4 }}>
+              <Text style={styles.sectionTitle}>Detalles de fabricación</Text>
+              <DataTable headers={FAB_HEADERS} rows={data.fabrication_details.map(fabRowCells)} flexes={FAB_FLEXES} />
+            </View>
+          ) : null}
           {data.pools.length > 0 ? (
-            <View wrap={false}>
+            <View style={{ marginTop: 4 }}>
               <Text style={styles.sectionTitle}>Piletas</Text>
               <DataTable headers={POOL_HEADERS} rows={data.pools.map(poolRowCells)} flexes={POOL_FLEXES} />
             </View>

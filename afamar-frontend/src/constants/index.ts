@@ -35,3 +35,6 @@ export const BANK_INFO = {
   banco: 'CREDICOOP',
   titular: 'afamar SRL',
 } as const;
+
+export const SKETCH_STAGE_WIDTH = 1480;
+export const SKETCH_STAGE_HEIGHT = 600;

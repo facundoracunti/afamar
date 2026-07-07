@@ -11,14 +11,21 @@
  * Stage to be in the DOM with valid dimensions, so we use
  * `position:absolute; left:-9999px` (not `display:none`) — the canvas is
  * laid out but never visible.
+ *
+ * IMPORTANT: the stage dimensions here MUST match the editor's
+ * `SKETCH_STAGE_WIDTH` × `SKETCH_STAGE_HEIGHT` (see `components/sketch/
+ * constants.ts`). If the user draws outside this area, the element will be
+ * clipped in the PDF — that's why the editor uses the same fixed area so
+ * the user can see the boundaries and stay within them.
  */
 import React, { useEffect, useRef } from 'react';
 import { Stage, Layer, Line, Rect, Text } from 'react-konva';
 import type Konva from 'konva';
 import type { SketchElement, SketchPage } from '../../../types/sketch';
+import { SKETCH_STAGE_WIDTH, SKETCH_STAGE_HEIGHT } from '../../../constants';
 
-const STAGE_W = 800;
-const STAGE_H = 600;
+const STAGE_W = SKETCH_STAGE_WIDTH;
+const STAGE_H = SKETCH_STAGE_HEIGHT;
 
 interface SketchImageExtractorProps {
   sketchElements: unknown;

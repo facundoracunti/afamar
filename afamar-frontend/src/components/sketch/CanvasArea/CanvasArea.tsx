@@ -1,14 +1,23 @@
-﻿import React, { useEffect, useRef, useState } from 'react';
+﻿import React, { useEffect, useRef } from 'react';
 import { Stage, Layer, Line, Rect, Transformer } from 'react-konva';
 import type Konva from 'konva';
 import type { SketchToolType, SketchElement, SketchPage, Point } from '@/types/sketch';
 import LineShape from '../LineShape/LineShape';
 import RectangleShape from '../RectangleShape/RectangleShape';
 import TextShape from '../TextShape/TextShape';
+import { SKETCH_STAGE_WIDTH, SKETCH_STAGE_HEIGHT } from '../../../constants';
 
 const GRID = 20;
-const STAGE_H = 600;
+const STAGE_W = SKETCH_STAGE_WIDTH;
+const STAGE_H = SKETCH_STAGE_HEIGHT;
 const MIN_DIST = 4;
+
+/** Clamp a coordinate into the stage area so elements never end up
+ *  outside the visible / printable canvas. The 0.5 padding keeps the
+ *  element's stroke from being clipped by the stage border. */
+function clampCoord(v: number, max: number): number {
+  return Math.max(0.5, Math.min(max - 0.5, v));
+}
 
 let _tid = 0;
 function genId(): string {
@@ -62,21 +71,12 @@ export default function CanvasArea({
   snapCoord,
   snapNear,
 }: CanvasAreaProps) {
-  const [stageW, setStageW] = useState(800);
-  const containerRef = useRef<HTMLDivElement>(null);
+  // The stage uses a FIXED size (SKETCH_STAGE_WIDTH × SKETCH_STAGE_HEIGHT)
+  // so the editor and the PDF extractor agree on the drawing area. The
+  // container is allowed to overflow horizontally so the user can scroll
+  // if the form column is narrower than the canvas.
   const stageRef = useRef<Konva.Stage>(null);
   const trRef = useRef<Konva.Transformer>(null);
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver((entries) => {
-      const w = entries[0]?.contentRect.width;
-      if (w && w > 0) setStageW(w);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
 
   useEffect(() => {
     if (tool !== 'select') {
@@ -134,8 +134,8 @@ export default function CanvasArea({
         curAdd({
           id: genId(),
           type: 'text',
-          x: snapCoord(stagePos.x),
-          y: snapCoord(stagePos.y),
+          x: clampCoord(snapCoord(stagePos.x), STAGE_W),
+          y: clampCoord(snapCoord(stagePos.y), STAGE_H),
           text: value.trim(),
           fontSize: 16,
           fill: '#000',
@@ -201,17 +201,22 @@ export default function CanvasArea({
       ? {
           id: genId(),
           type: 'line',
-          points: [snapCoord(drawStart.x), snapCoord(drawStart.y), snapCoord(drawEnd.x), snapCoord(drawEnd.y)],
+          points: [
+            clampCoord(snapCoord(drawStart.x), STAGE_W),
+            clampCoord(snapCoord(drawStart.y), STAGE_H),
+            clampCoord(snapCoord(drawEnd.x), STAGE_W),
+            clampCoord(snapCoord(drawEnd.y), STAGE_H),
+          ],
           stroke: '#000',
           strokeWidth: 2,
         } as SketchElement
       : {
           id: genId(),
           type: tool === 'cutout' ? 'cutout' : 'rect',
-          x: Math.min(drawStart.x, drawEnd.x),
-          y: Math.min(drawStart.y, drawEnd.y),
-          width: Math.abs(dx),
-          height: Math.abs(dy),
+          x: clampCoord(Math.min(drawStart.x, drawEnd.x), STAGE_W),
+          y: clampCoord(Math.min(drawStart.y, drawEnd.y), STAGE_H),
+          width: clampCoord(Math.abs(dx), STAGE_W),
+          height: clampCoord(Math.abs(dy), STAGE_H),
           fill: 'transparent',
           stroke: tool === 'cutout' ? '#dc2626' : '#000',
           strokeWidth: 2,
@@ -227,8 +232,11 @@ export default function CanvasArea({
   const handleDragEnd = (e: Konva.KonvaEventObject<DragEvent>, id: string) => {
     if (tool !== 'select' || readOnly) return;
     const node = e.target;
-    const newX = node.x();
-    const newY = node.y();
+    // Clamp to the stage area so the element can't be dragged outside the
+    // visible / printable canvas. Konva nodes carry their x/y as a parent
+    // group offset; the inner shape has its own x/y stored on the element.
+    const newX = clampCoord(node.x(), STAGE_W);
+    const newY = clampCoord(node.y(), STAGE_H);
 
     updateElementPosition(id, newX, newY);
 
@@ -247,7 +255,7 @@ export default function CanvasArea({
   };
 
   const gridLines: React.ReactElement[] = [];
-  for (let x = 0; x <= stageW; x += GRID) {
+  for (let x = 0; x <= STAGE_W; x += GRID) {
     const m = x % (GRID * 5) === 0;
     gridLines.push(
       <Line key={`gv${x}`} points={[x, 0, x, STAGE_H]} stroke={m ? '#d4d4d4' : '#e8e8e8'} strokeWidth={m ? 0.8 : 0.5} listening={false} />,
@@ -256,15 +264,29 @@ export default function CanvasArea({
   for (let y = 0; y <= STAGE_H; y += GRID) {
     const m = y % (GRID * 5) === 0;
     gridLines.push(
-      <Line key={`gh${y}`} points={[0, y, stageW, y]} stroke={m ? '#d4d4d4' : '#e8e8e8'} strokeWidth={m ? 0.8 : 0.5} listening={false} />,
+      <Line key={`gh${y}`} points={[0, y, STAGE_W, y]} stroke={m ? '#d4d4d4' : '#e8e8e8'} strokeWidth={m ? 0.8 : 0.5} listening={false} />,
     );
   }
 
   return (
-    <div ref={containerRef} style={{ position: 'relative' }}>
+    // Container scrolls horizontally if the form column is narrower than
+    // the canvas (which is FIXED at 800px). This way the user can always
+    // reach every part of the drawing area, and the editor + PDF share
+    // the exact same coordinate system.
+    <div
+      style={{
+        position: 'relative',
+        overflowX: 'auto',
+        overflowY: 'hidden',
+        border: '1px solid var(--border-color, #e5e7eb)',
+        borderRadius: 4,
+        background: '#fff',
+        maxWidth: '100%',
+      }}
+    >
       <Stage
         ref={stageRef}
-        width={stageW}
+        width={STAGE_W}
         height={STAGE_H}
         onClick={handleStageClick}
         onMouseDown={handleMouseDown}
@@ -272,6 +294,7 @@ export default function CanvasArea({
         onMouseUp={handleMouseUp}
         style={{
           cursor: readOnly ? 'default' : tool === 'select' ? 'default' : tool === 'text' ? 'text' : 'crosshair',
+          display: 'block',
         }}
       >
         <Layer listening={false}>
