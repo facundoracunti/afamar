@@ -65,25 +65,25 @@ function App() {
               <Route path="admin" element={<MainLayout />}>
                 <Route index element={<DashboardPage />} />
                 <Route path="clients" element={<ClientsListPage />} />
-                <Route path="clients/new" element={<ClientFormPage />} />
-                <Route path="clients/:id" element={<ClientFormPage />} />
+                <Route path="clients/new" element={<ClientFormPage key="new" />} />
+                <Route path="clients/:id" element={<ClientFormPage key="edit" />} />
                 <Route path="budgets" element={<BudgetsListPage />} />
-                <Route path="budgets/new" element={<BudgetFormPage />} />
-                <Route path="budgets/:id" element={<BudgetFormPage />} />
+                <Route path="budgets/new" element={<BudgetFormPage key="new" />} />
+                <Route path="budgets/:id" element={<BudgetFormPage key="edit" />} />
                 <Route path="online-budgets" element={<OnlineBudgetsListPage />} />
-                <Route path="online-budgets/new" element={<OnlineBudgetFormPage />} />
-                <Route path="online-budgets/:id" element={<OnlineBudgetFormPage />} />
+                <Route path="online-budgets/new" element={<OnlineBudgetFormPage key="new" />} />
+                <Route path="online-budgets/:id" element={<OnlineBudgetFormPage key="edit" />} />
                 <Route path="work-orders" element={<WorkOrdersListPage />} />
-                <Route path="work-orders/new" element={<WorkOrderFormPage />} />
-                <Route path="work-orders/:id" element={<WorkOrderFormPage />} />
+                <Route path="work-orders/new" element={<WorkOrderFormPage key="new" />} />
+                <Route path="work-orders/:id" element={<WorkOrderFormPage key="edit" />} />
                 <Route path="materials" element={<MaterialsListPage />} />
                 <Route path="materials/categories" element={<MaterialsCategoriesPage />} />
-                <Route path="materials/new" element={<MaterialFormPage />} />
-                <Route path="materials/:id" element={<MaterialFormPage />} />
+                <Route path="materials/new" element={<MaterialFormPage key="new" />} />
+                <Route path="materials/:id" element={<MaterialFormPage key="edit" />} />
                 <Route path="pool-stock" element={<PoolStockPage />} />
                 <Route path="measurements" element={<MeasurementsListPage />} />
-                <Route path="measurements/new" element={<MeasurementFormPage />} />
-                <Route path="measurements/:id" element={<MeasurementFormPage />} />
+                <Route path="measurements/new" element={<MeasurementFormPage key="new" />} />
+                <Route path="measurements/:id" element={<MeasurementFormPage key="edit" />} />
                 <Route path="calculator" element={<CalculatorPage />} />
                 <Route path="cash" element={<CashDailyPage />} />
                 <Route path="cash/history" element={<CashHistoryPage />} />
