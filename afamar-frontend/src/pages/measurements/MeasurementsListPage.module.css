@@ -9,6 +9,9 @@
    .measurements__table         table wrapper
    .measurements__cell-actions  actions cell
    .measurements__empty         empty state
+   .measurements__th-sortable   clickable table header (sortable column)
+   .measurements__th-label      text label inside a sortable header
+   .measurements__sort-icon     arrow indicator next to the label
 */
 
 .measurements {
@@ -95,6 +98,40 @@
   letter-spacing: 0.4px;
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border-color);
+}
+
+/* Sortable header — clickable, shows hover + focus feedback, keeps the
+   normal header padding/colors but adds a cursor + icon spacing so the
+   user can see it's interactive. The active column gets a slight tint
+   on the icon (via inline color on the th itself, not duplicated here)
+   so the sort direction stays visually obvious. */
+.measurements__th-sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease;
+}
+
+.measurements__th-sortable:hover {
+  background: color-mix(in srgb, var(--surface-alt-bg) 70%, var(--text-primary) 12%);
+  color: var(--text-primary);
+}
+
+.measurements__th-sortable:focus-visible {
+  outline: 2px solid var(--color-info);
+  outline-offset: -2px;
+}
+
+.measurements__th-label {
+  margin-right: 6px;
+}
+
+.measurements__sort-icon {
+  opacity: 0.55;
+  vertical-align: middle;
+}
+
+.measurements__th-sortable:hover .measurements__sort-icon {
+  opacity: 1;
 }
 
 .measurements__table td {

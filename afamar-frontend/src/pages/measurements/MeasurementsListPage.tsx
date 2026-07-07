@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Eye, Trash2 } from 'lucide-react';
+import { Plus, Search, Eye, Trash2, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { getMeasurements, deleteMeasurement } from '@/api/resources/measurements';
 import { getWorkOrders } from '@/api/resources/workOrders';
 import { useList, useDelete, useGet } from '../../api/hooks';
@@ -21,10 +21,48 @@ const s = styles as unknown as Record<string, string>;
 
 const MEASUREMENTS_KEY = ['measurements'] as const;
 
+/** Columns the user can sort the measurements table by. The `Measurement`
+ *  field name is used directly so the sorter just does `a[field] vs b[field]`
+ *  without mapping (date/time strings sort correctly in ISO format). */
+type SortField = 'client_name' | 'client_phone' | 'client_address' | 'scheduled_date' | 'scheduled_time' | 'status';
+type SortDir = 'asc' | 'desc';
+
+interface SortHeaderProps {
+  field: SortField;
+  label: string;
+  currentField: SortField;
+  currentDir: SortDir;
+  onSort: (field: SortField) => void;
+  style?: React.CSSProperties;
+}
+
+/** Clickable table header that toggles asc/desc on click. Renders an
+ *  arrow indicator next to the label so the user knows which column is
+ *  active and in which direction. */
+function SortHeader({ field, label, currentField, currentDir, onSort, style }: SortHeaderProps) {
+  const isActive = currentField === field;
+  const Icon = !isActive ? ArrowUpDown : currentDir === 'asc' ? ArrowUp : ArrowDown;
+  return (
+    <th
+      onClick={() => onSort(field)}
+      className={s['measurements__th-sortable']}
+      style={style}
+      aria-sort={isActive ? (currentDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+    >
+      <span className={s['measurements__th-label']}>{label}</span>
+      <Icon size={12} className={s['measurements__sort-icon']} aria-hidden="true" />
+    </th>
+  );
+}
+
 export default function MeasurementsList() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  // Default to "fecha asc" — chronological, the most useful ordering for
+  // an agenda view. Toggling a column flips the direction.
+  const [sortField, setSortField] = useState<SortField>('scheduled_date');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
   const navigate = useNavigate();
 
   const { items: data, loading } = useList<Measurement>(
@@ -51,11 +89,74 @@ export default function MeasurementsList() {
     }
   );
 
+  /**
+   * Work-order ids that already have a NON-CANCELLED measurement scheduled
+   * (PENDING or DONE). The cards above only show orders that still need a
+   * measurement — once one is scheduled, the order disappears from the
+   * cards (it lives in the measurements table below instead).
+   *
+   * Cancelled measurements don't count: the user cancelled that
+   * measurement, the order is back to needing one, so the card must
+   * re-appear.
+   */
+  const scheduledWorkOrderIds = useMemo(() => {
+    const ids = new Set<number>();
+    for (const m of data) {
+      if (m.work_order_id && m.status !== 'CANCELLED') ids.add(m.work_order_id);
+    }
+    return ids;
+  }, [data]);
+
+  const unscheduledOrders = useMemo(
+    () => (pendingOrders || []).filter((wo) => !scheduledWorkOrderIds.has(wo.id)),
+    [pendingOrders, scheduledWorkOrderIds],
+  );
+
   const handleDelete = async (): Promise<void> => {
     if (!deleteId) return;
     await deleteMutation.mutateAsync(deleteId);
     setDeleteId(null);
   };
+
+  const handleSort = (field: SortField): void => {
+    if (sortField === field) {
+      // Same column → flip direction.
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      // New column → reset to ascending.
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  /**
+   * Sort the measurements table by the active column / direction. Empty
+   * values are pushed to the bottom regardless of direction (otherwise
+   * a missing `client_name` would float to the top just because empty
+   * string compares less than everything).
+   *
+   * No `work_order_id` filter here — the agenda table shows EVERY
+   * measurement the user scheduled (including the ones already linked
+   * to a WO). The work-order side is the one filtered: see the
+   * `PendingMeasurementCards` component which hides orders that already
+   * have a scheduled measurement.
+   */
+  const visibleRows = useMemo(() => {
+    const sorted = [...data].sort((a, b) => {
+      const rawA = (a[sortField] ?? '') as string;
+      const rawB = (b[sortField] ?? '') as string;
+      const aEmpty = rawA === '' || rawA == null;
+      const bEmpty = rawB === '' || rawB == null;
+      if (aEmpty && !bEmpty) return 1;
+      if (!aEmpty && bEmpty) return -1;
+      if (aEmpty && bEmpty) return 0;
+      let cmp = 0;
+      if (rawA < rawB) cmp = -1;
+      else if (rawA > rawB) cmp = 1;
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+    return sorted;
+  }, [data, sortField, sortDir]);
 
   return (
     <div className={s['measurements']}>
@@ -68,7 +169,7 @@ export default function MeasurementsList() {
         }
       />
 
-      <PendingMeasurementCards orders={pendingOrders || []} loading={pendingLoading} />
+      <PendingMeasurementCards orders={unscheduledOrders} loading={pendingLoading} />
 
       <div className={s['measurements__filters']}>
         <SearchInput
@@ -92,17 +193,17 @@ export default function MeasurementsList() {
           <table>
             <thead>
               <tr>
-                <th>Cliente</th>
-                <th>Teléfono</th>
-                <th>Dirección</th>
-                <th>Fecha</th>
-                <th>Hora</th>
-                <th>Estado</th>
+                <SortHeader field="client_name" label="Cliente" currentField={sortField} currentDir={sortDir} onSort={handleSort} />
+                <SortHeader field="client_phone" label="Teléfono" currentField={sortField} currentDir={sortDir} onSort={handleSort} />
+                <SortHeader field="client_address" label="Dirección" currentField={sortField} currentDir={sortDir} onSort={handleSort} />
+                <SortHeader field="scheduled_date" label="Fecha" currentField={sortField} currentDir={sortDir} onSort={handleSort} />
+                <SortHeader field="scheduled_time" label="Hora" currentField={sortField} currentDir={sortDir} onSort={handleSort} />
+                <SortHeader field="status" label="Estado" currentField={sortField} currentDir={sortDir} onSort={handleSort} />
                 <th style={{ width: 100 }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {data.map((m: Measurement) => (
+              {visibleRows.map((m: Measurement) => (
                 <tr key={m.id}>
                   <td style={{ fontWeight: 600 }}>{m.client_name}</td>
                   <td>{m.client_phone || '-'}</td>
@@ -122,7 +223,7 @@ export default function MeasurementsList() {
                   </td>
                 </tr>
               ))}
-              {data.length === 0 && (
+              {visibleRows.length === 0 && (
                 <tr><td colSpan={7}><EmptyState message="No hay mediciones registradas" /></td></tr>
               )}
             </tbody>

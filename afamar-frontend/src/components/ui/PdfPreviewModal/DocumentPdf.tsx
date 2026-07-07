@@ -510,6 +510,12 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
             <Text style={styles.totalsVal}>{`-$ ${fmt(data.discount_fixed_amount)}`}</Text>
           </View>
         ) : null}
+        {data.surcharge_percentage > 0 ? (
+          <View style={styles.totalsRow}>
+            <Text style={styles.totalsLbl}>{`Recargo (${data.surcharge_percentage}%)`}</Text>
+            <Text style={styles.totalsVal}>{`+ $ ${fmt(data.surcharge_amount)}`}</Text>
+          </View>
+        ) : null}
         {data.deposit_received > 0 ? (
           <View style={styles.totalsRow}>
             <Text style={styles.totalsLbl}>Seña</Text>
@@ -537,7 +543,13 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
             <Text style={styles.label}>Forma de pago: </Text>
             <Text>{data.payment_method}</Text>
             {data.installments && data.installments > 1 ? (
-              <Text>{` (${data.installments} cuotas)`}</Text>
+              <Text>
+                {` (${data.installments} cuotas`}
+                {data.surcharge_percentage > 0
+                  ? ` con ${data.surcharge_percentage}% de interés`
+                  : ''}
+                {')'}
+              </Text>
             ) : null}
           </Text>
           {data.payment_method === PAYMENT_METHOD_TRANSFER ? (

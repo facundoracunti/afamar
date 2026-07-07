@@ -13,6 +13,7 @@
 
 import type { MaterialInForm, PoolInForm, FabricationDetail } from '../../types/budget';
 import { POOL_MATERIAL_GLOBAL } from '../../types/budget';
+import { INSTALLMENT_SURCHARGE_PERCENTAGE, PAYMENT_METHOD_CREDIT_CARD } from '../../constants';
 
 export type DocumentType = 'budget' | 'work_order';
 
@@ -119,6 +120,15 @@ export interface PdfDocumentData {
   transport: number;
   discount_percentage: number;
   discount_fixed_amount: number;
+  /**
+   * Surcharge percentage applied for credit-card installments
+   * (0% for cash, debit, transfer, or 1-2 cuotas; up to 60% for 12
+   * cuotas). The PDF breaks this out as its own line in the totals
+   * block so the customer can see how the interest was calculated.
+   */
+  surcharge_percentage: number;
+  /** Surcharge in ARS = surcharge_percentage% of (subtotal + transport - discount). */
+  surcharge_amount: number;
   deposit_received: number;
   balance_due: number;
   total: number;
@@ -651,9 +661,38 @@ export function buildPdfData({
   // alternatives' subtotals (the backend sums everything when it persists).
   const computedSubtotal = subtotalMain + subtotalGlobal;
   const transport = num('transport');
-  const discountFixed = num('discount_fixed_amount');
+  const discountFixedRaw = num('discount_fixed_amount');
+  const discountPct = num('discount_percentage');
+  // The form lets the user enter the discount as EITHER a percentage OR a
+  // fixed amount (it clears the other one when one is set). The PDF needs
+  // the actual $ value to display, so if the user entered a percentage we
+  // compute the equivalent fixed amount here from (subtotal + transport) —
+  // same basis as `useBudgetCalculations` uses when applying the discount
+  // to the total. If the user entered a fixed amount directly, that takes
+  // precedence.
+  const discountBase = computedSubtotal + transport;
+  const discountFixed = discountFixedRaw > 0
+    ? discountFixedRaw
+    : discountPct > 0
+      ? Math.round(discountBase * discountPct) / 100
+      : 0;
+  // Credit-card installment surcharge. Mirrors `useBudgetCalculations`:
+  //   0% for 1-2 cuotas (no recargo) up to 60% for 12 cuotas. The
+  //   percentage is taken from the shared `INSTALLMENT_SURCHARGE_PERCENTAGE`
+  //   table and applied on top of (subtotal + transport - discount) so the
+  //   PDF grand total matches the form's `total` (which already includes
+  //   the surcharge).
+  const paymentMethodRaw = str('payment_method');
+  const installmentsNum = num('installments') || 1;
+  const surchargePct = paymentMethodRaw === PAYMENT_METHOD_CREDIT_CARD
+    ? (INSTALLMENT_SURCHARGE_PERCENTAGE[installmentsNum] || 0)
+    : 0;
+  const surchargeBase = Math.max(0, computedSubtotal + transport - discountFixed);
+  const surchargeAmount = surchargePct > 0
+    ? Math.round(surchargeBase * surchargePct) / 100
+    : 0;
   const deposit = num('deposit_received');
-  const computedTotal = Math.max(0, computedSubtotal + transport - discountFixed);
+  const computedTotal = Math.max(0, surchargeBase + surchargeAmount);
   const computedBalanceDue = Math.max(0, computedTotal - deposit);
 
   const base: PdfDocumentData = {
@@ -678,6 +717,8 @@ export function buildPdfData({
     transport,
     discount_percentage: num('discount_percentage'),
     discount_fixed_amount: discountFixed,
+    surcharge_percentage: surchargePct,
+    surcharge_amount: surchargeAmount,
     deposit_received: deposit,
     balance_due: computedBalanceDue,
     total: computedTotal,

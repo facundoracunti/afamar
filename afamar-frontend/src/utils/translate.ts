@@ -24,6 +24,15 @@ const enToEsLabels: Record<string, string> = {
   INCOME: "Ingreso",
   EXPENSE: "Egreso",
 
+  // Pool stock movement types (English values emitted by the backend's
+  // auto-generated movements in `deduct_pool_stock` /
+  // `restore_pool_stock` / `budget.py:delete` etc.). Manual entries from
+  // the form already send Spanish ("Ingreso"/"Egreso") so the map is a
+  // no-op for them, but it normalises the historical values the user
+  // sees in the history table.
+  entry: "Ingreso",
+  exit: "Egreso",
+
   // Fabrication concepts (used by the fabrication details table on
   // budget / work-order forms and by the PDF preview).
   LENGTH: "Largo",

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Search, Plus, PackagePlus, PackageMinus, Trash2 } from 'lucide-react';
 import { getPoolStock, createPool, updatePool, deletePool, getPoolMovements, createPoolMovement } from '@/api/resources/poolStock';
 import http from '@/api/http';
@@ -9,6 +10,7 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinne
 import { Pagination } from '../../components/ui/Pagination';
 import type { Pool, PoolMovement, PoolType } from '../../types/poolStock';
 import { useNotify } from '../../context/NotificationContext';
+import { t as translate } from '../../utils/translate';
 import styles from './PoolStockPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -244,14 +246,49 @@ export default function PoolStockPage() {
               <tr><th>Tipo</th><th>Cantidad</th><th>Descripción</th><th>Fecha</th></tr>
             </thead>
             <tbody>
-              {movimientos.map((m) => (
-                <tr key={m.id}>
-                  <td><span className={`badge ${m.type === 'Ingreso' ? 'badge-approved' : 'badge-rejected'}`}>{m.type}</span></td>
-                  <td style={{ fontWeight: 600 }}>{m.quantity}</td>
-                  <td>{m.description || '-'}</td>
-                  <td>{new Date(m.created_at || '').toLocaleDateString('es-AR')}</td>
-                </tr>
-              ))}
+              {movimientos.map((m) => {
+                // Translate the backend's English enum ("entry"/"exit")
+                // to Spanish ("Ingreso"/"Egreso"). Manual entries from the
+                // form already send Spanish so the map is a no-op for them.
+                const typeLabel = translate(m.type);
+                const isIngreso = typeLabel === 'Ingreso';
+                // The backend's auto-generated movements include a
+                // `[WO:{id}]` prefix in the notes (e.g. when a budget is
+                // converted to a work order and the pool stock is
+                // debited). We parse that prefix to extract the work
+                // order id and render a clickable link. Manual entries
+                // have free-text descriptions without the prefix.
+                const rawNotes = m.notes ?? m.description ?? '';
+                const woMatch = rawNotes.match(/^\[WO:(\d+)\]\s*(.*)$/);
+                const workOrderId = woMatch ? Number(woMatch[1]) : null;
+                const displayNotes = woMatch ? woMatch[2] : rawNotes;
+                return (
+                  <tr key={m.id}>
+                    <td>
+                      <span className={`badge ${isIngreso ? 'badge-approved' : 'badge-rejected'}`}>
+                        {typeLabel}
+                      </span>
+                    </td>
+                    <td style={{ fontWeight: 600 }}>{m.quantity}</td>
+                    <td>
+                      {displayNotes || '-'}
+                      {workOrderId ? (
+                        <>
+                          {' '}
+                          <Link
+                            to={`/admin/work-orders/${workOrderId}`}
+                            style={{ color: 'var(--color-info)', fontWeight: 600 }}
+                            title="Ir a la orden de trabajo"
+                          >
+                            (ver OT)
+                          </Link>
+                        </>
+                      ) : null}
+                    </td>
+                    <td>{new Date(m.created_at || '').toLocaleDateString('es-AR')}</td>
+                  </tr>
+                );
+              })}
               {movimientos.length === 0 && (
                 <tr><td colSpan={4} style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>Sin movimientos registrados</td></tr>
               )}

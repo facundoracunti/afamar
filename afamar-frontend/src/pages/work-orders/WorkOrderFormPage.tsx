@@ -163,12 +163,12 @@ export default function WorkOrderForm() {
   };
 
   const alternativasGrid = hayAlternativas ? (
-    <div style={{ marginTop: 16 }}>
-      <div style={{ marginBottom: 12, padding: '8px 12px', background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 8 }}>
-        <span style={{ fontSize: 13, fontWeight: 700, color: '#1e40af' }}>📋 PRESUPUESTO COMPARATIVO</span>
-        <span style={{ fontSize: 11, color: '#3b82f6', marginLeft: 8 }}>{matsAlt.length} opciones alternativas</span>
+    <div className={s['work-order-form__alt-grid']}>
+      <div className={s['work-order-form__alt-header']}>
+        <span className={s['work-order-form__alt-header-title']}>📋 PRESUPUESTO COMPARATIVO</span>
+        <span className={s['work-order-form__alt-header-count']}>{matsAlt.length} opciones alternativas</span>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+      <div className={s['work-order-form__alt-cards']}>
         {matsAlt.map((mat: MaterialInForm, idx: number) => {
           const letra = String.fromCharCode(65 + idx);
           const dd2 = Number(form.usd_rate);
@@ -181,34 +181,34 @@ export default function WorkOrderForm() {
           const totalArs = costoMatArs + fijosArsAlt;
           const mostrarUSDAlt = modoUSD && dd2 > 0;
           return (
-            <div key={idx} style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12, background: '#fafafa', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div key={idx} className={s['work-order-form__alt-card']}>
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', padding: '2px 8px', background: '#dbeafe', color: '#1e40af', borderRadius: 4 }}>Alternativa {letra}</span>
-                  <span style={{ fontSize: 11, color: '#6b7280' }}>{mat.quantity || 1} pza. ({m2.toFixed(3)} m²)</span>
+                <div className={s['work-order-form__alt-card-head']}>
+                  <span className={s['work-order-form__alt-card-badge']}>Alternativa {letra}</span>
+                  <span className={s['work-order-form__alt-card-pza']}>{mat.quantity || 1} pza. ({m2.toFixed(3)} m²)</span>
                 </div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', marginBottom: 2 }}>{mat.name}</div>
-                {mat.currency === 'USD' && <div style={{ fontSize: 11, color: '#059669', fontWeight: 600, marginBottom: 8 }}>USD {costoMat.toFixed(2)}</div>}
-                <div style={{ borderTop: '1px dashed #d1d5db', paddingTop: 6, fontSize: 12, color: '#6b7280', marginBottom: 8 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div className={s['work-order-form__alt-card-name']}>{mat.name}</div>
+                {mat.currency === 'USD' && <div className={s['work-order-form__alt-card-usd']}>USD {costoMat.toFixed(2)}</div>}
+                <div className={s['work-order-form__alt-card-body']}>
+                  <div className={s['work-order-form__alt-card-row']}>
                     <span>Material:</span>
-                    <span style={{ fontWeight: 600, color: '#374151' }}>{mostrarUSDAlt ? `USD ${(costoMatArs / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `$${costoMatArs.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}</span>
+                    <span className={s['work-order-form__alt-card-value']}>{mostrarUSDAlt ? `USD ${(costoMatArs / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `$${costoMatArs.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}</span>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <div className={s['work-order-form__alt-card-row']}>
                     <span>Trabajos + Piletas + Traslado:</span>
-                    <span style={{ fontWeight: 600, color: '#374151' }}>{mostrarUSDAlt ? `USD ${(fijosArsAlt / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `$${fijosArsAlt.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}</span>
+                    <span className={s['work-order-form__alt-card-value']}>{mostrarUSDAlt ? `USD ${(fijosArsAlt / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `$${fijosArsAlt.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}</span>
                   </div>
                 </div>
               </div>
-              <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 8, textAlign: 'center', background: '#fff', borderRadius: 6, padding: 8 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase' }}>Total alternativa {mostrarUSDAlt ? '(USD)' : ''}</div>
-                <div style={{ fontSize: 18, fontWeight: 900, color: '#dc2626' }}>{mostrarUSDAlt ? `USD ${(totalArs / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `$${Math.round(totalArs).toLocaleString('es-AR')}`}</div>
+              <div className={s['work-order-form__alt-card-total']}>
+                <div className={s['work-order-form__alt-card-total-lbl']}>Total alternativa {mostrarUSDAlt ? '(USD)' : ''}</div>
+                <div className={s['work-order-form__alt-card-total-val']}>{mostrarUSDAlt ? `USD ${(totalArs / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `$${Math.round(totalArs).toLocaleString('es-AR')}`}</div>
               </div>
             </div>
           );
         })}
       </div>
-      <div style={{ fontSize: 10, color: '#9ca3af', textAlign: 'center', marginTop: 12, fontStyle: 'italic' }}>
+      <div className={s['work-order-form__alt-footer']}>
         * Todos los totales incluyen la misma configuración de trabajos, pools y traslados.
       </div>
     </div>

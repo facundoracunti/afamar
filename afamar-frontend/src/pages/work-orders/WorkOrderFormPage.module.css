@@ -23,6 +23,26 @@
    .work-order-form__badge-delivered  entregado badge
    .work-order-form__btn-save        save button
    .work-order-form__btn-print       print button
+   .work-order-form__alt-grid      PRESUPUESTO COMPARATIVO alternatives grid wrapper
+   .work-order-form__alt-header    blue "comparative budget" banner
+   .work-order-form__alt-header-title   "📋 PRESUPUESTO COMPARATIVO" title
+   .work-order-form__alt-header-count  "N opciones alternativas" subtitle
+   .work-order-form__alt-cards     responsive grid of alternative cards
+   .work-order-form__alt-card      single alternative card
+   .work-order-form__alt-card-head card head row (badge + pza count)
+   .work-order-form__alt-card-badge "Alternativa A/B/C..." pill
+   .work-order-form__alt-card-pza   "1 pza. (X m²)" label
+   .work-order-form__alt-card-name  material name (uppercase)
+   .work-order-form__alt-card-usd   "USD X" sub-label when currency=USD
+   .work-order-form__alt-card-body  breakdown table (material + trabajos)
+   .work-order-form__alt-card-body-divider  top dashed divider
+   .work-order-form__alt-card-row   single breakdown row
+   .work-order-form__alt-card-label left label
+   .work-order-form__alt-card-value right value
+   .work-order-form__alt-card-total  total box (white background, red total)
+   .work-order-form__alt-card-total-lbl "Total alternativa" label
+   .work-order-form__alt-card-total-val the total amount
+   .work-order-form__alt-footer    "todos los totales incluyen..." footer
 */
 
 .work-order-form {
@@ -139,14 +159,14 @@
 
 .work-order-form__comparative {
   margin-top: 16px;
-  border-top: 2px solid #2563eb;
+  border-top: 2px solid var(--color-info);
   padding-top: 12px;
 }
 
 .work-order-form__comparative-title {
   font-size: 14px;
   font-weight: 700;
-  color: #2563eb;
+  color: var(--color-info);
   margin: 0 0 8px;
 }
 
@@ -173,15 +193,15 @@
   cursor: pointer;
   font-weight: 600;
   font-size: 13px;
-  color: #fff;
+  color: var(--text-inverse);
 }
 
 .work-order-form__btn-measurement {
-  background: #2563eb;
+  background: var(--color-info);
 }
 
 .work-order-form__btn-workshop {
-  background: #16a34a;
+  background: var(--color-success);
 }
 
 .work-order-form__btn-delivery {
@@ -211,4 +231,134 @@
   border-radius: 6px;
   font-weight: 600;
   font-size: 13px;
+}
+
+/* ===== PRESUPUESTO COMPARATIVO (alternatives grid) =====
+   Renders one card per alternative material so the user can compare
+   the principal option against the alternatives. All colors come
+   from the theme so the section looks correct in both dark and
+   light mode. */
+.work-order-form__alt-grid {
+  margin-top: 16px;
+}
+
+.work-order-form__alt-header {
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--color-info) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-info) 40%, transparent);
+  border-radius: 8px;
+}
+
+.work-order-form__alt-header-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-info);
+}
+
+.work-order-form__alt-header-count {
+  font-size: 11px;
+  color: color-mix(in srgb, var(--color-info) 75%, transparent);
+  margin-left: 8px;
+}
+
+.work-order-form__alt-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.work-order-form__alt-card {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--surface-alt-bg);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.work-order-form__alt-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.work-order-form__alt-card-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  background: color-mix(in srgb, var(--color-info) 15%, transparent);
+  color: var(--color-info);
+  border-radius: 4px;
+}
+
+.work-order-form__alt-card-pza {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.work-order-form__alt-card-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.work-order-form__alt-card-usd {
+  font-size: 11px;
+  color: var(--color-success);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.work-order-form__alt-card-body {
+  border-top: 1px dashed var(--border-color);
+  padding-top: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.work-order-form__alt-card-row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.work-order-form__alt-card-value {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.work-order-form__alt-card-total {
+  border-top: 1px solid var(--border-color);
+  padding-top: 8px;
+  text-align: center;
+  background: var(--surface-bg);
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.work-order-form__alt-card-total-lbl {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.work-order-form__alt-card-total-val {
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--color-danger);
+}
+
+.work-order-form__alt-footer {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: 12px;
+  font-style: italic;
 }

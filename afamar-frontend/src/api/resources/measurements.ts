@@ -15,6 +15,7 @@ const MEASUREMENT_FIELD_MAP: Record<string, string> = {
   observations: 'notes',
   sketch: 'sketch_data',
   photos: 'photos_data',
+  workOrderId: 'work_order_id',
 };
 
 // `sketch_data` and `photos_data` are stored as JSON-encoded strings in

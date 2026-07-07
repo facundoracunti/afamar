@@ -22,8 +22,18 @@ export interface PoolType {
 export interface PoolMovement {
   id: number;
   pool_id: number;
+  /** English enum emitted by the backend: "entry" or "exit".
+   *  The frontend passes this through `t()` (utils/translate.ts) to
+   *  render the Spanish label in the history table. */
   type: string;
   quantity: number;
-  description?: string;
+  /** Backend's `notes` column. May carry a `[WO:{id}]` prefix when the
+   *  movement was auto-generated from a work order — the frontend
+   *  parses that prefix to render a clickable link to the WO. */
+  notes?: string | null;
+  /** Kept for backward-compat with manual entries (the form used to
+   *  send `description`, the API schema accepts `notes`; the page reads
+   *  `notes ?? description` so both shapes work). */
+  description?: string | null;
   created_at?: string;
 }

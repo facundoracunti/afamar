@@ -1,8 +1,6 @@
 import { useEffect } from 'react';
 import type { EntityFormState, FabricationDetail, MaterialInForm, PoolInForm } from '../types';
-
-const CONFIG_INSTALLMENTS: Record<number, number> = {};
-for (let i = 1; i <= 12; i++) CONFIG_INSTALLMENTS[i] = i <= 2 ? 0 : i * 5;
+import { INSTALLMENT_SURCHARGE_PERCENTAGE, PAYMENT_METHOD_CREDIT_CARD } from '../constants';
 
 export function useBudgetCalculations(
   form: EntityFormState,
@@ -36,7 +34,9 @@ export function useBudgetCalculations(
       .filter((m: MaterialInForm) => m.currency === 'USD')
       .reduce((sum: number, m: MaterialInForm) => sum + (Number(m.length || 0) * Number(m.width || 0) * (m.quantity || 1) * (m.price_m2_usd || 0)), 0);
 
-    const pctRecargo = form.payment_method === 'TARJETA DE CRÉDITO' ? (CONFIG_INSTALLMENTS[form.installments] || 0) : 0;
+    const pctRecargo = form.payment_method === PAYMENT_METHOD_CREDIT_CARD
+      ? (INSTALLMENT_SURCHARGE_PERCENTAGE[form.installments] || 0)
+      : 0;
     const subtotal = arsTotal + (dd > 0 ? Math.round((usdTotal + matUsd) * dd * 100) / 100 : 0) + matArs + ppArs + (dd > 0 ? Math.round(ppUsd * dd * 100) / 100 : 0);
     const tr = Number(form.transport) || 0;
     const totalBase = Math.max(0, subtotal + tr);

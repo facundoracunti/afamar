@@ -406,7 +406,28 @@ class WorkOrderService:
         # frontend reads back with `jsonParseList` + casts as MaterialInForm[]).
         # Wrapping it in `{"materials": [...]}` broke WorkOrderFormPage's
         # `(form.materials_data as MaterialInForm[])` cast.
-        materiales_json = json.dumps(materials_raw) if materials_raw else None
+        #
+        # Snapshot the original budgeted m² per material so the WO's
+        # "COMPARATIVA DE MEDICIÓN" table can show the diff between what
+        # was quoted and what was actually measured. Without this snapshot
+        # the user would lose the original m² the moment they update
+        # `length` / `width` / `quantity` during the measurement phase.
+        # Lengths in the DB are stored in METERS (see MaterialCard's
+        # "Largo (mts)" label + the frontend's `length * width * quantity`
+        # m² formula), so the snapshot is just that product.
+        materials_with_snapshot: list = []
+        for mat in materials_raw:
+            if not isinstance(mat, dict):
+                materials_with_snapshot.append(mat)
+                continue
+            length_m = float(mat.get("length") or mat.get("largo") or 0)
+            width_m = float(mat.get("width") or mat.get("ancho") or 0)
+            quantity = float(mat.get("quantity") or mat.get("cantidad") or 1)
+            m2_snapshot = length_m * width_m * quantity
+            materials_with_snapshot.append({**mat, "m2_budgeted": m2_snapshot})
+        materiales_json = (
+            json.dumps(materials_with_snapshot) if materials_with_snapshot else None
+        )
         adicionales_list = []
         if budget.adicionales:
             adicionales_list = [
