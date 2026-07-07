@@ -512,10 +512,16 @@ class WorkOrderService:
         self.repo.db.refresh(order)
         return order
 
+    # Status transitions between the 4 main states are bidirectional so the
+    # list page's "Retroceder estado" button can undo a premature advance
+    # (e.g. accidentally moving a MEASUREMENT order to WORKSHOP). CANCELLED
+    # is a special one-way transition handled separately (any state ->
+    # CANCELLED, with pool stock restoration if it was deducted).
     VALID_TRANSITIONS = {
         "MEASUREMENT": {"WORKSHOP"},
-        "WORKSHOP": {"FINISHED"},
-        "FINISHED": {"DELIVERED"},
+        "WORKSHOP": {"MEASUREMENT", "FINISHED"},
+        "FINISHED": {"WORKSHOP", "DELIVERED"},
+        "DELIVERED": {"FINISHED"},
     }
 
     def update(self, order_id: int, data: dict) -> Optional[WorkOrder]:

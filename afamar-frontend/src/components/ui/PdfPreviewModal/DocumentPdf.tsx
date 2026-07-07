@@ -20,7 +20,7 @@ import {
   Image,
   StyleSheet,
 } from '@react-pdf/renderer';
-import type { PdfDocumentData } from '../../../utils/pdf/buildPdfData';
+import type { PdfDocumentData, MaterialSection } from '../../../utils/pdf/buildPdfData';
 import { API_URL } from '../../../api/http';
 import { BANK_INFO, PAYMENT_METHOD_TRANSFER } from '../../../constants';
 
@@ -75,6 +75,20 @@ const styles = StyleSheet.create({
   obsText: { fontSize: 8.5 },
   obsList: { fontSize: 8.5, marginTop: 2 },
   obsListItem: { marginBottom: 2 },
+  // ===== OPTION SECTION BLOCK (per-material breakdown) =====
+  // Each section is a self-contained card with its own tables + subtotal so
+  // the reader can see "PRINCIPAL: GRIS MARA" / "ALTERNATIVA 1: TAJ MAHAL" as
+  // independent quotes (the customer only executes one).
+  optSectionBlock: { marginTop: 8, marginBottom: 4, padding: 6, border: `1px solid ${SLATE_200}`, borderRadius: 4 },
+  optSectionBlockMain: { borderColor: HEADER_RED, backgroundColor: '#fef9f9' },
+  optSectionBlockAlt: { borderColor: SLATE_400, backgroundColor: SLATE_50 },
+  optSectionTitle: { fontSize: 10, fontWeight: 'bold', color: HEADER_RED, textTransform: 'uppercase', marginBottom: 4, paddingBottom: 2, borderBottom: `1px solid ${HEADER_RED}` },
+  optSectionTitleAlt: { color: SLATE_700, borderBottomColor: SLATE_400 },
+  optSectionSubtotal: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 4, paddingTop: 3, borderTop: `1px dashed ${SLATE_200}` },
+  optSectionSubtotalLbl: { fontSize: 8, fontWeight: 'bold', color: SLATE_700, marginRight: 8 },
+  optSectionSubtotalVal: { fontSize: 9, fontWeight: 'bold', color: HEADER_RED },
+  optSectionSubtotalUsd: { fontSize: 8, color: BLUE_700, marginLeft: 6 },
+  // ===== SECTION TITLE =====
   // ===== CROQUIS =====
   sketchBox: { backgroundColor: SLATE_50, border: `1px solid ${SLATE_200}`, padding: 6, marginBottom: 8 },
   sketchTitle: { fontSize: 8, fontWeight: 'bold', color: SLATE_700, textTransform: 'uppercase', marginBottom: 2 },
@@ -223,6 +237,156 @@ function TermsList({ title, items }: { title: string; items: string[] }) {
   );
 }
 
+// ===== Option section: one self-contained block per material/alternative =====
+//
+// Each block is rendered as a card with a colored border (red = principal,
+// gray = alternative) and includes its own material / pool / fabrication
+// tables + subtotal. The common "Extras / Global" fabrication details and
+// global pools are folded into every section's rows, so each option shows
+// its full price at a glance. Alternatives are quoted but their subtotals
+// do NOT add into the document grand total — the customer only executes
+// one of them.
+
+const FAB_HEADERS = [
+  { label: 'Concepto' },
+  { label: 'Detalle' },
+  { label: 'Material' },
+  { label: 'Largo', num: true },
+  { label: 'Ancho', num: true },
+  { label: 'M²/Cant', num: true },
+  { label: 'Precio', num: true },
+  { label: 'Moneda' },
+  { label: 'Subtotal ARS', num: true },
+  { label: 'Subtotal USD', num: true },
+];
+const FAB_FLEXES = [2, 2, 1.5, 1, 1, 1, 1, 0.8, 1.2, 1.2];
+
+const MAT_HEADERS = [
+  { label: 'Material' },
+  { label: 'Color' },
+  { label: 'Largo', num: true },
+  { label: 'Ancho', num: true },
+  { label: 'Cant.', num: true },
+  { label: 'M²', num: true },
+  { label: 'Precio/m²', num: true },
+  { label: 'Moneda' },
+  { label: 'Subtotal ARS', num: true },
+  { label: 'Subtotal USD', num: true },
+];
+const MAT_FLEXES = [2, 1.2, 1, 1, 0.6, 0.8, 1, 0.6, 1.2, 1.2];
+
+const POOL_HEADERS = [
+  { label: 'Marca' },
+  { label: 'Modelo' },
+  { label: 'Cant.', num: true },
+  { label: 'Precio', num: true },
+  { label: 'Moneda' },
+  { label: 'Subtotal ARS', num: true },
+  { label: 'Subtotal USD', num: true },
+];
+const POOL_FLEXES = [1.5, 1.5, 0.6, 1, 0.6, 1.2, 1.2];
+
+function fabRowCells(d: import('../../../utils/pdf/buildPdfData').PdfDataRow): (string | null)[] {
+  return [
+    d.concept,
+    d.detail,
+    d.material,
+    d.show_length && d.length_str ? d.length_str : null,
+    d.show_width && d.width_str ? d.width_str : null,
+    d.show_m2 ? d.m2_label : d.show_quantity ? String(d.quantity) : null,
+    `$ ${d.price_str}`,
+    d.currency,
+    d.subtotal_ars > 0 ? `$ ${fmt(d.subtotal_ars)}` : null,
+    d.subtotal_usd > 0 ? `USD ${fmt(d.subtotal_usd)}` : null,
+  ];
+}
+
+function matRowCells(m: import('../../../utils/pdf/buildPdfData').MaterialPdfRow): (string | null)[] {
+  return [
+    m.name,
+    m.color,
+    m.length_str,
+    m.width_str,
+    String(m.quantity),
+    m.m2_str,
+    `$ ${m.price_m2_str}`,
+    m.currency,
+    m.subtotal_ars > 0 ? `$ ${fmt(m.subtotal_ars)}` : null,
+    m.subtotal_usd > 0 ? `USD ${fmt(m.subtotal_usd)}` : null,
+  ];
+}
+
+function poolRowCells(p: import('../../../utils/pdf/buildPdfData').PoolPdfRow): (string | null)[] {
+  return [
+    p.brand,
+    p.model,
+    String(p.quantity),
+    `$ ${p.price_str}`,
+    p.currency,
+    p.subtotal_ars > 0 ? `$ ${fmt(p.subtotal_ars)}` : null,
+    p.subtotal_usd > 0 ? `USD ${fmt(p.subtotal_usd)}` : null,
+  ];
+}
+
+function OptionSectionBlock({ section }: { section: MaterialSection }) {
+  // Pick the card chrome based on whether this is the main option or an
+  // alternative. There's no separate global card anymore — the common
+  // extras are folded into every section's rows so the customer sees the
+  // full price of each option in a single block.
+  const blockStyle = section.is_main
+    ? styles.optSectionBlockMain
+    : styles.optSectionBlockAlt;
+  const titleStyle = section.is_main
+    ? [styles.optSectionTitle]
+    : [styles.optSectionTitle, styles.optSectionTitleAlt];
+
+  const fabRows = section.fabrication_details.map(fabRowCells);
+  const matRows = section.materials.map(matRowCells);
+  const poolRows = section.pools.map(poolRowCells);
+
+  const hasContent =
+    fabRows.length > 0 || matRows.length > 0 || poolRows.length > 0;
+  if (!hasContent) return null;
+
+  return (
+    <View style={{ ...styles.optSectionBlock, ...blockStyle }} wrap={false}>
+      <Text style={titleStyle}>{section.title}</Text>
+
+      {fabRows.length > 0 ? (
+        <View wrap={false}>
+          <DataTable headers={FAB_HEADERS} rows={fabRows} flexes={FAB_FLEXES} />
+        </View>
+      ) : null}
+
+      {matRows.length > 0 ? (
+        <View wrap={false} style={{ marginTop: 4 }}>
+          <DataTable headers={MAT_HEADERS} rows={matRows} flexes={MAT_FLEXES} />
+        </View>
+      ) : null}
+
+      {poolRows.length > 0 ? (
+        <View wrap={false} style={{ marginTop: 4 }}>
+          <DataTable headers={POOL_HEADERS} rows={poolRows} flexes={POOL_FLEXES} />
+        </View>
+      ) : null}
+
+      <View style={styles.optSectionSubtotal} wrap={false}>
+        <Text style={styles.optSectionSubtotalLbl}>
+          {section.is_main ? 'Subtotal Sección' : 'Subtotal Opción'}
+        </Text>
+        <Text style={styles.optSectionSubtotalVal}>
+          {`$ ${fmt(section.subtotal_ars)}`}
+        </Text>
+        {section.subtotal_usd > 0 ? (
+          <Text style={styles.optSectionSubtotalUsd}>
+            {`(USD ${fmt(section.subtotal_usd)})`}
+          </Text>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
 export default function DocumentPdf({ data }: DocumentPdfProps) {
   const logo = logoUrl(data.company);
   const headerLeftRight = (
@@ -275,238 +439,220 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
     </View>
   );
 
-  const fabricationHeaders = [
-    { label: 'Concepto' },
-    { label: 'Detalle' },
-    { label: 'Material' },
-    { label: 'Largo', num: true },
-    { label: 'Ancho', num: true },
-    { label: 'M²/Cant', num: true },
-    { label: 'Precio', num: true },
-    { label: 'Moneda' },
-    { label: 'Subtotal ARS', num: true },
-    { label: 'Subtotal USD', num: true },
-  ];
-  const fabricationRows = data.fabrication_details.map((d) => [
-    d.concept,
-    d.detail,
-    d.material,
-    d.show_length && d.length_str ? d.length_str : null,
-    d.show_width && d.width_str ? d.width_str : null,
-    d.show_m2 ? d.m2_label : d.show_quantity ? String(d.quantity) : null,
-    `$ ${d.price_str}`,
-    d.currency,
-    d.subtotal_ars > 0 ? `$ ${fmt(d.subtotal_ars)}` : null,
-    d.subtotal_usd > 0 ? `USD ${fmt(d.subtotal_usd)}` : null,
-  ]);
+  // The old flat fabrication/materials/pools headers + rows are now module-
+  // level constants + helpers (FAB_HEADERS, MAT_HEADERS, POOL_HEADERS, fabRowCells,
+  // matRowCells, poolRowCells) because each OptionSectionBlock now builds its
+  // own rows from `data.sections[*]`.
 
-  const materialHeaders = [
-    { label: 'Material' },
-    { label: 'Color' },
-    { label: 'Largo', num: true },
-    { label: 'Ancho', num: true },
-    { label: 'Cant.', num: true },
-    { label: 'M²', num: true },
-    { label: 'Precio/m²', num: true },
-    { label: 'Moneda' },
-    { label: 'Subtotal ARS', num: true },
-    { label: 'Subtotal USD', num: true },
-  ];
-  const materialRows = data.materials.map((m) => [
-    m.name,
-    m.color,
-    m.length_str,
-    m.width_str,
-    String(m.quantity),
-    m.m2_str,
-    `$ ${m.price_m2_str}`,
-    m.currency,
-    m.subtotal_ars > 0 ? `$ ${fmt(m.subtotal_ars)}` : null,
-    m.subtotal_usd > 0 ? `USD ${fmt(m.subtotal_usd)}` : null,
-  ]);
+  // Per-page terms (rendered on every page so each option quote is
+  // self-contained with its own header/terms/footer).
+  const termsBlock = data.document_type === 'budget' ? (
+    <>
+      <TermsList title="Términos del presupuesto" items={data.budget_terms_list} />
+      <TermsList title="Garantía" items={data.warranty_terms_list} />
+    </>
+  ) : (
+    <>
+      <TermsList title="Condiciones de entrega" items={data.delivery_terms_list} />
+      <TermsList title="Garantía" items={data.warranty_terms_list} />
+    </>
+  );
 
-  const poolHeaders = [
-    { label: 'Marca' },
-    { label: 'Modelo' },
-    { label: 'Cant.', num: true },
-    { label: 'Precio', num: true },
-    { label: 'Moneda' },
-    { label: 'Subtotal ARS', num: true },
-    { label: 'Subtotal USD', num: true },
-  ];
-  const poolRows = data.pools.map((p) => [
-    p.brand,
-    p.model,
-    String(p.quantity),
-    `$ ${p.price_str}`,
-    p.currency,
-    p.subtotal_ars > 0 ? `$ ${fmt(p.subtotal_ars)}` : null,
-    p.subtotal_usd > 0 ? `USD ${fmt(p.subtotal_usd)}` : null,
-  ]);
+  // Document-level totals + payment + signatures — only on the principal
+  // page (where the customer signs the chosen option).
+  const principalExtras = (
+    <>
+      {/* OBSERVATIONS — only on principal page */}
+      {data.notes ? (
+        <ObsBox title="Observaciones">
+          <Text style={styles.obsText}>{data.notes}</Text>
+        </ObsBox>
+      ) : null}
+      {data.important_observations ? (
+        <ObsBox title="Observaciones importantes">
+          {data.important_observations_list.length > 0 ? (
+            data.important_observations_list.map((t, i) => (
+              <Text key={i} style={styles.obsListItem}>{`• ${t}`}</Text>
+            ))
+          ) : (
+            <Text style={styles.obsText}>{data.important_observations}</Text>
+          )}
+        </ObsBox>
+      ) : null}
+
+      {/* TOTALS */}
+      <View style={styles.totals}>
+        <View style={styles.totalsRow}>
+          <Text style={styles.totalsLbl}>Subtotal</Text>
+          <Text style={styles.totalsVal}>{`$ ${fmt(data.subtotal)}`}</Text>
+        </View>
+        {data.transport > 0 ? (
+          <View style={styles.totalsRow}>
+            <Text style={styles.totalsLbl}>Traslado</Text>
+            <Text style={styles.totalsVal}>{`$ ${fmt(data.transport)}`}</Text>
+          </View>
+        ) : null}
+        {data.discount_percentage > 0 ? (
+          <View style={styles.totalsRow}>
+            <Text style={styles.totalsLbl}>{`Descuento (${data.discount_percentage}%)`}</Text>
+            <Text style={styles.totalsVal}>{`-$ ${fmt(data.discount_fixed_amount)}`}</Text>
+          </View>
+        ) : null}
+        {data.deposit_received > 0 ? (
+          <View style={styles.totalsRow}>
+            <Text style={styles.totalsLbl}>Seña</Text>
+            <Text style={styles.totalsVal}>{`$ ${fmt(data.deposit_received)}`}</Text>
+          </View>
+        ) : null}
+        {data.balance_due > 0 ? (
+          <View style={styles.totalsRow}>
+            <Text style={styles.totalsLbl}>Saldo pendiente</Text>
+            <Text style={styles.totalsVal}>{`$ ${fmt(data.balance_due)}`}</Text>
+          </View>
+        ) : null}
+        <View style={styles.grand}>
+          <Text style={styles.grandLbl}>TOTAL</Text>
+          <Text style={styles.grandVal}>
+            {`$ ${fmt(data.total)}`}
+            {data.total_usd > 0 ? <Text style={styles.grandUsdSub}>{`  (USD $${fmt(data.total_usd)})`}</Text> : null}
+          </Text>
+        </View>
+      </View>
+
+      {data.payment_method ? (
+        <View style={styles.paymentRow}>
+          <Text>
+            <Text style={styles.label}>Forma de pago: </Text>
+            <Text>{data.payment_method}</Text>
+            {data.installments && data.installments > 1 ? (
+              <Text>{` (${data.installments} cuotas)`}</Text>
+            ) : null}
+          </Text>
+          {data.payment_method === PAYMENT_METHOD_TRANSFER ? (
+            <View style={styles.bankRow}>
+              <Text>
+                <Text style={styles.label}>{`ALIAS: `}</Text>
+                <Text>{BANK_INFO.alias}</Text>
+              </Text>
+              <Text>
+                <Text style={styles.label}>{`BANCO: `}</Text>
+                <Text>{`${BANK_INFO.banco} a nombre de ${BANK_INFO.titular}`}</Text>
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
+      {/* SIGNATURES */}
+      <View style={styles.signatures} wrap={false}>
+        <View style={styles.signatureCell}>
+          <Text style={styles.signatureLine}>{' '}</Text>
+          <Text style={styles.signatureCaption}>
+            {`${data.company.company_name || 'AFAMAR'}\nResponsable`}
+          </Text>
+        </View>
+        <View style={styles.signatureCell}>
+          <Text style={styles.signatureLine}>{' '}</Text>
+          <Text style={styles.signatureCaption}>{'CLIENTE CONFORME\nFirma y aclaración'}</Text>
+        </View>
+      </View>
+    </>
+  );
+
+  // Footer (auto-positioned at the bottom of every page via the `fixed` prop
+  // and `position: absolute` style).
+  const footer = data.company.pdf_footer ? (
+    <Text style={styles.footer} fixed>
+      {data.company.pdf_footer}
+    </Text>
+  ) : null;
 
   return (
     <Document title={`${data.title} ${data.number}`} author={data.company.company_name}>
-      <Page size="A4" style={styles.page} wrap>
-        {/* HEADER */}
-        {headerLeftRight}
-        <View style={styles.divider} />
+      {data.sections && data.sections.length > 0 ? (
+        // ONE PAGE PER OPTION — each section (Principal + each Alternative)
+        // gets its own A4 page with header / terms / footer so the customer
+        // can extract any option and have a complete self-contained quote.
+        data.sections.map((section) => (
+          <Page key={section.title} size="A4" style={styles.page} wrap>
+            {/* HEADER */}
+            {headerLeftRight}
+            <View style={styles.divider} />
 
-        {/* CLIENT */}
-        {clientGrid}
-        <View style={styles.dividerLight} />
+            {/* CLIENT — shown on every page so each quote is self-contained */}
+            {clientGrid}
+            <View style={styles.dividerLight} />
 
-        {/* INFO-BOX */}
-        {specsGrid}
-
-        {/* CROQUIS */}
-        {data.sketch_images.length > 0 ? (
-          <View style={styles.sketchBox}>
-            <Text style={styles.sketchTitle}>Croquis</Text>
-            {data.sketch_images.map((img, i) => (
-              <Image key={i} style={styles.sketchImg} src={img} />
-            ))}
-          </View>
-        ) : null}
-
-        {/* FABRICATION */}
-        {data.fabrication_details.length > 0 ? (
-          <View wrap={false}>
-            <Text style={styles.sectionTitle}>Detalles de fabricación</Text>
-            <DataTable headers={fabricationHeaders} rows={fabricationRows} flexes={[2, 2, 1.5, 1, 1, 1, 1, 0.8, 1.2, 1.2]} />
-          </View>
-        ) : null}
-
-        {/* MATERIALS */}
-        {data.materials.length > 0 ? (
-          <View wrap={false}>
-            <Text style={styles.sectionTitle}>Materiales</Text>
-            <DataTable headers={materialHeaders} rows={materialRows} flexes={[2, 1.2, 1, 1, 0.6, 0.8, 1, 0.6, 1.2, 1.2]} />
-          </View>
-        ) : null}
-
-        {/* POOLS */}
-        {data.pools.length > 0 ? (
-          <View wrap={false}>
-            <Text style={styles.sectionTitle}>Piletas</Text>
-            <DataTable headers={poolHeaders} rows={poolRows} flexes={[1.5, 1.5, 0.6, 1, 0.6, 1.2, 1.2]} />
-          </View>
-        ) : null}
-
-        {/* OBSERVATIONS */}
-        {data.notes ? (
-          <ObsBox title="Observaciones">
-            <Text style={styles.obsText}>{data.notes}</Text>
-          </ObsBox>
-        ) : null}
-        {data.important_observations ? (
-          <ObsBox title="Observaciones importantes">
-            {data.important_observations_list.length > 0 ? (
-              data.important_observations_list.map((t, i) => (
-                <Text key={i} style={styles.obsListItem}>{`• ${t}`}</Text>
-              ))
-            ) : (
-              <Text style={styles.obsText}>{data.important_observations}</Text>
-            )}
-          </ObsBox>
-        ) : null}
-
-        {/* TOTALS */}
-        <View style={styles.totals}>
-          <View style={styles.totalsRow}>
-            <Text style={styles.totalsLbl}>Subtotal</Text>
-            <Text style={styles.totalsVal}>{`$ ${fmt(data.subtotal)}`}</Text>
-          </View>
-          {data.transport > 0 ? (
-            <View style={styles.totalsRow}>
-              <Text style={styles.totalsLbl}>Traslado</Text>
-              <Text style={styles.totalsVal}>{`$ ${fmt(data.transport)}`}</Text>
-            </View>
-          ) : null}
-          {data.discount_percentage > 0 ? (
-            <View style={styles.totalsRow}>
-              <Text style={styles.totalsLbl}>{`Descuento (${data.discount_percentage}%)`}</Text>
-              <Text style={styles.totalsVal}>{`-$ ${fmt(data.discount_fixed_amount)}`}</Text>
-            </View>
-          ) : null}
-          {data.deposit_received > 0 ? (
-            <View style={styles.totalsRow}>
-              <Text style={styles.totalsLbl}>Seña</Text>
-              <Text style={styles.totalsVal}>{`$ ${fmt(data.deposit_received)}`}</Text>
-            </View>
-          ) : null}
-          {data.balance_due > 0 ? (
-            <View style={styles.totalsRow}>
-              <Text style={styles.totalsLbl}>Saldo pendiente</Text>
-              <Text style={styles.totalsVal}>{`$ ${fmt(data.balance_due)}`}</Text>
-            </View>
-          ) : null}
-          <View style={styles.grand}>
-            <Text style={styles.grandLbl}>TOTAL</Text>
-            <Text style={styles.grandVal}>
-              {`$ ${fmt(data.total)}`}
-              {data.total_usd > 0 ? <Text style={styles.grandUsdSub}>{`  (USD $${fmt(data.total_usd)})`}</Text> : null}
-            </Text>
-          </View>
-        </View>
-
-        {data.payment_method ? (
-          <View style={styles.paymentRow}>
-            <Text>
-              <Text style={styles.label}>Forma de pago: </Text>
-              <Text>{data.payment_method}</Text>
-              {data.installments && data.installments > 1 ? (
-                <Text>{` (${data.installments} cuotas)`}</Text>
-              ) : null}
-            </Text>
-            {data.payment_method === PAYMENT_METHOD_TRANSFER ? (
-              <View style={styles.bankRow}>
-                <Text>
-                  <Text style={styles.label}>{`ALIAS: `}</Text>
-                  <Text>{BANK_INFO.alias}</Text>
-                </Text>
-                <Text>
-                  <Text style={styles.label}>{`BANCO: `}</Text>
-                  <Text>{`${BANK_INFO.banco} a nombre de ${BANK_INFO.titular}`}</Text>
-                </Text>
-              </View>
+            {/* SPECS + CROQUIS — only on the principal page (the chosen one) */}
+            {section.is_main ? (
+              <>
+                {specsGrid}
+                {data.sketch_images.length > 0 ? (
+                  <View style={styles.sketchBox}>
+                    <Text style={styles.sketchTitle}>Croquis</Text>
+                    {data.sketch_images.map((img, i) => (
+                      <Image key={i} style={styles.sketchImg} src={img} />
+                    ))}
+                  </View>
+                ) : null}
+              </>
             ) : null}
-          </View>
-        ) : null}
 
-        {/* TERMS */}
-        {data.document_type === 'budget' ? (
-          <>
-            <TermsList title="Términos del presupuesto" items={data.budget_terms_list} />
-            <TermsList title="Garantía" items={data.warranty_terms_list} />
-          </>
-        ) : (
-          <>
-            <TermsList title="Condiciones de entrega" items={data.delivery_terms_list} />
-            <TermsList title="Garantía" items={data.warranty_terms_list} />
-          </>
-        )}
+            {/* THE OPTION ITSELF — material + pools + fab + subtotal */}
+            <OptionSectionBlock section={section} />
 
-        {/* SIGNATURES */}
-        <View style={styles.signatures} wrap={false}>
-          <View style={styles.signatureCell}>
-            <Text style={styles.signatureLine}>{' '}</Text>
-            <Text style={styles.signatureCaption}>
-              {`${data.company.company_name || 'AFAMAR'}\nResponsable`}
-            </Text>
-          </View>
-          <View style={styles.signatureCell}>
-            <Text style={styles.signatureLine}>{' '}</Text>
-            <Text style={styles.signatureCaption}>{'CLIENTE CONFORME\nFirma y aclaración'}</Text>
-          </View>
-        </View>
+            {/* TERMS — on every page (per user request: each option quote is
+                self-contained with its own terms block) */}
+            {termsBlock}
 
-        {/* FOOTER */}
-        {data.company.pdf_footer ? (
-          <Text style={styles.footer} fixed>
-            {data.company.pdf_footer}
-          </Text>
-        ) : null}
-      </Page>
+            {/* TOTALS / PAYMENT / SIGNATURES — only on the principal page */}
+            {section.is_main ? principalExtras : null}
+
+            {/* FOOTER — `fixed` makes it appear on every page automatically */}
+            {footer}
+          </Page>
+        ))
+      ) : (
+        // Legacy fallback: if `sections` is missing (e.g. an old buildPdfData
+        // caller), render a single page with the flat lists the way the old
+        // PDF did.
+        <Page size="A4" style={styles.page} wrap>
+          {headerLeftRight}
+          <View style={styles.divider} />
+          {clientGrid}
+          <View style={styles.dividerLight} />
+          {specsGrid}
+          {data.sketch_images.length > 0 ? (
+            <View style={styles.sketchBox}>
+              <Text style={styles.sketchTitle}>Croquis</Text>
+              {data.sketch_images.map((img, i) => (
+                <Image key={i} style={styles.sketchImg} src={img} />
+              ))}
+            </View>
+          ) : null}
+          {data.fabrication_details.length > 0 ? (
+            <View wrap={false}>
+              <Text style={styles.sectionTitle}>Detalles de fabricación</Text>
+              <DataTable headers={FAB_HEADERS} rows={data.fabrication_details.map(fabRowCells)} flexes={FAB_FLEXES} />
+            </View>
+          ) : null}
+          {data.materials.length > 0 ? (
+            <View wrap={false}>
+              <Text style={styles.sectionTitle}>Materiales</Text>
+              <DataTable headers={MAT_HEADERS} rows={data.materials.map(matRowCells)} flexes={MAT_FLEXES} />
+            </View>
+          ) : null}
+          {data.pools.length > 0 ? (
+            <View wrap={false}>
+              <Text style={styles.sectionTitle}>Piletas</Text>
+              <DataTable headers={POOL_HEADERS} rows={data.pools.map(poolRowCells)} flexes={POOL_FLEXES} />
+            </View>
+          ) : null}
+          {principalExtras}
+          {termsBlock}
+          {footer}
+        </Page>
+      )}
     </Document>
   );
 }

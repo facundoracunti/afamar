@@ -1,0 +1,22 @@
+/* PoolSection — BEM
+   .pool-section__filters          flex row: type filter + add-pool select
+   .pool-section__type-filter      "Todos" / type filter select
+   .pool-section__add-select       "+ AGREGAR PILETA" select
+*/
+
+.pool-section__filters {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.pool-section__type-filter {
+  width: 110px;
+  font-size: 12px;
+}
+
+.pool-section__add-select {
+  flex: 1;
+  font-size: 13px;
+}

@@ -3,8 +3,11 @@
    .pool-card__header               top row: brand-model + remove
    .pool-card__title                brand - model text
    .pool-card__remove               × delete button
-   .pool-card__fields               bottom row: cant / moneda / precio
+   .pool-card__fields               bottom row: cant / precio / material
    .pool-card__field                single field cell
+   .pool-card__field--cant          Cant. field width
+   .pool-card__field--precio        Precio field width
+   .pool-card__field--material      "Asignar a opción" picker width
    .pool-card__label                field caption
    .pool-card__input                shared compact input style
    .pool-card__select               shared compact select style
@@ -64,12 +67,13 @@
   width: 70px;
 }
 
-.pool-card__field--moneda {
-  flex: 1;
-}
-
 .pool-card__field--precio {
   flex: 2;
+}
+
+.pool-card__field--material {
+  flex: 0 1 280px;
+  min-width: 200px;
 }
 
 .pool-card__label {

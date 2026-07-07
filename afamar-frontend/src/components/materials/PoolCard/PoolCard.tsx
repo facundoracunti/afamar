@@ -1,5 +1,5 @@
 import React from 'react';
-import type { PoolInForm } from '../../../types/budget';
+import { POOL_MATERIAL_GLOBAL, type MaterialInForm, type PoolInForm } from '../../../types/budget';
 import styles from './PoolCard.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -7,17 +7,18 @@ const s = styles as unknown as Record<string, string>;
 interface PoolCardProps {
   pt: PoolInForm;
   idx: number;
-  pools: Record<string, unknown>[];
+  /** Materials added to the current budget/WorkOrder (main + alternatives).
+   *  Powers the "Asignar a opción" picker so the pool can be linked to a
+   *  specific material section in the PDF. */
+  formMaterials: MaterialInForm[];
   readOnly: boolean;
   updatePileta: (idx: number, field: string, value: unknown) => void;
   removePileta: (idx: number) => void;
-  formPiletas: Record<string, unknown>[];
-  update: (field: string, value: unknown) => void;
   num: (v: unknown) => number;
 }
 
 export default function PoolCard({
-  pt, idx, pools, readOnly, updatePileta, removePileta, formPiletas, update, num,
+  pt, idx, formMaterials, readOnly, updatePileta, removePileta, num,
 }: PoolCardProps) {
   return (
     <div className={s['pool-card']}>
@@ -45,27 +46,6 @@ export default function PoolCard({
             disabled={readOnly}
           />
         </div>
-        <div className={`${s['pool-card__field']} ${s['pool-card__field--moneda']}`}>
-          <label className={s['pool-card__label']}>Moneda</label>
-          <select
-            className={`input ${s['pool-card__select']}`}
-            value={pt.currency}
-            onChange={(e) => {
-              const mon = e.target.value;
-              const pdata = pools.find((p) => p.id === Number(pt.pool_id));
-              const precio = pdata
-                ? (mon === 'USD' ? Number(pdata.price_usd ?? 0) : Number(pdata.price ?? 0))
-                : Number(pt.price ?? 0);
-              const list = [...formPiletas];
-              list[idx] = { ...list[idx], currency: mon as 'ARS' | 'USD', price: precio };
-              update('pools_data', list);
-            }}
-            disabled={readOnly}
-          >
-            <option value="ARS">ARS</option>
-            <option value="USD">USD</option>
-          </select>
-        </div>
         <div className={`${s['pool-card__field']} ${s['pool-card__field--precio']}`}>
           <label className={s['pool-card__label']}>Precio</label>
           <input
@@ -76,6 +56,32 @@ export default function PoolCard({
             onChange={(e) => updatePileta(idx, 'price', num(e.target.value))}
             disabled={readOnly}
           />
+        </div>
+        <div className={`${s['pool-card__field']} ${s['pool-card__field--material']}`}>
+          <label
+            className={s['pool-card__label']}
+            title="Asigna esta pileta a un material/alternativa específico, o a la sección 'Extras / Global' (suma al total y a cada alternativa)."
+          >
+            Asignar a opción
+          </label>
+          <select
+            className={`input ${s['pool-card__select']}`}
+            value={pt.material || POOL_MATERIAL_GLOBAL}
+            onChange={(e) => updatePileta(idx, 'material', e.target.value)}
+            disabled={readOnly}
+          >
+            <option value={POOL_MATERIAL_GLOBAL}>(Global — suma al total)</option>
+            {formMaterials.length === 0 ? (
+              <option value="" disabled>
+                (Agregá un material arriba para poder asignar)
+              </option>
+            ) : null}
+            {formMaterials.map((m) => (
+              <option key={m.name} value={m.name}>
+                {(m.is_alternative ? 'Alternativa: ' : 'Principal: ')}{m.name}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
     </div>

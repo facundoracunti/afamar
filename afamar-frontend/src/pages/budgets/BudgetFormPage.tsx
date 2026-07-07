@@ -486,7 +486,7 @@ const buildOptionFromMaterial = (mat: MaterialInForm): import('../../components/
               form={form}
               readOnly={readOnly}
               pools={pools}
-              update={update}
+              formMaterials={(form.materials_data as unknown as MaterialInForm[]) || []}
               updatePileta={updatePileta}
               removePileta={removePileta}
               addPileta={addPileta}
@@ -497,9 +497,9 @@ const buildOptionFromMaterial = (mat: MaterialInForm): import('../../components/
 
         <div className={s['budget-form__bottom']}>
           <FabricationSection
-            detalles={form.fabrication_details as unknown as Record<string, unknown>[]}
+            detalles={(form.fabrication_details as unknown as import('../../types/budget').FabricationDetail[]) || []}
             readOnly={readOnly}
-            materials={materials}
+            formMaterials={(form.materials_data as unknown as MaterialInForm[]) || []}
             M2_CONCEPTS={M2_CONCEPTS}
             num={num as (v: unknown) => number}
             handleDetailChange={handleDetailChange}

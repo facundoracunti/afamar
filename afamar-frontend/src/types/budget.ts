@@ -55,6 +55,17 @@ export interface MaterialInForm {
   is_alternative: boolean;
 }
 
+/**
+ * Sentinel value for the `material` field on `PoolInForm` that flags a pool
+ * as "global" — i.e. the pool doesn't belong to any specific material/option
+ * and should be rendered in the "EXTRAS / GLOBAL" section of the PDF,
+ * contributing to the document grand total AND to each alternative's
+ * subtotal (so the customer can compare alternatives apples-to-apples).
+ *
+ * Mirrors the "Global" option in `FabricationTable` for fabrication details.
+ */
+export const POOL_MATERIAL_GLOBAL = '__GLOBAL__' as const;
+
 export interface PoolInForm {
   pool_id: number;
   brand: string;
@@ -63,6 +74,17 @@ export interface PoolInForm {
   currency: 'ARS' | 'USD';
   image?: string;
   quantity: number;
+  /**
+   * Optional link to the material/alternative this pool belongs to:
+   * - empty/undefined → main section (default — the pool is part of the
+   *   principal option the customer is most likely to choose).
+   * - `POOL_MATERIAL_GLOBAL` ('__GLOBAL__') → global / extras section
+   *   (the pool is common to all options and adds to every subtotal).
+   * - any other string → matches a material name and the pool is rendered
+   *   inside that material's section in the PDF (so each alternative can
+   *   carry its own sink).
+   */
+  material?: string;
 }
 
 export interface BudgetPayload extends FinancialBase {

@@ -2,14 +2,15 @@
 export type { Material, MaterialFormData } from './material';
 export type { Client, ClientFormData, ClientHistory } from './client';
 export type { FinancialBase } from './shared';
-export type {
-  FabricationDetail,
-  BudgetItemSchema,
-  BudgetAdditionalSchema,
-  MaterialInForm,
-  PoolInForm,
-  BudgetPayload,
-  UnifiedBudget,
+export {
+  POOL_MATERIAL_GLOBAL,
+  type FabricationDetail,
+  type BudgetItemSchema,
+  type BudgetAdditionalSchema,
+  type MaterialInForm,
+  type PoolInForm,
+  type BudgetPayload,
+  type UnifiedBudget,
 } from './budget';
 export type { WorkOrderPayload, WorkOrderListItem, ConvertOptionResponse } from './workOrder';
 export type { OnlineBudgetItem, OnlineBudgetPayload } from './onlineBudget';

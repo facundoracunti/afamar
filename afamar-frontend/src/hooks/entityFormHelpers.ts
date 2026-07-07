@@ -1,6 +1,6 @@
 import type { EntityFormState, Pool } from '../types';
 import type { Material } from '../types/material';
-import type { MaterialInForm, PoolInForm } from '../types';
+import { POOL_MATERIAL_GLOBAL, type MaterialInForm, type PoolInForm } from '../types/budget';
 import type { FinancialBase } from '../types/shared';
 import { fabricationConcepts } from '../utils/formatters';
 
@@ -420,6 +420,20 @@ export function addMaterialToList(
   ];
 }
 
+/**
+ * Pick the default `material` link for a freshly-added pool.
+ *
+ * Priority: first main material in the form (most common case — the pool
+ * ships with the principal option) > `POOL_MATERIAL_GLOBAL` (sensible
+ * fallback when the user hasn't loaded any material yet).
+ */
+function defaultPoolMaterial(form: EntityFormState): string {
+  const materials = (form.materials_data as unknown as MaterialInForm[]) || [];
+  const firstMain = materials.find((m) => !m.is_alternative);
+  if (firstMain) return firstMain.name;
+  return POOL_MATERIAL_GLOBAL;
+}
+
 export function addPoolToList(
   form: EntityFormState,
   pools: Pool[],
@@ -439,6 +453,7 @@ export function addPoolToList(
       currency: 'ARS' as const,
       image: '',
       quantity: 1,
+      material: defaultPoolMaterial(form),
     } as unknown as PoolInForm,
   ];
 }

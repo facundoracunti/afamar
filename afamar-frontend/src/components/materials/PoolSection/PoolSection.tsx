@@ -3,26 +3,34 @@ import http from '@/api/http';
 import { useList } from '../../../api/hooks';
 import PoolCard from '../PoolCard/PoolCard';
 import type { PoolType } from '../../../types/poolStock';
+import type { MaterialInForm, PoolInForm } from '../../../types/budget';
+import styles from './PoolSection.module.css';
+
+const s = styles as unknown as Record<string, string>;
 
 interface PoolSectionProps {
+  /** Catalog of pool types (from /pool-stock). */
   pools: Record<string, unknown>[];
-  formPiletas: Record<string, unknown>[];
+  /** Pools added to the current budget/WorkOrder. */
+  formPiletas: PoolInForm[];
+  /** Materials added to the current budget/WorkOrder (main + alternatives).
+   *  Powers the per-pool "Asignar a opción" picker. */
+  formMaterials: MaterialInForm[];
   readOnly: boolean;
   addPileta: (id: string) => void;
   updatePileta: (idx: number, field: string, value: unknown) => void;
   removePileta: (idx: number) => void;
-  update: (field: string, value: unknown) => void;
   num: (v: unknown) => number;
 }
 
 export default function PoolSection({
   pools,
   formPiletas,
+  formMaterials,
   readOnly,
   addPileta,
   updatePileta,
   removePileta,
-  update,
   num,
 }: PoolSectionProps) {
   const [poolTypeFilter, setPoolTypeFilter] = useState<number | 'all'>('all');
@@ -47,10 +55,9 @@ export default function PoolSection({
   return (
     <div className="card">
       <h3 className="section-title">PILETAS</h3>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+      <div className={s['pool-section__filters']}>
         <select
-          className="input"
-          style={{ width: 110, fontSize: 12 }}
+          className={`input ${s['pool-section__type-filter']}`}
           value={poolTypeFilter}
           onChange={(e) => setPoolTypeFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
         >
@@ -60,8 +67,7 @@ export default function PoolSection({
           ))}
         </select>
         <select
-          className="input"
-          style={{ flex: 1, fontSize: 13 }}
+          className={`input ${s['pool-section__add-select']}`}
           value=""
           onChange={(e) => { addPileta(e.target.value); e.target.value = ''; }}
           disabled={readOnly}
@@ -77,14 +83,12 @@ export default function PoolSection({
       {(formPiletas || []).map((pt, idx) => (
         <PoolCard
           key={idx}
-          pt={pt as unknown as import('../../../types/budget').PoolInForm}
+          pt={pt}
           idx={idx}
-          pools={pools}
+          formMaterials={formMaterials}
           readOnly={readOnly}
           updatePileta={updatePileta}
           removePileta={removePileta}
-          formPiletas={formPiletas}
-          update={update}
           num={num}
         />
       ))}

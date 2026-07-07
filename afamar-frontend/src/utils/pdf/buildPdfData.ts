@@ -12,6 +12,7 @@
  */
 
 import type { MaterialInForm, PoolInForm, FabricationDetail } from '../../types/budget';
+import { POOL_MATERIAL_GLOBAL } from '../../types/budget';
 
 export type DocumentType = 'budget' | 'work_order';
 
@@ -56,6 +57,14 @@ export interface PoolPdfRow {
   readonly currency: 'ARS' | 'USD';
   readonly subtotal_ars: number;
   readonly subtotal_usd: number;
+  /**
+   * Mirrors `PoolInForm.material`. Used by `buildSections` to bucket the
+   * pool into the right PDF section: empty/undefined → main section,
+   * `POOL_MATERIAL_GLOBAL` → extras/global section, anything else → the
+   * material section matching this name. Not rendered into the PDF cells
+   * (consumed only during section bucketing).
+   */
+  readonly material: string;
 }
 
 export interface CompanyInfo {
@@ -88,8 +97,23 @@ export interface PdfDocumentData {
   material_thickness: string;
   material_finish: string;
   delivery_date: string;
+  /**
+   * Per-material breakdown of the document. One section per main material
+   * or alternative (when the document has alternatives) plus an "Extras /
+   * Global" section for fabrication details that weren't assigned to any
+   * material. Each section carries its own materials, pools, fabrication
+   * rows and subtotals so the renderer can lay out one block per option.
+   */
+  sections: MaterialSection[];
+  /**
+   * Flat concatenation of all fabrication rows across sections — kept for
+   * backward compat with the totals logic and any external consumer that
+   * still iterates the flat list. Prefer `sections[*].fabrication_details`.
+   */
   fabrication_details: PdfDataRow[];
+  /** Flat concatenation of all material rows across sections. Prefer `sections`. */
   materials: MaterialPdfRow[];
+  /** Flat concatenation of all pool rows across sections. Prefer `sections`. */
   pools: PoolPdfRow[];
   subtotal: number;
   transport: number;
@@ -109,6 +133,31 @@ export interface PdfDocumentData {
   warranty_terms_list: string[];
   sketch_images: string[];
   company: CompanyInfo;
+}
+
+/**
+ * One self-contained block in the PDF layout. For budgets with alternatives
+ * the renderer prints one section per option (Principal + Alternativa 1..N)
+ * with its own tables and subtotal, then optionally an "Extras / Global"
+ * section for unassigned fabrication details. For work orders there's a
+ * single main section (no alternatives on the WO side).
+ */
+export interface MaterialSection {
+  /** Display title, e.g. "PRINCIPAL: GRIS MARA" / "ALTERNATIVA 1: TAJ MAHAL" / "EXTRAS / GLOBAL". */
+  title: string;
+  /** True for the main-material section (is_alternative === false on the source rows). */
+  is_main: boolean;
+  /** True for the catch-all section that holds fabrication details without a `material` link. */
+  is_global: boolean;
+  /** Section index in the original budget — undefined for global / work orders. */
+  alternative_index?: number;
+  /** Material name (e.g. "GRIS MARA"). Empty string for the global section. */
+  material_name: string;
+  materials: MaterialPdfRow[];
+  pools: PoolPdfRow[];
+  fabrication_details: PdfDataRow[];
+  subtotal_ars: number;
+  subtotal_usd: number;
 }
 
 const CONCEPT_DISPLAY: Record<string, string> = {
@@ -315,6 +364,7 @@ function buildPoolRows(pools: PoolInForm[], usdRate: number): PoolPdfRow[] {
       currency,
       subtotal_ars: subtotalArs,
       subtotal_usd: subtotalUsd,
+      material: p.material || '',
     });
   }
   return result;
@@ -357,6 +407,167 @@ export interface BuildPdfDataParams {
   sketchImages?: string[];
 }
 
+/**
+ * Group materials, pools and fabrication details into per-option sections.
+ *
+ * Logic:
+ * - One section per main material (all `!is_alternative` materials collapse
+ *   into a single "PRINCIPAL" section so the PDF doesn't have N blocks when
+ *   the user picked several main materials).
+ * - One section per alternative (label "ALTERNATIVA 1: <name>" etc.).
+ *
+ * Each section is self-contained: it includes the material/option-specific
+ * rows (material/pools/fab linked to that option) AND the common "global"
+ * extras (fabrication details with no `material` link, plus pools flagged
+ * as `POOL_MATERIAL_GLOBAL`). That way the customer can see the full
+ * price-per-option at a glance, with no need for a separate "EXTRAS /
+ * GLOBAL" card at the bottom of the document.
+ *
+ * The document grand total is the main section's subtotal (since the
+ * customer only executes one option). Alternatives are quoted for
+ * comparison but DO NOT add into the grand total.
+ */
+function buildSections(
+  allMaterials: MaterialInForm[],
+  alternatives: MaterialInForm[],
+  pools: PoolInForm[],
+  fabricationRows: PdfDataRow[],
+  usdRate: number,
+): { sections: MaterialSection[]; flatMaterials: MaterialPdfRow[]; flatPools: PoolPdfRow[]; flatFabrication: PdfDataRow[]; subtotalMain: number; subtotalGlobal: number } {
+  const mainMaterials = allMaterials.filter((m) => !m.is_alternative);
+  const flatMaterials: MaterialPdfRow[] = [];
+  const flatPools: PoolPdfRow[] = [];
+  const flatFabrication: PdfDataRow[] = [];
+  const sections: MaterialSection[] = [];
+
+  const mainMaterialRows = buildMaterialRows(mainMaterials, usdRate);
+  const allPoolRows = buildPoolRows(pools, usdRate);
+  // Bucket pools by their `material` field:
+  // - POOL_MATERIAL_GLOBAL ('__GLOBAL__') or empty/undefined → folded into
+  //   every section's rows (common to all options). Empty is treated as
+  //   Global for backward compat with data persisted before the explicit
+  //   "Asignar a opción" feature landed.
+  // - any other string → that material's section only.
+  const poolsByMaterial: Record<string, PoolPdfRow[]> = {};
+  const poolsCommon: PoolPdfRow[] = [];
+  for (const poolRow of allPoolRows) {
+    const linkedMaterial = poolRow.material;
+    if (!linkedMaterial || linkedMaterial === POOL_MATERIAL_GLOBAL) {
+      poolsCommon.push(poolRow);
+    } else {
+      if (!poolsByMaterial[linkedMaterial]) poolsByMaterial[linkedMaterial] = [];
+      poolsByMaterial[linkedMaterial].push(poolRow);
+    }
+  }
+  // Same bucketing for fabrication details.
+  const fabricationByMaterial: Record<string, PdfDataRow[]> = {};
+  const fabricationCommon: PdfDataRow[] = [];
+  for (const row of fabricationRows) {
+    // The `material` field on FabricationDetail doubles as the option link.
+    // We don't propagate it into the row's PDF rendering — only use it here
+    // to bucket rows into sections.
+    const detailMaterial = row.material;
+    if (detailMaterial && detailMaterial.length > 0) {
+      if (!fabricationByMaterial[detailMaterial]) fabricationByMaterial[detailMaterial] = [];
+      fabricationByMaterial[detailMaterial].push(row);
+    } else {
+      fabricationCommon.push(row);
+    }
+  }
+
+  // ---------- 1) Main section ----------
+  // Materials + main-specific fab + main-specific pools + COMMON extras
+  // (so the customer sees the full price of the principal option in a
+  // single block, with no separate "Extras" card at the end).
+  const mainFabrication: PdfDataRow[] = [...fabricationCommon];
+  for (const m of mainMaterials) {
+    if (fabricationByMaterial[m.name]) {
+      mainFabrication.push(...fabricationByMaterial[m.name]);
+    }
+  }
+  const mainPoolRows: PoolPdfRow[] = [...poolsCommon];
+  for (const m of mainMaterials) {
+    if (poolsByMaterial[m.name]) {
+      mainPoolRows.push(...poolsByMaterial[m.name]);
+    }
+  }
+  const mainSubtotalArs =
+    mainMaterialRows.reduce((s, r) => s + r.subtotal_ars, 0) +
+    mainPoolRows.reduce((s, r) => s + r.subtotal_ars, 0) +
+    mainFabrication.reduce((s, r) => s + r.subtotal_ars, 0);
+  const mainSubtotalUsd =
+    mainMaterialRows.reduce((s, r) => s + r.subtotal_usd, 0) +
+    mainPoolRows.reduce((s, r) => s + r.subtotal_usd, 0) +
+    mainFabrication.reduce((s, r) => s + r.subtotal_usd, 0);
+  const mainName = mainMaterials.length === 1 ? mainMaterials[0].name : '';
+  sections.push({
+    title: `PRINCIPAL${mainName ? `: ${mainName}` : ''}`,
+    is_main: true,
+    is_global: false,
+    material_name: mainName,
+    materials: mainMaterialRows,
+    pools: mainPoolRows,
+    fabrication_details: mainFabrication,
+    subtotal_ars: mainSubtotalArs,
+    subtotal_usd: mainSubtotalUsd,
+  });
+  flatMaterials.push(...mainMaterialRows);
+  flatPools.push(...mainPoolRows);
+  flatFabrication.push(...mainFabrication);
+
+  // ---------- 2) One section per alternative ----------
+  // Each alternative gets its own material + linked fab + linked pools +
+  // the COMMON extras (so all options can be compared apples-to-apples).
+  alternatives.forEach((alt, idx) => {
+    const altMaterialRows = buildMaterialRows([alt], usdRate);
+    const altFabrication: PdfDataRow[] = [
+      ...fabricationCommon,
+      ...(fabricationByMaterial[alt.name] ?? []),
+    ];
+    const altPools: PoolPdfRow[] = [
+      ...poolsCommon,
+      ...(poolsByMaterial[alt.name] ?? []),
+    ];
+    const altSubtotalArs =
+      altMaterialRows.reduce((s, r) => s + r.subtotal_ars, 0) +
+      altPools.reduce((s, r) => s + r.subtotal_ars, 0) +
+      altFabrication.reduce((s, r) => s + r.subtotal_ars, 0);
+    const altSubtotalUsd =
+      altMaterialRows.reduce((s, r) => s + r.subtotal_usd, 0) +
+      altPools.reduce((s, r) => s + r.subtotal_usd, 0) +
+      altFabrication.reduce((s, r) => s + r.subtotal_usd, 0);
+    sections.push({
+      title: `ALTERNATIVA ${idx + 1}: ${alt.name}`,
+      is_main: false,
+      is_global: false,
+      alternative_index: idx,
+      material_name: alt.name,
+      materials: altMaterialRows,
+      pools: altPools,
+      fabrication_details: altFabrication,
+      subtotal_ars: altSubtotalArs,
+      subtotal_usd: altSubtotalUsd,
+    });
+    flatMaterials.push(...altMaterialRows);
+    flatPools.push(...altPools);
+    flatFabrication.push(...altFabrication);
+  });
+
+  // `subtotalGlobal` is always 0 now — the common extras are folded into
+  // every section's rows, so there's no separate "Extras / Global" block
+  // to count. Kept in the return shape for backward compat with the
+  // caller in `buildPdfData`, which still does
+  // `computedSubtotal = subtotalMain + subtotalGlobal`.
+  return {
+    sections,
+    flatMaterials,
+    flatPools,
+    flatFabrication,
+    subtotalMain: mainSubtotalArs,
+    subtotalGlobal: 0,
+  };
+}
+
 export function buildPdfData({
   form,
   document_type,
@@ -373,65 +584,41 @@ export function buildPdfData({
   const allMaterials = asMaterials(form.materials_data);
   const mainMaterials = allMaterials.filter((m) => !m.is_alternative);
   const alternatives = allMaterials.filter((m) => m.is_alternative);
-
   const pools = asPools(form.pools_data);
   const usdRate = num('usd_rate');
-  if (document_type === 'budget') {
-    // Budgets show all materials (main + alternatives).
-    const materialRows = buildMaterialRows([...mainMaterials, ...alternatives], usdRate);
-    const poolRows = buildPoolRows(pools, usdRate);
 
-    return {
-      document_type,
-      title: 'PRESUPUESTO',
-      number: str('number'),
-      doc_sub: STATUS_SUB_MAP[str('status')] || '',
-      date: formatDate(form.date),
-      client_name: str('client_name'),
-      client_phone: str('client_phone'),
-      client_address: str('client_address'),
-      client_email: str('client_email'),
-      material_color: str('color'),
-      material_thickness: str('thickness'),
-      material_finish: str('finish'),
-      delivery_date: formatDate(form.delivery_date),
-      fabrication_details: buildFabricationRows(form.fabrication_details, usdRate),
-      materials: materialRows,
-      pools: poolRows,
-      subtotal: num('subtotal'),
-      transport: num('transport'),
-      discount_percentage: num('discount_percentage'),
-      discount_fixed_amount: num('discount_fixed_amount'),
-      deposit_received: num('deposit_received'),
-      balance_due: Math.max(0, num('balance_due')),
-      total: num('total'),
-      total_usd: num('total_usd'),
-      payment_method: str('payment_method'),
-      installments: num('installments') || 1,
-      notes: str('notes'),
-      important_observations: str('important_observations'),
-      important_observations_list: splitTerms(form.important_observations),
-      budget_terms_list: overrides?.budget_terms && overrides.budget_terms.length > 0
-        ? overrides.budget_terms
-        : globalTerms.budget_terms,
-      delivery_terms_list: overrides?.delivery_terms && overrides.delivery_terms.length > 0
-        ? overrides.delivery_terms
-        : globalTerms.delivery_terms,
-      warranty_terms_list: overrides?.warranty_terms && overrides.warranty_terms.length > 0
-        ? overrides.warranty_terms
-        : globalTerms.warranty_text,
-      sketch_images: sketchImages,
-      company,
-    };
-  }
+  // Build fabrication rows once and bucket them into sections.
+  const fabricationRows = buildFabricationRows(form.fabrication_details, usdRate);
+  const {
+    sections,
+    flatMaterials,
+    flatPools,
+    flatFabrication,
+    subtotalMain,
+    subtotalGlobal,
+  } = buildSections(
+    document_type === 'work_order' ? mainMaterials : allMaterials,
+    document_type === 'work_order' ? [] : alternatives,
+    pools,
+    fabricationRows,
+    usdRate,
+  );
 
-  // Work order: only main materials (alternatives are budget-side).
-  const materialRows = buildMaterialRows(mainMaterials, usdRate);
-  const poolRows = buildPoolRows(pools, usdRate);
+  // Document subtotal = main + global. Alternatives are quoted but not
+  // summed into the grand total (the customer only executes one of them).
+  // We override the stored `form.subtotal` / `form.total` / `form.balance_due`
+  // with the section-based computation because the stored values include
+  // alternatives' subtotals (the backend sums everything when it persists).
+  const computedSubtotal = subtotalMain + subtotalGlobal;
+  const transport = num('transport');
+  const discountFixed = num('discount_fixed_amount');
+  const deposit = num('deposit_received');
+  const computedTotal = Math.max(0, computedSubtotal + transport - discountFixed);
+  const computedBalanceDue = Math.max(0, computedTotal - deposit);
 
-  return {
+  const base: PdfDocumentData = {
     document_type,
-    title: 'ORDEN DE TRABAJO',
+    title: document_type === 'budget' ? 'PRESUPUESTO' : 'ORDEN DE TRABAJO',
     number: str('number'),
     doc_sub: STATUS_SUB_MAP[str('status')] || '',
     date: formatDate(form.date),
@@ -442,17 +629,18 @@ export function buildPdfData({
     material_color: str('color'),
     material_thickness: str('thickness'),
     material_finish: str('finish'),
-      delivery_date: formatDate(form.delivery_date),
-      fabrication_details: buildFabricationRows(form.fabrication_details, usdRate),
-      materials: materialRows,
-      pools: poolRows,
-    subtotal: num('subtotal'),
-    transport: num('transport'),
+    delivery_date: formatDate(form.delivery_date),
+    sections,
+    fabrication_details: flatFabrication,
+    materials: flatMaterials,
+    pools: flatPools,
+    subtotal: computedSubtotal,
+    transport,
     discount_percentage: num('discount_percentage'),
-    discount_fixed_amount: num('discount_fixed_amount'),
-    deposit_received: num('deposit_received'),
-    balance_due: Math.max(0, num('balance_due')),
-    total: num('total'),
+    discount_fixed_amount: discountFixed,
+    deposit_received: deposit,
+    balance_due: computedBalanceDue,
+    total: computedTotal,
     total_usd: num('total_usd'),
     payment_method: str('payment_method'),
     installments: num('installments') || 1,
@@ -469,6 +657,14 @@ export function buildPdfData({
     sketch_images: sketchImages,
     company,
   };
+
+  if (document_type === 'budget') {
+    base.budget_terms_list = overrides?.budget_terms && overrides.budget_terms.length > 0
+      ? overrides.budget_terms
+      : globalTerms.budget_terms;
+  }
+
+  return base;
 }
 
 export { fmtMoney, fmtNum };

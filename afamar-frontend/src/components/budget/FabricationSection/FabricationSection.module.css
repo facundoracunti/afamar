@@ -1,0 +1,67 @@
+/* FabricationSection — BEM
+   .fabrication-section                        block wrapper
+   .fabrication-section__comparison            measurement comparison block
+   .fabrication-section__comparison-title      "📐 COMPARATIVA DE MEDICIÓN" title
+   .fabrication-section__comparison-table      measurement table
+   .fabrication-section__comparison-head-row   thead row
+   .fabrication-section__comparison-th-left    "Concepto" header (left)
+   .fabrication-section__comparison-th-center  "M² Real/Presupuestado" header (center)
+   .fabrication-section__comparison-row        tbody row
+   .fabrication-section__comparison-name       material name (bold)
+   .fabrication-section__comparison-cell-center numeric cell (centered)
+   .fabrication-section__comparison-cell-strong numeric cell (bold)
+*/
+
+.fabrication-section {
+  /* keep .card base styles */
+}
+
+.fabrication-section__comparison {
+  margin-top: 16px;
+}
+
+.fabrication-section__comparison-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.fabrication-section__comparison-table {
+  font-size: 12px;
+}
+
+.fabrication-section__comparison-head-row {
+  background: var(--surface-alt-bg);
+  border-bottom: 2px solid var(--border-color);
+}
+
+.fabrication-section__comparison-th-left {
+  text-align: left;
+  padding: 8px 12px;
+}
+
+.fabrication-section__comparison-th-center {
+  text-align: center;
+  padding: 8px 12px;
+}
+
+.fabrication-section__comparison-row {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.fabrication-section__comparison-name {
+  padding: 8px 12px;
+  font-weight: 600;
+}
+
+.fabrication-section__comparison-cell-center {
+  text-align: center;
+  padding: 8px 12px;
+}
+
+.fabrication-section__comparison-cell-strong {
+  text-align: center;
+  padding: 8px 12px;
+  font-weight: 600;
+}
