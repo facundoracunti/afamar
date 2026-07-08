@@ -58,6 +58,12 @@ class Budget(Base):
     priority: Mapped[str] = mapped_column(String(20), default="NORMAL")
     date: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     delivery_date: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    # Optional override for the client's default delivery address
+    # (see `ClientAddress`). `None` → use the client's default address.
+    delivery_address_id: Mapped[int | None] = mapped_column(
+        ForeignKey("client_addresses.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
     # Foreign keys to reference tables
     status_id: Mapped[int | None] = mapped_column(ForeignKey("budget_statuses.id"), nullable=True)

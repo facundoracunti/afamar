@@ -56,6 +56,12 @@ class WorkOrder(Base):
 
     priority: Mapped[str] = mapped_column(String(20), default="NORMAL")
     delivery_date: Mapped[date] = mapped_column(Date, nullable=True)
+    # Optional override for the client's default delivery address
+    # (see `ClientAddress`). `None` → use the client's default address.
+    delivery_address_id: Mapped[int | None] = mapped_column(
+        ForeignKey("client_addresses.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
     digital_signature: Mapped[str] = mapped_column(Text, nullable=True)
     signed_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
