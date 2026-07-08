@@ -4,6 +4,7 @@ from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.models.reference import Currency
 
 
 class PoolType(Base):
@@ -26,14 +27,23 @@ class PoolStock(Base):
     description: Mapped[str] = mapped_column(Text, nullable=True)
     material: Mapped[str] = mapped_column(String(100), nullable=True)
     quantity: Mapped[int] = mapped_column(Integer, default=0)
+    # Single price column — the value is in the currency of the FK below.
+    # ARS rows store the ARS price; USD rows store the USD price. The
+    # service layer converts to the other currency on demand (or the
+    # caller passes the usd_rate) so the totals block can show both.
     price: Mapped[float] = mapped_column(Float, default=0.0)
-    price_usd: Mapped[float] = mapped_column(Float, default=0.0)
     pool_type_id: Mapped[int] = mapped_column(ForeignKey("pool_types.id"), nullable=True, default=1)
+    currency_id: Mapped[int] = mapped_column(
+        ForeignKey("currencies.id", ondelete="RESTRICT"),
+        nullable=False,
+        default=1,
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
     movements = relationship("StockMovement", back_populates="pool", cascade="all, delete-orphan")
     pool_type = relationship("PoolType")
+    currency_obj = relationship("Currency", back_populates="pool_stock")
 
 
 class StockMovement(Base):

@@ -11,6 +11,13 @@ export function useBudgetCalculations(
     const materialsData = (form.materials_data as unknown as MaterialInForm[]) || [];
     const poolsData = (form.pools_data as unknown as PoolInForm[]) || [];
 
+    // Fabrication details respect their own `currency` field (the row's
+    // legacy contract). New rows created with the current form-builder
+    // default to ARS (per the user-facing contract — see
+    // `useFormDetails.handleDetailChange`), but legacy rows created when
+    // the row followed the material's currency are still USD and we have
+    // to honor that in the totals. The PDF then renders whichever
+    // currency the row says it is.
     const arsTotal = fabricationDetails.reduce(
       (sum: number, d: FabricationDetail) => sum + (d.currency === 'USD' ? 0 : (Number(d.price) || 0) * (d.quantity || 1)),
       0

@@ -360,3 +360,47 @@ describe('mapApiToForm — sketch_elements round-trip', () => {
     expect(form3.sketch_elements).toEqual([]);
   });
 });
+
+describe('fabrication_detail price contract — always in ARS', () => {
+  // The user-facing contract for the "Detalle de fabricación y adicionales"
+  // form: the manual `price` field (and the auto-calculated price) is
+  // ALWAYS in pesos. The PDF / totals block converts to USD using the
+  // document's `usd_rate` for the USD column. These tests guard the
+  // shape of `mapApiToForm` (which round-trips the stored detail) so
+  // a future refactor can't silently introduce a USD-only path that
+  // breaks the manual price-entry flow.
+  it('preserves a manually-typed ARS price verbatim', () => {
+    const form = mapApiToForm({
+      fabrication_details: JSON.stringify([
+        { concept: 'CUTOUT_SINK', price: 5000, currency: 'ARS', quantity: 1 },
+      ]),
+    }, 'PENDING');
+    expect(form.fabrication_details[0].price).toBe(5000);
+    expect(form.fabrication_details[0].currency).toBe('ARS');
+  });
+
+  it('legacy details with currency=USD still keep their stored price — the PDF renderer converts it for the USD column', () => {
+    const form = mapApiToForm({
+      fabrication_details: JSON.stringify([
+        { concept: 'CUTOUT_SINK', price: 5000, currency: 'USD', quantity: 1 },
+      ]),
+    }, 'PENDING');
+    // The stored price is whatever the user typed — the form doesn't
+    // rewrite it on load. The PDF renderer does the ARS→USD conversion
+    // for the breakdown column.
+    expect(form.fabrication_details[0].price).toBe(5000);
+  });
+
+  it('M2 concepts (BASEBOARD, FRONT) carry the m² × pm² calculation in the stored price field — always in ARS regardless of material currency', () => {
+    const form = mapApiToForm({
+      fabrication_details: JSON.stringify([
+        // pm2 in ARS (the contract). The m² × pm² calculation belongs in
+        // useFormDetails.handleDetailChange, not here — mapApiToForm just
+        // round-trips the stored value.
+        { concept: 'BASEBOARD', price: 12500, currency: 'ARS', quantity: 1, m2: 2.5, length: 5, width: 0.5 },
+      ]),
+    }, 'PENDING');
+    expect(form.fabrication_details[0].price).toBe(12500);
+    expect(form.fabrication_details[0].m2).toBe(2.5);
+  });
+});

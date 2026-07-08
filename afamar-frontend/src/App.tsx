@@ -22,6 +22,7 @@ import MaterialsListPage from './pages/materials/MaterialsListPage';
 import MaterialFormPage from './pages/materials/MaterialFormPage';
 import MaterialsCategoriesPage from './pages/materials/MaterialsCategoriesPage';
 import PoolStockPage from './pages/pool-stock/PoolStockPage';
+import AdicionalesPage from './pages/adicionales/AdicionalesPage';
 import ReportsPage from './pages/reports/ReportsPage';
 import ConfigurationPage from './pages/configuration/ConfigurationPage';
 import ProductPhotosPage from './pages/product-photos/ProductPhotosPage';
@@ -81,6 +82,7 @@ function App() {
                 <Route path="materials/new" element={<MaterialFormPage key="new" />} />
                 <Route path="materials/:id" element={<MaterialFormPage key="edit" />} />
                 <Route path="pool-stock" element={<PoolStockPage />} />
+                <Route path="adicionales" element={<AdicionalesPage />} />
                 <Route path="measurements" element={<MeasurementsListPage />} />
                 <Route path="measurements/new" element={<MeasurementFormPage key="new" />} />
                 <Route path="measurements/:id" element={<MeasurementFormPage key="edit" />} />

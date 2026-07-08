@@ -1,6 +1,7 @@
 from datetime import datetime
+from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from app.schemas.base import BaseResponse
 
@@ -32,8 +33,14 @@ class PoolStockBase(BaseModel):
     description: str | None = None
     material: str | None = None
     quantity: int = 0
+    # Single price column — its value is in the currency of the FK
+    # stored in the DB. The wire format accepts the currency code (ARS /
+    # USD) and the service translates it into the FK on save. The
+    # `price_usd` column was dropped during the FK migration because
+    # the currency is now the single source of truth for which column
+    # the price lives in.
     price: float = 0.0
-    price_usd: float = 0.0
+    currency: str = "ARS"
     pool_type_id: int | None = 1
 
 
@@ -48,7 +55,7 @@ class PoolStockUpdate(BaseModel):
     material: str | None = None
     quantity: int | None = None
     price: float | None = None
-    price_usd: float | None = None
+    currency: str | None = None
     pool_type_id: int | None = None
 
 
@@ -59,3 +66,22 @@ class PoolStockResponse(PoolStockBase, BaseResponse):
     created_at: datetime
     updated_at: datetime
     movements: list[StockMovementResponse] = []
+
+    @model_validator(mode="before")
+    @classmethod
+    def _populate_currency_code(cls, data: Any) -> Any:
+        """Same as `MaterialResponse._populate_currency_code`. Tries
+        `currency_obj` first (works for ORM objects) and falls back to
+        dict access for plain dicts (when the router dumps the row
+        to JSON first)."""
+        obj = getattr(data, "currency_obj", None)
+        if obj is None and isinstance(data, dict):
+            obj = data.get("currency_obj")
+        if obj is not None:
+            code = obj.get("code") if isinstance(obj, dict) else getattr(obj, "code", None)
+            if code:
+                try:
+                    data.currency = code
+                except AttributeError:
+                    data["currency"] = code
+        return data
