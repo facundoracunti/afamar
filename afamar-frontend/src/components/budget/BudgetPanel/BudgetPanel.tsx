@@ -84,6 +84,10 @@ export default function BudgetPanel({
                   .filter((d) => Number(d.price) > 0)
                   .map((d, i) => {
                     const dd2 = Number(form.usd_rate);
+                    // Fabrication detail prices follow the row's own
+                    // `currency` (legacy contract — the row's `price` is
+                    // already in that currency). New rows default to ARS,
+                    // legacy rows may still be USD.
                     const precioArs =
                       d.currency === 'ARS'
                         ? Number(d.price)
@@ -218,13 +222,10 @@ export default function BudgetPanel({
                 {fabricationDetails
                   .filter((d) => Number(d.price) > 0)
                   .map((d, i) => {
+                    // Fabrication detail prices are always in ARS; the
+                    // USD column is the ARS value divided by `usd_rate`.
                     const dd2 = Number(form.usd_rate);
-                    const precioUsd =
-                      d.currency === 'USD'
-                        ? Number(d.price)
-                        : dd2 > 0
-                          ? Number(d.price) / dd2
-                          : 0;
+                    const precioUsd = dd2 > 0 ? Number(d.price) / dd2 : 0;
                     return (
                       <div key={i} className={s['lineItem']}>
                         <span>

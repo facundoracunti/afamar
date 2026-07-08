@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.material import Material, MaterialCategory, MaterialColor, MaterialThickness
 from app.models.price_history import PriceHistory
@@ -72,22 +72,54 @@ class MaterialRepository(BaseRepository):
         super().__init__(db)
 
     def get_by_id(self, material_id: int) -> Optional[Material]:
-        return self.db.query(Material).filter(Material.id == material_id).first()
+        return (
+            self.db.query(Material)
+            .options(joinedload(Material.currency_obj))
+            .filter(Material.id == material_id)
+            .first()
+        )
 
     def get_all(self, skip: int = 0, limit: int = 100) -> List[Material]:
-        return self.db.query(Material).offset(skip).limit(limit).all()
+        # `joinedload(currency_obj)` makes the response `currency` field
+        # always populated — the `MaterialResponse._populate_currency_code`
+        # validator reads it on the way out. Without this, the lazy load
+        # fails silently once the session is closed by the time Pydantic
+        # runs the validator.
+        return (
+            self.db.query(Material)
+            .options(joinedload(Material.currency_obj))
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
 
     def get_by_category(self, category_id: int) -> List[Material]:
-        return self.db.query(Material).filter(Material.category_id == category_id).all()
+        return (
+            self.db.query(Material)
+            .options(joinedload(Material.currency_obj))
+            .filter(Material.category_id == category_id)
+            .all()
+        )
 
     def create(self, data: dict) -> Material:
-        return self.save(Material(**data))
+        # Always populate `currency_obj` so the response validator
+        # (`MaterialResponse._populate_currency_code`) can surface the
+        # currency code as a string in the wire format. Without the
+        # joinedload, the relationship is left as a lazy proxy that
+        # may not be reachable once the session is closed by the time
+        # the router serializes the row.
+        material = self.save(Material(**data))
+        db = self.db
+        db.refresh(material, attribute_names=["currency_obj"])
+        return material
 
     def update(self, material: Material, data: dict) -> Material:
         for key, value in data.items():
             if value is not None:
                 setattr(material, key, value)
-        return self.save(material)
+        result = self.save(material)
+        self.db.refresh(result, attribute_names=["currency_obj"])
+        return result
 
     def delete(self, material: Material) -> None:
         super().delete(material)

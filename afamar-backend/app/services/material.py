@@ -2,9 +2,26 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
+from app.core.exceptions import ValidationError
 from app.models.material import Material, MaterialColor, MaterialThickness
 from app.models.price_history import PriceHistory
+from app.models.reference import Currency
 from app.repositories.material import ColorRepository, MaterialRepository, PriceHistoryRepository, ThicknessRepository
+
+
+def _resolve_currency_id(db: Session, code: str) -> int:
+    """Translate a 3-letter currency code from the wire payload into
+    the matching `currencies.id` row. Raises `ValidationError` if the
+    code doesn't exist (so the API returns 422 with a clear message
+    rather than a 500 IntegrityError on a dangling FK)."""
+    if not code:
+        return 1  # default to ARS (id=1 by the seeder order)
+    cur = db.query(Currency).filter(Currency.code == code.upper()).first()
+    if not cur:
+        raise ValidationError(
+            f"Moneda desconocida: {code!r}. Las monedas válidas se configuran en `currencies`."
+        )
+    return cur.id
 
 
 class MaterialService:
@@ -24,6 +41,11 @@ class MaterialService:
         return self.repo.get_by_category(category_id)
 
     def create(self, data: dict) -> Material:
+        # Translate the wire-format currency code into the FK the ORM
+        # expects. The Material ORM model has no `currency` column
+        # anymore — only `currency_id`.
+        if "currency" in data:
+            data["currency_id"] = _resolve_currency_id(self.repo.db, data.pop("currency"))
         price = data.get("base_price", 0)
         material = self.repo.create(data)
         if price > 0:
@@ -40,6 +62,8 @@ class MaterialService:
         material = self.repo.get_by_id(material_id)
         if not material:
             return None
+        if "currency" in data:
+            data["currency_id"] = _resolve_currency_id(self.repo.db, data.pop("currency"))
         old_price = material.base_price
         result = self.repo.update(material, data)
         if "base_price" in data and data["base_price"] != old_price:
