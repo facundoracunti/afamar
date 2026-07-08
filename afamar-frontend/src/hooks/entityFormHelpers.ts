@@ -115,7 +115,11 @@ export const INITIAL_FORM: EntityFormState = {
 
   // Budget/work order identifier & status
   number: '',
-  date: todayLocalISO(),
+  // `date` is intentionally empty here — `useEntityForm` seeds it to
+  // today's local calendar day on mount for new documents (so the
+  // date is fresh per-mount, not per-module-import). For edits,
+  // `mapApiToForm` populates it from the API response.
+  date: '',
   status: '',
 
   // Material specs (BudgetBase)
@@ -203,7 +207,10 @@ export function buildPayload(form: EntityFormState): Record<string, unknown> {
     fabrication_details: jsonStringify(form.fabrication_details),
     materials_data: jsonStringify(form.materials_data),
     pools_data: jsonStringify(form.pools_data),
-    sketch_elements: flattenSketchElements(form.sketch_elements),
+    // sketch_elements is a TEXT column on the backend, so we send the
+    // JSON string. The flat-list shape (output of flattenSketchElements)
+    // is what the unflatten side reads back.
+    sketch_elements: jsonStringify(flattenSketchElements(form.sketch_elements)),
   };
 }
 
@@ -299,18 +306,35 @@ function flattenSketchElements(raw: unknown): { type: string; data: string | nul
 }
 
 /**
- * Reverse of `flattenSketchElements`. The backend returns a flat list of
+ * Reverse of `flattenSketchElements`. The wire format is a flat list of
  * `{type, data, order}` where `data` is a JSON string holding the full
  * element (minus type/order). We re-hydrate each element by merging
  * `type` back in and wrap the result in a single editor page so the
  * SketchEditor can render it as-is.
+ *
+ * Accepts both an array (Budget `sketch_elements` relationship, also
+ * the shape used by `flattenSketchElements` on the way out) and a
+ * JSON-encoded string (the WorkOrder.sketch_elements TEXT column gets
+ * serialised by the backend, so a converted-from-budget WO returns a
+ * string here). The form state is always an array.
  */
 function unflattenSketchElements(raw: unknown): { pagina_id: number; name: string; dibujo: unknown[] }[] {
-  if (!Array.isArray(raw) || raw.length === 0) return [];
+  let arr: unknown[] = [];
+  if (Array.isArray(raw)) {
+    arr = raw;
+  } else if (typeof raw === 'string' && raw.length > 0) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) arr = parsed;
+    } catch {
+      // Treat as empty — better to render nothing than crash the editor.
+    }
+  }
+  if (arr.length === 0) return [];
   return [{
     pagina_id: 1,
     name: 'Página 1',
-    dibujo: raw.map((e) => {
+    dibujo: arr.map((e) => {
       if (!e || typeof e !== 'object') return e;
       const obj = e as Record<string, unknown>;
       const { type, data, order: _o, ...rest } = obj;

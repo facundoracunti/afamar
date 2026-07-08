@@ -24,6 +24,7 @@ import { t as translateStatus } from '../../utils/translate';
 import { useSettingsWithTerms } from '../../hooks/useSettingsWithTerms';
 import { buildPdfData } from '../../utils/pdf/buildPdfData';
 import type { PdfDocumentData } from '../../utils/pdf/buildPdfData';
+import { mapApiToForm } from '../../hooks/entityFormHelpers';
 import CurrencyDisplay from '../../components/ui/CurrencyDisplay';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
@@ -197,8 +198,17 @@ export default function BudgetsList() {
     setPdfData(null);
     try {
       const res = await getBudget(budget.id);
-      const formData = (res as unknown as { data: Record<string, unknown> }).data;
-      setPendingFormData(formData);
+      // Run the raw API response through the same mapper the edit form
+      // uses (`mapApiToForm`). That gives us a fully-typed
+      // `EntityFormState` with dates sliced, JSON-encoded *_data fields
+      // parsed, and — most importantly for this fix — `sketch_elements`
+      // decoded into the page-list the SketchImageExtractor expects.
+      // Without this step, the extractor receives the raw relationship
+      // and the legacy `budgeted_details` text column and silently produces
+      // zero pages (no croquis in the PDF).
+      const apiRow = (res as unknown as { data: Record<string, unknown> }).data;
+      const formData = mapApiToForm(apiRow, budget.status || 'PENDING');
+      setPendingFormData(formData as unknown as Record<string, unknown>);
       setSketchExtractorActive(true);
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail

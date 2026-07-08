@@ -11,7 +11,7 @@
  * NOTE: react-pdf ships a `<Font/>` registry override; embeding Helvetica
  * is unnecessary because it's a default PDF font.
  */
-import React from 'react';
+import React, { Fragment } from 'react';
 import {
   Document,
   Page,
@@ -22,7 +22,36 @@ import {
 } from '@react-pdf/renderer';
 import type { PdfDocumentData, MaterialSection } from '../../../utils/pdf/buildPdfData';
 import { API_URL } from '../../../api/http';
-import { BANK_INFO, PAYMENT_METHOD_TRANSFER } from '../../../constants';
+import { BANK_INFO, PAYMENT_METHOD_TRANSFER, SKETCH_STAGE_WIDTH, SKETCH_STAGE_HEIGHT } from '../../../constants';
+
+// The croquis rectángulo que ve el usuario en el editor es el `Stage` de
+// Konva con tamaño fijo `SKETCH_STAGE_WIDTH × SKETCH_STAGE_HEIGHT`
+// (definido en `components/sketch/CanvasArea`). El `SketchImageExtractor`
+// re-renderiza el mismo contenido a esa resolución y exporta un PNG.
+//
+// Para que el PDF muestre el **mismo rectángulo** (mismo aspect ratio, no
+// un rectángulo más chico con bandas negras), el frame de la sección
+// "Croquis" tiene que tener exactamente el aspect ratio del stage. El
+// ancho se calcula para ocupar casi todo el content area del PDF; la
+// altura sale del aspect ratio.
+const SKETCH_STAGE_ASPECT = SKETCH_STAGE_WIDTH / SKETCH_STAGE_HEIGHT;
+// A4 portrait = 595pt, paddingHorizontal 34pt → content area ≈ 527pt.
+const SKETCH_CONTENT_WIDTH = 527;
+// A4 landscape = 842pt, paddingHorizontal 34pt → content area ≈ 774pt.
+const SKETCH_CONTENT_WIDTH_LANDSCAPE = 774;
+// Two display sizes for the croquis frame:
+//  - SKETCH_PDF_WIDTH (≈460pt) is the inline size used when the croquis
+//    shares a page with the rest of the document — leaves room for the
+//    items table + totals + terms below it.
+//  - SKETCH_PDF_LARGE_WIDTH (≈766pt, landscape A4) is the dedicated-page
+//    size — when the croquis gets its own A4 page, we flip the page to
+//    landscape so the wide editor rectángulo has room to breathe (A4
+//    portrait leaves ~630pt of blank space below a 210pt-tall croquis;
+//    landscape with the same content width gives 313pt of height).
+const SKETCH_PDF_WIDTH = 460;
+const SKETCH_PDF_HEIGHT = SKETCH_PDF_WIDTH / SKETCH_STAGE_ASPECT;
+const SKETCH_PDF_LARGE_WIDTH = SKETCH_CONTENT_WIDTH_LANDSCAPE - 8; // 4pt margin each side
+const SKETCH_PDF_LARGE_HEIGHT = SKETCH_PDF_LARGE_WIDTH / SKETCH_STAGE_ASPECT;
 
 const FONT = 'Helvetica';
 const ACCENT = '#c0392b';
@@ -90,17 +119,16 @@ const styles = StyleSheet.create({
   optSectionSubtotalUsd: { fontSize: 8, color: BLUE_700, marginLeft: 6 },
   // ===== SECTION TITLE =====
   // ===== CROQUIS =====
-  // The sketch image is a 800×600px PNG extracted from the same fixed
-  // stage as the editor (see `components/sketch/constants.ts`). 4:3
-  // aspect ratio. The PDF renders it at SKETCH_PDF_WIDTH ×
-  // SKETCH_PDF_HEIGHT (preserving the aspect ratio) inside a light box.
-  // This size was picked so the sketch is large enough to read every
-  // detail in print (a 4:3 canvas maps to ~340×255pt which is
-  // roughly half a page wide) without pushing the other content off
-  // the page.
+  // The sketch image is rendered at the same aspect ratio as the editor's
+  // `Stage` (see `SKETCH_STAGE_WIDTH` / `SKETCH_STAGE_HEIGHT` in
+  // `constants/index.ts`). Two size variants — `sketchImg` for the
+  // inline case (shares the page with items + totals) and
+  // `sketchImgLarge` for the dedicated-page case (one Page, one big
+  // rectángulo del croquis).
   sketchBox: { backgroundColor: SLATE_50, border: `1px solid ${SLATE_200}`, padding: 6, marginBottom: 8 },
   sketchTitle: { fontSize: 8, fontWeight: 'bold', color: SLATE_700, textTransform: 'uppercase', marginBottom: 2 },
-  sketchImg: { width: 340, height: 255, objectFit: 'contain', marginVertical: 4 },
+  sketchImg: { width: SKETCH_PDF_WIDTH, height: SKETCH_PDF_HEIGHT, marginVertical: 4 },
+  sketchImgLarge: { width: SKETCH_PDF_LARGE_WIDTH, height: SKETCH_PDF_LARGE_HEIGHT, marginVertical: 4 },
   // ===== SECTION TITLE =====
   sectionTitle: { fontSize: 10, fontWeight: 'bold', color: ACCENT, textTransform: 'uppercase', marginTop: 8, marginBottom: 4, paddingBottom: 2, borderBottom: `1px solid ${ACCENT}` },
   // ===== DATA TABLE =====
@@ -599,85 +627,119 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
         // ONE PAGE PER OPTION — each section (Principal + each Alternative)
         // gets its own A4 page with header / terms / footer so the customer
         // can extract any option and have a complete self-contained quote.
+        // If the principal has a croquis, we also emit a dedicated page
+        // (same header + client + footer) so the drawing has room to
+        // breathe — otherwise it gets squeezed below the totals block.
         data.sections.map((section) => (
-          <Page key={section.title} size="A4" style={styles.page} wrap>
-            {/* HEADER */}
-            {headerLeftRight}
-            <View style={styles.divider} />
+          <Fragment key={section.title}>
+            <Page size="A4" style={styles.page} wrap>
+              {/* HEADER */}
+              {headerLeftRight}
+              <View style={styles.divider} />
 
-            {/* CLIENT — shown on every page so each quote is self-contained */}
-            {clientGrid}
-            <View style={styles.dividerLight} />
+              {/* CLIENT — shown on every page so each quote is self-contained */}
+              {clientGrid}
+              <View style={styles.dividerLight} />
 
-            {/* SPECS + CROQUIS — only on the principal page (the chosen one) */}
-            {section.is_main ? (
-              <>
-                {specsGrid}
-                {data.sketch_images.length > 0 ? (
-                  <View style={styles.sketchBox}>
-                    <Text style={styles.sketchTitle}>Croquis</Text>
-                    {data.sketch_images.map((img, i) => (
-                      <Image key={i} style={styles.sketchImg} src={img} />
-                    ))}
-                  </View>
-                ) : null}
-              </>
+              {/* SPECS — only on the principal page (the chosen one) */}
+              {section.is_main ? specsGrid : null}
+
+              {/* THE OPTION ITSELF — material + pools + fab + subtotal */}
+              <OptionSectionBlock section={section} />
+
+              {/* TERMS — on every page (per user request: each option quote is
+                  self-contained with its own terms block) */}
+              {termsBlock}
+
+              {/* TOTALS / PAYMENT / SIGNATURES — only on the principal page */}
+              {section.is_main ? principalExtras : null}
+
+              {/* FOOTER — `fixed` makes it appear on every page automatically */}
+              {footer}
+            </Page>
+
+            {/* Dedicated croquis page — only on the principal section, only
+                if there's actually a croquis to show. Same header, client
+                grid and footer so the page stands on its own. `wrap={false}`
+                keeps the image intact (no risk of being split across pages).
+                The page is rotated to landscape so the wide editor
+                rectángulo has room to breathe — A4 portrait leaves ~630pt
+                of blank space below a 210pt-tall croquis, which is
+                wasteful when the drawing IS the content. */}
+            {section.is_main && data.sketch_images.length > 0 ? (
+              <Page size="A4" orientation="landscape" style={styles.page} wrap={false}>
+                {headerLeftRight}
+                <View style={styles.divider} />
+                {clientGrid}
+                <View style={styles.dividerLight} />
+                <View style={styles.sketchBox}>
+                  <Text style={styles.sketchTitle}>Croquis</Text>
+                  {data.sketch_images.map((img, i) => (
+                    <Image key={i} style={styles.sketchImgLarge} src={img} />
+                  ))}
+                </View>
+                {footer}
+              </Page>
             ) : null}
-
-            {/* THE OPTION ITSELF — material + pools + fab + subtotal */}
-            <OptionSectionBlock section={section} />
-
-            {/* TERMS — on every page (per user request: each option quote is
-                self-contained with its own terms block) */}
-            {termsBlock}
-
-            {/* TOTALS / PAYMENT / SIGNATURES — only on the principal page */}
-            {section.is_main ? principalExtras : null}
-
-            {/* FOOTER — `fixed` makes it appear on every page automatically */}
-            {footer}
-          </Page>
+          </Fragment>
         ))
       ) : (
         // Legacy fallback: if `sections` is missing (e.g. an old buildPdfData
         // caller), render a single page with the flat lists the way the old
-        // PDF did.
-        <Page size="A4" style={styles.page} wrap>
-          {headerLeftRight}
-          <View style={styles.divider} />
-          {clientGrid}
-          <View style={styles.dividerLight} />
-          {specsGrid}
+        // PDF did. If there's a croquis, the dedicated-page treatment below
+        // adds it on its own A4 page.
+        <Fragment>
+          <Page size="A4" style={styles.page} wrap>
+            {headerLeftRight}
+            <View style={styles.divider} />
+            {clientGrid}
+            <View style={styles.dividerLight} />
+            {specsGrid}
+            {data.materials.length > 0 ? (
+              <View>
+                <Text style={styles.sectionTitle}>Materiales</Text>
+                <DataTable headers={MAT_HEADERS} rows={data.materials.map(matRowCells)} flexes={MAT_FLEXES} />
+              </View>
+            ) : null}
+            {data.fabrication_details.length > 0 ? (
+              <View style={{ marginTop: 4 }}>
+                <Text style={styles.sectionTitle}>Detalles de fabricación</Text>
+                <DataTable headers={FAB_HEADERS} rows={data.fabrication_details.map(fabRowCells)} flexes={FAB_FLEXES} />
+              </View>
+            ) : null}
+            {data.pools.length > 0 ? (
+              <View style={{ marginTop: 4 }}>
+                <Text style={styles.sectionTitle}>Piletas</Text>
+                <DataTable headers={POOL_HEADERS} rows={data.pools.map(poolRowCells)} flexes={POOL_FLEXES} />
+              </View>
+            ) : null}
+            {principalExtras}
+            {termsBlock}
+            {footer}
+          </Page>
+
+          {/* Dedicated croquis page — only when there's something to show.
+              Same header + client + footer as the main page so the customer
+              can extract just the croquis and still see who it's for. The
+              page is rotated to landscape so the wide editor rectángulo
+              has room to breathe (see the equivalent in the sectioned
+              flow above for the rationale). */}
           {data.sketch_images.length > 0 ? (
-            <View style={styles.sketchBox}>
-              <Text style={styles.sketchTitle}>Croquis</Text>
-              {data.sketch_images.map((img, i) => (
-                <Image key={i} style={styles.sketchImg} src={img} />
-              ))}
-            </View>
+            <Page size="A4" orientation="landscape" style={styles.page} wrap={false}>
+              {headerLeftRight}
+              <View style={styles.divider} />
+              {clientGrid}
+              <View style={styles.dividerLight} />
+              <View style={styles.sketchBox}>
+                <Text style={styles.sketchTitle}>Croquis</Text>
+                {data.sketch_images.map((img, i) => (
+                  <Image key={i} style={styles.sketchImgLarge} src={img} />
+                ))}
+              </View>
+              {footer}
+            </Page>
           ) : null}
-          {data.materials.length > 0 ? (
-            <View>
-              <Text style={styles.sectionTitle}>Materiales</Text>
-              <DataTable headers={MAT_HEADERS} rows={data.materials.map(matRowCells)} flexes={MAT_FLEXES} />
-            </View>
-          ) : null}
-          {data.fabrication_details.length > 0 ? (
-            <View style={{ marginTop: 4 }}>
-              <Text style={styles.sectionTitle}>Detalles de fabricación</Text>
-              <DataTable headers={FAB_HEADERS} rows={data.fabrication_details.map(fabRowCells)} flexes={FAB_FLEXES} />
-            </View>
-          ) : null}
-          {data.pools.length > 0 ? (
-            <View style={{ marginTop: 4 }}>
-              <Text style={styles.sectionTitle}>Piletas</Text>
-              <DataTable headers={POOL_HEADERS} rows={data.pools.map(poolRowCells)} flexes={POOL_FLEXES} />
-            </View>
-          ) : null}
-          {principalExtras}
-          {termsBlock}
-          {footer}
-        </Page>
+        </Fragment>
       )}
     </Document>
   );

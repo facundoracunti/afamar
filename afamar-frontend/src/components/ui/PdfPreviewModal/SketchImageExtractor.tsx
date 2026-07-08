@@ -34,9 +34,17 @@ interface SketchImageExtractorProps {
 
 /** Normalize the sketch data into pages of elements.
  *  Accepts three shapes:
- *  1. Editor format: `[{ pagina_id, name, dibujo: [...] }, ...]` (from useEntityForm)
- *  2. Backend format: `[{ type, data, order }, ...]` (flat list from GET /budgets/{id})
- *  3. Legacy: `{ pages: [{ elements: [...] }] }` */
+ *  1. Editor format: `[{ pagina_id, name, dibujo: [...] }, ...]` (from
+ *     `mapApiToForm` — the form's flat page list, ready to render)
+ *  2. Backend format: `[{ type, data, order }, ...]` (flat list from
+ *     `GET /budgets/{id}` when the caller hasn't run it through
+ *     `mapApiToForm`)
+ *  3. Legacy: `{ pages: [{ elements: [...] }] }`
+ *
+ *  The input is always an **array**. The exporter side of the form
+ *  (`flattenSketchElements`) produces a flat list — if you're calling
+ *  this with anything else, run the data through `mapApiToForm` first so
+ *  the field is in the canonical shape the rest of the form expects. */
 function normalizePages(raw: unknown): SketchPage[] {
   if (!Array.isArray(raw) || raw.length === 0) return [];
 

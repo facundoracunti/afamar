@@ -87,31 +87,43 @@ def restore_pool_stock(db: Session, pool_id: int | None, pools_data: str | None,
 
 
 def _stash_sketch_into_budgeted_details(data: dict) -> None:
-    """Move the frontend's `sketch_elements` array into `budgeted_details`.
+    """Mirror the `sketch_elements` payload into the legacy
+    `budgeted_details` TEXT column so the legacy xhtml2pdf path keeps
+    working (it reads `budgeted_details` for the sketch source).
 
-    The frontend sends the sketch as `sketch_elements: [...]` (an array of
-    pages with `dibujo`). The WorkOrder model has no `sketch_elements`
-    column (the canonical sketch lives on the Budget) so this field would
-    be dropped by the ORM. We serialise it into the existing
-    `budgeted_details` TEXT column — the same field used when a
-    WorkOrder is created from a Budget — and remove `sketch_elements`
-    from the dict so the ORM doesn't reject the unknown key.
+    The new `WorkOrder.sketch_elements` TEXT column is the source of
+    truth for the modern PDF renderer and the WO form, so we keep
+    `data["sketch_elements"]` as-is and just ADD `budgeted_details`
+    alongside it when missing.
+
+    Accepts the sketch in three shapes that the frontend / conversion
+    path have produced over time:
+      1. JSON-encoded string (current `buildPayload` + the conversion
+         path's `create_from_budget`).
+      2. Plain array of `{type, data, order}` (older `buildPayload`
+         versions, kept for backward compat).
+      3. None / empty (no-op).
 
     Mutates `data` in place.
     """
-    sketch = data.pop("sketch_elements", None)
-    if sketch is None:
-        return
-    if isinstance(sketch, str):
-        # Already JSON-encoded (rare; e.g. legacy / save round-trips).
-        data["budgeted_details"] = sketch or None
-        return
+    sketch = data.get("sketch_elements")
     if not sketch:
         return
+    if isinstance(sketch, str):
+        # JSON-encoded: mirror as-is to budgeted_details (it's the same
+        # canonical string the new column already stores).
+        data.setdefault("budgeted_details", sketch or None)
+        return
+    if not isinstance(sketch, list):
+        return
+    # Plain array: serialise to JSON, set BOTH the new column and the
+    # legacy column so the legacy PDF still finds it.
     try:
-        data["budgeted_details"] = json.dumps(sketch, ensure_ascii=False)
+        encoded = json.dumps(sketch, ensure_ascii=False)
     except (TypeError, ValueError):
-        data["budgeted_details"] = None
+        return
+    data["sketch_elements"] = encoded
+    data.setdefault("budgeted_details", encoded)
 
 
 def _create_cash_movement_on_deposit(

@@ -130,7 +130,11 @@ class BudgetBase(BaseModel):
 class BudgetCreate(BudgetBase):
     items: list[BudgetItemCreate] = []
     adicionales: list[BudgetAdicionalCreate] = []
-    sketch_elements: list[BudgetSketchElementCreate] = []
+    # JSON-encoded array of sketch elements (same wire format as
+    # WorkOrderBase.sketch_elements). The Budget has no `sketch_elements`
+    # column of its own — the rows live in `BudgetSketchElement` — so
+    # `BudgetService.create` parses the string and creates the rows.
+    sketch_elements: str | None = None
 
 
 class BudgetUpdate(BaseModel):
@@ -192,7 +196,8 @@ class BudgetUpdate(BaseModel):
     pools_data: str | None = None
     items: list[BudgetItemCreate] | None = None
     adicionales: list[BudgetAdicionalCreate] | None = None
-    sketch_elements: list[BudgetSketchElementCreate] | None = None
+    # See `BudgetCreate.sketch_elements` — JSON-encoded string.
+    sketch_elements: str | None = None
 
 
 class BudgetResponse(BudgetBase, BaseResponse):

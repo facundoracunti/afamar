@@ -87,7 +87,7 @@ export default function BudgetForm() {
   } = useEntityForm({
     entityType: 'budget',
     services: budgetServices,
-    defaultEstado: 'PENDING',
+    defaultStatus: 'PENDING',
     id,
     navigate,
     onLoaded: (data: Record<string, unknown>) => {

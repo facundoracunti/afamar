@@ -8,7 +8,7 @@ import { mapApiToForm } from './entityFormHelpers';
 
 interface UseFormReferencesParams {
   services: EntityServices;
-  defaultEstado: string;
+  defaultStatus: string;
   id: string | undefined;
   isEdit: boolean;
   setForm: React.Dispatch<React.SetStateAction<EntityFormState>>;
@@ -32,7 +32,7 @@ interface UseFormReferencesReturn {
 
 export function useFormReferences({
   services,
-  defaultEstado,
+  defaultStatus,
   id,
   isEdit,
   setForm,
@@ -122,7 +122,7 @@ export function useFormReferences({
           const res = await services.getById(id);
           if (cancelled) return;
           const d = res.data as Record<string, unknown>;
-          setForm(mapApiToForm(d, defaultEstado));
+          setForm(mapApiToForm(d, defaultStatus));
           onLoaded?.(d);
           setLoading(false);
         }
@@ -136,7 +136,7 @@ export function useFormReferences({
     return () => {
       cancelled = true;
     };
-    // We intentionally do not depend on `defaultEstado` — it's captured at mount.
+    // We intentionally do not depend on `defaultStatus` — it's captured at mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isEdit]);
 

@@ -7,6 +7,7 @@ import { formatDate, orderStatuses } from '../../utils/formatters';
 import { useSettingsWithTerms } from '../../hooks/useSettingsWithTerms';
 import { buildPdfData } from '../../utils/pdf/buildPdfData';
 import type { PdfDocumentData } from '../../utils/pdf/buildPdfData';
+import { mapApiToForm } from '../../hooks/entityFormHelpers';
 import CurrencyDisplay from '../../components/ui/CurrencyDisplay';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
@@ -104,11 +105,19 @@ export default function WorkOrdersList() {
     setPdfData(null);
     try {
       const res = await getWorkOrder(o.id);
-      const formData = (res as unknown as { data: Record<string, unknown> }).data;
-      setPendingFormData(formData);
+      // Run the raw API response through the same mapper the edit form uses
+      // (`mapApiToForm`). That gives us a fully-typed `EntityFormState` with
+      // dates sliced, JSON-encoded *_data fields parsed, and — most
+      // importantly for this fix — `sketch_elements` decoded from its
+      // JSON string into the page-list the SketchImageExtractor expects.
+      // Without this step, the extractor receives the raw TEXT-column
+      // string and silently produces zero pages (no croquis in the PDF).
+      const apiRow = (res as unknown as { data: Record<string, unknown> }).data;
+      const formData = mapApiToForm(apiRow, o.status || 'MEASUREMENT');
+      setPendingFormData(formData as unknown as Record<string, unknown>);
       setSketchExtractorActive(true);
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
         || (err as Error).message
         || 'Error al cargar la orden';
       notify(detail, 'error');

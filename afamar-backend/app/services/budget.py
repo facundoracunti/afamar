@@ -63,7 +63,21 @@ class BudgetService:
     def create(self, data: dict) -> Budget:
         items_data = data.pop("items", [])
         adicionales_data = data.pop("adicionales", [])
-        sketch_data = data.pop("sketch_elements", [])
+        # `sketch_elements` arrives as a JSON-encoded string (the wire
+        # format produced by `buildPayload`). We need a real list to
+        # iterate over the rows — the column on the Budget is a 1-N
+        # relationship to `BudgetSketchElement`, not a TEXT column.
+        raw_sketch = data.pop("sketch_elements", None)
+        sketch_data: list = []
+        if isinstance(raw_sketch, str) and raw_sketch:
+            try:
+                parsed = json.loads(raw_sketch)
+                if isinstance(parsed, list):
+                    sketch_data = parsed
+            except (ValueError, TypeError):
+                sketch_data = []
+        elif isinstance(raw_sketch, list):
+            sketch_data = raw_sketch
         last_number = self.repo.get_last_number()
         data["number"] = generate_budget_number(last_number)
         client_id = data.get("client_id")
@@ -120,7 +134,21 @@ class BudgetService:
             return None
         items_data = data.pop("items", None)
         adicionales_data = data.pop("adicionales", None)
-        sketch_data = data.pop("sketch_elements", None)
+        # `sketch_elements` arrives as a JSON-encoded string (wire format).
+        # `_sync_children` expects a list — parse it back here.
+        raw_sketch = data.pop("sketch_elements", None)
+        sketch_data: list | None = None
+        if isinstance(raw_sketch, str):
+            if raw_sketch:
+                try:
+                    parsed = json.loads(raw_sketch)
+                    sketch_data = parsed if isinstance(parsed, list) else []
+                except (ValueError, TypeError):
+                    sketch_data = []
+            else:
+                sketch_data = []
+        elif isinstance(raw_sketch, list):
+            sketch_data = raw_sketch
         budget = self.repo.update(budget, data)
         _sync_children(budget, self.repo, "items", BudgetItem, items_data)
         _sync_children(budget, self.repo, "adicionales", BudgetAdicional, adicionales_data)
@@ -259,6 +287,22 @@ class BudgetService:
             "notes": budget.notes,
             "fabrication_details": budget.fabrication_details,
             "budgeted_details": json.dumps(budgeted_details_list),
+            # Carry the croquis over too — same logic as `create_from_budget`
+            # in work_order.py. The source is the `BudgetSketchElement` rows
+            # on the budget; we serialise them into the new
+            # `WorkOrder.sketch_elements` TEXT column so the WO form + PDF
+            # show the same drawing the customer signed on the budget.
+            "sketch_elements": (
+                json.dumps(
+                    [
+                        {"type": el.type, "data": el.data, "order": el.order}
+                        for el in budget.sketch_elements
+                    ],
+                    ensure_ascii=False,
+                )
+                if budget.sketch_elements
+                else None
+            ),
             "design_observations": budget.design_observations or "",
             "important_observations": budget.important_observations or "",
             "date": budget.date,

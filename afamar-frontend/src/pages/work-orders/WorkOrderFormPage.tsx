@@ -83,7 +83,7 @@ export default function WorkOrderForm() {
   } = useEntityForm({
     entityType: 'work_order',
     services: workOrderServices,
-    defaultEstado: 'MEASUREMENT',
+    defaultStatus: 'MEASUREMENT',
     id,
     navigate,
     extraPayloadFields: () => ({

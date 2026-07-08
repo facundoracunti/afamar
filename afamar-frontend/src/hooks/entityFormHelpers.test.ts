@@ -308,3 +308,55 @@ describe('mapApiToForm — integrates FinancialBase', () => {
     }
   });
 });
+
+describe('mapApiToForm — sketch_elements round-trip', () => {
+  // The list-page PDF flow goes getById → mapApiToForm → SketchImageExtractor.
+  // The extractor only produces pages if `form.sketch_elements` is in the
+  // canonical page-list shape. These tests guard against regressions in
+  // either direction (Budget relationship array, WorkOrder TEXT string).
+  it('handles the Budget 1-N relationship (array of BudgetSketchElement rows)', () => {
+    const apiRow = {
+      sketch_elements: [
+        // What the backend returns for `GET /budgets/{id}` — the SQLAlchemy
+        // relationship, each row has id/budget_id/type/data/order.
+        { id: 1, budget_id: 10, type: 'line', data: JSON.stringify({ x: 10, y: 20, points: [0, 0, 50, 50] }), order: 0 },
+        { id: 2, budget_id: 10, type: 'rect', data: JSON.stringify({ x: 0, y: 0, width: 200, height: 100 }), order: 1 },
+      ],
+    };
+    const form = mapApiToForm(apiRow, 'PENDING');
+    expect(form.sketch_elements).toHaveLength(1); // one page
+    const page = form.sketch_elements[0] as { pagina_id: number; name: string; dibujo: unknown[] };
+    expect(page.pagina_id).toBe(1);
+    expect(page.name).toBe('Página 1');
+    expect(page.dibujo).toHaveLength(2);
+    // The BudgetSketchElement.id/budget_id are dropped (not part of the
+    // element payload). Only the geometry + type survives.
+    expect(page.dibujo[0]).toMatchObject({ type: 'line', x: 10, y: 20 });
+    expect(page.dibujo[1]).toMatchObject({ type: 'rect', width: 200, height: 100 });
+  });
+
+  it('handles the WorkOrder TEXT column (JSON-encoded string)', () => {
+    const sketchList = [
+      { type: 'line', data: JSON.stringify({ x: 5, y: 5, points: [0, 0, 100, 100] }), order: 0 },
+    ];
+    const apiRow = {
+      // What the backend returns for `GET /work-orders/{id}` after
+      // conversion from a budget — a JSON string in the new TEXT column.
+      sketch_elements: JSON.stringify(sketchList),
+    };
+    const form = mapApiToForm(apiRow, 'MEASUREMENT');
+    expect(form.sketch_elements).toHaveLength(1);
+    const page = form.sketch_elements[0] as { dibujo: unknown[] };
+    expect(page.dibujo).toHaveLength(1);
+    expect(page.dibujo[0]).toMatchObject({ type: 'line', x: 5, y: 5 });
+  });
+
+  it('returns an empty list when sketch_elements is missing/empty', () => {
+    const form = mapApiToForm({ sketch_elements: [] }, 'PENDING');
+    expect(form.sketch_elements).toEqual([]);
+    const form2 = mapApiToForm({ sketch_elements: '[]' }, 'PENDING');
+    expect(form2.sketch_elements).toEqual([]);
+    const form3 = mapApiToForm({ sketch_elements: null }, 'PENDING');
+    expect(form3.sketch_elements).toEqual([]);
+  });
+});

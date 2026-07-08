@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { EntityFormState, FormField, UseEntityFormReturn, EntityServices } from '../types';
 import { INITIAL_FORM, M2_CONCEPTS, buildPayload } from './entityFormHelpers';
+import { todayLocalISO } from '../utils/formatters';
 import { useBudgetCalculations } from './useBudgetCalculations';
 import { useFormReferences } from './useFormReferences';
 import { useFormDetails } from './useFormDetails';
@@ -13,7 +14,7 @@ import { useFormActions } from './useFormActions';
 export interface UseEntityFormParams {
   entityType: string;
   services: EntityServices;
-  defaultEstado: string;
+  defaultStatus: string;
   id?: string;
   navigate: (path: string) => void;
   onLoaded?: (data: Record<string, unknown>) => void;
@@ -28,7 +29,7 @@ export interface UseEntityFormParams {
 export default function useEntityForm({
   entityType,
   services,
-  defaultEstado,
+  defaultStatus,
   id,
   navigate,
   onLoaded,
@@ -38,7 +39,17 @@ export default function useEntityForm({
   void entityType; // entityType kept for future per-type branching
   const isEdit = !!id;
 
-  const [form, setForm] = useState<EntityFormState>({ ...INITIAL_FORM, status: defaultEstado });
+  // For NEW documents, seed the `date` to today's local calendar day. We
+  // can't put it in `INITIAL_FORM` (a module-level constant — would be
+  // evaluated once at import time and stale if the user keeps the page
+  // open across midnight, or if the bundle was loaded yesterday). For
+  // EXISTING documents, `mapApiToForm` populates the date from the API
+  // response and we leave it alone.
+  const [form, setForm] = useState<EntityFormState>(() => ({
+    ...INITIAL_FORM,
+    date: isEdit ? '' : todayLocalISO(),
+    status: defaultStatus,
+  }));
   const [loading, setLoading] = useState<boolean>(isEdit);
   const [saving, setSaving] = useState<boolean>(false);
   const [showClientDropdown, setShowClientDropdown] = useState<boolean>(false);
@@ -58,7 +69,7 @@ export default function useEntityForm({
   // ----- References (materials/pools/clients/logo/next#/initial load)
   const { materials, pools, clientes, logoUrl, addOrRefreshClientes } = useFormReferences({
     services,
-    defaultEstado,
+    defaultStatus,
     id,
     isEdit,
     setForm,

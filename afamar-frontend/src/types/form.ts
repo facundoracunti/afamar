@@ -88,7 +88,7 @@ export interface EntityServices {
 export interface UseEntityFormParams {
   entityType: string;
   services: EntityServices;
-  defaultEstado: string;
+  defaultStatus: string;
   id?: string;
   navigate: (path: string) => void;
   onLoaded?: (data: Record<string, unknown>) => void;
