@@ -92,6 +92,10 @@ export interface BudgetPayload extends FinancialBase {
   client_phone: string | null;
   client_email: string | null;
   client_address: string | null;
+  /** Optional override — when the customer wants the work done at a
+   *  non-default address (e.g. an architect with several project sites).
+   *  `null` means "use the client's default address". */
+  delivery_address_id: number | null;
   material: string | null;
   material_price_m2: number;
   materials_data: string | null;

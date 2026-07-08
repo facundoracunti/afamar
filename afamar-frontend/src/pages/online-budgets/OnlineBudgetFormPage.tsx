@@ -7,6 +7,7 @@ import { getPoolStock } from '@/api/resources/poolStock';
 import { getNextBudgetNumber } from '@/api/resources/budgets';
 import { useGet, useList } from '../../api/hooks';
 import { fetchUsdVenta } from '../../utils/dolarApi';
+import { todayLocalISO } from '../../utils/formatters';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import OnlineBudgetHeader from '../../components/budget/OnlineBudgetHeader/OnlineBudgetHeader';
 import OnlineItemsTable, { createOption, parseNum, type OptionTab, type OnlineBudgetItemLocal, SPECIAL_NAMES, INITIAL_ROWS, INITIAL_SPECIALS, emptyItem } from '../../components/budget/OnlineItemsTable/OnlineItemsTable';
@@ -33,7 +34,7 @@ export default function OnlineBudgetForm() {
   const [client, setClient] = useState<string>('');
   const [phone, setPhone] = useState<string>('');
   const [workType, setWorkType] = useState<string>('');
-  const [date, setDate] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState<string>(todayLocalISO());
   const [usdRate, setUsdRate] = useState<number>(1000);
   const [totalArs, setTotalArs] = useState<number>(0);
   const [totalUsd, setTotalUsd] = useState<number>(0);
@@ -120,7 +121,7 @@ export default function OnlineBudgetForm() {
     setClient((onlineBudget.client_name as string) || '');
     setPhone((onlineBudget.phone as string) || '');
     setWorkType((onlineBudget.work_type as string) || '');
-    setDate((onlineBudget.date as string) || new Date().toISOString().slice(0, 10));
+    setDate((onlineBudget.date as string) || todayLocalISO());
     setUsdRate((onlineBudget.usd_rate as number) ?? 1000);
     setNumberValue((onlineBudget.number as string) || '');
     const items = onlineBudget.items as OnlineBudgetItemLocal[] | undefined;

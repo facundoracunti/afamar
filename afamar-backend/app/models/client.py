@@ -22,3 +22,11 @@ class Client(Base):
     budgets = relationship("Budget", back_populates="client")
     work_orders = relationship("WorkOrder", back_populates="client")
     measurements = relationship("Measurement", back_populates="client")
+    # 1-N: a client (e.g. architect) can have several delivery addresses
+    # for different project sites. See `app/models/client_address.py`.
+    addresses = relationship(
+        "ClientAddress",
+        back_populates="client",
+        cascade="all, delete-orphan",
+        order_by="ClientAddress.is_default.desc(), ClientAddress.id.asc()",
+    )

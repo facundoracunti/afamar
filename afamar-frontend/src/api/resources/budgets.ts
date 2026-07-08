@@ -12,18 +12,6 @@ export const sendBudgetWhatsApp = (id: number | string) => http.post(`/budgets/$
 export const sendBudgetEmail = (id: number | string) => http.post(`/budgets/${id}/send-email`);
 export const getNextBudgetNumber = () => http.get('/budgets/next-number');
 export const getBudgetPdf = (id: number | string) => `${http.defaults.baseURL}/budgets/${id}/pdf`;
-
-/**
- * Fetch the saved budget PDF with the bearer token and return a Blob URL
- * suitable for embedding in an iframe. Use this instead of `getBudgetPdf`
- * (which returns a raw URL and gets 401 in a new browser tab because the
- * Authorization header is only attached by axios).
- * Caller is responsible for revoking the URL when done.
- */
-export async function getBudgetPdfBlob(id: number | string): Promise<string> {
-  const res = await http.get<Blob>(`/budgets/${id}/pdf`, { responseType: 'blob' });
-  return URL.createObjectURL(res.data);
-}
 export const convertAlternativeToWorkOrder = (budgetId: number | string, idx: number) =>
   http.post(`/budgets/${budgetId}/alternatives/${idx}/convert-to-work-order`);
 

@@ -68,22 +68,32 @@ class BudgetService:
         data["number"] = generate_budget_number(last_number)
         client_id = data.get("client_id")
         if not client_id:
-            client_name = data.get("client_name")
+            client_name = (data.get("client_name") or "").strip()
+            # Normalize whitespace inside the name (e.g. accidental double
+            # spaces) so "gon  zalo" and "gon zalo" don't end up as two
+            # different clients. Look up case-insensitively so the find
+            # branch also catches minor casing drift.
             if client_name:
                 from app.models.client import Client
-                client = self.repo.db.query(Client).filter(Client.name == client_name).first()
+                from sqlalchemy import func
+                client = (
+                    self.repo.db.query(Client)
+                    .filter(func.lower(Client.name) == client_name.lower())
+                    .first()
+                )
                 if not client:
                     client = Client(
                         name=client_name,
-                        phone=data.get("client_phone"),
-                        email=data.get("client_email"),
-                        address=data.get("client_address"),
+                        phone=(data.get("client_phone") or "").strip() or None,
+                        email=(data.get("client_email") or "").strip() or None,
+                        address=(data.get("client_address") or "").strip() or None,
                     )
                     self.repo.db.add(client)
                     self.repo.db.flush()
                 data["client_id"] = client.id
             else:
-                raise ValueError("client_id or client_name is required")
+                from app.core.exceptions import ValidationError
+                raise ValidationError("Debe seleccionar o escribir un cliente antes de guardar el presupuesto.")
         # client_* fields are not stored on the Budget row — they're only
         # used to resolve client_id above. The response schema populates
         # them from the related Client via from_orm_with_client.

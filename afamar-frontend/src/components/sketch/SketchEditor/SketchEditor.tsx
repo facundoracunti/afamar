@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useCroquisState } from '../hooks/useSketchState';
+import { useSketchState } from '../hooks/useSketchState';
 import Toolbar from '../Toolbar/Toolbar';
 import CanvasArea from '../CanvasArea/CanvasArea';
 import type { SketchEditorProps, SketchToolType } from '../../../types/sketch';
@@ -13,7 +13,7 @@ const TOOLS: { id: SketchToolType; label: string }[] = [
 ];
 
 export default function SketchEditor({ sketch, onChange, readOnly = false }: SketchEditorProps) {
-  const s = useCroquisState(sketch, onChange, readOnly);
+  const s = useSketchState(sketch, onChange, readOnly);
   const sRef = useRef(s);
   sRef.current = s;
 

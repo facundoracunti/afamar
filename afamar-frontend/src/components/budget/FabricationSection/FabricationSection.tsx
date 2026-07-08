@@ -70,17 +70,47 @@ export default function FabricationSection({
                 <th className={s['fabrication-section__comparison-th-left']}>Concepto</th>
                 <th className={s['fabrication-section__comparison-th-center']}>M² Real</th>
                 <th className={s['fabrication-section__comparison-th-center']}>M² Presupuestado</th>
+                <th className={s['fabrication-section__comparison-th-center']}>Diferencia</th>
               </tr>
             </thead>
             <tbody>
               {(materialsData || []).map((m, i) => {
                 const m2Real = computeM2Real(m);
-                return m2Real > 0 ? (
+                const m2Budgeted = Number(m.m2_budgeted) || 0;
+                // delta = real - budgeted:
+                //   > 0  → se agregaron M² (verde — más material del presupuestado)
+                //   < 0  → se restaron M² (rojo  — menos material del presupuestado)
+                //   === 0 or no budget → neutro
+                const delta = m2Real - m2Budgeted;
+                const hasBudget = m2Budgeted > 0;
+                const deltaClass = !hasBudget
+                  ? s['fabrication-section__comparison-cell--neutral']
+                  : delta > 0.00001
+                    ? s['fabrication-section__comparison-cell--positive']
+                    : delta < -0.00001
+                      ? s['fabrication-section__comparison-cell--negative']
+                      : s['fabrication-section__comparison-cell--neutral'];
+                const m2RealClass = hasBudget
+                  ? delta > 0.00001
+                    ? s['fabrication-section__comparison-cell--positive']
+                    : delta < -0.00001
+                      ? s['fabrication-section__comparison-cell--negative']
+                      : ''
+                  : '';
+                const deltaStr = hasBudget
+                  ? `${delta > 0 ? '+' : ''}${delta.toFixed(5)} m²`
+                  : '—';
+                return m2Real > 0 || hasBudget ? (
                   <tr key={i} className={s['fabrication-section__comparison-row']}>
                     <td className={s['fabrication-section__comparison-name']}>{m.name}</td>
-                    <td className={s['fabrication-section__comparison-cell-center']}>{m2Real.toFixed(5)} m²</td>
+                    <td className={`${s['fabrication-section__comparison-cell-center']} ${m2RealClass}`}>
+                      {m2Real.toFixed(5)} m²
+                    </td>
                     <td className={s['fabrication-section__comparison-cell-strong']}>
-                      {m.m2_budgeted ? `${m.m2_budgeted} m²` : '—'}
+                      {hasBudget ? `${m2Budgeted} m²` : '—'}
+                    </td>
+                    <td className={`${s['fabrication-section__comparison-cell-center']} ${deltaClass}`}>
+                      {deltaStr}
                     </td>
                   </tr>
                 ) : null;

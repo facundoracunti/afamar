@@ -168,7 +168,7 @@ function clonePages(pages: SketchPage[]): SketchPage[] {
   return pages.map((p) => ({ ...p, elements: p.elements.map((el) => ({ ...el })) }));
 }
 
-export interface UseCroquisStateReturn {
+export interface UseSketchStateReturn {
   pages: SketchPage[];
   pageIdx: number;
   tool: SketchToolType;
@@ -212,11 +212,11 @@ export interface UseCroquisStateReturn {
   snapNear: (v: number) => number;
 }
 
-export function useCroquisState(
+export function useSketchState(
   sketch: unknown,
   onChange: (v: unknown) => void,
   readOnly: boolean,
-): UseCroquisStateReturn {
+): UseSketchStateReturn {
   const [pages, setPages] = useState<SketchPage[]>([]);
   const [pageIdx, setPageIdx] = useState(0);
   const [ready, setReady] = useState(false);
@@ -249,12 +249,23 @@ export function useCroquisState(
 
   useEffect(() => {
     const pp = normPages(sketch);
-    setPages(pp);
-    setPageIdx(0);
-    setSid(null);
-    setReady(true);
-    setHistory([clonePages(pp)]);
-    setHistoryIndex(0);
+    setPages((prev) => {
+      // If the incoming `sketch` is structurally identical to the current
+      // `pages` state, skip the re-init entirely. This is the common case
+      // during a session: every shape add/remove/move calls `persist()`,
+      // which calls `onChange(savePayload(updatedPages))` and triggers a new
+      // `sketch` prop reference. Without this guard, `pageIdx` and
+      // `history` would be wiped on every single click — the user couldn't
+      // even move between pages without losing their selection state.
+      if (JSON.stringify(prev) === JSON.stringify(pp)) return prev;
+      // Otherwise (initial load or external replacement), re-init everything.
+      setPageIdx(0);
+      setSid(null);
+      setReady(true);
+      setHistory([clonePages(pp)]);
+      setHistoryIndex(0);
+      return pp;
+    });
   }, [sketch]);
 
   useEffect(() => {

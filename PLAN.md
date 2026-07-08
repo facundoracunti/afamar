@@ -1,7 +1,7 @@
 # Refactor Plan — Frontend Component Consolidation
 
 > Basado en el análisis exhaustivo de duplicación de código en `afamar-frontend/src/` (Julio 2026).
-> **Última actualización:** Julio 2026 — sesión de reestructuración de directorios (subfolder-per-component).
+> **Última actualización:** Julio 2026 — sesión de issue fixes (Olas 1, 2 y 3).
 
 ## Estado por item (✅ = hecho, ⏳ = pendiente, 🔄 = parcial)
 
@@ -246,6 +246,53 @@ Sesión actual (sesión de refactor masivo en development):
 Pendiente (futuras sesiones):
   └── #9 Reemplazar useEntityForm con composables más pequeños (PLAN.md original §1.2 #9)
 ```
+
+---
+
+## ✅ Issue tracker (Olas 1-3 — Julio 2026)
+
+Tres sesiones consecutivas de fixes basadas en feedback del usuario. Todos los
+items ya están commiteados en `development` (working tree sucio al final de
+cada ola, listo para commit).
+
+### Ola 1 — Bug fixes críticos (10 issues)
+
+| # | Issue | Fix |
+|---|---|---|
+| 1 | Cliente nuevo no se puede guardar en presupuesto | `ClientSection` propaga `query` a `form.client_name` en onBlur. `BudgetService.create()` y `WorkOrderService.create()` envuelven `ValueError` en `ValidationError` 422. |
+| 3 | Fecha del presupuesto sale mal (UTC vs local) | Helper `todayLocalISO()` en `utils/formatters.ts`. `toIsoFromDate` envía el string YYYY-MM-DD sin conversión. Reemplazados 7 call sites de `new Date().toISOString().slice(0, 10)`. |
+| 4 | "Otra" en fabricación no muestra detalle en PDF | Nueva columna "Mano de obra" en `FAB_HEADERS` + `buildFabricationRows` lee `d.labor`. |
+| 5 | PDF grande: hoja 1 vacía | Removido `wrap={false}` de `optSectionSubtotal` en `DocumentPdf.tsx`. |
+| 6 | Cascada piletas/frentes/zócalos | **Diagnóstico** (no fix): `console.count` en `addMaterial`/`addPileta`/`addDetalle` para identificar loop. Código no tiene loop. |
+| 7+8 | Croquis en PDF incompleto/roto | Doble rAF + `stage.batchDraw()` en `SketchImageExtractor.tsx`. `useSketchState.ts`: comparar contenido (JSON.stringify) antes de resetear state. |
+| Backend | `GET /measurements` ignoraba `search`/`status`/`scheduled_date` | Aplicar filtros en el query con subquery a `Client.id` para search. |
+| 14 | Filter status no filtra + sin agenda de día | `MeasurementsListPage`: date picker + botón "Hoy" + botón "Todas". Default = hoy. |
+| 10a/13 | Medición pierde observaciones + race condition | `loadedIdRef` previene que refetch de TanStack Query pise el form. `notes` se envía como `''` (no null) para que se pueda limpiar. |
+
+**22 archivos modificados** (3 backend, 19 frontend). `tsc --noEmit` 0 errores · `vite build` 21.06s.
+
+### Ola 2 — M² comparativa + domicilios alternativos
+
+| # | Issue | Fix |
+|---|---|---|
+| 11 | Comparativa M² REAL vs PRESUPUESTADO | Ya existía en `FabricationSection` (se muestra cuando `status==='MEASUREMENT'`). |
+| 12 | Delta M² verde/rojo | Nueva columna "Diferencia" en `FabricationSection` con `var(--color-success)` (verde = se agregó) y `var(--color-danger)` (rojo = se restó). M² Real también coloreado según delta. |
+| 9 | Domicilios alternativos (model 1-N) | **Refactor mayor**: nuevo `ClientAddress` model + tabla + migración Alembic `a1c2b3d4e5f7` con backfill desde `client.address`; FKs `delivery_address_id` en `budgets` y `work_orders`; CRUD endpoints `GET/POST/PUT/DELETE /clients/{id}/addresses`; service con default-swap y delete-protection; `from_orm_with_client` override de `client_address` cuando hay override; UI completa en `ClientFormPage` (lista + modal agregar/editar + "Hacer principal" + delete); dropdown de dirección en `WorkOrderFormClient` y `BudgetFormClient` cuando hay >1 dirección. |
+| 2 | Normalización cliente (trim + lowercase) | `BudgetService.create()` y `WorkOrderService.create()` ahora hacen `name.strip()` + lookup case-insensitive + creación con campos normalizados. |
+
+**22 archivos modificados, 6 nuevos.** `tsc --noEmit` 0 errores · `vite build` 11.84s · migración Alembic aplicada a MySQL.
+
+### Ola 3 — Cleanup de deuda técnica
+
+| Item | Cambio |
+|---|---|
+| Dead code: `getBudgetPdfBlob` + `getWorkOrderPdfBlob` | Eliminados de `api/resources/budgets.ts` y `workOrders.ts`. No tenían callers. |
+| Dead code: `pdfUrl` prop en `PdfPreviewModal` | Eliminado el modo legacy iframe + blob URL. El modal ahora solo soporta react-pdf. |
+| Consistency: `useCroquisState` → `useSketchState` | Renombrado el export del hook (filename ya era inglés). `SketchEditor` y los 2 comentarios que lo mencionaban actualizados. |
+| Consistency: `setMateriales`/`setPiletas` → `setMaterials`/`setPools` | Renombrado en `useFormReferences.ts` (interno, no afecta la API pública). |
+| Backend: `surcharge_result` dead var en `work_order.py` | Removidos los cálculos `surcharge_info`/`surcharge_result` que se computaban pero no se usaban (los totales del budget ya incluyen el surcharge). Imports de `apply_surcharge`/`compute_surcharge` también removidos. |
+
+**5 archivos modificados.** `tsc --noEmit` 0 errores · `vite build` (pendiente de verificación final).
 ```
 
 ---

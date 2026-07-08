@@ -647,8 +647,11 @@ def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict
         "validity_days": order_data.get("validity_days", 15),
         "estimated_date": _format_date(order_data.get("estimated_date", "")),
 
-        # Sketch (raw data, converted to PNG by generate_work_order_pdf)
-        "sketch_elements": order_data.get("budgeted_details") or order_data.get("sketch_elements"),
+        # Sketch (raw data, converted to PNG by generate_work_order_pdf).
+        # Prefer the dedicated `sketch_elements` column (populated by
+        # `WorkOrderService.create_from_budget`); fall back to the legacy
+        # `budgeted_details` stash for WOs that pre-date the new column.
+        "sketch_elements": order_data.get("sketch_elements") or order_data.get("budgeted_details"),
 
         # Company
         "company_name": company.get("company_name", "AFAMAR"),

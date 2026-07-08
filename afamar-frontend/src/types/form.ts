@@ -8,6 +8,12 @@ export interface EntityFormState extends FinancialBase {
   client_phone: string;
   client_address: string;
   client_email: string;
+  /**
+   * Optional override — id of the `ClientAddress` row to use for the
+   * delivery address on this document. `null` means "use the client's
+   * default address" (backed by `Client.address`).
+   */
+  delivery_address_id: number | null;
 
   // Budget/work order identifier & status
   number: string;

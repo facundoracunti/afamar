@@ -1,8 +1,12 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user, get_db
 from app.core.exceptions import NotFoundError
+from app.models.client import Client
 from app.utils.responses import created, success
 from app.schemas.measurement import MeasurementCreate, MeasurementResponse, MeasurementUpdate
 from app.services.measurement import MeasurementService
@@ -12,9 +16,49 @@ router = APIRouter(dependencies=[Depends(get_current_user)])
 
 
 @router.get("")
-def list_measurements(skip: int = 0, limit: int = 100, search: str | None = None, status: str | None = None, db: Session = Depends(get_db)):
+def list_measurements(
+    skip: int = 0,
+    limit: int = 100,
+    search: str | None = None,
+    status: str | None = None,
+    scheduled_date: date | None = None,
+    db: Session = Depends(get_db),
+):
+    """
+    List measurements with optional filters.
+
+    - `search` matches `client.name` (case-insensitive substring).
+    - `status` exact-matches the measurement status (`PENDING` / `DONE` / `CANCELLED`).
+    - `scheduled_date` exact-matches the day portion of `scheduled_date` so the
+      frontend can drive an "agenda" view by sending today's local date.
+    """
     service = MeasurementService(db)
-    query = service.repo.db.query(service.repo.model).order_by(service.repo.model.scheduled_date.desc(), service.repo.model.id.desc())
+    Model = service.repo.model
+    query = service.repo.db.query(Model)
+
+    if status:
+        query = query.filter(Model.status == status)
+    if scheduled_date:
+        # Match the calendar day in the server's local time. The frontend
+        # sends local-date strings (e.g. "2026-07-08") which `date` parses
+        # directly. We compare against `scheduled_date::date` so the time
+        # portion of the stored datetime doesn't exclude rows scheduled
+        # later in the same day.
+        query = query.filter(
+            Model.scheduled_date >= scheduled_date,
+            Model.scheduled_date < date.fromordinal(scheduled_date.toordinal() + 1),
+        )
+    if search:
+        # Match the search string against the joined client's name. We use
+        # a subquery so the base query stays simple (no `outerjoin` that
+        # would break the lazy-load pattern used by `from_orm_with_client`).
+        # Measurements with `client_id IS NULL` won't match — that's
+        # expected (no client to search by).
+        pattern = f"%{search}%"
+        client_ids_subquery = select(Client.id).where(Client.name.ilike(pattern))
+        query = query.filter(Model.client_id.in_(client_ids_subquery))
+
+    query = query.order_by(Model.scheduled_date.desc().nullslast(), Model.id.desc())
     page = paginate(db, query, skip, limit)
     serialized = [MeasurementResponse.from_orm_with_client(m) for m in page.items]
     return success([s.model_dump(mode="json") for s in serialized], page.pagination)

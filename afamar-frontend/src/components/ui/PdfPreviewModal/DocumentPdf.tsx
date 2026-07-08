@@ -263,11 +263,12 @@ const FAB_HEADERS = [
   { label: 'Ancho', num: true },
   { label: 'M²/Cant', num: true },
   { label: 'Precio', num: true },
+  { label: 'Mano de obra', num: true },
   { label: 'Moneda' },
   { label: 'Subtotal ARS', num: true },
   { label: 'Subtotal USD', num: true },
 ];
-const FAB_FLEXES = [2, 2, 1.5, 1, 1, 1, 1, 0.8, 1.2, 1.2];
+const FAB_FLEXES = [1.8, 1.8, 1.4, 0.8, 0.8, 0.9, 0.9, 0.9, 0.7, 1.1, 1.1];
 
 const MAT_HEADERS = [
   { label: 'Material' },
@@ -303,6 +304,7 @@ function fabRowCells(d: import('../../../utils/pdf/buildPdfData').PdfDataRow): (
     d.show_width && d.width_str ? d.width_str : null,
     d.show_m2 ? d.m2_label : d.show_quantity ? String(d.quantity) : null,
     `$ ${d.price_str}`,
+    d.labor_str ? `$ ${d.labor_str}` : null,
     d.currency,
     d.subtotal_ars > 0 ? `$ ${fmt(d.subtotal_ars)}` : null,
     d.subtotal_usd > 0 ? `USD ${fmt(d.subtotal_usd)}` : null,
@@ -382,7 +384,7 @@ function OptionSectionBlock({ section }: { section: MaterialSection }) {
         </View>
       ) : null}
 
-      <View style={styles.optSectionSubtotal} wrap={false}>
+      <View style={styles.optSectionSubtotal}>
         <Text style={styles.optSectionSubtotalLbl}>
           {section.is_main ? 'Subtotal Sección' : 'Subtotal Opción'}
         </Text>

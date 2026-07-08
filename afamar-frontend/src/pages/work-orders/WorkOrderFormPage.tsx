@@ -7,7 +7,7 @@ import { getWorkOrder, createWorkOrder, updateWorkOrder, deleteWorkOrder, getNex
 import { getMaterials } from '@/api/resources/materials';
 import { getPoolStock } from '@/api/resources/poolStock';
 import { getClients } from '@/api/resources/clients';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, todayLocalISO } from '../../utils/formatters';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import useEntityForm from '../../hooks/useEntityForm';
 import { useSettingsWithTerms } from '../../hooks/useSettingsWithTerms';
@@ -117,7 +117,7 @@ export default function WorkOrderForm() {
   const handleConfirmarPago = async () => {
     if (!id) return;
     const nuevo = !form.balance_paid;
-    const hoy = new Date().toISOString().split('T')[0];
+    const hoy = todayLocalISO();
     const payload: Record<string, unknown> = {
       balance_paid: nuevo,
       balance_paid_at: nuevo ? hoy : null,

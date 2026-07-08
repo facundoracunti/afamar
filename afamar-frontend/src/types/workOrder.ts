@@ -15,6 +15,10 @@ export interface WorkOrderPayload extends FinancialBase {
   client_phone: string | null;
   client_email: string | null;
   client_address: string | null;
+  /** Optional override — when the customer wants the work done at a
+   *  non-default address (e.g. an architect with several project sites).
+   *  `null` means "use the client's default address". */
+  delivery_address_id: number | null;
   budget_id: number | null;
   material: string | null;
   material_price_m2: number;
@@ -28,6 +32,11 @@ export interface WorkOrderPayload extends FinancialBase {
   digital_signature: string | null;
   fabrication_details: string | null;
   budgeted_details: string | null;
+  /** JSON-encoded array of sketch elements (matches the wire format the
+   *  budget/measurement use). Populated from the source budget on
+   *  conversion. When the user edits the WO, the editor mutates this list
+   *  and we re-serialise via `flattenSketchElements` in `buildPayload`. */
+  sketch_elements: string | null;
   pool_id: number | null;
   pool_price: number;
   pool_currency: string;

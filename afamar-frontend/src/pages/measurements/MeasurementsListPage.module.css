@@ -76,6 +76,21 @@
   width: 180px;
 }
 
+.measurements__date-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.measurements__date-icon {
+  color: var(--text-muted);
+}
+
+.measurements__date-group .measurements__filter {
+  width: 160px;
+}
+
 .measurements__table {
   background: var(--surface-bg);
   border: 1px solid var(--border-color);

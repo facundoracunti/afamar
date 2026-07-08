@@ -31,6 +31,11 @@ export interface PdfDataRow {
   readonly quantity: number;
   readonly currency: 'ARS' | 'USD';
   readonly price_str: string;
+  /**
+   * Labor rate per linear meter (for `OTHER` fabrication concepts where the
+   * price is computed as `length × labor`). `null` when not applicable.
+   */
+  readonly labor_str: string | null;
   readonly subtotal_ars: number;
   readonly subtotal_usd: number;
 }
@@ -302,6 +307,9 @@ function buildFabricationRows(raw: unknown, usdRate: number): PdfDataRow[] {
     const subtotalArs = currency === 'ARS' ? lineTotal : usdRate > 0 ? lineTotal * usdRate : 0;
     const subtotalUsd = currency === 'USD' ? lineTotal : usdRate > 0 ? lineTotal / usdRate : 0;
 
+    // Labor rate only matters for OTHER (computed as length × labor on save).
+    const labor = Number(d.labor || 0);
+
     result.push({
       concept: conceptToDisplay(conceptCode, custom),
       detail: d.detail || '',
@@ -316,6 +324,7 @@ function buildFabricationRows(raw: unknown, usdRate: number): PdfDataRow[] {
       quantity: Number.isInteger(quantity) ? quantity : quantity,
       currency,
       price_str: fmtMoney(price),
+      labor_str: conceptCode === 'OTHER' && labor > 0 ? fmtMoney(labor) : null,
       subtotal_ars: subtotalArs,
       subtotal_usd: subtotalUsd,
     });

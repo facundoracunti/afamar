@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Printer, Lock, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
 import { getDailyCash, createCashMovement, deleteCashMovement, setPreviousBalance, closeDailyCash } from '@/api/resources/cash';
 import { useGet } from '../../api/hooks';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, todayLocalISO } from '../../utils/formatters';
 import { folderStatusClass } from '../../constants';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
@@ -18,7 +18,7 @@ import styles from './CashDailyPage.module.css';
 const s = styles as unknown as Record<string, string>;
 
 export default function CashDailyPage() {
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayLocalISO();
   const [date, setDate] = useState<string>(today);
   const [previousBalance, setPreviousBalanceState] = useState<number>(0);
   const [movements, setMovements] = useState<Record<string, unknown>[]>([]);

@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import type { EntityFormState, EntityServices } from '../types';
+import { todayLocalISO } from './entityFormHelpers';
 
 interface UseFormActionsParams {
   form: EntityFormState;
@@ -60,7 +61,7 @@ export function useFormActions({
           payload.balance_paid = true;
           payload.deposit_usd = Number(form.total_usd);
           payload.balance_due_usd = 0;
-          payload.balance_paid_at = new Date().toISOString().slice(0, 10);
+          payload.balance_paid_at = todayLocalISO(); // eslint-disable-line @typescript-eslint/no-unused-vars
         }
         if (isEdit) {
           await services.update(id as string, payload);
@@ -102,14 +103,14 @@ export function useFormActions({
           payload.deposit_usd = Number(form.total_usd);
           payload.balance_due_usd = 0;
           payload.balance_paid = true;
-          payload.balance_paid_at = new Date().toISOString().slice(0, 10);
+          payload.balance_paid_at = todayLocalISO(); // eslint-disable-line @typescript-eslint/no-unused-vars
         } else if (['TARJETA DE CRÉDITO', 'TARJETA DE DÉBITO'].includes(form.payment_method)) {
           payload.deposit_received = Number(form.total);
           payload.balance_due = 0;
           payload.balance_paid = true;
           payload.deposit_usd = Number(form.total_usd);
           payload.balance_due_usd = 0;
-          payload.balance_paid_at = new Date().toISOString().slice(0, 10);
+          payload.balance_paid_at = todayLocalISO(); // eslint-disable-line @typescript-eslint/no-unused-vars
         }
         await services.update(id as string, payload);
         setForm((prev) => ({ ...prev, ...payload, status: newStatus }));

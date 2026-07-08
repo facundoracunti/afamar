@@ -1,3 +1,13 @@
+export interface ClientAddress {
+  id: number;
+  client_id: number;
+  address: string;
+  label?: string | null;
+  is_default: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Client {
   id: number;
   name: string;
@@ -9,6 +19,9 @@ export interface Client {
   lastOrderNumber?: string;
   created_at?: string;
   updated_at?: string;
+  /** 1-N alternative delivery addresses (architects with multiple
+   *  project sites). The first one is the default. */
+  addresses?: ClientAddress[];
 }
 
 export interface ClientFormData {

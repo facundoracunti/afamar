@@ -65,3 +65,20 @@
   padding: 8px 12px;
   font-weight: 600;
 }
+
+/* M² comparison: green when the measurement added material vs the
+   original budget (cost will go up), red when the measurement cut
+   material (cost will go down), neutral otherwise. */
+.fabrication-section__comparison-cell--positive {
+  color: var(--color-success);
+  font-weight: 600;
+}
+
+.fabrication-section__comparison-cell--negative {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+.fabrication-section__comparison-cell--neutral {
+  color: var(--text-muted);
+}

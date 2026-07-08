@@ -1,9 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import type { Client } from '../../types/client';
+import type { Client, ClientAddress } from '../../types/client';
 import { useNavigate, useParams } from 'react-router-dom';
-import { FileText, ClipboardList, DollarSign, Calendar, ArrowRight } from 'lucide-react';
+import { FileText, ClipboardList, DollarSign, Calendar, ArrowRight, Plus, X, Star, MapPin } from 'lucide-react';
 import { getClient, createClient, updateClient } from '@/api/resources/clients';
+import {
+  getClientAddresses,
+  createClientAddress,
+  updateClientAddress,
+  deleteClientAddress,
+} from '@/api/resources/clientAddresses';
 import { useCreate, useUpdate, useGet } from '../../api/hooks';
+import { Modal } from '../../components/ui/Modal/Modal';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { FormActions } from '../../components/ui/FormActions/FormActions';
@@ -23,6 +30,11 @@ export default function ClientForm() {
   const [cliente, setCliente] = useState({
     name: '', phone: '', email: '', address: '', notes: '',
   });
+  const [addresses, setAddresses] = useState<ClientAddress[]>([]);
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [editingAddress, setEditingAddress] = useState<ClientAddress | null>(null);
+  const [addressForm, setAddressForm] = useState({ address: '', label: '', is_default: false });
+  const [addressSaving, setAddressSaving] = useState(false);
 
   const { data: clientData, loading } = useGet<Record<string, unknown>>(
     ['client', id],
@@ -43,7 +55,87 @@ export default function ClientForm() {
       address: (clientData.address as string) || '',
       notes: (clientData.notes as string) || '',
     });
+    setAddresses((clientData.addresses as ClientAddress[]) || []);
   }, [clientData]);
+
+  const reloadAddresses = async (): Promise<void> => {
+    if (!id) return;
+    const res = await getClientAddresses(Number(id));
+    setAddresses((res as unknown as ClientAddress[]) || []);
+  };
+
+  const openNewAddress = (): void => {
+    setEditingAddress(null);
+    setAddressForm({ address: '', label: '', is_default: addresses.length === 0 });
+    setShowAddressModal(true);
+  };
+
+  const openEditAddress = (a: ClientAddress): void => {
+    setEditingAddress(a);
+    setAddressForm({
+      address: a.address,
+      label: a.label || '',
+      is_default: !!a.is_default,
+    });
+    setShowAddressModal(true);
+  };
+
+  const handleSaveAddress = async (): Promise<void> => {
+    if (!id || !addressForm.address.trim()) return;
+    setAddressSaving(true);
+    try {
+      const payload = {
+        address: addressForm.address.trim(),
+        label: addressForm.label.trim() || null,
+        is_default: addressForm.is_default,
+      };
+      if (editingAddress) {
+        await updateClientAddress(Number(id), editingAddress.id, payload);
+        notify('Domicilio actualizado', 'success');
+      } else {
+        await createClientAddress(Number(id), payload);
+        notify('Domicilio agregado', 'success');
+      }
+      await reloadAddresses();
+      setShowAddressModal(false);
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+        || (err as Error).message
+        || 'Error al guardar domicilio';
+      notify(detail, 'error');
+    } finally {
+      setAddressSaving(false);
+    }
+  };
+
+  const handleDeleteAddress = async (a: ClientAddress): Promise<void> => {
+    if (!id) return;
+    if (!window.confirm(`¿Eliminar el domicilio "${a.label || a.address}"?`)) return;
+    try {
+      await deleteClientAddress(Number(id), a.id);
+      notify('Domicilio eliminado', 'success');
+      await reloadAddresses();
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+        || (err as Error).message
+        || 'Error al eliminar domicilio';
+      notify(detail, 'error');
+    }
+  };
+
+  const handleSetDefault = async (a: ClientAddress): Promise<void> => {
+    if (!id || a.is_default) return;
+    try {
+      await updateClientAddress(Number(id), a.id, { is_default: true });
+      notify('Domicilio principal actualizado', 'success');
+      await reloadAddresses();
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+        || (err as Error).message
+        || 'Error al cambiar domicilio principal';
+      notify(detail, 'error');
+    }
+  };
 
   const historial = clientData
     ? {
@@ -131,6 +223,78 @@ export default function ClientForm() {
                 <label className={s['client-form__label']}>Observaciones</label>
                 <textarea className="input" rows={3} value={cliente.notes || ''} onChange={(e) => setCliente({ ...cliente, notes: e.target.value })} />
               </div>
+
+              {isEdit && (
+                <div className={s['client-form__group']}>
+                  <div className={s['client-form__addresses-header']}>
+                    <label className={s['client-form__label']}>
+                      <MapPin size={14} aria-hidden="true" /> Domicilios alternativos
+                    </label>
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      onClick={openNewAddress}
+                    >
+                      <Plus size={14} /> Agregar domicilio
+                    </button>
+                  </div>
+                  {addresses.length === 0 ? (
+                    <div className={s['client-form__item-empty']}>
+                      Sin domicilios alternativos. El domicilio de arriba se usa como principal.
+                    </div>
+                  ) : (
+                    <div className={s['client-form__addresses-list']}>
+                      {addresses.map((a) => (
+                        <div
+                          key={a.id}
+                          className={`${s['client-form__address-row']} ${a.is_default ? s['client-form__address-row--default'] : ''}`}
+                        >
+                          <div className={s['client-form__address-info']}>
+                            {a.label && (
+                              <span className={s['client-form__address-label']}>{a.label}</span>
+                            )}
+                            <span className={s['client-form__address-text']}>{a.address}</span>
+                          </div>
+                          <div className={s['client-form__address-actions']}>
+                            {a.is_default ? (
+                              <span className={s['client-form__address-default-badge']} title="Domicilio principal">
+                                <Star size={12} fill="currentColor" aria-hidden="true" /> Principal
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                className="btn btn-outline"
+                                onClick={() => handleSetDefault(a)}
+                                title="Marcar como domicilio principal"
+                              >
+                                Hacer principal
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              className="btn btn-outline"
+                              onClick={() => openEditAddress(a)}
+                              aria-label="Editar domicilio"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-outline"
+                              onClick={() => handleDeleteAddress(a)}
+                              aria-label="Eliminar domicilio"
+                              disabled={addresses.length <= 1}
+                              title={addresses.length <= 1 ? 'El cliente debe tener al menos un domicilio' : 'Eliminar'}
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <FormActions
                 loading={saving}
@@ -236,6 +400,67 @@ export default function ClientForm() {
           </div>
         )}
       </div>
+
+      <Modal
+        isOpen={showAddressModal}
+        onClose={() => setShowAddressModal(false)}
+        title={editingAddress ? 'Editar domicilio' : 'Nuevo domicilio'}
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSaveAddress();
+          }}
+        >
+          <div className="form-group">
+            <label>Etiqueta (ej. Casa, Oficina, Cliente 1)</label>
+            <input
+              className="input"
+              value={addressForm.label}
+              onChange={(e) => setAddressForm({ ...addressForm, label: e.target.value })}
+              placeholder="Principal"
+              autoFocus
+            />
+          </div>
+          <div className="form-group">
+            <label>Dirección *</label>
+            <input
+              className="input"
+              required
+              value={addressForm.address}
+              onChange={(e) => setAddressForm({ ...addressForm, address: e.target.value })}
+              placeholder="Calle N° - Ciudad - Provincia"
+            />
+          </div>
+          <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input
+              id="address-default"
+              type="checkbox"
+              checked={addressForm.is_default}
+              onChange={(e) => setAddressForm({ ...addressForm, is_default: e.target.checked })}
+            />
+            <label htmlFor="address-default" style={{ marginBottom: 0 }}>
+              Marcar como domicilio principal
+            </label>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={() => setShowAddressModal(false)}
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={addressSaving || !addressForm.address.trim()}
+            >
+              {addressSaving ? 'Guardando...' : editingAddress ? 'Actualizar' : 'Agregar'}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

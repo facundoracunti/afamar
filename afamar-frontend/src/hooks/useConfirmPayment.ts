@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { EntityFormState } from '../types/form';
+import { todayLocalISO } from './entityFormHelpers';
 
 export function useConfirmPayment(
   id: string | undefined,
@@ -14,7 +15,7 @@ export function useConfirmPayment(
   return useCallback(async () => {
     if (!id) return;
     const nuevo = !form.balance_paid;
-    const hoy = new Date().toISOString().split('T')[0];
+    const hoy = todayLocalISO();
     const payload: Record<string, unknown> = {
       balance_paid: nuevo,
       balance_paid_at: nuevo ? hoy : null,

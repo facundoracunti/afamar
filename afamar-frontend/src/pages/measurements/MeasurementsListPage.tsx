@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Eye, Trash2, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { Plus, Search, Eye, Trash2, ArrowUp, ArrowDown, ArrowUpDown, CalendarDays } from 'lucide-react';
 import { getMeasurements, deleteMeasurement } from '@/api/resources/measurements';
 import { getWorkOrders } from '@/api/resources/workOrders';
 import { useList, useDelete, useGet } from '../../api/hooks';
-import { measurementStatuses, formatDate } from '../../utils/formatters';
+import { measurementStatuses, formatDate, todayLocalISO } from '../../utils/formatters';
 import { t } from '../../utils/translate';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import type { Measurement } from '../../types/measurement';
@@ -58,6 +58,11 @@ function SortHeader({ field, label, currentField, currentDir, onSort, style }: S
 export default function MeasurementsList() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  // Default the date filter to today so the user lands on a working
+  // agenda view (like CashDailyPage does). Empty string means "no date
+  // filter — show every measurement".
+  const [dateFilter, setDateFilter] = useState<string>(todayLocalISO());
+  const [dateFilterEnabled, setDateFilterEnabled] = useState<boolean>(true);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   // Default to "fecha asc" — chronological, the most useful ordering for
   // an agenda view. Toggling a column flips the direction.
@@ -66,9 +71,13 @@ export default function MeasurementsList() {
   const navigate = useNavigate();
 
   const { items: data, loading } = useList<Measurement>(
-    [...MEASUREMENTS_KEY, search, statusFilter],
+    [...MEASUREMENTS_KEY, search, statusFilter, dateFilter, dateFilterEnabled],
     async () => {
-      const res = await getMeasurements({ search: search || undefined, status: statusFilter || undefined });
+      const res = await getMeasurements({
+        search: search || undefined,
+        status: statusFilter || undefined,
+        scheduled_date: dateFilterEnabled ? dateFilter : undefined,
+      });
       return (res.data as Measurement[]) || [];
     }
   );
@@ -178,6 +187,39 @@ export default function MeasurementsList() {
           placeholder="Buscar por cliente, teléfono o dirección..."
           leftIcon={<Search size={18} />}
         />
+        <div className={s['measurements__date-group']}>
+          <CalendarDays size={16} className={s['measurements__date-icon']} aria-hidden="true" />
+          <input
+            type="date"
+            className={`input ${s['measurements__filter']}`}
+            value={dateFilter}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+              setDateFilter(e.target.value);
+              setDateFilterEnabled(true);
+            }}
+            disabled={!dateFilterEnabled}
+            aria-label="Fecha de la agenda"
+          />
+          <button
+            type="button"
+            className="btn btn-outline"
+            onClick={() => {
+              setDateFilter(todayLocalISO());
+              setDateFilterEnabled(true);
+            }}
+            title="Ir a hoy"
+          >
+            Hoy
+          </button>
+          <button
+            type="button"
+            className={`btn ${dateFilterEnabled ? 'btn-outline' : 'btn-primary'}`}
+            onClick={() => setDateFilterEnabled((v) => !v)}
+            title={dateFilterEnabled ? 'Mostrar todas las mediciones' : 'Filtrar por día'}
+          >
+            {dateFilterEnabled ? 'Todas' : 'Filtrar por día'}
+          </button>
+        </div>
         <select
           className={`input ${s['measurements__filter']}`}
           value={statusFilter}
@@ -224,7 +266,17 @@ export default function MeasurementsList() {
                 </tr>
               ))}
               {visibleRows.length === 0 && (
-                <tr><td colSpan={7}><EmptyState message="No hay mediciones registradas" /></td></tr>
+                <tr>
+                  <td colSpan={7}>
+                    <EmptyState
+                      message={
+                        dateFilterEnabled
+                          ? `No hay mediciones programadas para el ${formatDate(dateFilter)}.`
+                          : 'No hay mediciones registradas.'
+                      }
+                    />
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>

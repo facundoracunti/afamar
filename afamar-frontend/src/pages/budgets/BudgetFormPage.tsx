@@ -6,7 +6,7 @@ import { getBudget, createBudget, updateBudget, deleteBudget, getNextBudgetNumbe
 import { getMaterials } from '@/api/resources/materials';
 import { getPoolStock } from '@/api/resources/poolStock';
 import { getClients } from '@/api/resources/clients';
-import { formatCurrency, fabricationConcepts } from '../../utils/formatters';
+import { formatCurrency, fabricationConcepts, todayLocalISO } from '../../utils/formatters';
 import { t as translateConcept } from '../../utils/translate';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import useEntityForm from '../../hooks/useEntityForm';
@@ -198,7 +198,7 @@ export default function BudgetForm() {
         aprobado.balance_paid = true;
         aprobado.deposit_usd = Number(form.total_usd);
         aprobado.balance_due_usd = 0;
-        aprobado.balance_paid_at = new Date().toISOString().split('T')[0];
+        aprobado.balance_paid_at = todayLocalISO();
       }
       await updateBudget(id as string, aprobado as unknown as Record<string, unknown>);
       // Only reflect the user-facing changes back into the form. Spreading
@@ -405,7 +405,7 @@ const buildOptionFromMaterial = (mat: MaterialInForm): import('../../components/
   const handleConfirmarPago = async () => {
     if (!id) return;
     const nuevo = !form.balance_paid;
-    const hoy = new Date().toISOString().split('T')[0];
+    const hoy = todayLocalISO();
     const payload: Record<string, unknown> = {
       balance_paid: nuevo,
       balance_paid_at: nuevo ? hoy : null,

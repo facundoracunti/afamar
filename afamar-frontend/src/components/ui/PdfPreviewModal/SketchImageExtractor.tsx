@@ -3,7 +3,7 @@
  * data-URI per page via `stage.toDataURL()`.
  *
  * The croquis data lives in `form.sketch_elements` as the `savePayload()`
- * shape produced by `useCroquisState`:
+ * shape produced by `useSketchState`:
  *   `[{ pagina_id, name, dibujo: SketchElement[] }, ...]`
  *
  * We re-render the same shapes (Line / Rect / Cutout / Text) into a hidden
@@ -123,22 +123,38 @@ export default function SketchImageExtractor({ sketchElements, onReady }: Sketch
   const stageRefs = useRef<(Konva.Stage | null)[]>([]);
 
   useEffect(() => {
-    // Wait one frame so Konva has finished laying out the shapes.
-    const raf = requestAnimationFrame(() => {
-      const images: string[] = [];
-      for (let i = 0; i < pages.length; i += 1) {
-        const stage = stageRefs.current[i];
-        if (!stage) continue;
-        try {
-          const dataUrl = stage.toDataURL({ mimeType: 'image/png', pixelRatio: 1 });
-          if (dataUrl && dataUrl.length > 0) images.push(dataUrl);
-        } catch {
-          // skip pages that fail to render (e.g., empty or broken)
+    let cancelled = false;
+    // Konva paints on the next two animation frames (commit + paint). A
+    // single rAF is too early — `toDataURL` can capture the canvas before
+    // all shapes are drawn, producing an incomplete or blank image. We use
+    // a double rAF and force a `batchDraw()` so Konva flushes any pending
+    // operations before we read the pixel buffer.
+    const raf1 = requestAnimationFrame(() => {
+      const raf2 = requestAnimationFrame(() => {
+        if (cancelled) return;
+        const images: string[] = [];
+        for (let i = 0; i < pages.length; i += 1) {
+          const stage = stageRefs.current[i];
+          if (!stage) continue;
+          try {
+            stage.batchDraw();
+            const dataUrl = stage.toDataURL({ mimeType: 'image/png', pixelRatio: 1 });
+            if (dataUrl && dataUrl.length > 0) images.push(dataUrl);
+          } catch {
+            // skip pages that fail to render (e.g., empty or broken)
+          }
         }
-      }
-      onReady(images);
+        onReady(images);
+      });
+      // Cancel the inner rAF if the effect re-runs.
+      (raf1 as unknown as { _inner?: number })._inner = raf2;
     });
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf1);
+      const inner = (raf1 as unknown as { _inner?: number })._inner;
+      if (inner) cancelAnimationFrame(inner);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sketchElements]);
 

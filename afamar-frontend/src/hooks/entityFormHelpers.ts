@@ -2,7 +2,12 @@ import type { EntityFormState, Pool } from '../types';
 import type { Material } from '../types/material';
 import { POOL_MATERIAL_GLOBAL, type MaterialInForm, type PoolInForm } from '../types/budget';
 import type { FinancialBase } from '../types/shared';
-import { fabricationConcepts } from '../utils/formatters';
+import { fabricationConcepts, todayLocalISO } from '../utils/formatters';
+
+// Re-export so existing call sites that import `todayLocalISO` from this
+// module keep working (notably the `useFormActions` / `useConfirmPayment`
+// hooks pulled in by `useEntityForm`).
+export { todayLocalISO };
 
 /**
  * Fabrication concepts that are priced per square meter (m²).
@@ -106,10 +111,11 @@ export const INITIAL_FORM: EntityFormState = {
   client_phone: '',
   client_address: '',
   client_email: '',
+  delivery_address_id: null,
 
   // Budget/work order identifier & status
   number: '',
-  date: new Date().toISOString().slice(0, 10),
+  date: todayLocalISO(),
   status: '',
 
   // Material specs (BudgetBase)
@@ -167,6 +173,7 @@ export function buildPayload(form: EntityFormState): Record<string, unknown> {
     client_phone: form.client_phone,
     client_address: form.client_address,
     client_email: form.client_email,
+    delivery_address_id: form.delivery_address_id ? Number(form.delivery_address_id) : null,
     date: form.date ? toIsoFromDate(form.date) : null,
     status: form.status,
     material: form.material,
@@ -218,7 +225,7 @@ function jsonStringify(value: unknown): string | null {
  * schema expects. **All geometry (points, x, y, stroke, strokeWidth, id, ...)**
  * is serialized into `data` so the round-trip preserves the exact drawing.
  *
- * `useCroquisState.savePayload()` returns:
+ * `useSketchState.savePayload()` returns:
  *   [{ pagina_id, name, dibujo: [{ type, x, y, points, stroke, ...id }] }, ...]
  *
  * Accepts that shape plus a few legacy shapes for backward-compat:
@@ -351,8 +358,9 @@ export function mapApiToForm(d: Record<string, unknown>, defaultStatus: string):
     client_phone: (d.client_phone as string) || '',
     client_address: (d.client_address as string) || '',
     client_email: (d.client_email as string) || '',
+    delivery_address_id: (d.delivery_address_id as number | null) ?? null,
     number: (d.number as string) || (d.numero as string) || '',
-    date: sliceDateToInput(d.date) || new Date().toISOString().slice(0, 10),
+    date: sliceDateToInput(d.date) || todayLocalISO(),
     status: (d.status as string) || (d.estado as string) || defaultStatus,
     material: (d.material as string) || '',
     material_price_m2: (d.material_price_m2 as number) || 0,
@@ -382,8 +390,11 @@ export function mapApiToForm(d: Record<string, unknown>, defaultStatus: string):
 
 function toIsoFromDate(dateStr: string): string | null {
   if (!dateStr) return null;
-  if (dateStr.length === 10) return new Date(dateStr + 'T00:00:00').toISOString();
-  return new Date(dateStr).toISOString();
+  // Send YYYY-MM-DD strings as-is. The backend parses them as midnight on
+  // that day, so the round-trip preserves the date the user picked even when
+  // the user's local timezone differs from the server's (which used to shift
+  // the date by a day after `new Date(...).toISOString()` conversion).
+  return dateStr;
 }
 
 function sliceDateToInput(v: unknown): string {

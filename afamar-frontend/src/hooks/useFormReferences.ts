@@ -39,8 +39,8 @@ export function useFormReferences({
   setLoading,
   onLoaded,
 }: UseFormReferencesParams): UseFormReferencesReturn {
-  const [materials, setMateriales] = useState<Material[]>([]);
-  const [pools, setPiletas] = useState<Pool[]>([]);
+  const [materials, setMaterials] = useState<Material[]>([]);
+  const [pools, setPools] = useState<Pool[]>([]);
   const [clientes, setClientes] = useState<Client[]>([]);
   const [logoUrl, setLogoUrl] = useState<string>('');
 
@@ -84,8 +84,8 @@ export function useFormReferences({
           services.getPools(),
         ]);
         if (cancelled) return;
-        setMateriales((materialsRes.data as unknown as Material[]) || []);
-        setPiletas((poolsRes.data as unknown as Pool[]) || []);
+        setMaterials((materialsRes.data as unknown as Material[]) || []);
+        setPools((poolsRes.data as unknown as Pool[]) || []);
 
         // Settings (logo) — fire and forget; the logo is optional.
         api

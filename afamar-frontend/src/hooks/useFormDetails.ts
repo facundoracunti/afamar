@@ -96,6 +96,8 @@ export function useFormDetails({
   );
 
   const addDetalle = useCallback(() => {
+    // eslint-disable-next-line no-console
+    console.count('[addDetalle]');
     update('fabrication_details', [
       ...(form.fabrication_details || []),
       {

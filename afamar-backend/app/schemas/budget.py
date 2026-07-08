@@ -106,6 +106,7 @@ class BudgetBase(BaseModel):
     estimated_delivery: str | None = None
     estimated_date: Optional[date] = None
     priority: str = "NORMAL"
+    delivery_address_id: int | None = None
     date: Optional[datetime] = None
     delivery_date: Optional[datetime] = None
     digital_signature: str | None = None
@@ -211,7 +212,15 @@ class BudgetResponse(BudgetBase, BaseResponse):
         """Build a response from a Budget ORM row, populating client_*
         fields from the related Client (JOIN). The Budget model has no
         client_name column — only client_id — so without this helper the
-        response would have client_name=None."""
+        response would have client_name=None.
+
+        If the budget has a `delivery_address_id` (an alternative address
+        picked by the user for this document), the `client_address` field
+        is overridden with that address's text instead of the client's
+        default. The `client_*` identity fields (name, phone, email) keep
+        coming from the Client row — they identify the customer, not the
+        site.
+        """
         data = cls.model_validate(budget).model_dump()
         client = getattr(budget, "client", None)
         if client:
@@ -219,4 +228,10 @@ class BudgetResponse(BudgetBase, BaseResponse):
             data["client_phone"] = client.phone or data.get("client_phone") or ""
             data["client_email"] = client.email or data.get("client_email") or ""
             data["client_address"] = client.address or data.get("client_address") or ""
+        delivery_id = data.get("delivery_address_id")
+        if delivery_id and client is not None:
+            for addr in (getattr(client, "addresses", None) or []):
+                if addr.id == delivery_id:
+                    data["client_address"] = addr.address or data["client_address"]
+                    break
         return cls.model_validate(data)

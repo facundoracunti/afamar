@@ -315,21 +315,27 @@ class WorkOrderService:
         data["number"] = generate_work_order_number(last_number)
         client_id = data.get("client_id")
         if not client_id:
-            client_name = data.get("client_name")
+            client_name = (data.get("client_name") or "").strip()
             if client_name:
-                client = self.repo.db.query(Client).filter(Client.name == client_name).first()
+                from sqlalchemy import func
+                client = (
+                    self.repo.db.query(Client)
+                    .filter(func.lower(Client.name) == client_name.lower())
+                    .first()
+                )
                 if not client:
                     client = Client(
                         name=client_name,
-                        phone=data.get("client_phone"),
-                        email=data.get("client_email"),
-                        address=data.get("client_address"),
+                        phone=(data.get("client_phone") or "").strip() or None,
+                        email=(data.get("client_email") or "").strip() or None,
+                        address=(data.get("client_address") or "").strip() or None,
                     )
                     self.repo.db.add(client)
                     self.repo.db.flush()
                 data["client_id"] = client.id
             else:
-                raise ValueError("client_id or client_name is required")
+                from app.core.exceptions import ValidationError
+                raise ValidationError("Debe seleccionar o escribir un cliente antes de guardar la orden de trabajo.")
         # client_* fields are not stored on the WorkOrder row — they're only
         # used to resolve client_id above. The response schema populates
         # them from the related Client via from_orm_with_client.
@@ -365,12 +371,7 @@ class WorkOrderService:
         if budget.status != "APPROVED":
             raise ValueError("Budget must be approved to convert")
 
-        from app.services.budget_calculator import (
-            apply_surcharge,
-            compute_surcharge,
-            filter_main_materials,
-            parse_materials_data,
-        )
+        from app.services.budget_calculator import filter_main_materials, parse_materials_data
 
         # The budget already carries the canonical totals (subtotal, total,
         # balance_due, etc.) computed and submitted by the frontend when the
@@ -388,17 +389,13 @@ class WorkOrderService:
             material_nombre = budget.material or ""
             material_precio_m2 = budget.material_price_m2 or 0
 
-        # Surcharge is applied budget-side; mirror it here so the WO's totals
-        # match what the customer signed. If the budget already includes
-        # surcharge in its `total`, we keep that exact figure.
-        surcharge_info = compute_surcharge(budget.payment_method, budget.installments or 1)
+        # `budget.total` / `budget.total_usd` already include the surcharge
+        # that was applied budget-side (the budget's `total` is what the
+        # customer signed). We mirror those figures 1:1 into the WO so the
+        # conversion doesn't change what the customer owes. No need to
+        # re-apply surcharge here — the budget is the source of truth.
         budget_total_ars = float(budget.total or 0)
         budget_total_usd = float(budget.total_usd or 0)
-        surcharge_result = apply_surcharge(
-            budget_total_ars,
-            budget_total_usd,
-            surcharge_info["percentage"],
-        )
 
         last_number = self.repo.get_last_number()
 
@@ -443,6 +440,11 @@ class WorkOrderService:
 
         sketch_list = []
         if budget.sketch_elements:
+            # The frontend's wire format is a flat list of
+            # `{ type, data, order }` — same shape as the BudgetSketchElement
+            # rows in the DB, so the round-trip is trivial. The `data` column
+            # is already a JSON string of the element's geometry, so we don't
+            # need to re-serialise it.
             sketch_list = [
                 {
                     "type": el.type,
@@ -451,6 +453,9 @@ class WorkOrderService:
                 }
                 for el in budget.sketch_elements
             ]
+        sketch_json = (
+            json.dumps(sketch_list, ensure_ascii=False) if sketch_list else None
+        )
 
         data = {
             "number": generate_work_order_number(last_number),
@@ -463,6 +468,7 @@ class WorkOrderService:
             "materials_data": materiales_json,
             "adicionales_data": json.dumps(adicionales_list) if adicionales_list else None,
             "budgeted_details": json.dumps(sketch_list) if sketch_list else None,
+            "sketch_elements": sketch_json,
             "color": budget.color,
             "thickness": budget.thickness,
             "finish": budget.finish,

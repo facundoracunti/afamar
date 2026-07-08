@@ -222,3 +222,84 @@
   background: var(--sidebar-item-active-bg);
   border-radius: 8px;
 }
+
+/* Alternative delivery addresses (1-N). */
+.client-form__addresses-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.client-form__addresses-header .client-form__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.client-form__addresses-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.client-form__address-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--surface-alt-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  flex-wrap: wrap;
+}
+
+.client-form__address-row--default {
+  border-color: var(--color-success, #059669);
+  background: color-mix(in srgb, var(--color-success, #059669) 8%, var(--surface-bg));
+}
+
+.client-form__address-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 280px;
+}
+
+.client-form__address-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.client-form__address-text {
+  font-size: 14px;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.client-form__address-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.client-form__address-default-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-success, #059669);
+  padding: 4px 8px;
+  background: color-mix(in srgb, var(--color-success, #059669) 18%, transparent);
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}

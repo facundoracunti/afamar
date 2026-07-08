@@ -40,6 +40,8 @@ export function useFormPools({
 
   const addPileta = useCallback(
     (pid: string) => {
+      // eslint-disable-next-line no-console
+      console.count('[addPileta]');
       const list = addPoolToList(form, pools, pid);
       if (list) update('pools_data', list);
     },

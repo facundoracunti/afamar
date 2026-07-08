@@ -25,18 +25,27 @@ class ClientService:
 
     def get_with_history(self, client_id: int) -> Optional[dict]:
         """Return the client enriched with aggregated history (budget/order
-        counts, last order number, recent orders/budgets). Powers the edit
-        page (`/admin/clients/{id}`), which renders a side panel of stats
-        and recent orders next to the form fields.
+        counts, last order number, recent orders/budgets) AND the full list
+        of alternative delivery addresses. Powers the edit page
+        (`/admin/clients/{id}`), which renders a side panel of stats and
+        recent orders next to the form fields.
 
         Reuses `repo.get_history` so the aggregate queries aren't
         duplicated — same cost as a separate `/history` request, but in
         one round trip.
         """
+        from app.schemas.client_address import ClientAddressResponse
+
         client = self.get_by_id(client_id)
         if not client:
             return None
         history = self.repo.get_history(client_id)
+        # Serialize the addresses inline so the front-end can render the
+        # list in one round-trip alongside the rest of the form.
+        addresses = [
+            ClientAddressResponse.model_validate(a).model_dump(mode="json")
+            for a in client.addresses
+        ]
         return {
             "id": client.id,
             "name": client.name,
@@ -52,6 +61,7 @@ class ClientService:
             "last_order_number": history["last_order_number"],
             "orders": history["recent_orders"],
             "budgets": history["recent_budgets"],
+            "addresses": addresses,
         }
 
     def list_with_stats(self, skip: int = 0, limit: int = 100) -> List[dict]:
@@ -117,7 +127,24 @@ class ClientService:
         return results
 
     def create(self, data: dict) -> Client:
+        # If the legacy `address` field is set, peel it off before creating
+        # the Client row so we can use it to seed the default
+        # `ClientAddress` row afterwards (keeps the two in sync).
+        seed_address = (data.get("address") or "").strip()
+        data = {k: v for k, v in data.items() if k != "address"}
+        if seed_address:
+            data["address"] = seed_address
         client = self.repo.create(data)
+        if seed_address:
+            from app.models.client_address import ClientAddress
+            self.repo.db.add(
+                ClientAddress(
+                    client_id=client.id,
+                    address=seed_address,
+                    label="Principal",
+                    is_default=True,
+                )
+            )
         self.repo.db.commit()
         self.repo.db.refresh(client)
         return client

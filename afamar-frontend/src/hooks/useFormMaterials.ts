@@ -77,6 +77,8 @@ export function useFormMaterials({
 
   const addMaterial = useCallback(
     (name: string) => {
+      // eslint-disable-next-line no-console
+      console.count('[addMaterial]');
       const list = addMaterialToList(form, materials, name);
       if (list) update('materials_data', list);
     },

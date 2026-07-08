@@ -1,4 +1,5 @@
 from app.models.client import Client
+from app.models.client_address import ClientAddress
 from app.models.budget import Budget, BudgetItem, BudgetAdicional, BudgetSketchElement
 from app.models.work_order import WorkOrder
 from app.models.material import Material, MaterialCategory, MaterialColor, MaterialThickness
@@ -14,6 +15,7 @@ from app.models.user import User
 
 __all__ = [
     "Client",
+    "ClientAddress",
     "Budget",
     "BudgetItem",
     "BudgetAdicional",

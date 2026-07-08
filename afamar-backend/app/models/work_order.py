@@ -62,6 +62,11 @@ class WorkOrder(Base):
 
     fabrication_details: Mapped[str] = mapped_column(Text, nullable=True)
     budgeted_details: Mapped[str] = mapped_column(Text, nullable=True)
+    # JSON-encoded sketch (matches the wire format the frontend sends/receives
+    # on `sketch_elements`). Populated from the source budget on conversion so
+    # the customer can see the same croquis in the WO form/PDF that they
+    # signed on the budget. See `WorkOrderService.create_from_budget`.
+    sketch_elements: Mapped[str] = mapped_column(Text, nullable=True)
 
     pool_id: Mapped[int] = mapped_column(ForeignKey("pool_stock.id"), nullable=True)
     pool_price: Mapped[float] = mapped_column(Float, default=0.0)

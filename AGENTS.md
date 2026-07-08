@@ -1,7 +1,8 @@
 # AGENTS.md
 
-> **Estado:** Rama `development` con commits sin pushear: work descrito debajo. Sesiones previas acumuladas en `refactor`: **fix measurement agenda filter (order→measurement direction)**, **`workOrderId`→`work_order_id` mapping fix**,
-> Ver `PLAN.md` para el roadmap completo de migración.
+> **Estado:** Rama `development` con work sin commitear listo para revisar: **3 olas de issue fixes** basadas en feedback del usuario — bugs críticos (cliente nuevo, fecha UTC, PDF "Otra", PDF hoja vacía, croquis, medición) + M² comparativa con delta verde/rojo + **modelo `ClientAddress` 1-N** (domicilios alternativos con migración Alembic) + cleanup de dead code (`getBudgetPdfBlob`/`getWorkOrderPdfBlob`/`pdfUrl` prop) + consistency renames (`useSketchState`, `setMaterials`/`setPools`). Ver `PLAN.md` §"Issue tracker" para el desglose completo.
+>
+> Working tree: 47 archivos (40 modificados, 7 nuevos). `tsc --noEmit` 0 errores · `vite build` pasa · migración `a1c2b3d4e5f7` aplicada a MySQL.
 
 ## Sesión: fix medición agenda (filter OTs con medición en vez de mediciones con OT)
 

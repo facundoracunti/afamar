@@ -141,7 +141,29 @@ export default function ClientSection({
                     // rest of the section stays put until they pick something else.
                   }}
                   onFocus={() => setOpen(true)}
-                  onBlur={() => setTimeout(() => setOpen(false), 150)}
+                  onBlur={() => {
+                    setTimeout(() => {
+                      setOpen(false);
+                      // If the user typed something and didn't pick a client from
+                      // the dropdown, resolve the typed name against the existing
+                      // list. This lets the backend's find-or-create logic on
+                      // BudgetService.create() / WorkOrderService.create() do its
+                      // job instead of failing with an empty `client_name`.
+                      const typed = query.trim();
+                      if (!typed || typed === form.client_name) return;
+                      const match = clientes.find(
+                        (c) => (c.name || '').trim().toLowerCase() === typed.toLowerCase(),
+                      );
+                      if (match) {
+                        update('client_name', match.name);
+                        update('client_phone', match.phone || '');
+                        update('client_email', match.email || '');
+                        update('client_address', match.address || '');
+                      } else {
+                        update('client_name', typed);
+                      }
+                    }, 150);
+                  }}
                   disabled={readOnly}
                   style={{ paddingRight: showClear ? 28 : undefined }}
                 />

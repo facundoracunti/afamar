@@ -12,6 +12,7 @@ class WorkOrderBase(BaseModel):
     client_phone: str | None = None
     client_email: str | None = None
     client_address: str | None = None
+    delivery_address_id: int | None = None
     budget_id: int | None = None
     material: str | None = None
     material_price_m2: float = 0.0
@@ -45,6 +46,11 @@ class WorkOrderBase(BaseModel):
     digital_signature: str | None = None
     fabrication_details: str | None = None
     budgeted_details: str | None = None
+    # JSON-encoded array of sketch elements. Mirrors the wire format the
+    # frontend uses on Budget/Measurement (see `flattenSketchElements` /
+    # `unflattenSketchElements`). Populated from the source budget on
+    # conversion so the customer can see the same croquis in the WO.
+    sketch_elements: str | None = None
     pool_id: int | None = None
     pool_price: float = 0.0
     pool_currency: str = "ARS"
@@ -102,6 +108,7 @@ class WorkOrderUpdate(BaseModel):
     signed_at: Optional[datetime] = None
     fabrication_details: str | None = None
     budgeted_details: str | None = None
+    sketch_elements: str | None = None
     pool_id: int | None = None
     pool_price: float | None = None
     pool_currency: str | None = None
@@ -132,7 +139,14 @@ class WorkOrderResponse(WorkOrderBase, BaseResponse):
         """Build a response from a WorkOrder ORM row, populating client_*
         from the related Client (JOIN). The WorkOrder model has no
         client_name column — only client_id — so without this helper the
-        response would have client_name=None."""
+        response would have client_name=None.
+
+        If the order has a `delivery_address_id` (an alternative address
+        picked by the user for this document), the `client_address` field
+        is overridden with that address's text instead of the client's
+        default. Identity fields (name, phone, email) keep coming from
+        the Client row.
+        """
         data = cls.model_validate(order).model_dump()
         client = getattr(order, "client", None)
         if client:
@@ -140,5 +154,11 @@ class WorkOrderResponse(WorkOrderBase, BaseResponse):
             data["client_phone"] = client.phone or data.get("client_phone") or ""
             data["client_email"] = client.email or data.get("client_email") or ""
             data["client_address"] = client.address or data.get("client_address") or ""
+        delivery_id = data.get("delivery_address_id")
+        if delivery_id and client is not None:
+            for addr in (getattr(client, "addresses", None) or []):
+                if addr.id == delivery_id:
+                    data["client_address"] = addr.address or data["client_address"]
+                    break
         return cls.model_validate(data)
 

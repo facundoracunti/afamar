@@ -1,4 +1,5 @@
 import React from 'react';
+import { MapPin } from 'lucide-react';
 import ClientSection from '../../components/orders/ClientSection/ClientSection';
 import ClientInfoCard from '../../components/orders/ClientInfoCard/ClientInfoCard';
 import type { EntityFormState } from '../../types';
@@ -27,10 +28,50 @@ export default function WorkOrderFormClient({
   const selectedClient = clientes.find((c) => c.name === form.client_name);
   const hasClient = !!form.client_name && !!selectedClient;
 
+  // When the client has multiple addresses, expose a dropdown so the user
+  // can pick the one this order is being delivered to (architect with
+  // several project sites). `delivery_address_id === null` (or unset)
+  // means "use the client's default address" — that's always the first
+  // option, matching the legacy `client.address` mirror.
+  const renderAddressPicker = (client: Client) => {
+    const addresses = client.addresses || [];
+    if (addresses.length <= 1 || readOnly) {
+      return null;
+    }
+    return (
+      <div className="form-group" style={{ marginTop: 12 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <MapPin size={14} aria-hidden="true" /> Domicilio de entrega
+        </label>
+        <select
+          className="input"
+          value={form.delivery_address_id ?? ''}
+          onChange={(e) =>
+            update(
+              'delivery_address_id',
+              e.target.value ? Number(e.target.value) : null,
+            )
+          }
+        >
+          <option value="">Principal (predeterminado)</option>
+          {addresses.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.label ? `${a.label} — ${a.address}` : a.address}
+            </option>
+          ))}
+        </select>
+        <small style={{ color: 'var(--text-muted)', fontSize: 12 }}>
+          Si la obra se hace en un domicilio distinto al del cliente, elegilo acá.
+        </small>
+      </div>
+    );
+  };
+
   if (hasClient) {
     return (
       <div className="card">
         <ClientInfoCard client={selectedClient} />
+        {renderAddressPicker(selectedClient)}
       </div>
     );
   }

@@ -1,19 +1,17 @@
 /**
- * PDF preview modal — supports two rendering modes:
+ * PDF preview modal — renders a `@react-pdf/renderer` document inside a
+ * `<PDFViewer>` so the user can page through it before downloading.
  *
- * 1. **react-pdf mode** (active): pass `data: PdfDocumentData` and the
- *    modal renders the document with `<PDFViewer>` (interactive preview +
- *    download button). Used by BudgetFormPage, WorkOrderFormPage,
- *    BudgetsListPage and WorkOrdersListPage — the PDF is built entirely
- *    in the browser from form state or from the GET response.
+ * All four callers (BudgetFormPage, WorkOrderFormPage, BudgetsListPage
+ * and WorkOrdersListPage) build the document data on the fly via
+ * `buildPdfData()` and pass it in `data`. The modal hands it to
+ * `<DocumentPdf>` and exposes a Download button via `<PDFDownloadLink>`.
  *
- * 2. **blob URL mode** (legacy, kept for forward compat): pass
- *    `pdfUrl: string` (a Blob URL) and the modal shows it in an `<iframe>`.
- *    No current consumer — the backend no longer serves PDF blobs.
- *
- * The two modes are mutually exclusive — whichever prop is provided wins.
+ * The legacy `pdfUrl` (iframe + blob URL) mode was removed in Ola 3 of
+ * the issue tracker — the backend no longer serves PDF blobs and no
+ * caller was using the iframe path.
  */
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { PDFViewer, PDFDownloadLink } from '@react-pdf/renderer';
 import { Download } from 'lucide-react';
 import DocumentPdf from './DocumentPdf';
@@ -22,10 +20,8 @@ import type { PdfDocumentData } from '../../../utils/pdf/buildPdfData';
 interface PdfPreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
-  /** react-pdf mode: pre-built document data. */
+  /** Pre-built document data (output of `buildPdfData`). */
   data?: PdfDocumentData | null;
-  /** Blob URL mode: URL to a PDF served by the backend. */
-  pdfUrl?: string | null;
   loading: boolean;
   title?: string;
   fileName?: string;
@@ -35,23 +31,11 @@ export default function PdfPreviewModal({
   isOpen,
   onClose,
   data,
-  pdfUrl,
   loading,
   title = 'Vista previa',
   fileName = 'documento.pdf',
 }: PdfPreviewModalProps) {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-
-  useEffect(() => {
-    if (!isOpen && iframeRef.current) {
-      iframeRef.current.src = '';
-    }
-  }, [isOpen]);
-
   if (!isOpen) return null;
-
-  const hasReactPdf = data != null;
-  const hasBlobUrl = pdfUrl != null;
 
   return (
     <div
@@ -90,7 +74,7 @@ export default function PdfPreviewModal({
         >
           <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>{title}</h2>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            {hasReactPdf && !loading && (
+            {data != null && !loading && (
               <PDFDownloadLink
                 document={<DocumentPdf data={data} />}
                 fileName={fileName}
@@ -131,7 +115,7 @@ export default function PdfPreviewModal({
               Generando PDF...
             </div>
           )}
-          {hasReactPdf && !loading && (
+          {data != null && !loading && (
             <PDFViewer
               style={{ width: '100%', height: '100%', border: 'none' }}
               showToolbar
@@ -139,15 +123,7 @@ export default function PdfPreviewModal({
               <DocumentPdf data={data} />
             </PDFViewer>
           )}
-          {hasBlobUrl && !hasReactPdf && pdfUrl && (
-            <iframe
-              ref={iframeRef}
-              src={pdfUrl}
-              style={{ width: '100%', height: '100%', border: 'none' }}
-              title="Vista previa PDF"
-            />
-          )}
-          {!loading && !hasReactPdf && !hasBlobUrl && (
+          {!loading && data == null && (
             <div
               style={{
                 position: 'absolute',

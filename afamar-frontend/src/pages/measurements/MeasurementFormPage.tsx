@@ -55,6 +55,14 @@ export default function MeasurementForm() {
 
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
 
+  // Track which id we've already loaded into the form. Without this guard, a
+  // TanStack Query refetch (which returns a new object reference even when
+  // the data is byte-identical) re-fires the load effect and wipes whatever
+  // the user has typed since. This was the root cause of "I add notes, save,
+  // re-open, the form is empty" — the in-flight refetch of the cached
+  // measurement was overwriting the user's input before the PUT went out.
+  const loadedIdRef = useRef<string | null>(null);
+
   const { data: measurement, loading } = useGet<Measurement>(
     ['measurement', id],
     async () => {
@@ -93,7 +101,16 @@ export default function MeasurementForm() {
   );
 
   useEffect(() => {
-    if (!measurement) return;
+    if (!measurement || !measurement.id) return;
+    // Only seed the form on the FIRST load for this id. Any subsequent
+    // refetch of the same id keeps the user's current input. Also guards
+    // against a stale refetch for the *previous* id hanging around while
+    // the user navigates to a new measurement.
+    const measurementIdStr = String(measurement.id);
+    if (id && id !== measurementIdStr) return;
+    if (loadedIdRef.current === measurementIdStr) return;
+    loadedIdRef.current = measurementIdStr;
+
     let sketch: unknown[] = [];
     let photos: string[] = [];
     try { if (measurement.sketch_data) sketch = JSON.parse(measurement.sketch_data); } catch {}
@@ -110,8 +127,14 @@ export default function MeasurementForm() {
     });
     setSelectedClientId(measurement.client_id ?? null);
     setFotosPreview(photos);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [measurement]);
+  }, [measurement, id]);
+
+  // Reset the "loaded" marker when the route id changes so the next
+  // measurement seeds the form fresh.
+  useEffect(() => {
+    if (!id) loadedIdRef.current = null;
+    else if (loadedIdRef.current && loadedIdRef.current !== id) loadedIdRef.current = null;
+  }, [id]);
 
   // When arriving via `?workOrderId=` from the pending-measurement cards, fetch
   // the source work order and pre-fill client + delivery date so the user only
@@ -187,9 +210,15 @@ export default function MeasurementForm() {
       const payload: Record<string, unknown> = {
         client_id: form.clientId,
         work_order_id: form.workOrderId === '' || form.workOrderId === undefined ? null : Number(form.workOrderId),
-        scheduled_date: form.scheduledDate ? new Date(form.scheduledDate).toISOString() : null,
+        // Send the date as a YYYY-MM-DD string (without a timezone shift) so
+        // the backend stores it as midnight on the day the user picked, not
+        // as the previous/next day depending on the server's tz.
+        scheduled_date: form.scheduledDate || null,
         scheduled_time: form.scheduledTime || null,
-        notes: form.observations || null,
+        // Send empty string as empty string (not null) so the user can clear
+        // notes by deleting the text. The backend's `value is not None`
+        // guard then writes the empty string over the previous value.
+        notes: form.observations,
         status: form.status,
         photos_data: JSON.stringify(form.photos),
         sketch_data: JSON.stringify(form.sketch),
