@@ -1,7 +1,7 @@
 from typing import List, Optional
 
 from sqlalchemy import or_
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from app.models.pool_stock import PoolStock, StockMovement
 from app.repositories.base import BaseRepository
@@ -14,46 +14,28 @@ class PoolStockRepository(BaseRepository):
         super().__init__(db)
 
     def get_by_id(self, pool_id: int) -> Optional[PoolStock]:
-        return (
-            self.db.query(PoolStock)
-            .options(joinedload(PoolStock.currency_obj))
-            .filter(PoolStock.id == pool_id)
-            .first()
-        )
+        return self.db.query(PoolStock).filter(PoolStock.id == pool_id).first()
 
     def get_all(self, skip: int = 0, limit: int = 100) -> List[PoolStock]:
-        return (
-            self.db.query(PoolStock)
-            .options(joinedload(PoolStock.currency_obj))
-            .offset(skip)
-            .limit(limit)
-            .all()
-        )
+        return self.db.query(PoolStock).offset(skip).limit(limit).all()
 
     def search(self, term: str) -> List[PoolStock]:
         pattern = f"%{term}%"
         return (
             self.db.query(PoolStock)
-            .options(joinedload(PoolStock.currency_obj))
             .filter(or_(PoolStock.brand.ilike(pattern), PoolStock.model.ilike(pattern)))
             .all()
         )
 
     def create(self, data: dict) -> PoolStock:
-        # Always populate `currency_obj` so the response validator
-        # (`PoolStockResponse._populate_currency_code`) can surface the
-        # currency code as a string in the wire format.
-        pool = self.save(PoolStock(**data))
-        self.db.refresh(pool, attribute_names=["currency_obj"])
-        return pool
+        pool = PoolStock(**data)
+        return self.save(pool)
 
     def update(self, pool: PoolStock, data: dict) -> PoolStock:
         for key, value in data.items():
             if value is not None:
                 setattr(pool, key, value)
-        result = self.save(pool)
-        self.db.refresh(result, attribute_names=["currency_obj"])
-        return result
+        return self.save(pool)
 
     def delete(self, pool: PoolStock) -> None:
         super().delete(pool)

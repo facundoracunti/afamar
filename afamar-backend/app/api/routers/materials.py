@@ -12,7 +12,6 @@ from app.schemas.material import (
     MaterialColorCreate,
     MaterialThicknessCreate,
     MaterialCreate,
-    MaterialResponse,
     MaterialUpdate,
 )
 from app.services.material import MaterialService
@@ -130,19 +129,13 @@ def list_materials(
     category_id: int | None = None,
     db: Session = Depends(get_db),
 ):
-    # `service.get_all` uses `joinedload(currency_obj)` so the
-    # `_populate_currency_code` validator has the relationship loaded.
-    # We then explicitly `model_validate(...).model_dump()` so the
-    # `model_validator(mode="before")` runs — going through
-    # `jsonable_encoder` directly skips the validator and the
-    # `currency` field ends up null.
-    service = MaterialService(db)
     if category_id:
-        items = service.get_by_category(category_id)
-    else:
-        items = service.get_all(skip=skip, limit=limit)
-    payload = [MaterialResponse.model_validate(m).model_dump(mode="json") for m in items]
-    return success(payload)
+        service = MaterialService(db)
+        return success(service.get_by_category(category_id))
+    service = MaterialService(db)
+    query = service.repo.db.query(service.repo.model)
+    page = paginate(db, query, skip, limit)
+    return success(page.items, page.pagination)
 
 
 @router.get("/{material_id}")
@@ -151,13 +144,13 @@ def get_material(material_id: int, db: Session = Depends(get_db)):
     material = service.get_by_id(material_id)
     if not material:
         raise NotFoundError("Material")
-    return success(MaterialResponse.model_validate(material).model_dump(mode="json"))
+    return success(material)
 
 
 @router.post("", status_code=201)
 def create_material(data: MaterialCreate, db: Session = Depends(get_db)):
     service = MaterialService(db)
-    return created(MaterialResponse.model_validate(service.create(data.model_dump())).model_dump(mode="json"))
+    return created(service.create(data.model_dump()))
 
 
 @router.put("/{material_id}")
@@ -166,7 +159,7 @@ def update_material(material_id: int, data: MaterialUpdate, db: Session = Depend
     material = service.update(material_id, data.model_dump(exclude_unset=True))
     if not material:
         raise NotFoundError("Material")
-    return success(MaterialResponse.model_validate(material).model_dump(mode="json"))
+    return success(material)
 
 
 @router.delete("/{material_id}", status_code=204)

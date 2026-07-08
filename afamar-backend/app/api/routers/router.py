@@ -1,7 +1,6 @@
 from fastapi import APIRouter
 
 from app.api.routers import (
-    adicionales,
     auth,
     budgets,
     client_addresses,
@@ -31,7 +30,6 @@ router.include_router(client_addresses.router, tags=["Client Addresses"])
 router.include_router(budgets.router, prefix="/budgets", tags=["Budgets"])
 router.include_router(work_orders.router, prefix="/work-orders", tags=["Work Orders"])
 router.include_router(materials.router, prefix="/materials", tags=["Materials"])
-router.include_router(adicionales.router, tags=["Adicionales"])
 router.include_router(options.router, prefix="/options", tags=["Options"])
 router.include_router(pool_stock.router, prefix="/pool-stock", tags=["Pool Stock"])
 router.include_router(reports.router, prefix="/reports", tags=["Reports"])
