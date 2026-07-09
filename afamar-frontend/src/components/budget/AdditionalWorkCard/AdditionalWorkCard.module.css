@@ -1,0 +1,99 @@
+/* AdditionalWorkCard — BEM (matches PoolCard pattern)
+   .additional-work-card                     block
+   .additional-work-card__header             top row: name + detail + remove
+   .additional-work-card__title              name text
+   .additional-work-card__detail             detail text
+   .additional-work-card__remove             × delete button
+   .additional-work-card__fields             bottom row: cant / precio / material
+   .additional-work-card__field              single field cell
+   .additional-work-card__field--cant        Cant. field width
+   .additional-work-card__field--precio      Precio field width
+   .additional-work-card__field--material    "Asignar a opción" picker width
+   .additional-work-card__label              field caption
+   .additional-work-card__input              shared compact input style
+   .additional-work-card__select             shared compact select style
+*/
+
+.additional-work-card {
+  margin-bottom: 8px;
+  padding: 10px;
+  background: var(--surface-alt-bg);
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
+.additional-work-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  gap: 8px;
+}
+
+.additional-work-card__title {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.additional-work-card__detail {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.additional-work-card__remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-danger);
+  font-size: 16px;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.additional-work-card__remove:hover:not(:disabled) {
+  color: var(--color-danger-hover);
+}
+
+.additional-work-card__remove:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.additional-work-card__fields {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.additional-work-card__field {
+  margin: 0;
+}
+
+.additional-work-card__field--cant {
+  width: 70px;
+}
+
+.additional-work-card__field--precio {
+  flex: 2;
+}
+
+.additional-work-card__field--material {
+  flex: 0 1 280px;
+  min-width: 200px;
+}
+
+.additional-work-card__label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.additional-work-card__input,
+.additional-work-card__select {
+  font-size: 12px;
+  padding: 4px 6px;
+  width: 100%;
+}

@@ -6,7 +6,7 @@ export interface Pool {
   material?: string;
   quantity: number;
   price: number;
-  price_usd: number;
+  currency: 'ARS' | 'USD';
   pool_type_id?: number | null;
   pool_type_name?: string | null;
   created_at?: string;

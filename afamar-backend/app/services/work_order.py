@@ -437,9 +437,19 @@ class WorkOrderService:
         materiales_json = (
             json.dumps(materials_with_snapshot) if materials_with_snapshot else None
         )
-        adicionales_list = []
-        if budget.adicionales:
-            adicionales_list = [
+        additional_works_list = []
+        # Prefer the JSON snapshot (new flow — items from the
+        # `additional_works` catalogue). Fall back to the legacy
+        # `BudgetAdicional` 1-N rows so old budgets still propagate.
+        if budget.additional_works_data:
+            try:
+                parsed = json.loads(budget.additional_works_data)
+                if isinstance(parsed, list):
+                    additional_works_list = parsed
+            except (ValueError, TypeError):
+                additional_works_list = []
+        if not additional_works_list and budget.additional_works:
+            additional_works_list = [
                 {
                     "concept": ad.concept,
                     "detail": ad.detail,
@@ -447,7 +457,7 @@ class WorkOrderService:
                     "unit_price": ad.unit_price,
                     "total": ad.total,
                 }
-                for ad in budget.adicionales
+                for ad in budget.additional_works
             ]
 
         sketch_list = []
@@ -478,7 +488,7 @@ class WorkOrderService:
             "material": material_nombre,
             "material_price_m2": material_precio_m2,
             "materials_data": materiales_json,
-            "adicionales_data": json.dumps(adicionales_list) if adicionales_list else None,
+            "additional_works_data": json.dumps(additional_works_list) if additional_works_list else None,
             "budgeted_details": json.dumps(sketch_list) if sketch_list else None,
             "sketch_elements": sketch_json,
             "color": budget.color,

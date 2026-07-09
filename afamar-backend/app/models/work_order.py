@@ -80,7 +80,7 @@ class WorkOrder(Base):
     pool_image: Mapped[str] = mapped_column(Text, nullable=True)
     stock_deducted: Mapped[bool] = mapped_column(Boolean, default=False)
     pools_data: Mapped[str] = mapped_column(Text, nullable=True)
-    adicionales_data: Mapped[str] = mapped_column(Text, nullable=True)
+    additional_works_data: Mapped[str] = mapped_column(Text, nullable=True)
 
     design_observations: Mapped[str] = mapped_column(Text, nullable=True)
     important_observations: Mapped[str] = mapped_column(Text, nullable=True)

@@ -129,12 +129,16 @@ class BudgetBase(BaseModel):
 
 class BudgetCreate(BudgetBase):
     items: list[BudgetItemCreate] = []
-    adicionales: list[BudgetAdicionalCreate] = []
+    additional_works: list[BudgetAdicionalCreate] = []
     # JSON-encoded array of sketch elements (same wire format as
     # WorkOrderBase.sketch_elements). The Budget has no `sketch_elements`
     # column of its own — the rows live in `BudgetSketchElement` — so
     # `BudgetService.create` parses the string and creates the rows.
     sketch_elements: str | None = None
+    # JSON snapshot of selected items from the `additional_works` catalogue.
+    # Same wire format as `WorkOrderBase.additional_works_data` so the
+    # convert-to-WO flow can copy the value verbatim.
+    additional_works_data: str | None = None
 
 
 class BudgetUpdate(BaseModel):
@@ -195,9 +199,12 @@ class BudgetUpdate(BaseModel):
     stock_deducted: bool | None = None
     pools_data: str | None = None
     items: list[BudgetItemCreate] | None = None
-    adicionales: list[BudgetAdicionalCreate] | None = None
+    additional_works: list[BudgetAdicionalCreate] | None = None
     # See `BudgetCreate.sketch_elements` — JSON-encoded string.
     sketch_elements: str | None = None
+    # JSON snapshot of selected items from the `additional_works` catalogue
+    # (same wire format as `WorkOrderBase.additional_works_data`).
+    additional_works_data: str | None = None
 
 
 class BudgetResponse(BudgetBase, BaseResponse):
@@ -207,8 +214,12 @@ class BudgetResponse(BudgetBase, BaseResponse):
     created_at: datetime
     updated_at: datetime
     items: list[BudgetItemResponse] = []
-    adicionales: list[BudgetAdicionalResponse] = []
+    additional_works: list[BudgetAdicionalResponse] = []
     sketch_elements: list[BudgetSketchElementResponse] = []
+    # JSON snapshot of selected additional works (passthrough from the
+    # stored `additional_works_data` column). Kept as a JSON string rather
+    # than a parsed list so the form can decide how to render it.
+    additional_works_data: str | None = None
     work_order_id: int | None = None
     work_order_number: str | None = None
 

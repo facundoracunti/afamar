@@ -11,7 +11,6 @@ from app.api.dependencies import get_current_user, get_db
 from app.core.exceptions import NotFoundError
 from app.utils.responses import PaginationInfo, created, success
 from app.models.client import Client
-from app.models.online_budget import OnlineBudget
 from app.models.setting import Setting
 from app.schemas.budget import BudgetCreate, BudgetResponse, BudgetUpdate
 from app.services.budget import BudgetService
@@ -78,19 +77,16 @@ def list_unified_budgets(
 
     service = BudgetService(db)
     locales = service.repo.db.query(service.repo.model)
-    onlines = db.query(OnlineBudget).all()
 
     if status == "ALL":
         pass  # explicit "no filter": include CONVERTED_TO_OT too
     elif status:
         locales = locales.filter(service.repo.model.status == status)
-        onlines = [o for o in onlines if (o.status or "ONLINE") == status]
     else:
         # Default landing page: hide converted work orders (they live in
         # /admin/work-orders). APPROVED is shown so the user can still click
         # "Convertir a OT" from the list.
         locales = locales.filter(service.repo.model.status != "CONVERTED_TO_OT")
-        onlines = [o for o in onlines if (o.status or "ONLINE") != "CONVERTED_TO_OT"]
 
     if q:
         locales = locales.outerjoin(Client).filter(
@@ -99,11 +95,6 @@ def list_unified_budgets(
             | Client.phone.ilike(f"%{q}%")
             | service.repo.model.material.ilike(f"%{q}%")
         )
-        onlines = [
-            o for o in onlines
-            if q.lower() in (o.number or "").lower()
-            or q.lower() in (o.client_name or "").lower()
-        ]
 
     locales = locales.order_by(service.repo.model.id.desc()).all()
     locales = list({p.id: p for p in locales}.values())
@@ -127,24 +118,6 @@ def list_unified_budgets(
             "deposit_received": p.deposit_received or 0,
             "balance_due": p.balance_due or 0,
             "design_observations": p.design_observations or "",
-        })
-    for o in onlines:
-        result.append({
-            "id": o.id,
-            "tipo": "online",
-            "number": o.number,
-            "date": str(o.date) if o.date else None,
-            "client_name": o.client_name,
-            "client_phone": None,
-            "material": None,
-            "total": o.total_net_ars or 0,
-            "total_usd": o.total_net_usd or 0,
-            "status": o.status or "ONLINE",
-            "work_order_number": None,
-            "created_at": str(o.created_at),
-            "deposit_received": 0,
-            "balance_due": 0,
-            "design_observations": "",
         })
     result.sort(key=lambda x: x.get("created_at") or "", reverse=True)
     total = len(result)

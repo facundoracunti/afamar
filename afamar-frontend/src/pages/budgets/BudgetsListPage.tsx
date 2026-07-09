@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Plus, Search, Trash2, FileDown, FileOutput, Eye, Send, Mail, Check, X } from 'lucide-react';
 import {
   getBudgetsUnified,
@@ -12,11 +13,6 @@ import {
   mapBudgetStatusToApi,
   mapUnifiedBudget,
 } from '@/api/resources/budgets';
-import { updateOnlineBudget } from '@/api/resources/onlineBudgets';
-import {
-  deleteOnlineBudget,
-  convertOnlineBudgetToWorkOrder,
-} from '@/api/resources/onlineBudgets';
 import { usePaginatedList, useDelete } from '../../api/hooks';
 import type { AxiosResponse } from 'axios';
 import { formatDate } from '../../utils/formatters';
@@ -43,7 +39,6 @@ const BUDGETS_KEY = ['budgets', 'unified'] as const;
 
 interface PendingConvert {
   id: string | number;
-  tipo: 'online' | 'local';
 }
 
 /**
@@ -65,7 +60,6 @@ export default function BudgetsList() {
   const [search, setSearch] = useState('');
   const [estado, setEstado] = useState(searchParams.get('status') || '');
   const [deleteId, setDeleteId] = useState<string | number | null>(null);
-  const [deleteTipo, setDeleteTipo] = useState<string | null>(null);
   const [pendingConvert, setPendingConvert] = useState<PendingConvert | null>(null);
   const [pdfData, setPdfData] = useState<PdfDocumentData | null>(null);
   const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
@@ -78,6 +72,7 @@ export default function BudgetsList() {
   }, [searchParams]);
 
   const notify = useNotify();
+  const queryClient = useQueryClient();
   const { company, globalTerms } = useSettingsWithTerms();
 
   const { items: data, loading, total, page, pageSize, setPage, refetch } = usePaginatedList<UnifiedBudget>(
@@ -102,8 +97,7 @@ export default function BudgetsList() {
   const deleteMutation = useDelete<unknown, string | number>(
     BUDGETS_KEY,
     async (id) => {
-      if (deleteTipo === 'online') await deleteOnlineBudget(id as string);
-      else await deleteBudget(id as string);
+      await deleteBudget(id as string);
     },
     { invalidateKeys: [BUDGETS_KEY] }
   );
@@ -114,7 +108,6 @@ export default function BudgetsList() {
       await deleteMutation.mutateAsync(deleteId);
       notify('Presupuesto eliminado correctamente', 'success');
       setDeleteId(null);
-      setDeleteTipo(null);
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
         || (err as Error).message
@@ -126,11 +119,7 @@ export default function BudgetsList() {
   const handleCambiarEstado = async (budget: UnifiedBudget, nuevoEstado: string) => {
     try {
       const payload = mapBudgetStatusToApi(nuevoEstado);
-      if (budget.type === 'online') {
-        await updateOnlineBudget(budget.id, payload);
-      } else {
-        await updateBudget(String(budget.id), payload);
-      }
+      await updateBudget(String(budget.id), payload);
       notify(`Estado actualizado a ${nuevoEstado}`, 'success');
       refetch();
     } catch (err: unknown) {
@@ -143,15 +132,12 @@ export default function BudgetsList() {
 
   const performConvert = async (pending: PendingConvert) => {
     try {
-      if (pending.tipo === 'online') {
-        const res = await convertOnlineBudgetToWorkOrder(pending.id as string);
-        notify(`Orden ${(res.data as Record<string, unknown>).number as string} creada exitosamente`, 'success');
-        navigate(`/admin/work-orders/${(res.data as Record<string, unknown>).id as string}`);
-      } else {
-        const res = await convertBudgetToWorkOrder(pending.id as string);
-        notify(`Orden ${(res.data as Record<string, unknown>).number as string} creada exitosamente`, 'success');
-        navigate(`/admin/work-orders/${(res.data as Record<string, unknown>).id as string}`);
-      }
+      const res = await convertBudgetToWorkOrder(pending.id as string);
+      notify(`Orden ${(res.data as Record<string, unknown>).number as string} creada exitosamente`, 'success');
+      // Both lists change: budget becomes CONVERTED_TO_OT, OT is created.
+      queryClient.invalidateQueries({ queryKey: ['budgets'] });
+      queryClient.invalidateQueries({ queryKey: ['work-orders'], refetchType: 'all' });
+      navigate(`/admin/work-orders/${(res.data as Record<string, unknown>).id as string}`);
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
         || (err as Error).message
@@ -161,11 +147,7 @@ export default function BudgetsList() {
   };
 
   const handleConvertir = (id: string | number) => {
-    setPendingConvert({ id, tipo: 'local' });
-  };
-
-  const handleConvertirOnline = (id: string | number) => {
-    setPendingConvert({ id, tipo: 'online' });
+    setPendingConvert({ id });
   };
 
   const handleEnviarWhatsApp = (presupuesto: UnifiedBudget) => {
@@ -245,13 +227,13 @@ export default function BudgetsList() {
     p.status === 'APPROVED' && !p.workOrderNumber;
 
   const canAprobar = (p: UnifiedBudget): boolean =>
-    p.status === 'PENDING' || p.status === 'ONLINE';
+    p.status === 'PENDING';
 
   const canRechazar = (p: UnifiedBudget): boolean =>
-    p.status === 'PENDING' || p.status === 'ONLINE' || p.status === 'APPROVED';
+    p.status === 'PENDING' || p.status === 'APPROVED';
 
   const handleView = (p: UnifiedBudget): void => {
-    navigate(p.type === 'online' ? `/admin/online-budgets/${p.id}` : `/admin/budgets/${p.id}`);
+    navigate(`/admin/budgets/${p.id}`);
   };
 
   return (
@@ -287,7 +269,6 @@ export default function BudgetsList() {
         >
           <option value="">Activos (excluye Convertidos a OT)</option>
           <option value="PENDING">Pendiente</option>
-          <option value="ONLINE">Online</option>
           <option value="APPROVED">Aprobado</option>
           <option value="REJECTED">Rechazado</option>
           <option value="CONVERTED_TO_OT">Convertido a OT</option>
@@ -349,10 +330,6 @@ export default function BudgetsList() {
                       <span className={s['budgets__status'] + ' ' + s['budgets__status--rejected']}>
                         RECHAZADO
                       </span>
-                    ) : p.type === 'online' ? (
-                      <span className={s['budgets__status'] + ' ' + s['budgets__status--pending-online']}>
-                        PENDIENTE - ONLINE
-                      </span>
                     ) : (
                       <span className={s['budgets__status'] + ' ' + s['budgets__status--pending']}>
                         {translateStatus(p.status)}
@@ -399,9 +376,7 @@ export default function BudgetsList() {
                       <button
                         type="button"
                         className={btnCls('danger')}
-                        onClick={() =>
-                          p.type === 'online' ? handleConvertirOnline(p.id) : handleConvertir(p.id)
-                        }
+                        onClick={() => handleConvertir(p.id)}
                         title="Convertir presupuesto en Orden de Trabajo"
                       >
                         <FileOutput size={11} /> A OT
@@ -491,7 +466,6 @@ export default function BudgetsList() {
                       className={btnCls('danger')}
                       onClick={() => {
                         setDeleteId(p.id);
-                        setDeleteTipo(p.type);
                       }}
                       title="Eliminar presupuesto"
                       style={{ padding: '4px 8px' }}
@@ -534,11 +508,7 @@ export default function BudgetsList() {
           }
         }}
         title="Convertir a Orden de Trabajo"
-        message={
-          pendingConvert?.tipo === 'online'
-            ? 'Se convertira este presupuesto ONLINE en una Orden de Trabajo copiando todos los items.'
-            : 'Se convertira este presupuesto en una Orden de Trabajo copiando toda la informacion (croquis, material, detalles, pileta, firma, precios y condiciones comerciales).'
-        }
+        message="Se convertira este presupuesto en una Orden de Trabajo copiando toda la informacion (croquis, material, detalles, pileta, firma, precios y condiciones comerciales)."
         confirmLabel="Convertir"
       />
 

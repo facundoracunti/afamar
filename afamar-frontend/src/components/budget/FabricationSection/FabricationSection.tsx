@@ -1,6 +1,5 @@
 import React from 'react';
-import FabricationTable from '../FabricationTable/FabricationTable';
-import { fabricationConcepts } from '../../../utils/formatters';
+import AdditionalMaterial from '../AdditionalMaterial/AdditionalMaterial';
 import type { FabricationDetail, MaterialInForm } from '../../../types/budget';
 import styles from './FabricationSection.module.css';
 
@@ -9,12 +8,6 @@ const s = styles as unknown as Record<string, string>;
 interface FabricationSectionProps {
   detalles: FabricationDetail[];
   readOnly: boolean;
-  /**
-   * Materials added to the current budget/WorkOrder (main + alternatives).
-   * Forwarded to FabricationTable so the "Asignar a opción" picker is
-   * populated from the materials the user has actually loaded on this
-   * document — not the global materials catalog.
-   */
   formMaterials: MaterialInForm[];
   M2_CONCEPTS: string[];
   num: (v: unknown) => number;
@@ -47,7 +40,7 @@ export default function FabricationSection({
 }: FabricationSectionProps) {
   return (
     <div className={`card ${s['fabrication-section']}`}>
-      <FabricationTable
+      <AdditionalMaterial
         detalles={detalles}
         readOnly={readOnly}
         handleDetailChange={handleDetailChange}
@@ -55,7 +48,6 @@ export default function FabricationSection({
         removeDetalle={removeDetalle}
         formMaterials={formMaterials}
         M2_CONCEPTS={M2_CONCEPTS}
-        fabricationConcepts={fabricationConcepts}
         num={num}
       />
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DollarSign, FileText, ClipboardList, PackageOpen, Globe, Truck, type LucideIcon } from 'lucide-react';
+import { DollarSign, FileText, ClipboardList, PackageOpen, Truck, type LucideIcon } from 'lucide-react';
 import type { DashboardData } from '../../types/dashboard';
 import { getDashboard } from '@/api/resources/dashboard';
 import { useGet } from '../../api/hooks';
@@ -36,7 +36,6 @@ export default function Dashboard() {
   const pendiente = (data.total_pending_payments ?? 0).toLocaleString();
   const activas = data.total_active_orders ?? 0;
   const terminadas = data.delivered_orders.length;
-  const online = data.pending_budgets ?? 0;
   const medicion = data.orders_in_measurement ?? 0;
   const taller = data.orders_in_workshop ?? 0;
 
@@ -46,7 +45,6 @@ export default function Dashboard() {
     { icon: ClipboardList, label: 'NUEVA ORDEN', color: '#dc2626', tone: 'danger', path: '/admin/work-orders/new', description: 'Crear una nueva orden de trabajo' },
     { icon: PackageOpen, label: 'ORDENES EN MEDICION / TALLER', value: String(activas), color: '#d97706', tone: 'warning', path: '/admin/work-orders', description: medicion + ' en medicion - ' + taller + ' en taller', span: { col: 2 } },
     { icon: Truck, label: 'ORDENES TERMINADAS P/ ENVIO', value: String(terminadas), color: '#7c3aed', tone: 'info', path: '/admin/work-orders?estado=DELIVERED', description: 'Listas para retirar', span: { col: 2 } },
-    { icon: Globe, label: 'PRESUPUESTOS EN LINEA', value: String(online), color: '#0891b2', tone: 'info', path: '/admin/online-budgets', description: 'Pendientes de revision', span: { row: 2 } },
     { icon: PackageOpen, label: 'STOCK DE PILETAS', color: '#be185d', tone: 'info', path: '/admin/pool-stock', description: 'Gestionar stock de piletas' },
   ];
 

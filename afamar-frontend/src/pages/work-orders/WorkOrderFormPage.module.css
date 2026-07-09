@@ -90,9 +90,15 @@
   grid-template-columns: 1fr 1fr;
 }
 
-.work-order-form__sketch,
+.work-order-form__sketch {
+  min-width: 0;
+}
+
 .work-order-form__right {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .work-order-form__card {

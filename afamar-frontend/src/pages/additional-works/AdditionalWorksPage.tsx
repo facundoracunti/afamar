@@ -2,57 +2,57 @@ import React, { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import {
-  getAdicionales,
-  createAdicional,
-  updateAdicional,
-  deleteAdicional,
-} from '@/api/resources/adicionales';
+  getAdditionalWorks,
+  createAdditionalWork,
+  updateAdditionalWork,
+  deleteAdditionalWork,
+} from '@/api/resources/additionalWorks';
 import { useList } from '../../api/hooks';
 import { Modal } from '../../components/ui/Modal/Modal';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
 import { useNotify } from '../../context/NotificationContext';
-import type { Adicional } from '../../types/adicional';
-import styles from './AdicionalesPage.module.css';
+import type { AdditionalWork } from '../../types/additionalWork';
+import styles from './AdditionalWorksPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
 
-const ADICIONALES_KEY = ['adicionales'] as const;
+const ADDITIONAL_WORKS_KEY = ['additional-works'] as const;
 
-type AdicionalFormData = {
+type AdditionalWorkFormData = {
   name: string;
   detail: string;
   price: number;
   currency: 'ARS' | 'USD';
 };
 
-const EMPTY_FORM: AdicionalFormData = {
+const EMPTY_FORM: AdditionalWorkFormData = {
   name: '',
   detail: '',
   price: 0,
   currency: 'ARS',
 };
 
-export default function AdicionalesPage() {
+export default function AdditionalWorksPage() {
   const [showForm, setShowForm] = useState(false);
-  const [editItem, setEditItem] = useState<Adicional | null>(null);
+  const [editItem, setEditItem] = useState<AdditionalWork | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState<AdicionalFormData>(EMPTY_FORM);
+  const [form, setForm] = useState<AdditionalWorkFormData>(EMPTY_FORM);
   const notify = useNotify();
   const queryClient = useQueryClient();
 
-  const { items: data, loading } = useList<Adicional>(
-    [...ADICIONALES_KEY],
-    async () => getAdicionales()
+  const { items: data, loading } = useList<AdditionalWork>(
+    [...ADDITIONAL_WORKS_KEY],
+    async () => getAdditionalWorks()
   );
 
   useEffect(() => {
     if (!showForm) setEditItem(null);
   }, [showForm]);
 
-  const handleOpenForm = (item: Adicional | null = null) => {
+  const handleOpenForm = (item: AdditionalWork | null = null) => {
     if (item) {
       setEditItem(item);
       setForm({
@@ -77,13 +77,13 @@ export default function AdicionalesPage() {
     setSaving(true);
     try {
       if (editItem) {
-        await updateAdicional(editItem.id, form);
-        notify('Adicional actualizado', 'success');
+        await updateAdditionalWork(editItem.id, form);
+        notify('Trabajo adicional actualizado', 'success');
       } else {
-        await createAdicional(form);
-        notify('Adicional creado', 'success');
+        await createAdditionalWork(form);
+        notify('Trabajo adicional creado', 'success');
       }
-      queryClient.invalidateQueries({ queryKey: ADICIONALES_KEY });
+      queryClient.invalidateQueries({ queryKey: ADDITIONAL_WORKS_KEY });
       setShowForm(false);
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
@@ -98,9 +98,9 @@ export default function AdicionalesPage() {
   const handleDelete = async () => {
     if (!deleteId) return;
     try {
-      await deleteAdicional(deleteId);
-      queryClient.invalidateQueries({ queryKey: ADICIONALES_KEY });
-      notify('Adicional eliminado', 'success');
+      await deleteAdditionalWork(deleteId);
+      queryClient.invalidateQueries({ queryKey: ADDITIONAL_WORKS_KEY });
+      notify('Trabajo adicional eliminado', 'success');
       setDeleteId(null);
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
@@ -111,12 +111,12 @@ export default function AdicionalesPage() {
   };
 
   return (
-    <div className={s['adicionales']}>
+    <div className={s['additional-works']}>
       <PageHeader
-        title="Adicionales"
+        title="Trabajos Adicionales"
         actions={
           <button className="btn btn-primary" onClick={() => handleOpenForm()}>
-            <Plus size={16} /> Nuevo Adicional
+            <Plus size={16} /> Nuevo Trabajo Adicional
           </button>
         }
       />
@@ -181,7 +181,7 @@ export default function AdicionalesPage() {
                 {(!data || data.length === 0) && (
                   <tr>
                     <td colSpan={5} style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>
-                      No hay adicionales configurados. Hacé click en "Nuevo Adicional" para empezar.
+                      No hay trabajos adicionales configurados. Hacé click en "Nuevo Trabajo Adicional" para empezar.
                     </td>
                   </tr>
                 )}
@@ -194,7 +194,7 @@ export default function AdicionalesPage() {
       <Modal
         isOpen={showForm}
         onClose={() => setShowForm(false)}
-        title={editItem ? 'Editar Adicional' : 'Nuevo Adicional'}
+        title={editItem ? 'Editar Trabajo Adicional' : 'Nuevo Trabajo Adicional'}
         width="600px"
       >
         <form onSubmit={handleSave}>
@@ -216,10 +216,10 @@ export default function AdicionalesPage() {
               rows={2}
               value={form.detail}
               onChange={(e) => setForm({ ...form, detail: e.target.value })}
-              placeholder="Descripción breve del adicional"
+              placeholder="Descripción breve del trabajo adicional"
             />
           </div>
-          <div className={s['adicionales__form-row']}>
+          <div className={s['additional-works__form-row']}>
             <div className="form-group">
               <label>Precio</label>
               <input
@@ -243,7 +243,7 @@ export default function AdicionalesPage() {
               </select>
             </div>
           </div>
-          <div className={s['adicionales__form-actions']}>
+          <div className={s['additional-works__form-actions']}>
             <button type="button" className="btn btn-outline" onClick={() => setShowForm(false)}>
               Cancelar
             </button>
@@ -258,8 +258,8 @@ export default function AdicionalesPage() {
         open={!!deleteId}
         onCancel={() => setDeleteId(null)}
         onConfirm={handleDelete}
-        title="Eliminar adicional"
-        message="¿Eliminar este adicional? La acción no se puede deshacer."
+        title="Eliminar trabajo adicional"
+        message="¿Estás seguro de que querés eliminar este trabajo adicional? Esta acción no se puede deshacer."
         confirmLabel="Eliminar"
         danger
       />

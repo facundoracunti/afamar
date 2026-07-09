@@ -31,7 +31,7 @@ for candidate in ["2026-07-08", "2026-07-07", "2026-07-09"]:
         "materials_data": json.dumps([]),
         "fabrication_details": json.dumps([]),
         "pools_data": json.dumps([]),
-        "adicionales": [],
+        "additional_works": [],
         "items": [],
         "sketch_elements": None,
         "currency": "ARS",

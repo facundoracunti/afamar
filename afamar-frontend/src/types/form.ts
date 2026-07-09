@@ -62,6 +62,13 @@ export interface EntityFormState extends FinancialBase {
   materials_data: unknown[];
   pools_data: unknown[];
   sketch_elements: unknown[];
+  // JSON-encoded list of selected additional works from the catalogue.
+  // `null` means "no additional works selected" (vs `''` which would be
+  // malformed). The service round-trips this through the `additional_works_data`
+  // TEXT column on the budget / work-order row.
+  additional_works_data: string | null;
+
+
 
   // Client-side only
   work_order_number: string | null;

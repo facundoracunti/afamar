@@ -296,15 +296,15 @@ def generate_budget_pdf(
     ]))
     E.append(grid)
 
-    # ── ADICIONALES TABLE ──
-    adicionales = budget_data.get("adicionales", [])
-    if adicionales:
+    # ── ADDITIONAL WORKS TABLE ──
+    additional_works = budget_data.get("additional_works", [])
+    if additional_works:
         E.append(Spacer(1, 16))
-        E.append(Paragraph("<b>ADICIONALES</b>", st["card_title"]))
+        E.append(Paragraph("<b>ADDITIONAL WORKS</b>", st["card_title"]))
         E.append(HRFlowable(width="100%", thickness=1.5, color=RED, spaceBefore=2, spaceAfter=6))
         add_header = [["Concepto", "Detalle", "Cant.", "P/U", "Total"]]
         add_rows = []
-        for a in adicionales:
+        for a in additional_works:
             add_rows.append([
                 Paragraph(a.get("concept", "") or "", st["n"]),
                 Paragraph(a.get("detail", "") or "", st["n"]),

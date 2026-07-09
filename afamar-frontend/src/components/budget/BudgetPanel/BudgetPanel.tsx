@@ -71,8 +71,6 @@ export default function BudgetPanel({
       </div>
 
       <div>
-        {alternativasTop}
-
         {!hayAlternativas && (
           <div className={s['budget-panel__columns']}>
             <div className={s['budget-panel__col']}>

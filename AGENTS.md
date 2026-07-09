@@ -1,8 +1,73 @@
 # AGENTS.md
 
-> **Estado:** Rama `development` con work sin commitear listo para revisar: **3 olas de issue fixes** basadas en feedback del usuario — bugs críticos (cliente nuevo, fecha UTC, PDF "Otra", PDF hoja vacía, croquis, medición) + M² comparativa con delta verde/rojo + **modelo `ClientAddress` 1-N** (domicilios alternativos con migración Alembic) + cleanup de dead code (`getBudgetPdfBlob`/`getWorkOrderPdfBlob`/`pdfUrl` prop) + consistency renames (`useSketchState`, `setMaterials`/`setPools`). Ver `PLAN.md` §"Issue tracker" para el desglose completo.
+> **Estado:** Rama `development` con work sin commitear listo para revisar: **Ola 4 — Catálogo de monedas** (`currencies` table + FK en `materials` y `pool_stock`, drop `price_usd`/`currency` string) + **Catálogo de adicionales** (`adicionales` table + CRUD + picker en forms + snapshot en budgets/WO + migraciones Alembic) + adicionales en PDF (`AdicionalPdfRow`, `buildPdfData`, `DocumentPdf.tsx`) + frontend `AdicionalesSection` + `useAdicionalesSelection` hook + full round-trip smoke test (budget → WO snapshot) + adicionales en totals (`useBudgetCalculations`). Ver `PLAN.md` §"Issue tracker" para el desglose completo.
 >
-> Working tree: 47 archivos (40 modificados, 7 nuevos). `tsc --noEmit` 0 errores · `vite build` pasa · migración `a1c2b3d4e5f7` aplicada a MySQL.
+> Working tree: ~60+ archivos. `tsc --noEmit` 0 errores · `vite build` pasa · migraciones `a6b7c8d9e1f2` → `d3e4f5a6b7c9` → `c2d3e4f5a6b8` → `b2c3d4e5f6a7` → `a1c2b3d4e5f7` aplicadas a MySQL.
+
+## Sesión: Ola 4 — Catálogo de monedas + Catálogo de adicionales + PDF con adicionales
+
+### Catálogo de monedas (`currencies`) ✅
+
+**Problema:** `materials` y `pool_stock` guardaban `currency` como string libre (`'ARS'`/`'USD'`) y `pool_stock` tenía `price_usd` redundante. Sin FK a una tabla de monedas, no había integridad referencial.
+
+**Backend** (`app/models/currency.py`, schemas, routers, services):
+- Nueva tabla `currencies` (`id`, `code`, `name`, `created_at`) + seeder con ARS/USD/EUR.
+- `Material.currency_id: int` FK + `currency_obj` relationship. Drop `currency` string column.
+- `PoolStock.currency_id: int` FK + `currency_obj` relationship. Drop `price_usd` column.
+- `_resolve_currency_id(code: str) → int` helper en services (raise 422 si no existe).
+- `joinedload(CurrencyObj)` en repos; `db.refresh(..., attribute_names=['currency_obj'])` en create/update.
+- `MaterialResponse` y `PoolStockResponse`: `model_validator(mode='before')` expone `code` string como `currency`.
+- Wire format: `currency: 'ARS' | 'USD'` (string). Service layer traduce a FK.
+
+**Migraciones Alembic** (5 migrations, aplicadas a MySQL):
+- `a6b7c8d9e1f2` — `adicionales_data` TEXT en budgets (nueva columna).
+- `d3e4f5a6b7c9` — tabla `adicionales` (catálogo).
+- `c2d3e4f5a6b8` — tabla `currencies` + FK en `materials`/`pool_stock`.
+- `b2c3d4e5f6a7` — sketch en WO (columna existente, fixup).
+- `a1c2b3d4e5f7` — `client_addresses` (sesión anterior).
+- Fixups manuales: `ALTER TABLE materials DROP COLUMN currency`, `ALTER TABLE ... MODIFY COLUMN currency_id NOT NULL`, `ALTER TABLE pool_stock ADD/DROP COLUMN`.
+
+**Smoke test** (Python): GET materials (currency code presente), GET pool-stock (sin `price_usd`), POST ARS material ok, POST USD material ok, POST EUR → 422.
+
+### Catálogo de adicionales (`adicionales`) ✅
+
+**Problema:** no existía un catálogo de adicionales (items adicionales como bacha, anafe, grifería). El usuario los hardcodeaba en observaciones.
+
+**Backend** (`app/models/adicionale.py` — singular por convención SQLAlchemy):
+- Tabla `adicionales`: `id, name, detail, price, currency_id (FK → currencies), created_at, updated_at`.
+- CRUD endpoints: `GET /api/v1/adicionales` (lista paginada), `POST /api/v1/adicionales`, `PUT /api/v1/adicionales/{id}`, `DELETE /api/v1/adicionales/{id}`.
+- `AdicionalResponse`: `model_validator(mode='before')` expone `currency: string`.
+- Snapshot en budgets/WO: `budget.adicionales_data: str | None` (JSON TEXT column). `work_order.adicionales_data` ya existía (fue agregada en migración previa).
+- `BudgetService.create/update`: pop `adicionales_data` (string) primero; legacy `adicionales` (list) fallback.
+- `WorkOrderService.create_from_budget`: lee `budget.adicionales_data` (JSON), falls back a `budget.adicionales` (legacy 1-N).
+- `BudgetAdicional` legacy table preservada pero ya no se escribe (migration deferred).
+
+**Frontend**:
+- `api/resources/adicionales.ts`: CRUD + tipos.
+- `hooks/useAdicionalesSelection.ts`: `parseAdicionalesData`, `serializeAdicionalesData`, `useAdicionalesCatalogue` (TanStack Query), `useAdicionalesSelection` (state management).
+- `components/budget/AdicionalesSection/AdicionalesSection.tsx`: picker UI con select + quantity + price per item.
+- `pages/budgets/BudgetFormPage.tsx`: wired en `detalleCard`.
+- `pages/work-orders/WorkOrderFormPage.tsx`: wired en right column.
+
+**Smoke test** (Python, full round-trip): create budget with adicionales snapshot → approve → convert to WO → update WO → cleanup. ✅
+
+### Adicionales en PDF ✅
+
+**Problema:** los adicionales del picker no se reflejaban en el PDF ni en los totales del form.
+
+**Avance:**
+- `buildPdfData.ts`:
+  - Nuevo interface `AdicionalPdfRow` (name, detail, currency, price_str, quantity, subtotal_ars, subtotal_usd).
+  - Nuevos campos `adicionales: AdicionalPdfRow[]`, `adicionales_subtotal_ars: number`, `adicionales_subtotal_usd: number` en `PdfDocumentData`.
+  - Parseo de `form.adicionales_data` (JSON string → array de rows con conversión ARS/USD).
+- `DocumentPdf.tsx`:
+  - Header/flexes `ADIC_HEADERS`/`ADIC_FLEXES` + helper `adicRowCells`.
+  - Nueva tabla "Adicionales" en `principalExtras` entre Observaciones y Totales.
+- `useBudgetCalculations.ts`:
+  - Parseo de `form.adicionales_data` (JSON string → array de rows).
+  - `adicArs`/`adicUsd` sumados al subtotal ARS/USD y al subtotal de alternativas.
+
+**Verificación:** `tsc --noEmit` 0 errores · `vite build` 10.88s · vitest 26/26.
 
 ## Sesión: fix medición agenda (filter OTs con medición en vez de mediciones con OT)
 

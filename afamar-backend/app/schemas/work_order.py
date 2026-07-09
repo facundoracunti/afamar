@@ -56,7 +56,7 @@ class WorkOrderBase(BaseModel):
     pool_currency: str = "ARS"
     pool_image: str | None = None
     pools_data: str | None = None
-    adicionales_data: str | None = None
+    additional_works_data: str | None = None
     design_observations: str | None = None
     important_observations: str | None = None
     notes: str | None = None
@@ -115,7 +115,7 @@ class WorkOrderUpdate(BaseModel):
     pool_image: str | None = None
     stock_deducted: bool | None = None
     pools_data: str | None = None
-    adicionales_data: str | None = None
+    additional_works_data: str | None = None
     design_observations: str | None = None
     important_observations: str | None = None
     notes: str | None = None

@@ -13,7 +13,6 @@ export {
   type UnifiedBudget,
 } from './budget';
 export type { WorkOrderPayload, WorkOrderListItem, ConvertOptionResponse } from './workOrder';
-export type { OnlineBudgetItem, OnlineBudgetPayload } from './onlineBudget';
 export type { Pool, PoolMovement } from './poolStock';
 export type { Measurement, MeasurementFormData } from './measurement';
 export type { CashMovement } from './cash';

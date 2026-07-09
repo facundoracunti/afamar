@@ -1,0 +1,23 @@
+/* AdditionalWorksPage — BEM
+   .additional-works                         block wrapper
+   .additional-works__form-row                two-column row in the modal
+   .additional-works__form-actions            button bar at the bottom of the modal
+*/
+
+.additional-works {
+  display: grid;
+  gap: 16px;
+}
+
+.additional-works__form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.additional-works__form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}

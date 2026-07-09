@@ -29,22 +29,6 @@ def send_whatsapp(phone: str, message: str) -> dict:
         return {"error": str(e)}
 
 
-def build_online_budget_message(number: str, client_name: str, total_ars: float, total_usd: float | None = None) -> str:
-    msg = (
-        f"¡Hola {client_name}! 👋\n\n"
-        f"Recibimos tu solicitud de presupuesto online *{number}* de AFAMAR.\n\n"
-        f"💰 *Total ARS: ${total_ars:,.2f}*"
-    )
-    if total_usd:
-        msg += f"\n💵 *Total USD: US${total_usd:,.2f}*"
-    msg += (
-        "\n\nNos pondremos en contacto a la brevedad.\n\n"
-        "¡Saludos!\n"
-        "Equipo AFAMAR"
-    )
-    return msg
-
-
 def build_work_order_message(number: str, client_name: str, status: str, total: float, total_usd: float | None = None) -> str:
     status_labels = {
         "MEASUREMENT": "📏 Measurement",

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X, ChevronDown, LayoutDashboard, FileText, ClipboardList, Users, Box, Bath, Calendar, Calculator, BarChart3, Settings, Globe, Send, Wrench, Clock, Truck, DollarSign, Receipt, History, Image, LogOut, Tags, User, Moon, Sun, ListPlus, type LucideIcon } from 'lucide-react';
+import { Menu, X, ChevronDown, LayoutDashboard, FileText, ClipboardList, Users, Box, Bath, Calendar, Calculator, BarChart3, Settings, Send, Wrench, Clock, Truck, DollarSign, Receipt, History, Image, LogOut, Tags, User, Moon, Sun, ListPlus, type LucideIcon } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
 import styles from './MainLayout.module.css';
@@ -40,7 +40,6 @@ const accordionGroups: AccordionGroup[] = [
     icon: FileText,
     subItems: [
       { label: 'Presupuesto Local', path: `${PREFIX}/budgets/new`, icon: FileText },
-      { label: 'Presupuesto en línea', path: `${PREFIX}/online-budgets/new`, icon: Globe },
       { label: 'Presupuesto Local / WhatsApp', path: `${PREFIX}/budgets`, icon: FileText },
       { label: 'Presupuestos Realizados', path: `${PREFIX}/budgets?status=CONVERTED_TO_OT`, icon: Clock },
     ],
@@ -63,7 +62,7 @@ const accordionGroups: AccordionGroup[] = [
     subItems: [
       { label: 'Stock de Piletas', path: `${PREFIX}/pool-stock`, icon: Bath },
       { label: 'Materiales', path: `${PREFIX}/materials`, icon: Box },
-      { label: 'Adicionales', path: `${PREFIX}/adicionales`, icon: ListPlus },
+      { label: 'Trabajos Adicionales', path: `${PREFIX}/additional-works`, icon: ListPlus },
       { label: 'Categorías', path: `${PREFIX}/materials/categories`, icon: Tags },
       { label: 'Calculadora', path: `${PREFIX}/calculator`, icon: Calculator },
     ],
@@ -122,10 +121,9 @@ function getPageTitle(pathname: string): string {
   const results = [
     match(r('clients'), 'Clientes', 'Nuevo Cliente', 'Editar Cliente'),
     match(r('budgets'), 'Presupuestos', 'Nuevo Presupuesto', 'Editar Presupuesto'),
-    match(r('online-budgets'), 'Presupuestos Online', 'Nuevo Presupuesto Online', 'Editar Presupuesto Online'),
     match(r('work-orders'), 'Órdenes de Trabajo', 'Nueva Orden de Trabajo', 'Editar Orden de Trabajo'),
     match(r('materials'), 'Materiales', 'Nuevo Material', 'Editar Material'),
-    match(r('adicionales'), 'Adicionales', 'Nuevo Adicional', 'Editar Adicional'),
+    match(r('additional-works'), 'Trabajos Adicionales', 'Nuevo Trabajo Adicional', 'Editar Trabajo Adicional'),
     match(r('measurements'), 'Mediciones', 'Nueva Medición', 'Editar Medición'),
   ];
   for (const r of results) { if (r) return r; }
@@ -133,11 +131,10 @@ function getPageTitle(pathname: string): string {
   const prefixes: Record<string, string> = {
     '/admin/clients': 'Clientes',
     '/admin/budgets': 'Presupuestos',
-    '/admin/online-budgets': 'Presupuestos Online',
     '/admin/work-orders': 'Órdenes de Trabajo',
     '/admin/materials': 'Materiales',
     '/admin/pool-stock': 'Stock de Piletas',
-    '/admin/adicionales': 'Adicionales',
+    '/admin/additional-works': 'Trabajos Adicionales',
     '/admin/measurements': 'Mediciones',
     '/admin/calculator': 'Calculadora',
     '/admin/cash': 'Caja Diaria',

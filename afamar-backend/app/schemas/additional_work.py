@@ -6,7 +6,7 @@ from pydantic import BaseModel, model_validator
 from app.schemas.base import BaseResponse
 
 
-class AdicionalBase(BaseModel):
+class AdditionalWorkBase(BaseModel):
     name: str
     detail: str | None = None
     # Single price column — value lives in the currency of the FK. The
@@ -16,18 +16,18 @@ class AdicionalBase(BaseModel):
     currency: str = "ARS"
 
 
-class AdicionalCreate(AdicionalBase):
+class AdditionalWorkCreate(AdditionalWorkBase):
     pass
 
 
-class AdicionalUpdate(BaseModel):
+class AdditionalWorkUpdate(BaseModel):
     name: str | None = None
     detail: str | None = None
     price: float | None = None
     currency: str | None = None
 
 
-class AdicionalResponse(AdicionalBase, BaseResponse):
+class AdditionalWorkResponse(AdditionalWorkBase, BaseResponse):
     id: int
     created_at: datetime
     updated_at: datetime

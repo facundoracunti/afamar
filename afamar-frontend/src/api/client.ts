@@ -16,7 +16,6 @@ export { getSettings };
 export * from './resources/dashboard';
 export * from './resources/clients';
 export * from './resources/budgets';
-export * from './resources/onlineBudgets';
 export * from './resources/workOrders';
 export * from './resources/materials';
 export * from './resources/poolStock';

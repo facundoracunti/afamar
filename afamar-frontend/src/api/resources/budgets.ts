@@ -18,7 +18,6 @@ export const convertAlternativeToWorkOrder = (budgetId: number | string, idx: nu
 export const mapBudgetStatusToApi = (status: string): Record<string, unknown> => ({
   status: {
     'PENDIENTE': 'PENDING',
-    'ENVIADO': 'ONLINE',
     'APROBADO': 'APPROVED',
     'RECHAZADO': 'REJECTED',
     'CONVERTIDO A OT': 'CONVERTED_TO_OT',

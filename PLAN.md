@@ -1,7 +1,7 @@
 # Refactor Plan — Frontend Component Consolidation
 
 > Basado en el análisis exhaustivo de duplicación de código en `afamar-frontend/src/` (Julio 2026).
-> **Última actualización:** Julio 2026 — sesión de issue fixes (Olas 1, 2 y 3).
+> **Última actualización:** Julio 2026 — Ola 4 (catálogo monedas + adicionales).
 
 ## Estado por item (✅ = hecho, ⏳ = pendiente, 🔄 = parcial)
 
@@ -246,6 +246,29 @@ Sesión actual (sesión de refactor masivo en development):
 Pendiente (futuras sesiones):
   └── #9 Reemplazar useEntityForm con composables más pequeños (PLAN.md original §1.2 #9)
 ```
+
+---
+
+### Ola 4 — Catálogo de monedas + adicionales (+ PDF con adicionales — en progreso)
+
+| # | Item | Estado |
+|---|---|---|
+| 1 | Tabla `currencies` + FK en `materials`/`pool_stock` + drop `price_usd`/`currency` string | ✅ |
+| 2 | Tabla `adicionales` + CRUD endpoints + seeder | ✅ |
+| 3 | `adicionales_data` snapshot en budgets (JSON TEXT column) + migración | ✅ |
+| 4 | `BudgetService.create/update`: pop adicionales_data first; legacy fallback | ✅ |
+| 5 | `WorkOrderService.create_from_budget`: lee adicionales_data del budget | ✅ |
+| 6 | Frontend `api/resources/adicionales.ts` + `useAdicionalesSelection` hook | ✅ |
+| 7 | `AdicionalesSection` picker en BudgetFormPage + WorkOrderFormPage | ✅ |
+| 8 | Smoke test full round-trip (budget → WO snapshot) | ✅ |
+| 9  | **Adicionales en PDF** (`buildPdfData` + `DocumentPdf.tsx` rendering) | ✅ |
+| 10 | **Adicionales en totales** (`useBudgetCalculations`) | ✅ |
+
+**Archivos backend:** `app/models/currency.py`, `app/models/adicionale.py`, schemas, routers/services, migrations (5 nuevas).  
+**Archivos frontend:** `api/resources/adicionales.ts`, `hooks/useAdicionalesSelection.ts`, `components/budget/AdicionalesSection/`, cambios en BudgetFormPage/WorkOrderFormPage.  
+**Smoke test Python** (`test/smoke_adicionales_integration.py`): create budget → approve → convert to WO → update WO → cleanup. Passes.
+
+**Verificación:** `tsc --noEmit` 0 errores · `vite build` 10.88s · vitest 26/26.
 
 ---
 

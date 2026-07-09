@@ -159,6 +159,13 @@ export const INITIAL_FORM: EntityFormState = {
   materials_data: [] as unknown[],
   pools_data: [] as unknown[],
   sketch_elements: [] as unknown[],
+  // JSON-encoded list of selected additional works from the catalogue
+  // (persisted in `additional_works_data` on the budget / work-order row).
+  // Empty when no additional works are picked; the AdditionalWorksSection
+  // component on the form re-parses on mount and on every change.
+  additional_works_data: null,
+
+
 
   // Client-side only (not sent to API directly, used in UI for extra controls)
   work_order_number: null,
@@ -211,6 +218,10 @@ export function buildPayload(form: EntityFormState): Record<string, unknown> {
     // JSON string. The flat-list shape (output of flattenSketchElements)
     // is what the unflatten side reads back.
     sketch_elements: jsonStringify(flattenSketchElements(form.sketch_elements)),
+    // `additional_works_data` is already a JSON string in the form
+    // (AdditionalWorksSection keeps it that way). Pass it through verbatim
+    // — empty list serialises to "[]" which the backend stores as such.
+    additional_works_data: form.additional_works_data || '[]',
   };
 }
 
@@ -409,6 +420,11 @@ export function mapApiToForm(d: Record<string, unknown>, defaultStatus: string):
     materials_data: jsonParseList(d.materials_data),
     pools_data: jsonParseList(d.pools_data),
     sketch_elements: unflattenSketchElements(d.sketch_elements) as unknown[],
+    // Snapshot list of selected additional works (JSON string). `null` if
+    // the budget predates the catalogue feature; `''` if the operator
+    // removed every selected additional work. The picker component
+    // (AdditionalWorksSection) re-parses on mount.
+    additional_works_data: (d.additional_works_data as string | null) ?? null,
   };
 }
 

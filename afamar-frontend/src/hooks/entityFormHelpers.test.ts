@@ -362,7 +362,7 @@ describe('mapApiToForm — sketch_elements round-trip', () => {
 });
 
 describe('fabrication_detail price contract — always in ARS', () => {
-  // The user-facing contract for the "Detalle de fabricación y adicionales"
+  // The user-facing contract for the "Detalle de fabricación y additional works"
   // form: the manual `price` field (and the auto-calculated price) is
   // ALWAYS in pesos. The PDF / totals block converts to USD using the
   // document's `usd_rate` for the USD column. These tests guard the

@@ -33,7 +33,7 @@ payload = {
     "materials_data": json.dumps([]),
     "fabrication_details": json.dumps([]),
     "pools_data": json.dumps([]),
-    "adicionales": [],
+    "additional_works": [],
     "items": [],
     "sketch_elements": sketch_elements,
     "currency": "ARS",

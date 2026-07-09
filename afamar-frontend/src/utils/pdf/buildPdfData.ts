@@ -73,6 +73,22 @@ export interface PoolPdfRow {
   readonly material: string;
 }
 
+/** One row in the PDF "Adicionales" section. Mirrors the snapshot
+ *  stored in `form.additional_works_data` (JSON string of selections from
+ *  the `additional_works` catalogue). The fields are denormalised so the
+ *  PDF can render them without round-tripping the catalogue (an
+ *  adicional that was active when the budget was created might be
+ *  deleted later; the snapshot still renders correctly). */
+export interface AdditionalWorkPdfRow {
+  readonly name: string;
+  readonly detail: string | null;
+  readonly currency: 'ARS' | 'USD';
+  readonly price_str: string;
+  readonly quantity: number;
+  readonly subtotal_ars: number;
+  readonly subtotal_usd: number;
+}
+
 export interface CompanyInfo {
   company_name: string;
   company_tagline: string;
@@ -121,6 +137,16 @@ export interface PdfDocumentData {
   materials: MaterialPdfRow[];
   /** Flat concatenation of all pool rows across sections. Prefer `sections`. */
   pools: PoolPdfRow[];
+  /** Items from the `additional_works` catalogue that the operator picked
+   *  for this document. Mirrors `form.additional_works_data` (JSON snapshot
+   *  from the picker on the budget / work-order form). */
+  additional_works: AdditionalWorkPdfRow[];
+  /** Sum of `additional_works[*].subtotal_ars` — exposed so the totals
+   *  block can include additional works without re-iterating. */
+  additional_works_subtotal_ars: number;
+  /** Sum of `additional_works[*].subtotal_usd` in the document's USD
+   *  equivalent. */
+  additional_works_subtotal_usd: number;
   subtotal: number;
   transport: number;
   discount_percentage: number;
@@ -171,6 +197,7 @@ export interface MaterialSection {
   materials: MaterialPdfRow[];
   pools: PoolPdfRow[];
   fabrication_details: PdfDataRow[];
+  additional_works: AdditionalWorkPdfRow[];
   subtotal_ars: number;
   subtotal_usd: number;
 }
@@ -568,6 +595,7 @@ function buildSections(
       materials: altMaterialRows,
       pools: altPools,
       fabrication_details: altFabrication,
+      additional_works: [],
       subtotal_ars: altSubtotalArs,
       subtotal_usd: altSubtotalUsd,
     });
@@ -584,6 +612,7 @@ function buildSections(
       materials: mainMaterialRows,
       pools: mainPoolRows,
       fabrication_details: mainFabrication,
+      additional_works: [],
       subtotal_ars: mainSubtotalArs,
       subtotal_usd: mainSubtotalUsd,
     });
@@ -648,6 +677,51 @@ export function buildPdfData({
 
   // Build fabrication rows once and bucket them into sections.
   const fabricationRows = buildFabricationRows(form.fabrication_details, usdRate);
+
+  // Build additional works rows from the JSON snapshot on the form. The
+  // snapshot already carries the price / quantity / total in each
+  // row's own currency, so we only need to convert totals to the
+  // document's USD equivalent for the totals block.
+  const additionalWorksRaw = (form as { additional_works_data?: unknown }).additional_works_data;
+  let additionalWorksParsed: Array<Record<string, unknown>> = [];
+  if (typeof additionalWorksRaw === 'string' && additionalWorksRaw) {
+    try {
+      const parsed = JSON.parse(additionalWorksRaw);
+      if (Array.isArray(parsed)) {
+        additionalWorksParsed = parsed as Array<Record<string, unknown>>;
+      }
+    } catch {
+      // Malformed JSON → render as empty. Same as `fabricationDetails`
+      // in `entityFormHelpers.mapApiToForm`.
+    }
+  } else if (Array.isArray(additionalWorksRaw)) {
+    additionalWorksParsed = additionalWorksRaw as Array<Record<string, unknown>>;
+  }
+  const fmtMoneyPdf = (v: number) => fmtMoney(v);
+  const additional_works: AdditionalWorkPdfRow[] = additionalWorksParsed.map((row) => {
+    const name = String(row['name'] ?? '');
+    const detail = (row['detail'] as string | null | undefined) ?? null;
+    const currency = (row['currency'] === 'USD' ? 'USD' : 'ARS') as 'ARS' | 'USD';
+    const price = Number(row['price']) || 0;
+    const quantity = Number(row['quantity']) || 1;
+    const totalInSourceCurrency = Number(row['total']) || (price * quantity);
+    return {
+      name,
+      detail,
+      currency,
+      price_str: fmtMoneyPdf(price),
+      quantity,
+      subtotal_ars: currency === 'ARS' ? totalInSourceCurrency : (usdRate > 0 ? totalInSourceCurrency * usdRate : 0),
+      subtotal_usd: currency === 'USD' ? totalInSourceCurrency : (usdRate > 0 ? totalInSourceCurrency / usdRate : 0),
+    };
+  });
+  const additionalWorksSubtotalArs = additional_works
+    .filter((a) => a.currency === 'ARS')
+    .reduce((sum, a) => sum + a.subtotal_ars, 0);
+  const additionalWorksSubtotalUsd = additional_works
+    .filter((a) => a.currency === 'USD')
+    .reduce((sum, a) => sum + a.subtotal_usd, 0);
+
   const {
     sections,
     flatMaterials,
@@ -663,12 +737,24 @@ export function buildPdfData({
     usdRate,
   );
 
-  // Document subtotal = main + global. Alternatives are quoted but not
-  // summed into the grand total (the customer only executes one of them).
-  // We override the stored `form.subtotal` / `form.total` / `form.balance_due`
-  // with the section-based computation because the stored values include
-  // alternatives' subtotals (the backend sums everything when it persists).
-  const computedSubtotal = subtotalMain + subtotalGlobal;
+  // Inject additional works into every section (they're common to all
+  // options, like fabrication details and pools).
+  const additionalWorksTotalArs = additional_works.reduce((s, a) => s + a.subtotal_ars, 0);
+  const additionalWorksTotalUsd = additional_works.reduce((s, a) => s + a.subtotal_usd, 0);
+  for (const section of sections) {
+    section.additional_works = additional_works;
+    section.subtotal_ars += additionalWorksTotalArs;
+    section.subtotal_usd += additionalWorksTotalUsd;
+  }
+
+  // Document subtotal = main section (includes additional works now) + global.
+  // Alternatives are quoted but not summed into the grand total (the customer
+  // only executes one of them). We override the stored `form.subtotal` /
+  // `form.total` / `form.balance_due` with the section-based computation
+  // because the stored values include alternatives' subtotals (the backend
+  // sums everything when it persists).
+  const mainSection = sections.find((s) => s.is_main);
+  const computedSubtotal = (mainSection ? mainSection.subtotal_ars : subtotalMain) + subtotalGlobal;
   const transport = num('transport');
   const discountFixedRaw = num('discount_fixed_amount');
   const discountPct = num('discount_percentage');
@@ -746,6 +832,9 @@ export function buildPdfData({
       : globalTerms.warranty_text,
     sketch_images: sketchImages,
     company,
+    additional_works,
+    additional_works_subtotal_ars: additionalWorksSubtotalArs,
+    additional_works_subtotal_usd: additionalWorksSubtotalUsd,
   };
 
   if (document_type === 'budget') {

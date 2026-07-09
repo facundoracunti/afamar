@@ -42,7 +42,7 @@ export interface WorkOrderPayload extends FinancialBase {
   pool_currency: string;
   pool_image: string | null;
   pools_data: string | null;
-  adicionales_data: string | null;
+  additional_works_data: string | null;
   design_observations: string | null;
   important_observations: string | null;
   notes: string | null;

@@ -132,6 +132,7 @@ export default function SketchImageExtractor({ sketchElements, onReady }: Sketch
 
   useEffect(() => {
     let cancelled = false;
+    const innerIds: number[] = [];
     // Konva paints on the next two animation frames (commit + paint). A
     // single rAF is too early — `toDataURL` can capture the canvas before
     // all shapes are drawn, producing an incomplete or blank image. We use
@@ -154,14 +155,13 @@ export default function SketchImageExtractor({ sketchElements, onReady }: Sketch
         }
         onReady(images);
       });
-      // Cancel the inner rAF if the effect re-runs.
-      (raf1 as unknown as { _inner?: number })._inner = raf2;
+      // Store the inner rAF id in a local so the cleanup can cancel it.
+      innerIds.push(raf2);
     });
     return () => {
       cancelled = true;
       cancelAnimationFrame(raf1);
-      const inner = (raf1 as unknown as { _inner?: number })._inner;
-      if (inner) cancelAnimationFrame(inner);
+      for (const id of innerIds) cancelAnimationFrame(id);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sketchElements]);

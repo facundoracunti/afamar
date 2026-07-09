@@ -62,7 +62,30 @@ class BudgetService:
 
     def create(self, data: dict) -> Budget:
         items_data = data.pop("items", [])
-        adicionales_data = data.pop("adicionales", [])
+        # `additional_works_data` is the canonical wire format for selected
+        # items from the `additional_works` catalogue. It carries the
+        # snapshot (id, name, detail, price, currency, quantity, total) so
+        # changing the catalogue doesn't rewrite historical budgets.
+        # Accept the legacy list-of-BudgetAdicionalCreate too so old
+        # callers still work — the new path supersedes it.
+        raw_additional_works_data = data.pop("additional_works_data", None)
+        legacy_additional_works = data.pop("additional_works", None)
+        if raw_additional_works_data is None and legacy_additional_works:
+            # Convert the legacy rows to the new snapshot format on the fly.
+            raw_additional_works_data = json.dumps(
+                [
+                    {
+                        "additional_work_id": None,
+                        "name": ad.get("concept"),
+                        "detail": ad.get("detail"),
+                        "price": ad.get("unit_price"),
+                        "currency": "ARS",
+                        "quantity": ad.get("quantity") or 1,
+                        "total": ad.get("total"),
+                    }
+                    for ad in legacy_additional_works
+                ]
+            )
         # `sketch_elements` arrives as a JSON-encoded string (the wire
         # format produced by `buildPayload`). We need a real list to
         # iterate over the rows — the column on the Budget is a 1-N
@@ -116,12 +139,14 @@ class BudgetService:
         data.pop("client_email", None)
         data.pop("client_address", None)
         budget = self.repo.create(data)
+        # Persist the snapshot directly in `additional_works_data`. We don't
+        # create `BudgetAdicional` rows anymore (the legacy table is
+        # kept for historical rows and could be migrated in a follow-up).
+        if raw_additional_works_data is not None:
+            budget.additional_works_data = raw_additional_works_data
         for item_data in items_data:
             item = BudgetItem(budget_id=budget.id, **item_data)
             self.repo.add(item)
-        for ad_data in adicionales_data:
-            ad = BudgetAdicional(budget_id=budget.id, **ad_data)
-            self.repo.add(ad)
         for sk_data in sketch_data:
             el = BudgetSketchElement(budget_id=budget.id, **sk_data)
             self.repo.add(el)
@@ -133,7 +158,12 @@ class BudgetService:
         if not budget:
             return None
         items_data = data.pop("items", None)
-        adicionales_data = data.pop("adicionales", None)
+        # New path: `additional_works_data` (JSON snapshot string from the
+        # catalogue). Set it on the row so the FK-less snapshot survives.
+        # Legacy path: `additional_works` (list of BudgetAdicionalCreate) still
+        # goes through `_sync_children` for backwards compat.
+        raw_additional_works_data = data.pop("additional_works_data", None)
+        legacy_additional_works = data.pop("additional_works", None)
         # `sketch_elements` arrives as a JSON-encoded string (wire format).
         # `_sync_children` expects a list — parse it back here.
         raw_sketch = data.pop("sketch_elements", None)
@@ -150,8 +180,9 @@ class BudgetService:
         elif isinstance(raw_sketch, list):
             sketch_data = raw_sketch
         budget = self.repo.update(budget, data)
-        _sync_children(budget, self.repo, "items", BudgetItem, items_data)
-        _sync_children(budget, self.repo, "adicionales", BudgetAdicional, adicionales_data)
+        if raw_additional_works_data is not None:
+            budget.additional_works_data = raw_additional_works_data
+        _sync_children(budget, self.repo, "additional_works", BudgetAdicional, legacy_additional_works)
         _sync_children(budget, self.repo, "sketch_elements", BudgetSketchElement, sketch_data)
         self.repo.db.commit()
         return self.repo.get_by_id(budget.id)
@@ -257,7 +288,7 @@ class BudgetService:
             "material": alt_nombre,
             "material_price_m2": alt_precio_m2,
             "materials_data": json.dumps(materials),
-            "adicionales_data": None,
+            "additional_works_data": None,
             "color": alt_color or budget.color,
             "thickness": alt_espesor or budget.thickness,
             "finish": alt.get("finish") or budget.finish,

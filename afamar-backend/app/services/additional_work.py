@@ -3,9 +3,9 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import ValidationError
-from app.models.adicional import Adicional
+from app.models.additional_work import AdditionalWork
 from app.models.reference import Currency
-from app.repositories.adicional import AdicionalRepository
+from app.repositories.additional_work import AdditionalWorkRepository
 
 
 def _resolve_currency_id(db: Session, code: str) -> int:
@@ -24,37 +24,37 @@ def _resolve_currency_id(db: Session, code: str) -> int:
     return cur.id
 
 
-class AdicionalService:
+class AdditionalWorkService:
     def __init__(self, db: Session):
-        self.repo = AdicionalRepository(db)
+        self.repo = AdditionalWorkRepository(db)
 
-    def get_all(self, skip: int = 0, limit: int = 100) -> List[Adicional]:
+    def get_all(self, skip: int = 0, limit: int = 100) -> List[AdditionalWork]:
         return self.repo.get_all(skip=skip, limit=limit)
 
-    def get_by_id(self, adicional_id: int) -> Optional[Adicional]:
-        return self.repo.get_by_id(adicional_id)
+    def get_by_id(self, additional_work_id: int) -> Optional[AdditionalWork]:
+        return self.repo.get_by_id(additional_work_id)
 
-    def create(self, data: dict) -> Adicional:
+    def create(self, data: dict) -> AdditionalWork:
         if "currency" in data:
             data["currency_id"] = _resolve_currency_id(self.repo.db, data.pop("currency"))
-        adicional = self.repo.create(data)
+        additional_work = self.repo.create(data)
         self.repo.db.commit()
-        return adicional
+        return additional_work
 
-    def update(self, adicional_id: int, data: dict) -> Optional[Adicional]:
-        adicional = self.repo.get_by_id(adicional_id)
-        if not adicional:
+    def update(self, additional_work_id: int, data: dict) -> Optional[AdditionalWork]:
+        additional_work = self.repo.get_by_id(additional_work_id)
+        if not additional_work:
             return None
         if "currency" in data:
             data["currency_id"] = _resolve_currency_id(self.repo.db, data.pop("currency"))
-        result = self.repo.update(adicional, data)
+        result = self.repo.update(additional_work, data)
         self.repo.db.commit()
         return result
 
-    def delete(self, adicional_id: int) -> bool:
-        adicional = self.repo.get_by_id(adicional_id)
-        if not adicional:
+    def delete(self, additional_work_id: int) -> bool:
+        additional_work = self.repo.get_by_id(additional_work_id)
+        if not additional_work:
             return False
-        self.repo.delete(adicional)
+        self.repo.delete(additional_work)
         self.repo.db.commit()
         return True

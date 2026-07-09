@@ -6,7 +6,7 @@ import { getBudget, createBudget, updateBudget, deleteBudget, getNextBudgetNumbe
 import { getMaterials } from '@/api/resources/materials';
 import { getPoolStock } from '@/api/resources/poolStock';
 import { getClients } from '@/api/resources/clients';
-import { formatCurrency, fabricationConcepts, todayLocalISO } from '../../utils/formatters';
+import { todayLocalISO } from '../../utils/formatters';
 import { t as translateConcept } from '../../utils/translate';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import useEntityForm from '../../hooks/useEntityForm';
@@ -22,6 +22,7 @@ import TermsEditor from '../../components/ui/TermsEditor/TermsEditor';
 import { useNotify } from '../../context/NotificationContext';
 import { fetchUsdVenta } from '../../utils/dolarApi';
 import QuoteOptionsGrid from '../../components/budget/QuoteOptionsGrid/QuoteOptionsGrid';
+import AdditionalWorkSection from '../../components/budget/AdditionalWorkSection/AdditionalWorkSection';
 
 import ObservationsSection from '../../components/orders/ObservationsSection/ObservationsSection';
 import FormHeader from '../../components/orders/FormHeader/FormHeader';
@@ -318,48 +319,6 @@ export default function BudgetForm() {
   const matsMain = hayAlternativas ? (form.materials_data as unknown as MaterialInForm[] || []).filter((m) => !m.is_alternative) : (form.materials_data as unknown as MaterialInForm[] || []);
   const matsAlt = (form.materials_data as unknown as MaterialInForm[] || []).filter((m) => m.is_alternative);
 
-  const alternativasTop = hayAlternativas ? (
-    <div style={{ marginTop: 0 }}>
-      <div className={s['budget-form__detail-card']}>
-        <div className={s['budget-form__detail-header']}>
-          <div>
-            <h3 className={s['budget-form__detail-title']}>
-              DETALLE DE FABRICACIÓN Y ACCESORIOS COMUNES
-            </h3>
-            <p className={s['budget-form__detail-subtitle']}>
-              Estos trabajos se aplican y ya están sumados en cada una de las opciones de abajo.
-            </p>
-          </div>
-          <div className={s['budget-form__detail-rateBox']}>
-            <span className={s['budget-form__detail-rateLabel']}>Dólar Ref.</span>
-            <input
-              type="number"
-              className={`input ${s['budget-form__detail-rateInput']}`}
-              value={form.usd_rate || ''}
-              onChange={(e) => setForm({ ...form, usd_rate: Number(e.target.value) || 0 })}
-            />
-          </div>
-        </div>
-        {detalleTrabajosComunes.length > 0 ? (
-          <div className={s['budget-form__detail-grid']}>
-            {detalleTrabajosComunes.map((job, idx) => (
-              <div key={idx} className={s['budget-form__detail-row']}>
-                <span>✓ {job.concept} ({job.quantity > 1 ? `x${job.quantity}` : 'x1'})</span>
-                <span className={s['budget-form__detail-rowValue']}>
-                  $ {job.total.toLocaleString('es-AR')}
-                </span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className={s['budget-form__detail-empty']}>
-            No hay trabajos adicionales comunes configurados.
-          </p>
-        )}
-      </div>
-    </div>
-  ) : null;
-
   // Every card's TOTAL should include all principals (non-alternatives) +
 // this card's own material + common works (transport, fabrication, pools).
 // Alternatives are additive, not replacements.
@@ -480,8 +439,6 @@ const buildOptionFromMaterial = (mat: MaterialInForm): import('../../components/
               update={update}
               num={num}
             />
-          </div>
-          <div className={s['budget-form__right']}>
             <BudgetFormAdicionales
               form={form}
               readOnly={readOnly}
@@ -493,20 +450,27 @@ const buildOptionFromMaterial = (mat: MaterialInForm): import('../../components/
               num={num}
             />
           </div>
+          <div className={s['budget-form__right']}>
+            <FabricationSection
+              detalles={(form.fabrication_details as unknown as import('../../types/budget').FabricationDetail[]) || []}
+              readOnly={readOnly}
+              formMaterials={(form.materials_data as unknown as MaterialInForm[]) || []}
+              M2_CONCEPTS={M2_CONCEPTS}
+              num={num as (v: unknown) => number}
+              handleDetailChange={handleDetailChange}
+              addDetalle={addDetalle}
+              removeDetalle={removeDetalle}
+            />
+            <AdditionalWorkSection
+              value={form.additional_works_data}
+              onChange={(json) => setForm({ ...form, additional_works_data: json })}
+              readOnly={readOnly}
+              formMaterials={(form.materials_data as unknown as import('../../types/budget').MaterialInForm[]) || []}
+            />
+          </div>
         </div>
 
         <div className={s['budget-form__bottom']}>
-          <FabricationSection
-            detalles={(form.fabrication_details as unknown as import('../../types/budget').FabricationDetail[]) || []}
-            readOnly={readOnly}
-            formMaterials={(form.materials_data as unknown as MaterialInForm[]) || []}
-            M2_CONCEPTS={M2_CONCEPTS}
-            num={num as (v: unknown) => number}
-            handleDetailChange={handleDetailChange}
-            addDetalle={addDetalle}
-            removeDetalle={removeDetalle}
-          />
-
           <SketchSection
             showCroquis={showCroquis}
             setShowCroquis={setShowCroquis}
@@ -531,7 +495,7 @@ const buildOptionFromMaterial = (mat: MaterialInForm): import('../../components/
             setForm={setForm}
             update={update as (field: string, value: unknown) => void}
             num={num as (v: unknown) => number}
-            alternativasTop={alternativasTop}
+            alternativasTop={null}
             alternativasGrid={alternativasGrid}
             onConfirmarPago={handleConfirmarPago}
           />

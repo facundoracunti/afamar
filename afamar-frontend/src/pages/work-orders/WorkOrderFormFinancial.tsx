@@ -17,20 +17,13 @@ interface WorkOrderFormFinancialProps {
   setForm: React.Dispatch<React.SetStateAction<EntityFormState>>;
   update: (field: string, value: unknown) => void;
   num: (v: string) => number | null;
-  /** @deprecated PoolSection is rendered once in the form layout, not here. */
-  pools?: Record<string, unknown>[];
-  /** @deprecated */
-  addPileta?: (id: string) => void;
-  /** @deprecated */
-  updatePileta?: (idx: number, field: string, value: unknown) => void;
-  /** @deprecated */
-  removePileta?: (idx: number) => void;
   alternativasGrid: React.ReactNode | null;
   discountBlock: React.ReactNode | null;
   onConfirmarPago: () => Promise<void>;
   handleConfirmarPago: () => Promise<void>;
   mostrarToggleTitle: boolean;
   mostrarToggleColumns: boolean;
+  sectionTitle?: string;
 }
 
 export default function WorkOrderFormFinancial({
@@ -53,6 +46,7 @@ export default function WorkOrderFormFinancial({
   handleConfirmarPago,
   mostrarToggleTitle,
   mostrarToggleColumns,
+  sectionTitle = 'ORDEN DE TRABAJO',
 }: WorkOrderFormFinancialProps) {
   return (
     <BudgetPanel
@@ -77,6 +71,7 @@ export default function WorkOrderFormFinancial({
       onConfirmarPago={handleConfirmarPago}
       mostrarToggleTitle={mostrarToggleTitle}
       mostrarToggleColumns={mostrarToggleColumns}
+      sectionTitle={sectionTitle}
     />
   );
 }

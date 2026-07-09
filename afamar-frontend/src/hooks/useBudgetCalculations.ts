@@ -2,6 +2,16 @@ import { useEffect } from 'react';
 import type { EntityFormState, FabricationDetail, MaterialInForm, PoolInForm } from '../types';
 import { INSTALLMENT_SURCHARGE_PERCENTAGE, PAYMENT_METHOD_CREDIT_CARD } from '../constants';
 
+interface AdditionalWorkRow {
+  name?: string;
+  detail?: string | null;
+  currency?: string;
+  price?: number;
+  quantity?: number;
+  total?: number;
+  materialName?: string;
+}
+
 export function useBudgetCalculations(
   form: EntityFormState,
   setForm: React.Dispatch<React.SetStateAction<EntityFormState>>
@@ -33,6 +43,20 @@ export function useBudgetCalculations(
     const ppUsd = poolsData
       .filter((pt: PoolInForm) => (pt.currency || 'ARS') === 'USD')
       .reduce((sum: number, pt: PoolInForm) => sum + (pt.price || 0) * (pt.quantity || 1), 0);
+    // Parse additional works from the JSON snapshot on the form.
+    const additionalWorksRaw = form.additional_works_data;
+    let additionalWorksParsed: AdditionalWorkRow[] = [];
+    if (typeof additionalWorksRaw === 'string' && additionalWorksRaw) {
+      try { const p = JSON.parse(additionalWorksRaw); if (Array.isArray(p)) additionalWorksParsed = p as AdditionalWorkRow[]; }
+      catch { /* ignore malformed JSON */ }
+    }
+    const additionalArs = additionalWorksParsed
+      .filter((a) => (a.currency ?? 'ARS') !== 'USD')
+      .reduce((sum, a) => sum + ((a.total ?? (a.price ?? 0) * (a.quantity ?? 1))), 0);
+    const additionalUsd = additionalWorksParsed
+      .filter((a) => (a.currency ?? 'ARS') === 'USD')
+      .reduce((sum, a) => sum + ((a.total ?? (a.price ?? 0) * (a.quantity ?? 1))), 0);
+
     const matsMain = materialsData.filter((m: MaterialInForm) => !m.is_alternative);
     const matArs = matsMain
       .filter((m: MaterialInForm) => m.currency !== 'USD')
@@ -44,7 +68,7 @@ export function useBudgetCalculations(
     const pctRecargo = form.payment_method === PAYMENT_METHOD_CREDIT_CARD
       ? (INSTALLMENT_SURCHARGE_PERCENTAGE[form.installments] || 0)
       : 0;
-    const subtotal = arsTotal + (dd > 0 ? Math.round((usdTotal + matUsd) * dd * 100) / 100 : 0) + matArs + ppArs + (dd > 0 ? Math.round(ppUsd * dd * 100) / 100 : 0);
+    const subtotal = arsTotal + (dd > 0 ? Math.round((usdTotal + matUsd) * dd * 100) / 100 : 0) + matArs + ppArs + (dd > 0 ? Math.round(ppUsd * dd * 100) / 100 : 0) + additionalArs + (dd > 0 ? Math.round(additionalUsd * dd * 100) / 100 : 0);
     const tr = Number(form.transport) || 0;
     const totalBase = Math.max(0, subtotal + tr);
 
@@ -67,7 +91,7 @@ export function useBudgetCalculations(
     const balanceDue = Math.max(0, total - depositTotalArs);
 
     const tr_usd = Number(form.transport_usd) || 0;
-    const subtotal_usd = usdTotal + matUsd + ppUsd + (dd > 0 ? (arsTotal + matArs + ppArs) / dd : 0);
+    const subtotal_usd = usdTotal + matUsd + ppUsd + additionalUsd + (dd > 0 ? (arsTotal + matArs + ppArs + additionalArs) / dd : 0);
     const totalBaseUsd = Math.max(0, subtotal_usd + tr_usd);
     let totalConDescuentoUsd = totalBaseUsd;
     if (descPct > 0) {
@@ -91,12 +115,12 @@ export function useBudgetCalculations(
         const m2 = Number(primeraAlt.length || 0) * Number(primeraAlt.width || 0) * (primeraAlt.quantity || 1);
         const precioMat = primeraAlt.currency === 'USD' ? (primeraAlt.price_m2_usd || 0) : (primeraAlt.price_m2 || 0);
         const costoMatArs = primeraAlt.currency === 'USD' ? m2 * precioMat * dd2 : m2 * precioMat;
-        const fijosArs = arsTotal + (dd2 > 0 ? usdTotal * dd2 : 0) + ppArs + (dd2 > 0 ? ppUsd * dd2 : 0) + tr;
+        const fijosArs = arsTotal + (dd2 > 0 ? usdTotal * dd2 : 0) + ppArs + (dd2 > 0 ? ppUsd * dd2 : 0) + additionalArs + (dd2 > 0 ? additionalUsd * dd2 : 0) + tr;
         const totalAlt = Math.round(costoMatArs + fijosArs);
         const totalAltConDesc = descPct > 0 ? Math.round(totalAlt * (1 - descPct / 100)) : (descFijo > 0 ? Math.max(0, totalAlt - descFijo) : totalAlt);
         totalFinal = totalAltConDesc + (totalAltConDesc > 0 ? Math.round(totalAltConDesc * pctRecargo / 100) : 0);
         const costoMatUsd = primeraAlt.currency === 'USD' ? m2 * precioMat : m2 * precioMat / dd2;
-        const fijosUsd = usdTotal + (dd2 > 0 ? arsTotal / dd2 : 0) + ppUsd + (dd2 > 0 ? ppArs / dd2 : 0) + (dd2 > 0 ? tr / dd2 : 0);
+        const fijosUsd = usdTotal + (dd2 > 0 ? arsTotal / dd2 : 0) + ppUsd + (dd2 > 0 ? ppArs / dd2 : 0) + additionalUsd + (dd2 > 0 ? additionalArs / dd2 : 0) + (dd2 > 0 ? tr / dd2 : 0);
         const totalAltUsd = Math.round((costoMatUsd + fijosUsd) * 100) / 100;
         const totalAltConDescUsd = descPct > 0 ? totalAltUsd * (1 - descPct / 100) : (descFijo > 0 && dd2 > 0 ? Math.max(0, totalAltUsd - descFijo / dd2) : totalAltUsd);
         totalUsdFinal = totalAltConDescUsd + (totalAltConDescUsd > 0 ? Math.round(totalAltConDescUsd * pctRecargo / 100 * 100) / 100 : 0);

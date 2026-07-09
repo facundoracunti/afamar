@@ -1,4 +1,4 @@
-"""Adicional — global catalogue of add-on items.
+"""AdditionalWork — global catalogue of add-on items.
 
 Reusable items that can be attached to a budget or work order (e.g.
 "Edge polishing", "Delivery", "Engraving"). Operates on the same
@@ -7,8 +7,8 @@ keeps `currency: "ARS"|"USD"` and the service translates to the
 `currency_id` FK on save.
 
 Decoupled from `Budget` / `WorkOrder`: the linkage between a budget
-and one or more adicionales is the `adicionales_data` JSON blob on the
-budget/work-order row, which lists adicional ids + quantity. That keeps
+and one or more additional works is the `additional_works_data` JSON blob on the
+budget/work-order row, which lists additional work ids + quantity. That keeps
 this catalogue small and avoids having to migrate legacy `BudgetAdicional`
 1-N rows in the same migration.
 """
@@ -21,8 +21,8 @@ from app.db.base import Base
 from app.models.reference import Currency
 
 
-class Adicional(Base):
-    __tablename__ = "adicionales"
+class AdditionalWork(Base):
+    __tablename__ = "additional_works"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)

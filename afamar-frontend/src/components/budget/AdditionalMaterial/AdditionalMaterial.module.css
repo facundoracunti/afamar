@@ -1,0 +1,151 @@
+.additional-material {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.additional-material__empty {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 16px;
+  font-style: italic;
+}
+
+.additional-material__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.additional-material__card {
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 1px 3px var(--shadow-color);
+}
+
+.additional-material__card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.additional-material__select-concept {
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+  width: auto;
+  min-width: 160px;
+  padding: 4px 8px;
+}
+
+.additional-material__remove {
+  color: var(--color-danger);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.additional-material__remove:hover {
+  color: var(--color-danger-hover);
+}
+
+.additional-material__fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.additional-material__field {
+  display: flex;
+  flex-direction: column;
+}
+
+.additional-material__label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.additional-material__input {
+  width: 100%;
+  padding: 5px 6px;
+  font-size: 12px;
+}
+
+.additional-material__input-sm {
+  width: 100%;
+  padding: 4px 5px;
+  font-size: 11px;
+}
+
+.additional-material__m2-fields {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.additional-material__mult {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.additional-material__stacked {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.additional-material__price {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  padding: 5px 6px;
+}
+
+.additional-material__price--usd {
+  color: var(--color-success);
+}
+
+.additional-material__dash {
+  color: var(--text-muted);
+  padding: 5px 6px;
+  display: block;
+}
+
+.additional-material__card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--surface-alt-bg);
+  padding: 10px;
+  border-radius: 6px;
+}
+
+.additional-material__m2 {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+.additional-material__subtotal {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-success);
+}
+
+.additional-material__add-btn {
+  align-self: flex-start;
+}

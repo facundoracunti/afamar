@@ -14,7 +14,7 @@ def _eager_query(db: Session):
         db.query(Budget)
         .options(
             joinedload(Budget.items),
-            joinedload(Budget.adicionales),
+            joinedload(Budget.additional_works),
             joinedload(Budget.sketch_elements),
         )
     )

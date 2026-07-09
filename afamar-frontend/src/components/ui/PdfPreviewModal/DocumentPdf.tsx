@@ -92,14 +92,14 @@ const styles = StyleSheet.create({
   docNumber: { fontSize: 18, fontWeight: 'bold', color: HEADER_RED, fontFamily: 'Courier', marginTop: 2 },
   docSub: { fontSize: 8, color: SLATE_500, marginTop: 6 },
   divider: { borderTop: `2px solid ${HEADER_RED}`, marginVertical: 4 },
-  dividerLight: { borderTop: `1px solid ${SLATE_200}`, marginVertical: 4 },
+  dividerLight: { borderTop: `1px solid ${SLATE_200}`, marginVertical: 2 },
   // ===== INFO-GRID =====
-  infoGrid: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 },
+  infoGrid: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 4 },
   infoCell: { width: '50%', fontSize: 8.5, marginBottom: 2, paddingRight: 6 },
   label: { fontWeight: 'bold' },
   value: { fontWeight: 'bold', color: '#0f172a' },
   // ===== OBS BOX =====
-  obsBox: { backgroundColor: AMBER_50, border: `1px solid ${AMBER_200}`, padding: 6, marginBottom: 8 },
+  obsBox: { backgroundColor: AMBER_50, border: `1px solid ${AMBER_200}`, padding: 6, marginBottom: 4 },
   obsTitle: { fontSize: 8, fontWeight: 'bold', color: AMBER_700, textTransform: 'uppercase', marginBottom: 2 },
   obsText: { fontSize: 8.5 },
   obsList: { fontSize: 8.5, marginTop: 2 },
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   // Each section is a self-contained card with its own tables + subtotal so
   // the reader can see "PRINCIPAL: GRIS MARA" / "ALTERNATIVA 1: TAJ MAHAL" as
   // independent quotes (the customer only executes one).
-  optSectionBlock: { marginTop: 8, marginBottom: 4, padding: 6, border: `1px solid ${SLATE_200}`, borderRadius: 4 },
+  optSectionBlock: { marginTop: 4, marginBottom: 4, padding: 6, border: `1px solid ${SLATE_200}`, borderRadius: 4 },
   optSectionBlockMain: { borderColor: HEADER_RED, backgroundColor: '#fef9f9' },
   optSectionBlockAlt: { borderColor: SLATE_400, backgroundColor: SLATE_50 },
   optSectionTitle: { fontSize: 10, fontWeight: 'bold', color: HEADER_RED, textTransform: 'uppercase', marginBottom: 4, paddingBottom: 2, borderBottom: `1px solid ${HEADER_RED}` },
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
   sketchImg: { width: SKETCH_PDF_WIDTH, height: SKETCH_PDF_HEIGHT, marginVertical: 4 },
   sketchImgLarge: { width: SKETCH_PDF_LARGE_WIDTH, height: SKETCH_PDF_LARGE_HEIGHT, marginVertical: 4 },
   // ===== SECTION TITLE =====
-  sectionTitle: { fontSize: 10, fontWeight: 'bold', color: ACCENT, textTransform: 'uppercase', marginTop: 8, marginBottom: 4, paddingBottom: 2, borderBottom: `1px solid ${ACCENT}` },
+  sectionTitle: { fontSize: 10, fontWeight: 'bold', color: ACCENT, textTransform: 'uppercase', marginTop: 4, marginBottom: 2, paddingBottom: 2, borderBottom: `1px solid ${ACCENT}` },
   // ===== DATA TABLE =====
   // Each column is a <View> with flex — this keeps headers and cells aligned
   // because the flex ratio is identical on every row.
@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
   tdTextNum: { fontSize: 8.5, textAlign: 'right' },
   dash: { color: SLATE_500 },
   // ===== TOTALS =====
-  totals: { marginTop: 8 },
+  totals: { marginTop: 4 },
   totalsRow: { flexDirection: 'row', paddingVertical: 2 },
   totalsLbl: { width: '70%', textAlign: 'right', color: SLATE_700 },
   totalsVal: { width: '30%', textAlign: 'right', fontWeight: 'bold' },
@@ -323,6 +323,29 @@ const POOL_HEADERS = [
 ];
 const POOL_FLEXES = [1.5, 1.5, 0.6, 1, 0.6, 1.2, 1.2];
 
+const ADDITIONAL_WORKS_HEADERS = [
+  { label: 'Adicional' },
+  { label: 'Detalle' },
+  { label: 'Cant.', num: true },
+  { label: 'Precio', num: true },
+  { label: 'Moneda' },
+  { label: 'Subtotal ARS', num: true },
+  { label: 'Subtotal USD', num: true },
+];
+const ADDITIONAL_WORKS_FLEXES = [1.8, 1.8, 0.6, 1, 0.6, 1.2, 1.2];
+
+function adicRowCells(a: import('../../../utils/pdf/buildPdfData').AdditionalWorkPdfRow): (string | null)[] {
+  return [
+    a.name,
+    a.detail,
+    String(a.quantity),
+    `$ ${a.price_str}`,
+    a.currency,
+    a.subtotal_ars > 0 ? `$ ${fmt(a.subtotal_ars)}` : null,
+    a.subtotal_usd > 0 ? `USD ${fmt(a.subtotal_usd)}` : null,
+  ];
+}
+
 function fabRowCells(d: import('../../../utils/pdf/buildPdfData').PdfDataRow): (string | null)[] {
   return [
     d.concept,
@@ -381,9 +404,10 @@ function OptionSectionBlock({ section }: { section: MaterialSection }) {
   const fabRows = section.fabrication_details.map(fabRowCells);
   const matRows = section.materials.map(matRowCells);
   const poolRows = section.pools.map(poolRowCells);
+  const adicRows = (section.additional_works || []).map(adicRowCells);
 
   const hasContent =
-    fabRows.length > 0 || matRows.length > 0 || poolRows.length > 0;
+    fabRows.length > 0 || matRows.length > 0 || poolRows.length > 0 || adicRows.length > 0;
   if (!hasContent) return null;
 
   return (
@@ -409,6 +433,12 @@ function OptionSectionBlock({ section }: { section: MaterialSection }) {
       {poolRows.length > 0 ? (
         <View style={{ marginTop: 4 }}>
           <DataTable headers={POOL_HEADERS} rows={poolRows} flexes={POOL_FLEXES} />
+        </View>
+      ) : null}
+
+      {adicRows.length > 0 ? (
+        <View style={{ marginTop: 4 }}>
+          <DataTable headers={ADDITIONAL_WORKS_HEADERS} rows={adicRows} flexes={ADDITIONAL_WORKS_FLEXES} />
         </View>
       ) : null}
 
@@ -469,6 +499,7 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
       <InfoCell label="Domicilio" value={data.client_address} />
       <InfoCell label="Correo" value={data.client_email} />
       <InfoCell label="Fecha" value={data.date} />
+      <InfoCell label="Entrega" value={data.delivery_date} />
     </View>
   );
 
@@ -477,7 +508,6 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
       <InfoCell label="Color" value={data.material_color} />
       <InfoCell label="Espesor" value={data.material_thickness} />
       <InfoCell label="Acabado" value={data.material_finish} />
-      <InfoCell label="Entrega" value={data.delivery_date} />
     </View>
   );
 
@@ -639,7 +669,6 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
 
               {/* CLIENT — shown on every page so each quote is self-contained */}
               {clientGrid}
-              <View style={styles.dividerLight} />
 
               {/* SPECS — only on the principal page (the chosen one) */}
               {section.is_main ? specsGrid : null}
@@ -693,7 +722,6 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
             {headerLeftRight}
             <View style={styles.divider} />
             {clientGrid}
-            <View style={styles.dividerLight} />
             {specsGrid}
             {data.materials.length > 0 ? (
               <View>
@@ -713,6 +741,16 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
                 <DataTable headers={POOL_HEADERS} rows={data.pools.map(poolRowCells)} flexes={POOL_FLEXES} />
               </View>
             ) : null}
+            {data.additional_works && data.additional_works.length > 0 ? (
+              <View style={{ marginTop: 12 }}>
+                <Text style={styles.sectionTitle}>Adicionales</Text>
+                <DataTable
+                  headers={ADDITIONAL_WORKS_HEADERS}
+                  rows={data.additional_works.map(adicRowCells)}
+                  flexes={ADDITIONAL_WORKS_FLEXES}
+                />
+              </View>
+            ) : null}
             {principalExtras}
             {termsBlock}
             {footer}
@@ -729,7 +767,6 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
               {headerLeftRight}
               <View style={styles.divider} />
               {clientGrid}
-              <View style={styles.dividerLight} />
               <View style={styles.sketchBox}>
                 <Text style={styles.sketchTitle}>Croquis</Text>
                 {data.sketch_images.map((img, i) => (

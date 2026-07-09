@@ -119,7 +119,7 @@ export interface BudgetPayload extends FinancialBase {
   pool_image: string | null;
   pools_data: string | null;
   items?: unknown[];
-  adicionales?: unknown[];
+  additional_works?: unknown[];
   sketch_elements?: unknown[];
 }
 

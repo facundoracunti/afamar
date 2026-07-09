@@ -27,6 +27,7 @@ import WorkOrderFormSpecs from './WorkOrderFormSpecs';
 import WorkOrderFormFinancial from './WorkOrderFormFinancial';
 import FabricationSection from '../../components/budget/FabricationSection/FabricationSection';
 import BudgetFormAdicionales from '../budgets/BudgetFormAdicionales';
+import AdditionalWorkSection from '../../components/budget/AdditionalWorkSection/AdditionalWorkSection';
 import SketchSection from '../../components/sketch/SketchSection/SketchSection';
 import WorkOrderFormObservations from './WorkOrderFormObservations';
 import WorkOrderFormSnapshot from './WorkOrderFormSnapshot';
@@ -321,8 +322,6 @@ export default function WorkOrderForm() {
               update={update}
               num={num}
             />
-          </div>
-          <div className={s['work-order-form__right']}>
             <BudgetFormAdicionales
               form={form}
               readOnly={readOnly}
@@ -334,22 +333,29 @@ export default function WorkOrderForm() {
               num={num}
             />
           </div>
+          <div className={s['work-order-form__right']}>
+            <FabricationSection
+              detalles={(form.fabrication_details as unknown as import('../../types/budget').FabricationDetail[]) || []}
+              readOnly={readOnly}
+              formMaterials={(form.materials_data as unknown as MaterialInForm[]) || []}
+              M2_CONCEPTS={M2_CONCEPTS}
+              num={num as (v: unknown) => number}
+              handleDetailChange={handleDetailChange}
+              addDetalle={addDetalle}
+              removeDetalle={removeDetalle}
+              showMeasurementComparison={form.status === 'MEASUREMENT'}
+              materialsData={form.materials_data as unknown as import('../../types').MaterialInForm[]}
+            />
+            <AdditionalWorkSection
+              value={form.additional_works_data}
+              onChange={(json) => setForm({ ...form, additional_works_data: json })}
+              readOnly={readOnly}
+              formMaterials={(form.materials_data as unknown as import('../../types/budget').MaterialInForm[]) || []}
+            />
+          </div>
         </div>
 
         <div className={s['work-order-form__bottom']}>
-          <FabricationSection
-            detalles={(form.fabrication_details as unknown as import('../../types/budget').FabricationDetail[]) || []}
-            readOnly={readOnly}
-            formMaterials={(form.materials_data as unknown as MaterialInForm[]) || []}
-            M2_CONCEPTS={M2_CONCEPTS}
-            num={num as (v: unknown) => number}
-            handleDetailChange={handleDetailChange}
-            addDetalle={addDetalle}
-            removeDetalle={removeDetalle}
-            showMeasurementComparison={form.status === 'MEASUREMENT'}
-            materialsData={form.materials_data as unknown as import('../../types').MaterialInForm[]}
-          />
-
           <SketchSection
             showCroquis={showCroquis}
             setShowCroquis={setShowCroquis}

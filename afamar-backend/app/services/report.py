@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 from app.models.budget import Budget
 from app.models.client import Client
 from app.models.material import Material
-from app.models.online_budget import OnlineBudget
 from app.models.pool_stock import PoolStock
 from app.models.work_order import WorkOrder
 
@@ -110,7 +109,6 @@ class ReportService:
             "delivered_orders": self.db.query(WorkOrder).filter(WorkOrder.status == "DELIVERED").count(),
             "pool_stock_total": self.db.query(func.sum(PoolStock.quantity)).scalar() or 0,
             "total_clients": self.db.query(Client).count(),
-            "online_budgets": self.db.query(OnlineBudget).count(),
             "recent_budgets": self._recent_budgets(5),
             "recent_orders": self._recent_orders(5),
         }

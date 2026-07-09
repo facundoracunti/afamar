@@ -34,7 +34,7 @@ export default function PoolStockPage() {
     }
   );
 
-  const [form, setForm] = useState<{ brand: string; model: string; description: string; material: string; quantity: number; price: number; price_usd: number; pool_type_id: number | string }>({ brand: '', model: '', description: '', material: '', quantity: 0, price: 0, price_usd: 0, pool_type_id: 1 });
+  const [form, setForm] = useState<{ brand: string; model: string; description: string; material: string; quantity: number; price: number; currency: string; pool_type_id: number | string }>({ brand: '', model: '', description: '', material: '', quantity: 0, price: 0, currency: 'ARS', pool_type_id: 1 });
   const [movForm, setMovForm] = useState<{ type: string; quantity: number; description: string }>({ type: 'Ingreso', quantity: 1, description: '' });
 
   const { items: data, loading, total, page, pageSize, setPage, refetch } = usePaginatedList<Pool>(
@@ -54,10 +54,10 @@ export default function PoolStockPage() {
   const handleOpenForm = (item: Pool | null = null) => {
     if (item) {
       setEditItem(item);
-      setForm({ brand: item.brand, model: item.model, description: item.description || '', material: item.material || '', quantity: item.quantity, price: item.price || 0, price_usd: item.price_usd || 0, pool_type_id: item.pool_type_id ?? 1 });
+      setForm({ brand: item.brand, model: item.model, description: item.description || '', material: item.material || '', quantity: item.quantity, price: item.price || 0, currency: item.currency || 'ARS', pool_type_id: item.pool_type_id ?? 1 });
     } else {
       setEditItem(null);
-      setForm({ brand: '', model: '', description: '', material: '', quantity: 0, price: 0, price_usd: 0, pool_type_id: 1 });
+      setForm({ brand: '', model: '', description: '', material: '', quantity: 0, price: 0, currency: 'ARS', pool_type_id: 1 });
     }
     setShowForm(true);
   };
@@ -135,21 +135,30 @@ export default function PoolStockPage() {
                   <th>Modelo</th>
                   <th>Tipo</th>
                   <th>Material</th>
-                  <th>Precio ARS</th>
-                  <th>Precio USD</th>
+                  <th>Precio</th>
                   <th>Cantidad</th>
                   <th style={{ width: 160 }}>Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {data.map((p) => (
+                {data.map((p) => {
+                  const currency = p.currency || 'ARS';
+                  return (
                   <tr key={p.id}>
                     <td style={{ fontWeight: 600 }}>{p.brand}</td>
                     <td>{p.model}</td>
                     <td><span className="badge badge-info" style={{ fontSize: 11 }}>{p.pool_type_name || 'Simple'}</span></td>
                     <td>{p.material || '-'}</td>
-                    <td style={{ fontWeight: 600 }}>${Number(p.price || 0).toLocaleString('es-AR')}</td>
-                    <td style={{ fontWeight: 600, color: '#059669' }}>USD {Number(p.price_usd || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                    <td
+                      style={{
+                        fontWeight: 700,
+                        color: currency === 'USD' ? '#16a34a' : 'var(--text-primary)',
+                      }}
+                    >
+                      {currency === 'USD'
+                        ? `USD ${Number(p.price || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
+                        : `$ ${Number(p.price || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}
+                    </td>
                     <td>
                       <span style={{
                         fontWeight: 700, fontSize: 16,
@@ -168,9 +177,10 @@ export default function PoolStockPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
                 {data.length === 0 && (
-                  <tr><td colSpan={8} style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>No hay piletas en stock</td></tr>
+                  <tr><td colSpan={7} style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>No hay piletas en stock</td></tr>
                 )}
               </tbody>
             </table>
@@ -208,8 +218,17 @@ export default function PoolStockPage() {
             <div className="form-group"><label>Material</label><input className="input" value={form.material} onChange={(e) => setForm({ ...form, material: e.target.value })} /></div>
           </div>
           <div className="form-row">
-            <div className="form-group"><label>Precio ARS ($)</label><input className="input" type="number" step="0.01" min="0" value={form.price} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} /></div>
-            <div className="form-group"><label>Precio USD</label><input className="input" type="number" step="0.01" min="0" value={form.price_usd} onChange={(e) => setForm({ ...form, price_usd: Number(e.target.value) })} /></div>
+            <div className="form-group">
+              <label>Moneda</label>
+              <select className="input" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>
+                <option value="ARS">ARS ($)</option>
+                <option value="USD">USD (US$)</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Precio ({form.currency === 'USD' ? 'USD' : 'ARS'})</label>
+              <input className="input" type="number" step="0.01" min="0" value={form.price} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} />
+            </div>
           </div>
           <div className="form-row">
             <div className="form-group"><label>Cantidad</label><input className="input" type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} /></div>

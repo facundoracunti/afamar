@@ -98,12 +98,19 @@ class Budget(Base):
     stock_deducted: Mapped[bool] = mapped_column(Boolean, default=False)
     pools_data: Mapped[str] = mapped_column(Text, nullable=True)
 
+    # JSON snapshot of selected items from the `additional_works` catalogue.
+    # Mirrors the same column on `WorkOrder` so the convert-to-WO
+    # flow can copy the value across without re-encoding. The legacy
+    # `BudgetAdicional` 1-N table below is kept for historical rows
+    # and could be migrated in a follow-up.
+    additional_works_data: Mapped[str] = mapped_column(Text, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
     client = relationship("Client", back_populates="budgets")
     items = relationship("BudgetItem", back_populates="budget", cascade="all, delete-orphan")
-    adicionales = relationship("BudgetAdicional", back_populates="budget", cascade="all, delete-orphan")
+    additional_works = relationship("BudgetAdicional", back_populates="budget", cascade="all, delete-orphan")
     sketch_elements = relationship("BudgetSketchElement", back_populates="budget", cascade="all, delete-orphan")
     work_order = relationship("WorkOrder", back_populates="budget", uselist=False)
     pool = relationship("PoolStock", foreign_keys=[pool_id])
@@ -148,7 +155,7 @@ class BudgetAdicional(Base):
     unit_price: Mapped[float] = mapped_column(Float, default=0.0)
     total: Mapped[float] = mapped_column(Float, default=0.0)
 
-    budget = relationship("Budget", back_populates="adicionales")
+    budget = relationship("Budget", back_populates="additional_works")
 
 
 class BudgetSketchElement(Base):
