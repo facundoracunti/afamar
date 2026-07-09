@@ -28,8 +28,8 @@ class AdicionalService:
     def __init__(self, db: Session):
         self.repo = AdicionalRepository(db)
 
-    def get_all(self, skip: int = 0, limit: int = 100, only_active: bool = False) -> List[Adicional]:
-        return self.repo.get_all(skip=skip, limit=limit, only_active=only_active)
+    def get_all(self, skip: int = 0, limit: int = 100) -> List[Adicional]:
+        return self.repo.get_all(skip=skip, limit=limit)
 
     def get_by_id(self, adicional_id: int) -> Optional[Adicional]:
         return self.repo.get_by_id(adicional_id)

@@ -14,7 +14,7 @@ this catalogue small and avoids having to migrate legacy `BudgetAdicional`
 """
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -40,8 +40,6 @@ class Adicional(Base):
         nullable=False,
         default=1,
     )
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    sort_order: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 

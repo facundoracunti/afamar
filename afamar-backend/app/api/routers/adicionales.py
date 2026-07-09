@@ -19,11 +19,10 @@ router = APIRouter(
 def list_adicionales(
     skip: int = 0,
     limit: int = 100,
-    only_active: bool = False,
     db: Session = Depends(get_db),
 ):
     service = AdicionalService(db)
-    items = service.get_all(skip=skip, limit=limit, only_active=only_active)
+    items = service.get_all(skip=skip, limit=limit)
     # `model_validate(...).model_dump(...)` so the validador runs and
     # the wire format gets `currency: "ARS"` instead of the FK id.
     payload = [AdicionalResponse.model_validate(a).model_dump(mode="json") for a in items]

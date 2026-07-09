@@ -14,8 +14,6 @@ class AdicionalBase(BaseModel):
     # service translates it into `currency_id` on save.
     price: float = 0.0
     currency: str = "ARS"
-    is_active: bool = True
-    sort_order: int = 0
 
 
 class AdicionalCreate(AdicionalBase):
@@ -27,8 +25,6 @@ class AdicionalUpdate(BaseModel):
     detail: str | None = None
     price: float | None = None
     currency: str | None = None
-    is_active: bool | None = None
-    sort_order: int | None = None
 
 
 class AdicionalResponse(AdicionalBase, BaseResponse):

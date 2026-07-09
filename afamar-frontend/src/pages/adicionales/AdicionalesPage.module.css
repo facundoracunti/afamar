@@ -1,6 +1,5 @@
 /* AdicionalesPage — BEM
    .adicionales                         block wrapper
-   .adicionales__row--inactive           dimmed row for inactive items
    .adicionales__form-row                two-column row in the modal
    .adicionales__form-actions            button bar at the bottom of the modal
 */
@@ -10,13 +9,9 @@
   gap: 16px;
 }
 
-.adicionales__row--inactive {
-  opacity: 0.55;
-}
-
 .adicionales__form-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 100px;
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
 

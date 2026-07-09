@@ -7,8 +7,6 @@ export interface Adicional {
   detail: string | null;
   price: number;
   currency: 'ARS' | 'USD';
-  is_active: boolean;
-  sort_order: number;
   created_at?: string;
   updated_at?: string;
 }

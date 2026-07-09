@@ -1,6 +1,5 @@
 from typing import List, Optional
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.adicional import Adicional
@@ -21,15 +20,20 @@ class AdicionalRepository(BaseRepository):
             .first()
         )
 
-    def get_all(self, skip: int = 0, limit: int = 100, only_active: bool = False) -> List[Adicional]:
+    def get_all(self, skip: int = 0, limit: int = 100) -> List[Adicional]:
         # `joinedload(currency_obj)` is required so the response
         # validador can surface the currency code in the wire format.
-        # `only_active=True` is used by the budget picker to hide
-        # disabled rows from the dropdown.
-        q = self.db.query(Adicional).options(joinedload(Adicional.currency_obj))
-        if only_active:
-            q = q.filter(Adicional.is_active.is_(True))
-        return q.order_by(Adicional.sort_order.asc(), Adicional.name.asc()).offset(skip).limit(limit).all()
+        # Ordered by name (alphabetical) — there's no sort_order column
+        # so the operator can't override the display order. The picker
+        # in the budget form shows them in this order.
+        return (
+            self.db.query(Adicional)
+            .options(joinedload(Adicional.currency_obj))
+            .order_by(Adicional.name.asc())
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
 
     def create(self, data: dict) -> Adicional:
         adicional = self.save(Adicional(**data))
