@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12 * 2.83,
   },
   // ===== HEADER =====
-  headerRow: { flexDirection: 'row', marginBottom: 8 },
+  headerRow: { flexDirection: 'row', marginBottom: 4 },
   headerLeft: { width: '65%', flexDirection: 'row', alignItems: 'flex-start' },
   headerLeftLogo: { width: '28%' },
   headerLeftInfo: { width: '72%' },
@@ -88,10 +88,10 @@ const styles = StyleSheet.create({
   logo: { width: '100%', maxHeight: 142, marginBottom: 0, objectFit: 'contain' },
   tagline: { fontSize: 10, fontWeight: 'bold', color: SLATE_700, lineHeight: 1.2, marginBottom: 2 },
   contactLine: { fontSize: 8, color: SLATE_700, lineHeight: 1.4 },
-  docTitle: { fontSize: 13, fontWeight: 'bold', color: HEADER_RED, lineHeight: 1.2, marginTop: 10 },
+  docTitle: { fontSize: 13, fontWeight: 'bold', color: HEADER_RED, lineHeight: 1.2, marginTop: 4 },
   docNumber: { fontSize: 18, fontWeight: 'bold', color: HEADER_RED, fontFamily: 'Courier', marginTop: 2 },
-  docSub: { fontSize: 8, color: SLATE_500, marginTop: 6 },
-  divider: { borderTop: `2px solid ${HEADER_RED}`, marginVertical: 4 },
+  docSub: { fontSize: 8, color: SLATE_500, marginTop: 2 },
+  divider: { borderTop: `1px solid ${HEADER_RED}`, marginBottom: 4 },
   dividerLight: { borderTop: `1px solid ${SLATE_200}`, marginVertical: 2 },
   // ===== INFO-GRID =====
   infoGrid: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 4 },
@@ -137,15 +137,15 @@ const styles = StyleSheet.create({
   // because the flex ratio is identical on every row.
   tableHead: { flexDirection: 'row', backgroundColor: SLATE_100, borderBottom: `1px solid ${SLATE_400}` },
   tableRow: { flexDirection: 'row', borderBottom: `1px solid ${SLATE_200}` },
-  cell: { paddingVertical: 4, paddingHorizontal: 6, borderRight: `1px solid ${SLATE_200}` },
-  cellLast: { paddingVertical: 4, paddingHorizontal: 6 },
-  thText: { fontSize: 7.5, fontWeight: 'bold', color: SLATE_700 },
-  thTextNum: { fontSize: 7.5, fontWeight: 'bold', color: SLATE_700, textAlign: 'right' },
-  tdText: { fontSize: 8.5 },
-  tdTextNum: { fontSize: 8.5, textAlign: 'right' },
+  cell: { paddingVertical: 3, paddingHorizontal: 5, borderRight: `1px solid ${SLATE_200}` },
+  cellLast: { paddingVertical: 3, paddingHorizontal: 5 },
+  thText: { fontSize: 6.5, fontWeight: 'bold', color: SLATE_700 },
+  thTextNum: { fontSize: 6.5, fontWeight: 'bold', color: SLATE_700, textAlign: 'right' },
+  tdText: { fontSize: 7.5 },
+  tdTextNum: { fontSize: 7.5, textAlign: 'right' },
   dash: { color: SLATE_500 },
   // ===== TOTALS =====
-  totals: { marginTop: 4 },
+  totals: { marginTop: 2 },
   totalsRow: { flexDirection: 'row', paddingVertical: 2 },
   totalsLbl: { width: '70%', textAlign: 'right', color: SLATE_700 },
   totalsVal: { width: '30%', textAlign: 'right', fontWeight: 'bold' },
@@ -154,23 +154,23 @@ const styles = StyleSheet.create({
   grandVal: { width: '30%', color: '#fff', fontWeight: 'bold', textAlign: 'right' },
   grandUsdSub: { fontSize: 8, color: '#fff', opacity: 0.85 },
   // ===== PAYMENT METHOD =====
-  paymentRow: { fontSize: 8.5, marginTop: 4, marginBottom: 4 },
+  paymentRow: { fontSize: 6.5, marginTop: 4, marginBottom: 4 },
   // Bank details block printed under the payment method when the
   // customer picks "Transferencia Bancaria". Slightly indented and
   // muted to make it clear it's a follow-up detail, not a new section.
-  bankRow: { fontSize: 8.5, marginLeft: 8, marginTop: 0, marginBottom: 4, color: SLATE_700 },
+  bankRow: { fontSize: 6.5, marginLeft: 8, marginTop: 0, marginBottom: 4, color: SLATE_700 },
   // ===== TERMS =====
   termsBox: { marginTop: 6 },
-  termsTitle: { fontSize: 9, fontWeight: 'bold', color: BLUE_700, textTransform: 'uppercase', marginBottom: 2 },
-  termsText: { fontSize: 8.5 },
-  termsListItem: { fontSize: 8.5, marginBottom: 2 },
+  termsTitle: { fontSize: 6.5, fontWeight: 'bold', color: BLUE_700, textTransform: 'uppercase', lineHeight: 1.1 },
+  termsText: { fontSize: 6, lineHeight: 1.05 },
+  termsListItem: { fontSize: 6, lineHeight: 1.05 },
   // ===== SIGNATURES =====
-  signatures: { flexDirection: 'row', marginTop: 30 },
-  signatureCell: { width: '50%', textAlign: 'center', paddingHorizontal: 8 },
-  signatureLine: { borderTopWidth: 1, borderTopColor: TEXT_DARK, paddingTop: 2, minHeight: 6 },
-  signatureCaption: { fontSize: 7.5, color: SLATE_500, marginTop: 0.5 },
+  signatures: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 30 },
+  signatureCell: { width: '25%', textAlign: 'center' },
+  signatureLine: { borderTopWidth: 0.5, borderTopColor: TEXT_DARK, height: 1 },
+  signatureCaption: { fontSize: 4, color: SLATE_500, lineHeight: 1.05 },
   // ===== FOOTER =====
-  footer: { position: 'absolute', bottom: 8 * 2.83, left: 12 * 2.83, right: 12 * 2.83, textAlign: 'center', fontSize: 7, color: SLATE_500 },
+  footer: { position: 'absolute', bottom: 2 * 2.83, left: 12 * 2.83, right: 12 * 2.83, textAlign: 'center', fontSize: 5, color: SLATE_500, lineHeight: 1 },
   emptyRow: { fontSize: 8, color: SLATE_500, fontStyle: 'italic', paddingVertical: 4 },
 });
 
@@ -293,11 +293,11 @@ const FAB_HEADERS = [
   { label: 'M²/Cant', num: true },
   { label: 'Precio', num: true },
   { label: 'Mano de obra', num: true },
-  { label: 'Moneda' },
+  { label: 'Mon.' },
   { label: 'Subtotal ARS', num: true },
   { label: 'Subtotal USD', num: true },
 ];
-const FAB_FLEXES = [1.8, 1.8, 1.4, 0.8, 0.8, 0.9, 0.9, 0.9, 0.7, 1.1, 1.1];
+const FAB_FLEXES = [2, 2.8, 1.6, 0.6, 0.6, 0.5, 0.9, 0.9, 0.5, 1.1, 1.1];
 
 const MAT_HEADERS = [
   { label: 'Material' },
@@ -307,33 +307,33 @@ const MAT_HEADERS = [
   { label: 'Cant.', num: true },
   { label: 'M²', num: true },
   { label: 'Precio/m²', num: true },
-  { label: 'Moneda' },
+  { label: 'Mon.' },
   { label: 'Subtotal ARS', num: true },
   { label: 'Subtotal USD', num: true },
 ];
-const MAT_FLEXES = [2, 1.2, 1, 1, 0.6, 0.8, 1, 0.6, 1.2, 1.2];
+const MAT_FLEXES = [2.4, 1.4, 0.6, 0.6, 0.4, 0.8, 1, 0.5, 1.2, 1.2];
 
 const POOL_HEADERS = [
   { label: 'Marca' },
   { label: 'Modelo' },
   { label: 'Cant.', num: true },
   { label: 'Precio', num: true },
-  { label: 'Moneda' },
+  { label: 'Mon.' },
   { label: 'Subtotal ARS', num: true },
   { label: 'Subtotal USD', num: true },
 ];
-const POOL_FLEXES = [1.5, 1.5, 0.6, 1, 0.6, 1.2, 1.2];
+const POOL_FLEXES = [2, 2, 0.4, 1, 0.5, 1.2, 1.2];
 
 const ADDITIONAL_WORKS_HEADERS = [
   { label: 'Adicional' },
   { label: 'Detalle' },
   { label: 'Cant.', num: true },
   { label: 'Precio', num: true },
-  { label: 'Moneda' },
+  { label: 'Mon.' },
   { label: 'Subtotal ARS', num: true },
   { label: 'Subtotal USD', num: true },
 ];
-const ADDITIONAL_WORKS_FLEXES = [1.8, 1.8, 0.6, 1, 0.6, 1.2, 1.2];
+const ADDITIONAL_WORKS_FLEXES = [2, 2.4, 0.4, 1, 0.5, 1.2, 1.2];
 
 function adicRowCells(a: import('../../../utils/pdf/buildPdfData').AdditionalWorkPdfRow): (string | null)[] {
   const priceLabel = a.type === 'frente' ? `$ ${a.price_str} x ml` : `$ ${a.price_str}`;
@@ -651,13 +651,13 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
       {/* SIGNATURES */}
       <View style={styles.signatures} wrap={false}>
         <View style={styles.signatureCell}>
-          <Text style={styles.signatureLine}>{' '}</Text>
+          <View style={styles.signatureLine} />
           <Text style={styles.signatureCaption}>
             {`${data.company.company_name || 'AFAMAR'}\nResponsable`}
           </Text>
         </View>
         <View style={styles.signatureCell}>
-          <Text style={styles.signatureLine}>{' '}</Text>
+          <View style={styles.signatureLine} />
           <Text style={styles.signatureCaption}>{'CLIENTE CONFORME\nFirma y aclaración'}</Text>
         </View>
       </View>
