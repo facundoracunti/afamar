@@ -109,3 +109,52 @@ def compute_pool_totals(pools: list) -> tuple:
         else:
             total_ars += p * c
     return total_ars, total_usd
+
+
+def parse_additional_works_snapshot(raw) -> list:
+    """Parse the JSON snapshot stored in `additional_works_data` (TEXT
+    column) into a list of dicts. Treats null / non-list values as
+    empty so callers can always iterate.
+    """
+    if raw is None or raw == "":
+        return []
+    if isinstance(raw, list):
+        return raw
+    if isinstance(raw, (bytes, bytearray)):
+        try:
+            raw = raw.decode("utf-8")
+        except Exception:
+            return []
+    try:
+        parsed = json.loads(raw)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return []
+    return parsed if isinstance(parsed, list) else []
+
+
+def compute_additional_totals(rows: list) -> tuple:
+    """Bucket `additional_works_data` rows into (total_ars, total_usd).
+
+    `frente` rows contribute their frozen `total` (set by
+    `apply_frente_rows` at save time). Flat rows contribute
+    `price * quantity` in their own currency. Mirrors the contract the
+    frontend `useBudgetCalculations` uses so backend recomputes match.
+    """
+    total_ars = 0.0
+    total_usd = 0.0
+    for r in rows if isinstance(rows, list) else []:
+        if not isinstance(r, dict):
+            continue
+        currency = (r.get("currency") or "ARS").upper()
+        is_frente = (r.get("type") or "flat") == "frente"
+        if is_frente:
+            total = float(r.get("total") or 0)
+        else:
+            price = float(r.get("price") or 0)
+            quantity = float(r.get("quantity") or 1)
+            total = price * quantity
+        if currency == "USD":
+            total_usd += total
+        else:
+            total_ars += total
+    return total_ars, total_usd

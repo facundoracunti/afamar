@@ -21,13 +21,20 @@
 
 .additional-works__picker {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
   margin-bottom: 12px;
 }
 
 .additional-works__add-select {
-  flex: 1;
   font-size: 13px;
+  font-weight: 600;
+}
+
+.additional-works__add-frente-select {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-info, #1e40af);
 }
 
 .additional-works__totals {

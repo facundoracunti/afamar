@@ -4,7 +4,10 @@ from typing import Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
+from app.core.exceptions import ValidationError
+from app.models.additional_work import AdditionalWork
 from app.models.budget import Budget, BudgetAdicional, BudgetItem, BudgetSketchElement
+from app.models.material import Material
 from app.models.pool_stock import PoolStock, StockMovement
 from app.models.work_order import WorkOrder
 from app.repositories.budget import BudgetRepository
@@ -16,6 +19,7 @@ from app.services.budget_calculator import (
     compute_pool_totals,
     parse_materials_data,
 )
+from app.services.frente_pricing import apply_frente_rows
 from app.utils.numbering import generate_budget_number, generate_work_order_number
 
 
@@ -36,6 +40,60 @@ def _sync_children(budget: Budget, repo: BudgetRepository, attr: str, model_clas
         else:
             new_obj = model_class(budget_id=budget.id, **{k: v for k, v in d.items() if k != "id"})
             repo.add(new_obj)
+
+
+def _process_additional_works_snapshot(
+    db: Session,
+    raw_json: Optional[str],
+) -> Optional[str]:
+    """Take the JSON snapshot from the form, resolve any `frente`
+    rows against their linked Material row, and return the serialised
+    JSON for persistence (with `price`, `total`, and `formula_values`
+    frozen at the chosen moment).
+
+    Rows that aren't `frente` pass through unchanged. Rows whose linked
+    catalogue item or material can't be found are kept verbatim so the
+    budget doesn't lose data when an item is deleted after the fact.
+    """
+    if not raw_json:
+        return raw_json
+    try:
+        rows = json.loads(raw_json) if isinstance(raw_json, str) else raw_json
+    except (ValueError, TypeError):
+        return raw_json
+    if not isinstance(rows, list) or not rows:
+        return raw_json
+
+    catalogue_ids = {
+        int(r.get("additional_work_id"))
+        for r in rows
+        if r.get("additional_work_id") is not None
+    }
+    material_ids = {
+        int(r.get("assigned_material_id"))
+        for r in rows
+        if r.get("assigned_material_id") is not None
+    }
+
+    catalogue_by_id: Dict[int, AdditionalWork] = {}
+    if catalogue_ids:
+        catalogue_by_id = {
+            c.id: c
+            for c in db.query(AdditionalWork).filter(AdditionalWork.id.in_(catalogue_ids)).all()
+        }
+
+    materials_by_id: Dict[int, Material] = {}
+    if material_ids:
+        materials_by_id = {
+            m.id: m for m in db.query(Material).filter(Material.id.in_(material_ids)).all()
+        }
+
+    processed = apply_frente_rows(
+        rows,
+        catalogue_by_id=catalogue_by_id,
+        materials_by_id=materials_by_id,
+    )
+    return json.dumps(processed, ensure_ascii=False)
 
 
 class BudgetService:
@@ -143,7 +201,9 @@ class BudgetService:
         # create `BudgetAdicional` rows anymore (the legacy table is
         # kept for historical rows and could be migrated in a follow-up).
         if raw_additional_works_data is not None:
-            budget.additional_works_data = raw_additional_works_data
+            budget.additional_works_data = _process_additional_works_snapshot(
+                self.repo.db, raw_additional_works_data
+            )
         for item_data in items_data:
             item = BudgetItem(budget_id=budget.id, **item_data)
             self.repo.add(item)
@@ -181,7 +241,9 @@ class BudgetService:
             sketch_data = raw_sketch
         budget = self.repo.update(budget, data)
         if raw_additional_works_data is not None:
-            budget.additional_works_data = raw_additional_works_data
+            budget.additional_works_data = _process_additional_works_snapshot(
+                self.repo.db, raw_additional_works_data
+            )
         _sync_children(budget, self.repo, "additional_works", BudgetAdicional, legacy_additional_works)
         _sync_children(budget, self.repo, "sketch_elements", BudgetSketchElement, sketch_data)
         self.repo.db.commit()

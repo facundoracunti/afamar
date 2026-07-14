@@ -455,6 +455,12 @@ export function addMaterialToList(
   return [
     ...current,
     {
+      // Catalogue row id is preserved on the snapshot so downstream
+      // pickers (e.g. Frente / Regrueso "Asignar material") can refer
+      // back to `materials.id` and the backend can apply the formula
+      // against the right row. Optional + nullable for legacy rows
+      // produced before this field existed.
+      id: mat.id,
       name: mat.name,
       category: mat.category_id ? String(mat.category_id) : '',
       color: mat.color || '',

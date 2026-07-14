@@ -20,18 +20,20 @@ export default function MaterialCard({
   mat, idx, readOnly, updateMaterial, removeMaterial, num, usdRate = 0,
 }: MaterialCardProps) {
   const m2 = Number(mat.length || 0) * Number(mat.width || 0) * (mat.quantity || 1);
-  const subtotal = m2 * (mat.currency === 'USD' ? (mat.price_m2_usd || 0) : (mat.price_m2 || 0));
-  const subtotalUsd = mat.currency === 'ARS' && usdRate > 0 ? subtotal / usdRate : null;
+  const rawSubtotal = m2 * (mat.currency === 'USD' ? (mat.price_m2_usd || 0) : (mat.price_m2 || 0));
+  const subtotal = Math.round(rawSubtotal * 100) / 100;
+  const subtotalUsd =
+    mat.currency === 'ARS' && usdRate > 0 ? Math.round((subtotal / usdRate) * 100) / 100 : null;
 
   const formatPrice = (n: number, currency: 'ARS' | 'USD'): string =>
     currency === 'USD'
-      ? `USD ${n.toLocaleString('es-AR')}`
-      : `$ ${n.toLocaleString('es-AR')}`;
+      ? `USD ${n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      : `$ ${n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const formatSubtotal = (n: number, currency: 'ARS' | 'USD'): string =>
     currency === 'USD'
-      ? `USD ${n.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
-      : `$ ${n.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
+      ? `USD ${n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      : `$ ${n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
     <div className={s['material-card']}>
@@ -127,7 +129,7 @@ export default function MaterialCard({
           Subtotal: {formatSubtotal(subtotal, mat.currency)}
           {subtotalUsd !== null && (
             <span className={s['material-card__subtotal-usd']}>
-              {' '}≈ USD {subtotalUsd.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+              {' '}≈ USD {subtotalUsd.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           )}
         </div>
@@ -135,3 +137,4 @@ export default function MaterialCard({
     </div>
   );
 }
+

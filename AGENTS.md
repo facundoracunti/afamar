@@ -1,8 +1,8 @@
 # AGENTS.md
 
-> **Estado:** Rama `development` con work sin commitear listo para revisar: **Ola 4 — Catálogo de monedas** (`currencies` table + FK en `materials` y `pool_stock`, drop `price_usd`/`currency` string) + **Catálogo de adicionales** (`adicionales` table + CRUD + picker en forms + snapshot en budgets/WO + migraciones Alembic) + adicionales en PDF (`AdicionalPdfRow`, `buildPdfData`, `DocumentPdf.tsx`) + frontend `AdicionalesSection` + `useAdicionalesSelection` hook + full round-trip smoke test (budget → WO snapshot) + adicionales en totals (`useBudgetCalculations`). Ver `PLAN.md` §"Issue tracker" para el desglose completo.
+> **Estado:** Rama `development` con work sin commitear listo para versionar. Cubre: **Ola 4** (catálogo de monedas + catálogo de adicionales + PDF + smoke tests) + **Frente / Regrueso — pricing dinámico** (catálogo `frente` con fórmula `price × 0.13 × multiplier × ml`, picker estilo pools en TRABAJO ADICIONAL, PDF bucketed por material, bugfixes en BudgetPanel, MaterialCard, AdditionalMaterial, useBudgetCalculations).
 >
-> Working tree: ~60+ archivos. `tsc --noEmit` 0 errores · `vite build` pasa · migraciones `a6b7c8d9e1f2` → `d3e4f5a6b7c9` → `c2d3e4f5a6b8` → `b2c3d4e5f6a7` → `a1c2b3d4e5f7` aplicadas a MySQL.
+> Working tree: ~80+ archivos. `tsc --noEmit` 0 errores · `vite build` pasa (12.45s, gzip 878 KB) · migración `ad4d5e6f7g8a_add_frente_support.py` aplicada a MySQL.
 
 ## Sesión: Ola 4 — Catálogo de monedas + Catálogo de adicionales + PDF con adicionales
 
@@ -1645,7 +1645,183 @@ import { t } from '../../utils/translate';
 - `afamar-frontend/src/pages/work-orders/WorkOrderFormPage.tsx` — `console.error` + diagnóstico en catch
 - `afamar-frontend/src/pages/configuration/ConfigurationPage.tsx` — refactor: 1 botón, validación, toasts
 
+---
+
+## Sesión: Frente / Regrueso — pricing dinámico (catálogo `frente` con fórmula `price × 0.13 × multiplier × ml`)
+
+Feature pedida: cuando el operador carga un material con precio por m² y agrega una fila de "Frente / Regrueso" (mano de obra), el sistema aplica automáticamente la fórmula `(precio_m² × 0.13) × multiplicador × metros_lineales` y pre-carga el subtotal. El objetivo es que el operador no tenga que calcular a mano el costo de mano de obra.
+
+### Modelo de dominio (catálogo `adicionales`)
+
+- `adicionales` ya tenía las columnas `name`, `detail`, `price`, `currency_id`. Se le agregaron:
+  - `type: Mapped[str] = mapped_column(String(50), nullable=False, default="flat", server_default="flat")` — `"flat"` (legacy, precio × cantidad) o `"frente"` (nuevo, fórmula).
+  - `formula_constant: Mapped[float | None]` — el multiplicador (default 1.15, configurable en `/admin/additional-works`).
+- Migración Alembic `ad4d5e6f7g8a_add_frente_support.py` aplicada a MySQL.
+
+### Fórmula de cálculo
+
+```
+price_per_meter = material.price_m2 × 0.13 × multiplier
+total            = price_per_meter × linear_meters
+```
+
+Multiplicativa pura. El campo DB se llama `formula_constant` por compatibilidad histórica con la build anterior (cuyo plan era una constante aditiva); en realidad es un multiplicador. Cambio documentado en el docstring del modelo.
+
+### Backend (FastAPI en `app/services/frente_pricing.py`)
+
+- `compute_frente_subtotal(material_price_m2, formula_multiplier, linear_meters)` — corre la fórmula, redondea a 2dp.
+- `resolve_frente_multiplier(catalogue_row)` — devuelve `formula_constant` o 1.15 por defecto.
+- `apply_frente_rows(rows, catalogue_by_id, materials_by_id, now_iso=None)` — itera `additional_works_data` JSON:
+  1. Skip si `type != 'frente'`.
+  2. Skip si falta la fila del catálogo (entró huérfana).
+  3. Skip si falta el material (sin FK).
+  4. **Fallback opcional por nombre**: si el snapshot no trae `assigned_material_id` pero sí `assigned_material_name` (o `material_name`/`materialName`), busca por nombre en el catálogo de materiales. Compatibiliza presupuestos legacy donde `addMaterialToList` aún no guardaba el id.
+  5. Lee `linear_meters`. Si ≤ 0, skip (evita division por cero / total espurio).
+  6. Computa `price_m2` en la moneda del material.
+  7. Aplica la fórmula, congela `price`, `total`, `currency`, `formula_values` con `multiplier`, `material_price_m2_at_selection`, `computed_at`.
+- 14 tests pytest (`tests/test_frente_pricing.py`) — golden path, ARS, USD, multiplicador custom, fallback de nombre, catálogos faltantes, redondeo 2dp, etc.
+
+### Script de migración de datos (`scripts/migrate_fabrication_front.py`)
+
+- Idempotente. Recorre `budgets.fabrication_details` y `work_orders.fabrication_details` buscando filas con `concept == 'FRONT'`.
+- Crea (o reutiliza) una fila del catálogo `additional_works` con `name = "Frente / Regrueso"`, `type = "frente"`, `formula_constant = 1.15`.
+- Por cada fila FRONT existente: la remueve de `fabrication_details` y la agrega al JSON `additional_works_data` con `linear_meters = length / 100` (la convención histórica era cm → m), `assigned_material_id` se intenta resolver del primer material no-alternativa del budget, y `formula_values.constant = 1.15`.
+- Decisión: **migrar (no duplicar)**. Las legacy `FRONT` rows se mueven out de `fabrication_details` y se in como frente. Operador las puede editar/eliminar después.
+- Ejecutado: 4 budgets + 3 work orders migrados a la DB MySQL de desarrollo.
+
+### Backend tests
+
+- **`tests/test_frente_pricing.py`** (14 tests): spec golden, ARS, USD, custom multiplier, missing catalogue row → pass-through, missing material → pass-through, name fallback, zero linear_meters, custom formula, default = 1.15.
+- **`tests/smoke_frente.py`** (live API end-to-end): login → find/create frente catalogue row → pick USD material → POST budget con linear_meters=1.5 → assert response has `price=49.33, total=74.0, multiplier=1.15, m2_at_selection=330.0` → reopen → assert snapshot intacto (frozen) → cleanup.
+
+### Frontend (form picker en `AdditionalWorkSection`)
+
+Mirroring del patrón `PoolSection` ("+ AGREGAR PILETA"). El section carga el catálogo y renderiza un dropdown:
+
+```
+┌─ TRABAJO ADICIONAL ──────────────────────────┐
+│ [ + AGREGAR TRABAJO ADICIONAL        ▾]  │  ← picker global (suma al total)
+│ [ + ASIGNAR FRENTE A MATERIAL      ▾]  │  ← NUEVO, asigna directo
+│   (se muestra solo si hay catálogo frente) │
+└───────────────────────────────────────────┘
+```
+
+- El segundo dropdown lista cada `materials_data` snapshot row (principal + alternativas). Al elegir uno, el section arma un row `frente` pre-asignado a ese material con `linear_meters=1` y los precios pre-calculados, lo inserta en el JSON, y aparece inmediatamente en la lista como card.
+- Helper `buildFrenteSelectionFor(catalogueRow, material, multiplier)` en `utils/frentePricing.ts` arma el row, sin pre-computar el total (lo recalcula la hook con la fórmula real para evitar drift entre helper y backend).
+
+### Hook `useAdditionalWorkSelection` (multi-frente + index-based remove)
+
+Dos bugs latentes en el modelo original (uno-row-por-id):
+
+1. **`add()` reemplazaba** una frente existente con el mismo `additional_work_id`. Imposibilitaba tener 1 frente × Principal + 1 frente × Alternativa.
+2. **`remove(id)` filtraba por `additional_work_id`**, lo que borraba **todas** las frentes que compartían el id. Si el operador tenía Principal + Alternativa y borraba una, se iban ambas.
+
+Fix:
+- `add()` para `type === 'frente'`: append sin dedup. Para flat items, sigue deduplicando por id (preserva el comportamiento histórico — 1 "Pulido" row).
+- `remove(id)` ahora solo borra el **primer** match (consistente con flat items donde solo hay 1).
+- Nueva `removeAt(idx)` que filtra por índice — borra solo esa fila, sin importar el id. La usa el X button del card en `AdditionalWorkSection`.
+
+Tests: 11 tests en `useAdditionalWorkSelection.test.ts` (3 nuevos para multi-frente + index-based remove).
+
+### Frontend tests
+
+- **`src/utils/frentePricing.test.ts`** (17 tests): `computeFrenteTotal` (spec golden 1.5 ml, 1.0 ml, ARS, USD, custom multiplier, zero-input safety), `resolveFrenteMultiplier` (default, explicit, garbage), `buildMaterialGroupOptions` (dedup by id, dedup by name, mixed principal/alternativa, omit empty), `buildFrenteSelectionFor` (USD, alternative sentinel, legacy id=null).
+- **`src/hooks/useAdditionalWorkSelection.test.ts`** (11 tests): parser legacy + frente fields, round-trip, sentinel `__ALT__:`, sync-on-value-change contract, multi-frente safety.
+- **`src/utils/materialGroups.test.ts`** (5 tests): dedup by id, dedup by name, ordering, count + totalM2, alternative flagging.
+- **`src/utils/pdf/buildPdfData.test.ts`** (3 tests): bucketing of additional works across main + alternative sections.
+
+Total: **62/62** tests verdes.
+
+### PDF bucketed by material (`buildPdfData.ts`)
+
+Antes: el `additional_works` se inyectaba en **cada** section via `for (const section of sections) section.additional_works = additional_works;`. Una frente asignada a una alternativa aparecía también en Principal, y viceversa — el cliente no podía ver qué costo pertenecía a qué opción.
+
+Fix:
+- `AdditionalWorkPdfRow.material_name` añadido (campo opcional, internal routing).
+- Pre-bucketing antes de `buildSections`: cada row se mete en `additionalByMaterial[groupKey]` o `additionalCommon`.
+- `buildSections` recibe `addicionalBuckets: { additionalByMaterial, additionalCommon }`.
+- La sección principal consume `additionalCommon + sum(materials.aditionalByMaterial[name])`.
+- Cada sección de alternativa consume `additionalCommon + additionalByMaterial[alt.name]`.
+- Subtotales por sección suman sus adicionais correspondientes (en vez de inyectar el mismo total en todas).
+- El sentinel `__ALT__:NAME` que el picker guarda para alternativas se usa para routing: la sección alternativa se matchea con el `name` extraído del sentinel.
+
+### Bugs varios resueltos en el camino
+
+1. **Presupuesto USD column dividía por usd_rate siempre** — `BudgetPanel.tsx:225`. La fabrication detail con `currency: 'USD'` tenía su `price` ya en USD; el código dividía por `dd` igual. Fix: `precioUsd = d.currency === 'USD' ? d.price : d.price / dd`. Simétrico al de la columna ARS.
+2. **Material subtotal mostraba 50.249 en vez de 50.25** — `MaterialCard.tsx`. Dos causas combinadas: (a) el cálculo `m2 × price_m2` no se redondeaba, (b) `toLocaleString('es-AR', { minimumFractionDigits: 2 })` sin `maximumFractionDigits: 2` usa el default del locale (3dp). Fix: redondear `subtotal` a 2dp al calcular, y agregar `maximumFractionDigits: 2` a `formatSubtotal`/`formatPrice` (defensa en profundidad).
+3. **Presupuesto card mostraba 2dp en algunas filas y no en otras** — `BudgetPanel.tsx`. Tres `toLocaleString({ minimumFractionDigits: 2 })` sin `maximumFractionDigits`: materials USD subtotal, pools USD subtotal, total USD en panelTotals. Fix: agregué `maximumFractionDigits: 2` a las 3.
+
+### Frontend / picker UX
+
+- **`components/budget/AdditionalWorkCard/AdditionalWorkCard.tsx`** — input `linear_meters` con `type="text"` + `inputMode="decimal"` (no `type="number"`) y un sub-componente `LinearMetersInput` con `useState<string>` local. Bug clásico: el `type="number"` controlado re-parseaba `1.` como `1` en cada keystroke, borrando el `.` visual. La solución acepta `.` y `,` como separador decimal, persiste parseFloat, y normaliza a 2dp en blur.
+- **`useAdditionalWorkSelection`** — nuevo `useEffect` bidireccional que re-sincroniza `selections` desde `initialJson` cuando cambia desde afuera. Sin esto, el picker "ASIGNAR FRENTE A MATERIAL" (que escribe directo al prop) dejaba el hook con `selections` stale y la nueva fila no se renderizaba.
+- **`useFormDetails.removeDetalle`** — removido el guard `if (form.fabrication_details.length <= 1) return;`. El operador podía agregar un concepto (zocalo, frente) pero no podía borrarlo si era el único. Ahora la lista puede ir a 0 y muestra el empty state.
+
+### Multi-pane material dedup helper (`utils/materialGroups.ts`)
+
+`buildMaterialGroupOptions(materials)` agrupa por `m.id ?? m.name`, agrega count + totalM2, y renderiza un `MaterialGroupOption` por physical material (no por pane). Helper disponible pero NO consumido por los pickers (mi intento de aplicarlo a `AdditionalMaterial` y `AdditionalWorkCard` rompió working code — revertido). El helper queda exportado para uso futuro.
+
+### Archivos clave modificados
+
+#### Backend
+- `app/models/additional_work.py` — `type`, `formula_constant` columns
+- `app/schemas/additional_work.py` — agregados a Base/Create/Update
+- `app/services/budget.py` — invoca `_process_additional_works_snapshot` para frentes
+- `app/services/budget_calculator.py` — `compute_additional_totals` honra `frozen total` para frentes
+- `app/services/frente_pricing.py` (nuevo) — formula + apply_frente_rows + fallback de nombre
+- `scripts/migrate_fabrication_front.py` (nuevo) — one-shot FRONT migration
+- `alembic/versions/ad4d5e6f7g8a_add_frente_support.py` (nuevo) — additive migration
+- `tests/test_frente_pricing.py` (nuevo) — 14 tests pytest
+- `tests/smoke_frente.py` (nuevo) — live API round-trip
+
+#### Frontend
+- `src/utils/frentePricing.ts` — fórmula + `buildFrenteSelectionFor` + `buildFrenteMaterialOptions` (legacy flat) + `resolveFrenteMultiplier`
+- `src/utils/additionalWorkParse.ts` (nuevo) — pure parser
+- `src/utils/materialGroups.ts` (nuevo) — `buildMaterialGroupOptions` helper (sin consumidores activos)
+- `src/hooks/useAdditionalWorkSelection.ts` — bidir sync + index-based remove + frentes sin dedup
+- `src/hooks/useFormDetails.ts` — `removeDetalle` sin guard; soporta `field === 'material'`
+- `src/hooks/useBudgetCalculations.ts` — frozen `total` para frentes; sumatoria adicional separa ARS/USD
+- `src/components/budget/AdditionalWorkCard/AdditionalWorkCard.tsx` — `LinearMetersInput` con local state string
+- `src/components/budget/AdditionalWorkSection/AdditionalWorkSection.tsx` — picker estilo pools con `+ ASIGNAR FRENTE A MATERIAL`
+- `src/components/budget/AdditionalMaterial/AdditionalMaterial.tsx` — picker revertido al working state
+- `src/components/budget/BudgetPanel/BudgetPanel.tsx` — `precioUsd` por moneda + 2dp en todas las celdas
+- `src/components/materials/MaterialCard/MaterialCard.tsx` — `subtotal` redondeado a 2dp + `formatPrice`/`formatSubtotal` con 2dp
+- `src/components/ui/PdfPreviewModal/DocumentPdf.tsx` — `adicRowBreakdown` para frentes + 2dp en celdas
+- `src/utils/pdf/buildPdfData.ts` — bucketing de `additional_works` por material (global / principal / alternativa)
+- `src/pages/additional-works/AdditionalWorksPage.tsx` — columna "Multiplicador" + form field (default 1.15)
+- `src/types/additionalWork.ts` — agregados a `AdditionalWork`
+- `src/types/budget.ts` — `MaterialInForm.id?: number | null` (catalogue FK)
+- `e2e/05-frente.spec.ts` (nuevo) — Playwright E2E
+
+### Verificación final
+
+- `tsc --noEmit` → 0 errores
+- `vitest --run` → **62/62** tests verdes
+- `vite build` → 12.45s, gzip 878 KB
+- `pytest tests/test_frente_pricing.py` → **14/14** verdes
+- `smoke_frente.py 1.5` (live API) → PASS, total USD 74.00, multiplier=1.15
+- Migración Alembic `ad4d5e6f7g8a_add_frente_support.py` aplicada a MySQL
+- `migrate_fabrication_front.py` → 4 budgets + 3 WO migrados
+
+### Issues conocidos / pendientes
+
+- No hay `tests/e2e` corriendo contra MySQL real (el dev server usa SQLite in-memory). El `smoke_frente.py` se ejecuta contra el backend dev.
+- La dedup de materiales en `AdditionalMaterial` y `AdditionalWorkCard` (que mostré 3 panes idénticos en el picker) quedó en helper standalone, sin aplicar. El comportamiento histórico — duplicar entradas en el dropdown — sigue vigente. Queda como work a futuro si querés.
+- `clamp budget card "máx 2 decimales"` ya está cubierto; el `uso de comas vs puntos` está manejado en el nuevo `LinearMetersInput`.
+
 ## Para crear PR
+
+https://github.com/facundoracunti/afamar/pull/new/refactor
+
+Antes de mergear a `main`:
+1. Probar login + crear cliente + crear budget con Frente / Regrueso (vincular a Principal **y** a Alternativa, borrar uno solo, verificar que el otro sigue).
+2. Crear material con decimales (`2.93`, `1.5`, `0.25`) y verificar que el subtotal muestra 2 cifras (no `50.249`).
+3. Verificar que la card **PRESUPUESTO** muestra 2dp en ARS y USD (no 3).
+4. Generar PDF preview de un budget con alternativa + frente y verificar que el frente de la alternativa **NO** aparece en la sección principal.
+5. Verificar que las imágenes y uploads siguen funcionando.
+6. Confirmar que no hay referencias a `backend/` o `frontend/` en Docker configs.
+7. **Verificar que `npm run build` pasa limpio** (✓ ya pasa — Vite genera ~878KB gzip).
+8. **Limpiar la OT corrupta en la DB** — el log de uvicorn tiene el `id/number`. Una vez identificada, revisar qué campo rompe `model_validate` (probablemente `datetime` malformado o `materials_data` con bytes en vez de string). Si no se puede arreglar el dato, considerar borrarla o agregar un script de cleanup.
 
 https://github.com/facundoracunti/afamar/pull/new/refactor
 

@@ -78,7 +78,24 @@ export interface PoolPdfRow {
  *  the `additional_works` catalogue). The fields are denormalised so the
  *  PDF can render them without round-tripping the catalogue (an
  *  adicional that was active when the budget was created might be
- *  deleted later; the snapshot still renders correctly). */
+ *  deleted later; the snapshot still renders correctly).
+ *
+ *  `frente` rows (`type === 'frente'`) render an inline breakdown
+ *  showing how the price/ml was computed from the assigned material's
+ *  per-m² price (`material_price_per_m2_str`) and the catalogue
+ *  constant (`formula_constant_str`). The frozen `linear_meters` is
+ *  shown as a `quantity`-style figure so the customer can sanity-check
+ *  the input.
+ *
+ *  Per-section routing is driven by the row's `material_name`:
+ *   - `POOL_MATERIAL_GLOBAL` ('__GLOBAL__') or empty → "Extras / Global"
+ *     block (rendered in every section so the customer can compare
+ *     options apples-to-apples).
+ *   - Any plain name → that material's section only (principal or
+ *     alternativa).
+ *   - `'__ALT__:NAME'` (sentinel the picker stores for alternative
+ *     materials) → alternativa section where `alt.name == NAME`.
+ */
 export interface AdditionalWorkPdfRow {
   readonly name: string;
   readonly detail: string | null;
@@ -87,6 +104,24 @@ export interface AdditionalWorkPdfRow {
   readonly quantity: number;
   readonly subtotal_ars: number;
   readonly subtotal_usd: number;
+  /** Pricing mode for this row. `'flat'` (default) renders as a
+   *  conventional price × quantity row; `'frente'` triggers the
+   *  breakdown line below. Optional for backward compat with snapshot
+   *  rows that pre-date the type column. */
+  readonly type?: 'flat' | 'frente';
+  /** Only set for `frente` rows. Linear meters supplied on the form. */
+  readonly linear_meters_str?: string | null;
+  /** Only set for `frente` rows. Per-m² price at selection time, in the
+   *  material's currency (`material_price_m2_at_selection`). */
+  readonly material_price_per_m2_str?: string | null;
+  /** Only set for `frente` rows. The catalogue's `formula_constant`
+   *  used to compute `price/ml`. */
+  readonly formula_constant_str?: string | null;
+  /** Internal routing key — same field used by pools/fabrication to
+   *  bucket rows into sections. Not rendered into the PDF cell.
+   *  `__GLOBAL__` (or empty) → common, anything else → that material's
+   *  section. The picker stores alternative rows as `'__ALT__:NAME'`. */
+  readonly material_name?: string;
 }
 
 export interface CompanyInfo {
@@ -487,6 +522,10 @@ function buildSections(
   pools: PoolInForm[],
   fabricationRows: PdfDataRow[],
   usdRate: number,
+  addicionalBuckets: {
+    additionalByMaterial: Record<string, AdditionalWorkPdfRow[]>;
+    additionalCommon: AdditionalWorkPdfRow[];
+  } = { additionalByMaterial: {}, additionalCommon: [] },
 ): { sections: MaterialSection[]; flatMaterials: MaterialPdfRow[]; flatPools: PoolPdfRow[]; flatFabrication: PdfDataRow[]; subtotalMain: number; subtotalGlobal: number } {
   const mainMaterials = allMaterials.filter((m) => !m.is_alternative);
   const flatMaterials: MaterialPdfRow[] = [];
@@ -553,20 +592,36 @@ function buildSections(
       mainPoolRows.push(...poolsByMaterial[m.name]);
     }
   }
+  // Additional works routed to the main section: common ones go in every
+  // section so the customer can compare options apples-to-apples;
+  // material-scoped ones route by matched material name.
+  const mainAdditional: AdditionalWorkPdfRow[] = [
+    ...addicionalBuckets.additionalCommon,
+  ];
+  for (const m of mainMaterials) {
+    if (addicionalBuckets.additionalByMaterial[m.name]) {
+      mainAdditional.push(...addicionalBuckets.additionalByMaterial[m.name]);
+    }
+  }
+  const mainAdditionArs = mainAdditional.reduce((s, a) => s + a.subtotal_ars, 0);
+  const mainAdditionUsd = mainAdditional.reduce((s, a) => s + a.subtotal_usd, 0);
   const mainSubtotalArs =
     mainMaterialRows.reduce((s, r) => s + r.subtotal_ars, 0) +
     mainPoolRows.reduce((s, r) => s + r.subtotal_ars, 0) +
-    mainFabrication.reduce((s, r) => s + r.subtotal_ars, 0);
+    mainFabrication.reduce((s, r) => s + r.subtotal_ars, 0) +
+    mainAdditionArs;
   const mainSubtotalUsd =
     mainMaterialRows.reduce((s, r) => s + r.subtotal_usd, 0) +
     mainPoolRows.reduce((s, r) => s + r.subtotal_usd, 0) +
-    mainFabrication.reduce((s, r) => s + r.subtotal_usd, 0);
+    mainFabrication.reduce((s, r) => s + r.subtotal_usd, 0) +
+    mainAdditionUsd;
   const mainName = mainMaterials.length === 1 ? mainMaterials[0].name : '';
 
   // ---------- 2) One section per alternative ----------
   // Each alternative gets its own material + linked fab + linked pools +
-  // the COMMON extras (so all options can be compared apples-to-apples).
-  // No auto-promotion — alternatives stay as alternatives with is_main=false.
+  // linked adicionais + the COMMON extras (so all options can be
+  // compared apples-to-apples). No auto-promotion — alternatives stay as
+  // alternatives with is_main=false.
   const builtAlternatives: MaterialSection[] = [];
   alternatives.forEach((alt, idx) => {
     const altMaterialRows = buildMaterialRows([alt], usdRate);
@@ -578,14 +633,24 @@ function buildSections(
       ...poolsCommon,
       ...(poolsByMaterial[alt.name] ?? []),
     ];
+    // Bucket adicionais like fabrication/pools: common goes in every
+    // section; material-scoped rows route to the matching alt.
+    const altAdditional: AdditionalWorkPdfRow[] = [
+      ...addicionalBuckets.additionalCommon,
+      ...(addicionalBuckets.additionalByMaterial[alt.name] ?? []),
+    ];
+    const altAdditionArs = altAdditional.reduce((s, a) => s + a.subtotal_ars, 0);
+    const altAdditionUsd = altAdditional.reduce((s, a) => s + a.subtotal_usd, 0);
     const altSubtotalArs =
       altMaterialRows.reduce((s, r) => s + r.subtotal_ars, 0) +
       altPools.reduce((s, r) => s + r.subtotal_ars, 0) +
-      altFabrication.reduce((s, r) => s + r.subtotal_ars, 0);
+      altFabrication.reduce((s, r) => s + r.subtotal_ars, 0) +
+      altAdditionArs;
     const altSubtotalUsd =
       altMaterialRows.reduce((s, r) => s + r.subtotal_usd, 0) +
       altPools.reduce((s, r) => s + r.subtotal_usd, 0) +
-      altFabrication.reduce((s, r) => s + r.subtotal_usd, 0);
+      altFabrication.reduce((s, r) => s + r.subtotal_usd, 0) +
+      altAdditionUsd;
     builtAlternatives.push({
       title: `ALTERNATIVA ${idx + 1}: ${alt.name}`,
       is_main: false,
@@ -595,7 +660,7 @@ function buildSections(
       materials: altMaterialRows,
       pools: altPools,
       fabrication_details: altFabrication,
-      additional_works: [],
+      additional_works: altAdditional,
       subtotal_ars: altSubtotalArs,
       subtotal_usd: altSubtotalUsd,
     });
@@ -612,7 +677,7 @@ function buildSections(
       materials: mainMaterialRows,
       pools: mainPoolRows,
       fabrication_details: mainFabrication,
-      additional_works: [],
+      additional_works: mainAdditional,
       subtotal_ars: mainSubtotalArs,
       subtotal_usd: mainSubtotalUsd,
     });
@@ -705,7 +770,17 @@ export function buildPdfData({
     const price = Number(row['price']) || 0;
     const quantity = Number(row['quantity']) || 1;
     const totalInSourceCurrency = Number(row['total']) || (price * quantity);
-    return {
+    const rowType: 'flat' | 'frente' = row['type'] === 'frente' ? 'frente' : 'flat';
+    const formulaValues = (row['formula_values'] as Record<string, unknown> | null | undefined) ?? null;
+    // Bucket key for section routing. Same pattern pools / fabrication use:
+    //   - empty / `__GLOBAL__` → common (every section)
+    //   - `'__ALT__:NAME'`     → alternativa section where alt.name == NAME
+    //   - plain name           → that material's section
+    const rawMaterialName = (row['materialName'] ?? row['material_name'] ?? '') as string;
+    const material_name = rawMaterialName && rawMaterialName !== POOL_MATERIAL_GLOBAL
+      ? rawMaterialName
+      : POOL_MATERIAL_GLOBAL;
+    const base: AdditionalWorkPdfRow = {
       name,
       detail,
       currency,
@@ -713,6 +788,24 @@ export function buildPdfData({
       quantity,
       subtotal_ars: currency === 'ARS' ? totalInSourceCurrency : (usdRate > 0 ? totalInSourceCurrency * usdRate : 0),
       subtotal_usd: currency === 'USD' ? totalInSourceCurrency : (usdRate > 0 ? totalInSourceCurrency / usdRate : 0),
+      material_name,
+    };
+    if (rowType !== 'frente') return base;
+    const linearMeters = Number(row['linear_meters']) || 0;
+    const m2AtSelection = Number(formulaValues?.['material_price_m2_at_selection']) || 0;
+    // The backend stores `multiplier` on the snapshot (post-formula-change).
+    // Legacy snapshots produced before the migration carry `constant` — we
+    // surface the value either way for the breakdown line.
+    const multiplier = Number(formulaValues?.['multiplier'] ?? formulaValues?.['constant']);
+    return {
+      ...base,
+      type: 'frente',
+      // Reuse `quantity` to carry `ml` for the renderer; supply a
+      // separate string for the breakdown line.
+      quantity: linearMeters,
+      linear_meters_str: linearMeters > 0 ? `${linearMeters.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ml` : null,
+      material_price_per_m2_str: m2AtSelection > 0 ? fmtMoneyPdf(m2AtSelection) : null,
+      formula_constant_str: Number.isFinite(multiplier) ? fmtMoneyPdf(multiplier) : null,
     };
   });
   const additionalWorksSubtotalArs = additional_works
@@ -721,6 +814,25 @@ export function buildPdfData({
   const additionalWorksSubtotalUsd = additional_works
     .filter((a) => a.currency === 'USD')
     .reduce((sum, a) => sum + a.subtotal_usd, 0);
+
+  // Bucket adicionais by their `material_name` so each principal /
+  // alternativa section only carries its own costs:
+  //   - POOL_MATERIAL_GLOBAL or empty → common (every section)
+  //   - '__ALT__:NAME'             → alternativa section where alt.name == NAME
+  //   - 'NAME'                      → principal / alternativa section by name match
+  const adtByMaterial: Record<string, AdditionalWorkPdfRow[]> = {};
+  const adtCommon: AdditionalWorkPdfRow[] = [];
+  for (const row of additional_works) {
+    const key = row.material_name ?? POOL_MATERIAL_GLOBAL;
+    const isAlt = typeof key === 'string' && key.startsWith('__ALT__:');
+    const bucketKey = isAlt ? key.slice('__ALT__:'.length) : key;
+    if (!bucketKey || bucketKey === POOL_MATERIAL_GLOBAL) {
+      adtCommon.push(row);
+    } else {
+      if (!adtByMaterial[bucketKey]) adtByMaterial[bucketKey] = [];
+      adtByMaterial[bucketKey].push(row);
+    }
+  }
 
   const {
     sections,
@@ -735,17 +847,8 @@ export function buildPdfData({
     pools,
     fabricationRows,
     usdRate,
+    { additionalByMaterial: adtByMaterial, additionalCommon: adtCommon },
   );
-
-  // Inject additional works into every section (they're common to all
-  // options, like fabrication details and pools).
-  const additionalWorksTotalArs = additional_works.reduce((s, a) => s + a.subtotal_ars, 0);
-  const additionalWorksTotalUsd = additional_works.reduce((s, a) => s + a.subtotal_usd, 0);
-  for (const section of sections) {
-    section.additional_works = additional_works;
-    section.subtotal_ars += additionalWorksTotalArs;
-    section.subtotal_usd += additionalWorksTotalUsd;
-  }
 
   // Document subtotal = main section (includes additional works now) + global.
   // Alternatives are quoted but not summed into the grand total (the customer

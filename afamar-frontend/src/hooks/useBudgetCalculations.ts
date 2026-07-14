@@ -10,6 +10,18 @@ interface AdditionalWorkRow {
   quantity?: number;
   total?: number;
   materialName?: string;
+  type?: 'flat' | 'frente';
+  linear_meters?: number;
+  assigned_material_id?: number | null;
+  formula_values?: {
+    material_price_m2_at_selection?: number;
+    /** Post-multiplier-formula builds write `multiplier`; legacy rows from
+     *  the additive-formula builds wrote `constant`. The downstream code
+     *  reads whichever is present. */
+    multiplier?: number;
+    constant?: number;
+    computed_at?: string;
+  } | null;
 }
 
 export function useBudgetCalculations(
@@ -50,12 +62,21 @@ export function useBudgetCalculations(
       try { const p = JSON.parse(additionalWorksRaw); if (Array.isArray(p)) additionalWorksParsed = p as AdditionalWorkRow[]; }
       catch { /* ignore malformed JSON */ }
     }
+    // `frente` rows carry a frozen `total` (set by the picker when the
+    // operator last touched the material / linear_meters fields, and
+    // persisted by the backend at save time). Honor that value instead of
+    // recomputing `price * quantity` so the live preview matches what the
+    // PDF will print.
+    const additionalContribution = (a: AdditionalWorkRow): number => {
+      if (a.type === 'frente') return Number(a.total ?? 0);
+      return Number(a.total ?? (Number(a.price ?? 0) * Number(a.quantity ?? 1)));
+    };
     const additionalArs = additionalWorksParsed
       .filter((a) => (a.currency ?? 'ARS') !== 'USD')
-      .reduce((sum, a) => sum + ((a.total ?? (a.price ?? 0) * (a.quantity ?? 1))), 0);
+      .reduce((sum, a) => sum + additionalContribution(a), 0);
     const additionalUsd = additionalWorksParsed
       .filter((a) => (a.currency ?? 'ARS') === 'USD')
-      .reduce((sum, a) => sum + ((a.total ?? (a.price ?? 0) * (a.quantity ?? 1))), 0);
+      .reduce((sum, a) => sum + additionalContribution(a), 0);
 
     const matsMain = materialsData.filter((m: MaterialInForm) => !m.is_alternative);
     const matArs = matsMain

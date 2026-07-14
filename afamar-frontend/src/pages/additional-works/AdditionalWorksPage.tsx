@@ -13,7 +13,7 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
 import { useNotify } from '../../context/NotificationContext';
-import type { AdditionalWork } from '../../types/additionalWork';
+import type { AdditionalWork, AdditionalWorkType } from '../../types/additionalWork';
 import styles from './AdditionalWorksPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -25,6 +25,8 @@ type AdditionalWorkFormData = {
   detail: string;
   price: number;
   currency: 'ARS' | 'USD';
+  type: AdditionalWorkType;
+  formula_constant: number | null;
 };
 
 const EMPTY_FORM: AdditionalWorkFormData = {
@@ -32,6 +34,13 @@ const EMPTY_FORM: AdditionalWorkFormData = {
   detail: '',
   price: 0,
   currency: 'ARS',
+  type: 'flat',
+  formula_constant: null,
+};
+
+const TYPE_LABELS: Record<AdditionalWorkType, string> = {
+  flat: 'Plano (cant. × precio)',
+  frente: 'Frente / Regrueso (fórmula)',
 };
 
 export default function AdditionalWorksPage() {
@@ -60,6 +69,8 @@ export default function AdditionalWorksPage() {
         detail: item.detail || '',
         price: item.price,
         currency: item.currency,
+        type: item.type || 'flat',
+        formula_constant: item.formula_constant ?? null,
       });
     } else {
       setEditItem(null);
@@ -74,13 +85,21 @@ export default function AdditionalWorksPage() {
       notify('El nombre es obligatorio', 'error');
       return;
     }
+    if (form.type === 'frente' && (form.formula_constant == null || Number.isNaN(Number(form.formula_constant)))) {
+      notify('Para tipo Frente / Regrueso indicá el multiplicador de fórmula', 'error');
+      return;
+    }
     setSaving(true);
     try {
+      const payload: AdditionalWorkFormData = {
+        ...form,
+        formula_constant: form.type === 'frente' ? Number(form.formula_constant) : null,
+      };
       if (editItem) {
-        await updateAdditionalWork(editItem.id, form);
+        await updateAdditionalWork(editItem.id, payload);
         notify('Trabajo adicional actualizado', 'success');
       } else {
-        await createAdditionalWork(form);
+        await createAdditionalWork(payload);
         notify('Trabajo adicional creado', 'success');
       }
       queryClient.invalidateQueries({ queryKey: ADDITIONAL_WORKS_KEY });
@@ -129,6 +148,7 @@ export default function AdditionalWorksPage() {
                 <tr>
                   <th>Nombre</th>
                   <th>Detalle</th>
+                  <th>Tipo</th>
                   <th>Precio</th>
                   <th>Moneda</th>
                   <th style={{ width: 160 }}>Acciones</th>
@@ -141,9 +161,35 @@ export default function AdditionalWorksPage() {
                     <td style={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {a.detail || <span style={{ color: '#94a3b8' }}>—</span>}
                     </td>
+                    <td>
+                      <span
+                        className="badge"
+                        style={{
+                          background: a.type === 'frente' ? '#fde68a' : '#e2e8f0',
+                          color: a.type === 'frente' ? '#92400e' : '#334155',
+                        }}
+                        title={TYPE_LABELS[a.type || 'flat']}
+                      >
+                        {a.type === 'frente' ? 'Frente' : 'Plano'}
+                      </span>
+                      {a.type === 'frente' && a.formula_constant != null ? (
+                        <span
+                          style={{ marginLeft: 6, fontSize: 11, color: '#64748b' }}
+                          title="Multiplicador aplicado al cálculo automático (default 1.15)."
+                        >
+                          (multiplicador {Number(a.formula_constant).toLocaleString('es-AR', { minimumFractionDigits: 2 })})
+                        </span>
+                      ) : null}
+                    </td>
                     <td style={{ fontWeight: 600 }}>
-                      {a.currency === 'USD' ? 'USD ' : '$ '}
-                      {Number(a.price || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                      {a.type === 'frente'
+                        ? <span style={{ color: '#94a3b8' }}>automático</span>
+                        : (
+                          <>
+                            {a.currency === 'USD' ? 'USD ' : '$ '}
+                            {Number(a.price || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                          </>
+                        )}
                     </td>
                     <td>
                       <span
@@ -180,7 +226,7 @@ export default function AdditionalWorksPage() {
                 ))}
                 {(!data || data.length === 0) && (
                   <tr>
-                    <td colSpan={5} style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>
+                    <td colSpan={6} style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>
                       No hay trabajos adicionales configurados. Hacé click en "Nuevo Trabajo Adicional" para empezar.
                     </td>
                   </tr>
@@ -195,7 +241,7 @@ export default function AdditionalWorksPage() {
         isOpen={showForm}
         onClose={() => setShowForm(false)}
         title={editItem ? 'Editar Trabajo Adicional' : 'Nuevo Trabajo Adicional'}
-        width="600px"
+        width="640px"
       >
         <form onSubmit={handleSave}>
           <div className="form-group">
@@ -206,7 +252,7 @@ export default function AdditionalWorksPage() {
               autoFocus
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="Ej: Pulido de bordes, Traslado, etc."
+              placeholder="Ej: Pulido de bordes, Frente / Regrueso, Traslado, etc."
             />
           </div>
           <div className="form-group">
@@ -221,15 +267,17 @@ export default function AdditionalWorksPage() {
           </div>
           <div className={s['additional-works__form-row']}>
             <div className="form-group">
-              <label>Precio</label>
-              <input
+              <label>Tipo</label>
+              <select
                 className="input"
-                type="number"
-                step="0.01"
-                min="0"
-                value={form.price || ''}
-                onChange={(e) => setForm({ ...form, price: Number(e.target.value) || 0 })}
-              />
+                value={form.type}
+                onChange={(e) =>
+                  setForm({ ...form, type: e.target.value as AdditionalWorkType })
+                }
+              >
+                <option value="flat">{TYPE_LABELS.flat}</option>
+                <option value="frente">{TYPE_LABELS.frente}</option>
+              </select>
             </div>
             <div className="form-group">
               <label>Moneda</label>
@@ -241,6 +289,56 @@ export default function AdditionalWorksPage() {
                 <option value="ARS">ARS (Pesos)</option>
                 <option value="USD">USD (Dólares)</option>
               </select>
+            </div>
+          </div>
+          <div className={s['additional-works__form-row']}>
+            <div className="form-group">
+              <label>Precio{form.type === 'frente' ? ' (referencial)' : ''}</label>
+              <input
+                className="input"
+                type="number"
+                step="0.01"
+                min="0"
+                value={form.price || ''}
+                onChange={(e) => setForm({ ...form, price: Number(e.target.value) || 0 })}
+                disabled={form.type === 'frente'}
+                title={
+                  form.type === 'frente'
+                    ? 'Para Frente / Regrueso el precio se calcula automáticamente; este campo queda como referencial.'
+                    : undefined
+                }
+              />
+            </div>
+            <div className="form-group">
+              <label>
+                Multiplicador de fórmula
+                {form.type === 'frente' ? ' *' : ''}
+              </label>
+              <input
+                className="input"
+                type="number"
+                step="0.01"
+                min="0"
+                value={form.formula_constant ?? ''}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    formula_constant: e.target.value === '' ? null : Number(e.target.value),
+                  })
+                }
+                disabled={form.type !== 'frente'}
+                placeholder={form.type === 'frente' ? '1.15' : 'No aplica'}
+                title={
+                  form.type === 'frente'
+                    ? 'Multiplicador que escala el 13% del precio por m² del material. Default 1.15.'
+                    : 'Solo aplica cuando el tipo es Frente / Regrueso.'
+                }
+              />
+              {form.type === 'frente' ? (
+                <small style={{ color: '#64748b' }}>
+                  Fórmula: (precio_m² × 0.13) × este multiplicador × los metros lineales del presupuesto.
+                </small>
+              ) : null}
             </div>
           </div>
           <div className={s['additional-works__form-actions']}>

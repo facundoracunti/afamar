@@ -41,6 +41,11 @@ export interface BudgetAdditionalSchema {
 }
 
 export interface MaterialInForm {
+  /** Catalogue `materials.id` for this material on the form snapshot. Optional
+   *  for legacy rows that pre-date the Frente / Regrueso flow (when the
+   *  snapshot only carried `name` + prices). The backend uses this for the
+   *  `assigned_material_id` lookup so the formula has a real FK to resolve. */
+  id?: number | null;
   name: string;
   category?: string;
   color?: string;

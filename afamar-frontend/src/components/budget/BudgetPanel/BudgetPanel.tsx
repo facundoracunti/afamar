@@ -220,10 +220,19 @@ export default function BudgetPanel({
                 {fabricationDetails
                   .filter((d) => Number(d.price) > 0)
                   .map((d, i) => {
-                    // Fabrication detail prices are always in ARS; the
-                    // USD column is the ARS value divided by `usd_rate`.
+                    // After the currencies refactor, a fabrication detail
+                    // can carry `currency: 'USD'` when the bound material is
+                    // priced in dollars. For USD rows the displayed USD
+                    // subtotal is the raw value; for ARS rows it's the
+                    // value divided by the day's USD rate. (The ARS
+                    // column already handles the inverse correctly above.)
                     const dd2 = Number(form.usd_rate);
-                    const precioUsd = dd2 > 0 ? Number(d.price) / dd2 : 0;
+                    const precioUsd =
+                      d.currency === 'USD'
+                        ? Number(d.price)
+                        : dd2 > 0
+                          ? Number(d.price) / dd2
+                          : 0;
                     return (
                       <div key={i} className={s['lineItem']}>
                         <span>
@@ -257,7 +266,7 @@ export default function BudgetPanel({
                         {m.quantity > 1 ? ` x${m.quantity}` : ''}
                       </span>
                       <span className={s['lineItem__value']}>
-                        USD {sub.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                        USD {sub.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </div>
                   ) : null;
@@ -277,7 +286,7 @@ export default function BudgetPanel({
                         {pt.quantity > 1 ? ` (x${pt.quantity})` : ''}
                       </span>
                       <span className={s['lineItem__value']}>
-                        USD {(precioUsd * (pt.quantity || 1)).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                        USD {(precioUsd * (pt.quantity || 1)).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </div>
                   );
@@ -367,7 +376,7 @@ export default function BudgetPanel({
               <div className={s['panelTotals__col']}>
                 <div className={s['panelTotals__label']}>TOTAL USD</div>
                 <div className={`${s['panelTotals__value']} ${s['panelTotals__value--usd']}`}>
-                  USD {form.total_usd.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                  USD {form.total_usd.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
               </div>
             </div>

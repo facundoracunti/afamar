@@ -118,7 +118,12 @@ export function useFormDetails({
 
   const removeDetalle = useCallback(
     (idx: number) => {
-      if (form.fabrication_details.length <= 1) return;
+      // Allow removing the last fabrication row — `fabrication_details` is a
+      // normal list, and the UI's "Sin materiales adicionales" empty state
+      // takes over when length drops to zero. The previous guard
+      // (`if (length <= 1) return;`) blocked the operator from deleting
+      // the only row they had just added, which broke the Materiales
+      // Adicionales removal flow.
       update('fabrication_details', form.fabrication_details.filter((_, i) => i !== idx));
     },
     [form.fabrication_details, update]

@@ -14,61 +14,292 @@ fields the budget needs to render and to survive catalogue edits:
       "currency": "ARS",
       "quantity": 2,
       "total": 30000.0
+    },
+    {
+      "additional_work_id": 5,
+      "type": "frente",
+      "name": "Frente / Regrueso",
+      "linear_meters": 2.93,
+      "assigned_material_id": 42,
+      "price": 49.34,
+      "total": 144.57,
+      "currency": "USD",
+      "formula_values": { "material_price_m2_at_selection": 330.0,
+                          "multiplier": 1.15,
+                          "computed_at": "..." }
     }]
 
-The `total` is computed at selection time and frozen into the JSON so
-historical budgets don't drift when the operator edits the
-catalogue.
+The total is recomputed client-side at edit time and frozen into the
+JSON so historical budgets don't drift when the operator edits the
+catalogue or the assigned material.
 */
-import { useCallback, useEffect, useState } from 'react';
+export { useEffect, useMemo, useState, useCallback } from 'react';
+export type { AdditionalWork } from '../types/additionalWork';
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { getAdditionalWorks } from '../api/resources/additionalWorks';
-import type { AdditionalWork } from '../types/additionalWork';
+import { AdditionalWork } from '../types/additionalWork';
 import { POOL_MATERIAL_GLOBAL } from '../types/budget';
+import {
+  FrenteMaterialOption,
+  computeFrenteTotal,
+  resolveFrenteMultiplier,
+} from '../utils/frentePricing';
+import {
+  AdditionalWorkSelection as ParseAdditionalWorkSelection,
+  parseAdditionalWorksData,
+  serializeAdditionalWorksData,
+} from '../utils/additionalWorkParse';
 
-export interface AdditionalWorkSelection {
-  /** Null when the snapshot predates the catalogue (rare — only when
-   *  the operator deleted the catalogue row and left the budget alone).
-   *  In that case the name field still has the historical value. */
-  additional_work_id: number | null;
-  name: string;
-  detail: string | null;
-  price: number;
-  currency: 'ARS' | 'USD';
-  quantity: number;
-  total: number;
-  /** Optional link to the material/alternative this adicional belongs to:
-   *  - `POOL_MATERIAL_GLOBAL` ('__GLOBAL__') → global / extras section
-   *    (common to all options, adds to every subtotal).
-   *  - any other string → matches a material name. */
-  materialName?: string;
+// Re-export so existing callers that import from the hook keep working.
+export {
+  parseAdditionalWorksData,
+  serializeAdditionalWorksData,
+} from '../utils/additionalWorkParse';
+export type { AdditionalWorkSelection } from '../utils/additionalWorkParse';
+
+interface AddArgs {
+  catalogueItem: AdditionalWork;
+  quantity?: number;
+  initialAssignedMaterialId?: number | null;
+  initialLinearMeters?: number;
 }
 
-export function parseAdditionalWorksData(json: string | null | undefined): AdditionalWorkSelection[] {
-  if (!json) return [];
-  try {
-    const parsed = JSON.parse(json);
-    if (Array.isArray(parsed)) {
-      return parsed.filter((row): row is AdditionalWorkSelection => {
-        return (
-          row != null &&
-          typeof row === 'object' &&
-          typeof row.name === 'string' &&
-          typeof row.price === 'number' &&
-          typeof row.quantity === 'number' &&
-          (row.currency === 'ARS' || row.currency === 'USD')
-        );
+/** Hook that owns the selection + a small set of mutators the picker UI
+ *  needs. State lives in the parent (BudgetForm / WorkOrderForm); the
+ *  hook just bundles the parsing and the mutators so the JSX stays
+ *  declarative. */
+export function useAdditionalWorkSelection(initialJson: string | null | undefined) {
+  const [selections, setSelections] = useState<ParseAdditionalWorkSelection[]>(() =>
+    parseAdditionalWorksData(initialJson),
+  );
+
+  // Re-sync local state from the parent's `value` whenever it changes
+  // *from outside* the hook's own mutations. Without this, sibling
+  // pickers (e.g. the per-material "Asignar Frente / Regrueso" dropdown
+  // in AdditionalWorkSection) write through `onChange` directly and the
+  // local `selections` array stays stale — so newly added rows never
+  // render even though the parent has them.
+  //
+  // Idempotent: the `JSON.stringify` short-circuit avoids re-rendering
+  // when our own `useEffect([selections])` writes the same JSON back
+  // through the parent.
+  useEffect(() => {
+    const next = parseAdditionalWorksData(initialJson);
+    setSelections((prev) => {
+      if (JSON.stringify(prev) === JSON.stringify(next)) return prev;
+      return next;
+    });
+  }, [initialJson]);
+
+  const add = useCallback((args: AddArgs) => {
+    const { catalogueItem, quantity = 1, initialAssignedMaterialId = null, initialLinearMeters = 0 } = args;
+    setSelections((prev) => {
+      // Flat items: dedupe by `additional_work_id` so a catalogue item
+      // appears at most once (you don't want 3 "Pulido" rows).
+      // Frente items: append WITHOUT deduping — the operator needs one
+      // row per material (e.g. one per principal + one per alternativa)
+      // and the catalogue id is the same for all of them. Removing by
+      // index (`removeAt`) is the safe way to drop a specific row.
+      const base = catalogueItem.type === 'frente'
+        ? prev
+        : prev.filter((s) => s.additional_work_id !== catalogueItem.id);
+      if (catalogueItem.type === 'frente') {
+        const linear_meters = Math.max(0, Number(initialLinearMeters) || 0);
+        const newRow: ParseAdditionalWorkSelection = {
+          additional_work_id: catalogueItem.id,
+          name: catalogueItem.name,
+          detail: catalogueItem.detail,
+          price: 0,
+          currency: catalogueItem.currency,
+          quantity: 1,
+          total: 0,
+          materialName: POOL_MATERIAL_GLOBAL,
+          type: 'frente',
+          linear_meters,
+          assigned_material_id: initialAssignedMaterialId,
+          formula_values: null,
+        };
+        return [...base, newRow];
+      }
+      const total = Math.round((catalogueItem.price * quantity) * 100) / 100;
+      return [
+        ...base,
+        {
+          additional_work_id: catalogueItem.id,
+          name: catalogueItem.name,
+          detail: catalogueItem.detail,
+          price: catalogueItem.price,
+          currency: catalogueItem.currency,
+          quantity,
+          total,
+          materialName: POOL_MATERIAL_GLOBAL,
+          type: 'flat',
+        },
+      ];
+    });
+  }, []);
+
+  const remove = useCallback((additionalWorkId: number | null) => {
+    if (additionalWorkId == null) return;
+    setSelections((prev) => {
+      // Only drop the FIRST matching row. Used for flat items where the
+      // catalogue id is unique within `selections`; for frentes the
+      // parent should call `removeAt(idx)` so the user can pick which
+      // row to drop without nuking the rest of the same catalogue id.
+      const idx = prev.findIndex((s) => s.additional_work_id === additionalWorkId);
+      if (idx < 0) return prev;
+      return [...prev.slice(0, idx), ...prev.slice(idx + 1)];
+    });
+  }, []);
+
+  /** Remove the row at `idx` regardless of catalogue id. Use this from
+   *  the X button on the additional-work card so deleting a frente
+   *  tied to one material doesn't accidentally drop the frentes tied
+   *  to other materials (which all share the same catalogue id). */
+  const removeAt = useCallback((idx: number) => {
+    setSelections((prev) => prev.filter((_, i) => i !== idx));
+  }, []);
+
+  const updateQuantity = useCallback((additionalWorkId: number | null, quantity: number) => {
+    if (quantity <= 0) return;
+    setSelections((prev) =>
+      prev.map((s) => {
+        if (s.additional_work_id !== additionalWorkId) return s;
+        const total = Math.round((s.price * quantity) * 100) / 100;
+        return { ...s, quantity, total };
+      }),
+    );
+  }, []);
+
+  const updateField = useCallback(
+    (
+      idx: number,
+      field: string,
+      value: unknown,
+      options?: {
+        catalogueItem?: AdditionalWork | null;
+        materialOptions?: FrenteMaterialOption[];
+      },
+    ) => {
+      setSelections((prev) => {
+        const next = [...prev];
+        const row = { ...next[idx] };
+        if (field === 'price') {
+          row.price = Number(value) || 0;
+          if (row.type !== 'frente') {
+            row.total = Math.round((row.price * row.quantity) * 100) / 100;
+          }
+        } else if (field === 'quantity') {
+          row.quantity = Number(value) || 1;
+          if (row.type !== 'frente') {
+            row.total = Math.round((row.price * row.quantity) * 100) / 100;
+          }
+        } else if (field === 'materialName') {
+          row.materialName = String(value ?? POOL_MATERIAL_GLOBAL);
+        } else if (field === 'linear_meters') {
+          row.linear_meters = Math.max(0, Number(value) || 0);
+          if (
+            row.type === 'frente' &&
+            options?.catalogueItem &&
+            options?.materialOptions &&
+            row.assigned_material_id != null
+          ) {
+            const matOpt = options.materialOptions.find((m) => m.id === row.assigned_material_id);
+            const multiplier = resolveFrenteMultiplier(options.catalogueItem);
+            const computed = computeFrenteTotal(
+              matOpt?.price_per_m2 ?? 0,
+              multiplier,
+              row.linear_meters,
+            );
+            row.price = computed.price_per_meter;
+            row.total = computed.total;
+            row.currency = matOpt?.currency ?? row.currency;
+            row.formula_values = {
+              material_price_m2_at_selection: matOpt?.price_per_m2 ?? 0,
+              multiplier,
+              computed_at: new Date().toISOString(),
+            };
+          }
+        } else if (field === 'assigned_material_id') {
+          // The picker's <select> emits the material's catalogue id (preferred)
+          // or — for legacy snapshots that pre-date the id field — the material's
+          // name. We accept both. The backend `apply_frente_rows` will:
+          //   - use the id directly when present (happy path);
+          //   - resolve the id by name otherwise (legacy budget rows).
+          if (value === null || value === undefined || value === '') {
+            row.assigned_material_id = null;
+          } else {
+            const numeric = Number(value);
+            if (Number.isFinite(numeric) && options?.materialOptions?.some((m) => m.id === numeric)) {
+              row.assigned_material_id = numeric;
+            } else {
+              // Treat the value as a material name fallback — keep the id
+              // null but surface the name so the backend can look it up.
+              (row as Record<string, unknown>).assigned_material_name = String(value);
+              row.assigned_material_id = null;
+            }
+          }
+          if (
+            row.type === 'frente' &&
+            options?.catalogueItem &&
+            options?.materialOptions &&
+            row.assigned_material_id != null
+          ) {
+            const matOpt = options.materialOptions.find((m) => m.id === row.assigned_material_id);
+            const multiplier = resolveFrenteMultiplier(options.catalogueItem);
+            const computed = computeFrenteTotal(
+              matOpt?.price_per_m2 ?? 0,
+              multiplier,
+              Number(row.linear_meters || 0),
+            );
+            row.price = computed.price_per_meter;
+            row.total = computed.total;
+            row.currency = matOpt?.currency ?? row.currency;
+            row.formula_values = {
+              material_price_m2_at_selection: matOpt?.price_per_m2 ?? 0,
+              multiplier,
+              computed_at: new Date().toISOString(),
+            };
+          } else if (row.assigned_material_id == null) {
+            row.price = 0;
+            row.total = 0;
+            row.formula_values = null;
+          }
+        }
+        next[idx] = row;
+        return next;
       });
-    }
-  } catch {
-    // Treat malformed JSON as empty — the form will just show no
-    // adicionales on load and the user can re-add them.
-  }
-  return [];
-}
+    },
+    [],
+  );
 
-export function serializeAdditionalWorksData(items: AdditionalWorkSelection[]): string {
-  return JSON.stringify(items);
+  const totalArs = useMemo(
+    () =>
+      selections
+        .filter((s) => s.currency === 'ARS')
+        .reduce((sum, s) => sum + s.total, 0),
+    [selections],
+  );
+  const totalUsd = useMemo(
+    () =>
+      selections
+        .filter((s) => s.currency === 'USD')
+        .reduce((sum, s) => sum + s.total, 0),
+    [selections],
+  );
+
+  return {
+    selections,
+    add,
+    remove,
+    removeAt,
+    updateQuantity,
+    updateField,
+    totalArs,
+    totalUsd,
+  };
 }
 
 /** Fetch the catalogue (active rows only). Used by the picker. */
@@ -81,89 +312,23 @@ export function useAdditionalWorksCatalogue() {
     (async () => {
       try {
         const data = await getAdditionalWorks();
-        if (!cancelled) setItems(data);
+        if (!cancelled) setItems(data as AdditionalWork[]);
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return { items, loading };
 }
 
-/** Hook that owns the selection + a small set of mutators the picker UI
- *  needs. State lives in the parent (BudgetForm / WorkOrderForm); the
- *  hook just bundles the parsing and the mutators so the JSX stays
- *  declarative. */
-export function useAdditionalWorkSelection(initialJson: string | null | undefined) {
-  const [selections, setSelections] = useState<AdditionalWorkSelection[]>(() =>
-    parseAdditionalWorksData(initialJson)
-  );
+// Silence the "unused import" warning under noUnusedLocals — `POOL_MATERIAL_GLOBAL`
+// is used at runtime inside the `add` callback below.
+void POOL_MATERIAL_GLOBAL;
 
-  const add = useCallback((item: AdditionalWork, quantity: number) => {
-    if (quantity <= 0) return;
-    setSelections((prev) => {
-      // Replace if the same adicional is already selected (so the picker
-      // doesn't show duplicates and the user can update the quantity in
-      // place).
-      const filtered = prev.filter((s) => s.additional_work_id !== item.id);
-      const total = Math.round((item.price * quantity) * 100) / 100;
-      return [
-        ...filtered,
-        {
-          additional_work_id: item.id,
-          name: item.name,
-          detail: item.detail,
-          price: item.price,
-          currency: item.currency,
-          quantity,
-          total,
-          materialName: POOL_MATERIAL_GLOBAL,
-        },
-      ];
-    });
-  }, []);
 
-  const remove = useCallback((additionalWorkId: number | null) => {
-    setSelections((prev) => prev.filter((s) => s.additional_work_id !== additionalWorkId));
-  }, []);
 
-  const updateQuantity = useCallback((additionalWorkId: number | null, quantity: number) => {
-    if (quantity <= 0) return;
-    setSelections((prev) =>
-      prev.map((s) => {
-        if (s.additional_work_id !== additionalWorkId) return s;
-        const total = Math.round((s.price * quantity) * 100) / 100;
-        return { ...s, quantity, total };
-      })
-    );
-  }, []);
 
-  const updateField = useCallback((idx: number, field: string, value: unknown) => {
-    setSelections((prev) => {
-      const next = [...prev];
-      const row = { ...next[idx] };
-      if (field === 'price') {
-        row.price = Number(value) || 0;
-        row.total = Math.round((row.price * row.quantity) * 100) / 100;
-      } else if (field === 'quantity') {
-        row.quantity = Number(value) || 1;
-        row.total = Math.round((row.price * row.quantity) * 100) / 100;
-      } else if (field === 'materialName') {
-        row.materialName = String(value ?? POOL_MATERIAL_GLOBAL);
-      }
-      next[idx] = row;
-      return next;
-    });
-  }, []);
-
-  const totalArs = selections
-    .filter((s) => s.currency === 'ARS')
-    .reduce((sum, s) => sum + s.total, 0);
-  const totalUsd = selections
-    .filter((s) => s.currency === 'USD')
-    .reduce((sum, s) => sum + s.total, 0);
-
-  return { selections, add, remove, updateQuantity, updateField, totalArs, totalUsd };
-}

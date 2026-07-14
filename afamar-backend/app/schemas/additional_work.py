@@ -14,6 +14,13 @@ class AdditionalWorkBase(BaseModel):
     # service translates it into `currency_id` on save.
     price: float = 0.0
     currency: str = "ARS"
+    # Pricing mode. `flat` (default) uses `price * quantity`. `frente`
+    # applies the formula (material.price_m2 * 0.13) + formula_constant,
+    # multiplied by linear meters supplied on the budget row.
+    type: str = "flat"
+    # Constant used in the `frente` formula (units match the material
+    # currency; default 1.15 for newly created `frente` rows).
+    formula_constant: float | None = None
 
 
 class AdditionalWorkCreate(AdditionalWorkBase):
@@ -25,6 +32,8 @@ class AdditionalWorkUpdate(BaseModel):
     detail: str | None = None
     price: float | None = None
     currency: str | None = None
+    type: str | None = None
+    formula_constant: float | None = None
 
 
 class AdditionalWorkResponse(AdditionalWorkBase, BaseResponse):

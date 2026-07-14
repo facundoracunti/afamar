@@ -117,6 +117,7 @@ const styles = StyleSheet.create({
   optSectionSubtotalLbl: { fontSize: 8, fontWeight: 'bold', color: SLATE_700, marginRight: 8 },
   optSectionSubtotalVal: { fontSize: 9, fontWeight: 'bold', color: HEADER_RED },
   optSectionSubtotalUsd: { fontSize: 8, color: BLUE_700, marginLeft: 6 },
+  optAdicionalBreakdown: { fontSize: 7, color: SLATE_500, fontStyle: 'italic', marginTop: 1 },
   // ===== SECTION TITLE =====
   // ===== CROQUIS =====
   // The sketch image is rendered at the same aspect ratio as the editor's
@@ -346,6 +347,25 @@ function adicRowCells(a: import('../../../utils/pdf/buildPdfData').AdditionalWor
   ];
 }
 
+/** For `frente` rows the picker freezes a small audit trail
+ *  (`formula_values` on the JSON snapshot) that explains how the
+ *  price/ml was derived. We surface it as a small line under the row so
+ *  the customer can verify the inputs without taking the catalogue on
+ *  faith. Returns `null` for non-`frente` rows.
+ *
+ *  Multiplicative formula (per business rule):
+ *      price/ml = price_m² × 0.13 × multiplier
+ *      total    = price_m² × 0.13 × multiplier × linear_meters */
+function adicRowBreakdown(
+  a: import('../../../utils/pdf/buildPdfData').AdditionalWorkPdfRow,
+): string | null {
+  if (a.type !== 'frente') return null;
+  const m2 = a.material_price_per_m2_str;
+  const multiplier = a.formula_constant_str;
+  if (!m2 || !multiplier) return null;
+  return `Calculado: $ ${m2}/m² × 0.13 × ${multiplier} × ${a.linear_meters_str ?? '—'}`;
+}
+
 function fabRowCells(d: import('../../../utils/pdf/buildPdfData').PdfDataRow): (string | null)[] {
   return [
     d.concept,
@@ -439,6 +459,18 @@ function OptionSectionBlock({ section }: { section: MaterialSection }) {
       {adicRows.length > 0 ? (
         <View style={{ marginTop: 4 }}>
           <DataTable headers={ADDITIONAL_WORKS_HEADERS} rows={adicRows} flexes={ADDITIONAL_WORKS_FLEXES} />
+          {(section.additional_works || []).some((a) => a.type === 'frente') ? (
+            <View style={{ marginTop: 2 }}>
+              {(section.additional_works || [])
+                .map((a) => adicRowBreakdown(a))
+                .filter((s): s is string => Boolean(s))
+                .map((line, i) => (
+                  <Text key={i} style={styles.optAdicionalBreakdown}>
+                    {line}
+                  </Text>
+                ))}
+            </View>
+          ) : null}
         </View>
       ) : null}
 
