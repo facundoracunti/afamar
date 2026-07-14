@@ -580,16 +580,17 @@ function buildSections(
   // document with no grand total / signatures.
   const hasMain = mainMaterials.length > 0;
 
+  const uniqueMainNames = [...new Set(mainMaterials.map((m) => m.name))];
   const mainFabrication: PdfDataRow[] = [...fabricationCommon];
-  for (const m of mainMaterials) {
-    if (fabricationByMaterial[m.name]) {
-      mainFabrication.push(...fabricationByMaterial[m.name]);
+  for (const name of uniqueMainNames) {
+    if (fabricationByMaterial[name]) {
+      mainFabrication.push(...fabricationByMaterial[name]);
     }
   }
   const mainPoolRows: PoolPdfRow[] = [...poolsCommon];
-  for (const m of mainMaterials) {
-    if (poolsByMaterial[m.name]) {
-      mainPoolRows.push(...poolsByMaterial[m.name]);
+  for (const name of uniqueMainNames) {
+    if (poolsByMaterial[name]) {
+      mainPoolRows.push(...poolsByMaterial[name]);
     }
   }
   // Additional works routed to the main section: common ones go in every
@@ -598,9 +599,9 @@ function buildSections(
   const mainAdditional: AdditionalWorkPdfRow[] = [
     ...addicionalBuckets.additionalCommon,
   ];
-  for (const m of mainMaterials) {
-    if (addicionalBuckets.additionalByMaterial[m.name]) {
-      mainAdditional.push(...addicionalBuckets.additionalByMaterial[m.name]);
+  for (const name of uniqueMainNames) {
+    if (addicionalBuckets.additionalByMaterial[name]) {
+      mainAdditional.push(...addicionalBuckets.additionalByMaterial[name]);
     }
   }
   const mainAdditionArs = mainAdditional.reduce((s, a) => s + a.subtotal_ars, 0);

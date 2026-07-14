@@ -336,11 +336,12 @@ const ADDITIONAL_WORKS_HEADERS = [
 const ADDITIONAL_WORKS_FLEXES = [1.8, 1.8, 0.6, 1, 0.6, 1.2, 1.2];
 
 function adicRowCells(a: import('../../../utils/pdf/buildPdfData').AdditionalWorkPdfRow): (string | null)[] {
+  const priceLabel = a.type === 'frente' ? `$ ${a.price_str} x ml` : `$ ${a.price_str}`;
   return [
     a.name,
     a.detail,
     String(a.quantity),
-    `$ ${a.price_str}`,
+    priceLabel,
     a.currency,
     a.subtotal_ars > 0 ? `$ ${fmt(a.subtotal_ars)}` : null,
     a.subtotal_usd > 0 ? `USD ${fmt(a.subtotal_usd)}` : null,

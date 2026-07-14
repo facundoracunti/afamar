@@ -189,6 +189,86 @@ describe('buildPdfData — additional works per-section routing', () => {
     expect(altSection!.additional_works.some((a) => a.type === 'frente')).toBe(false);
   });
 
+  it('does NOT duplicate pools/fabrication/additionals when two main materials share the same name', () => {
+    const duplicateMainMaterials = [
+      {
+        id: 1,
+        name: 'Gris Mara',
+        price_m2: 200000,
+        price_m2_usd: 330,
+        currency: 'USD',
+        quantity: 1,
+        m2_used: 2.0,
+        m2_budgeted: 2.0,
+        length: 200,
+        width: 100,
+        is_alternative: false,
+      },
+      {
+        id: 3,
+        name: 'Gris Mara',
+        price_m2: 200000,
+        price_m2_usd: 330,
+        currency: 'USD',
+        quantity: 1,
+        m2_used: 1.5,
+        m2_budgeted: 1.5,
+        length: 150,
+        width: 100,
+        is_alternative: false,
+      },
+    ] satisfies MaterialInForm[];
+
+    const pools_data = [
+      { pool_id: 10, name: 'Pileta Rectangular', price: 50000, currency: 'ARS', quantity: 1 },
+    ] as unknown as PoolInForm[];
+
+    const additional_works_data = JSON.stringify([
+      {
+        additional_work_id: 24,
+        name: 'Frente / Regrueso',
+        price: 44.05,
+        currency: 'USD',
+        quantity: 1,
+        total: 129.07,
+        materialName: 'Gris Mara',
+        type: 'frente',
+        linear_meters: 2.93,
+        assigned_material_id: 1,
+      },
+    ]);
+
+    const data = buildPdfData({
+      form: makeForm({
+        materials_data: duplicateMainMaterials,
+        pools_data,
+        additional_works_data,
+      }),
+      document_type: 'budget',
+      company: {
+        company_name: 'AFAMAR',
+        company_tagline: '',
+        company_address: '',
+        company_phone: '',
+        company_email: '',
+        company_logo: '',
+        pdf_footer: '',
+      },
+      globalTerms: { budget_terms: [], delivery_terms: [], warranty_text: [] },
+      overrides: {},
+      sketchImages: [],
+    });
+
+    const mainSection = data.sections.find((s) => s.is_main);
+    expect(mainSection).toBeDefined();
+    // 1 pool, not 2 (was duplicated before the fix)
+    expect(mainSection!.pools).toHaveLength(1);
+    // 1 frente, not 2
+    expect(mainSection!.additional_works.filter((a) => a.type === 'frente')).toHaveLength(1);
+    // 2 material rows (both Gris Mara panes — correct, these are distinct rows)
+    expect(mainSection!.materials).toHaveLength(2);
+  });
+
   it('routes an alternativa frente to the alternativa section using the __ALT__: sentinel', () => {
     const additional_works_data = JSON.stringify([
       {
