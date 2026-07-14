@@ -1,0 +1,21 @@
+/* CloseCashModal — BEM */
+.close-cash__description {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.close-cash__textarea {
+  resize: vertical;
+}
+
+.close-cash__footer {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.close-cash__btn-icon {
+  margin-right: 4px;
+}

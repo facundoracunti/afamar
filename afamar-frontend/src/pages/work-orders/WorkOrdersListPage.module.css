@@ -178,6 +178,11 @@
   align-items: center;
 }
 
+.workOrders__action-dash {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
 .workOrders__empty {
   padding: 48px;
   text-align: center;

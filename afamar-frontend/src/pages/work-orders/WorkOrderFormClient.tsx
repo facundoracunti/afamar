@@ -4,6 +4,9 @@ import ClientSection from '../../components/orders/ClientSection/ClientSection';
 import ClientInfoCard from '../../components/orders/ClientInfoCard/ClientInfoCard';
 import type { EntityFormState } from '../../types';
 import type { Client } from '../../types/client';
+import styles from './WorkOrderFormClient.module.css';
+
+const s = styles as unknown as Record<string, string>;
 
 interface WorkOrderFormClientProps {
   form: EntityFormState;
@@ -39,8 +42,8 @@ export default function WorkOrderFormClient({
       return null;
     }
     return (
-      <div className="form-group" style={{ marginTop: 12 }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div className={`form-group ${s['wo-client__address-picker']}`}>
+        <label className={s['wo-client__address-label']}>
           <MapPin size={14} aria-hidden="true" /> Domicilio de entrega
         </label>
         <select
@@ -60,7 +63,7 @@ export default function WorkOrderFormClient({
             </option>
           ))}
         </select>
-        <small style={{ color: 'var(--text-muted)', fontSize: 12 }}>
+        <small className={s['wo-client__address-hint']}>
           Si la obra se hace en un domicilio distinto al del cliente, elegilo acá.
         </small>
       </div>

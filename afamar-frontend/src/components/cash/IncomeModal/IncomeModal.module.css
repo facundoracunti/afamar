@@ -1,0 +1,112 @@
+/* IncomeModal — BEM */
+.income-modal__search-row {
+  position: relative;
+}
+
+.income-modal__search-inputs {
+  display: flex;
+  gap: 8px;
+}
+
+.income-modal__search-input {
+  flex: 1;
+  padding-left: 36px;
+}
+
+.income-modal__search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+}
+
+.income-modal__dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px var(--shadow-color);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.income-modal__dropdown-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--surface-alt-bg);
+  font-size: 14px;
+}
+
+.income-modal__dropdown-item:hover {
+  background: var(--surface-alt-bg);
+}
+
+.income-modal__dropdown-item-number {
+  font-family: monospace;
+}
+
+.income-modal__dropdown-item-total {
+  float: right;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.income-modal__selected {
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--color-success) 10%, transparent);
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: var(--color-success);
+  border: 1px solid color-mix(in srgb, var(--color-success) 30%, transparent);
+}
+
+.income-modal__selected-total {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.income-modal__selected-balance {
+  color: var(--color-danger);
+}
+
+.income-modal__folder-status {
+  padding: 10px 14px;
+  background: var(--surface-alt-bg);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.income-modal__folder-status .badge {
+  font-size: 13px;
+}
+
+.income-modal__folder-label {
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.income-modal__folder-empty {
+  padding: 10px 14px;
+  background: var(--surface-alt-bg);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+}
+
+.income-modal__footer {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}

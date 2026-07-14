@@ -814,7 +814,7 @@ afamar-backend/    — FastAPI app
                           product_photos, whatsapp (18 routers)
     core/          — settings (pydantic), exceptions
     db/            — base, session, database
-    models/        — client, budget, work_order, material, online_budget,
+    models/        — client, budget, work_order, material,
                      pool_stock, measurement, daily_cash, setting, price_history,
                      product_photo, reference, user, option
     schemas/       — Pydantic (Create/Update/Response separados)

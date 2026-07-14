@@ -1,0 +1,15 @@
+/* WorkOrderFormSpecs — BEM */
+.specs-card {
+  height: 100%;
+}
+
+.specs-materials-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.specs-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-muted);
+}

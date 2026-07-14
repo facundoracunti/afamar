@@ -6,7 +6,7 @@ import { getBudget, createBudget, updateBudget, deleteBudget, getNextBudgetNumbe
 import { getMaterials } from '@/api/resources/materials';
 import { getPoolStock } from '@/api/resources/poolStock';
 import { getClients } from '@/api/resources/clients';
-import { todayLocalISO } from '../../utils/formatters';
+import { todayLocalISO, parseNumber } from '../../utils/formatters';
 import { t as translateConcept } from '../../utils/translate';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import useEntityForm from '../../hooks/useEntityForm';
@@ -66,7 +66,6 @@ export default function BudgetForm() {
   const [showConvertDialog, setShowConvertDialog] = useState(false);
   const [pendingAltIdx, setPendingAltIdx] = useState<number | null>(null);
   const notify = useNotify();
-  const num = (v: string): number | null => v === '' ? null : parseFloat(v);
   const { company, globalTerms } = useSettingsWithTerms();
 
   const {
@@ -437,7 +436,7 @@ const buildOptionFromMaterial = (mat: MaterialInForm): import('../../components/
               updateMaterial={updateMaterial}
               removeMaterial={removeMaterial}
               update={update}
-              num={num}
+              num={parseNumber}
             />
             <BudgetFormAdicionales
               form={form}
@@ -447,7 +446,7 @@ const buildOptionFromMaterial = (mat: MaterialInForm): import('../../components/
               updatePileta={updatePileta}
               removePileta={removePileta}
               addPileta={addPileta}
-              num={num}
+              num={parseNumber}
             />
           </div>
           <div className={s['budget-form__right']}>
@@ -456,7 +455,7 @@ const buildOptionFromMaterial = (mat: MaterialInForm): import('../../components/
               readOnly={readOnly}
               formMaterials={(form.materials_data as unknown as MaterialInForm[]) || []}
               M2_CONCEPTS={M2_CONCEPTS}
-              num={num as (v: unknown) => number}
+              num={parseNumber as (v: unknown) => number}
               handleDetailChange={handleDetailChange}
               addDetalle={addDetalle}
               removeDetalle={removeDetalle}
@@ -477,7 +476,7 @@ const buildOptionFromMaterial = (mat: MaterialInForm): import('../../components/
             sketchElements={form.sketch_elements}
             onChange={(v) => update('sketch_elements', v)}
             readOnly={readOnly}
-            toggleLabel="Diseño / Croquis"
+            toggleLabel="Diseño / Plano"
           />
 
           <BudgetFormFinancial
@@ -494,7 +493,7 @@ const buildOptionFromMaterial = (mat: MaterialInForm): import('../../components/
             handleUsdRateChange={handleUsdRateChange}
             setForm={setForm}
             update={update as (field: string, value: unknown) => void}
-            num={num as (v: unknown) => number}
+            num={parseNumber as (v: unknown) => number}
             alternativasTop={null}
             alternativasGrid={alternativasGrid}
             onConfirmarPago={handleConfirmarPago}

@@ -118,3 +118,25 @@
 }
 
 .reports__td--right { text-align: right; }
+
+/* Stat card colors — semantic colors for dashboard stat values */
+.reports__stat-value--blue { color: #3b82f6; }
+.reports__stat-value--amber { color: #f59e0b; }
+.reports__stat-value--green { color: #22c55e; }
+.reports__stat-value--red { color: #ef4444; }
+.reports__stat-value--purple { color: #8b5cf6; }
+
+.reports__stat-total {
+  margin-top: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.reports__empty-data {
+  color: var(--text-muted);
+}
+
+.reports__material-name {
+  font-weight: 600;
+}

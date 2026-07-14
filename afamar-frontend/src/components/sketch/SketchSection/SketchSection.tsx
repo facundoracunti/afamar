@@ -19,8 +19,8 @@ interface SketchSectionProps {
 export default function SketchSection({
   showCroquis, setShowCroquis,
   sketchElements, onChange, readOnly,
-  hiddenHint = 'Croquis oculto.',
-  toggleLabel = 'Diseño / Croquis',
+  hiddenHint = 'Plano oculto.',
+  toggleLabel = 'Diseño / Plano',
 }: SketchSectionProps) {
   return (
     <div className={s['sketch-section']}>

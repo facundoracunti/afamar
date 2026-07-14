@@ -187,7 +187,7 @@ export default function Configuration() {
             />
           </div>
           {logoDirty && (
-            <small style={{ color: '#6b7280', fontSize: '0.85em' }}>
+            <small className={s['configuration__logo-hint']}>
               El logo se subirá al guardar (se convertirá a PNG automáticamente)
             </small>
           )}
@@ -195,10 +195,10 @@ export default function Configuration() {
 
         <div className={s['configuration__grid']}>
           {CONFIG_KEYS.map((item) => (
-            <div className={s['configuration__group']} key={item.key} style={item.terms ? { gridColumn: '1 / -1' } : undefined}>
+            <div key={item.key} className={item.terms ? `${s['configuration__group']} ${s['configuration__terms-field']}` : s['configuration__group']}>
               <label className={s['configuration__label']}>
                 {item.label}
-                {item.required && <span style={{ color: '#dc2626' }}> *</span>}
+                {item.required && <span className={s['configuration__required']}> *</span>}
               </label>
               {item.type === 'terms' ? (
                 <>

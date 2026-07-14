@@ -10,6 +10,7 @@ import {
   deleteClientAddress,
 } from '@/api/resources/clientAddresses';
 import { useCreate, useUpdate, useGet } from '../../api/hooks';
+import { formatCurrencyValue } from '../../utils/formatters';
 import { Modal } from '../../components/ui/Modal/Modal';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { StatusBadge } from '../../components/ui/StatusBadge';
@@ -185,7 +186,7 @@ export default function ClientForm() {
   if (loading || (isEdit && !clientData)) return <LoadingSpinner />;
 
   const formatCurrency = (n: number): string =>
-    `$${n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    formatCurrencyValue(n, { currency: 'ARS' });
 
   return (
     <div className={s['client-form']}>
@@ -355,7 +356,7 @@ export default function ClientForm() {
                         </div>
                         <div className={s['client-form__item-right']}>
                           <span className={s['client-form__item-total']}>
-                            ${Number((b.total as number) || 0).toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                            {formatCurrencyValue(Number((b.total as number) || 0), { decimals: 0 })}
                           </span>
                           <ArrowRight size={14} color="#94a3b8" />
                         </div>
@@ -385,7 +386,7 @@ export default function ClientForm() {
                         </div>
                         <div className={s['client-form__item-right']}>
                           <span className={s['client-form__item-total']}>
-                            ${Number((o.total as number) || 0).toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                            {formatCurrencyValue(Number((o.total as number) || 0), { decimals: 0 })}
                           </span>
                           <ArrowRight size={14} color="#94a3b8" />
                         </div>

@@ -460,18 +460,6 @@ function OptionSectionBlock({ section }: { section: MaterialSection }) {
       {adicRows.length > 0 ? (
         <View style={{ marginTop: 4 }}>
           <DataTable headers={ADDITIONAL_WORKS_HEADERS} rows={adicRows} flexes={ADDITIONAL_WORKS_FLEXES} />
-          {(section.additional_works || []).some((a) => a.type === 'frente') ? (
-            <View style={{ marginTop: 2 }}>
-              {(section.additional_works || [])
-                .map((a) => adicRowBreakdown(a))
-                .filter((s): s is string => Boolean(s))
-                .map((line, i) => (
-                  <Text key={i} style={styles.optAdicionalBreakdown}>
-                    {line}
-                  </Text>
-                ))}
-            </View>
-          ) : null}
         </View>
       ) : null}
 
@@ -735,7 +723,7 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
                 {clientGrid}
                 <View style={styles.dividerLight} />
                 <View style={styles.sketchBox}>
-                  <Text style={styles.sketchTitle}>Croquis</Text>
+                  <Text style={styles.sketchTitle}>Plano</Text>
                   {data.sketch_images.map((img, i) => (
                     <Image key={i} style={styles.sketchImgLarge} src={img} />
                   ))}
@@ -801,7 +789,7 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
               <View style={styles.divider} />
               {clientGrid}
               <View style={styles.sketchBox}>
-                <Text style={styles.sketchTitle}>Croquis</Text>
+                <Text style={styles.sketchTitle}>Plano</Text>
                 {data.sketch_images.map((img, i) => (
                   <Image key={i} style={styles.sketchImgLarge} src={img} />
                 ))}

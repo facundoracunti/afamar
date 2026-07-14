@@ -1,5 +1,7 @@
 import React from 'react';
 import type { MaterialInForm } from '../../../types/budget';
+import { formatCurrencyValue } from '../../../utils/formatters';
+import { CurrencyDisplay } from '../../../components/ui/CurrencyDisplay/CurrencyDisplay';
 import styles from './MaterialCard.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -26,14 +28,10 @@ export default function MaterialCard({
     mat.currency === 'ARS' && usdRate > 0 ? Math.round((subtotal / usdRate) * 100) / 100 : null;
 
   const formatPrice = (n: number, currency: 'ARS' | 'USD'): string =>
-    currency === 'USD'
-      ? `USD ${n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-      : `$ ${n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    formatCurrencyValue(n, { currency });
 
   const formatSubtotal = (n: number, currency: 'ARS' | 'USD'): string =>
-    currency === 'USD'
-      ? `USD ${n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-      : `$ ${n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    formatCurrencyValue(n, { currency });
 
   return (
     <div className={s['material-card']}>
@@ -109,7 +107,7 @@ export default function MaterialCard({
             {formatPrice(mat.currency === 'USD' ? (mat.price_m2_usd || 0) : (mat.price_m2 || 0), mat.currency)}
             {mat.currency === 'ARS' && usdRate > 0 && (
               <span className={s['material-card__price-usd']}>
-                {' '}≈ USD {(mat.price_m2 / usdRate).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                {' '}≈ <CurrencyDisplay value={mat.price_m2 / usdRate} currency="USD" />
               </span>
             )}
           </div>
@@ -129,7 +127,7 @@ export default function MaterialCard({
           Subtotal: {formatSubtotal(subtotal, mat.currency)}
           {subtotalUsd !== null && (
             <span className={s['material-card__subtotal-usd']}>
-              {' '}≈ USD {subtotalUsd.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {' '}≈ <CurrencyDisplay value={subtotalUsd} currency="USD" />
             </span>
           )}
         </div>

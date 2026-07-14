@@ -280,7 +280,7 @@ export default function WorkOrdersList() {
                           </button>
                         )}
                         {!canBack && !canForward && (
-                          <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>—</span>
+                          <span className={s['workOrders__action-dash']}>—</span>
                         )}
                       </div>
                     </td>

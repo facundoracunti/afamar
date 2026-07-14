@@ -8,6 +8,7 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
 import { SearchInput } from '../../components/ui/SearchInput/SearchInput';
+import { formatCurrencyValue } from '../../utils/formatters';
 import { EmptyState } from '../../components/ui/EmptyState/EmptyState';
 import { Pagination } from '../../components/ui/Pagination';
 import { Modal } from '../../components/ui/Modal/Modal';
@@ -174,9 +175,7 @@ export default function MaterialsList() {
                         color: currency === 'USD' ? '#16a34a' : 'var(--text-primary)',
                       }}
                     >
-                      {currency === 'USD'
-                        ? `USD ${precio.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
-                        : `$ ${precio.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}
+                      {formatCurrencyValue(precio, { currency })}
                     </td>
                     <td className={s['materials__td']}>{m.supplier || '-'}</td>
                     <td className={s['materials__td']}>{m.stock_available || 0}</td>

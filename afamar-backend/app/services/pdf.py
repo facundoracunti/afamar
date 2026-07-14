@@ -328,8 +328,8 @@ def generate_budget_pdf(
     if sketch_elements:
         E.append(Spacer(1, 12))
         cb = Table([
-            [Paragraph("CROQUIS / DISEÑO", st["card_title"])],
-            [Paragraph("(El presupuesto incluye un croquis digital asociado)", st["s"])],
+            [Paragraph("PLANO / DISEÑO", st["card_title"])],
+            [Paragraph("(El presupuesto incluye un plano digital asociado)", st["s"])],
         ], colWidths=[470])
         cb.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, -1), CARD_BG),

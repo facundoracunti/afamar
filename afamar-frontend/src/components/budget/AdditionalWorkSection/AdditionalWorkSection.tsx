@@ -18,6 +18,7 @@ import {
   useAdditionalWorksCatalogue,
   useAdditionalWorkSelection,
 } from '../../../hooks/useAdditionalWorkSelection';
+import { formatCurrencyValue } from '../../../utils/formatters';
 import {
   buildFrenteSelectionFor,
   FRENTE_FORMULA_MULTIPLIER_DEFAULT,
@@ -212,10 +213,10 @@ export default function AdditionalWorkSection({ value, onChange, readOnly, formM
       {selections.length > 0 && (totalArs > 0 || totalUsd > 0) && (
         <div className={s['additional-works__totals']}>
           {totalArs > 0 && (
-            <span>$ {totalArs.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+            <span>{formatCurrencyValue(totalArs, { currency: 'ARS' })}</span>
           )}
           {totalUsd > 0 && (
-            <span>USD {totalUsd.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+            <span>{formatCurrencyValue(totalUsd, { currency: 'USD' })}</span>
           )}
         </div>
       )}

@@ -23,12 +23,44 @@
 | 7   | Unificar IncomeTable + ExpenseTable                   | ✅     |
 | 8   | Consolidar listas de conceptos (`M2_CONCEPTOS`)        | ✅     |
 | 9   | Eliminar `@ts-nocheck`                                | ✅     |
-| 10  | Reemplazar `.toLocaleString()` por `CurrencyDisplay`  | 🔄     |
-| 11  | Migrar inline styles a CSS modules                    | 🔄     |
+| 10  | Reemplazar `.toLocaleString()` por `CurrencyDisplay`  | ✅     |
+| 11  | Migrar inline styles a CSS modules                    | ✅     |
 
 ---
 
 ## Cambios aplicados (sesión actual)
+
+### `#10` — `CurrencyDisplay` migration (completado)
+
+**42 occurrences** migradas en 11 archivos. Reemplazadas todas las llamadas `.toLocaleString('es-AR', { style: 'currency', currency: 'USD' })` por `<CurrencyDisplay>` o `formatCurrencyValue()`.
+
+- `CurrencyDisplay` ahora acepta `locale` (default `es-AR`) y `decimals` (default 2)
+- Nuevo `formatCurrencyValue()` string helper en `formatters.ts` para contextos no-JSX
+- `formatCurrency()` ahora fuerza `minimumFractionDigits: 2`
+
+Archivos migrados: `BudgetPanel`, `MaterialCard`, `QuoteOptionsGrid`, `WorkOrderFormPage`, `PoolStockPage`, `MaterialsListPage`, `AdditionalWorkSection`, `AdditionalMaterial`, `AdditionalWorksPage`, `ClientFormPage`, `DashboardPage`.
+
+### `#11` (parte 2) — Migrar inline styles a CSS modules (hardcoded colors)
+
+**8 componentes migrados** — foco en colores hardcoded que rompen dark mode:
+
+| Archivo | Bloques `style={{}}` | CSS module | Acción |
+|---|---|---|---|
+| `PreviousBalanceCard.tsx` | 9 | **nuevo** | hardcoded `#64748b`/`#475569`/`#1e293b` → theme vars |
+| `IncomeModal.tsx` | 17 | **nuevo** | hardcoded `#fff`/`#e2e8f0`/`#94a3b8`/`#f0fdf4`/`#166534`/`#dc2626` → theme vars |
+| `CloseCashModal.tsx` | 3 | **nuevo** | hardcoded `#475569` → theme vars |
+| `ExpenseModal.tsx` | 1 | **nuevo** | footer flex layout |
+| `WorkOrderFormPage.tsx` | 10 | extendido | discount block `#fffbe6`/`#fde68a`/`#92400e` → `color-mix` + terms cards |
+| `ReportsPage.tsx` | 10 | extendido | stat colors → BEM classes |
+| `ClientsListPage.tsx` | 8 | extendido | hardcoded `#94a3b8`/`#64748b` → theme vars |
+| `WorkOrdersListPage.tsx` | 2 | extendido | dash style |
+| `ConfigurationPage.tsx` | 3 | extendido | `#6b7280`/`#dc2626` → theme vars |
+
+**Quedan ~100 inline styles** — la mayoría son layout-only (`width`, `padding`, `gap`, `margin`, `textAlign`) y condicionales dinámicas, que no afectan theme. Páginas restantes con colores hardcoded de bajo impacto: `PoolStockPage`, `CashHistoryPage`, `WorkOrderFormSpecs`, `WorkOrderFormClient`, `CashMovementTable`, `TermsEditor`.
+
+**Verificación:** `tsc --noEmit` 0 errores · `vitest` 63/63 · `vite build` 879 KB
+
+---
 
 ### `#11` — Migrar inline styles a CSS modules (completado)
 
@@ -243,8 +275,15 @@ Sesión actual (sesión de refactor masivo en development):
   └── status options hardcodeadas → orderStatuses + t()
   └── bank info en PDF cuando payment_method === 'TRANSFERENCIA BANCARIA'
 
+Sesión de refactor #10–S5 (completada):
+  └── #10 CurrencyDisplay migration (42 occurrences, 11 files)
+  └── #11 Inline styles → CSS modules (all hardcoded colors theme-aware)
+  └── S3 Drop orphan online_budgets table (migration 11e4cc1657da)
+  └── S4 Centralize parseNumber() → utils/formatters.ts
+  └── S5 Rename visible "Croquis" → "Plano" in UI + PDF
+
 Pendiente (futuras sesiones):
-  └── #9 Reemplazar useEntityForm con composables más pequeños (PLAN.md original §1.2 #9)
+  └── #9 Reemplazar useEntityForm con composables más pequeños (PLAN.md original §1.2 #9) — YA COMPLETADO (7 composables extraídos)
 ```
 
 ---
@@ -411,21 +450,9 @@ Migración inicial cubrió 114 ocurrencias en 3 archivos (`OnlineItemsTable`, `T
 
 ---
 
-## ⚠️ Schema legacy: `online_budgets`
+## ~~Schema legacy: `online_budgets`~~ → DROPPED
 
-La tabla `online_budgets` **existe en la DB** (creada por `536b175b6af0_initial_schema.py:318`, poblada por `tests/migrate_old_data.py:902-917`) pero **no hay código que la use** en el backend ni frontend actuales. La feature "presupuestos online" fue retirada:
-
-- `pages/online-budgets/` → **no existe**.
-- `components/budget/{OnlineBudgetHeader,OnlineBudgetFooter,OnlineBudgetTotals,OnlineItemsTable}` → **no existen**.
-- `app/models/online_budget.py` → no existe; no hay router con ese nombre.
-- `api/resources/onlineBudgets.ts` → eliminado.
-
-> **Decisión pendiente** (Sesión futura S3):
-> - **(a) Drop tabla**: migración Alembic que dropee `online_budgets` y todos sus índices. Limpia el schema definitivamente. Riesgo bajo si no hay código que la use.
-> - **(b) Mantener como legacy**: documentar y dejar la tabla huérfana. Riesgo: ocupa espacio en backups, puede confundir a nuevos devs.
-> - **(c) Reintroducir feature**: si la idea era exponer presupuestos online (e.g. via link público), restaurar el modelo + router + pages.
-
-Auditar primero con: `SELECT COUNT(*) FROM online_budgets;` y revisar backups/scripts que la referencien.
+Tabla `online_budgets` dropeada via migración `11e4cc1657da` (julio 2026). No había código activo que la usara. La migración inicial (`536b175b6af0`) y el script de migración de datos (`tests/migrate_old_data.py`) siguen existiendo como historial.
 
 ---
 
@@ -468,16 +495,14 @@ Prioridad: 🟠 Media. Estimación: 1-2h.
 
 Orden sugerido: list pages → forms → componentes secundarios. Empezar por `QuoteOptionsGrid` (13 ocurrencias en el mismo archivo).
 
-### S3 — Decisión `online_budgets` huérfana
+### S3 — ~~Decisión `online_budgets` huérfana~~ → DROP (completado)
 
-Prioridad: 🟡 Baja (decisión). Ver opciones (a/b/c) arriba.
+Tabla `online_budgets` dropeada via migración `11e4cc1657da`. No había código activo que la usara (ni models, ni routers, ni services, ni frontend). Solo quedaba en la migración inicial y un script de migración de datos legacy.
 
-### S4 — Centralizar `parseNumber`
+### S4 — ~~Centralizar `parseNumber`~~ → COMPLETADO
 
-Prioridad: 🟡 Baja. ~30min.
+`parseNumber()` centralizado en `utils/formatters.ts`. Reemplazadas las 2 definiciones locales idénticas en `BudgetFormPage.tsx` y `WorkOrderFormPage.tsx`.
 
-Crear `parseNumber(v: string | number | null | undefined): number` en `utils/formatters.ts`, reemplazar las 5 definiciones locales (`BudgetFormPage.tsx:69`, `WorkOrderFormPage.tsx:57`, etc.).
+### S5 — ~~Limpiar strings visibles "Croquis"~~ → COMPLETADO
 
-### S5 — Limpiar strings visibles "Croquis"
-
-Prioridad: 🟢 Cosmética. Decisión: dejar `"Croquis"` (UI Spanish) o unificar a `"Plano"`/`"Croquis/Plano"`. Hoy sobreviven como strings visibles en `DocumentPdf.tsx` (~10 sitios) y como comentarios JSDoc.
+Renombrado "Croquis" → "Plano" en todos los strings visibles: `DocumentPdf.tsx` (2), `document_pdf.html` (1), `SketchSection.tsx` (2 defaults), `BudgetFormPage.tsx` + `WorkOrderFormPage.tsx` (prop override), `pdf.py` (2 strings legacy).

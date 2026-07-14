@@ -98,6 +98,10 @@
   background: var(--surface-alt-bg);
 }
 
+.clients__table-row {
+  cursor: pointer;
+}
+
 .clients__table tr:last-child td {
   border-bottom: none;
 }
@@ -114,4 +118,22 @@
   text-align: center;
   color: var(--text-muted);
   font-size: 14px;
+}
+
+.clients__id-cell {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.clients__name-cell {
+  font-weight: 600;
+}
+
+.clients__meta-cell {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.clients__btn-sm {
+  padding: 4px 8px;
 }

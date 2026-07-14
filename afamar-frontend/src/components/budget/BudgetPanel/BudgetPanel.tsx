@@ -1,5 +1,6 @@
 import React from 'react';
 import { formatCurrency } from '../../../utils/formatters';
+import { CurrencyDisplay } from '../../../components/ui/CurrencyDisplay/CurrencyDisplay';
 import { t } from '../../../utils/translate';
 import type { EntityFormState, FormField } from '../../../types/form';
 import type { FabricationDetail, MaterialInForm, PoolInForm } from '../../../types/budget';
@@ -244,7 +245,7 @@ export default function BudgetPanel({
                           {d.quantity > 1 ? ` x${d.quantity}` : ''}
                         </span>
                         <span className={s['lineItem__value']}>
-                          USD {(precioUsd * d.quantity).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          <CurrencyDisplay value={precioUsd * d.quantity} currency="USD" />
                         </span>
                       </div>
                     );
@@ -266,7 +267,7 @@ export default function BudgetPanel({
                         {m.quantity > 1 ? ` x${m.quantity}` : ''}
                       </span>
                       <span className={s['lineItem__value']}>
-                        USD {sub.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        <CurrencyDisplay value={sub} currency="USD" />
                       </span>
                     </div>
                   ) : null;
@@ -286,7 +287,7 @@ export default function BudgetPanel({
                         {pt.quantity > 1 ? ` (x${pt.quantity})` : ''}
                       </span>
                       <span className={s['lineItem__value']}>
-                        USD {(precioUsd * (pt.quantity || 1)).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        <CurrencyDisplay value={precioUsd * (pt.quantity || 1)} currency="USD" />
                       </span>
                     </div>
                   );
@@ -308,7 +309,7 @@ export default function BudgetPanel({
                 <div className={s['usdDivider__row']}>
                   <span className={s['usdDivider__total']}>TOTAL USD</span>
                   <span className={s['usdDivider__value']}>
-                    USD {form.total_usd.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    <CurrencyDisplay value={form.total_usd} currency="USD" />
                   </span>
                 </div>
               </div>
@@ -330,7 +331,7 @@ export default function BudgetPanel({
               <div className={s['balanceRow']}>
                 <span className={s['balanceRow__label']}>Saldo pendiente USD</span>
                 <span className={s['balanceRow__value']}>
-                  USD {form.balance_due_usd.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <CurrencyDisplay value={form.balance_due_usd} currency="USD" />
                 </span>
               </div>
             </div>
@@ -376,7 +377,7 @@ export default function BudgetPanel({
               <div className={s['panelTotals__col']}>
                 <div className={s['panelTotals__label']}>TOTAL USD</div>
                 <div className={`${s['panelTotals__value']} ${s['panelTotals__value--usd']}`}>
-                  USD {form.total_usd.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <CurrencyDisplay value={form.total_usd} currency="USD" />
                 </div>
               </div>
             </div>

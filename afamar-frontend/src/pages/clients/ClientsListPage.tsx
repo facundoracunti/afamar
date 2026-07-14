@@ -114,11 +114,11 @@ export default function ClientsList() {
               {clients.map((c) => (
                 <tr
                   key={c.id}
-                  style={{ cursor: 'pointer' }}
+                  className={s['clients__table-row']}
                   onClick={() => navigate(`/admin/clients/${c.id}`)}
                 >
-                  <td style={{ color: '#94a3b8', fontSize: 13 }}>{c.id}</td>
-                  <td style={{ fontWeight: 600 }}>{c.name}</td>
+                  <td className={s['clients__id-cell']}>{c.id}</td>
+                  <td className={s['clients__name-cell']}>{c.name}</td>
                   <td>{c.phone || '-'}</td>
                   <td>{c.email || '-'}</td>
                   <td>{c.address || '-'}</td>
@@ -128,8 +128,8 @@ export default function ClientsList() {
                   <td style={{ textAlign: 'center' }}>
                     <span className="badge badge-approved">{c.total_orders ?? 0}</span>
                   </td>
-                  <td style={{ fontSize: 13, color: '#64748b' }}>{c.last_order_number || '-'}</td>
-                  <td style={{ fontSize: 13, color: '#64748b' }}>{formatDate(c.created_at)}</td>
+                  <td className={s['clients__meta-cell']}>{c.last_order_number || '-'}</td>
+                  <td className={s['clients__meta-cell']}>{formatDate(c.created_at)}</td>
                   <td>
                     <div
                       className={s['clients__cell-actions']}
@@ -137,16 +137,14 @@ export default function ClientsList() {
                     >
                       <button
                         type="button"
-                        className="btn btn-outline"
-                        style={{ padding: '4px 8px' }}
+                        className={`btn btn-outline ${s['clients__btn-sm']}`}
                         onClick={() => navigate(`/admin/clients/${c.id}`)}
                       >
                         <Edit size={14} />
                       </button>
                       <button
                         type="button"
-                        className="btn btn-danger"
-                        style={{ padding: '4px 8px' }}
+                        className={`btn btn-danger ${s['clients__btn-sm']}`}
                         onClick={() => setDeleteId(c.id)}
                       >
                         <Trash2 size={14} />

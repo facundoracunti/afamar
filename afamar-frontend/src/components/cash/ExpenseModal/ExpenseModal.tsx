@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { Modal } from '../../ui/Modal/Modal';
 import { EXPENSE_TYPES } from '../../../constants';
+import styles from './ExpenseModal.module.css';
+
+const s = styles as unknown as Record<string, string>;
 
 interface Props {
   isOpen: boolean;
@@ -53,7 +56,7 @@ export default function ExpenseModal({ isOpen, onClose, onSubmit }: Props) {
             </select>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 16 } as React.CSSProperties}>
+        <div className={s['expense-modal__footer']}>
           <button type="button" className="btn btn-outline" onClick={() => { resetForm(); onClose(); }}>Cancelar</button>
           <button type="submit" className="btn btn-danger">Registrar Egreso</button>
         </div>

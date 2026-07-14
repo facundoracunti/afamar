@@ -1,6 +1,7 @@
 import React from 'react';
 import { Plus } from 'lucide-react';
 import type { FabricationDetail, MaterialInForm } from '../../../types/budget';
+import { formatCurrencyValue } from '../../../utils/formatters';
 import styles from './AdditionalMaterial.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -29,9 +30,7 @@ function computeM2(d: FabricationDetail): number {
 }
 
 function formatPrice(n: number, currency: 'ARS' | 'USD'): string {
-  return currency === 'USD'
-    ? `USD ${n.toLocaleString('es-AR')}`
-    : `$ ${n.toLocaleString('es-AR')}`;
+  return formatCurrencyValue(n, { currency });
 }
 
 export default function AdditionalMaterial({

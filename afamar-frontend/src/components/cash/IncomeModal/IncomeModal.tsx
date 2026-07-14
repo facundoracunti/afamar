@@ -4,6 +4,9 @@ import { Modal } from '../../ui/Modal/Modal';
 import { getWorkOrders } from '@/api/resources/workOrders';
 import { formatCurrency } from '../../../utils/formatters';
 import { PAYMENT_METHODS, folderStatusClass } from '../../../constants';
+import styles from './IncomeModal.module.css';
+
+const s = styles as unknown as Record<string, string>;
 
 interface Props {
   isOpen: boolean;
@@ -85,31 +88,24 @@ export default function IncomeModal({ isOpen, onClose, onSubmit }: Props) {
       <form onSubmit={handleSubmit}>
         <div className="form-group">
           <label>Vincular a Orden</label>
-          <div style={{ position: 'relative' } as React.CSSProperties}>
-            <div style={{ display: 'flex', gap: 8 } as React.CSSProperties}>
+          <div className={s['income-modal__search-row']}>
+            <div className={s['income-modal__search-inputs']}>
               <input
-                className="input" placeholder="Buscar orden por número o cliente..."
+                className={`input ${s['income-modal__search-input']}`} placeholder="Buscar orden por número o cliente..."
                 value={orderSearch}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => searchOrders(e.target.value)}
-                style={{ flex: 1, paddingLeft: 36 } as React.CSSProperties}
                 onFocus={() => setShowOrderSearch(true)}
               />
-              <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' } as React.CSSProperties} />
+              <Search size={16} className={s['income-modal__search-icon']} />
               <button type="button" className="btn btn-outline" onClick={() => { setShowOrderSearch(false); setOrderSearch(''); setOrderResults([]); }}>Limpiar</button>
             </div>
             {showOrderSearch && orderResults.length > 0 && (
-              <div style={{
-                position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10,
-                background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8,
-                boxShadow: '0 4px 12px rgba(0,0,0,0.1)', maxHeight: 200, overflowY: 'auto',
-              } as React.CSSProperties}>
+              <div className={s['income-modal__dropdown']}>
                 {orderResults.map((o: Record<string, unknown>) => (
-                  <div key={o.id as number} style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', fontSize: 14 } as React.CSSProperties}
-                    onClick={() => selectOrder(o)}
-                    onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => { (e.target as HTMLDivElement).style.background = '#f8fafc'; }}
-                    onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => { (e.target as HTMLDivElement).style.background = 'transparent'; }}>
-                    <strong style={{ fontFamily: 'monospace' } as React.CSSProperties}>{(o.number as string)}</strong> — {(o.client_name as string) || 'Sin cliente'}
-                    <span style={{ cssFloat: 'right', color: '#64748b', fontSize: 12 } as React.CSSProperties}>{formatCurrency(o.total as number)}</span>
+                  <div key={o.id as number} className={s['income-modal__dropdown-item']}
+                    onClick={() => selectOrder(o)}>
+                    <strong className={s['income-modal__dropdown-item-number']}>{(o.number as string)}</strong> — {(o.client_name as string) || 'Sin cliente'}
+                    <span className={s['income-modal__dropdown-item-total']}>{formatCurrency(o.total as number)}</span>
                   </div>
                 ))}
               </div>
@@ -118,14 +114,14 @@ export default function IncomeModal({ isOpen, onClose, onSubmit }: Props) {
         </div>
 
         {!!incomeForm.orderNumber && (
-          <div style={{ padding: '10px 14px', background: '#f0fdf4', borderRadius: 8, marginBottom: 12, fontSize: 14, color: '#166534', border: '1px solid #bbf7d0' } as React.CSSProperties}>
+          <div className={s['income-modal__selected']}>
             Orden seleccionada: <strong>{incomeForm.orderNumber as string}</strong>
             {!!incomeForm.clientName && ` — ${incomeForm.clientName as string}`}
             {!!incomeForm.order_total && (
-              <div style={{ marginTop: 6, fontSize: 13, color: '#475569' } as React.CSSProperties}>
+              <div className={s['income-modal__selected-total']}>
                 Total original: <strong>{formatCurrency(incomeForm.order_total as number)}</strong>
                 {' | '}Saldo restante estimado:{' '}
-                <strong style={{ color: '#dc2626' } as React.CSSProperties}>
+                <strong className={s['income-modal__selected-balance']}>
                   {formatCurrency(
                     Math.max(0, Number(incomeForm.order_total) - Number((incomeForm.amount as string) || 0))
                   )}
@@ -160,20 +156,20 @@ export default function IncomeModal({ isOpen, onClose, onSubmit }: Props) {
           <div className="form-group">
             <label>Estado Carpeta</label>
             {incomeForm.folderStatus ? (
-              <div style={{ padding: '10px 14px', background: '#f1f5f9', borderRadius: 8, fontSize: 14, color: '#475569', border: '1px solid #e2e8f0' } as React.CSSProperties}>
-                <span className={`badge ${folderStatusClass(incomeForm.folderStatus as string)}`} style={{ fontSize: 13 } as React.CSSProperties}>
+              <div className={s['income-modal__folder-status']}>
+                <span className={`badge ${folderStatusClass(incomeForm.folderStatus as string)}`}>
                   {incomeForm.folderStatus as string}
                 </span>
-                <span style={{ marginLeft: 8, fontSize: 12, color: '#94a3b8' } as React.CSSProperties}>(asignado automático)</span>
+                <span className={s['income-modal__folder-label']}>(asignado automático)</span>
               </div>
             ) : (
-              <div style={{ padding: '10px 14px', background: '#f8fafc', borderRadius: 8, fontSize: 13, color: '#94a3b8', border: '1px solid #e2e8f0' } as React.CSSProperties}>
+              <div className={s['income-modal__folder-empty']}>
                 Sin orden vinculada
               </div>
             )}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 16 } as React.CSSProperties}>
+        <div className={s['income-modal__footer']}>
           <button type="button" className="btn btn-outline" onClick={() => { resetForm(); onClose(); }}>Cancelar</button>
           <button type="submit" className="btn btn-success">Registrar Ingreso</button>
         </div>

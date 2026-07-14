@@ -3,6 +3,9 @@ import MaterialCard from '../../components/materials/MaterialCard/MaterialCard';
 import { useList } from '../../api/hooks';
 import { getMaterialCategories, type MaterialCategory } from '../../api/resources/materials';
 import type { EntityFormState } from '../../types';
+import styles from './WorkOrderFormSpecs.module.css';
+
+const s = styles as unknown as Record<string, string>;
 
 interface WorkOrderFormSpecsProps {
   form: EntityFormState;
@@ -40,7 +43,7 @@ export default function WorkOrderFormSpecs({
   }, [materials, selectedCategoryId]);
 
   return (
-    <div className="card" style={{ height: '100%' }}>
+    <div className={`card ${s['specs-card']}`}>
       <h3 className="section-title">MATERIALES</h3>
       <div className="form-group">
         <select
@@ -63,13 +66,13 @@ export default function WorkOrderFormSpecs({
           ))}
         </select>
       </div>
-      <div style={{ display: 'grid', gap: 12 }}>
+      <div className={s['specs-materials-grid']}>
         {(form.materials_data || []).map((mat, idx) => (
           <MaterialCard key={idx}             mat={mat as unknown as import('../../types/budget').MaterialInForm} idx={idx} readOnly={readOnly} updateMaterial={updateMaterial} removeMaterial={removeMaterial} num={num} usdRate={Number(form.usd_rate) || 0} />
         ))}
       </div>
       {(form.materials_data || []).length === 0 && (
-        <div style={{ padding: 16, textAlign: 'center', color: '#94a3b8' }}>
+        <div className={s['specs-empty']}>
           Sin materials agregados. Usá "+ AGREGAR MATERIAL" para sumar.
         </div>
       )}

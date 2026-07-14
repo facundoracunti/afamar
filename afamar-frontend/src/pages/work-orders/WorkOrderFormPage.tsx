@@ -7,7 +7,7 @@ import { getWorkOrder, createWorkOrder, updateWorkOrder, deleteWorkOrder, getNex
 import { getMaterials } from '@/api/resources/materials';
 import { getPoolStock } from '@/api/resources/poolStock';
 import { getClients } from '@/api/resources/clients';
-import { formatCurrency, todayLocalISO } from '../../utils/formatters';
+import { formatCurrency, formatCurrencyValue, todayLocalISO, parseNumber } from '../../utils/formatters';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import useEntityForm from '../../hooks/useEntityForm';
 import { useSettingsWithTerms } from '../../hooks/useSettingsWithTerms';
@@ -54,8 +54,6 @@ export default function WorkOrderForm() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const notify = useNotify();
-  const num = (v: string): number | null => v === '' ? null : parseFloat(v);
-
   const [pdfData, setPdfData] = useState<PdfDocumentData | null>(null);
   const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
   const [sketchExtractorActive, setSketchExtractorActive] = useState(false);
@@ -193,17 +191,17 @@ export default function WorkOrderForm() {
                 <div className={s['work-order-form__alt-card-body']}>
                   <div className={s['work-order-form__alt-card-row']}>
                     <span>Material:</span>
-                    <span className={s['work-order-form__alt-card-value']}>{mostrarUSDAlt ? `USD ${(costoMatArs / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `$${costoMatArs.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}</span>
+                    <span className={s['work-order-form__alt-card-value']}>{mostrarUSDAlt ? formatCurrencyValue(costoMatArs / dd2, { currency: 'USD' }) : formatCurrencyValue(costoMatArs)}</span>
                   </div>
                   <div className={s['work-order-form__alt-card-row']}>
                     <span>Trabajos + Piletas + Traslado:</span>
-                    <span className={s['work-order-form__alt-card-value']}>{mostrarUSDAlt ? `USD ${(fijosArsAlt / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `$${fijosArsAlt.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}</span>
+                    <span className={s['work-order-form__alt-card-value']}>{mostrarUSDAlt ? formatCurrencyValue(fijosArsAlt / dd2, { currency: 'USD' }) : formatCurrencyValue(fijosArsAlt)}</span>
                   </div>
                 </div>
               </div>
               <div className={s['work-order-form__alt-card-total']}>
                 <div className={s['work-order-form__alt-card-total-lbl']}>Total alternativa {mostrarUSDAlt ? '(USD)' : ''}</div>
-                <div className={s['work-order-form__alt-card-total-val']}>{mostrarUSDAlt ? `USD ${(totalArs / dd2).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `$${Math.round(totalArs).toLocaleString('es-AR')}`}</div>
+                <div className={s['work-order-form__alt-card-total-val']}>{mostrarUSDAlt ? formatCurrencyValue(totalArs / dd2, { currency: 'USD' }) : formatCurrencyValue(Math.round(totalArs), { decimals: 0 })}</div>
               </div>
             </div>
           );
@@ -217,14 +215,14 @@ export default function WorkOrderForm() {
 
   const discountBlock = (
     <>{form.payment_method === 'EFECTIVO' && (
-      <div style={{ marginTop: 8, padding: '8px 10px', background: '#fffbe6', border: '1px solid #fde68a', borderRadius: 8 }}>
-        <label style={{ fontSize: 12, fontWeight: 700, color: '#92400e', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
+      <div className={s['work-order-form__discount']}>
+        <label className={s['work-order-form__discount-label']}>
           🔒 Descuento Comercial (Solo Vendedor)
         </label>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>%</span>
-            <input type="number" className="input" style={{ width: 70, textAlign: 'right' }}
+        <div className={s['work-order-form__discount-row']}>
+          <div className={s['work-order-form__discount-group']}>
+            <span className={s['work-order-form__discount-prefix']}>%</span>
+            <input type="number" className={`input ${s['work-order-form__discount-input']}`}
               placeholder="0" min="0" max="100"
               value={form.discount_percentage || ''}
               onChange={(e) => {
@@ -233,10 +231,10 @@ export default function WorkOrderForm() {
               }}
               disabled={readOnly} />
           </div>
-          <span style={{ fontSize: 12, color: '#9ca3af' }}>o</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>$</span>
-            <input type="number" className="input" style={{ width: 100, textAlign: 'right' }}
+          <span className={s['work-order-form__discount-or']}>o</span>
+          <div className={s['work-order-form__discount-group']}>
+            <span className={s['work-order-form__discount-prefix']}>$</span>
+            <input type="number" className={`input ${s['work-order-form__discount-input--fixed']}`}
               placeholder="Monto fijo"
               value={form.discount_fixed_amount || ''}
               onChange={(e) => {
@@ -246,7 +244,7 @@ export default function WorkOrderForm() {
               disabled={readOnly} />
           </div>
         </div>
-        <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 4, fontStyle: 'italic' }}>
+        <div className={s['work-order-form__discount-hint']}>
           Este descuento modifica el TOTAL ARS final pero no se muestra en el PDF del cliente.
         </div>
       </div>
@@ -281,7 +279,7 @@ export default function WorkOrderForm() {
             📦 Trabajo Entregado
           </span>
         )}
-        <button className="btn btn-outline" onClick={handlePreviewPdf} disabled={pdfPreviewLoading} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <button className={`btn btn-outline ${s['work-order-form__preview-btn']}`} onClick={handlePreviewPdf} disabled={pdfPreviewLoading}>
           <Eye size={16} /> {pdfPreviewLoading ? 'GENERANDO...' : 'VISTA PREVIA PDF'}
         </button>
         <button className={`btn btn-primary ${s['work-order-form__btn-save']}`} onClick={handleSubmit} disabled={saving}>
@@ -320,7 +318,7 @@ export default function WorkOrderForm() {
               updateMaterial={updateMaterial}
               removeMaterial={removeMaterial}
               update={update}
-              num={num}
+              num={parseNumber}
             />
             <BudgetFormAdicionales
               form={form}
@@ -330,7 +328,7 @@ export default function WorkOrderForm() {
               updatePileta={updatePileta}
               removePileta={removePileta}
               addPileta={addPileta}
-              num={num}
+              num={parseNumber}
             />
           </div>
           <div className={s['work-order-form__right']}>
@@ -339,7 +337,7 @@ export default function WorkOrderForm() {
               readOnly={readOnly}
               formMaterials={(form.materials_data as unknown as MaterialInForm[]) || []}
               M2_CONCEPTS={M2_CONCEPTS}
-              num={num as (v: unknown) => number}
+              num={parseNumber as (v: unknown) => number}
               handleDetailChange={handleDetailChange}
               addDetalle={addDetalle}
               removeDetalle={removeDetalle}
@@ -362,7 +360,7 @@ export default function WorkOrderForm() {
             sketchElements={form.sketch_elements}
             onChange={(v) => update('sketch_elements', v)}
             readOnly={readOnly}
-            toggleLabel="Diseño / Croquis"
+            toggleLabel="Diseño / Plano"
           />
 
           <WorkOrderFormFinancial
@@ -379,7 +377,7 @@ export default function WorkOrderForm() {
             handleUsdRateChange={handleUsdRateChange}
             setForm={setForm}
             update={update as (field: string, value: unknown) => void}
-            num={num}
+            num={parseNumber}
             alternativasGrid={alternativasGrid}
             discountBlock={discountBlock}
             onConfirmarPago={handleConfirmarPago}
@@ -395,7 +393,7 @@ export default function WorkOrderForm() {
           update={update}
         />
 
-        <div className={s['work-order-form__card']} style={{ marginTop: 16 }}>
+        <div className={`${s['work-order-form__card']} ${s['work-order-form__terms-card']}`}>
           <h3 className={s['work-order-form__card-title']}>Condiciones de Entrega</h3>
           <TermsEditor
             items={deliveryTerms}
@@ -406,7 +404,7 @@ export default function WorkOrderForm() {
           />
         </div>
 
-        <div className={s['work-order-form__card']} style={{ marginTop: 16 }}>
+        <div className={`${s['work-order-form__card']} ${s['work-order-form__terms-card']}`}>
           <h3 className={s['work-order-form__card-title']}>Garantía</h3>
           <TermsEditor
             items={warrantyTerms}

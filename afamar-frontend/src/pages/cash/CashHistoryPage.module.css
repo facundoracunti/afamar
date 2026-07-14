@@ -1,0 +1,154 @@
+/* CashHistoryPage — BEM */
+.cash-history {
+  display: grid;
+  gap: 16px;
+}
+
+.cash-history__title {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 24px;
+  color: var(--text-primary);
+}
+
+.cash-history__empty {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-muted);
+}
+
+.cash-history__empty-icon {
+  margin-bottom: 12px;
+  opacity: 0.4;
+}
+
+.cash-history__empty-hint {
+  font-size: 13px;
+}
+
+.cash-history__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.cash-history__grid--split {
+  grid-template-columns: 1fr 1fr;
+}
+
+.cash-history__list-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.cash-history__row {
+  cursor: pointer;
+}
+
+.cash-history__row--selected {
+  background: color-mix(in srgb, var(--color-success) 10%, transparent);
+}
+
+.cash-history__date {
+  font-family: monospace;
+  font-weight: 600;
+}
+
+.cash-history__income {
+  color: var(--color-success);
+  font-weight: 600;
+}
+
+.cash-history__expense {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+.cash-history__balance {
+  font-weight: 700;
+}
+
+.cash-history__real-cash {
+  font-weight: 700;
+  color: var(--color-success);
+}
+
+.cash-history__detail-btn {
+  padding: 4px 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.cash-history__detail-card {
+  margin-bottom: 16px;
+}
+
+.cash-history__detail-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+.cash-history__notes {
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--color-info) 8%, transparent);
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  border: 1px solid color-mix(in srgb, var(--color-info) 25%, transparent);
+}
+
+.cash-history__detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.cash-history__detail-label {
+  color: var(--text-muted);
+}
+
+.cash-history__detail-income {
+  color: var(--color-success);
+}
+
+.cash-history__detail-expense {
+  color: var(--color-danger);
+}
+
+.cash-history__detail-real-cash {
+  color: var(--color-success);
+  font-weight: 700;
+  grid-column: 1 / -1;
+}
+
+.cash-history__movements-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.cash-history__movements-title {
+  font-size: 14px;
+  font-weight: 700;
+  padding: 12px 16px 0;
+  color: var(--text-primary);
+}
+
+.cash-history__movements-container {
+  margin-top: 8px;
+}
+
+.cash-history__movement-amount {
+  font-weight: 600;
+}
+
+.cash-history__movement-amount--income {
+  color: var(--color-success);
+}
+
+.cash-history__movement-amount--expense {
+  color: var(--color-danger);
+}

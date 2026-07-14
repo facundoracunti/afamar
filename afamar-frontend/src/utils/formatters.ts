@@ -1,6 +1,27 @@
-﻿export const formatCurrency = (value: number): string => {
-  return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(value);
+﻿export function parseNumber(v: string): number | null {
+  return v === '' ? null : parseFloat(v);
+}
+
+export const formatCurrency = (value: number): string => {
+  return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
 };
+
+export interface FormatCurrencyValueOptions {
+  currency?: 'ARS' | 'USD';
+  locale?: string;
+  decimals?: number;
+}
+
+export function formatCurrencyValue(value: number, options: FormatCurrencyValueOptions = {}): string {
+  const { currency = 'ARS', locale = 'es-AR', decimals = 2 } = options;
+  const symbol = currency === 'USD' ? 'US$' : '$';
+  const num = Number(value) || 0;
+  const formatted = num.toLocaleString(locale, {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+  return `${symbol} ${formatted}`;
+}
 
 export const formatDate = (date: string | undefined | null): string => {
   if (!date) return '-';

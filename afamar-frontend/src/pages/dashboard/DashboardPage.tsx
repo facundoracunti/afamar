@@ -5,6 +5,7 @@ import type { DashboardData } from '../../types/dashboard';
 import { getDashboard } from '@/api/resources/dashboard';
 import { useGet } from '../../api/hooks';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
+import { formatCurrencyValue } from '../../utils/formatters';
 import styles from './DashboardPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -32,8 +33,8 @@ export default function Dashboard() {
   if (loading) return <LoadingSpinner />;
   if (error || !data) return <div className={s['dashboard__error']}>Error al cargar el panel</div>;
 
-  const ing = (data.total_revenue ?? 0).toLocaleString();
-  const pendiente = (data.total_pending_payments ?? 0).toLocaleString();
+  const ing = formatCurrencyValue(data.total_revenue ?? 0);
+  const pendiente = formatCurrencyValue(data.total_pending_payments ?? 0);
   const activas = data.total_active_orders ?? 0;
   const terminadas = data.delivered_orders.length;
   const medicion = data.orders_in_measurement ?? 0;

@@ -80,24 +80,24 @@ export default function Reports() {
             <h3 className="section-title">Resumen de Presupuestos</h3>
             <div className="grid-4">
               <div className="stat-card">
-                <div className="value" style={{ color: '#3b82f6' }}>{(presupuestos as Record<string, unknown>).total as number}</div>
+                <div className={`value ${s['reports__stat-value--blue']}`}>{(presupuestos as Record<string, unknown>).total as number}</div>
                 <div className="label">Totales</div>
               </div>
               <div className="stat-card">
-                <div className="value" style={{ color: '#f59e0b' }}>{(presupuestos as Record<string, unknown>).pendientes as number}</div>
+                <div className={`value ${s['reports__stat-value--amber']}`}>{(presupuestos as Record<string, unknown>).pendientes as number}</div>
                 <div className="label">Pendientes</div>
               </div>
               <div className="stat-card">
-                <div className="value" style={{ color: '#22c55e' }}>{(presupuestos as Record<string, unknown>).aprobados as number}</div>
+                <div className={`value ${s['reports__stat-value--green']}`}>{(presupuestos as Record<string, unknown>).aprobados as number}</div>
                 <div className="label">Aprobados</div>
               </div>
               <div className="stat-card">
-                <div className="value" style={{ color: '#ef4444' }}>{(presupuestos as Record<string, unknown>).rechazados as number}</div>
+                <div className={`value ${s['reports__stat-value--red']}`}>{(presupuestos as Record<string, unknown>).rechazados as number}</div>
                 <div className="label">Rechazados</div>
               </div>
             </div>
-            <div style={{ marginTop: 20 }}>
-              <p style={{ fontSize: 14, fontWeight: 600 }}>Monto total: ${((presupuestos as Record<string, unknown>).monto_total as number | undefined)?.toFixed(2)}</p>
+            <div className={s['reports__stat-total']}>
+              <p>Monto total: ${((presupuestos as Record<string, unknown>).monto_total as number | undefined)?.toFixed(2)}</p>
             </div>
           </div>
         )}
@@ -107,19 +107,19 @@ export default function Reports() {
             <h3 className="section-title">Resumen de Órdenes</h3>
             <div className="grid-4">
               <div className="stat-card">
-                <div className="value" style={{ color: '#3b82f6' }}>{(ordenes as Record<string, unknown>).total as number}</div>
+                <div className={`value ${s['reports__stat-value--blue']}`}>{(ordenes as Record<string, unknown>).total as number}</div>
                 <div className="label">Totales</div>
               </div>
               <div className="stat-card">
-                <div className="value" style={{ color: '#f59e0b' }}>{(ordenes as Record<string, unknown>).presupuestadas as number}</div>
+                <div className={`value ${s['reports__stat-value--amber']}`}>{(ordenes as Record<string, unknown>).presupuestadas as number}</div>
                 <div className="label">Presupuestadas</div>
               </div>
               <div className="stat-card">
-                <div className="value" style={{ color: '#8b5cf6' }}>{(ordenes as Record<string, unknown>).en_produccion as number}</div>
+                <div className={`value ${s['reports__stat-value--purple']}`}>{(ordenes as Record<string, unknown>).en_produccion as number}</div>
                 <div className="label">En Producción</div>
               </div>
               <div className="stat-card">
-                <div className="value" style={{ color: '#22c55e' }}>{(ordenes as Record<string, unknown>).finalizadas as number}</div>
+                <div className={`value ${s['reports__stat-value--green']}`}>{(ordenes as Record<string, unknown>).finalizadas as number}</div>
                 <div className="label">Finalizadas</div>
               </div>
             </div>
@@ -162,7 +162,7 @@ export default function Reports() {
                     <tbody>
                       {materials.map((m, i) => (
                         <tr key={i}>
-                          <td style={{ fontWeight: 600 }}>{(m as Record<string, unknown>).material as string}</td>
+                          <td className={s['reports__material-name']}>{(m as Record<string, unknown>).material as string}</td>
                           <td>{(m as Record<string, unknown>).total as number}</td>
                         </tr>
                       ))}
@@ -171,7 +171,7 @@ export default function Reports() {
                 </div>
               </div>
             ) : (
-              <p style={{ color: '#94a3b8' }}>No hay datos suficientes</p>
+              <p className={s['reports__empty-data']}>No hay datos suficientes</p>
             )}
           </div>
         )}

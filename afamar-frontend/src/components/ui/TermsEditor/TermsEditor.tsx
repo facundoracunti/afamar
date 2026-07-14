@@ -105,7 +105,7 @@ export default function TermsEditor({
       </button>
 
       {hint && (
-        <small style={{ color: '#6b7280', fontSize: '0.85em' }}>{hint}</small>
+        <small className={s['terms-editor__hint']}>{hint}</small>
       )}
     </div>
   );

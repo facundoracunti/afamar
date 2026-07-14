@@ -1,0 +1,48 @@
+/* PreviousBalanceCard — BEM */
+.previous-balance {
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.previous-balance__icon {
+  color: var(--text-muted);
+}
+
+.previous-balance__label {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text-secondary);
+}
+
+.previous-balance__edit-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.previous-balance__edit-row input {
+  width: 160px;
+}
+
+.previous-balance__edit-row .previous-balance__btn {
+  padding: 6px 14px;
+}
+
+.previous-balance__display {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.previous-balance__amount {
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--text-primary);
+}
+
+.previous-balance__btn-edit {
+  padding: 4px 10px;
+  font-size: 12px;
+}

@@ -8,6 +8,7 @@ import {
   deleteAdditionalWork,
 } from '@/api/resources/additionalWorks';
 import { useList } from '../../api/hooks';
+import { formatCurrencyValue } from '../../utils/formatters';
 import { Modal } from '../../components/ui/Modal/Modal';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
@@ -186,8 +187,7 @@ export default function AdditionalWorksPage() {
                         ? <span style={{ color: '#94a3b8' }}>automático</span>
                         : (
                           <>
-                            {a.currency === 'USD' ? 'USD ' : '$ '}
-                            {Number(a.price || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                            {formatCurrencyValue(Number(a.price || 0), { currency: a.currency as 'ARS' | 'USD' })}
                           </>
                         )}
                     </td>

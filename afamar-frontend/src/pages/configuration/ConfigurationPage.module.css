@@ -94,6 +94,19 @@
   margin-top: 24px;
 }
 
+.configuration__logo-hint {
+  color: var(--text-muted);
+  font-size: 0.85em;
+}
+
+.configuration__required {
+  color: var(--color-danger);
+}
+
+.configuration__terms-field {
+  grid-column: 1 / -1;
+}
+
 .configuration__message {
   padding: 10px 16px;
   border-radius: 8px;

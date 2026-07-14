@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { Lock } from 'lucide-react';
 import { Modal } from '../../ui/Modal/Modal';
+import styles from './CloseCashModal.module.css';
+
+const s = styles as unknown as Record<string, string>;
 
 interface Props {
   isOpen: boolean;
@@ -19,21 +22,21 @@ export default function CloseCashModal({ isOpen, onClose, onConfirm, fecha }: Pr
 
   return (
     <Modal isOpen={isOpen} onClose={() => { setCloseNotes(''); onClose(); }} title="Cerrar Caja del Día" width="450px">
-      <p style={{ fontSize: 14, color: '#475569', marginBottom: 16 } as React.CSSProperties}>
+      <p className={s['close-cash__description']}>
         Al cerrar la caja se congelarán los totales del día <strong>{fecha}</strong>.
         No se podrán agregar ni eliminar movimientos una vez cerrada.
       </p>
       <div className="form-group">
         <label>Observaciones / Notas de la jornada (opcional)</label>
-        <textarea className="input" rows={4} style={{ resize: 'vertical' } as React.CSSProperties}
+        <textarea className={`input ${s['close-cash__textarea']}`} rows={4}
           placeholder="Ej: Cobros del día, incidencias, transferencias pendientes..."
           value={closeNotes}
           onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setCloseNotes(e.target.value)} />
       </div>
-      <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 20 } as React.CSSProperties}>
+      <div className={s['close-cash__footer']}>
         <button type="button" className="btn btn-outline" onClick={() => { setCloseNotes(''); onClose(); }}>Cancelar</button>
         <button type="button" className="btn btn-danger" onClick={handleConfirm}>
-          <Lock size={14} style={{ marginRight: 4 } as React.CSSProperties} /> Cerrar Caja
+          <Lock size={14} className={s['close-cash__btn-icon']} /> Cerrar Caja
         </button>
       </div>
     </Modal>

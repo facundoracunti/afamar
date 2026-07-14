@@ -155,3 +155,108 @@
   color: var(--text-muted);
   font-size: 14px;
 }
+
+/* Table layout */
+.poolStock__th-actions {
+  width: 160px;
+}
+
+.poolStock__brand {
+  font-weight: 600;
+}
+
+.poolStock__type-badge {
+  font-size: 11px;
+}
+
+.poolStock__price {
+  font-weight: 700;
+}
+
+.poolStock__price--usd {
+  color: var(--color-success);
+}
+
+.poolStock__quantity {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.poolStock__quantity--positive {
+  color: var(--color-success);
+}
+
+.poolStock__quantity--zero {
+  color: var(--color-danger);
+}
+
+.poolStock__actions-cell {
+  display: flex;
+  gap: 6px;
+}
+
+.poolStock__btn-sm {
+  padding: 4px 8px;
+}
+
+.poolStock__empty-row {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-muted);
+}
+
+.poolStock__brand-input {
+  margin-top: 6px;
+}
+
+.poolStock__form-footer {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.poolStock__mov-section {
+  margin-bottom: 20px;
+}
+
+.poolStock__mov-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+.poolStock__mov-form {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.poolStock__mov-type {
+  width: 140px;
+}
+
+.poolStock__mov-qty {
+  width: 100px;
+}
+
+.poolStock__mov-desc {
+  flex: 1;
+  min-width: 150px;
+}
+
+.poolStock__mov-qty-cell {
+  font-weight: 600;
+}
+
+.poolStock__mov-ot-link {
+  color: var(--color-info);
+  font-weight: 600;
+}
+
+.poolStock__mov-empty {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-muted);
+}

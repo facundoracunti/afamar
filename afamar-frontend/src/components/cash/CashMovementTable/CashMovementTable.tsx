@@ -36,15 +36,14 @@ export function CashMovementTable({
         </h3>
         <button
           type="button"
-          className="btn btn-success no-print"
+          className={`btn btn-success no-print ${styles['cash-movement__btn-add']}`}
           onClick={onAdd}
           disabled={closed}
-          style={{ padding: '6px 12px', fontSize: 13 }}
         >
           <Plus size={14} /> {addLabel}
         </button>
       </div>
-      <div className="table-container" style={{ marginTop: 12 }}>
+      <div className={`table-container ${styles['cash-movement__table-wrap']}`}>
         <table>
           <thead>
             <tr>
@@ -72,16 +71,9 @@ export function CashMovementTable({
                   <td className="no-print">
                     <button
                       type="button"
-                      className="btn"
+                      className={`btn ${styles['cash-movement__delete-btn']}`}
                       onClick={() => onDelete(row.id as number)}
                       title="Eliminar"
-                      style={{
-                        padding: '3px 6px',
-                        color: '#dc2626',
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                      }}
                     >
                       <Trash2 size={14} />
                     </button>

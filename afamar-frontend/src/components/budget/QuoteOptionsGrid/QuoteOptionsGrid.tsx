@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatCurrencyValue } from '../../../utils/formatters';
 import styles from './QuoteOptionsGrid.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -57,9 +58,9 @@ const QuoteOptionsGrid = ({
   const t_cambio = tipoCambio || 1000;
 
   const formatMonto = (n: number, enUSD: boolean): string => {
-    if (modoUSD && t_cambio > 0) return `USD $${(n / t_cambio).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    if (enUSD) return `USD $${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    return `$ ${n.toLocaleString('es-AR')}`;
+    if (modoUSD && t_cambio > 0) return formatCurrencyValue(n / t_cambio, { currency: 'USD', locale: 'en-US' });
+    if (enUSD) return formatCurrencyValue(n, { currency: 'USD', locale: 'en-US' });
+    return formatCurrencyValue(n, { currency: 'ARS' });
   };
 
   const renderCard = (mat: Alternativa, idx: number, isMain: boolean) => {
@@ -103,8 +104,8 @@ const QuoteOptionsGrid = ({
                 {t_cambio > 0 && (
                   <span className={s['quote-options__detail-value-usd']}>
                     {esTarjetaUSD
-                      ? `≈ $ ${Math.round(mat.costoMaterialBase * t_cambio).toLocaleString('es-AR')}`
-                      : `≈ USD $${(mat.costoMaterialBase / t_cambio).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                      ? `≈ ${formatCurrencyValue(Math.round(mat.costoMaterialBase * t_cambio), { currency: 'ARS', decimals: 0 })}`
+                      : `≈ ${formatCurrencyValue(mat.costoMaterialBase / t_cambio, { currency: 'USD', locale: 'en-US' })}`}
                   </span>
                 )}
               </span>
@@ -124,14 +125,14 @@ const QuoteOptionsGrid = ({
                   <span>
                     <span className={s['quote-options__detail-value--muted']}>
                       {jobEsUSD
-                        ? `USD $${job.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                        : `$ ${job.total.toLocaleString('es-AR')}`}
+                        ? formatCurrencyValue(job.total, { currency: 'USD', locale: 'en-US' })
+                        : formatCurrencyValue(job.total, { currency: 'ARS' })}
                     </span>
                     {t_cambio > 0 && (
                       <span className={s['quote-options__detail-value-usd']}>
                         {jobEsUSD
-                          ? `≈ $ ${Math.round(job.total * t_cambio).toLocaleString('es-AR')}`
-                          : `≈ USD $${(job.total / t_cambio).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                          ? `≈ ${formatCurrencyValue(Math.round(job.total * t_cambio), { currency: 'ARS', decimals: 0 })}`
+                          : `≈ ${formatCurrencyValue(job.total / t_cambio, { currency: 'USD', locale: 'en-US' })}`}
                       </span>
                     )}
                   </span>
@@ -153,14 +154,14 @@ const QuoteOptionsGrid = ({
                   <span>
                     <span className={s['quote-options__detail-value--muted']}>
                       {jobEsUSD
-                        ? `USD $${job.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                        : `$ ${job.total.toLocaleString('es-AR')}`}
+                        ? formatCurrencyValue(job.total, { currency: 'USD', locale: 'en-US' })
+                        : formatCurrencyValue(job.total, { currency: 'ARS' })}
                     </span>
                     {t_cambio > 0 && (
                       <span className={s['quote-options__detail-value-usd']}>
                         {jobEsUSD
-                          ? `≈ $ ${Math.round(job.total * t_cambio).toLocaleString('es-AR')}`
-                          : `≈ USD $${(job.total / t_cambio).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                          ? `≈ ${formatCurrencyValue(Math.round(job.total * t_cambio), { currency: 'ARS', decimals: 0 })}`
+                          : `≈ ${formatCurrencyValue(job.total / t_cambio, { currency: 'USD', locale: 'en-US' })}`}
                       </span>
                     )}
                   </span>
@@ -175,14 +176,14 @@ const QuoteOptionsGrid = ({
             <span className={s['quote-options__total-label']}>TOTAL PRESUPUESTO</span>
             <span className={s['quote-options__total-value']}>
               {modoUSD && t_cambio > 0
-                ? `USD $${Number(mat.totalFinalARS / t_cambio).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                : `$ ${Math.round(mat.totalFinalARS).toLocaleString('es-AR')}`}
+                ? formatCurrencyValue(mat.totalFinalARS / t_cambio, { currency: 'USD', locale: 'en-US' })
+                : formatCurrencyValue(Math.round(mat.totalFinalARS), { currency: 'ARS', decimals: 0 })}
             </span>
             {t_cambio > 0 && (
               <span className={s['quote-options__total-usd']}>
                 {modoUSD
-                  ? `≈ $ ${Math.round(mat.totalFinalARS).toLocaleString('es-AR')}`
-                  : `≈ USD $${(mat.totalFinalARS / t_cambio).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                  ? `≈ ${formatCurrencyValue(Math.round(mat.totalFinalARS), { currency: 'ARS', decimals: 0 })}`
+                  : `≈ ${formatCurrencyValue(mat.totalFinalARS / t_cambio, { currency: 'USD', locale: 'en-US' })}`}
               </span>
             )}
           </div>

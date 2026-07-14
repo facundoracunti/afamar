@@ -4,6 +4,9 @@ import { useList } from '../../api/hooks';
 import CurrencyDisplay from '../../components/ui/CurrencyDisplay';
 import { ArrowUpCircle, ArrowDownCircle, Calendar, FileText } from 'lucide-react';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
+import styles from './CashHistoryPage.module.css';
+
+const s = styles as unknown as Record<string, string>;
 
 export default function CashHistoryPage() {
   const { items: cashRecords, loading } = useList<Record<string, unknown>>(
@@ -18,20 +21,20 @@ export default function CashHistoryPage() {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div>
-      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>Historial de Cierres de Caja</h1>
+    <div className={s['cash-history']}>
+      <h1 className={s['cash-history__title']}>Historial de Cierres de Caja</h1>
 
       {cashRecords.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>
-          <Calendar size={40} style={{ marginBottom: 12, opacity: 0.4 }} />
+        <div className={`card ${s['cash-history__empty']}`}>
+          <Calendar size={40} className={s['cash-history__empty-icon']} />
           <p>No hay cajas cerradas aún.</p>
-          <p style={{ fontSize: 13 }}>Cerrá un día desde Caja Diaria para que aparezca aquí.</p>
+          <p className={s['cash-history__empty-hint']}>Cerrá un día desde Caja Diaria para que aparezca aquí.</p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 1fr' : '1fr', gap: 16 }}>
+        <div className={`${s['cash-history__grid']}${selected ? ' ' + s['cash-history__grid--split'] : ''}`}>
           {/* Lista cronológica */}
           <div>
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div className={`card ${s['cash-history__list-card']}`}>
               <div className="table-container">
                 <table>
                   <thead>
@@ -49,15 +52,15 @@ export default function CashHistoryPage() {
                     {cashRecords.map((c: Record<string, unknown>) => (
                       <tr key={c.id as number}
                         onClick={() => setSelected((selected?.id as number) === (c.id as number) ? null : c)}
-                        style={{ cursor: 'pointer', background: (selected?.id as number) === (c.id as number) ? '#f0fdf4' : undefined }}>
-                        <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>{c.date as string}</td>
+                        className={`${s['cash-history__row']}${(selected?.id as number) === (c.id as number) ? ' ' + s['cash-history__row--selected'] : ''}`}>
+                        <td className={s['cash-history__date']}>{c.date as string}</td>
                         <td><CurrencyDisplay value={c.previous_balance as number} /></td>
-                        <td style={{ color: '#16a34a', fontWeight: 600 }}><CurrencyDisplay value={c.total_income as number} style={{ color: '#16a34a', fontWeight: 600 }} /></td>
-                        <td style={{ color: '#dc2626', fontWeight: 600 }}><CurrencyDisplay value={c.total_expenses as number} style={{ color: '#dc2626', fontWeight: 600 }} /></td>
-                        <td style={{ fontWeight: 700 }}><CurrencyDisplay value={c.current_balance as number} style={{ fontWeight: 700 }} /></td>
-                        <td style={{ fontWeight: 700, color: '#16a34a' }}><CurrencyDisplay value={c.real_cash as number} style={{ fontWeight: 700, color: '#16a34a' }} /></td>
+                        <td className={s['cash-history__income']}><CurrencyDisplay value={c.total_income as number} /></td>
+                        <td className={s['cash-history__expense']}><CurrencyDisplay value={c.total_expenses as number} /></td>
+                        <td className={s['cash-history__balance']}><CurrencyDisplay value={c.current_balance as number} /></td>
+                        <td className={s['cash-history__real-cash']}><CurrencyDisplay value={c.real_cash as number} /></td>
                         <td>
-                          <button className="btn" style={{ padding: '4px 8px', background: 'none', border: 'none', cursor: 'pointer' }}
+                          <button className={`btn ${s['cash-history__detail-btn']}`}
                             onClick={(e: React.MouseEvent) => { e.stopPropagation(); setSelected((selected?.id as number) === (c.id as number) ? null : c); }}>
                             <FileText size={16} />
                           </button>
@@ -73,41 +76,41 @@ export default function CashHistoryPage() {
           {/* Detalle de la caja seleccionada */}
           {selected && (
             <div>
-              <div className="card" style={{ marginBottom: 16 }}>
-                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Detalle — {selected.date as string}</h3>
+              <div className={`card ${s['cash-history__detail-card']}`}>
+                <h3 className={s['cash-history__detail-title']}>Detalle — {selected.date as string}</h3>
                 {(selected.notes as string) && (
-                  <div style={{ padding: '10px 14px', background: '#fefce8', borderRadius: 8, marginBottom: 12, fontSize: 13, border: '1px solid #fde68a' }}>
+                  <div className={s['cash-history__notes']}>
                     <strong>Observaciones:</strong> {selected.notes as string}
                   </div>
                 )}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 14 }}>
+                <div className={s['cash-history__detail-grid']}>
                   <div>
-                    <span style={{ color: '#64748b' }}>Saldo Anterior:</span>{' '}
+                    <span className={s['cash-history__detail-label']}>Saldo Anterior:</span>{' '}
                     <CurrencyDisplay value={selected.previous_balance as number} />
                   </div>
                   <div>
-                    <span style={{ color: '#64748b' }}>Saldo Actual:</span>{' '}
+                    <span className={s['cash-history__detail-label']}>Saldo Actual:</span>{' '}
                     <CurrencyDisplay value={selected.current_balance as number} />
                   </div>
-                  <div style={{ color: '#16a34a' }}>
+                  <div className={s['cash-history__detail-income']}>
                     <ArrowUpCircle size={14} style={{ marginRight: 4 }} />
-                    Ingresos: <CurrencyDisplay value={selected.total_income as number} style={{ color: '#16a34a' }} />
+                    Ingresos: <CurrencyDisplay value={selected.total_income as number} />
                   </div>
-                  <div style={{ color: '#dc2626' }}>
+                  <div className={s['cash-history__detail-expense']}>
                     <ArrowDownCircle size={14} style={{ marginRight: 4 }} />
-                    Egresos: <CurrencyDisplay value={selected.total_expenses as number} style={{ color: '#dc2626' }} />
+                    Egresos: <CurrencyDisplay value={selected.total_expenses as number} />
                   </div>
-                  <div style={{ color: '#16a34a', fontWeight: 700, gridColumn: '1 / -1' }}>
-                    Efectivo Real: <CurrencyDisplay value={selected.real_cash as number} style={{ color: '#16a34a', fontWeight: 700 }} />
+                  <div className={s['cash-history__detail-real-cash']}>
+                    Efectivo Real: <CurrencyDisplay value={selected.real_cash as number} />
                   </div>
                 </div>
               </div>
 
               {/* Movimientos del día seleccionado */}
               {(selected.movements as Record<string, unknown>[]) && (selected.movements as Record<string, unknown>[]).length > 0 && (
-                <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                  <h3 style={{ fontSize: 14, fontWeight: 700, padding: '12px 16px 0' }}>Movimientos</h3>
-                  <div className="table-container" style={{ marginTop: 8 }}>
+                <div className={`card ${s['cash-history__movements-card']}`}>
+                  <h3 className={s['cash-history__movements-title']}>Movimientos</h3>
+                  <div className={`table-container ${s['cash-history__movements-container']}`}>
                     <table>
                       <thead>
                         <tr>
@@ -126,8 +129,8 @@ export default function CashHistoryPage() {
                               </span>
                             </td>
                             <td>{(m.description as string) || '-'}</td>
-                            <td style={{ fontWeight: 600, color: (m.type as string) === 'INCOME' ? '#16a34a' : '#dc2626' }}>
-                              <CurrencyDisplay value={m.amount as number} style={{ fontWeight: 600, color: (m.type as string) === 'INCOME' ? '#16a34a' : '#dc2626' }} />
+                            <td className={`${s['cash-history__movement-amount']} ${(m.type as string) === 'INCOME' ? s['cash-history__movement-amount--income'] : s['cash-history__movement-amount--expense']}`}>
+                              <CurrencyDisplay value={m.amount as number} />
                             </td>
                             <td>{(m.payment_method as string) || (m.expense_type as string) || '-'}</td>
                           </tr>

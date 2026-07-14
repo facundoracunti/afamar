@@ -8,6 +8,7 @@ import { Modal } from '../../components/ui/Modal/Modal';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { Pagination } from '../../components/ui/Pagination';
+import { formatCurrencyValue } from '../../utils/formatters';
 import type { Pool, PoolMovement, PoolType } from '../../types/poolStock';
 import { useNotify } from '../../context/NotificationContext';
 import { t as translate } from '../../utils/translate';
@@ -137,7 +138,7 @@ export default function PoolStockPage() {
                   <th>Material</th>
                   <th>Precio</th>
                   <th>Cantidad</th>
-                  <th style={{ width: 160 }}>Acciones</th>
+                  <th className={s['poolStock__th-actions']}>Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -145,33 +146,23 @@ export default function PoolStockPage() {
                   const currency = p.currency || 'ARS';
                   return (
                   <tr key={p.id}>
-                    <td style={{ fontWeight: 600 }}>{p.brand}</td>
+                    <td className={s['poolStock__brand']}>{p.brand}</td>
                     <td>{p.model}</td>
-                    <td><span className="badge badge-info" style={{ fontSize: 11 }}>{p.pool_type_name || 'Simple'}</span></td>
+                    <td><span className={`badge badge-info ${s['poolStock__type-badge']}`}>{p.pool_type_name || 'Simple'}</span></td>
                     <td>{p.material || '-'}</td>
-                    <td
-                      style={{
-                        fontWeight: 700,
-                        color: currency === 'USD' ? '#16a34a' : 'var(--text-primary)',
-                      }}
-                    >
-                      {currency === 'USD'
-                        ? `USD ${Number(p.price || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
-                        : `$ ${Number(p.price || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}
+                    <td className={`${s['poolStock__price']}${currency === 'USD' ? ' ' + s['poolStock__price--usd'] : ''}`}>
+                      {formatCurrencyValue(Number(p.price || 0), { currency })}
                     </td>
                     <td>
-                      <span style={{
-                        fontWeight: 700, fontSize: 16,
-                        color: p.quantity > 0 ? '#16a34a' : '#dc2626',
-                      }}>{p.quantity}</span>
+                      <span className={`${s['poolStock__quantity']} ${p.quantity > 0 ? s['poolStock__quantity--positive'] : s['poolStock__quantity--zero']}`}>{p.quantity}</span>
                     </td>
                     <td>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button className="btn btn-outline" style={{ padding: '4px 8px' }} onClick={() => handleOpenForm(p)}>Editar</button>
-                        <button className="btn btn-success" style={{ padding: '4px 8px' }} onClick={() => handleOpenMov(p)} title="Movimientos">
+                      <div className={s['poolStock__actions-cell']}>
+                        <button className={`btn btn-outline ${s['poolStock__btn-sm']}`} onClick={() => handleOpenForm(p)}>Editar</button>
+                        <button className={`btn btn-success ${s['poolStock__btn-sm']}`} onClick={() => handleOpenMov(p)} title="Movimientos">
                           <PackagePlus size={14} />
                         </button>
-                        <button className="btn btn-danger" style={{ padding: '4px 8px' }} onClick={() => setDeleteId(p.id)}>
+                        <button className={`btn btn-danger ${s['poolStock__btn-sm']}`} onClick={() => setDeleteId(p.id)}>
                           <Trash2 size={14} />
                         </button>
                       </div>
@@ -180,7 +171,7 @@ export default function PoolStockPage() {
                   );
                 })}
                 {data.length === 0 && (
-                  <tr><td colSpan={7} style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>No hay piletas en stock</td></tr>
+                  <tr><td colSpan={7} className={s['poolStock__empty-row']}>No hay piletas en stock</td></tr>
                 )}
               </tbody>
             </table>
@@ -201,7 +192,7 @@ export default function PoolStockPage() {
                 <option value="OTHER">OTRA (escribir)</option>
               </select>
               {!['JOHNSON', 'MI PILETA', ''].includes(form.brand) && (
-                <input className="input" style={{ marginTop: 6 }} value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} placeholder="Escribí la marca..." />
+                <input className={`input ${s['poolStock__brand-input']}`} value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} placeholder="Escribí la marca..." />
               )}
             </div>
             <div className="form-group"><label>Modelo *</label><input className="input" required value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} /></div>
@@ -234,7 +225,7 @@ export default function PoolStockPage() {
             <div className="form-group"><label>Cantidad</label><input className="input" type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} /></div>
             <div className="form-group"><label>Descripción</label><textarea className="input" rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
           </div>
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 16 }}>
+          <div className={s['poolStock__form-footer']}>
             <button type="button" className="btn btn-outline" onClick={() => setShowForm(false)}>Cancelar</button>
             <button type="submit" className="btn btn-primary">Guardar</button>
           </div>
@@ -243,22 +234,22 @@ export default function PoolStockPage() {
 
       {/* Movimientos */}
       <Modal isOpen={!!showMov} onClose={() => setShowMov(null)} title={`Movimientos - ${showMov?.brand} ${showMov?.model}`} width="600px">
-        <div style={{ marginBottom: 20 }}>
-          <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Registrar Movimiento</h4>
-          <form onSubmit={handleAddMov} style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <select className="input" style={{ width: 140 }} value={movForm.type} onChange={(e) => setMovForm({ ...movForm, type: e.target.value })}>
+        <div className={s['poolStock__mov-section']}>
+          <h4 className={s['poolStock__mov-title']}>Registrar Movimiento</h4>
+          <form onSubmit={handleAddMov} className={s['poolStock__mov-form']}>
+            <select className={`input ${s['poolStock__mov-type']}`} value={movForm.type} onChange={(e) => setMovForm({ ...movForm, type: e.target.value })}>
               <option value="Ingreso">Ingreso</option>
               <option value="Egreso">Egreso</option>
             </select>
-            <input className="input" style={{ width: 100 }} type="number" min="1" value={movForm.quantity} onChange={(e) => setMovForm({ ...movForm, quantity: Number(e.target.value) })} />
-            <input className="input" style={{ flex: 1, minWidth: 150 }} placeholder="Descripción" value={movForm.description} onChange={(e) => setMovForm({ ...movForm, description: e.target.value })} />
+            <input className={`input ${s['poolStock__mov-qty']}`} type="number" min="1" value={movForm.quantity} onChange={(e) => setMovForm({ ...movForm, quantity: Number(e.target.value) })} />
+            <input className={`input ${s['poolStock__mov-desc']}`} placeholder="Descripción" value={movForm.description} onChange={(e) => setMovForm({ ...movForm, description: e.target.value })} />
             <button type="submit" className="btn btn-primary">
               {movForm.type === 'Ingreso' ? <PackagePlus size={14} /> : <PackageMinus size={14} />} Registrar
             </button>
           </form>
         </div>
 
-        <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Historial</h4>
+        <h4 className={s['poolStock__mov-title']}>Historial</h4>
         <div className="table-container">
           <table>
             <thead>
@@ -288,7 +279,7 @@ export default function PoolStockPage() {
                         {typeLabel}
                       </span>
                     </td>
-                    <td style={{ fontWeight: 600 }}>{m.quantity}</td>
+                    <td className={s['poolStock__mov-qty-cell']}>{m.quantity}</td>
                     <td>
                       {displayNotes || '-'}
                       {workOrderId ? (
@@ -296,7 +287,7 @@ export default function PoolStockPage() {
                           {' '}
                           <Link
                             to={`/admin/work-orders/${workOrderId}`}
-                            style={{ color: 'var(--color-info)', fontWeight: 600 }}
+                            className={s['poolStock__mov-ot-link']}
                             title="Ir a la orden de trabajo"
                           >
                             (ver OT)
@@ -309,7 +300,7 @@ export default function PoolStockPage() {
                 );
               })}
               {movimientos.length === 0 && (
-                <tr><td colSpan={4} style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>Sin movimientos registrados</td></tr>
+                <tr><td colSpan={4} className={s['poolStock__mov-empty']}>Sin movimientos registrados</td></tr>
               )}
             </tbody>
           </table>

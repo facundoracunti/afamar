@@ -1,6 +1,9 @@
 import React from 'react';
 import { Wallet } from 'lucide-react';
 import { formatCurrency } from '../../../utils/formatters';
+import styles from './PreviousBalanceCard.module.css';
+
+const s = styles as unknown as Record<string, string>;
 
 interface Props {
   previousBalance: number;
@@ -14,28 +17,27 @@ interface Props {
 
 export default function PreviousBalanceCard({ previousBalance, cerrada, editMode, onEdit, onCancel, onSave, onChange }: Props) {
   return (
-    <div className="card" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 16 } as React.CSSProperties}>
-      <Wallet size={22} style={{ color: '#64748b' } as React.CSSProperties} />
-      <span style={{ fontWeight: 600, fontSize: 15, color: '#475569' } as React.CSSProperties}>Saldo Anterior:</span>
+    <div className={`card ${s['previous-balance']}`}>
+      <Wallet size={22} className={s['previous-balance__icon']} />
+      <span className={s['previous-balance__label']}>Saldo Anterior:</span>
       {editMode ? (
-        <div className="no-print" style={{ display: 'flex', gap: 8, alignItems: 'center' } as React.CSSProperties}>
+        <div className={`no-print ${s['previous-balance__edit-row']}`}>
           <input
             className="input"
             type="number"
             step="0.01"
-            style={{ width: 160 } as React.CSSProperties}
             value={previousBalance}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(Number(e.target.value))}
             autoFocus
           />
-          <button className="btn btn-primary" style={{ padding: '6px 14px' } as React.CSSProperties} onClick={onSave}>Guardar</button>
-          <button className="btn btn-outline" style={{ padding: '6px 14px' } as React.CSSProperties} onClick={onCancel}>Cancelar</button>
+          <button className="btn btn-primary" onClick={onSave}>Guardar</button>
+          <button className="btn btn-outline" onClick={onCancel}>Cancelar</button>
         </div>
       ) : (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 } as React.CSSProperties}>
-          <span style={{ fontWeight: 700, fontSize: 20, color: '#1e293b' } as React.CSSProperties}>{formatCurrency(previousBalance)}</span>
+        <div className={s['previous-balance__display']}>
+          <span className={s['previous-balance__amount']}>{formatCurrency(previousBalance)}</span>
           {!cerrada && (
-            <button className="btn btn-outline no-print" style={{ padding: '4px 10px', fontSize: 12 } as React.CSSProperties} onClick={onEdit}>Editar</button>
+            <button className={`btn btn-outline no-print ${s['previous-balance__btn-edit']}`} onClick={onEdit}>Editar</button>
           )}
         </div>
       )}
