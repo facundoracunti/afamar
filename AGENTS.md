@@ -720,17 +720,17 @@ Refactor **masivo de nombres a inglés** completado en una sola sesión. Cambió
 - `OldOrdenRedirect` → `OldWorkOrderRedirect`
 - `OldPOnlineRedirect` → `OldOnlineBudgetRedirect`
 
-### ⚠️ Lo que NO se renombró (legacy intencional)
+### ✅ Estado actual del form state (post-refactor)
 
-Por elección al elegir "Máximo (recomendado)", el siguiente código conserva campos Spanish **por diseño** (es legacy, refactor planificado):
+`EntityFormState` **ya está en inglés snake_case** desde el rename completo de Ola 4. Los campos son snake_case English que matchean exactamente el backend API (`app/schemas/budget.py` y `app/schemas/work_order.py`). El código de traducción Spanish↔English (`MATERIAL_FIELD_MAP` / `PILETA_FIELD_MAP`) **ya no existe**.
 
-- **`EntityFormState` campos internos** (49 campos en español): `cliente_nombre`, `domicilio`, `fecha`, `estado`, `material_precio_m2`, `color_tipo`, `espesor`, `acabado`, `tipo_cambio`, `bacha`, `anafe`, `croquis`, `observaciones_diseno`, `detalles_fabricacion`, `materiales`, `piletas`, `orden_trabajo_numero`, `descuento_porcentaje`, `descuento_monto_fijo`, `recargo_*`, `sena_*`, `forma_pago`, `saldo_*`, etc.
-- **`INITIAL_FORM`** en `src/hooks/entityFormHelpers.ts:22` — objeto con los mismos campos Spanish.
-- **`buildPayload(form)`** en `entityFormHelpers.ts:83` — lee campos Spanish, **emite campos English** al backend según `MATERIAL_FIELD_MAP` / `PILETA_FIELD_MAP`. Es el boundary translación.
-- **`mapApiToForm(d)`** en `entityFormHelpers.ts:150` — recibe English del backend, **emite Spanish para el formulario**.
-- **`MATERIAL_FIELD_MAP`, `PILETA_FIELD_MAP`** en `entityFormHelpers.ts` — Spanish→English mapping.
+- **`EntityFormState`** en `src/types/form.ts` — campos snake_case English: `client_name`, `client_phone`, `client_address`, `client_email`, `delivery_address_id`, `number`, `date`, `status`, `material`, `material_price_m2`, `color`, `thickness`, `finish`, `bacha`, `anafe`, `pool_id`, `pool_price`, `pool_currency`, `pool_image`, `delivery_date`, `digital_signature`, `signed_at`, `notes`, `design_observations`, `important_observations`, `fabrication_details`, `materials_data`, `pools_data`, `sketch_elements`, `additional_works_data`, `work_order_number`, `budget_terms`, `warranty_terms`, `delivery_terms`, más los 17 de `FinancialBase`.
+- **`INITIAL_FORM`** en `src/hooks/entityFormHelpers.ts:108-177` — objeto con los mismos campos English.
+- **`buildPayload(form)`** en `entityFormHelpers.ts:181-226` — **passthrough snake_case → snake_case** con `JSON.stringify` para arrays/text fields y date serialization (`toIsoFromDate`).
+- **`mapApiToForm(d)`** en `entityFormHelpers.ts:388+` — passthrough inverso, también snake_case.
+- **`MATERIAL_FIELD_MAP` / `PILETA_FIELD_MAP`** — eliminados (no existen en el código actual).
 
-El form state completo (`useEntityForm.ts`) es el último nivel Spanish pendiente. Reemplazo planificado en PLAN.md §1.2 #9.
+> Los únicos strings Spanish que sobreviven son `bacha` / `anafe` (códigos internos del sketch, no son nombres de campos del form).
 
 ### Problemas resueltos durante el rename
 
@@ -807,10 +807,11 @@ afamar-backend/    — FastAPI app
     main.py        — entrypoint, lifespan runs Alembic upgrade + seed admin
     api/
       dependencies.py  — get_db, get_current_user
-      routers/         — auth, clients, budgets, online_budgets, work_orders,
-                          materials, pool_stock, measurements, daily_cash,
-                          settings, reports, search, options, references,
-                          product_photos, whatsapp (15 routers)
+      routers/         — auth, clients, client_addresses, budgets,
+                          additional_works, work_orders, materials, pool_stock,
+                          measurements, daily_cash, dashboard, settings,
+                          reports, search, options, references,
+                          product_photos, whatsapp (18 routers)
     core/          — settings (pydantic), exceptions
     db/            — base, session, database
     models/        — client, budget, work_order, material, online_budget,
@@ -865,19 +866,21 @@ afamar-frontend/   — Vite + React + TS
       materials/   — MaterialCard, PoolCard
       orders/      — ClientSection (select + modal), ApprovalSection, ObservationsSection,
                      FormHeader, FormFooter
-      sketch/      — CroquisEditor, Toolbar, useCroquisState (CanvasArea,
+      sketch/      — SketchEditor, Toolbar, useSketchState (CanvasArea,
                      LineShape, RectangleShape, TextShape)
       signature/   — SignatureCanvas
       ErrorBoundary/
     layouts/       — MainLayout + MainLayout.module.css (sidebar BEM)
-    context/       — AuthContext, NotificationContext, ReferencesContext
-    hooks/         — useEntityForm (legacy, @ts-nocheck),
+    context/       — AuthContext, NotificationContext
+    hooks/         — useEntityForm (facade que compone 7 composables tipados),
                      useBudgetCalculations (reemplaza useCalculosPresupuesto),
-                     entityFormHelpers (INITIAL_FORM, buildPayload, mapApiToForm)
-    constants/     — CURRENCIES, STATUS_COLORS, PRIORITY_COLORS
-    types/         — 17 files en inglés (EntityFormState conserva campos Spanish internos)
-    utils/         — formatCurrency, translate, calcM2, downloadPdf, whatsapp,
-                     formatters (thicknesses, finishes, orderStatuses, etc.)
+                     usePdfPreview, useConfirmPayment,
+                     entityFormHelpers (INITIAL_FORM, buildPayload, mapApiToForm,
+                     buildFinancialPayload, mapFinancialToForm)
+    constants/     — PAYMENT_METHODS, BANK_INFO, EXPENSE_TYPES, FOLDER_STATUS_MAP
+    types/         — 17+ files en inglés (EntityFormState también en snake_case English)
+    utils/         — translate, formatters (thicknesses, finishes, orderStatuses, etc.),
+                     pdf/buildPdfData, pdf/SketchImageExtractor
   tsconfig.json    — path aliases (@/, @features/, @shared/, @assets/)
   vite.config.ts   — proxy /api → http://localhost:8000
   eslint.config.js, vitest.config.ts, Dockerfile, nginx.conf
@@ -955,7 +958,7 @@ E2E_ADMIN_PASS=xxx npm run test:e2e  # custom credentials
 |---------|--------------|
 | `clients.ts` | `/clients` |
 | `budgets.ts` | `/budgets` |
-| `onlineBudgets.ts` | `/online-budgets` |
+| `additionalWorks.ts` | `/additional-works` |
 | `workOrders.ts` | `/work-orders` |
 | `materials.ts` | `/materials` |
 | `measurements.ts` | `/measurements` |
@@ -972,19 +975,30 @@ Con `baseURL: '/api/v1'` en `http.ts`, el path completo es `/api/v1/clients`, et
 
 ✅ Migrados (20+ pages — todos): `auth/LoginPage`, `home/HomePage`, `dashboard/DashboardPage`, `clients/ClientsListPage`, `clients/ClientFormPage`, `budgets/BudgetsListPage`, `budgets/BudgetFormPage`, `materials/MaterialsListPage`, `materials/MaterialFormPage`, `work-orders/WorkOrdersListPage`, `work-orders/WorkOrderFormPage`, `pool-stock/PoolStockPage`, `cash/CashDailyPage`, `calculator/CalculatorPage`, `reports/ReportsPage`, `configuration/ConfigurationPage`, `measurements/MeasurementsListPage`, `measurements/MeasurementFormPage`, `online-budgets/OnlineBudgetsListPage`, `online-budgets/OnlineBudgetFormPage`.
 
-✅ Forms descompuestos: `BudgetFormPage` → 6 subcomponentes (`BudgetFormClient`, `BudgetFormSpecs`, `BudgetFormItems`, `BudgetFormAdicionales`, `BudgetFormFinancial`, `BudgetFormObservations`). `WorkOrderFormPage` → 6 subcomponentes (`WorkOrderFormBasic`, `WorkOrderFormSpecs`, `WorkOrderFormItemsGrid`, `WorkOrderFormFinancial`, `WorkOrderFormObservations`, `WorkOrderFormSnapshot`).
+✅ Forms descompuestos: `BudgetFormPage` → 6 subcomponentes (`BudgetFormClient`, `BudgetFormSpecs`, `BudgetFormItems`, `BudgetFormAdicionales`, `BudgetFormFinancial`, `BudgetFormObservations`). `WorkOrderFormPage` → 6 subcomponentes (`WorkOrderFormClient`, `WorkOrderFormStatus`, `WorkOrderFormSpecs`, `WorkOrderFormItemsGrid`, `WorkOrderFormFinancial`, `WorkOrderFormObservations`).
 
-## TypeScript helpers (legacy)
+## useEntityForm (facade tipado)
 
-`src/hooks/useEntityForm.ts` es un mega-hook legacy con `@ts-nocheck`. Recibe `services: EntityServices` (con `getMaterials`/`getPools`/`getClients`/`create`/`update`/`delete`/`getPdfUrl`/`listPath`) y un `defaultEstado`. Mantiene el form state completo en `EntityFormState` con campos Spanish.
+`src/hooks/useEntityForm.ts` ya **NO es un mega-hook legacy con `@ts-nocheck`**. Ahora es un **facade delgado y tipado** que compone 7 composables pequeños:
 
-Boundaries:
-- `entityFormHelpers.buildPayload(form: EntityFormState)` → Record<string, any> con campos English (sketch_elements, materials_data, pools_data, transport, total, deposit_received, etc.) que va al backend.
-- `entityFormHelpers.mapApiToForm(d, defaultEstado)` → `EntityFormState`, recibe campos English.
-- `MATERIAL_FIELD_MAP` / `PILETA_FIELD_MAP` en `entityFormHelpers` convierten campos Spanish anidados (materiales[], piletas[]).
-- `INITIAL_FORM` literal con todos los campos Spanish en empty.
+- `useFormReferences` — carga materiales/pools/clients/logo, fetch next number, initial load.
+- `useFormDetails` — CRUD `fabrication_details`, refs de material.
+- `useFormMaterials` — Material picker + CRUD `materials_data`.
+- `useFormPools` — Pool picker + CRUD `pools_data`, image upload.
+- `useFormClient` — Client typeahead (filtered + handleClientSelect).
+- `useFormCalculationsInput` — Handlers transport/deposit/usd_rate.
+- `useFormActions` — Submit/delete/status-change/print.
 
-Usar para preservar comportamiento en `BudgetForm`/`OrderForm` mientras se migra. Reemplazar por composables más pequeños en sesión futura (PLAN.md #9).
+El facade acepta `services: EntityServices` (con `getMaterials`/`getPools`/`getClients`/`create`/`update`/`delete`/`getPdfUrl`/`listPath`) y un `defaultEstado`. Acepta `extraPayloadFields?: () => Partial<Record<string, unknown>>` opcional para inyecciones per-page (e.g. WO terms override). El `extraPayloadFields` se aplica en `useFormActions.ts:50` después del `buildPayload()` base — es el mecanismo que reemplaza al antiguo `buildPayloadWithTerms()` planificado.
+
+Boundaries (helpers puros en `entityFormHelpers.ts`):
+- `buildPayload(form: EntityFormState)` → Record<string, unknown> con campos snake_case English (passthrough + JSON.stringify + date serialization). Va directo al backend.
+- `mapApiToForm(d, defaultEstado)` → `EntityFormState`, lee campos snake_case English de la API.
+- `buildFinancialPayload(form)` / `mapFinancialToForm(d)` — serializan/deserializan los 17 campos monetarios de `FinancialBase`.
+- `INITIAL_FORM` literal con todos los campos English en empty (ver "Estado actual del form state" arriba).
+- **`MATERIAL_FIELD_MAP` / `PILETA_FIELD_MAP` ya NO existen** — fueron eliminados en el rename a inglés.
+
+Consumers: `BudgetFormPage` y `WorkOrderFormPage` consumen `useEntityForm({...})` igual que antes. Solo `WorkOrderFormPage` pasa `extraPayloadFields` para los terms override.
 
 ## Type declaration: CSS Modules
 
@@ -998,6 +1012,16 @@ Si se añaden nuevos `.module.css`, no se necesita configuración adicional.
 
 - `App.tsx` redirige URLs viejas Spanish (ej. `/presupuestos/*` → `/admin/budgets/*`, `/ordenes/*` → `/admin/work-orders/*`, etc.) usando componentes `OldBudgetRedirect`, `OldWorkOrderRedirect`, `OldOnlineBudgetRedirect`.
 - Services **ya no exponen alias Spanish** — fueron eliminados en la migración. Solo nombres English.
+
+## Schema legacy y carpetas huérfanas
+
+- **`pages/common/`** existe pero está vacío (sin archivos). Sin uso, sin mención en el plan.
+- **`online_budgets`** tabla existe en DB pero **no hay código que la use** (la feature "presupuestos online" fue retirada). Decisión pendiente: drop / mantener / reintroducir. Ver PLAN.md §"Schema legacy: online_budgets" para análisis completo.
+
+## Helpers locales (no centralizados)
+
+- **`parseNumber()` / `num()`**: cada consumidor define `const num = (v: string): number | null => v === '' ? null : parseFloat(v)` localmente. Sitios: `pages/budgets/BudgetFormPage.tsx:69`, `pages/work-orders/WorkOrderFormPage.tsx:57`. **No hay implementación canónica** en `utils/formatters.ts`. Pendiente: centralizar (ver PLAN.md S4).
+- **`extraPayloadFields`**: callback opcional pasado a `useEntityForm({...})` que reemplaza al antiguo `buildPayloadWithTerms()`. Aplicado en `useFormActions.ts:50` después del `buildPayload()` base. Solo `WorkOrderFormPage` lo usa para inyectar `budget_terms`/`warranty_terms`/`delivery_terms` overrides. Si una página necesita lógica de payload custom, usar este mecanismo.
 
 ## Comandos
 

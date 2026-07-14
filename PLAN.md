@@ -23,8 +23,8 @@
 | 7   | Unificar IncomeTable + ExpenseTable                   | ✅     |
 | 8   | Consolidar listas de conceptos (`M2_CONCEPTOS`)        | ✅     |
 | 9   | Eliminar `@ts-nocheck`                                | ✅     |
-| 10  | Reemplazar `.toLocaleString()` por `CurrencyDisplay`  | ✅     |
-| 11  | Migrar inline styles a CSS modules                    | ✅     |
+| 10  | Reemplazar `.toLocaleString()` por `CurrencyDisplay`  | 🔄     |
+| 11  | Migrar inline styles a CSS modules                    | 🔄     |
 
 ---
 
@@ -46,7 +46,7 @@ Auditoría inicial sobrestimaba el alcance (estimaba ~180 ocurrencias). El escan
 
 **Verificación:**
 - `tsc --noEmit` ✅
-- `npm test` (vitest) ✅ 20/20
+- `npm test` (vitest) ✅ 26/26
 - `vite build` ✅ (CSS: 97 KB → 106 KB, gzip 15.75 → 17.24 — +2300 líneas movidas a CSS modules)
 
 Tres archivos tocados:
@@ -86,7 +86,7 @@ En `entityFormHelpers.ts` se extrajo:
 
 ### Tests
 
-`src/hooks/entityFormHelpers.test.ts` — **20 tests, todos verdes** ✅:
+`src/hooks/entityFormHelpers.test.ts` — **26 tests, todos verdes** ✅:
 - 4 sobre tipos compartidos (que EFS contenga los 17 campos, DEFAULT_FINANCIALS equivalga, INITIAL_FORM herede por spread)
 - 7 sobre `buildFinancialPayload` (defaults, coerción string→number, NaN→0, usd_rate fallback, payment_method null, installments fallback)
 - 2 sobre `mapFinancialToForm` (defaults y parseo de nulos)
@@ -101,11 +101,11 @@ Todos los componentes ahora siguen el patrón `components/{dominio}/{Componente}
 
 | Dominio | Componentes movidos |
 |---------|-------------------|
-| `budget/` | BudgetPanel, FabricationSection, FabricationTable, OnlineBudgetFooter/Header/Totals/ItemsTable, QuoteOptionsGrid |
+| `budget/` | BudgetPanel, FabricationSection, FabricationTable, QuoteOptionsGrid, AdditionalWorkSection |
 | `cash/` | CashMovementTable, CashTotalCards, CloseCashModal, ExpenseModal, IncomeModal, PreviousBalanceCard |
 | `materials/` | MaterialCard, MaterialForm, MaterialFormModal, PoolCard, PoolSection |
 | `orders/` | ClientSection, FormFooter, FormHeader, ObservationsSection |
-| `sketch/` | CanvasArea, CroquisEditor, LineShape, RectangleShape, SketchSection, TextShape, Toolbar |
+| `sketch/` | CanvasArea, SketchEditor, LineShape, RectangleShape, SketchSection, TextShape, Toolbar |
 | `ui/` | ChartBar, ConfirmDialog, Container, CurrencyDisplay, DiscountBlock, EmptyState, EntityFormBase, ErrorBlock, FormActions, ListPage, LoadingSpinner, Modal, PageHeader, Pagination, PdfPreviewModal, PieChart, SearchInput, StatusBadge, TableActions, TermsEditor, useConfirm |
 | `layout/` | MainLayout, ProtectedRoute |
 
@@ -140,7 +140,7 @@ También se movieron `common/PdfPreviewModal` → `ui/PdfPreviewModal/` y `commo
 ### `#2` — Adoptar primitives mejoradas en pages
 
 **PageHeader** (mejorada: `{title, actions?}`)
-- Adoptado en 6 list pages: ClientsListPage, BudgetsListPage, WorkOrdersListPage, MaterialsListPage, MaterialsCategoriesPage, MeasurementsListPage, OnlineBudgetsListPage.
+- Adoptado en 6 list pages: ClientsListPage, BudgetsListPage, WorkOrdersListPage, MaterialsListPage, MaterialsCategoriesPage, MeasurementsListPage.
 
 **SearchInput** (mejorada: `{value, onChange, placeholder?, leftIcon?}`)
 - Adoptado en 6 list pages (las mismas de arriba).
@@ -249,26 +249,45 @@ Pendiente (futuras sesiones):
 
 ---
 
-### Ola 4 — Catálogo de monedas + adicionales (+ PDF con adicionales — en progreso)
+### Ola 4 — Catálogo de monedas + additional_works (+ PDF con additional works — completo)
+
+> **Nota (julio 2026):** la tabla/catálogo inicialmente llamada `adicionales` fue **renombrada** a `additional_works` por la migración `33eba7752f2d` (ver Ola 4-bis abajo). El backend, frontend y wire format ahora usan exclusivamente el nombre English. El smoke test y la tabla resumen reflejan los nombres actuales.
 
 | # | Item | Estado |
 |---|---|---|
 | 1 | Tabla `currencies` + FK en `materials`/`pool_stock` + drop `price_usd`/`currency` string | ✅ |
-| 2 | Tabla `adicionales` + CRUD endpoints + seeder | ✅ |
-| 3 | `adicionales_data` snapshot en budgets (JSON TEXT column) + migración | ✅ |
-| 4 | `BudgetService.create/update`: pop adicionales_data first; legacy fallback | ✅ |
-| 5 | `WorkOrderService.create_from_budget`: lee adicionales_data del budget | ✅ |
-| 6 | Frontend `api/resources/adicionales.ts` + `useAdicionalesSelection` hook | ✅ |
-| 7 | `AdicionalesSection` picker en BudgetFormPage + WorkOrderFormPage | ✅ |
+| 2 | Tabla `additional_works` + CRUD endpoints + seeder | ✅ |
+| 3 | `additional_works_data` snapshot en budgets (JSON TEXT column) + migración | ✅ |
+| 4 | `BudgetService.create/update`: pop `additional_works_data` first; legacy fallback | ✅ |
+| 5 | `WorkOrderService.create_from_budget`: lee `additional_works_data` del budget | ✅ |
+| 6 | Frontend `api/resources/additionalWorks.ts` + `useAdditionalWorkSelection` hook | ✅ |
+| 7 | `AdditionalWorkSection` picker en BudgetFormPage + WorkOrderFormPage | ✅ |
 | 8 | Smoke test full round-trip (budget → WO snapshot) | ✅ |
-| 9  | **Adicionales en PDF** (`buildPdfData` + `DocumentPdf.tsx` rendering) | ✅ |
-| 10 | **Adicionales en totales** (`useBudgetCalculations`) | ✅ |
+| 9  | **Additional works en PDF** (`buildPdfData` + `DocumentPdf.tsx` rendering) | ✅ |
+| 10 | **Additional works en totales** (`useBudgetCalculations`) | ✅ |
 
-**Archivos backend:** `app/models/currency.py`, `app/models/adicionale.py`, schemas, routers/services, migrations (5 nuevas).  
-**Archivos frontend:** `api/resources/adicionales.ts`, `hooks/useAdicionalesSelection.ts`, `components/budget/AdicionalesSection/`, cambios en BudgetFormPage/WorkOrderFormPage.  
+**Archivos backend:** `app/models/currency.py`, `app/models/additional_work.py`, schemas, routers/services, migrations (5 nuevas).  
+**Archivos frontend:** `api/resources/additionalWorks.ts`, `hooks/useAdditionalWorkSelection.ts`, `components/budget/AdditionalWorkSection/`, cambios en BudgetFormPage/WorkOrderFormPage.  
 **Smoke test Python** (`test/smoke_adicionales_integration.py`): create budget → approve → convert to WO → update WO → cleanup. Passes.
 
 **Verificación:** `tsc --noEmit` 0 errores · `vite build` 10.88s · vitest 26/26.
+
+### Ola 4-bis — Rename `adicionales` → `additional_works` (post-Ola 4)
+
+Migración Alembic `33eba7752f2d` aplicada a MySQL. Renames en DB y código:
+
+- Tabla: `adicionales` → `additional_works`.
+- Columnas: `budgets.adicionales_data` → `additional_works_data` · `work_orders.adicionales_data` → `additional_works_data`.
+- Indexes: `ix_adicionales_*` → `ix_additional_works_*`.
+- Modelo backend: `app/models/adicionale.py` → `app/models/additional_work.py` (`class AdditionalWork` con `__tablename__ = "additional_works"`).
+- API: `/api/v1/adicionales` → `/api/v1/additional-works`.
+- Frontend types: `types/adicionale.ts` → `types/additionalWork.ts` (`interface AdditionalWork`).
+- Frontend resource: `api/resources/adicionales.ts` → `additionalWorks.ts` (`getAdditionalWorks`, `createAdditionalWork`, etc.).
+- Hook: `useAdicionalesSelection` → `useAdditionalWorkSelection` (`useAdditionalWorkSelection()`, `useAdditionalWorksCatalogue()`).
+- Componente: `components/budget/AdicionalesSection/` → `AdditionalWorkSection/`.
+- Page admin: `pages/additional-works/AdditionalWorksPage.tsx` (CRUD UI en `/admin/additional-works`).
+- PDF data: `AdditionalWorkPdfRow`, `section.additional_works`, `additional_works_subtotal_{ars,usd}`.
+- Tests fixtures: `test/smoke_adicionales_integration.py` actualizado para usar `/additional-works`.
 
 ---
 
@@ -315,22 +334,22 @@ cada ola, listo para commit).
 | Consistency: `setMateriales`/`setPiletas` → `setMaterials`/`setPools` | Renombrado en `useFormReferences.ts` (interno, no afecta la API pública). |
 | Backend: `surcharge_result` dead var en `work_order.py` | Removidos los cálculos `surcharge_info`/`surcharge_result` que se computaban pero no se usaban (los totales del budget ya incluyen el surcharge). Imports de `apply_surcharge`/`compute_surcharge` también removidos. |
 
-**5 archivos modificados.** `tsc --noEmit` 0 errores · `vite build` (pendiente de verificación final).
+**5 archivos modificados.** `tsc --noEmit` 0 errores · `vite build` ✅.
 ```
 
 ---
 
-## ✅ #4 — Extraer código compartido Budget/WorkOrder (COMPLETO)
+## ✅ #4 — Extraer código compartido Budget/WorkOrder (COMPLETO — parcial)
 
-Los dos form pages comparten ~60% del código. 5 de 6 items extraídos:
+Los dos form pages comparten ~60% del código. 4 de 6 items extraídos:
 
-| Item | Archivo destino |
-|------|----------------|
-| #4a `buildPayloadWithTerms()` | `hooks/entityFormHelpers.ts` |
-| #4b `usePdfPreview` | `hooks/usePdfPreview.ts` |
-| #4c `useConfirmPayment` | `hooks/useConfirmPayment.ts` |
-| #4d `parseNumber()` | `utils/formatters.ts` |
-| #4e `DiscountBlock` | `components/ui/DiscountBlock/DiscountBlock.tsx` |
+| Item | Archivo destino | Notas |
+|------|----------------|-------|
+| #4a `buildPayloadWithTerms()` | `hooks/entityFormHelpers.ts` | Implementado como `extraPayloadFields` callback en `useEntityForm.ts:23` (aplicado en `useFormActions.ts:50`). No es una función llamada `buildPayloadWithTerms` — es el contract de `useEntityForm`. |
+| #4b `usePdfPreview` | `hooks/usePdfPreview.ts` | ✅ |
+| #4c `useConfirmPayment` | `hooks/useConfirmPayment.ts` | ✅ |
+| #4d `parseNumber()` | (local en cada call-site) | ⚠️ **No centralizado**. Cada consumidor define `const num = (v) => v === '' ? null : parseFloat(v)` localmente: `BudgetFormPage.tsx:69`, `WorkOrderFormPage.tsx:57`. `utils/formatters.ts` no exporta `parseNumber`. Pendiente: una sola implementación canónica. |
+| #4e `DiscountBlock` | `components/ui/DiscountBlock/DiscountBlock.tsx` | ✅ |
 
 ### 4f. CSS modules fusion (completado)
 
@@ -340,11 +359,11 @@ BudgetFormPage.module.css y WorkOrderFormPage.module.css ahora solo contienen su
 
 ---
 
-## 🟡 #5 — Consolidar tipos superpuestos (PENDIENTE)
+## 🟡 #5 — Consolidar tipos superpuestos (IMPLEMENTADO)
 
 `EntityFormState` (form.ts), `BudgetPayload` (budget.ts), `WorkOrderPayload` (workOrder.ts) comparten ~50 campos. Extraer `FinancialBase` interface.
 
-⚠️ Riesgo alto — solo si ROI > tiempo.
+> ✅ Implementado — ver sección "Cambios aplicados" arriba (`types/shared.ts:9`, `buildFinancialPayload`/`mapFinancialToForm`).
 
 ---
 
@@ -360,18 +379,105 @@ Cero archivos con `// @ts-nocheck` en el codebase.
 
 ---
 
-## ✅ #10 — Reemplazar `.toLocaleString()` por `CurrencyDisplay` (COMPLETO — parcial)
+## 🔄 #10 — Reemplazar `.toLocaleString()` por `CurrencyDisplay` (PARCIAL)
 
-Migradas 7 ocurrencias en BudgetPanel (6 USD) + FabricationTable (1 mixed-currency). Restan ~8 en OnlineItemsTable, OnlineBudgetTotals, etc. para migración completa.
+Migradas 7 ocurrencias en BudgetPanel (6 USD) + FabricationTable (1 mixed-currency). Restan **~49 ocurrencias** en 17 archivos (`QuoteOptionsGrid`, `MaterialCard`, `AdditionalWorkSection`, `MaterialsListPage`, `PoolStockPage`, `WorkOrderFormPage`, `ClientFormPage`, `DashboardPage`, etc.). Ver S2 (Sesión futura) abajo.
 
 ---
 
-## 🟢 #11 — Migrar inline styles a CSS modules (PENDIENTE)
+## 🟢 #11 — Migrar inline styles a CSS modules (PARCIAL)
 
-| Componente | Inline styles | Prioridad |
-|---|---|---|---|
-| `OnlineItemsTable.tsx` | ~60 | Alta |
-| `BudgetPanel.tsx` | ~30 | Alta (restantes) |
-| `QuoteOptionsGrid.tsx` | ~30 | Media |
-| `Toolbar.tsx` | ~20 | Baja |
-| `CashTotalCards.tsx` | ~10 | Baja |
+Migración inicial cubrió 114 ocurrencias en 3 archivos (`OnlineItemsTable`, `Toolbar`, `CashTotalCards`). Auditoría de julio 2026 encontró **~17 componentes adicionales** que aún tienen inline styles sin `.module.css`:
+
+| Componente | Estado | Ruta |
+|---|---|---|
+| `PreviousBalanceCard` | 9 bloques + colores hardcoded (`#64748b/#475569/#1e293b`) — no theme-aware | `components/cash/PreviousBalanceCard/` |
+| `IncomeModal` | 17 bloques inline | `components/cash/IncomeModal/` |
+| `ExpenseModal` | inline styles | `components/cash/ExpenseModal/` |
+| `CloseCashModal` | inline styles | `components/cash/CloseCashModal/` |
+| `MaterialFormModal` | sin css module | `components/materials/MaterialFormModal/` |
+| `ClientSection` | 17+ bloques | `components/orders/ClientSection/` |
+| `FormHeader` / `FormFooter` / `ObservationsSection` | sin css | `components/orders/*/` |
+| `CanvasArea` / `LineShape` / `RectangleShape` / `SketchEditor` / `TextShape` | sin css | `components/sketch/*/` |
+| `CurrencyDisplay` | sin css | `components/ui/CurrencyDisplay/` |
+| `ListPage` | sin css | `components/ui/ListPage/` |
+| `PdfPreviewModal` | 12+ bloques grandes con `style={{position:'fixed', inset:0, ...}}` | `components/ui/PdfPreviewModal/` |
+| `ReportsPage` | hardcoded `#3b82f6/#f59e0b/#22c55e/#ef4444` | `pages/reports/` |
+| `WorkOrderFormPage` | descuentos `#fffbe6/#92400e/#9ca3af` | `pages/work-orders/` |
+| `CashHistoryPage` | hardcoded `#16a34a/#dc2626` | `pages/cash/` |
+| `WorkOrdersListPage` | 13 `style={{width: NNN}}` | `pages/work-orders/` |
+
+> Plan de migración priorizado sugerido (ver "Sesión futura S1" abajo): arrancar por `PreviousBalanceCard` y `CashHistoryPage` (afectan theming dark/light).
+
+---
+
+## ⚠️ Schema legacy: `online_budgets`
+
+La tabla `online_budgets` **existe en la DB** (creada por `536b175b6af0_initial_schema.py:318`, poblada por `tests/migrate_old_data.py:902-917`) pero **no hay código que la use** en el backend ni frontend actuales. La feature "presupuestos online" fue retirada:
+
+- `pages/online-budgets/` → **no existe**.
+- `components/budget/{OnlineBudgetHeader,OnlineBudgetFooter,OnlineBudgetTotals,OnlineItemsTable}` → **no existen**.
+- `app/models/online_budget.py` → no existe; no hay router con ese nombre.
+- `api/resources/onlineBudgets.ts` → eliminado.
+
+> **Decisión pendiente** (Sesión futura S3):
+> - **(a) Drop tabla**: migración Alembic que dropee `online_budgets` y todos sus índices. Limpia el schema definitivamente. Riesgo bajo si no hay código que la use.
+> - **(b) Mantener como legacy**: documentar y dejar la tabla huérfana. Riesgo: ocupa espacio en backups, puede confundir a nuevos devs.
+> - **(c) Reintroducir feature**: si la idea era exponer presupuestos online (e.g. via link público), restaurar el modelo + router + pages.
+
+Auditar primero con: `SELECT COUNT(*) FROM online_budgets;` y revisar backups/scripts que la referencien.
+
+---
+
+## 📜 Migraciones Alembic aplicadas (no documentadas en este PLAN.md)
+
+Auditoría de julio 2026 encontró **8 migraciones** presentes en `afamar-backend/alembic/versions/` que no estaban documentadas en este archivo:
+
+| Revision | Descripción |
+|---|---|
+| `33eba7752f2d` | Rename `adicionales` → `additional_works` y `adicionales_data` → `additional_works_data` (ver Ola 4-bis arriba) |
+| `38a349770781` | `add_pool_types_table_and_pool_type_id_` — nueva tabla `pool_types` + FK en `pool_stock` |
+| `b1d663f9c2bd` | `add_sort_order_and_is_active_to_pool_` — columnas para ordenar/ocultar categorías (luego droppeadas) |
+| `b1c2d3e4f5a6` | `translate_fabrication_concepts_to_english` — códigos de concepto en español → inglés |
+| `c1d2e3f4a5b6` | `align_price_history_to_english_columns` — nombres de columnas en `price_history` |
+| `d1e2f3a4b5c6` | `drop_legacy_materiales_and_spanish_columns` — drop tablas/campos Spanish legacy |
+| `e4f5a6b7c8d0` | `drop_is_active_from_adicionales` |
+| `f5a6b7c8d9e1` | `drop_sort_order_from_adicionales` |
+
+> Las dos últimas son cleanup de columnas que se agregaron y luego se removieron (`is_active`, `sort_order`). Las dos del medio son parte del rename Spanish→English masivo. La primera es el Ola 4-bis (adicionales → additional_works).
+
+---
+
+## 🟡 Sesiones futuras (planes priorizados)
+
+### S1 — Cerrar #11 inline styles en componentes que afectan theming
+
+Prioridad: 🟠 Alta. Estimación: 2-3h. Patrón ya establecido en `MaterialCard` (ver AGENTS.md).
+
+Orden sugerido:
+1. `PreviousBalanceCard` — colores hardcoded rotos en dark mode.
+2. `CashHistoryPage` — hardcoded success/danger.
+3. `ReportsPage` — colores de charts.
+4. `WorkOrderFormPage` (bloque descuentos).
+5. `PdfPreviewModal` — 12 bloques grandes.
+6. Componentes sin css module: `ClientSection`, `FormHeader/Footer`, sketch shapes, `CurrencyDisplay`, `ListPage`.
+
+### S2 — Cerrar #10 `toLocaleString` → `CurrencyDisplay`
+
+Prioridad: 🟠 Media. Estimación: 1-2h.
+
+Orden sugerido: list pages → forms → componentes secundarios. Empezar por `QuoteOptionsGrid` (13 ocurrencias en el mismo archivo).
+
+### S3 — Decisión `online_budgets` huérfana
+
+Prioridad: 🟡 Baja (decisión). Ver opciones (a/b/c) arriba.
+
+### S4 — Centralizar `parseNumber`
+
+Prioridad: 🟡 Baja. ~30min.
+
+Crear `parseNumber(v: string | number | null | undefined): number` en `utils/formatters.ts`, reemplazar las 5 definiciones locales (`BudgetFormPage.tsx:69`, `WorkOrderFormPage.tsx:57`, etc.).
+
+### S5 — Limpiar strings visibles "Croquis"
+
+Prioridad: 🟢 Cosmética. Decisión: dejar `"Croquis"` (UI Spanish) o unificar a `"Plano"`/`"Croquis/Plano"`. Hoy sobreviven como strings visibles en `DocumentPdf.tsx` (~10 sitios) y como comentarios JSDoc.
