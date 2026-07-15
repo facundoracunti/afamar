@@ -106,8 +106,14 @@ class ClientService:
             if o.client_id not in last_orders:
                 last_orders[o.client_id] = o.number
 
+        from app.schemas.client_address import ClientAddressResponse
+
         results: List[dict] = []
         for c in clients:
+            addresses = [
+                ClientAddressResponse.model_validate(a).model_dump(mode="json")
+                for a in c.addresses
+            ]
             results.append(
                 {
                     "id": c.id,
@@ -122,6 +128,7 @@ class ClientService:
                     "total_budgets": budget_counts.get(c.id, 0),
                     "total_orders": work_order_counts.get(c.id, 0),
                     "last_order_number": last_orders.get(c.id),
+                    "addresses": addresses,
                 }
             )
         return results

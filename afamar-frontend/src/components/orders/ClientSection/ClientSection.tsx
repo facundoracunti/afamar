@@ -4,18 +4,16 @@ import { Modal } from '../../ui/Modal/Modal';
 import { createClient } from '@/api/resources/clients';
 import { useNotify } from '../../../context/NotificationContext';
 import type { EntityFormState } from '../../../types/form';
-import type { Client } from '../../../types/client';
+import type { Client, ClientAddress } from '../../../types/client';
+import styles from './ClientSection.module.css';
+
+const s = styles as unknown as Record<string, string>;
 
 interface ClientSectionProps {
   form: EntityFormState;
   readOnly: boolean;
   update: (field: string, value: unknown) => void;
   clientes: Client[];
-  /**
-   * Called after the backend creates a new client.
-   * Receives the freshly created client so the parent's local list can be
-   * updated without re-fetching (which would re-render the form shell).
-   */
   onClientCreated: (newClient: Client) => void;
 }
 
@@ -27,21 +25,15 @@ export default function ClientSection({
   const [newClient, setNewClient] = useState({ name: '', phone: '', email: '', address: '' });
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
+  const [addrQuery, setAddrQuery] = useState('');
+  const [addrOpen, setAddrOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const addrWrapperRef = useRef<HTMLDivElement | null>(null);
   const notify = useNotify();
 
-  /**
-   * Match strategy:
-   *  - When the input is focused or has text, filter by substring (case-insensitive)
-   *    against name / phone / address.
-   *  - When the input is empty, show up to 30 of the most recent clients so the
-   *    field is still useful without typing.
-   */
   const filteredClientes = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) {
-      return clientes.slice(0, 30);
-    }
+    if (!q) return clientes.slice(0, 30);
     return clientes.filter((c) => {
       const name = (c.name || '').toLowerCase();
       const phone = (c.phone || '').toLowerCase();
@@ -52,13 +44,33 @@ export default function ClientSection({
 
   const selectedClient = clientes.find((c) => c.name === form.client_name);
 
+  const addresses: ClientAddress[] = selectedClient?.addresses || [];
+  const hasMultipleAddresses = addresses.length > 1;
+
+  const selectedAddress = form.delivery_address_id
+    ? addresses.find((a) => a.id === form.delivery_address_id)
+    : null;
+
+  const filteredAddresses = useMemo(() => {
+    const q = addrQuery.trim().toLowerCase();
+    if (!q) return addresses;
+    return addresses.filter((a) => {
+      const addr = (a.address || '').toLowerCase();
+      const label = (a.label || '').toLowerCase();
+      return addr.includes(q) || label.includes(q);
+    });
+  }, [addresses, addrQuery]);
+
   const handleSelect = (c: Client) => {
     update('client_name', c.name);
     update('client_phone', c.phone || '');
     update('client_email', c.email || '');
     update('client_address', c.address || '');
+    update('delivery_address_id', null);
     setQuery('');
     setOpen(false);
+    setAddrQuery('');
+    setAddrOpen(false);
   };
 
   const handleClear = () => {
@@ -66,28 +78,40 @@ export default function ClientSection({
     update('client_phone', '');
     update('client_email', '');
     update('client_address', '');
+    update('delivery_address_id', null);
     setQuery('');
+    setAddrQuery('');
+    setAddrOpen(false);
+  };
+
+  const handleAddressSelect = (addr: ClientAddress) => {
+    update('delivery_address_id', addr.id);
+    update('client_address', addr.address);
+    setAddrQuery('');
+    setAddrOpen(false);
+  };
+
+  const handleAddressClear = () => {
+    update('delivery_address_id', null);
+    if (selectedClient) {
+      update('client_address', selectedClient.address || '');
+    }
+    setAddrQuery('');
   };
 
   const handleCreateClient = async (e: React.FormEvent) => {
     e.preventDefault();
-    // The Modal renders via createPortal into document.body, but React's
-    // synthetic-event system still bubbles through the React tree — so a
-    // submit here would also trigger the parent BudgetFormPage/WorkOrderFormPage
-    // `<form onSubmit>` and POST the budget/work-order. stopPropagation keeps
-    // the event scoped to this modal.
     e.stopPropagation();
     if (!newClient.name.trim()) return;
     setSaving(true);
     try {
       const res = await createClient(newClient);
       const created = (res.data as Client);
-      // Patch the form so the rest of the page sees the new client right away.
       update('client_name', created.name);
       update('client_phone', created.phone || '');
       update('client_email', created.email || '');
       update('client_address', created.address || '');
-      // Hand the new client up so the dropdown updates without a full refetch.
+      update('delivery_address_id', null);
       onClientCreated(created);
       setShowModal(false);
       setNewClient({ name: '', phone: '', email: '', address: '' });
@@ -101,10 +125,6 @@ export default function ClientSection({
     }
   };
 
-  /**
-   * Open the modal pre-filled with the current search query so the user can
-   * hit "+ Nuevo" straight from the typeahead when no matches are found.
-   */
   const openNewFromQuery = () => {
     setNewClient((prev) => ({ ...prev, name: query.trim() }));
     setShowModal(true);
@@ -136,19 +156,11 @@ export default function ClientSection({
                   onChange={(e) => {
                     setQuery(e.target.value);
                     setOpen(true);
-                    // If the user starts typing and the previously selected client
-                    // doesn't match anymore, keep the client_name in form so the
-                    // rest of the section stays put until they pick something else.
                   }}
                   onFocus={() => setOpen(true)}
                   onBlur={() => {
                     setTimeout(() => {
                       setOpen(false);
-                      // If the user typed something and didn't pick a client from
-                      // the dropdown, resolve the typed name against the existing
-                      // list. This lets the backend's find-or-create logic on
-                      // BudgetService.create() / WorkOrderService.create() do its
-                      // job instead of failing with an empty `client_name`.
                       const typed = query.trim();
                       if (!typed || typed === form.client_name) return;
                       const match = clientes.find(
@@ -159,6 +171,7 @@ export default function ClientSection({
                         update('client_phone', match.phone || '');
                         update('client_email', match.email || '');
                         update('client_address', match.address || '');
+                        update('delivery_address_id', null);
                       } else {
                         update('client_name', typed);
                       }
@@ -302,9 +315,97 @@ export default function ClientSection({
             <input className="input" value={form.client_email} onChange={(e) => update('client_email', e.target.value)} placeholder="Correo" disabled={readOnly} />
           </div>
         </div>
+
+        {hasMultipleAddresses && selectedClient && !readOnly && (
+          <div className={s['client-section__addr-row']}>
+            <div className={s['client-section__addr-label']}>Dirección de obra:</div>
+            <div ref={addrWrapperRef} className={s['client-section__addr-picker']}>
+              <button
+                type="button"
+                className={s['client-section__addr-trigger']}
+                onClick={() => setAddrOpen((v) => !v)}
+              >
+                <span className={s['client-section__addr-trigger-text']}>
+                  {selectedAddress
+                    ? `${selectedAddress.label ? selectedAddress.label + ' — ' : ''}${selectedAddress.address}`
+                    : 'Usar dirección principal'
+                  }
+                </span>
+                <ChevronDown size={14} />
+              </button>
+              {selectedAddress && (
+                <button
+                  type="button"
+                  className={s['client-section__addr-clear']}
+                  onClick={handleAddressClear}
+                  title="Volver a dirección principal"
+                >
+                  ✕
+                </button>
+              )}
+              {addrOpen && (
+                <div className={s['client-section__addr-dropdown']}>
+                  <input
+                    className={s['client-section__addr-search']}
+                    placeholder="Buscar dirección..."
+                    value={addrQuery}
+                    onChange={(e) => setAddrQuery(e.target.value)}
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') {
+                        setAddrOpen(false);
+                        setAddrQuery('');
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className={`${s['client-section__addr-option']} ${!form.delivery_address_id ? s['client-section__addr-option--active'] : ''}`}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => { handleAddressClear(); setAddrOpen(false); }}
+                  >
+                    <span className={s['client-section__addr-option-label']}>Principal</span>
+                    <span className={s['client-section__addr-option-addr']}>{selectedClient.address || '—'}</span>
+                  </button>
+                  {filteredAddresses.filter((a) => !a.is_default).map((addr) => (
+                    <button
+                      key={addr.id}
+                      type="button"
+                      className={`${s['client-section__addr-option']} ${form.delivery_address_id === addr.id ? s['client-section__addr-option--active'] : ''}`}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => handleAddressSelect(addr)}
+                    >
+                      <span className={s['client-section__addr-option-label']}>
+                        {addr.label || `Alternativa ${addr.id}`}
+                      </span>
+                      <span className={s['client-section__addr-option-addr']}>{addr.address}</span>
+                    </button>
+                  ))}
+                  {filteredAddresses.filter((a) => !a.is_default).length === 0 && addrQuery.trim() && (
+                    <div className={s['client-section__addr-empty']}>
+                      Sin resultados para "{addrQuery.trim()}"
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="form-group" style={{ marginTop: 8 }}>
           <label>Domicilio</label>
-          <input className="input" value={form.client_address} onChange={(e) => update('client_address', e.target.value)} placeholder="Calle N° - Ciudad - Provincia" disabled={readOnly} />
+          <input
+            className="input"
+            value={form.client_address}
+            onChange={(e) => {
+              update('client_address', e.target.value);
+              if (form.delivery_address_id) {
+                update('delivery_address_id', null);
+              }
+            }}
+            placeholder="Calle N° - Ciudad - Provincia"
+            disabled={readOnly}
+          />
         </div>
       </div>
 

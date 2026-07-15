@@ -49,12 +49,16 @@ export default function WorkOrderFormClient({
         <select
           className="input"
           value={form.delivery_address_id ?? ''}
-          onChange={(e) =>
-            update(
-              'delivery_address_id',
-              e.target.value ? Number(e.target.value) : null,
-            )
-          }
+          onChange={(e) => {
+            const val = e.target.value ? Number(e.target.value) : null;
+            update('delivery_address_id', val);
+            if (val) {
+              const picked = addresses.find((a) => a.id === val);
+              if (picked) update('client_address', picked.address);
+            } else {
+              update('client_address', client.address || '');
+            }
+          }}
         >
           <option value="">Principal (predeterminado)</option>
           {addresses.map((a) => (
