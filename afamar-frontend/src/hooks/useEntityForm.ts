@@ -67,7 +67,7 @@ export default function useEntityForm({
   }, []);
 
   // ----- References (materials/pools/clients/logo/next#/initial load)
-  const { materials, pools, clientes, logoUrl, addOrRefreshClientes } = useFormReferences({
+  const { materials, pools, clientes, logoUrl, addOrRefreshClientes, updateClientAddresses } = useFormReferences({
     services,
     defaultStatus,
     id,
@@ -164,6 +164,7 @@ export default function useEntityForm({
     pools: pools as unknown as Record<string, unknown>[],
     clientes: clientes as unknown as Record<string, unknown>[],
     addOrRefreshClientes,
+    updateClientAddresses,
     logoUrl,
     showClientDropdown,
     menuOpen,

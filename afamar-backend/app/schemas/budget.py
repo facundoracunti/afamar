@@ -143,6 +143,7 @@ class BudgetCreate(BudgetBase):
 
 class BudgetUpdate(BaseModel):
     status: str | None = None
+    delivery_address_id: int | None = None
     material: str | None = None
     material_price_m2: float | None = None
     material_price_m2_usd: float | None = None

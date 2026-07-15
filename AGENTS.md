@@ -1,7 +1,7 @@
 # AGENTS.md
 
 > **Estado:** Rama `development` con work sin commitear. Refactor completo.
-> `tsc --noEmit` 0 errores · `vite build` ~11s, gzip ~881 KB · vitest 63/63.
+> `tsc --noEmit` 0 errores · `vite build` ~11s, gzip ~881 KB · vitest 63/63 · pytest 14/14.
 
 ## Reglas de operación
 
@@ -127,7 +127,7 @@ afamar-frontend/   — Vite + React + TS
 - **PDF generation:** `buildPdfData.ts` + `DocumentPdf.tsx` (frontend, `@react-pdf/renderer`). Legacy: `pdf_html.py` (xhtml2pdf + Jinja2).
 - **Numbering:** `P-000001` (budgets), `A-000001` (work_orders). Compartido en `utils/numbering.py`.
 - **Status enums:** English en DB (`MEASUREMENT`, `WORKSHOP`, etc.), Spanish en UI via `t(key)` en `utils/translate.ts`.
-- **Client data flow:** Budget/WorkOrder stores only `client_id` (FK) + optional `delivery_address_id` (FK → `client_addresses`). No snapshot columns. `from_orm_with_client()` resolves `client_*` fields from live `Client` row at serialization time. If `delivery_address_id` is set, `client_address` is overridden with the matching `ClientAddress.address`.
+- **Client data flow:** Budget/WorkOrder stores only `client_id` (FK) + optional `delivery_address_id` (FK → `client_addresses`). No snapshot columns. `from_orm_with_client()` resolves `client_*` fields from live `Client` row at serialization time. If `delivery_address_id` is set, `client_address` is overridden with the matching `ClientAddress.address`. `delivery_address_id` is patchable on update (both `BudgetUpdate` and `WorkOrderUpdate` include the field). Conversion paths (`create_from_budget`, `convert_alternative_to_work_order`) copy `delivery_address_id` from the source budget.
 
 ## EntityFormState (form state)
 
@@ -147,7 +147,7 @@ afamar-frontend/   — Vite + React + TS
 ## useEntityForm (facade)
 
 `src/hooks/useEntityForm.ts` — facade delgado que compone 7 composables:
-- `useFormReferences` — carga materials/pools/clients/logo, fetch next number, initial load
+- `useFormReferences` — carga materials/pools/clients/logo, fetch next number, initial load, `updateClientAddresses`
 - `useFormDetails` — CRUD `fabrication_details`, refs de material
 - `useFormMaterials` — Material picker + CRUD `materials_data`
 - `useFormPools` — Pool picker + CRUD `pools_data`
@@ -161,15 +161,17 @@ Acepta `extraPayloadFields?: () => Partial<Record<string, unknown>>` para inyecc
 
 **Two code paths for address selection:**
 
-1. **`ClientSection`** (`components/orders/ClientSection/`) — when NO client is selected yet (typeahead mode). Renders typeahead + address picker dropdown + Domicilio input. Address picker shows when client has >1 address. Sets both `delivery_address_id` and `client_address`.
+1. **`ClientSection`** (`components/orders/ClientSection/`) — when NO client is selected yet (typeahead mode). Renders typeahead + address picker dropdown + Domicilio input. Address picker shows when client has >1 address; includes inline "add new address" input + button at the bottom of the dropdown. Sets both `delivery_address_id` and `client_address`.
 
-2. **`BudgetFormClient` / `WorkOrderFormClient`** — when client IS already selected (read-only mode). Renders `ClientInfoCard` + `renderAddressPicker` dropdown. Address picker shows when client has >1 address. Sets both `delivery_address_id` and `client_address`.
+2. **`BudgetFormClient` / `WorkOrderFormClient`** — when client IS already selected (read-only mode). Renders `ClientInfoCard` + address picker row. Picker shows `<select>` (when >1 address) or readonly input (1 address) + "Nueva dirección" input + `+` button, all in a flex row. Sets both `delivery_address_id` and `client_address`.
 
 **Key behavior:**
 - Selecting an address from the dropdown sets `delivery_address_id` (FK) + updates `client_address` (text).
 - Deselecting (picking "Principal") resets `delivery_address_id` to null + resets `client_address` to `client.address`.
 - Manually editing the Domicilio input resets `delivery_address_id` to null.
+- Adding a new address inline calls `createClientAddress` API, appends to local `clientes` state via `onAddressAdded` → `updateClientAddresses`, and auto-selects the new address.
 - Backend `from_orm_with_client()` resolves the override: if `delivery_address_id` is set, replaces `client_address` with the matching `ClientAddress.address` text.
+- `delivery_address_id` is persisted on create AND update (both schemas include it). Conversion paths copy it from source budget.
 - PDF reads `form.client_address` directly — no additional resolution needed.
 - WhatsApp does NOT use client address (only phone + name).
 

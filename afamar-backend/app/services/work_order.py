@@ -482,6 +482,7 @@ class WorkOrderService:
         data = {
             "number": generate_work_order_number(last_number),
             "client_id": budget.client_id,
+            "delivery_address_id": budget.delivery_address_id,
             "budget_id": budget.id,
             "status": "MEASUREMENT",
             "origin": "Budget",

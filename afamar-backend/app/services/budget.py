@@ -344,6 +344,7 @@ class BudgetService:
         data = {
             "number": number,
             "client_id": budget.client_id,
+            "delivery_address_id": budget.delivery_address_id,
             "budget_id": budget.id,
             "status": "MEASUREMENT",
             "origin": "Desde alternativa",

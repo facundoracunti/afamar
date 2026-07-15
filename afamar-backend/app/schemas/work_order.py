@@ -72,6 +72,7 @@ class WorkOrderCreate(WorkOrderBase):
 
 class WorkOrderUpdate(BaseModel):
     status: str | None = None
+    delivery_address_id: int | None = None
     origin: str | None = None
     material: str | None = None
     material_price_m2: float | None = None

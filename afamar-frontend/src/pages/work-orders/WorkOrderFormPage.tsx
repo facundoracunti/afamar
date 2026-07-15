@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Eye, Save } from 'lucide-react';
@@ -62,7 +62,7 @@ export default function WorkOrderForm() {
   const { company, globalTerms } = useSettingsWithTerms();
 
   const {
-    form, loading, saving, materials, pools, logoUrl, clientes, addOrRefreshClientes,
+    form, loading, saving, materials, pools, logoUrl, clientes, addOrRefreshClientes, updateClientAddresses,
     menuOpen, deleteConfirm, showCroquis,
     readOnly, hayUSD, hayAlternativas,
     modoUSD, toggleModoUSD,
@@ -105,6 +105,13 @@ export default function WorkOrderForm() {
     if (!ok) return; // error already notified via onError
     queryClient.invalidateQueries({ queryKey: ['work-orders'], refetchType: 'all' });
   };
+
+  const handleAddressAdded = useCallback((clientId: number, address: import('../../types/client').ClientAddress) => {
+    const client = (clientes as unknown as import('../../types/client').Client[]).find((c) => c.id === clientId);
+    if (client) {
+      updateClientAddresses(clientId, [...(client.addresses || []), address]);
+    }
+  }, [clientes, updateClientAddresses]);
 
   const encodeTerms = (items: string[]) => JSON.stringify(items.filter((t) => t.trim() !== ''));
 
@@ -294,6 +301,7 @@ export default function WorkOrderForm() {
           update={update as (field: string, value: unknown) => void}
           clientes={clientes as unknown as import('../../types/client').Client[]}
           onClientCreated={addOrRefreshClientes}
+          onAddressAdded={handleAddressAdded}
         />
 
         <div className={s['work-order-form__card-section']}>

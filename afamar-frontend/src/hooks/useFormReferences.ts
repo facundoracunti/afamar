@@ -28,6 +28,7 @@ interface UseFormReferencesReturn {
    * still making the new entry available in the typeahead.
    */
   addOrRefreshClientes: (newClient?: Client) => void;
+  updateClientAddresses: (clientId: number, addresses: Client['addresses']) => void;
 }
 
 export function useFormReferences({
@@ -65,6 +66,12 @@ export function useFormReferences({
       if (prev.some((c) => c.id === newClient.id)) return prev;
       return [newClient, ...prev];
     });
+  };
+
+  const updateClientAddresses = (clientId: number, addresses: Client['addresses']) => {
+    setClientes((prev) =>
+      prev.map((c) => (c.id === clientId ? { ...c, addresses } : c)),
+    );
   };
 
   useEffect(() => {
@@ -140,5 +147,5 @@ export function useFormReferences({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isEdit]);
 
-  return { materials, pools, clientes, logoUrl, addOrRefreshClientes };
+  return { materials, pools, clientes, logoUrl, addOrRefreshClientes, updateClientAddresses };
 }

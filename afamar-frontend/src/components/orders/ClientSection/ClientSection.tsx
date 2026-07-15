@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import { Plus, ChevronDown } from 'lucide-react';
 import { Modal } from '../../ui/Modal/Modal';
 import { createClient } from '@/api/resources/clients';
+import { createClientAddress } from '@/api/resources/clientAddresses';
 import { useNotify } from '../../../context/NotificationContext';
 import type { EntityFormState } from '../../../types/form';
 import type { Client, ClientAddress } from '../../../types/client';
@@ -15,10 +16,11 @@ interface ClientSectionProps {
   update: (field: string, value: unknown) => void;
   clientes: Client[];
   onClientCreated: (newClient: Client) => void;
+  onAddressAdded?: (clientId: number, address: ClientAddress) => void;
 }
 
 export default function ClientSection({
-  form, readOnly, update, clientes, onClientCreated,
+  form, readOnly, update, clientes, onClientCreated, onAddressAdded,
 }: ClientSectionProps) {
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -27,6 +29,8 @@ export default function ClientSection({
   const [open, setOpen] = useState(false);
   const [addrQuery, setAddrQuery] = useState('');
   const [addrOpen, setAddrOpen] = useState(false);
+  const [newAddrText, setNewAddrText] = useState('');
+  const [addingAddr, setAddingAddr] = useState(false);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const addrWrapperRef = useRef<HTMLDivElement | null>(null);
   const notify = useNotify();
@@ -97,6 +101,25 @@ export default function ClientSection({
       update('client_address', selectedClient.address || '');
     }
     setAddrQuery('');
+  };
+
+  const handleAddAddress = async () => {
+    if (!selectedClient || !newAddrText.trim()) return;
+    setAddingAddr(true);
+    try {
+      const created = await createClientAddress(selectedClient.id, { address: newAddrText.trim() });
+      onAddressAdded?.(selectedClient.id, created);
+      update('delivery_address_id', created.id);
+      update('client_address', created.address);
+      setNewAddrText('');
+      setAddrQuery('');
+      notify('Dirección agregada', 'success');
+    } catch (err) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      notify(detail || 'Error al agregar dirección', 'error');
+    } finally {
+      setAddingAddr(false);
+    }
   };
 
   const handleCreateClient = async (e: React.FormEvent) => {
@@ -386,6 +409,24 @@ export default function ClientSection({
                       Sin resultados para "{addrQuery.trim()}"
                     </div>
                   )}
+                  <div className={s['client-section__addr-new']}>
+                    <input
+                      className={s['client-section__addr-new-input']}
+                      placeholder="Nueva dirección..."
+                      value={newAddrText}
+                      onChange={(e) => setNewAddrText(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddAddress(); } }}
+                      disabled={addingAddr}
+                    />
+                    <button
+                      type="button"
+                      className={s['client-section__addr-new-btn']}
+                      onClick={handleAddAddress}
+                      disabled={addingAddr || !newAddrText.trim()}
+                    >
+                      <Plus size={14} />
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Eye, Save, FileOutput, Check, Send } from 'lucide-react';
@@ -69,7 +69,7 @@ export default function BudgetForm() {
   const { company, globalTerms } = useSettingsWithTerms();
 
   const {
-    form, loading, saving, materials, pools, logoUrl, clientes, addOrRefreshClientes,
+    form, loading, saving, materials, pools, logoUrl, clientes, addOrRefreshClientes, updateClientAddresses,
     menuOpen, deleteConfirm, showCroquis,
     readOnly, hayUSD, hayAlternativas, isEdit,
     modoUSD, toggleModoUSD,
@@ -122,6 +122,13 @@ export default function BudgetForm() {
       notify('Presupuesto guardado correctamente', 'success');
     }
   };
+
+  const handleAddressAdded = useCallback((clientId: number, address: import('../../types/client').ClientAddress) => {
+    const client = (clientes as unknown as import('../../types/client').Client[]).find((c) => c.id === clientId);
+    if (client) {
+      updateClientAddresses(clientId, [...(client.addresses || []), address]);
+    }
+  }, [clientes, updateClientAddresses]);
 
   const handleConvertirGuardar = async () => {
     setSaving(true);
@@ -424,6 +431,7 @@ const buildOptionFromMaterial = (mat: MaterialInForm): import('../../components/
           update={update as (field: string, value: unknown) => void}
           clientes={clientes as unknown as import('../../types/client').Client[]}
           onClientCreated={addOrRefreshClientes}
+          onAddressAdded={handleAddressAdded}
         />
 
         <div className={`${s['budget-form__layout']}${showCroquis ? '' : ' ' + s['budget-form__layout--no-sketch']}`}>

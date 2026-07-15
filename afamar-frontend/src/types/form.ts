@@ -114,6 +114,7 @@ export interface UseEntityFormReturn {
    * the full client list from the API.
    */
   addOrRefreshClientes: (newClient?: Client) => void;
+  updateClientAddresses: (clientId: number, addresses: Client['addresses']) => void;
   logoUrl: string;
   showClientDropdown: boolean;
   menuOpen: boolean;

@@ -1,13 +1,13 @@
 # Refactor Plan — Frontend Component Consolidation
 
 > Basado en el análisis exhaustivo de duplicación de código en `afamar-frontend/src/` (Julio 2026).
-> **Última actualización:** Julio 2026 — Dirección alternativa + cleanup.
+> **Última actualización:** Julio 2026 — Inline color migration + sketch white bg + delivery_address_id fix + inline address creation.
 
 ## Estado general
 
 **TODO COMPLETADO.** No quedan items pendientes de refactor.
 
-Todas las sesiones anteriores (Ola 1–4, Frente/Regrueso, rename English, BEM, TanStack Query, useEntityForm refactor, inline styles → CSS modules, FinancialBase, CSS fusion, @ts-nocheck cleanup, CurrencyDisplay, directory restructuring, dead code cleanup, constants refactor, CashMovementTable, M2_CONCEPTS, shared code extraction, E2E tests, dark/light theme, PDF al frontend, ClientInfoCard, snapshot columns drop, client typeahead, material photo, client delete 409, prespupuestos stats, ClientFormPage layout, MaterialCard/PoolCard theming, sketch rename, alert→useNotify, PendingMeasurementCards, label fixes, misc renames, work_order create_from_budget fix, frente pricing, additional works en PDF) están completadas.
+Todas las sesiones anteriores (Ola 1–4, Frente/Regrueso, rename English, BEM, TanStack Query, useEntityForm refactor, inline styles → CSS modules, FinancialBase, CSS fusion, @ts-nocheck cleanup, CurrencyDisplay, directory restructuring, dead code cleanup, constants refactor, CashMovementTable, M2_CONCEPTS, shared code extraction, E2E tests, dark/light theme, PDF al frontend, ClientInfoCard, snapshot columns drop, client typeahead, material photo, client delete 409, prespupuestos stats, ClientFormPage layout, MaterialCard/PoolCard theming, sketch rename, alert→useNotify, PendingMeasurementCards, label fixes, misc renames, work_order create_from_budget fix, frente pricing, additional works en PDF, inline color migration, sketch white bg, delivery_address_id update+conversion fix, inline address creation) están completadas.
 
 ---
 
@@ -19,7 +19,8 @@ Ninguno de refactor. Todos los items pendientes fueron resueltos o verificados:
 - ~~CRLF normalization~~ → **ya resuelto** (0 archivos con CRLF en `git ls-files --eol`)
 - ~~`useSketchState` export~~ → **ya renombrado** (export = `useSketchState`)
 - ~~OT corrupta en DB~~ → **script creado** (`scripts/fix_corrupt_work_orders.py`), DB prod verificada (0 issues)
-- **Inline styles restantes** — ~100 ocurrencias de layout-only (width, padding, gap, margin). No afectan theme. Baja prioridad.
+- ~~**Inline styles con colores hardcoded**~~ → **completado** (0 ocurrencias de `style={{...#hex}}` en TSX. Todos migrados a CSS modules con theme vars.)
+- **Inline styles de layout restantes** — ~100 ocurrencias de width, padding, gap, margin. No afectan theme. Baja prioridad.
 
 ---
 
