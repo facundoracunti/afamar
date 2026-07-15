@@ -1,25 +1,6 @@
 import json
 
 
-def compute_surcharge(payment_method: str | None, installments: int) -> dict:
-    if payment_method == "CREDIT_CARD":
-        pct = 0 if installments <= 2 else installments * 5
-    else:
-        pct = 0
-    return {"percentage": pct}
-
-
-def apply_surcharge(amount_ars: float, amount_usd: float, surcharge_pct: float) -> dict:
-    recargo = round(amount_ars * surcharge_pct / 100)
-    recargo_usd = round(amount_usd * surcharge_pct / 100, 2)
-    return {
-        "surcharge_ars": recargo,
-        "surcharge_usd": recargo_usd,
-        "total_with_surcharge_ars": round(amount_ars + recargo),
-        "total_with_surcharge_usd": round(amount_usd + recargo_usd, 2),
-    }
-
-
 def parse_materials_data(materials_data: str | None | list | dict) -> list:
     if not materials_data:
         return []

@@ -173,6 +173,27 @@ Acepta `extraPayloadFields?: () => Partial<Record<string, unknown>>` para inyecc
 - PDF reads `form.client_address` directly — no additional resolution needed.
 - WhatsApp does NOT use client address (only phone + name).
 
+## DB Maintenance Scripts
+
+Located in `afamar-backend/scripts/`. Run with the project's venv Python.
+
+```bash
+# Diagnose corrupted work_orders (dry-run)
+.\venv\Scripts\python.exe scripts/fix_corrupt_work_orders.py
+
+# Fix automatically
+.\venv\Scripts\python.exe scripts/fix_corrupt_work_orders.py --fix
+
+# Fix interactively (confirm each)
+.\venv\Scripts\python.exe scripts/fix_corrupt_work_orders.py --fix --interactive
+
+# Docker
+docker exec afamar-backend python scripts/fix_corrupt_work_orders.py
+docker exec afamar-backend python scripts/fix_corrupt_work_orders.py --fix
+```
+
+Checks: JSON column corruption, FK orphans (client_id, delivery_address_id, budget_id), Pydantic serialization errors.
+
 ## E2E Tests (Playwright)
 
 - **Stack:** `@playwright/test@1.61.1` + Chromium. Tests en `afamar-frontend/e2e/`.

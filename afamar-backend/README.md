@@ -22,16 +22,52 @@ cp .env.example .env
 ```
 
 ## 📦 Instalación y ▶️ Ejecución del servidor
-```bash
 - Crear y activar entorno virtual
+```bash
 python -m venv venv
-venv\Scripts\activate      # Windows
+venv\Scripts\activate
+```
 
 - Instalar dependencias
+```bash
 pip install -r requirements.txt
+```
 
 - Ejecución del servidor
+```bash
 uvicorn app.main:app --reload --port 3095
+```
 
 - Swagger UI
 http://127.0.0.1:3095/docs
+
+
+# Dry-run (solo reporte)
+- Local
+```bash
+.\venv\Scripts\python.exe scripts/fix_corrupt_work_orders.py
+```
+- Dockerizado
+```bash
+docker exec afamar-backend python scripts/fix_corrupt_work_orders.py
+```
+
+# Fix automático
+- Local
+```bash
+.\venv\Scripts\python.exe scripts/fix_corrupt_work_orders.py --fix
+```
+- Dockerizado
+```bash
+docker exec afamar-backend python scripts/fix_corrupt_work_orders.py --fix
+```
+
+# Fix interactivo (confirma cada uno)
+- Local
+```bash
+.\venv\Scripts\python.exe scripts/fix_corrupt_work_orders.py --fix --interactive
+```
+- Dockerizado
+```bash
+docker exec -it afamar-backend python scripts/fix_corrupt_work_orders.py --fix --interactive
+```

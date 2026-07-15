@@ -13,13 +13,13 @@ Todas las sesiones anteriores (Ola 1–4, Frente/Regrueso, rename English, BEM, 
 
 ## Items pendientes (futuras sesiones)
 
-Ninguno de refactor. Possibles mejoras futuras (no blocker):
+Ninguno de refactor. Todos los items pendientes fueron resueltos o verificados:
 
-- **`surcharge_result` dead var** en `work_order.py` — variable computada pero sin uso en `create_from_budget`. Lógica muerta, removable.
-- **CRLF normalization** — 76 archivos con warnings CRLF en `git status`. Normalizar a LF antes de commit.
-- **`useSketchState` export** — el filename es `useSketchState.ts` pero el export sigue siendo `useCroquisState`. Renombrar el export + actualizar consumers.
-- **OT corrupta en DB** — `model_validate` falla en una OT existente. El try/except la skipea, pero hay que limpiar el dato.
-- **Inline styles restantes** — ~100 ocurrencias de layout-only (width, padding, gap, margin). No afectan theme.
+- ~~`surcharge_result` dead var~~ → **eliminado** (`compute_surcharge` + `apply_surcharge` removidos de `budget_calculator.py`)
+- ~~CRLF normalization~~ → **ya resuelto** (0 archivos con CRLF en `git ls-files --eol`)
+- ~~`useSketchState` export~~ → **ya renombrado** (export = `useSketchState`)
+- ~~OT corrupta en DB~~ → **script creado** (`scripts/fix_corrupt_work_orders.py`), DB prod verificada (0 issues)
+- **Inline styles restantes** — ~100 ocurrencias de layout-only (width, padding, gap, margin). No afectan theme. Baja prioridad.
 
 ---
 
