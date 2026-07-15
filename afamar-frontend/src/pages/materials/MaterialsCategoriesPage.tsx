@@ -157,7 +157,7 @@ export default function MaterialsCategories() {
           placeholder="Buscar categoría..."
           leftIcon={<Search size={18} color="#94a3b8" />}
         />
-        <span style={{ fontSize: 13, color: '#6b7280' }}>
+        <span className={s['categories__counter']}>
           {filtered.length} categoría{filtered.length === 1 ? '' : 's'}
         </span>
       </div>
@@ -181,7 +181,7 @@ export default function MaterialsCategories() {
                     {category.id}
                   </td>
                   <td className={s['categories__td'] + ' ' + s['categories__td--name']}>
-                    <Tags size={14} style={{ verticalAlign: 'middle', marginRight: 6, color: '#6b7280' }} />
+                    <Tags size={14} className={s['categories__tag-icon']} />
                     {category.name}
                   </td>
                   <td className={s['categories__td']}>

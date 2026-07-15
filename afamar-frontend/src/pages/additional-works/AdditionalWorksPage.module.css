@@ -21,3 +21,9 @@
   gap: 8px;
   margin-top: 16px;
 }
+
+.additional-works__detail-empty { color: var(--text-muted); }
+.additional-works__multi-text  { margin-left: 6px; font-size: 11px; color: var(--text-muted); }
+.additional-works__auto-text   { color: var(--text-muted); }
+.additional-works__empty-row   { text-align: center; padding: 40px; color: var(--text-muted); }
+.additional-works__formula-hint { color: var(--text-muted); }

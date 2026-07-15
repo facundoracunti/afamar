@@ -230,7 +230,7 @@ export default function MaterialForm({ materialId, onSaved, onCancel }: Material
               ))}
             </select>
             {!loadingCategories && categorias.length === 0 && (
-              <small style={{ color: '#b45309', fontSize: 12, marginTop: 4, display: 'block' }}>
+              <small className={s['material-form__warn-text']}>
                 No hay categorías cargadas. Creá una desde "Gestionar Categorías" en el menú.
               </small>
             )}

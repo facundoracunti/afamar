@@ -3,6 +3,9 @@ import { useSketchState } from '../hooks/useSketchState';
 import Toolbar from '../Toolbar/Toolbar';
 import CanvasArea from '../CanvasArea/CanvasArea';
 import type { SketchEditorProps, SketchToolType } from '../../../types/sketch';
+import styles from './SketchEditor.module.css';
+
+const s = styles as unknown as Record<string, string>;
 
 const TOOLS: { id: SketchToolType; label: string }[] = [
   { id: 'select', label: 'Seleccionar' },
@@ -13,92 +16,81 @@ const TOOLS: { id: SketchToolType; label: string }[] = [
 ];
 
 export default function SketchEditor({ sketch, onChange, readOnly = false }: SketchEditorProps) {
-  const s = useSketchState(sketch, onChange, readOnly);
-  const sRef = useRef(s);
-  sRef.current = s;
+  const st = useSketchState(sketch, onChange, readOnly);
+  const sRef = useRef(st);
+  sRef.current = st;
 
   useEffect(() => {
     if (readOnly) return;
     const fn = (e: KeyboardEvent) => {
-      const st = sRef.current;
+      const cur = sRef.current;
       const isZ = e.key.toLowerCase() === 'z';
       const isY = e.key.toLowerCase() === 'y';
-      if ((e.ctrlKey || e.metaKey) && isZ && !e.shiftKey) { e.preventDefault(); st.undo(); return; }
-      if ((e.ctrlKey || e.metaKey) && ((isZ && e.shiftKey) || isY)) { e.preventDefault(); st.redo(); return; }
-      if ((e.key === 'Delete' || e.key === 'Backspace') && st.tool === 'select' && st.sid) { e.preventDefault(); st.deleteShape(st.sid); return; }
-      if (e.key === 'Escape') { st.setIsDrawing(false); st.setDrawStart(null); st.setDrawEnd(null); st.setSid(null); }
+      if ((e.ctrlKey || e.metaKey) && isZ && !e.shiftKey) { e.preventDefault(); cur.undo(); return; }
+      if ((e.ctrlKey || e.metaKey) && ((isZ && e.shiftKey) || isY)) { e.preventDefault(); cur.redo(); return; }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && cur.tool === 'select' && cur.sid) { e.preventDefault(); cur.deleteShape(cur.sid); return; }
+      if (e.key === 'Escape') { cur.setIsDrawing(false); cur.setDrawStart(null); cur.setDrawEnd(null); cur.setSid(null); }
     };
     window.addEventListener('keydown', fn);
     return () => window.removeEventListener('keydown', fn);
   }, [readOnly]);
 
-  if (!s.ready) return null;
+  if (!st.ready) return null;
 
   return (
-    <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden', background: '#fff' }}>
+    <div className={s['sketch-editor']}>
       <Toolbar
-        pages={s.pages}
-        pageIdx={s.pageIdx}
-        tool={s.tool}
-        snap={s.snap}
-        sid={s.sid}
+        pages={st.pages}
+        pageIdx={st.pageIdx}
+        tool={st.tool}
+        snap={st.snap}
+        sid={st.sid}
         readOnly={readOnly}
-        canUndo={s.canUndo}
-        canRedo={s.canRedo}
-        currentShapes={s.currentShapes}
-        onSetTool={s.setTool}
-        onSetSnap={() => s.setSnap(!s.snap)}
-        onSetPageIdx={s.setPageIdx}
-        onAddPage={s.addPage}
-        onRemovePage={s.removePage}
-        onRenamePage={s.renamePage}
-        onUndo={s.undo}
-        onRedo={s.redo}
-        onDeleteSelected={() => s.sid && s.deleteShape(s.sid)}
-        onDeleteLast={s.deleteLast}
-        onClearAll={s.clearAll}
+        canUndo={st.canUndo}
+        canRedo={st.canRedo}
+        currentShapes={st.currentShapes}
+        onSetTool={st.setTool}
+        onSetSnap={() => st.setSnap(!st.snap)}
+        onSetPageIdx={st.setPageIdx}
+        onAddPage={st.addPage}
+        onRemovePage={st.removePage}
+        onRenamePage={st.renamePage}
+        onUndo={st.undo}
+        onRedo={st.redo}
+        onDeleteSelected={() => st.sid && st.deleteShape(st.sid)}
+        onDeleteLast={st.deleteLast}
+        onClearAll={st.clearAll}
       />
 
       <CanvasArea
-        tool={s.tool}
-        snap={s.snap}
-        sid={s.sid}
-        isDrawing={s.isDrawing}
-        drawStart={s.drawStart}
-        drawEnd={s.drawEnd}
-        currentShapes={s.currentShapes}
+        tool={st.tool}
+        snap={st.snap}
+        sid={st.sid}
+        isDrawing={st.isDrawing}
+        drawStart={st.drawStart}
+        drawEnd={st.drawEnd}
+        currentShapes={st.currentShapes}
         readOnly={readOnly}
-        shiftRef={s.shiftRef}
-        pageIdx={s.pageIdx}
-        pages={s.pages}
-        setSid={s.setSid}
-        setIsDrawing={s.setIsDrawing}
-        setDrawStart={s.setDrawStart}
-        setDrawEnd={s.setDrawEnd}
-        addShape={s.addShape}
-        updateElementPosition={s.updateElementPosition}
-        updateElementTransform={s.updateElementTransform}
-        snapCoord={s.snapCoord}
-        snapNear={s.snapNear}
+        shiftRef={st.shiftRef}
+        pageIdx={st.pageIdx}
+        pages={st.pages}
+        setSid={st.setSid}
+        setIsDrawing={st.setIsDrawing}
+        setDrawStart={st.setDrawStart}
+        setDrawEnd={st.setDrawEnd}
+        addShape={st.addShape}
+        updateElementPosition={st.updateElementPosition}
+        updateElementTransform={st.updateElementTransform}
+        snapCoord={st.snapCoord}
+        snapNear={st.snapNear}
       />
 
-      <div
-        style={{
-          padding: '4px 14px',
-          borderTop: '1px solid #e5e7eb',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          fontSize: 11,
-          color: '#6b7280',
-          background: '#f8fafc',
-        }}
-      >
+      <div className={s['sketch-editor__footer']}>
         <span>
-          <strong>{TOOLS.find((t) => t.id === s.tool)?.label || s.tool}</strong>
-          {s.isDrawing && ' — dibujando...'} · Página activa: <strong>{s.pages[s.pageIdx]?.name || '-'}</strong>
+          <strong>{TOOLS.find((t) => t.id === st.tool)?.label || st.tool}</strong>
+          {st.isDrawing && ' — dibujando...'} · Página activa: <strong>{st.pages[st.pageIdx]?.name || '-'}</strong>
         </span>
-        <span>Grilla: 20px {s.snap ? '| Imán ON' : '| Imán OFF'}</span>
+        <span>Grilla: 20px {st.snap ? '| Imán ON' : '| Imán OFF'}</span>
       </div>
     </div>
   );

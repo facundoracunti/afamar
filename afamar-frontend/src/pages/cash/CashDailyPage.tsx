@@ -134,13 +134,13 @@ export default function CashDailyPage() {
       `}</style>
       <div id="print-area">
         <div className="print-only" style={{ textAlign: 'center', marginBottom: 20 } as React.CSSProperties}>
-          <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0 } as React.CSSProperties}>CIERRE DE CAJA</h1>
-          <p style={{ fontSize: 13, color: '#475569', margin: '4px 0 0' } as React.CSSProperties}>Fecha: {date}</p>
-          <hr style={{ margin: '10px 0', border: 'none', borderTop: '2px solid #000' } as React.CSSProperties} />
+          <h1 className={s['cash__print-title']}>CIERRE DE CAJA</h1>
+          <p className={s['cash__print-date']}>Fecha: {date}</p>
+          <hr className={s['cash__print-hr']} />
         </div>
 
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 } as React.CSSProperties}>
+        <div className={s['cash__page-header']}>
           <h1 className="no-print" style={{ fontSize: 24, fontWeight: 700 } as React.CSSProperties}>Caja Diaria</h1>
           <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 8 } as React.CSSProperties}>
             <input
@@ -192,11 +192,11 @@ export default function CashDailyPage() {
                 columns={[
                   { key: 'order_number', label: 'N° Orden', width: 90, render: (m) => <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{(m as Record<string, unknown>).order_number as string || '-'}</span> },
                   { key: 'client_name', label: 'Cliente', render: (m) => ((m as Record<string, unknown>).client_name as string) || '-' },
-                  { key: 'amount', label: 'Monto', width: 110, render: (m) => <span style={{ fontWeight: 600, color: '#16a34a' }}>{formatCurrency((m as Record<string, unknown>).amount as number)}</span> },
+                  { key: 'amount', label: 'Monto', width: 110, render: (m) => <span className={s['cash__amount--income']}>{formatCurrency((m as Record<string, unknown>).amount as number)}</span> },
                   { key: 'remaining_balance', label: 'Saldo Restante', width: 110, render: (m) => {
                       const v = (m as Record<string, unknown>).remaining_balance as number | null | undefined;
                       return v !== null && v !== undefined
-                        ? <span style={{ fontWeight: 600, color: v > 0 ? '#dc2626' : '#94a3b8' }}>{formatCurrency(v)}</span>
+                        ? <span className={v > 0 ? s['cash__amount--expense'] : s['cash__balance--positive']}>{formatCurrency(v)}</span>
                         : '-';
                     }
                   },
@@ -225,7 +225,7 @@ export default function CashDailyPage() {
                 movements={expenses}
                 columns={[
                   { key: 'description', label: 'Concepto', render: (m) => ((m as Record<string, unknown>).description as string) || '-' },
-                  { key: 'amount', label: 'Monto', width: 110, render: (m) => <span style={{ fontWeight: 600, color: '#dc2626' }}>{formatCurrency((m as Record<string, unknown>).amount as number)}</span> },
+                  { key: 'amount', label: 'Monto', width: 110, render: (m) => <span className={s['cash__amount--expense']}>{formatCurrency((m as Record<string, unknown>).amount as number)}</span> },
                   { key: 'expense_type', label: 'Tipo', width: 90, render: (m) => {
                       const et = (m as Record<string, unknown>).expense_type as string;
                       const cls = et === 'GENERAL' ? 'badge-rejected' : 'badge-production';
@@ -243,8 +243,8 @@ export default function CashDailyPage() {
           </>
         )}
 
-        <div className="print-only" style={{ textAlign: 'center', marginTop: 20, fontSize: 11, color: '#94a3b8' } as React.CSSProperties}>
-          Reporte generado el {new Date().toLocaleDateString('es-AR')} a las {new Date().toLocaleTimeString('es-AR')}
+        <div className="print-only" style={{ textAlign: 'center', marginTop: 20, fontSize: 11 } as React.CSSProperties}>
+          <span className={s['cash__print-footer']}>Reporte generado el {new Date().toLocaleDateString('es-AR')} a las {new Date().toLocaleTimeString('es-AR')}</span>
         </div>
       </div>
 

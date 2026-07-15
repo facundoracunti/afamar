@@ -169,3 +169,10 @@
   justify-content: flex-end;
   margin-top: 24px;
 }
+
+.material-form__warn-text {
+  color: #b45309;
+  font-size: 12px;
+  margin-top: 4px;
+  display: block;
+}

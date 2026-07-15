@@ -6,15 +6,15 @@ import LineShape from '../LineShape/LineShape';
 import RectangleShape from '../RectangleShape/RectangleShape';
 import TextShape from '../TextShape/TextShape';
 import { SKETCH_STAGE_WIDTH, SKETCH_STAGE_HEIGHT } from '../../../constants';
+import styles from './CanvasArea.module.css';
+
+const s = styles as unknown as Record<string, string>;
 
 const GRID = 20;
 const STAGE_W = SKETCH_STAGE_WIDTH;
 const STAGE_H = SKETCH_STAGE_HEIGHT;
 const MIN_DIST = 4;
 
-/** Clamp a coordinate into the stage area so elements never end up
- *  outside the visible / printable canvas. The 0.5 padding keeps the
- *  element's stroke from being clipped by the stage border. */
 function clampCoord(v: number, max: number): number {
   return Math.max(0.5, Math.min(max - 0.5, v));
 }
@@ -71,10 +71,6 @@ export default function CanvasArea({
   snapCoord,
   snapNear,
 }: CanvasAreaProps) {
-  // The stage uses a FIXED size (SKETCH_STAGE_WIDTH × SKETCH_STAGE_HEIGHT)
-  // so the editor and the PDF extractor agree on the drawing area. The
-  // container is allowed to overflow horizontally so the user can scroll
-  // if the form column is narrower than the canvas.
   const stageRef = useRef<Konva.Stage>(null);
   const trRef = useRef<Konva.Transformer>(null);
 
@@ -116,11 +112,11 @@ export default function CanvasArea({
     input.style.top = `${e.evt.clientY - 24}px`;
     input.style.zIndex = '9999';
     input.style.padding = '4px 8px';
-    input.style.border = '2px solid #3b82f6';
+    input.style.border = '2px solid var(--color-primary, #3b82f6)';
     input.style.borderRadius = '6px';
     input.style.fontSize = '13px';
     input.style.width = '150px';
-    input.style.background = '#fff';
+    input.style.background = 'var(--surface-bg, #fff)';
     input.style.outline = 'none';
     input.placeholder = 'Ej: 1.65 x 0.60';
     input.autofocus = true;
@@ -170,11 +166,11 @@ export default function CanvasArea({
     const pos = ptr(e);
     if (tool === 'text') { handleTextTool(e, pos); return; }
 
-    const s = tool === 'line'
+    const st = tool === 'line'
       ? { x: snapCoord(pos.x), y: snapCoord(pos.y) }
       : pos;
-    setDrawStart(s);
-    setDrawEnd(s);
+    setDrawStart(st);
+    setDrawEnd(st);
     setIsDrawing(true);
   };
 
@@ -232,9 +228,6 @@ export default function CanvasArea({
   const handleDragEnd = (e: Konva.KonvaEventObject<DragEvent>, id: string) => {
     if (tool !== 'select' || readOnly) return;
     const node = e.target;
-    // Clamp to the stage area so the element can't be dragged outside the
-    // visible / printable canvas. Konva nodes carry their x/y as a parent
-    // group offset; the inner shape has its own x/y stored on the element.
     const newX = clampCoord(node.x(), STAGE_W);
     const newY = clampCoord(node.y(), STAGE_H);
 
@@ -269,21 +262,7 @@ export default function CanvasArea({
   }
 
   return (
-    // Container scrolls horizontally if the form column is narrower than
-    // the canvas (which is FIXED at 800px). This way the user can always
-    // reach every part of the drawing area, and the editor + PDF share
-    // the exact same coordinate system.
-    <div
-      style={{
-        position: 'relative',
-        overflowX: 'auto',
-        overflowY: 'hidden',
-        border: '1px solid var(--border-color, #e5e7eb)',
-        borderRadius: 4,
-        background: '#fff',
-        maxWidth: '100%',
-      }}
-    >
+    <div className={s['canvas-area']}>
       <Stage
         ref={stageRef}
         width={STAGE_W}
@@ -298,6 +277,7 @@ export default function CanvasArea({
         }}
       >
         <Layer listening={false}>
+          <Rect x={0} y={0} width={STAGE_W} height={STAGE_H} fill="#ffffff" />
           {gridLines}
         </Layer>
         <Layer>

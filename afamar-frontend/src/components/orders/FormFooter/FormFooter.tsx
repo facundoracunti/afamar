@@ -1,5 +1,8 @@
 ﻿import React from 'react';
 import { Save } from 'lucide-react';
+import styles from './FormFooter.module.css';
+
+const s = styles as unknown as Record<string, string>;
 
 interface FormFooterProps {
   saving: boolean;
@@ -9,10 +12,10 @@ interface FormFooterProps {
 
 export default function FormFooter({ saving, onCancel, showSave = true }: FormFooterProps) {
   return (
-    <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 16 }}>
+    <div className={s['form-footer']}>
       <button type="button" className="btn btn-outline" onClick={onCancel}>Cancelar</button>
       {showSave && (
-        <button type="submit" className="btn btn-primary" disabled={saving} style={{ background: '#b91c1c' }}>
+        <button type="submit" className="btn btn-primary" disabled={saving}>
           <Save size={16} /> {saving ? 'GUARDANDO...' : 'GUARDAR'}
         </button>
       )}

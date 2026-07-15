@@ -3,6 +3,9 @@ import MaterialCard from '../../components/materials/MaterialCard/MaterialCard';
 import { useList } from '../../api/hooks';
 import { getMaterialCategories, type MaterialCategory } from '../../api/resources/materials';
 import type { EntityFormState } from '../../types';
+import styles from './BudgetFormSpecs.module.css';
+
+const s = styles as unknown as Record<string, string>;
 
 interface BudgetFormSpecsProps {
   form: EntityFormState;
@@ -80,7 +83,7 @@ export default function BudgetFormSpecs({
         ))}
       </div>
       {(form.materials_data || []).length === 0 && (
-        <div style={{ padding: 16, textAlign: 'center', color: '#94a3b8' }}>
+        <div className={s['specs-empty']}>
           Sin materials agregados. Usá "+ AGREGAR MATERIAL" para sumar.
         </div>
       )}

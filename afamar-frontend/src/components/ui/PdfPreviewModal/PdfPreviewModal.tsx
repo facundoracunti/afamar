@@ -16,6 +16,9 @@ import { PDFViewer, PDFDownloadLink } from '@react-pdf/renderer';
 import { Download } from 'lucide-react';
 import DocumentPdf from './DocumentPdf';
 import type { PdfDocumentData } from '../../../utils/pdf/buildPdfData';
+import styles from './PdfPreviewModal.module.css';
+
+const s = styles as unknown as Record<string, string>;
 
 interface PdfPreviewModalProps {
   isOpen: boolean;
@@ -39,41 +42,16 @@ export default function PdfPreviewModal({
 
   return (
     <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 9999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'rgba(0,0,0,0.5)',
-      }}
+      className={s['pdf-modal-overlay']}
       onClick={onClose}
     >
       <div
-        style={{
-          width: '90vw',
-          height: '90vh',
-          background: 'var(--surface-bg)',
-          borderRadius: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-        }}
+        className={s['pdf-modal-content']}
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
       >
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: '12px 20px',
-            borderBottom: '1px solid var(--border-color)',
-            gap: 12,
-          }}
-        >
-          <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>{title}</h2>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div className={s['pdf-modal-header']}>
+          <h2 className={s['pdf-modal-title']}>{title}</h2>
+          <div className={s['pdf-modal-actions']}>
             {data != null && !loading && (
               <PDFDownloadLink
                 document={<DocumentPdf data={data} />}
@@ -97,21 +75,9 @@ export default function PdfPreviewModal({
             </button>
           </div>
         </div>
-        <div style={{ flex: 1, position: 'relative', background: 'var(--surface-alt-bg)' }}>
+        <div className={s['pdf-modal-body']}>
           {loading && (
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'color-mix(in srgb, var(--surface-alt-bg) 80%, transparent)',
-                zIndex: 1,
-                fontSize: 16,
-                color: 'var(--text-muted)',
-              }}
-            >
+            <div className={s['pdf-modal-loading']}>
               Generando PDF...
             </div>
           )}
@@ -124,17 +90,7 @@ export default function PdfPreviewModal({
             </PDFViewer>
           )}
           {!loading && data == null && (
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 14,
-                color: 'var(--text-muted)',
-              }}
-            >
+            <div className={s['pdf-modal-empty']}>
               No se pudo generar la vista previa
             </div>
           )}

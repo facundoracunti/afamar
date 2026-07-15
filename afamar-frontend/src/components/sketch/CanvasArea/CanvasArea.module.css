@@ -1,0 +1,9 @@
+.canvas-area {
+  position: relative;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--surface-alt-bg);
+  max-width: 100%;
+}

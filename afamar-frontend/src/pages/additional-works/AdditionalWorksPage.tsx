@@ -160,7 +160,7 @@ export default function AdditionalWorksPage() {
                   <tr key={a.id}>
                     <td style={{ fontWeight: 600 }}>{a.name}</td>
                     <td style={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {a.detail || <span style={{ color: '#94a3b8' }}>—</span>}
+                      {a.detail || <span className={s['additional-works__detail-empty']}>—</span>}
                     </td>
                     <td>
                       <span
@@ -175,7 +175,7 @@ export default function AdditionalWorksPage() {
                       </span>
                       {a.type === 'frente' && a.formula_constant != null ? (
                         <span
-                          style={{ marginLeft: 6, fontSize: 11, color: '#64748b' }}
+                          className={s['additional-works__multi-text']}
                           title="Multiplicador aplicado al cálculo automático (default 1.15)."
                         >
                           (multiplicador {Number(a.formula_constant).toLocaleString('es-AR', { minimumFractionDigits: 2 })})
@@ -184,7 +184,7 @@ export default function AdditionalWorksPage() {
                     </td>
                     <td style={{ fontWeight: 600 }}>
                       {a.type === 'frente'
-                        ? <span style={{ color: '#94a3b8' }}>automático</span>
+                        ? <span className={s['additional-works__auto-text']}>automático</span>
                         : (
                           <>
                             {formatCurrencyValue(Number(a.price || 0), { currency: a.currency as 'ARS' | 'USD' })}
@@ -226,7 +226,7 @@ export default function AdditionalWorksPage() {
                 ))}
                 {(!data || data.length === 0) && (
                   <tr>
-                    <td colSpan={6} style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>
+                    <td colSpan={6} className={s['additional-works__empty-row']}>
                       No hay trabajos adicionales configurados. Hacé click en "Nuevo Trabajo Adicional" para empezar.
                     </td>
                   </tr>
@@ -335,7 +335,7 @@ export default function AdditionalWorksPage() {
                 }
               />
               {form.type === 'frente' ? (
-                <small style={{ color: '#64748b' }}>
+                <small className={s['additional-works__formula-hint']}>
                   Fórmula: (precio_m² × 0.13) × este multiplicador × los metros lineales del presupuesto.
                 </small>
               ) : null}
