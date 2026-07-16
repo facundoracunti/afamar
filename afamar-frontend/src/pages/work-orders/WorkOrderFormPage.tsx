@@ -112,11 +112,6 @@ export default function WorkOrderForm() {
 
   const encodeTerms = (items: string[]) => JSON.stringify(items.filter((t) => t.trim() !== ''));
 
-  if (loading) return <LoadingSpinner />;
-
-  const matsMain = hayAlternativas ? (form.materials_data as unknown as MaterialInForm[] || []).filter((m) => !m.is_alternative) : (form.materials_data as unknown as MaterialInForm[] || []);
-  const matsAlt = (form.materials_data as unknown as MaterialInForm[] || []).filter((m) => m.is_alternative);
-
   const handleConfirmarPago = useConfirmPayment({
     id,
     balance_paid: form.balance_paid,
@@ -126,6 +121,11 @@ export default function WorkOrderForm() {
     queryKey: ['work-orders'],
     setForm,
   });
+
+  if (loading) return <LoadingSpinner />;
+
+  const matsMain = hayAlternativas ? (form.materials_data as unknown as MaterialInForm[] || []).filter((m) => !m.is_alternative) : (form.materials_data as unknown as MaterialInForm[] || []);
+  const matsAlt = (form.materials_data as unknown as MaterialInForm[] || []).filter((m) => m.is_alternative);
 
   const handlePreviewPdf = () => {
     setPdfPreviewLoading(true);

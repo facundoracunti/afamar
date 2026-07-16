@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { getBudgetPdf, convertBudgetToWorkOrder, convertAlternativeToWorkOrder, updateBudget } from '@/api/resources/budgets';
+import { getBudgetPdf, convertBudgetToWorkOrder, convertAlternativeToWorkOrder, updateBudget, createBudget } from '@/api/resources/budgets';
 import { todayLocalISO } from '../utils/formatters';
 import { buildPdfData } from '../utils/pdf/buildPdfData';
 import type { PdfDocumentData } from '../utils/pdf/buildPdfData';
@@ -62,27 +62,37 @@ export function useBudgetActions({
     setSaving(true);
     try {
       const payload = buildPayload();
-      await updateBudget(id as string, payload);
-      queryClient.invalidateQueries({ queryKey: ['budgets'] });
-      if (wasRejected) {
-        notify('Presupuesto guardado. Estado restablecido a Pendiente — podes volver a aprobarlo.', 'success');
+      if (isEdit) {
+        await updateBudget(id as string, payload);
+        queryClient.invalidateQueries({ queryKey: ['budgets'] });
+        if (wasRejected) {
+          notify('Presupuesto guardado. Estado restablecido a Pendiente — podes volver a aprobarlo.', 'success');
+        } else {
+          notify('Presupuesto guardado correctamente', 'success');
+        }
+        setSaving(false);
+        return true;
       } else {
-        notify('Presupuesto guardado correctamente', 'success');
+        const res = await createBudget(payload) as unknown as { data: { id: number | string } };
+        notify('Presupuesto creado correctamente', 'success');
+        queryClient.invalidateQueries({ queryKey: ['budgets'] });
+        setSaving(false);
+        navigate(`/admin/budgets/${res.data.id}`);
+        return true;
       }
-      setSaving(false);
-      return true;
     } catch (err: unknown) {
       notify(extractError(err), 'error');
       setSaving(false);
       return false;
     }
-  }, [form.status, buildPayload, id, queryClient, notify, setSaving]);
+  }, [isEdit, form.status, buildPayload, id, queryClient, notify, setSaving, navigate]);
 
   const handleGuardar = useCallback(async () => {
+    if (!id) return;
     setSaving(true);
     try {
       const payload = buildPayload();
-      await updateBudget(id as string, payload);
+      await updateBudget(id, payload);
       notify('Presupuesto guardado correctamente', 'success');
       queryClient.invalidateQueries({ queryKey: ['budgets'] });
     } catch (err: unknown) {

@@ -33,7 +33,12 @@ export function PoolMovementsModal({ isOpen, pool, onClose, onMovementAdded }: P
   const handleAddMov = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pool) return;
-    await createPoolMovement(pool.id, movForm);
+    const payload = {
+      type: movForm.type === 'Ingreso' ? 'entry' : 'exit',
+      quantity: movForm.quantity,
+      notes: movForm.description || null,
+    };
+    await createPoolMovement(pool.id, payload);
     const res = await getPoolMovements(pool.id);
     setMovimientos(res.data);
     onMovementAdded();

@@ -149,7 +149,7 @@ export default function AdditionalWorkSection({ value, onChange, readOnly, formM
           >
             <option value="">+ AGREGAR TRABAJO ADICIONAL</option>
             {catalogue
-              .filter((a) => !selectedIds.has(a.id))
+              .filter((a) => !selectedIds.has(a.id) && a.type !== 'frente')
               .map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.type === 'frente' ? '* ' : ''}
@@ -191,7 +191,7 @@ export default function AdditionalWorkSection({ value, onChange, readOnly, formM
         const catalogueItem = sel.additional_work_id != null ? catalogueById.get(sel.additional_work_id) ?? null : null;
         return (
           <AdditionalWorkCard
-            key={sel.additional_work_id ?? idx}
+            key={idx}
             selection={sel}
             idx={idx}
             formMaterials={materials}
