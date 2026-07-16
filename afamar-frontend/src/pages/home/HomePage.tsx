@@ -1,62 +1,40 @@
-import { useEffect, useState } from "react";
-import styles from "./Home.module.css";
-import { Container } from "@/components/ui/Container/Container";
-import { Modal } from "@/components/ui/Modal/Modal";
-import http from "@/api/http";
-import { useList } from "@/api/hooks";
-import type { ProductPhoto } from "@/types/product";
-
-import slider1 from "@/assets/slider/1.jpg";
-import slider2 from "@/assets/slider/2.jpg";
-import slider3 from "@/assets/slider/3.jpg";
-
-const slides = [
-  {
-    title: "Transformamos tus espacios",
-    subtitle: "Mesadas, cubiertas y revestimientos en granito, cuarzo y sinterizados",
-    image: slider1,
-  },
-  {
-    title: "Calidad y diseño",
-    subtitle: "Más de 15 años de experiencia en el mercado de La Plata",
-    image: slider2,
-  },
-  {
-    title: "Materiales premium",
-    subtitle: "Trabajamos con las mejores marcas y materiales del mercado",
-    image: slider3,
-  },
-];
+import { useState } from 'react';
+import styles from './Home.module.css';
+import { Container } from '@/components/ui/Container/Container';
+import { Modal } from '@/components/ui/Modal/Modal';
+import http from '@/api/http';
+import { useList } from '@/api/hooks';
+import type { ProductPhoto } from '@/types/product';
+import { HeroCarousel } from '@/components/home/HeroCarousel/HeroCarousel';
 
 const materials = [
   {
-    name: "Neolith",
-    desc: "Neolith es una piedra sinterizada. Es la evolución de un porcelanato o cerámica tradicional. Su composición es 100 % natural, de la más alta calidad y pureza, unidos a un proceso de prensado y cocción de última tecnología, logran un producto con impresionantes características.",
-    gradient: "linear-gradient(135deg, #2c3e50 0%, #3498db 100%)",
+    name: 'Neolith',
+    desc: 'Neolith es una piedra sinterizada. Es la evolución de un porcelanato o cerámica tradicional. Su composición es 100 % natural, de la más alta calidad y pureza, unidos a un proceso de prensado y cocción de última tecnología, logran un producto con impresionantes características.',
+    gradient: 'linear-gradient(135deg, #2c3e50 0%, #3498db 100%)',
   },
   {
-    name: "Silestone",
-    desc: "Silestone está compuesto en un 94% de Cuarzo Natural triturado, resina de poliéster, pigmentos y aditivos. Este aglomerado le proporciona una dureza y una resistencia extraordinarias que, unido a la protección antibacterias, le dotan de unas cualidades de higiene magníficas, bellos y variados colores, extraordinarias texturas, y unas altas prestaciones.",
-    gradient: "linear-gradient(135deg, #1a1a2e 0%, #e94560 100%)",
+    name: 'Silestone',
+    desc: 'Silestone está compuesto en un 94% de Cuarzo Natural triturado, resina de poliéster, pigmentos y aditivos. Este aglomerado le proporciona una dureza y una resistencia extraordinarias que, unido a la protección antibacterias, le dotan de unas cualidades de higiene magníficas, bellos y variados colores, extraordinarias texturas, y unas altas prestaciones.',
+    gradient: 'linear-gradient(135deg, #1a1a2e 0%, #e94560 100%)',
   },
   {
-    name: "Granito",
-    desc: "El granito es una roca ígnea granular de color claro compuesta principalmente por al menos 20% de cuarzo y hasta 65% de feldespato alcalino en volumen, con cantidades menores de mica y minerales anfíboles. Se produce al solidificarse lentamente y a muy alta presión.",
-    gradient: "linear-gradient(135deg, #4a4a4a 0%, #8e8e8e 100%)",
+    name: 'Granito',
+    desc: 'El granito es una roca ígnea granular de color claro compuesta principalmente por al menos 20% de cuarzo y hasta 65% de feldespato alcalino en volumen, con cantidades menores de mica y minerales anfíboles. Se produce al solidificarse lentamente y a muy alta presión.',
+    gradient: 'linear-gradient(135deg, #4a4a4a 0%, #8e8e8e 100%)',
   },
   {
-    name: "Mármol",
-    desc: "El mármol es una roca metamórfica compacta formada a partir de rocas calizas que, sometidas a elevadas temperaturas y presiones, por largos períodos de tiempo alcanzando un alto grado de cristalización. El componente básico del mármol es el carbonato cálcico, cuyo contenido supera el 90%; los demás componentes, considerados impurezas, son los que dan gran variedad de colores en los mármoles y definen sus características físicas.",
-    gradient: "linear-gradient(135deg, #d4c5a9 0%, #f5efe0 100%)",
+    name: 'Mármol',
+    desc: 'El mármol es una roca metamórfica compacta formada a partir de rocas calizas que, sometidas a elevadas temperaturas y presiones, por largos períodos de tiempo alcanzando un alto grado de cristalización. El componente básico del mármol es el carbonato cálcico, cuyo contenido supera el 90%; los demás componentes, considerados impurezas, son los que dan gran variedad de colores en los mármoles y definen sus características físicas.',
+    gradient: 'linear-gradient(135deg, #d4c5a9 0%, #f5efe0 100%)',
   },
 ];
 
 const fallbackPortfolio = [
-  { image: "/assets/portfolio/portfolio-details-1.jpg" },
+  { image: '/assets/portfolio/portfolio-details-1.jpg' },
 ];
 
 export function HomePage() {
-  const [activeSlide, setActiveSlide] = useState(0);
   const [modalImg, setModalImg] = useState<string | null>(null);
 
   const { items: portfolioPhotos, loading: portfolioLoading } = useList<ProductPhoto>(
@@ -73,27 +51,8 @@ export function HomePage() {
     ? portfolioPhotos.map((p) => ({ image: p.file_path }))
     : fallbackPortfolio;
 
-  const goTo = (i: number) => {
-    setActiveSlide(i);
-  };
-
-  const prevSlide = () => {
-    setActiveSlide((prev) => (prev - 1 + slides.length) % slides.length);
-  };
-
-  const nextSlide = () => {
-    setActiveSlide((prev) => (prev + 1) % slides.length);
-  };
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setActiveSlide((prev) => (prev + 1) % slides.length);
-    }, 5000);
-    return () => clearInterval(timer);
-  }, []);
-
   const scrollTo = (id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
   };
 
   return (
@@ -101,49 +60,21 @@ export function HomePage() {
       {/* ─── Navbar ─── */}
       <nav className={styles.nav}>
         <Container className={styles.nav__inner}>
-        <a href="#" className={styles.nav__logo} onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
+        <a href="#" className={styles.nav__logo} onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
           AFAMAR
         </a>
         <ul className={styles.nav__links}>
-          <li><a className={styles.nav__link} onClick={() => scrollTo("hero")}>INICIO</a></li>
-          <li><a className={styles.nav__link} onClick={() => scrollTo("materiales")}>MATERIALES</a></li>
-          <li><a className={styles.nav__link} onClick={() => scrollTo("about")}>QUIENES SOMOS</a></li>
-          <li><a className={styles.nav__link} onClick={() => scrollTo("productos")}>PRODUCTOS</a></li>
-          <li><a className={styles.nav__link} onClick={() => scrollTo("contact")}>CONTACTO</a></li>
+          <li><a className={styles.nav__link} onClick={() => scrollTo('hero')}>INICIO</a></li>
+          <li><a className={styles.nav__link} onClick={() => scrollTo('materiales')}>MATERIALES</a></li>
+          <li><a className={styles.nav__link} onClick={() => scrollTo('about')}>QUIENES SOMOS</a></li>
+          <li><a className={styles.nav__link} onClick={() => scrollTo('productos')}>PRODUCTOS</a></li>
+          <li><a className={styles.nav__link} onClick={() => scrollTo('contact')}>CONTACTO</a></li>
         </ul>
         </Container>
       </nav>
 
       {/* ─── Hero Carousel ─── */}
-      <section id="hero" className={styles.hero}>
-        {slides.map((slide, i) => (
-          <div
-            key={i}
-            className={`${styles.hero__slide} ${i === activeSlide ? styles["hero__slide--active"] : ""}`}
-            style={{ backgroundImage: `url(${slide.image})` }}
-          >
-            <div className={styles.hero__slideContent}>
-              <h1 className={styles.hero__slideTitle}>{slide.title}</h1>
-              <p className={styles.hero__slideSubtitle}>{slide.subtitle}</p>
-            </div>
-          </div>
-        ))}
-        <div className={styles.hero__dots}>
-          {slides.map((_, i) => (
-            <button
-              key={i}
-              className={`${styles.hero__dot} ${i === activeSlide ? styles["hero__dot--active"] : ""}`}
-              onClick={() => goTo(i)}
-            />
-          ))}
-        </div>
-        <button className={styles.hero__arrow + " " + styles["hero__arrow--left"]} onClick={prevSlide} aria-label="Anterior">
-          ‹
-        </button>
-        <button className={styles.hero__arrow + " " + styles["hero__arrow--right"]} onClick={nextSlide} aria-label="Siguiente">
-          ›
-        </button>
-      </section>
+      <HeroCarousel />
 
       {/* ─── Materiales ─── */}
       <section id="materiales" className={`${styles.section} ${styles.materials}`}>
@@ -224,19 +155,19 @@ export function HomePage() {
               onClick={() => setModalImg(item.image)}
               role="button"
               tabIndex={0}
-              onKeyDown={(e) => { if (e.key === "Enter") setModalImg(item.image); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') setModalImg(item.image); }}
             >
               <div className={styles.portfolio__overlay} />
             </div>
           ))}
         </div>
         )}
-
-        <Modal isOpen={!!modalImg} onClose={() => setModalImg(null)} width="900px">
-          <img src={modalImg ?? ""} alt="Producto" style={{ width: "100%", height: "auto", display: "block", borderRadius: "12px" }} />
-        </Modal>
         </Container>
       </section>
+
+      <Modal isOpen={!!modalImg} onClose={() => setModalImg(null)} width="900px">
+        <img src={modalImg ?? ''} alt="Producto" style={{ width: '100%', height: 'auto', display: 'block', borderRadius: '12px' }} />
+      </Modal>
 
       {/* ─── Contact ─── */}
       <section id="contact" className={`${styles.section} ${styles.contact}`}>
@@ -263,7 +194,7 @@ export function HomePage() {
               <span className={styles.contact__icon}>📞</span>
               <span>
                 <a href="tel:02214579935" className={styles.contact__link}>0221 457-9935</a>
-                {" / "}
+                {' / '}
                 <a href="tel:2214111348" className={styles.contact__link}>221 411 1348</a>
               </span>
             </div>

@@ -133,7 +133,7 @@ export default function CashDailyPage() {
         .print-only { display: none; }
       `}</style>
       <div id="print-area">
-        <div className="print-only" style={{ textAlign: 'center', marginBottom: 20 } as React.CSSProperties}>
+        <div className={`print-only ${s['cash__print-header']}`}>
           <h1 className={s['cash__print-title']}>CIERRE DE CAJA</h1>
           <p className={s['cash__print-date']}>Fecha: {date}</p>
           <hr className={s['cash__print-hr']} />
@@ -141,12 +141,11 @@ export default function CashDailyPage() {
 
         {/* Header */}
         <div className={s['cash__page-header']}>
-          <h1 className="no-print" style={{ fontSize: 24, fontWeight: 700 } as React.CSSProperties}>Caja Diaria</h1>
-          <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 8 } as React.CSSProperties}>
+          <h1 className={`no-print ${s['cash__page-header-title']}`}>Caja Diaria</h1>
+          <div className={`no-print ${s['cash__controls']}`}>
             <input
               type="date"
-              className="input"
-              style={{ width: 180 } as React.CSSProperties}
+              className={`input ${s['cash__date-input']}`}
               value={date}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDate(e.target.value)}
             />
@@ -154,17 +153,17 @@ export default function CashDailyPage() {
               <button className="btn btn-outline" onClick={() => setDate(today)}>Hoy</button>
             )}
             {isToday && !closed && (
-              <button className="btn btn-danger" style={{ padding: '6px 14px', fontSize: 13 } as React.CSSProperties}
+              <button className={`btn btn-danger ${s['cash__controls-btn']}`}
                 onClick={() => setShowClose(true)}>
-                <Lock size={14} style={{ marginRight: 4 } as React.CSSProperties} /> Cerrar Caja del Día
+                <Lock size={14} className={s['cash__icon-inline']} /> Cerrar Caja del Día
               </button>
             )}
             {closed && (
-              <span className="badge badge-finished" style={{ fontSize: 13 } as React.CSSProperties}>Cerrada</span>
+              <span className={`badge badge-finished ${s['cash__badge']}`}>Cerrada</span>
             )}
-            <button className="btn btn-outline no-print-keep" style={{ padding: '6px 14px', fontSize: 13 } as React.CSSProperties}
+            <button className={`btn btn-outline no-print-keep ${s['cash__controls-btn']}`}
               onClick={handlePrint}>
-              <Printer size={14} style={{ marginRight: 4 } as React.CSSProperties} /> Imprimir Reporte
+              <Printer size={14} className={s['cash__icon-inline']} /> Imprimir Reporte
             </button>
           </div>
         </div>
@@ -181,7 +180,7 @@ export default function CashDailyPage() {
 
         {loading ? <LoadingSpinner /> : (
           <>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 } as React.CSSProperties}>
+            <div className={s['cash__movements-grid']}>
               <CashMovementTable
                 title="Entradas (Ingresos)"
                 titleColor="#16a34a"
@@ -243,7 +242,7 @@ export default function CashDailyPage() {
           </>
         )}
 
-        <div className="print-only" style={{ textAlign: 'center', marginTop: 20, fontSize: 11 } as React.CSSProperties}>
+        <div className={`print-only ${s['cash__print-footer-block']}`}>
           <span className={s['cash__print-footer']}>Reporte generado el {new Date().toLocaleDateString('es-AR')} a las {new Date().toLocaleTimeString('es-AR')}</span>
         </div>
       </div>

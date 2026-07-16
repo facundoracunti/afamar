@@ -93,11 +93,11 @@ export default function CashHistoryPage() {
                     <CurrencyDisplay value={selected.current_balance as number} />
                   </div>
                   <div className={s['cash-history__detail-income']}>
-                    <ArrowUpCircle size={14} style={{ marginRight: 4 }} />
+                    <ArrowUpCircle size={14} className={s['cash-history__icon-inline']} />
                     Ingresos: <CurrencyDisplay value={selected.total_income as number} />
                   </div>
                   <div className={s['cash-history__detail-expense']}>
-                    <ArrowDownCircle size={14} style={{ marginRight: 4 }} />
+                    <ArrowDownCircle size={14} className={s['cash-history__icon-inline']} />
                     Egresos: <CurrencyDisplay value={selected.total_expenses as number} />
                   </div>
                   <div className={s['cash-history__detail-real-cash']}>

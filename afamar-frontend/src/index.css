@@ -416,30 +416,3 @@ table tr:hover td {
   font-weight: 600;
 }
 
-/* Legacy Modal (components/common/Modal.tsx) */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 20px;
-}
-
-.modal {
-  background: var(--surface-bg);
-  border-radius: 12px;
-  padding: 24px;
-  max-width: 90vw;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  color: var(--text-primary);
-}
-
-/* Legacy Loading spinner keyframe */
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}

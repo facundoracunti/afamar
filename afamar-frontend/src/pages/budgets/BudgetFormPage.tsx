@@ -2,18 +2,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Eye, Save, FileOutput, Check, Send } from 'lucide-react';
-import { getBudget, createBudget, updateBudget, deleteBudget, getNextBudgetNumber, getBudgetPdf, convertBudgetToWorkOrder, convertAlternativeToWorkOrder } from '@/api/resources/budgets';
+import { getBudget, createBudget, updateBudget, deleteBudget, getNextBudgetNumber, getBudgetPdf } from '@/api/resources/budgets';
 import { getMaterials } from '@/api/resources/materials';
 import { getPoolStock } from '@/api/resources/poolStock';
 import { getClients } from '@/api/resources/clients';
-import { todayLocalISO, parseNumber } from '../../utils/formatters';
-import { t as translateConcept } from '../../utils/translate';
+import { parseNumber } from '../../utils/formatters';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import useEntityForm from '../../hooks/useEntityForm';
-import { useSettingsWithTerms } from '../../hooks/useSettingsWithTerms';
-import { buildPdfData } from '../../utils/pdf/buildPdfData';
-import type { PdfDocumentData } from '../../utils/pdf/buildPdfData';
-import BudgetPanel from '../../components/budget/BudgetPanel/BudgetPanel';
+import { useBudgetQuoteCalculations } from '../../hooks/useBudgetQuoteCalculations';
+import { useBudgetActions } from '../../hooks/useBudgetActions';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import PdfPreviewModal from '../../components/ui/PdfPreviewModal/PdfPreviewModal';
@@ -23,18 +20,16 @@ import { useNotify } from '../../context/NotificationContext';
 import { fetchUsdVenta } from '../../utils/dolarApi';
 import QuoteOptionsGrid from '../../components/budget/QuoteOptionsGrid/QuoteOptionsGrid';
 import AdditionalWorkSection from '../../components/budget/AdditionalWorkSection/AdditionalWorkSection';
-
-import ObservationsSection from '../../components/orders/ObservationsSection/ObservationsSection';
 import FormHeader from '../../components/orders/FormHeader/FormHeader';
 import FormFooter from '../../components/orders/FormFooter/FormFooter';
-import BudgetFormClient from './BudgetFormClient';
+import EntityFormClient from '../../components/entity/EntityFormClient';
 import SketchSection from '../../components/sketch/SketchSection/SketchSection';
-import BudgetFormSpecs from './BudgetFormSpecs';
-import BudgetFormFinancial from './BudgetFormFinancial';
+import EntityFormSpecs from '../../components/entity/EntityFormSpecs';
+import EntityFormFinancial from '../../components/entity/EntityFormFinancial';
 import BudgetFormAdicionales from './BudgetFormAdicionales';
 import FabricationSection from '../../components/budget/FabricationSection/FabricationSection';
 import BudgetFormObservations from './BudgetFormObservations';
-import type { BudgetPayload, MaterialInForm, PoolInForm, EntityFormState, EntityServices } from '../../types';
+import type { MaterialInForm, EntityServices } from '../../types';
 import styles from './BudgetFormPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -56,33 +51,26 @@ export default function BudgetForm() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const notify = useNotify();
 
   const [workOrderNumber, setWorkOrderNumber] = useState<string | null>(null);
-  const [pdfData, setPdfData] = useState<PdfDocumentData | null>(null);
-  const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
-  const [sketchExtractorActive, setSketchExtractorActive] = useState(false);
   const [budgetTerms, setBudgetTerms] = useState<string[]>([]);
   const [warrantyTerms, setWarrantyTerms] = useState<string[]>([]);
-  const [showConvertDialog, setShowConvertDialog] = useState(false);
-  const [pendingAltIdx, setPendingAltIdx] = useState<number | null>(null);
-  const notify = useNotify();
-  const { company, globalTerms } = useSettingsWithTerms();
 
   const {
     form, loading, saving, materials, pools, logoUrl, clientes, addOrRefreshClientes, updateClientAddresses,
     menuOpen, deleteConfirm, showCroquis,
     readOnly, hayUSD, hayAlternativas, isEdit,
     modoUSD, toggleModoUSD,
-    menuRef,
     setForm, setSaving,
-    setMenuOpen, setDeleteConfirm, setShowCroquis,
+    setDeleteConfirm, setShowCroquis,
     update, buildPayload,
     handleTransportChange,
     handleDepositCurrencyChange, handleDepositAmountChange, handleUsdRateChange,
     handleDetailChange, addDetalle, removeDetalle,
     addMaterial, removeMaterial, updateMaterial,
     addPileta, removePileta, updatePileta,
-    handleSubmit: legacyHandleSubmit, handleDelete, handlePrint,
+    handleDelete,
     M2_CONCEPTS,
   } = useEntityForm({
     entityType: 'budget',
@@ -96,9 +84,29 @@ export default function BudgetForm() {
     onError: (msg) => notify(msg, 'error'),
   });
 
-  // Auto-fill USD rate from dolarapi.com on new budget creation. When editing,
-  // we use the value stored in the DB. If the API is down we keep the
-  // INITIAL_FORM default (1000) so the form still works.
+  const {
+    sumatoriaAdicionalesARS, detalleTrabajosComunes, principalesBreakdown,
+    matsMain, matsAlt, sumatoriaMaterialesPrincipalARS,
+  } = useBudgetQuoteCalculations({ form, hayAlternativas });
+
+  const {
+    pdfData, pdfPreviewLoading, sketchExtractorActive,
+    showConvertDialog, setShowConvertDialog,
+    pendingAltIdx, setPendingAltIdx,
+    handleSubmit: rawHandleSubmit,
+    handleGuardar,
+    handleAprobar,
+    handleConvertirGuardar,
+    handleConvertirAlternativa,
+    handleEnviarWhatsApp,
+    handlePreviewPdf,
+    handleSketchImagesReady,
+    handleClosePdfPreview,
+    handleConfirmarPago,
+  } = useBudgetActions({
+    form, setForm, setSaving, saving, buildPayload, isEdit, id,
+  });
+
   useEffect(() => {
     if (isEdit) return;
     let cancelled = false;
@@ -108,20 +116,10 @@ export default function BudgetForm() {
     return () => { cancelled = true; };
   }, [isEdit, setForm]);
 
-  // Wrap the legacy submit so the budgets list cache is invalidated on
-  // every successful save (the default 5min staleTime would otherwise
-  // keep the previous list visible after navigation).
-  const handleSubmit = async (e?: React.FormEvent) => {
-    const wasRejected = form.status === 'REJECTED';
-    const ok = await legacyHandleSubmit(e);
-    if (!ok) return; // error already notified via onError
-    queryClient.invalidateQueries({ queryKey: ['budgets'] });
-    if (wasRejected) {
-      notify('Presupuesto guardado. Estado restablecido a Pendiente — podes volver a aprobarlo.', 'success');
-    } else {
-      notify('Presupuesto guardado correctamente', 'success');
-    }
-  };
+  const handleSubmit = useCallback(async (e?: React.FormEvent) => {
+    const ok = await rawHandleSubmit(e);
+    if (ok) queryClient.invalidateQueries({ queryKey: ['budgets'] });
+  }, [rawHandleSubmit, queryClient]);
 
   const handleAddressAdded = useCallback((clientId: number, address: import('../../types/client').ClientAddress) => {
     const client = (clientes as unknown as import('../../types/client').Client[]).find((c) => c.id === clientId);
@@ -130,213 +128,7 @@ export default function BudgetForm() {
     }
   }, [clientes, updateClientAddresses]);
 
-  const handleConvertirGuardar = async () => {
-    setSaving(true);
-    try {
-      const payload = buildPayload();
-      await updateBudget(id as string, payload);
-      const res = await convertBudgetToWorkOrder(id as string);
-      setWorkOrderNumber(res.data.number);
-      setForm((prev) => ({ ...prev, status: 'CONVERTED_TO_OT' }));
-      notify(`¡Orden ${res.data.number} creada exitosamente!`, 'success');
-      // Both lists change: budget becomes CONVERTED_TO_OT, OT is created.
-      queryClient.invalidateQueries({ queryKey: ['budgets'] });
-      queryClient.invalidateQueries({ queryKey: ['work-orders'] });
-      navigate(`/admin/work-orders/${res.data.id}`);
-    } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
-        || (err as Error).message
-        || 'Error al convertir';
-      notify(detail, 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleConvertirAlternativa = async (idx: number) => {
-    if (!id) {
-      notify('Primero guardá el presupuesto para poder convertir una alternativa.', 'error');
-      return;
-    }
-    setSaving(true);
-    try {
-      const res = await convertAlternativeToWorkOrder(id as string, idx);
-      if (res.status === 201) {
-        notify(`¡Orden ${res.data.number} creada exitosamente desde alternativa "${res.data.alternative_name}"!`, 'success');
-        queryClient.invalidateQueries({ queryKey: ['budgets'] });
-        queryClient.invalidateQueries({ queryKey: ['work-orders'] });
-        navigate(`/admin/work-orders/${res.data.id}`);
-      }
-    } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
-        || (err as Error).message
-        || 'Error al convertir la alternativa';
-      notify(detail, 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleGuardar = async () => {
-    setSaving(true);
-    try {
-      const payload = buildPayload();
-      await updateBudget(id as string, payload);
-      notify('Presupuesto guardado correctamente', 'success');
-      queryClient.invalidateQueries({ queryKey: ['budgets'] });
-    } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
-        || (err as Error).message
-        || 'Error al guardar';
-      notify(detail, 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleAprobar = async () => {
-    setSaving(true);
-    try {
-      const payload = buildPayload();
-      const aprobado = { ...payload, status: 'APPROVED' as const } as unknown as BudgetPayload;
-      if (['TARJETA DE CRÉDITO', 'TARJETA DE DÉBITO'].includes(form.payment_method)) {
-        aprobado.deposit_received = Number(form.total);
-        aprobado.balance_due = 0;
-        aprobado.balance_paid = true;
-        aprobado.deposit_usd = Number(form.total_usd);
-        aprobado.balance_due_usd = 0;
-        aprobado.balance_paid_at = todayLocalISO();
-      }
-      await updateBudget(id as string, aprobado as unknown as Record<string, unknown>);
-      // Only reflect the user-facing changes back into the form. Spreading
-      // the whole `aprobado` payload would overwrite `materials_data` (a JSON
-      // string in the payload) over the in-memory array, breaking
-      // `useFormMaterials` on the next render.
-      setForm((prev) => ({
-        ...prev,
-        status: 'APPROVED',
-        deposit_received: aprobado.deposit_received ?? prev.deposit_received,
-        deposit_usd: aprobado.deposit_usd ?? prev.deposit_usd,
-        balance_due: aprobado.balance_due ?? prev.balance_due,
-        balance_due_usd: aprobado.balance_due_usd ?? prev.balance_due_usd,
-        balance_paid: aprobado.balance_paid ?? prev.balance_paid,
-        balance_paid_at: aprobado.balance_paid_at ?? prev.balance_paid_at,
-      }));
-      notify('Presupuesto aprobado', 'success');
-      queryClient.invalidateQueries({ queryKey: ['budgets'] });
-    } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
-        || (err as Error).message
-        || 'Error al aprobar';
-      notify(detail, 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleEnviarWhatsApp = () => {
-      const phone = (form.client_phone || '').replace(/[^\d]/g, '');
-      const nombre = form.client_name || '';
-      const pdfUrl = getBudgetPdf(id as string);
-      const saludo = nombre ? `Hola ${nombre}! ` : '';
-      const mensaje = `${saludo}Te enviamos el presupuesto formal de AFAMAR Mármoles & Granitos. Podés revisarlo e imprimirlo desde el siguiente link: ${pdfUrl}`;
-      const whatsappUrl = phone
-        ? `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(mensaje)}`
-        : `https://api.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
-      window.open(whatsappUrl, '_blank');
-    };
-
-  const handlePreviewPdf = () => {
-    setPdfPreviewLoading(true);
-    setPdfData(null);
-    setSketchExtractorActive(true);
-  };
-
-  const handleSketchImagesReady = (images: string[]) => {
-    const data = buildPdfData({
-      form: form as unknown as Record<string, unknown>,
-      document_type: 'budget',
-      overrides: {
-        budget_terms: budgetTerms,
-        warranty_terms: warrantyTerms,
-      },
-      company,
-      globalTerms,
-      sketchImages: images,
-    });
-    setPdfData(data);
-    setPdfPreviewLoading(false);
-    setSketchExtractorActive(false);
-  };
-
-  const handleClosePdfPreview = () => {
-    setPdfData(null);
-    setSketchExtractorActive(false);
-  };
-
-  if (loading) return <LoadingSpinner />;
-
-  const dd2 = Number(form.usd_rate) || 1;
-  let sumatoriaAdicionalesARS = Number(form.transport || 0);
-  const detalleTrabajosComunes: { concept: string; quantity: number; total: number; currency: 'ARS' | 'USD' }[] = [];
-  if (Number(form.transport || 0) > 0) {
-    detalleTrabajosComunes.push({ concept: 'Traslado', quantity: 1, total: Number(form.transport), currency: 'ARS' });
-  }
-  (form.fabrication_details || []).forEach((item) => {
-    const totalItem = Number(item.price || 0) * Number(item.quantity || 1);
-    const itemCurrency = (item.currency === 'USD' ? 'USD' : 'ARS') as 'ARS' | 'USD';
-    const totalItemARS = itemCurrency === 'USD' ? (dd2 > 0 ? totalItem * dd2 : 0) : totalItem;
-    if (totalItem > 0) {
-      sumatoriaAdicionalesARS += totalItemARS;
-      const baseLabel = item.concept === 'OTHER' && item.detail ? translateConcept('OTHER') + ' - ' + (item.detail as string) : translateConcept(item.concept as string);
-      detalleTrabajosComunes.push({ concept: baseLabel, quantity: Number(item.quantity || 1), total: totalItem, currency: itemCurrency });
-    }
-  });
-  (form.pools_data || []).forEach((pil) => {
-    const pool = pil as unknown as PoolInForm & Record<string, unknown>;
-    const totalPil = Number(pool.price || 0) * Number(pool.quantity || 1);
-    const poolCurrency = (pool.currency === 'USD' ? 'USD' : 'ARS') as 'ARS' | 'USD';
-    const totalPilARS = poolCurrency === 'USD' ? (dd2 > 0 ? totalPil * dd2 : 0) : totalPil;
-    if (totalPil > 0) {
-      sumatoriaAdicionalesARS += totalPilARS;
-      detalleTrabajosComunes.push({ concept: `Pileta ${(pool.brand as string) || ''} ${(pool.model as string) || ''}`.trim(), quantity: Number(pool.quantity || 1), total: totalPil, currency: poolCurrency });
-    }
-  });
-  // Principal (non-alternative) materials — broken out separately so they
-  // render right after "Costo Material base" in the comparison cards.
-  const principalesBreakdown: { concept: string; quantity: number; total: number; currency: 'ARS' | 'USD' }[] = [];
-  if (hayAlternativas) {
-    ((form.materials_data as unknown as MaterialInForm[]) || [])
-      .filter((m) => !m.is_alternative)
-      .forEach((m) => {
-        const m2 = Number(m.length || 0) * Number(m.width || 0) * (m.quantity || 1);
-        const costoMat = m.currency === 'USD' ? m2 * (m.price_m2_usd || 0) : m2 * (m.price_m2 || 0);
-        const mCurrency = (m.currency === 'USD' ? 'USD' : 'ARS') as 'ARS' | 'USD';
-        if (costoMat > 0) {
-          principalesBreakdown.push({
-            concept: `Material Principal — ${m.name || ''}${m.color ? ' (' + m.color + ')' : ''}`,
-            quantity: m.quantity || 1,
-            total: costoMat,
-            currency: mCurrency,
-          });
-        }
-      });
-  }
-  const matsMain = hayAlternativas ? (form.materials_data as unknown as MaterialInForm[] || []).filter((m) => !m.is_alternative) : (form.materials_data as unknown as MaterialInForm[] || []);
-  const matsAlt = (form.materials_data as unknown as MaterialInForm[] || []).filter((m) => m.is_alternative);
-
-  // Every card's TOTAL should include all principals (non-alternatives) +
-// this card's own material + common works (transport, fabrication, pools).
-// Alternatives are additive, not replacements.
-const sumatoriaMaterialesPrincipalARS = matsMain.reduce((sum, m) => {
-  const ddLocal = Number(form.usd_rate) || 1;
-  const m2 = Number(m.length || 0) * Number(m.width || 0) * (m.quantity || 1);
-  const costoMat = m.currency === 'USD' ? m2 * (m.price_m2_usd || 0) : m2 * (m.price_m2 || 0);
-  const costoMatArs = m.currency === 'USD' ? (ddLocal > 0 ? costoMat * ddLocal : 0) : costoMat;
-  return sum + costoMatArs;
-}, 0);
-
-const buildOptionFromMaterial = (mat: MaterialInForm): import('../../components/budget/QuoteOptionsGrid/QuoteOptionsGrid').Alternativa => {
+  const buildOptionFromMaterial = useCallback((mat: MaterialInForm): import('../../components/budget/QuoteOptionsGrid/QuoteOptionsGrid').Alternativa => {
     const ddLocal = Number(form.usd_rate) || 1;
     const m2 = Number(mat.length || 0) * Number(mat.width || 0) * (mat.quantity || 1);
     const costoMat = mat.currency === 'USD' ? m2 * (mat.price_m2_usd || 0) : m2 * (mat.price_m2 || 0);
@@ -352,7 +144,9 @@ const buildOptionFromMaterial = (mat: MaterialInForm): import('../../components/
       width: Number(mat.width || 0),
       quantity: mat.quantity || 1,
     };
-  };
+  }, [form.usd_rate, sumatoriaMaterialesPrincipalARS, sumatoriaAdicionalesARS]);
+
+  if (loading) return <LoadingSpinner />;
 
   const alternativasGrid = hayAlternativas && materials ? (
     <QuoteOptionsGrid
@@ -366,26 +160,6 @@ const buildOptionFromMaterial = (mat: MaterialInForm): import('../../components/
       modoUSD={modoUSD}
     />
   ) : null;
-
-  const handleConfirmarPago = async () => {
-    if (!id) return;
-    const nuevo = !form.balance_paid;
-    const hoy = todayLocalISO();
-    const payload: Record<string, unknown> = {
-      balance_paid: nuevo,
-      balance_paid_at: nuevo ? hoy : null,
-    };
-    if (nuevo) {
-      payload.deposit_received = Number(form.total);
-      payload.deposit_currency = 'ARS';
-      payload.balance_due = 0;
-      payload.deposit_usd = Number(form.total_usd);
-      payload.balance_due_usd = 0;
-    }
-    await updateBudget(id as string, payload);
-    setForm((prev) => ({ ...prev, ...payload, balance_paid_at: nuevo ? hoy : '' } as EntityFormState));
-    queryClient.invalidateQueries({ queryKey: ['budgets'] });
-  };
 
   return (
     <div className={s['budget-form']}>
@@ -425,18 +199,19 @@ const buildOptionFromMaterial = (mat: MaterialInForm): import('../../components/
       </FormHeader>
 
       <form onSubmit={handleSubmit} onKeyDown={(e: React.KeyboardEvent<HTMLFormElement>) => { if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') e.preventDefault(); }}>
-        <BudgetFormClient
+        <EntityFormClient
           form={form}
           readOnly={readOnly}
           update={update as (field: string, value: unknown) => void}
           clientes={clientes as unknown as import('../../types/client').Client[]}
           onClientCreated={addOrRefreshClientes}
           onAddressAdded={handleAddressAdded}
+          cardClassName="card"
         />
 
         <div className={`${s['budget-form__layout']}${showCroquis ? '' : ' ' + s['budget-form__layout--no-sketch']}`}>
           <div className={s['budget-form__right']}>
-            <BudgetFormSpecs
+            <EntityFormSpecs
               form={form}
               readOnly={readOnly}
               materials={materials}
@@ -487,7 +262,7 @@ const buildOptionFromMaterial = (mat: MaterialInForm): import('../../components/
             toggleLabel="Diseño / Plano"
           />
 
-          <BudgetFormFinancial
+          <EntityFormFinancial
             form={form}
             modoUSD={modoUSD}
             toggleModoUSD={toggleModoUSD}
@@ -502,7 +277,6 @@ const buildOptionFromMaterial = (mat: MaterialInForm): import('../../components/
             setForm={setForm}
             update={update as (field: string, value: unknown) => void}
             num={parseNumber as (v: unknown) => number}
-            alternativasTop={null}
             alternativasGrid={alternativasGrid}
             onConfirmarPago={handleConfirmarPago}
           />

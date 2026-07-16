@@ -1,20 +1,31 @@
-import type { CSSProperties, HTMLAttributes } from 'react';
+import React, { memo, type HTMLAttributes } from 'react';
 import { t } from '../../../utils/translate';
+import { STATUS_META } from '../../../constants/status';
+import styles from './StatusBadge.module.css';
+
+const s = styles as unknown as Record<string, string>;
 
 export interface StatusBadgeProps extends HTMLAttributes<HTMLSpanElement> {
   status?: string | null;
-  variant?: string;
 }
 
-export function StatusBadge(props: StatusBadgeProps) {
-  const { status, variant, style, children } = props;
+export const StatusBadge = memo(function StatusBadge({
+  status,
+  style,
+  children,
+  ...rest
+}: StatusBadgeProps) {
   const safe = status ?? '';
-  const variantKey = variant ?? safe;
+  const meta = STATUS_META[safe];
   return (
-    <span className={`badge badge--${variantKey}`} style={style as CSSProperties}>
+    <span
+      className={s['badge']}
+      style={{ backgroundColor: meta?.bg, color: meta?.color, ...style }}
+      {...rest}
+    >
       {children ?? t(safe)}
     </span>
   );
-}
+});
 
 export default StatusBadge;

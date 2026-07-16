@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Plus, Edit, Trash2 } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import {
   getAdditionalWorks,
   createAdditionalWork,
@@ -8,16 +8,14 @@ import {
   deleteAdditionalWork,
 } from '@/api/resources/additionalWorks';
 import { useList } from '../../api/hooks';
-import { formatCurrencyValue } from '../../utils/formatters';
 import { Modal } from '../../components/ui/Modal/Modal';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
+import { AdditionalWorksTable } from '../../components/common/AdditionalWorksTable';
+import { AdditionalWorkForm } from '../../components/common/AdditionalWorkForm';
 import { useNotify } from '../../context/NotificationContext';
 import type { AdditionalWork, AdditionalWorkType } from '../../types/additionalWork';
-import styles from './AdditionalWorksPage.module.css';
-
-const s = styles as unknown as Record<string, string>;
 
 const ADDITIONAL_WORKS_KEY = ['additional-works'] as const;
 
@@ -37,11 +35,6 @@ const EMPTY_FORM: AdditionalWorkFormData = {
   currency: 'ARS',
   type: 'flat',
   formula_constant: null,
-};
-
-const TYPE_LABELS: Record<AdditionalWorkType, string> = {
-  flat: 'Plano (cant. × precio)',
-  frente: 'Frente / Regrueso (fórmula)',
 };
 
 export default function AdditionalWorksPage() {
@@ -131,7 +124,7 @@ export default function AdditionalWorksPage() {
   };
 
   return (
-    <div className={s['additional-works']}>
+    <div className="additional-works">
       <PageHeader
         title="Trabajos Adicionales"
         actions={
@@ -142,99 +135,11 @@ export default function AdditionalWorksPage() {
       />
 
       {loading ? <LoadingSpinner /> : (
-        <div className="card">
-          <div className="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Nombre</th>
-                  <th>Detalle</th>
-                  <th>Tipo</th>
-                  <th>Precio</th>
-                  <th>Moneda</th>
-                  <th style={{ width: 160 }}>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(data || []).map((a) => (
-                  <tr key={a.id}>
-                    <td style={{ fontWeight: 600 }}>{a.name}</td>
-                    <td style={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {a.detail || <span className={s['additional-works__detail-empty']}>—</span>}
-                    </td>
-                    <td>
-                      <span
-                        className="badge"
-                        style={{
-                          background: a.type === 'frente' ? '#fde68a' : '#e2e8f0',
-                          color: a.type === 'frente' ? '#92400e' : '#334155',
-                        }}
-                        title={TYPE_LABELS[a.type || 'flat']}
-                      >
-                        {a.type === 'frente' ? 'Frente' : 'Plano'}
-                      </span>
-                      {a.type === 'frente' && a.formula_constant != null ? (
-                        <span
-                          className={s['additional-works__multi-text']}
-                          title="Multiplicador aplicado al cálculo automático (default 1.15)."
-                        >
-                          (multiplicador {Number(a.formula_constant).toLocaleString('es-AR', { minimumFractionDigits: 2 })})
-                        </span>
-                      ) : null}
-                    </td>
-                    <td style={{ fontWeight: 600 }}>
-                      {a.type === 'frente'
-                        ? <span className={s['additional-works__auto-text']}>automático</span>
-                        : (
-                          <>
-                            {formatCurrencyValue(Number(a.price || 0), { currency: a.currency as 'ARS' | 'USD' })}
-                          </>
-                        )}
-                    </td>
-                    <td>
-                      <span
-                        className="badge"
-                        style={{
-                          background: a.currency === 'USD' ? '#d1fae5' : '#dbeafe',
-                          color: a.currency === 'USD' ? '#065f46' : '#1e40af',
-                        }}
-                      >
-                        {a.currency}
-                      </span>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button
-                          className="btn btn-outline"
-                          style={{ padding: '4px 8px' }}
-                          onClick={() => handleOpenForm(a)}
-                          title="Editar"
-                        >
-                          <Edit size={14} />
-                        </button>
-                        <button
-                          className="btn btn-danger"
-                          style={{ padding: '4px 8px' }}
-                          onClick={() => setDeleteId(a.id)}
-                          title="Eliminar"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {(!data || data.length === 0) && (
-                  <tr>
-                    <td colSpan={6} className={s['additional-works__empty-row']}>
-                      No hay trabajos adicionales configurados. Hacé click en "Nuevo Trabajo Adicional" para empezar.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <AdditionalWorksTable
+          data={data || []}
+          onEdit={handleOpenForm}
+          onDelete={(id) => setDeleteId(id)}
+        />
       )}
 
       <Modal
@@ -243,113 +148,14 @@ export default function AdditionalWorksPage() {
         title={editItem ? 'Editar Trabajo Adicional' : 'Nuevo Trabajo Adicional'}
         width="640px"
       >
-        <form onSubmit={handleSave}>
-          <div className="form-group">
-            <label>Nombre *</label>
-            <input
-              className="input"
-              required
-              autoFocus
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="Ej: Pulido de bordes, Frente / Regrueso, Traslado, etc."
-            />
-          </div>
-          <div className="form-group">
-            <label>Detalle</label>
-            <textarea
-              className="input"
-              rows={2}
-              value={form.detail}
-              onChange={(e) => setForm({ ...form, detail: e.target.value })}
-              placeholder="Descripción breve del trabajo adicional"
-            />
-          </div>
-          <div className={s['additional-works__form-row']}>
-            <div className="form-group">
-              <label>Tipo</label>
-              <select
-                className="input"
-                value={form.type}
-                onChange={(e) =>
-                  setForm({ ...form, type: e.target.value as AdditionalWorkType })
-                }
-              >
-                <option value="flat">{TYPE_LABELS.flat}</option>
-                <option value="frente">{TYPE_LABELS.frente}</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Moneda</label>
-              <select
-                className="input"
-                value={form.currency}
-                onChange={(e) => setForm({ ...form, currency: e.target.value as 'ARS' | 'USD' })}
-              >
-                <option value="ARS">ARS (Pesos)</option>
-                <option value="USD">USD (Dólares)</option>
-              </select>
-            </div>
-          </div>
-          <div className={s['additional-works__form-row']}>
-            <div className="form-group">
-              <label>Precio{form.type === 'frente' ? ' (referencial)' : ''}</label>
-              <input
-                className="input"
-                type="number"
-                step="0.01"
-                min="0"
-                value={form.price || ''}
-                onChange={(e) => setForm({ ...form, price: Number(e.target.value) || 0 })}
-                disabled={form.type === 'frente'}
-                title={
-                  form.type === 'frente'
-                    ? 'Para Frente / Regrueso el precio se calcula automáticamente; este campo queda como referencial.'
-                    : undefined
-                }
-              />
-            </div>
-            <div className="form-group">
-              <label>
-                Multiplicador de fórmula
-                {form.type === 'frente' ? ' *' : ''}
-              </label>
-              <input
-                className="input"
-                type="number"
-                step="0.01"
-                min="0"
-                value={form.formula_constant ?? ''}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    formula_constant: e.target.value === '' ? null : Number(e.target.value),
-                  })
-                }
-                disabled={form.type !== 'frente'}
-                placeholder={form.type === 'frente' ? '1.15' : 'No aplica'}
-                title={
-                  form.type === 'frente'
-                    ? 'Multiplicador que escala el 13% del precio por m² del material. Default 1.15.'
-                    : 'Solo aplica cuando el tipo es Frente / Regrueso.'
-                }
-              />
-              {form.type === 'frente' ? (
-                <small className={s['additional-works__formula-hint']}>
-                  Fórmula: (precio_m² × 0.13) × este multiplicador × los metros lineales del presupuesto.
-                </small>
-              ) : null}
-            </div>
-          </div>
-          <div className={s['additional-works__form-actions']}>
-            <button type="button" className="btn btn-outline" onClick={() => setShowForm(false)}>
-              Cancelar
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
-              {editItem ? 'Actualizar' : 'Crear'}
-            </button>
-          </div>
-        </form>
+        <AdditionalWorkForm
+          editItem={editItem}
+          form={form}
+          saving={saving}
+          onChange={setForm}
+          onSubmit={handleSave}
+          onCancel={() => setShowForm(false)}
+        />
       </Modal>
 
       <ConfirmDialog

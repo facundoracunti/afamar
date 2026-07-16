@@ -1,17 +1,16 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Search, Plus, PackagePlus, PackageMinus, Trash2 } from 'lucide-react';
-import { getPoolStock, createPool, updatePool, deletePool, getPoolMovements, createPoolMovement } from '@/api/resources/poolStock';
+import { Search, Plus, Trash2 } from 'lucide-react';
+import { getPoolStock, createPool, updatePool, deletePool } from '@/api/resources/poolStock';
 import http from '@/api/http';
 import { useList, usePaginatedList, useDelete } from '../../api/hooks';
-import { Modal } from '../../components/ui/Modal/Modal';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { Pagination } from '../../components/ui/Pagination';
 import { formatCurrencyValue } from '../../utils/formatters';
-import type { Pool, PoolMovement, PoolType } from '../../types/poolStock';
+import type { Pool, PoolType } from '../../types/poolStock';
 import { useNotify } from '../../context/NotificationContext';
-import { t as translate } from '../../utils/translate';
+import { PoolFormModal, type PoolFormState } from '../../components/pool-stock/PoolFormModal/PoolFormModal';
+import { PoolMovementsModal } from '../../components/pool-stock/PoolMovementsModal/PoolMovementsModal';
 import styles from './PoolStockPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -22,7 +21,6 @@ export default function PoolStockPage() {
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [showMov, setShowMov] = useState<Pool | null>(null);
-  const [movimientos, setMovimientos] = useState<PoolMovement[]>([]);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editItem, setEditItem] = useState<Pool | null>(null);
   const notify = useNotify();
@@ -34,9 +32,6 @@ export default function PoolStockPage() {
       return (res.data as PoolType[]) || [];
     }
   );
-
-  const [form, setForm] = useState<{ brand: string; model: string; description: string; material: string; quantity: number; price: number; currency: string; pool_type_id: number | string }>({ brand: '', model: '', description: '', material: '', quantity: 0, price: 0, currency: 'ARS', pool_type_id: 1 });
-  const [movForm, setMovForm] = useState<{ type: string; quantity: number; description: string }>({ type: 'Ingreso', quantity: 1, description: '' });
 
   const { items: data, loading, total, page, pageSize, setPage, refetch } = usePaginatedList<Pool>(
     [...POOL_STOCK_KEY, search],
@@ -53,29 +48,19 @@ export default function PoolStockPage() {
   );
 
   const handleOpenForm = (item: Pool | null = null) => {
-    if (item) {
-      setEditItem(item);
-      setForm({ brand: item.brand, model: item.model, description: item.description || '', material: item.material || '', quantity: item.quantity, price: item.price || 0, currency: item.currency || 'ARS', pool_type_id: item.pool_type_id ?? 1 });
-    } else {
-      setEditItem(null);
-      setForm({ brand: '', model: '', description: '', material: '', quantity: 0, price: 0, currency: 'ARS', pool_type_id: 1 });
-    }
+    setEditItem(item);
     setShowForm(true);
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      if (editItem) {
-        await updatePool(editItem.id, form);
-      } else {
-        await createPool(form);
-      }
-      setShowForm(false);
-      refetch();
-    } catch (err: unknown) {
-      notify((err as Error).message || 'Error al guardar', 'error');
+  const handleSave = async (form: PoolFormState) => {
+    const payload = form as unknown as Record<string, unknown>;
+    if (editItem) {
+      await updatePool(editItem.id, payload);
+    } else {
+      await createPool(payload);
     }
+    setShowForm(false);
+    refetch();
   };
 
   const handleDelete = async () => {
@@ -84,25 +69,8 @@ export default function PoolStockPage() {
     setDeleteId(null);
   };
 
-  const handleOpenMov = async (pileta: Pool) => {
+  const handleOpenMov = (pileta: Pool) => {
     setShowMov(pileta);
-    const res = await getPoolMovements(pileta.id);
-    setMovimientos(res.data);
-    setMovForm({ type: 'Ingreso', quantity: 1, description: '' });
-  };
-
-  const handleAddMov = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!showMov) return;
-    try {
-      await createPoolMovement(showMov.id, movForm);
-      const res = await getPoolMovements(showMov.id);
-      setMovimientos(res.data);
-      refetch();
-      setMovForm({ type: 'Ingreso', quantity: 1, description: '' });
-    } catch (err: unknown) {
-      notify((err as Error).message || 'Error al registrar movimiento', 'error');
-    }
   };
 
   return (
@@ -160,7 +128,7 @@ export default function PoolStockPage() {
                       <div className={s['poolStock__actions-cell']}>
                         <button className={`btn btn-outline ${s['poolStock__btn-sm']}`} onClick={() => handleOpenForm(p)}>Editar</button>
                         <button className={`btn btn-success ${s['poolStock__btn-sm']}`} onClick={() => handleOpenMov(p)} title="Movimientos">
-                          <PackagePlus size={14} />
+                          <Plus size={14} />
                         </button>
                         <button className={`btn btn-danger ${s['poolStock__btn-sm']}`} onClick={() => setDeleteId(p.id)}>
                           <Trash2 size={14} />
@@ -179,135 +147,30 @@ export default function PoolStockPage() {
         </div>
       )}
 
-      {/* Formulario Pileta */}
-      <Modal isOpen={showForm} onClose={() => setShowForm(false)} title={editItem ? 'Editar Pileta' : 'Nueva Pileta'} width="500px">
-        <form onSubmit={handleSave}>
-          <div className="form-row">
-            <div className="form-group">
-              <label>Marca *</label>
-              <select className="input" required value={['JOHNSON', 'MI PILETA'].includes(form.brand) ? form.brand : 'OTHER'} onChange={(e) => setForm({ ...form, brand: e.target.value === 'OTHER' ? '' : e.target.value })}>
-                <option value="">Seleccionar...</option>
-                <option value="JOHNSON">JOHNSON</option>
-                <option value="MI PILETA">MI PILETA</option>
-                <option value="OTHER">OTRA (escribir)</option>
-              </select>
-              {!['JOHNSON', 'MI PILETA', ''].includes(form.brand) && (
-                <input className={`input ${s['poolStock__brand-input']}`} value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} placeholder="Escribí la marca..." />
-              )}
-            </div>
-            <div className="form-group"><label>Modelo *</label><input className="input" required value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} /></div>
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label>Tipo</label>
-              <select className="input" value={form.pool_type_id} onChange={(e) => setForm({ ...form, pool_type_id: Number(e.target.value) })}>
-                {poolTypes.map((pt) => (
-                  <option key={pt.id} value={pt.id}>{pt.label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group"><label>Material</label><input className="input" value={form.material} onChange={(e) => setForm({ ...form, material: e.target.value })} /></div>
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label>Moneda</label>
-              <select className="input" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>
-                <option value="ARS">ARS ($)</option>
-                <option value="USD">USD (US$)</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Precio ({form.currency === 'USD' ? 'USD' : 'ARS'})</label>
-              <input className="input" type="number" step="0.01" min="0" value={form.price} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} />
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group"><label>Cantidad</label><input className="input" type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} /></div>
-            <div className="form-group"><label>Descripción</label><textarea className="input" rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
-          </div>
-          <div className={s['poolStock__form-footer']}>
-            <button type="button" className="btn btn-outline" onClick={() => setShowForm(false)}>Cancelar</button>
-            <button type="submit" className="btn btn-primary">Guardar</button>
-          </div>
-        </form>
-      </Modal>
+      <PoolFormModal
+        isOpen={showForm}
+        editItem={editItem}
+        poolTypes={poolTypes}
+        onSave={handleSave}
+        onClose={() => setShowForm(false)}
+      />
 
-      {/* Movimientos */}
-      <Modal isOpen={!!showMov} onClose={() => setShowMov(null)} title={`Movimientos - ${showMov?.brand} ${showMov?.model}`} width="600px">
-        <div className={s['poolStock__mov-section']}>
-          <h4 className={s['poolStock__mov-title']}>Registrar Movimiento</h4>
-          <form onSubmit={handleAddMov} className={s['poolStock__mov-form']}>
-            <select className={`input ${s['poolStock__mov-type']}`} value={movForm.type} onChange={(e) => setMovForm({ ...movForm, type: e.target.value })}>
-              <option value="Ingreso">Ingreso</option>
-              <option value="Egreso">Egreso</option>
-            </select>
-            <input className={`input ${s['poolStock__mov-qty']}`} type="number" min="1" value={movForm.quantity} onChange={(e) => setMovForm({ ...movForm, quantity: Number(e.target.value) })} />
-            <input className={`input ${s['poolStock__mov-desc']}`} placeholder="Descripción" value={movForm.description} onChange={(e) => setMovForm({ ...movForm, description: e.target.value })} />
-            <button type="submit" className="btn btn-primary">
-              {movForm.type === 'Ingreso' ? <PackagePlus size={14} /> : <PackageMinus size={14} />} Registrar
-            </button>
-          </form>
-        </div>
+      <PoolMovementsModal
+        isOpen={!!showMov}
+        pool={showMov}
+        onClose={() => setShowMov(null)}
+        onMovementAdded={refetch}
+      />
 
-        <h4 className={s['poolStock__mov-title']}>Historial</h4>
-        <div className="table-container">
-          <table>
-            <thead>
-              <tr><th>Tipo</th><th>Cantidad</th><th>Descripción</th><th>Fecha</th></tr>
-            </thead>
-            <tbody>
-              {movimientos.map((m) => {
-                // Translate the backend's English enum ("entry"/"exit")
-                // to Spanish ("Ingreso"/"Egreso"). Manual entries from the
-                // form already send Spanish so the map is a no-op for them.
-                const typeLabel = translate(m.type);
-                const isIngreso = typeLabel === 'Ingreso';
-                // The backend's auto-generated movements include a
-                // `[WO:{id}]` prefix in the notes (e.g. when a budget is
-                // converted to a work order and the pool stock is
-                // debited). We parse that prefix to extract the work
-                // order id and render a clickable link. Manual entries
-                // have free-text descriptions without the prefix.
-                const rawNotes = m.notes ?? m.description ?? '';
-                const woMatch = rawNotes.match(/^\[WO:(\d+)\]\s*(.*)$/);
-                const workOrderId = woMatch ? Number(woMatch[1]) : null;
-                const displayNotes = woMatch ? woMatch[2] : rawNotes;
-                return (
-                  <tr key={m.id}>
-                    <td>
-                      <span className={`badge ${isIngreso ? 'badge-approved' : 'badge-rejected'}`}>
-                        {typeLabel}
-                      </span>
-                    </td>
-                    <td className={s['poolStock__mov-qty-cell']}>{m.quantity}</td>
-                    <td>
-                      {displayNotes || '-'}
-                      {workOrderId ? (
-                        <>
-                          {' '}
-                          <Link
-                            to={`/admin/work-orders/${workOrderId}`}
-                            className={s['poolStock__mov-ot-link']}
-                            title="Ir a la orden de trabajo"
-                          >
-                            (ver OT)
-                          </Link>
-                        </>
-                      ) : null}
-                    </td>
-                    <td>{new Date(m.created_at || '').toLocaleDateString('es-AR')}</td>
-                  </tr>
-                );
-              })}
-              {movimientos.length === 0 && (
-                <tr><td colSpan={4} className={s['poolStock__mov-empty']}>Sin movimientos registrados</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Modal>
-
-      <ConfirmDialog open={!!deleteId} onCancel={() => setDeleteId(null)} onConfirm={handleDelete} title="Eliminar pileta" message="¿Estás seguro?" confirmLabel="Eliminar" danger />
+      <ConfirmDialog
+        open={!!deleteId}
+        onCancel={() => setDeleteId(null)}
+        onConfirm={handleDelete}
+        title="Eliminar pileta"
+        message="¿Estás seguro?"
+        confirmLabel="Eliminar"
+        danger
+      />
 
       <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} label="piletas" />
     </div>

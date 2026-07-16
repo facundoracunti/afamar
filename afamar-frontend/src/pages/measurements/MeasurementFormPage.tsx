@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Save, X, Plus } from 'lucide-react';
+import { Save } from 'lucide-react';
 import { getMeasurement, createMeasurement, updateMeasurement } from '@/api/resources/measurements';
 import { getClients } from '@/api/resources/clients';
 import { getWorkOrders, getWorkOrder } from '@/api/resources/workOrders';
@@ -10,10 +10,8 @@ import { t } from '../../utils/translate';
 import { useGet, useList } from '../../api/hooks';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-import CurrencyDisplay from '../../components/ui/CurrencyDisplay';
-import ClientSection from '../../components/orders/ClientSection/ClientSection';
-import SketchSection from '../../components/sketch/SketchSection/SketchSection';
 import ClientInfoCard from '../../components/orders/ClientInfoCard/ClientInfoCard';
+import { MeasurementPhotoGrid } from '../../components/common/MeasurementPhotoGrid';
 import type { Measurement, MeasurementFormData } from '../../types/measurement';
 import type { Client } from '../../types/client';
 import type { WorkOrderListItem } from '../../types/workOrder';
@@ -39,8 +37,6 @@ export default function MeasurementForm() {
   const queryClient = useQueryClient();
   const isEdit = !!id;
   const [saving, setSaving] = useState(false);
-  const [fotosPreview, setFotosPreview] = useState<string[]>([]);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [form, setForm] = useState<MeasurementFormData>({
     clientId: null,
@@ -126,7 +122,6 @@ export default function MeasurementForm() {
       workOrderId: measurement.work_order_id ?? '',
     });
     setSelectedClientId(measurement.client_id ?? null);
-    setFotosPreview(photos);
   }, [measurement, id]);
 
   // Reset the "loaded" marker when the route id changes so the next
@@ -180,27 +175,6 @@ export default function MeasurementForm() {
         clientId: prev.clientId ?? wo?.client_id ?? null,
       };
     });
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    const files = Array.from(e.target.files as FileList);
-    const readers = files.map((file) => new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (ev: ProgressEvent<FileReader>) => resolve(ev.target?.result as string);
-      reader.readAsDataURL(file);
-    }));
-    Promise.all(readers).then((base64s: string[]) => {
-      const newFotos = [...form.photos, ...base64s];
-      setForm({ ...form, photos: newFotos });
-      setFotosPreview(newFotos);
-    });
-    e.target.value = '';
-  };
-
-  const handleRemoveFoto = (index: number): void => {
-    const newFotos = form.photos.filter((_: string, i: number) => i !== index);
-    setForm({ ...form, photos: newFotos });
-    setFotosPreview(newFotos);
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
@@ -303,33 +277,11 @@ export default function MeasurementForm() {
 
               <div className={s['measurement-form__group']}>
                 <label className={s['measurement-form__label']}>Fotos</label>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleFileSelect}
-                  style={{ display: 'none' }}
+                <MeasurementPhotoGrid
+                  fotos={form.photos}
+                  onAddFotos={(newFotos) => setForm((prev) => ({ ...prev, photos: newFotos }))}
+                  onRemoveFoto={(idx) => setForm((prev) => ({ ...prev, photos: prev.photos.filter((_, i) => i !== idx) }))}
                 />
-                <button type="button" className="btn btn-outline" onClick={() => fileInputRef.current?.click()}>
-                  <Plus size={16} /> Agregar fotos
-                </button>
-                {fotosPreview.length > 0 && (
-                  <div className={s['measurement-form__photos']}>
-                    {fotosPreview.map((foto: string, idx: number) => (
-                      <div key={idx} className={s['measurement-form__photo']}>
-                        <img src={foto} alt={`Foto ${idx + 1}`} className={s['measurement-form__photo-img']} />
-                        <button
-                          type="button"
-                          className={s['measurement-form__photo-remove']}
-                          onClick={() => handleRemoveFoto(idx)}
-                        >
-                          <X size={12} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
                 <button type="button" className="btn btn-outline" onClick={() => navigate('/admin/measurements')}>

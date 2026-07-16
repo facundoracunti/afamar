@@ -59,8 +59,8 @@ export interface EntityFormState extends FinancialBase {
   fabrication_details: FabricationDetail[];
 
   // Arrays (sent as *_data JSON to API)
-  materials_data: unknown[];
-  pools_data: unknown[];
+  materials_data: MaterialInForm[];
+  pools_data: PoolInForm[];
   sketch_elements: unknown[];
   // JSON-encoded list of selected additional works from the catalogue.
   // `null` means "no additional works selected" (vs `''` which would be

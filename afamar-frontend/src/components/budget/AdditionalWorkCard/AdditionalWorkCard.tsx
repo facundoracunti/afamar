@@ -7,6 +7,12 @@ import {
   buildFrenteMaterialOptions,
   resolveFrenteMultiplier,
 } from '../../../utils/frentePricing';
+import { LinearMetersInput } from '../../common/LinearMetersInput/LinearMetersInput';
+
+function formatNumber(n: number): string {
+  if (!Number.isFinite(n)) return '0';
+  return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 // Note: this card predates the multi-pane dedup helper
 // (`utils/materialGroups.ts`). The picker still renders each snapshot
 // row individually — keys collide if the operator adds 3 panes of the
@@ -35,11 +41,6 @@ interface AdditionalWorkCardProps {
     options?: { catalogueItem?: AdditionalWork | null; materialOptions?: FrenteMaterialOption[] },
   ) => void;
   removeAdditionalWork: (idx: number) => void;
-}
-
-function formatNumber(n: number): string {
-  if (!Number.isFinite(n)) return '0';
-  return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export default function AdditionalWorkCard({
@@ -238,112 +239,4 @@ export default function AdditionalWorkCard({
   );
 }
 
-/** Text input with `inputMode="decimal"` for the `Metros Lineales` field.
- *
- *  Why a custom component: `<input type="number" value={controlled}>` re-parses
- *  the user's input on every keystroke. When the operator types `1.` to start a
- *  decimal, `Number("1.")` is `1`, the controlled value re-renders as `1`, and
- *  the trailing dot vanishes before the user can type `1.5`. React's
- *  reconciliation drops the trailing character.
- *
- *  This component keeps a local draft string so the user can type `1.`,
- *  `,` (es-AR locale), `1.5`, `1,5` freely. It commits to the parent on every
- *  change but using `parseFloat` so the global state still stores a number;
- *  the visible draft stays as the operator typed it.
- *
- *  When the global `value` prop changes (e.g. row was re-hydrated from the
- *  server snapshot on save), the local draft re-syncs so a stale `1.` doesn't
- *  linger over a freshly-loaded `2.93`.
- */
-interface LinearMetersInputProps {
-  value: number | null | undefined;
-  onCommit: (value: number) => void;
-  disabled?: boolean;
-  className?: string;
-  placeholder?: string;
-  title?: string;
-  'data-testid'?: string;
-}
-
-function LinearMetersInput({
-  value,
-  onCommit,
-  disabled,
-  className,
-  placeholder,
-  title,
-  ...rest
-}: LinearMetersInputProps) {
-  const [draft, setDraft] = React.useState<string>(() => formatInitialDraft(value));
-
-  // Re-sync when the external value changes (snapshot load, programmatic reset,
-  // removal-and-re-add of the row). Without this the local draft would mask the
-  // new value until the user re-focuses the field.
-  React.useEffect(() => {
-    setDraft(formatInitialDraft(value));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value;
-    setDraft(raw);
-    // Accept both `.` (en) and `,` (es-AR) as the decimal separator.
-    const cleaned = raw.replace(',', '.');
-    if (cleaned === '' || cleaned === '.' || cleaned === '-') {
-      onCommit(0);
-      return;
-    }
-    const parsed = Number(cleaned);
-    if (Number.isFinite(parsed) && parsed >= 0) {
-      onCommit(parsed);
-    }
-    // Partial inputs like "1." → parseFloat is 1 → we commit 1 silently so
-    // the formula recalculates against the typed-so-far. The visible draft
-    // still shows "1." because we set it before the Number() call.
-  };
-
-  const handleBlur = () => {
-    // Normalise the visible draft on blur: `1.5000000` → `1.5`,
-    // `1.` → `1`, `,` → empty. Keeps the JSON snapshot tidy.
-    const cleaned = draft.replace(',', '.').trim();
-    if (cleaned === '' || cleaned === '.' || cleaned === '-') {
-      setDraft('');
-      return;
-    }
-    const parsed = Number(cleaned);
-    if (Number.isFinite(parsed) && parsed >= 0) {
-      setDraft(parsed === 0 ? '' : trimTrailingZeros(String(parsed)));
-    } else {
-      setDraft('');
-    }
-  };
-
-  return (
-    <input
-      type="text"
-      inputMode="decimal"
-      className={className}
-      value={draft}
-      onChange={handleChange}
-      onBlur={handleBlur}
-      disabled={disabled}
-      placeholder={placeholder ?? '0.00'}
-      title={title}
-      autoComplete="off"
-      spellCheck={false}
-      {...rest}
-    />
-  );
-}
-
-function formatInitialDraft(value: number | null | undefined): string {
-  if (value == null || Number.isNaN(value) || value === 0) return '';
-  return trimTrailingZeros(String(value));
-}
-
-function trimTrailingZeros(s: string): string {
-  // `"1.500000"` → `"1.5"`, `"1"` stays `"1"`, `"1.0"` → `"1"`.
-  if (!s.includes('.')) return s;
-  return s.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
-}
 

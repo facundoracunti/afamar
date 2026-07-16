@@ -1,0 +1,121 @@
+.wo-table {
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.wo-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.wo-table__th {
+  background: var(--surface-alt-bg);
+  text-align: left;
+  padding: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.wo-table__td {
+  padding: 12px;
+  font-size: 14px;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.wo-table__row {
+  cursor: pointer;
+}
+
+.wo-table__row:hover td {
+  background: var(--surface-alt-bg);
+}
+
+.wo-table__numero {
+  font-weight: 600;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  color: var(--text-primary);
+}
+
+.wo-table__material {
+  font-weight: 500;
+  text-transform: uppercase;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.wo-table__total-cell {
+  font-weight: 600;
+}
+
+.wo-table__actions-cell {
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+  padding: 8px 6px;
+}
+
+.wo-table__action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.wo-table__action-btn:hover {
+  background: var(--surface-alt-bg);
+}
+
+.wo-table__action-btn--success {
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
+.wo-table__action-btn--success:hover {
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+}
+
+.wo-table__action-btn--info {
+  border-color: var(--color-info);
+  color: var(--color-info);
+}
+
+.wo-table__action-btn--info:hover {
+  background: color-mix(in srgb, var(--color-info) 12%, transparent);
+}
+
+.wo-table__action-btn--danger {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.wo-table__action-btn--danger:hover {
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+}
+
+.wo-table__action-pair {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.wo-table__action-dash {
+  color: var(--text-muted);
+  font-size: 11px;
+}

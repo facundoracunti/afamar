@@ -1,0 +1,118 @@
+.client-history {
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 3px var(--shadow-color);
+  display: flex;
+  flex-direction: column;
+}
+
+.client-history__card--fill {
+  flex: 1;
+  min-height: 0;
+}
+
+.client-history__section {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.client-history__sub-section {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin: 16px 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.client-history__stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.client-history__stat {
+  background: var(--surface-alt-bg);
+  border-radius: 8px;
+  padding: 12px 16px;
+  text-align: center;
+}
+
+.client-history__stat-icon {
+  margin: 0 auto 4px;
+  display: block;
+}
+
+.client-history__stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.client-history__stat-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.client-history__items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.client-history__item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--surface-alt-bg);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.client-history__item:hover {
+  background: var(--border-color);
+}
+
+.client-history__item-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.client-history__item-num {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.client-history__item-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.client-history__item-total {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.client-history__item-empty {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 8px 12px;
+  background: var(--surface-alt-bg);
+  border-radius: 6px;
+  text-align: center;
+}

@@ -32,6 +32,8 @@ export function Modal({ isOpen, onClose, title, children, width = "600px" }: Mod
         className={styles.modal}
         style={{ maxWidth: width }}
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
       >
         {title && (
           <div className={styles.header}>

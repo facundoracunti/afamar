@@ -1,0 +1,1 @@
+export { ClientHistoryCard } from './ClientHistoryCard';

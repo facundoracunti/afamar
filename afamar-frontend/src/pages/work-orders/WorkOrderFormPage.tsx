@@ -13,7 +13,6 @@ import useEntityForm from '../../hooks/useEntityForm';
 import { useSettingsWithTerms } from '../../hooks/useSettingsWithTerms';
 import { buildPdfData } from '../../utils/pdf/buildPdfData';
 import type { PdfDocumentData } from '../../utils/pdf/buildPdfData';
-import BudgetPanel from '../../components/budget/BudgetPanel/BudgetPanel';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import PdfPreviewModal from '../../components/ui/PdfPreviewModal/PdfPreviewModal';
@@ -21,16 +20,17 @@ import SketchImageExtractor from '../../components/ui/PdfPreviewModal/SketchImag
 import TermsEditor from '../../components/ui/TermsEditor/TermsEditor';
 import FormHeader from '../../components/orders/FormHeader/FormHeader';
 import FormFooter from '../../components/orders/FormFooter/FormFooter';
-import WorkOrderFormClient from './WorkOrderFormClient';
+import EntityFormClient from '../../components/entity/EntityFormClient';
 import WorkOrderFormStatus from './WorkOrderFormStatus';
-import WorkOrderFormSpecs from './WorkOrderFormSpecs';
-import WorkOrderFormFinancial from './WorkOrderFormFinancial';
+import EntityFormSpecs from '../../components/entity/EntityFormSpecs';
+import EntityFormFinancial from '../../components/entity/EntityFormFinancial';
 import FabricationSection from '../../components/budget/FabricationSection/FabricationSection';
 import BudgetFormAdicionales from '../budgets/BudgetFormAdicionales';
 import AdditionalWorkSection from '../../components/budget/AdditionalWorkSection/AdditionalWorkSection';
 import SketchSection from '../../components/sketch/SketchSection/SketchSection';
 import WorkOrderFormObservations from './WorkOrderFormObservations';
 import WorkOrderFormSnapshot from './WorkOrderFormSnapshot';
+import { AlternativeBudgetGrid } from './AlternativeBudgetGrid';
 import type { EntityFormState, EntityServices, MaterialInForm, PoolInForm } from '../../types';
 import styles from './WorkOrderFormPage.module.css';
 
@@ -169,55 +169,11 @@ export default function WorkOrderForm() {
   };
 
   const alternativasGrid = hayAlternativas ? (
-    <div className={s['work-order-form__alt-grid']}>
-      <div className={s['work-order-form__alt-header']}>
-        <span className={s['work-order-form__alt-header-title']}>📋 PRESUPUESTO COMPARATIVO</span>
-        <span className={s['work-order-form__alt-header-count']}>{matsAlt.length} opciones alternativas</span>
-      </div>
-      <div className={s['work-order-form__alt-cards']}>
-        {matsAlt.map((mat: MaterialInForm, idx: number) => {
-          const letra = String.fromCharCode(65 + idx);
-          const dd2 = Number(form.usd_rate);
-          const m2 = Number(mat.length || 0) * Number(mat.width || 0) * (mat.quantity || 1);
-          const costoMat = mat.currency === 'USD' ? m2 * (mat.price_m2_usd || 0) : m2 * (mat.price_m2 || 0);
-          const costoMatArs = mat.currency === 'USD' ? (dd2 > 0 ? costoMat * dd2 : 0) : costoMat;
-          const fijosArsAlt = (form.fabrication_details || []).reduce((s: number, d) => s + (Number(d.price) || 0) * (d.quantity || 1), 0)
-            + (form.pools_data as unknown as PoolInForm[] || []).reduce((s: number, pt) => s + (Number(pt.price) || 0) * (Number(pt.quantity) || 1), 0)
-            + (Number(form.transport) || 0);
-          const totalArs = costoMatArs + fijosArsAlt;
-          const mostrarUSDAlt = modoUSD && dd2 > 0;
-          return (
-            <div key={idx} className={s['work-order-form__alt-card']}>
-              <div>
-                <div className={s['work-order-form__alt-card-head']}>
-                  <span className={s['work-order-form__alt-card-badge']}>Alternativa {letra}</span>
-                  <span className={s['work-order-form__alt-card-pza']}>{mat.quantity || 1} pza. ({m2.toFixed(3)} m²)</span>
-                </div>
-                <div className={s['work-order-form__alt-card-name']}>{mat.name}</div>
-                {mat.currency === 'USD' && <div className={s['work-order-form__alt-card-usd']}>USD {costoMat.toFixed(2)}</div>}
-                <div className={s['work-order-form__alt-card-body']}>
-                  <div className={s['work-order-form__alt-card-row']}>
-                    <span>Material:</span>
-                    <span className={s['work-order-form__alt-card-value']}>{mostrarUSDAlt ? formatCurrencyValue(costoMatArs / dd2, { currency: 'USD' }) : formatCurrencyValue(costoMatArs)}</span>
-                  </div>
-                  <div className={s['work-order-form__alt-card-row']}>
-                    <span>Trabajos + Piletas + Traslado:</span>
-                    <span className={s['work-order-form__alt-card-value']}>{mostrarUSDAlt ? formatCurrencyValue(fijosArsAlt / dd2, { currency: 'USD' }) : formatCurrencyValue(fijosArsAlt)}</span>
-                  </div>
-                </div>
-              </div>
-              <div className={s['work-order-form__alt-card-total']}>
-                <div className={s['work-order-form__alt-card-total-lbl']}>Total alternativa {mostrarUSDAlt ? '(USD)' : ''}</div>
-                <div className={s['work-order-form__alt-card-total-val']}>{mostrarUSDAlt ? formatCurrencyValue(totalArs / dd2, { currency: 'USD' }) : formatCurrencyValue(Math.round(totalArs), { decimals: 0 })}</div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <div className={s['work-order-form__alt-footer']}>
-        * Todos los totales incluyen la misma configuración de trabajos, pools y traslados.
-      </div>
-    </div>
+    <AlternativeBudgetGrid
+      form={form}
+      matsAlt={matsAlt}
+      modoUSD={modoUSD}
+    />
   ) : null;
 
   const discountBlock = (
@@ -295,7 +251,7 @@ export default function WorkOrderForm() {
       </FormHeader>
 
       <form onSubmit={handleSubmit} onKeyDown={(e: React.KeyboardEvent<HTMLFormElement>) => { if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') e.preventDefault(); }}>
-        <WorkOrderFormClient
+        <EntityFormClient
           form={form}
           readOnly={readOnly}
           update={update as (field: string, value: unknown) => void}
@@ -318,7 +274,7 @@ export default function WorkOrderForm() {
 
         <div className={`${s['work-order-form__layout']}${showCroquis ? '' : ' ' + s['work-order-form__layout--no-sketch']}`}>
           <div className={s['work-order-form__right']}>
-            <WorkOrderFormSpecs
+            <EntityFormSpecs
               form={form}
               readOnly={readOnly}
               materials={materials}
@@ -327,6 +283,7 @@ export default function WorkOrderForm() {
               removeMaterial={removeMaterial}
               update={update}
               num={parseNumber}
+              cardClassName={`card ${s['specs-card']}`}
             />
             <BudgetFormAdicionales
               form={form}
@@ -371,7 +328,7 @@ export default function WorkOrderForm() {
             toggleLabel="Diseño / Plano"
           />
 
-          <WorkOrderFormFinancial
+          <EntityFormFinancial
             form={form}
             modoUSD={modoUSD}
             toggleModoUSD={toggleModoUSD}
@@ -389,9 +346,6 @@ export default function WorkOrderForm() {
             alternativasGrid={alternativasGrid}
             discountBlock={discountBlock}
             onConfirmarPago={handleConfirmarPago}
-            handleConfirmarPago={handleConfirmarPago}
-            mostrarToggleTitle={true}
-            mostrarToggleColumns={false}
           />
         </div>
 

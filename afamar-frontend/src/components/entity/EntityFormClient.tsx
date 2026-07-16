@@ -6,27 +6,29 @@ import { createClientAddress } from '@/api/resources/clientAddresses';
 import { useNotify } from '../../context/NotificationContext';
 import type { EntityFormState } from '../../types';
 import type { Client, ClientAddress } from '../../types/client';
-import styles from './WorkOrderFormClient.module.css';
+import styles from './EntityFormClient.module.css';
 
 const s = styles as unknown as Record<string, string>;
 
-interface WorkOrderFormClientProps {
+interface EntityFormClientProps {
   form: EntityFormState;
   readOnly: boolean;
   update: (field: string, value: unknown) => void;
   clientes: Client[];
   onClientCreated: (newClient: Client) => void;
   onAddressAdded?: (clientId: number, address: ClientAddress) => void;
+  cardClassName?: string;
 }
 
-export default function WorkOrderFormClient({
+export default function EntityFormClient({
   form,
   readOnly,
   update,
   clientes,
   onClientCreated,
   onAddressAdded,
-}: WorkOrderFormClientProps) {
+  cardClassName = 'card',
+}: EntityFormClientProps) {
   const [newAddrText, setNewAddrText] = useState('');
   const [addingAddr, setAddingAddr] = useState(false);
   const notify = useNotify();
@@ -56,11 +58,11 @@ export default function WorkOrderFormClient({
     const addresses = client.addresses || [];
     const showSelect = addresses.length > 1;
     return (
-      <div className={`form-group ${s['wo-client__address-picker']}`}>
-        <label className={s['wo-client__address-label']}>
+      <div className={`form-group ${s['entity-form-client__address-picker']}`}>
+        <label className={s['entity-form-client__address-label']}>
           <MapPin size={14} aria-hidden="true" /> Domicilio de entrega
         </label>
-        <div className={s['wo-client__addr-row']}>
+        <div className={s['entity-form-client__addr-row']}>
           {showSelect ? (
             <select
               className="input"
@@ -95,7 +97,7 @@ export default function WorkOrderFormClient({
           {!readOnly && (
             <>
               <input
-                className={s['wo-client__addr-new-input']}
+                className={s['entity-form-client__addr-new-input']}
                 placeholder="Nueva dirección..."
                 value={newAddrText}
                 onChange={(e) => setNewAddrText(e.target.value)}
@@ -104,7 +106,7 @@ export default function WorkOrderFormClient({
               />
               <button
                 type="button"
-                className={s['wo-client__addr-new-btn']}
+                className={s['entity-form-client__addr-new-btn']}
                 onClick={handleAddAddress}
                 disabled={addingAddr || !newAddrText.trim()}
               >
@@ -114,7 +116,7 @@ export default function WorkOrderFormClient({
           )}
         </div>
         {showSelect && (
-          <small className={s['wo-client__address-hint']}>
+          <small className={s['entity-form-client__address-hint']}>
             Si la obra se hace en un domicilio distinto al del cliente, elegilo acá.
           </small>
         )}
@@ -124,7 +126,7 @@ export default function WorkOrderFormClient({
 
   if (hasClient) {
     return (
-      <div className="card">
+      <div className={cardClassName}>
         <ClientInfoCard client={selectedClient} />
         {renderAddressPicker(selectedClient)}
       </div>

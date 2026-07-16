@@ -1,0 +1,84 @@
+/* MeasurementsTable — BEM */
+
+.m-table {
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.m-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.m-table th {
+  background: var(--surface-alt-bg);
+  text-align: left;
+  padding: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.m-table__th-sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease;
+}
+
+.m-table__th-sortable:hover {
+  background: color-mix(in srgb, var(--surface-alt-bg) 70%, var(--text-primary) 12%);
+  color: var(--text-primary);
+}
+
+.m-table__th-sortable:focus-visible {
+  outline: 2px solid var(--color-info);
+  outline-offset: -2px;
+}
+
+.m-table__th-label {
+  margin-right: 6px;
+}
+
+.m-table__sort-icon {
+  opacity: 0.55;
+  vertical-align: middle;
+}
+
+.m-table__th-sortable:hover .m-table__sort-icon {
+  opacity: 1;
+}
+
+.m-table td {
+  padding: 12px;
+  font-size: 14px;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.m-table tr:hover td {
+  background: var(--surface-alt-bg);
+}
+
+.m-table tr:last-child td {
+  border-bottom: none;
+}
+
+.m-table__cell-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.m-table__cell-actions button {
+  padding: 4px 8px;
+}
+
+.m-table__empty {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-muted);
+}

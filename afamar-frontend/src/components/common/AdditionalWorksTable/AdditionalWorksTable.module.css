@@ -1,0 +1,23 @@
+.aw-table__detail-empty {
+  color: var(--text-muted);
+}
+
+.aw-table__multi-text {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.aw-table__auto-text {
+  font-style: italic;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.aw-table__empty-row {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
+}

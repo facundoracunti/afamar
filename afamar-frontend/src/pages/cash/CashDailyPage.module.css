@@ -131,3 +131,12 @@
 .cash__amount--expense { font-weight: 600; color: var(--color-danger); }
 .cash__balance--positive { font-weight: 600; color: var(--text-muted); }
 .cash__balance--negative { font-weight: 600; color: var(--color-danger); }
+
+/* Inline style replacements */
+.cash__page-header-title { font-size: 24px; font-weight: 700; }
+.cash__date-input { width: 180px; }
+.cash__controls-btn { padding: 6px 14px; font-size: 13px; }
+.cash__icon-inline { margin-right: 4px; }
+.cash__movements-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.cash__badge { font-size: 13px; }
+.cash__print-footer-block { text-align: center; margin-top: 20px; font-size: 11px; }

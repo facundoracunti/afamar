@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Camera, Trash2, FolderTree } from 'lucide-react';
+import { FolderTree } from 'lucide-react';
 import {
   getMaterial,
   createMaterial,
@@ -18,6 +18,7 @@ import { useList } from '../../../api/hooks';
 import type { MaterialFormData, Material } from '../../../types/material';
 import { LoadingSpinner } from '../../ui/LoadingSpinner/LoadingSpinner';
 import { FormActions } from '../../ui/FormActions/FormActions';
+import { MaterialPhotoUploader } from '../MaterialPhotoUploader/MaterialPhotoUploader';
 import styles from './MaterialForm.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -59,7 +60,6 @@ export default function MaterialForm({ materialId, onSaved, onCancel }: Material
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
   const [existingFoto, setExistingFoto] = useState<string | null>(null);
   const [deletingPhoto, setDeletingPhoto] = useState(false);
-  const fileRef = useRef<HTMLInputElement | null>(null);
 
   const { items: categorias, loading: loadingCategories } = useList<MaterialCategory>(
     CATEGORIES_KEY,
@@ -118,8 +118,6 @@ export default function MaterialForm({ materialId, onSaved, onCancel }: Material
     if (fotoPreview) URL.revokeObjectURL(fotoPreview);
     setSelectedFile(null);
     setFotoPreview(null);
-    if (fileRef.current) fileRef.current.value = '';
-    // If we already had a photo on the server, ask the backend to delete it.
     if (materialId && existingFoto) {
       try {
         setDeletingPhoto(true);
@@ -131,6 +129,8 @@ export default function MaterialForm({ materialId, onSaved, onCancel }: Material
       } finally {
         setDeletingPhoto(false);
       }
+    } else {
+      setExistingFoto(null);
     }
   };
 
@@ -194,8 +194,6 @@ export default function MaterialForm({ materialId, onSaved, onCancel }: Material
   };
 
   if (loadingMaterial) return <LoadingSpinner />;
-
-  const displayUrl = fotoPreview || (existingFoto ? existingFoto : null);
 
   return (
     <form onSubmit={handleSubmit} className={s['material-form']}>
@@ -280,40 +278,14 @@ export default function MaterialForm({ materialId, onSaved, onCancel }: Material
           <textarea className="input" rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
         </div>
 
-        <div className={s['material-form__photo']}>
-          <label className={s['material-form__photo-label']}>Foto del Material</label>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            style={{ display: 'none' }}
-            onChange={handleFotoSelect}
-          />
-          <div className={s['material-form__photo-row']}>
-            {displayUrl ? (
-              <div className={s['material-form__photo-preview']}>
-                <img src={displayUrl} alt="Vista previa" className={s['material-form__photo-img']} />
-                <button
-                  type="button"
-                  onClick={handleRemoveFoto}
-                  disabled={deletingPhoto}
-                  className={s['material-form__photo-remove']}
-                  title="Eliminar foto"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            ) : (
-              <div className={s['material-form__photo-empty']}>
-                <Camera size={32} color="#94a3b8" />
-              </div>
-            )}
-            <button type="button" className="btn btn-outline" onClick={() => fileRef.current?.click()}>
-              <Camera size={16} /> {existingFoto || fotoPreview ? 'Cambiar Foto' : 'Seleccionar Foto'}
-            </button>
-          </div>
-          {selectedFile && <p className={s['material-form__file-info']}>{selectedFile.name}</p>}
-        </div>
+        <MaterialPhotoUploader
+          existingFoto={existingFoto}
+          selectedFile={selectedFile}
+          fotoPreview={fotoPreview}
+          deletingPhoto={deletingPhoto}
+          onSelect={handleFotoSelect}
+          onRemove={handleRemoveFoto}
+        />
 
         <FormActions
           loading={saving}

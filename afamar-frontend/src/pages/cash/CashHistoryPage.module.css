@@ -1,4 +1,5 @@
 /* CashHistoryPage — BEM */
+.cash-history__icon-inline { margin-right: 4px; vertical-align: middle; }
 .cash-history {
   display: grid;
   gap: 16px;

@@ -1,5 +1,6 @@
 import { AdditionalWork } from '../types/additionalWork';
 import { MaterialInForm } from '../types/budget';
+import { round2 } from './math';
 
 /** Re-export the group option type so existing call sites don't need
  *  to import from `./materialGroups` separately. The helper exists in
@@ -11,8 +12,6 @@ import { MaterialInForm } from '../types/budget';
  *  here so the picker preview agrees with the persisted value. */
 export const FRENTE_LINEAR_COEFFICIENT = 0.13;
 export const FRENTE_FORMULA_MULTIPLIER_DEFAULT = 1.15;
-
-const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 function rowBasePrice(m: MaterialInForm, currency: 'ARS' | 'USD'): number {
   return currency === 'USD' ? Number(m.price_m2_usd ?? 0) : Number(m.price_m2 ?? 0);

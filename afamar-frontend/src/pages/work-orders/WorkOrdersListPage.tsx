@@ -1,23 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, Search, Trash2, ChevronRight, ChevronLeft, FileDown, Eye, Send, Mail } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { getWorkOrders, getWorkOrder, deleteWorkOrder, updateWorkOrder, mapWorkOrderStatusToApi } from '@/api/resources/workOrders';
 import { usePaginatedList, useDelete } from '../../api/hooks';
-import { formatDate, orderStatuses } from '../../utils/formatters';
+import { orderStatuses } from '../../utils/formatters';
 import { useSettingsWithTerms } from '../../hooks/useSettingsWithTerms';
 import { buildPdfData } from '../../utils/pdf/buildPdfData';
 import type { PdfDocumentData } from '../../utils/pdf/buildPdfData';
 import { mapApiToForm } from '../../hooks/entityFormHelpers';
-import CurrencyDisplay from '../../components/ui/CurrencyDisplay';
-import { StatusBadge } from '../../components/ui/StatusBadge';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
 import { SearchInput } from '../../components/ui/SearchInput/SearchInput';
-import { EmptyState } from '../../components/ui/EmptyState/EmptyState';
 import { Pagination } from '../../components/ui/Pagination';
 import PdfPreviewModal from '../../components/ui/PdfPreviewModal/PdfPreviewModal';
 import SketchImageExtractor from '../../components/ui/PdfPreviewModal/SketchImageExtractor';
+import { WorkOrdersTable } from '../../components/common/WorkOrdersTable';
 import { useNotify } from '../../context/NotificationContext';
 import type { WorkOrderListItem } from '../../types/workOrder';
 import styles from './WorkOrdersListPage.module.css';
@@ -25,14 +23,6 @@ import styles from './WorkOrdersListPage.module.css';
 const s = styles as unknown as Record<string, string>;
 
 const WORK_ORDERS_KEY = ['work-orders'] as const;
-
-const btnCls = (variant?: 'success' | 'info' | 'danger') => {
-  const base = s['workOrders__action-btn'];
-  if (variant === 'success') return `${base} ${s['workOrders__action-btn--success']}`;
-  if (variant === 'info') return `${base} ${s['workOrders__action-btn--info']}`;
-  if (variant === 'danger') return `${base} ${s['workOrders__action-btn--danger']}`;
-  return base;
-};
 
 export default function WorkOrdersList() {
   const [searchParams] = useSearchParams();
@@ -105,13 +95,6 @@ export default function WorkOrdersList() {
     setPdfData(null);
     try {
       const res = await getWorkOrder(o.id);
-      // Run the raw API response through the same mapper the edit form uses
-      // (`mapApiToForm`). That gives us a fully-typed `EntityFormState` with
-      // dates sliced, JSON-encoded *_data fields parsed, and — most
-      // importantly for this fix — `sketch_elements` decoded from its
-      // JSON string into the page-list the SketchImageExtractor expects.
-      // Without this step, the extractor receives the raw TEXT-column
-      // string and silently produces zero pages (no croquis in the PDF).
       const apiRow = (res as unknown as { data: Record<string, unknown> }).data;
       const formData = mapApiToForm(apiRow, o.status || 'MEASUREMENT');
       setPendingFormData(formData as unknown as Record<string, unknown>);
@@ -194,176 +177,14 @@ export default function WorkOrdersList() {
       </div>
 
       {loading ? <LoadingSpinner /> : (
-        <div className={s['workOrders__table']}>
-          <table>
-            <thead>
-              <tr>
-                <th className={s['workOrders__th']} style={{ width: 100 }}>Número</th>
-                <th className={s['workOrders__th']} style={{ width: 95 }}>Fecha</th>
-                <th className={s['workOrders__th']}>Cliente</th>
-                <th className={s['workOrders__th']} style={{ width: 120 }}>Teléfono</th>
-                <th className={s['workOrders__th']}>Material</th>
-                <th className={s['workOrders__th']} style={{ width: 110 }}>Total</th>
-                <th className={s['workOrders__th']} style={{ width: 100 }}>Seña</th>
-                <th className={s['workOrders__th']} style={{ width: 110 }}>Saldo</th>
-                <th className={s['workOrders__th']} style={{ width: 110 }}>Entrega</th>
-                <th className={s['workOrders__th']} style={{ width: 110 }}>Estado</th>
-                <th className={s['workOrders__th']} style={{ width: 90 }}>Avanzar</th>
-                <th className={s['workOrders__th']} style={{ width: 140 }}>Vista</th>
-                <th className={s['workOrders__th']} style={{ width: 150 }}>Notificar</th>
-                <th className={s['workOrders__th']} style={{ width: 70 }}>Eliminar</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((o: WorkOrderListItem) => {
-                const statusIdx = orderStatuses.indexOf(o.status);
-                const canBack = statusIdx > 0;
-                const canForward = statusIdx >= 0 && statusIdx < orderStatuses.length - 1;
-                const canWhatsApp = !!o.client_phone;
-                return (
-                  <tr
-                    key={o.id}
-                    className={s['workOrders__row']}
-                    onClick={() => handleView(o)}
-                  >
-                    <td className={s['workOrders__td']}>
-                      <span className={s['workOrders__numero']}>{o.number}</span>
-                    </td>
-                    <td className={s['workOrders__td']}>
-                      {formatDate((o.date || o.created_at || '').split('T')[0]) || '-'}
-                    </td>
-                    <td className={s['workOrders__td']}>{o.client_name || '-'}</td>
-                    <td className={s['workOrders__td']}>{o.client_phone || '-'}</td>
-                    <td className={s['workOrders__td'] + ' ' + s['workOrders__material']}>
-                      {o.material || '-'}
-                    </td>
-                    <td className={s['workOrders__td'] + ' ' + s['workOrders__total-cell']}>
-                      <CurrencyDisplay value={o.total} />
-                    </td>
-                    <td className={s['workOrders__td']}>
-                      <CurrencyDisplay value={o.deposit_received} />
-                    </td>
-                    <td className={s['workOrders__td'] + ' ' + s['workOrders__total-cell']}>
-                      <CurrencyDisplay value={o.balance_due} />
-                    </td>
-                    <td className={s['workOrders__td']}>
-                      {formatDate(o.delivery_date || '') || '-'}
-                    </td>
-                    <td className={s['workOrders__td']}>
-                      <StatusBadge status={o.status} />
-                    </td>
-
-                    {/* Column 11 — Avanzar / Retroceder estado */}
-                    <td
-                      className={`${s['workOrders__td']} ${s['workOrders__actions-cell']}`}
-                      onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                    >
-                      <div className={s['workOrders__action-pair']}>
-                        {canBack && (
-                          <button
-                            type="button"
-                            className={btnCls()}
-                            onClick={() => handleStatusAdvance(o, -1)}
-                            title="Retroceder estado"
-                          >
-                            <ChevronLeft size={12} />
-                          </button>
-                        )}
-                        {canForward && (
-                          <button
-                            type="button"
-                            className={btnCls('info')}
-                            onClick={() => handleStatusAdvance(o, 1)}
-                            title="Avanzar estado"
-                          >
-                            <ChevronRight size={12} />
-                          </button>
-                        )}
-                        {!canBack && !canForward && (
-                          <span className={s['workOrders__action-dash']}>—</span>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Column 12 — Vista: Ver + PDF */}
-                    <td
-                      className={`${s['workOrders__td']} ${s['workOrders__actions-cell']}`}
-                      onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                    >
-                      <div className={s['workOrders__action-pair']}>
-                        <button
-                          type="button"
-                          className={btnCls()}
-                          onClick={() => handleView(o)}
-                          title="Ver / editar"
-                        >
-                          <Eye size={12} /> Ver
-                        </button>
-                        <button
-                          type="button"
-                          className={btnCls()}
-                          onClick={() => handleOpenPdf(o)}
-                          title="Vista previa del PDF"
-                        >
-                          <FileDown size={12} /> PDF
-                        </button>
-                      </div>
-                    </td>
-
-                    {/* Column 13 — Notificar */}
-                    <td
-                      className={`${s['workOrders__td']} ${s['workOrders__actions-cell']}`}
-                      onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                    >
-                      <div className={s['workOrders__action-pair']}>
-                        <button
-                          type="button"
-                          className={canWhatsApp ? btnCls('success') : btnCls()}
-                          onClick={canWhatsApp ? () => handleEnviarWhatsApp(o) : undefined}
-                          disabled={!canWhatsApp}
-                          style={canWhatsApp ? undefined : { opacity: 0.4, cursor: 'not-allowed' }}
-                          title={canWhatsApp ? `Enviar WhatsApp a ${o.client_phone}` : 'Sin teléfono cargado'}
-                        >
-                          <Send size={12} /> WhatsApp
-                        </button>
-                        <button
-                          type="button"
-                          className={btnCls('info')}
-                          onClick={() => {
-                            // TODO: hook send-work-order-email endpoint when available.
-                            notify('Correo de OT todavía no implementado', 'info');
-                          }}
-                          title="Enviar PDF por correo"
-                          disabled
-                          style={{ opacity: 0.4, cursor: 'not-allowed' }}
-                        >
-                          <Mail size={12} />Correo</button>
-                      </div>
-                    </td>
-
-                    {/* Column 14 — Eliminar */}
-                    <td
-                      className={`${s['workOrders__td']} ${s['workOrders__actions-cell']}`}
-                      onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                    >
-                      <button
-                        type="button"
-                        className={btnCls('danger')}
-                        onClick={() => setDeleteId(o.id)}
-                        title="Eliminar orden"
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-              {data.length === 0 && (
-                <tr><td colSpan={14}><EmptyState message="No hay órdenes de trabajo" /></td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <WorkOrdersTable
+          data={data}
+          onView={handleView}
+          onStatusAdvance={handleStatusAdvance}
+          onOpenPdf={handleOpenPdf}
+          onWhatsApp={handleEnviarWhatsApp}
+          onDelete={(id) => setDeleteId(id)}
+        />
       )}
 
       <ConfirmDialog

@@ -39,13 +39,9 @@ export type { AdditionalWork } from '../types/additionalWork';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { getAdditionalWorks } from '../api/resources/additionalWorks';
-import { AdditionalWork } from '../types/additionalWork';
+import type { AdditionalWork } from '../types/additionalWork';
 import { POOL_MATERIAL_GLOBAL } from '../types/budget';
-import {
-  FrenteMaterialOption,
-  computeFrenteTotal,
-  resolveFrenteMultiplier,
-} from '../utils/frentePricing';
+import { applyAdditionalWorkField } from '../utils/additionalWorkCalc';
 import {
   AdditionalWorkSelection as ParseAdditionalWorkSelection,
   parseAdditionalWorksData,
@@ -180,95 +176,12 @@ export function useAdditionalWorkSelection(initialJson: string | null | undefine
       value: unknown,
       options?: {
         catalogueItem?: AdditionalWork | null;
-        materialOptions?: FrenteMaterialOption[];
+        materialOptions?: import('../utils/frentePricing').FrenteMaterialOption[];
       },
     ) => {
       setSelections((prev) => {
         const next = [...prev];
-        const row = { ...next[idx] };
-        if (field === 'price') {
-          row.price = Number(value) || 0;
-          if (row.type !== 'frente') {
-            row.total = Math.round((row.price * row.quantity) * 100) / 100;
-          }
-        } else if (field === 'quantity') {
-          row.quantity = Number(value) || 1;
-          if (row.type !== 'frente') {
-            row.total = Math.round((row.price * row.quantity) * 100) / 100;
-          }
-        } else if (field === 'materialName') {
-          row.materialName = String(value ?? POOL_MATERIAL_GLOBAL);
-        } else if (field === 'linear_meters') {
-          row.linear_meters = Math.max(0, Number(value) || 0);
-          if (
-            row.type === 'frente' &&
-            options?.catalogueItem &&
-            options?.materialOptions &&
-            row.assigned_material_id != null
-          ) {
-            const matOpt = options.materialOptions.find((m) => m.id === row.assigned_material_id);
-            const multiplier = resolveFrenteMultiplier(options.catalogueItem);
-            const computed = computeFrenteTotal(
-              matOpt?.price_per_m2 ?? 0,
-              multiplier,
-              row.linear_meters,
-            );
-            row.price = computed.price_per_meter;
-            row.total = computed.total;
-            row.currency = matOpt?.currency ?? row.currency;
-            row.formula_values = {
-              material_price_m2_at_selection: matOpt?.price_per_m2 ?? 0,
-              multiplier,
-              computed_at: new Date().toISOString(),
-            };
-          }
-        } else if (field === 'assigned_material_id') {
-          // The picker's <select> emits the material's catalogue id (preferred)
-          // or — for legacy snapshots that pre-date the id field — the material's
-          // name. We accept both. The backend `apply_frente_rows` will:
-          //   - use the id directly when present (happy path);
-          //   - resolve the id by name otherwise (legacy budget rows).
-          if (value === null || value === undefined || value === '') {
-            row.assigned_material_id = null;
-          } else {
-            const numeric = Number(value);
-            if (Number.isFinite(numeric) && options?.materialOptions?.some((m) => m.id === numeric)) {
-              row.assigned_material_id = numeric;
-            } else {
-              // Treat the value as a material name fallback — keep the id
-              // null but surface the name so the backend can look it up.
-              (row as Record<string, unknown>).assigned_material_name = String(value);
-              row.assigned_material_id = null;
-            }
-          }
-          if (
-            row.type === 'frente' &&
-            options?.catalogueItem &&
-            options?.materialOptions &&
-            row.assigned_material_id != null
-          ) {
-            const matOpt = options.materialOptions.find((m) => m.id === row.assigned_material_id);
-            const multiplier = resolveFrenteMultiplier(options.catalogueItem);
-            const computed = computeFrenteTotal(
-              matOpt?.price_per_m2 ?? 0,
-              multiplier,
-              Number(row.linear_meters || 0),
-            );
-            row.price = computed.price_per_meter;
-            row.total = computed.total;
-            row.currency = matOpt?.currency ?? row.currency;
-            row.formula_values = {
-              material_price_m2_at_selection: matOpt?.price_per_m2 ?? 0,
-              multiplier,
-              computed_at: new Date().toISOString(),
-            };
-          } else if (row.assigned_material_id == null) {
-            row.price = 0;
-            row.total = 0;
-            row.formula_values = null;
-          }
-        }
-        next[idx] = row;
+        next[idx] = applyAdditionalWorkField(next[idx], field, value, options);
         return next;
       });
     },
@@ -324,11 +237,6 @@ export function useAdditionalWorksCatalogue() {
 
   return { items, loading };
 }
-
-// Silence the "unused import" warning under noUnusedLocals — `POOL_MATERIAL_GLOBAL`
-// is used at runtime inside the `add` callback below.
-void POOL_MATERIAL_GLOBAL;
-
 
 
 

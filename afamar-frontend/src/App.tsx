@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './api/queryClient';
@@ -7,28 +7,30 @@ import { NotificationProvider } from './context/NotificationContext';
 import { ThemeProvider } from './context/ThemeContext';
 import MainLayout from './components/layout/MainLayout/MainLayout';
 import { ProtectedRoute } from './components/layout/ProtectedRoute/ProtectedRoute';
-import DashboardPage from './pages/dashboard/DashboardPage';
+import { LoadingSpinner } from './components/ui/LoadingSpinner/LoadingSpinner';
 import { HomePage } from './pages/home/HomePage';
 import LoginPage from './pages/auth/LoginPage';
-import ClientsListPage from './pages/clients/ClientsListPage';
-import ClientFormPage from './pages/clients/ClientFormPage';
-import BudgetsListPage from './pages/budgets/BudgetsListPage';
-import BudgetFormPage from './pages/budgets/BudgetFormPage';
-import WorkOrdersListPage from './pages/work-orders/WorkOrdersListPage';
-import WorkOrderFormPage from './pages/work-orders/WorkOrderFormPage';
-import MaterialsListPage from './pages/materials/MaterialsListPage';
-import MaterialFormPage from './pages/materials/MaterialFormPage';
-import MaterialsCategoriesPage from './pages/materials/MaterialsCategoriesPage';
-import PoolStockPage from './pages/pool-stock/PoolStockPage';
-import AdditionalWorksPage from './pages/additional-works/AdditionalWorksPage';
-import ReportsPage from './pages/reports/ReportsPage';
-import ConfigurationPage from './pages/configuration/ConfigurationPage';
-import ProductPhotosPage from './pages/product-photos/ProductPhotosPage';
-import MeasurementsListPage from './pages/measurements/MeasurementsListPage';
-import MeasurementFormPage from './pages/measurements/MeasurementFormPage';
-import CalculatorPage from './pages/calculator/CalculatorPage';
-import CashDailyPage from './pages/cash/CashDailyPage';
-import CashHistoryPage from './pages/cash/CashHistoryPage';
+
+const DashboardPage = React.lazy(() => import('./pages/dashboard/DashboardPage'));
+const ClientsListPage = React.lazy(() => import('./pages/clients/ClientsListPage'));
+const ClientFormPage = React.lazy(() => import('./pages/clients/ClientFormPage'));
+const BudgetsListPage = React.lazy(() => import('./pages/budgets/BudgetsListPage'));
+const BudgetFormPage = React.lazy(() => import('./pages/budgets/BudgetFormPage'));
+const WorkOrdersListPage = React.lazy(() => import('./pages/work-orders/WorkOrdersListPage'));
+const WorkOrderFormPage = React.lazy(() => import('./pages/work-orders/WorkOrderFormPage'));
+const MaterialsListPage = React.lazy(() => import('./pages/materials/MaterialsListPage'));
+const MaterialFormPage = React.lazy(() => import('./pages/materials/MaterialFormPage'));
+const MaterialsCategoriesPage = React.lazy(() => import('./pages/materials/MaterialsCategoriesPage'));
+const PoolStockPage = React.lazy(() => import('./pages/pool-stock/PoolStockPage'));
+const AdditionalWorksPage = React.lazy(() => import('./pages/additional-works/AdditionalWorksPage'));
+const ReportsPage = React.lazy(() => import('./pages/reports/ReportsPage'));
+const ConfigurationPage = React.lazy(() => import('./pages/configuration/ConfigurationPage'));
+const ProductPhotosPage = React.lazy(() => import('./pages/product-photos/ProductPhotosPage'));
+const MeasurementsListPage = React.lazy(() => import('./pages/measurements/MeasurementsListPage'));
+const MeasurementFormPage = React.lazy(() => import('./pages/measurements/MeasurementFormPage'));
+const CalculatorPage = React.lazy(() => import('./pages/calculator/CalculatorPage'));
+const CashDailyPage = React.lazy(() => import('./pages/cash/CashDailyPage'));
+const CashHistoryPage = React.lazy(() => import('./pages/cash/CashHistoryPage'));
 
 function OldBudgetRedirect() {
   const splat = useParams()['*'];
@@ -45,6 +47,7 @@ function App() {
         <ThemeProvider>
         <AuthProvider>
         <NotificationProvider>
+          <Suspense fallback={<LoadingSpinner />}>
           <Routes>
             <Route index element={<HomePage />} />
             <Route path="login" element={<LoginPage />} />
@@ -84,6 +87,7 @@ function App() {
               </Route>
             </Route>
           </Routes>
+          </Suspense>
         </NotificationProvider>
       </AuthProvider>
         </ThemeProvider>

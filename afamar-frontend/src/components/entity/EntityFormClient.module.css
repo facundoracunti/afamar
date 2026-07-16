@@ -1,25 +1,25 @@
-/* BudgetFormClient — BEM */
-.budget-form-client__address-picker {
+/* EntityFormClient — BEM */
+.entity-form-client__address-picker {
   margin-top: 12px;
 }
 
-.budget-form-client__address-label {
+.entity-form-client__address-label {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.budget-form-client__address-hint {
+.entity-form-client__address-hint {
   color: var(--text-muted);
   font-size: 12px;
 }
 
-.budget-form-client__addr-row {
+.entity-form-client__addr-row {
   display: flex;
   gap: 4px;
 }
 
-.budget-form-client__addr-new-input {
+.entity-form-client__addr-new-input {
   flex: 1;
   padding: 6px 10px;
   font-size: 13px;
@@ -30,15 +30,15 @@
   outline: none;
 }
 
-.budget-form-client__addr-new-input:focus {
+.entity-form-client__addr-new-input:focus {
   border-color: var(--color-primary);
 }
 
-.budget-form-client__addr-new-input::placeholder {
+.entity-form-client__addr-new-input::placeholder {
   color: var(--text-muted);
 }
 
-.budget-form-client__addr-new-btn {
+.entity-form-client__addr-new-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -51,13 +51,13 @@
   flex-shrink: 0;
 }
 
-.budget-form-client__addr-new-btn:hover:not(:disabled) {
+.entity-form-client__addr-new-btn:hover:not(:disabled) {
   background: var(--color-primary);
   color: #fff;
   border-color: var(--color-primary);
 }
 
-.budget-form-client__addr-new-btn:disabled {
+.entity-form-client__addr-new-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }

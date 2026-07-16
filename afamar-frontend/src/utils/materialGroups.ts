@@ -14,6 +14,7 @@
  *  and the backend's material lookup continue to work without changes.
  */
 import type { MaterialInForm } from '../types/budget';
+import { round2 } from './math';
 
 export interface MaterialGroupOption {
   /** Stable bucket key — the catalogue `id` (preferred) or the material
@@ -37,8 +38,6 @@ export interface MaterialGroupOption {
   /** Either USD or ARS — first row's currency wins. */
   currency: 'ARS' | 'USD';
 }
-
-const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 function rowM2(m: MaterialInForm): number {
   return Number(m.length || 0) * Number(m.width || 0) * Number(m.quantity || 1);

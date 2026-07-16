@@ -3,11 +3,11 @@ import MaterialCard from '../../components/materials/MaterialCard/MaterialCard';
 import { useList } from '../../api/hooks';
 import { getMaterialCategories, type MaterialCategory } from '../../api/resources/materials';
 import type { EntityFormState } from '../../types';
-import styles from './WorkOrderFormSpecs.module.css';
+import styles from './EntityFormSpecs.module.css';
 
 const s = styles as unknown as Record<string, string>;
 
-interface WorkOrderFormSpecsProps {
+interface EntityFormSpecsProps {
   form: EntityFormState;
   readOnly: boolean;
   materials: Record<string, unknown>[];
@@ -16,9 +16,10 @@ interface WorkOrderFormSpecsProps {
   removeMaterial: (idx: number) => void;
   update: (field: string, value: unknown) => void;
   num: (v: string) => number | null;
+  cardClassName?: string;
 }
 
-export default function WorkOrderFormSpecs({
+export default function EntityFormSpecs({
   form,
   readOnly,
   materials,
@@ -27,7 +28,8 @@ export default function WorkOrderFormSpecs({
   removeMaterial,
   update,
   num,
-}: WorkOrderFormSpecsProps) {
+  cardClassName,
+}: EntityFormSpecsProps) {
   const { items: categorias } = useList<MaterialCategory>(
     ['material-categories', 'all'],
     async () => {
@@ -43,7 +45,7 @@ export default function WorkOrderFormSpecs({
   }, [materials, selectedCategoryId]);
 
   return (
-    <div className={`card ${s['specs-card']}`}>
+    <div className={cardClassName || 'card'}>
       <h3 className="section-title">MATERIALES</h3>
       <div className="form-group">
         <select
@@ -62,13 +64,24 @@ export default function WorkOrderFormSpecs({
         <select className="input" value="" onChange={(e) => { addMaterial(e.target.value); e.target.value = ''; }} disabled={readOnly}>
           <option value="">+ AGREGAR MATERIAL</option>
           {filteredMaterials.filter((m: Record<string, unknown>) => m.name).map((m: Record<string, unknown>) => (
-            <option key={m.id as number} value={m.name as string}>{m.name as string}{m.color ? ` - ${m.color as string}` : ''}</option>
+            <option key={m.id as number} value={m.name as string}>
+              {m.name as string}{m.color ? ` - ${m.color as string}` : ''}
+            </option>
           ))}
         </select>
       </div>
       <div className={s['specs-materials-grid']}>
         {(form.materials_data || []).map((mat, idx) => (
-          <MaterialCard key={idx}             mat={mat as unknown as import('../../types/budget').MaterialInForm} idx={idx} readOnly={readOnly} updateMaterial={updateMaterial} removeMaterial={removeMaterial} num={num} usdRate={Number(form.usd_rate) || 0} />
+          <MaterialCard
+            key={idx}
+            mat={mat as unknown as import('../../types/budget').MaterialInForm}
+            idx={idx}
+            readOnly={readOnly}
+            updateMaterial={updateMaterial}
+            removeMaterial={removeMaterial}
+            num={num}
+            usdRate={Number(form.usd_rate) || 0}
+          />
         ))}
       </div>
       {(form.materials_data || []).length === 0 && (
@@ -78,7 +91,14 @@ export default function WorkOrderFormSpecs({
       )}
       <div className="form-group">
         <label>Observaciones del diseño</label>
-        <textarea className="input" rows={4} value={form.design_observations} onChange={(e) => update('design_observations', e.target.value)} placeholder="Zócalo de 7 cm. Frente de 4 cm. Incluye 3 perforaciones..." disabled={readOnly} />
+        <textarea
+          className="input"
+          rows={4}
+          value={form.design_observations}
+          onChange={(e) => update('design_observations', e.target.value)}
+          placeholder="Zócalo de 7 cm. Frente de 4 cm. Incluye 3 perforaciones..."
+          disabled={readOnly}
+        />
       </div>
     </div>
   );

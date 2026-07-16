@@ -5,6 +5,7 @@ import type { SketchToolType, SketchElement, SketchPage, Point } from '@/types/s
 import LineShape from '../LineShape/LineShape';
 import RectangleShape from '../RectangleShape/RectangleShape';
 import TextShape from '../TextShape/TextShape';
+import { SketchPreviewLayer } from '../SketchPreviewLayer/SketchPreviewLayer';
 import { SKETCH_STAGE_WIDTH, SKETCH_STAGE_HEIGHT } from '../../../constants';
 import styles from './CanvasArea.module.css';
 
@@ -326,29 +327,12 @@ export default function CanvasArea({
             return null;
           })}
 
-          {tool === 'line' && isDrawing && drawStart && drawEnd && (
-            <Line
-              points={[drawStart.x, drawStart.y, drawEnd.x, drawEnd.y]}
-              stroke="#3b82f6"
-              strokeWidth={1.5}
-              dash={[6, 4]}
-              listening={false}
-            />
-          )}
-
-          {(tool === 'rect' || tool === 'cutout') && isDrawing && drawStart && drawEnd && (
-            <Rect
-              x={Math.min(drawStart.x, drawEnd.x)}
-              y={Math.min(drawStart.y, drawEnd.y)}
-              width={Math.abs(drawEnd.x - drawStart.x)}
-              height={Math.abs(drawEnd.y - drawStart.y)}
-              stroke="#3b82f6"
-              strokeWidth={1.5}
-              dash={[6, 4]}
-              fill="transparent"
-              listening={false}
-            />
-          )}
+          <SketchPreviewLayer
+            tool={tool as 'line' | 'rect' | 'cutout' | 'select' | 'text'}
+            isDrawing={isDrawing}
+            drawStart={drawStart}
+            drawEnd={drawEnd}
+          />
 
           {tool === 'select' && sid && (
             <Transformer

@@ -1,7 +1,7 @@
 # AGENTS.md
 
-> **Estado:** Rama `development` con work sin commitear. Refactor completo.
-> `tsc --noEmit` 0 errores · `vite build` ~11s, gzip ~881 KB · vitest 63/63 · pytest 14/14.
+> **Estado:** Rama `development` con work sin commitear. Todas las fases completadas excepto 4.1 (baja prioridad). 10 archivos muertos de BudgetForm/WorkOrderForm eliminados.
+> `tsc --noEmit` 0 errores · `vite build` ~12s, gzip ~880 KB · vitest 63/63 · pytest 14/14.
 
 ## Reglas de operación
 
@@ -52,7 +52,7 @@ afamar-backend/    — FastAPI app
 afamar-frontend/   — Vite + React + TS
   src/
     main.tsx       — React entrypoint
-    App.tsx        — BrowserRouter + Routes (con /admin/* + ProtectedRoute)
+    App.tsx        — BrowserRouter + Routes (React.lazy code-split, /admin/* + ProtectedRoute)
     index.css      — reset CSS + design tokens (CSS vars) + legacy classes
     global.d.ts    — declare global { Window.APP_CONFIG }
     css-modules.d.ts — *.module.css + *.jpg/*.png/*.svg/*.webp/*.jpeg
@@ -66,41 +66,62 @@ afamar-frontend/   — Vite + React + TS
       home/        (HomePage)
       dashboard/   (DashboardPage)
       clients/     (ClientsListPage, ClientFormPage)
-      budgets/     (BudgetsListPage, BudgetFormPage)
-      work-orders/ (WorkOrdersListPage, WorkOrderFormPage)
+      budgets/     (BudgetsListPage [→BudgetTable], BudgetFormPage [→useBudgetActions, useBudgetQuoteCalculations])
+      work-orders/ (WorkOrdersListPage [→WorkOrdersTable], WorkOrderFormPage)
       materials/   (MaterialsListPage, MaterialFormPage)
       pool-stock/  (PoolStockPage)
-      measurements/ (MeasurementsListPage, MeasurementFormPage)
+      measurements/ (MeasurementsListPage, MeasurementFormPage [→MeasurementPhotoGrid])
       cash/        (CashDailyPage, CashHistoryPage)
       calculator/  (CalculatorPage)
       configuration/ (ConfigurationPage)
       reports/     (ReportsPage)
       online-budgets/ (OnlineBudgetsListPage, OnlineBudgetFormPage)
-      additional-works/ (AdditionalWorksPage)
-    components/    — reutilizables (todos English)
+      additional-works/ (AdditionalWorksPage [→AdditionalWorksTable, AdditionalWorkForm])
+    components/      — reutilizables (todos English)
       ui/          — primitivas (Button, Modal, StatusBadge, ListPage, etc.)
-      common/      — Loading, ConfirmDialog, PdfPreviewModal
+      common/      — Loading, ConfirmDialog, PdfPreviewModal,
+                     ClientHistoryCard, WorkOrdersTable,
+                     AdditionalWorksTable, AdditionalWorkForm,
+                     MeasurementPhotoGrid, LinearMetersInput
+      measurements/ — MeasurementsTable (NEW)
+      home/         — HeroCarousel (NEW)
+      entity/      — EntityFormFinancial, EntityFormSpecs, EntityFormClient
+                     (unified wrappers shared by Budget + WorkOrder forms)
       cash/        — IncomeModal, ExpenseModal, CashTotalCards, etc.
-      budget/      — BudgetPanel, OnlineBudgetHeader, FabricationTable,
+      budget/      — BudgetPanel (orchestrator), BudgetCurrencyColumn (ARS/USD column),
+                     BudgetPaymentSection (payment block), BudgetPanelContext (context provider),
+                     OnlineBudgetHeader, FabricationTable,
                      QuoteOptionsGrid, OnlineItemsTable, AdditionalWorkSection,
                      AdditionalWorkCard, AdditionalMaterial
-      materials/   — MaterialCard, MaterialForm, MaterialFormModal, PoolCard, PoolSection
-      orders/      — ClientSection (typeahead + address picker), ClientInfoCard,
+      materials/   — MaterialCard, MaterialForm, MaterialFormModal, MaterialPhotoUploader, PoolCard, PoolSection
+      pool-stock/  — PoolFormModal, PoolMovementsModal
+      orders/      — ClientSection (orchestrator), ClientTypeahead, AddressPicker,
+                     NewClientModal, ClientInfoCard,
                      ApprovalSection, ObservationsSection, FormHeader, FormFooter
-      sketch/      — SketchEditor, Toolbar, useSketchState (CanvasArea,
+      sketch/      — SketchEditor, Toolbar, useSketchState (CanvasArea, SketchPreviewLayer,
                      LineShape, RectangleShape, TextShape)
       signature/   — SignatureCanvas
     layouts/       — MainLayout + MainLayout.module.css (sidebar BEM)
+    components/layout/MainLayout/ — MainLayout (orchestrator), Sidebar.tsx (accordion nav), Topbar.tsx (profile/date/title)
     context/       — AuthContext, NotificationContext, ThemeContext
     hooks/         — useEntityForm (facade → 7 composables),
                      useBudgetCalculations, usePdfPreview, useConfirmPayment,
-                     useAdditionalWorkSelection,
-                     entityFormHelpers (INITIAL_FORM, buildPayload, mapApiToForm,
-                     buildFinancialPayload, mapFinancialToForm)
-    constants/     — PAYMENT_METHODS, BANK_INFO, EXPENSE_TYPES, FOLDER_STATUS_MAP
+                     useAdditionalWorkSelection, useBudgetActions,
+                     useBudgetQuoteCalculations, useClientAddresses,
+                     usePlateCalculator (bin-packing algorithm),
+                     entityFormHelpers.ts (re-export hub + addMaterialToList/addPoolToList),
+                     entityFormConstants.ts (M2_CONCEPTS, CUTOUT_DETAILS, DEFAULT_FINANCIALS, INITIAL_FORM),
+                     entityFormFinancial.ts (buildFinancialPayload, mapFinancialToForm),
+                     entityFormSerialization.ts (buildPayload, mapApiToForm, sketch flatten/unflatten)
+    constants/     — PAYMENT_METHODS, BANK_INFO, EXPENSE_TYPES, FOLDER_STATUS_MAP, status.ts (STATUS_META)
     types/         — 17+ files en inglés (EntityFormState en snake_case English)
-    utils/         — translate, formatters, pdf/buildPdfData, pdf/SketchImageExtractor,
-                     frentePricing, additionalWorkParse, materialGroups
+    utils/         — translate, formatters,
+                     pdf/buildPdfData.ts (orchestrator + re-exports),
+                     pdf/pdfTypes.ts (all PDF interfaces),
+                     pdf/pdfHelpers.ts (formatting/parsing utils),
+                     pdf/buildSectionData.ts (row builders + section bucketing),
+                     pdf/SketchImageExtractor,
+                      frentePricing, additionalWorkParse, additionalWorkCalc, materialGroups, math.ts (round2)
   tsconfig.json    — path aliases (@/, @features/, @shared/, @assets/)
   vite.config.ts   — proxy /api → http://localhost:3090
   eslint.config.js, vitest.config.ts, Dockerfile, nginx.conf
@@ -124,7 +145,7 @@ afamar-frontend/   — Vite + React + TS
 - **SQLAlchemy 2.0:** `Mapped[T]` + `mapped_column()`. No usar `relationship` lazy sin `joinedload`.
 - **Routers delgados:** ≤ 5 líneas de lógica. Todo en services.
 - **Excepciones de dominio:** `NotFoundError`, `ConflictError`, `ValidationError` en `core/exceptions.py`.
-- **PDF generation:** `buildPdfData.ts` + `DocumentPdf.tsx` (frontend, `@react-pdf/renderer`). Legacy: `pdf_html.py` (xhtml2pdf + Jinja2).
+- **PDF generation:** `utils/pdf/buildPdfData.ts` (orchestrator) + `pdfTypes.ts` + `pdfHelpers.ts` + `buildSectionData.ts` + `DocumentPdf.tsx` (frontend, `@react-pdf/renderer`). Legacy: `pdf_html.py` (xhtml2pdf + Jinja2).
 - **Numbering:** `P-000001` (budgets), `A-000001` (work_orders). Compartido en `utils/numbering.py`.
 - **Status enums:** English en DB (`MEASUREMENT`, `WORKSHOP`, etc.), Spanish en UI via `t(key)` en `utils/translate.ts`.
 - **Client data flow:** Budget/WorkOrder stores only `client_id` (FK) + optional `delivery_address_id` (FK → `client_addresses`). No snapshot columns. `from_orm_with_client()` resolves `client_*` fields from live `Client` row at serialization time. If `delivery_address_id` is set, `client_address` is overridden with the matching `ClientAddress.address`. `delivery_address_id` is patchable on update (both `BudgetUpdate` and `WorkOrderUpdate` include the field). Conversion paths (`create_from_budget`, `convert_alternative_to_work_order`) copy `delivery_address_id` from the source budget.
