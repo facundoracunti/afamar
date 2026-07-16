@@ -47,7 +47,7 @@ interface MeasurementsTableProps {
   onDelete: (id: number) => void;
 }
 
-export function MeasurementsTable({
+function MeasurementsTableInner({
   visibleRows,
   sortField,
   sortDir,
@@ -110,3 +110,5 @@ export function MeasurementsTable({
     </div>
   );
 }
+
+export const MeasurementsTable = React.memo(MeasurementsTableInner);

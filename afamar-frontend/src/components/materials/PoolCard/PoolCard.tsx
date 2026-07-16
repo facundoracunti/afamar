@@ -17,7 +17,7 @@ interface PoolCardProps {
   num: (v: unknown) => number;
 }
 
-export default function PoolCard({
+function PoolCardInner({
   pt, idx, formMaterials, readOnly, updatePileta, removePileta, num,
 }: PoolCardProps) {
   return (
@@ -87,3 +87,5 @@ export default function PoolCard({
     </div>
   );
 }
+
+export default React.memo(PoolCardInner);

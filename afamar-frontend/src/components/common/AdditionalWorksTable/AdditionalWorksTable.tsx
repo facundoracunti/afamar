@@ -21,7 +21,8 @@ interface AdditionalWorksTableProps {
   onDelete: (id: number) => void;
 }
 
-export function AdditionalWorksTable({ data, onEdit, onDelete }: AdditionalWorksTableProps) {
+function AdditionalWorksTableInner({ data, 
+onEdit, onDelete }: AdditionalWorksTableProps) {
   return (
     <div className="card">
       <div className="table-container">
@@ -101,3 +102,5 @@ export function AdditionalWorksTable({ data, onEdit, onDelete }: AdditionalWorks
     </div>
   );
 }
+
+export const AdditionalWorksTable = React.memo(AdditionalWorksTableInner);

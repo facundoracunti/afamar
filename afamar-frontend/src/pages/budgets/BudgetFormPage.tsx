@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { Suspense, useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Eye, Save, FileOutput, Check, Send } from 'lucide-react';
@@ -11,10 +11,12 @@ import { StatusBadge } from '../../components/ui/StatusBadge';
 import useEntityForm from '../../hooks/useEntityForm';
 import { useBudgetQuoteCalculations } from '../../hooks/useBudgetQuoteCalculations';
 import { useBudgetActions } from '../../hooks/useBudgetActions';
+import { useConfirmPayment } from '../../hooks/useConfirmPayment';
+import { createAddressAddedHandler } from '../../hooks/entityFormHelpers';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
-import PdfPreviewModal from '../../components/ui/PdfPreviewModal/PdfPreviewModal';
-import SketchImageExtractor from '../../components/ui/PdfPreviewModal/SketchImageExtractor';
+const PdfPreviewModal = React.lazy(() => import('../../components/ui/PdfPreviewModal/PdfPreviewModal'));
+const SketchImageExtractor = React.lazy(() => import('../../components/ui/PdfPreviewModal/SketchImageExtractor'));
 import TermsEditor from '../../components/ui/TermsEditor/TermsEditor';
 import { useNotify } from '../../context/NotificationContext';
 import { fetchUsdVenta } from '../../utils/dolarApi';
@@ -102,9 +104,18 @@ export default function BudgetForm() {
     handlePreviewPdf,
     handleSketchImagesReady,
     handleClosePdfPreview,
-    handleConfirmarPago,
   } = useBudgetActions({
     form, setForm, setSaving, saving, buildPayload, isEdit, id,
+  });
+
+  const handleConfirmarPago = useConfirmPayment({
+    id,
+    balance_paid: form.balance_paid,
+    total: form.total,
+    total_usd: form.total_usd,
+    updateFn: updateBudget,
+    queryKey: ['budgets'],
+    setForm,
   });
 
   useEffect(() => {
@@ -121,12 +132,7 @@ export default function BudgetForm() {
     if (ok) queryClient.invalidateQueries({ queryKey: ['budgets'] });
   }, [rawHandleSubmit, queryClient]);
 
-  const handleAddressAdded = useCallback((clientId: number, address: import('../../types/client').ClientAddress) => {
-    const client = (clientes as unknown as import('../../types/client').Client[]).find((c) => c.id === clientId);
-    if (client) {
-      updateClientAddresses(clientId, [...(client.addresses || []), address]);
-    }
-  }, [clientes, updateClientAddresses]);
+  const handleAddressAdded = useCallback(createAddressAddedHandler(clientes, updateClientAddresses), [clientes, updateClientAddresses]);
 
   const buildOptionFromMaterial = useCallback((mat: MaterialInForm): import('../../components/budget/QuoteOptionsGrid/QuoteOptionsGrid').Alternativa => {
     const ddLocal = Number(form.usd_rate) || 1;
@@ -343,20 +349,24 @@ export default function BudgetForm() {
         confirmLabel="Convertir"
       />
 
-      <PdfPreviewModal
-        isOpen={pdfData !== null || pdfPreviewLoading}
-        onClose={handleClosePdfPreview}
-        data={pdfData}
-        loading={pdfPreviewLoading}
-        title="Vista previa — Presupuesto"
-        fileName={`presupuesto_${form.number || 'nuevo'}.pdf`}
-      />
+      <Suspense fallback={<LoadingSpinner />}>
+        <PdfPreviewModal
+          isOpen={pdfData !== null || pdfPreviewLoading}
+          onClose={handleClosePdfPreview}
+          data={pdfData}
+          loading={pdfPreviewLoading}
+          title="Vista previa — Presupuesto"
+          fileName={`presupuesto_${form.number || 'nuevo'}.pdf`}
+        />
+      </Suspense>
 
       {sketchExtractorActive && (
-        <SketchImageExtractor
-          sketchElements={form.sketch_elements}
-          onReady={handleSketchImagesReady}
-        />
+        <Suspense fallback={null}>
+          <SketchImageExtractor
+            sketchElements={form.sketch_elements}
+            onReady={handleSketchImagesReady}
+          />
+        </Suspense>
       )}
     </div>
   );

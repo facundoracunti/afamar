@@ -31,7 +31,7 @@ const btnCls = (variant?: 'success' | 'info' | 'danger'): string => {
   return base;
 };
 
-export function WorkOrdersTable({
+function WorkOrdersTableInner({
   data,
   onView,
   onStatusAdvance,
@@ -194,3 +194,5 @@ export function WorkOrdersTable({
     </div>
   );
 }
+
+export const WorkOrdersTable = React.memo(WorkOrdersTableInner);

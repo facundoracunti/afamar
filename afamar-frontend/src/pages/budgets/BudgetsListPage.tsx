@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Plus, Search } from 'lucide-react';
@@ -23,8 +23,8 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
 import { Pagination } from '../../components/ui/Pagination';
-import PdfPreviewModal from '../../components/ui/PdfPreviewModal/PdfPreviewModal';
-import SketchImageExtractor from '../../components/ui/PdfPreviewModal/SketchImageExtractor';
+const PdfPreviewModal = React.lazy(() => import('../../components/ui/PdfPreviewModal/PdfPreviewModal'));
+const SketchImageExtractor = React.lazy(() => import('../../components/ui/PdfPreviewModal/SketchImageExtractor'));
 import { useNotify } from '../../context/NotificationContext';
 import BudgetTable from './BudgetTable';
 import type { UnifiedBudget } from '../../types/budget';
@@ -285,20 +285,24 @@ export default function BudgetsList() {
         confirmLabel="Convertir"
       />
 
-      <PdfPreviewModal
-        isOpen={pdfData !== null || pdfPreviewLoading}
-        onClose={handleClosePdfPreview}
-        data={pdfData}
-        loading={pdfPreviewLoading}
-        title={pdfPreviewTitle}
-        fileName={`presupuesto_${pendingFormData?.number || ''}.pdf`}
-      />
+      <Suspense fallback={<LoadingSpinner />}>
+        <PdfPreviewModal
+          isOpen={pdfData !== null || pdfPreviewLoading}
+          onClose={handleClosePdfPreview}
+          data={pdfData}
+          loading={pdfPreviewLoading}
+          title={pdfPreviewTitle}
+          fileName={`presupuesto_${pendingFormData?.number || ''}.pdf`}
+        />
+      </Suspense>
 
       {sketchExtractorActive && pendingFormData && (
-        <SketchImageExtractor
-          sketchElements={pendingFormData.sketch_elements}
-          onReady={handleSketchImagesReady}
-        />
+        <Suspense fallback={null}>
+          <SketchImageExtractor
+            sketchElements={pendingFormData.sketch_elements}
+            onReady={handleSketchImagesReady}
+          />
+        </Suspense>
       )}
 
       <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} label="presupuestos" />

@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { Save } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { getSettings, updateSettings, uploadLogo } from '@/api/resources/settings';
+import { useGet } from '../../api/hooks';
 import { useNotify } from '../../context/NotificationContext';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import TermsEditor from '../../components/ui/TermsEditor/TermsEditor';
@@ -55,39 +57,47 @@ const CONFIG_KEYS: ConfigKey[] = [
   { key: 'observaciones_automaticas', label: 'Observaciones automáticas', type: 'textarea' },
 ];
 
+type ConfigValue = string | string[];
+
+function buildConfigMap(data: Record<string, unknown>): Record<string, ConfigValue> {
+  const map: Record<string, ConfigValue> = {};
+  Object.entries(data).forEach(([k, v]) => {
+    if (Array.isArray(v)) {
+      map[k] = v as string[];
+    } else {
+      map[k] = String(v ?? '');
+    }
+  });
+  return map;
+}
+
 export default function Configuration() {
-  type ConfigValue = string | string[];
+  const queryClient = useQueryClient();
+  const notify = useNotify();
+  const { data: rawData, loading } = useGet<Record<string, unknown>>(
+    ['settings'],
+    async () => {
+      const res = await getSettings();
+      return (res as unknown as { data: Record<string, unknown> }).data || {};
+    },
+    true,
+  );
+
   const [config, setConfig] = useState<Record<string, ConfigValue>>({});
-  const [loading, setLoading] = useState(true);
+  const [configInitialized, setConfigInitialized] = useState(false);
   const [saving, setSaving] = useState(false);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoDirty, setLogoDirty] = useState(false);
   const [configDirty, setConfigDirty] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const notify = useNotify();
 
-  const buildConfigMap = (data: Record<string, unknown>): Record<string, ConfigValue> => {
-    const map: Record<string, ConfigValue> = {};
-    Object.entries(data).forEach(([k, v]) => {
-      if (Array.isArray(v)) {
-        map[k] = v as string[];
-      } else {
-        map[k] = String(v ?? '');
-      }
-    });
-    return map;
-  };
+  if (loading) return <LoadingSpinner />;
 
-  useEffect(() => {
-    getSettings().then((res) => {
-      const data = (res as unknown as { data: Record<string, unknown> }).data || {};
-      setConfig(buildConfigMap(data));
-      setLoading(false);
-    }).catch(() => {
-      setLoading(false);
-    });
-  }, []);
+  if (rawData && !configInitialized) {
+    setConfig(buildConfigMap(rawData));
+    setConfigInitialized(true);
+  }
 
   const handleLogoChange = (file: File | null) => {
     if (!file) return;
@@ -99,16 +109,6 @@ export default function Configuration() {
   const handleFieldChange = (key: string, value: ConfigValue) => {
     setConfig({ ...config, [key]: value });
     setConfigDirty(true);
-  };
-
-  const refreshConfig = async (): Promise<void> => {
-    const res = await getSettings();
-    const data = (res as unknown as { data: Record<string, unknown> }).data || {};
-    setConfig(buildConfigMap(data));
-    setLogoFile(null);
-    setLogoPreview(null);
-    setLogoDirty(false);
-    setConfigDirty(false);
   };
 
   const handleSave = async () => {
@@ -138,20 +138,19 @@ export default function Configuration() {
         await updateSettings(payload);
       }
 
-      // Reload from server so the UI reflects exactly what was persisted
-      // (including any default fallbacks applied by the backend).
-      await refreshConfig();
+      await queryClient.invalidateQueries({ queryKey: ['settings'] });
+      setLogoFile(null);
+      setLogoPreview(null);
+      setLogoDirty(false);
+      setConfigDirty(false);
       notify('Configuración guardada correctamente', 'success');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error al guardar configuración';
-      console.error('Error al guardar configuración:', err);
       notify(msg, 'error');
     } finally {
       setSaving(false);
     }
   };
-
-  if (loading) return <LoadingSpinner />;
 
   const companyLogo = typeof config.company_logo === 'string' ? config.company_logo : '';
   const logoSrc = logoPreview || companyLogo || null;

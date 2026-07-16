@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DollarSign, FileText, ClipboardList, PackageOpen, Truck, type LucideIcon } from 'lucide-react';
+import { DollarSign, FileText, ClipboardList, PackageOpen, Truck, Wrench, LayoutGrid, Calculator, type LucideIcon } from 'lucide-react';
 import type { DashboardData } from '../../types/dashboard';
 import { getDashboard } from '@/api/resources/dashboard';
 import { useGet } from '../../api/hooks';
@@ -20,7 +20,6 @@ interface CardDef {
   path?: string;
   description: string;
   tone: Tone;
-  span?: { col?: number; row?: number };
 }
 
 export default function Dashboard() {
@@ -44,9 +43,13 @@ export default function Dashboard() {
     { icon: DollarSign, label: 'CAJA', value: '$' + ing, color: '#2563eb', tone: 'accent', path: '/admin/cash', description: 'Total de ingresos registrados' },
     { icon: FileText, label: 'NUEVO PRESUPUESTO', color: '#059669', tone: 'success', path: '/admin/budgets/new', description: 'Crear un nuevo presupuesto' },
     { icon: ClipboardList, label: 'NUEVA ORDEN', color: '#dc2626', tone: 'danger', path: '/admin/work-orders/new', description: 'Crear una nueva orden de trabajo' },
-    { icon: PackageOpen, label: 'ORDENES EN MEDICION / TALLER', value: String(activas), color: '#d97706', tone: 'warning', path: '/admin/work-orders', description: medicion + ' en medicion - ' + taller + ' en taller', span: { col: 2 } },
-    { icon: Truck, label: 'ORDENES TERMINADAS P/ ENVIO', value: String(terminadas), color: '#7c3aed', tone: 'info', path: '/admin/work-orders?estado=DELIVERED', description: 'Listas para retirar', span: { col: 2 } },
+    { icon: PackageOpen, label: 'ORDENES EN MEDICION / TALLER', value: String(activas), color: '#d97706', tone: 'warning', path: '/admin/work-orders', description: medicion + ' en medicion - ' + taller + ' en taller' },
+    { icon: Truck, label: 'ORDENES TERMINADAS P/ ENVIO', value: String(terminadas), color: '#7c3aed', tone: 'info', path: '/admin/work-orders?estado=DELIVERED', description: 'Listas para retirar' },
     { icon: PackageOpen, label: 'STOCK DE PILETAS', color: '#be185d', tone: 'info', path: '/admin/pool-stock', description: 'Gestionar stock de piletas' },
+    { icon: PackageOpen, label: 'MATERIALES', color: '#64748b', tone: 'info', path: '/admin/materials', description: 'Gestionar materiales' },
+    { icon: Wrench, label: 'TRABAJOS ADICIONALES', color: '#0891b2', tone: 'info', path: '/admin/additional-works', description: 'Gestionar trabajos adicionales' },
+    { icon: LayoutGrid, label: 'CATEGORIAS', color: '#ea580c', tone: 'info', path: '/admin/materials/categories', description: 'Gestionar categorias' },
+    { icon: Calculator, label: 'CALCULADORA', color: '#4f46e5', tone: 'info', path: '/admin/calculator', description: 'Calculadora de materiales' },
   ];
 
   return (
@@ -64,13 +67,6 @@ export default function Dashboard() {
             key={card.label}
             className={s['dashboard__card'] + ' ' + (s['dashboard__card--' + card.tone] || '')}
             onClick={() => card.path && navigate(card.path)}
-            style={
-              card.span && card.span.col
-                ? { gridColumn: 'span ' + card.span.col }
-                : card.span && card.span.row
-                  ? { gridRow: 'span ' + card.span.row }
-                  : undefined
-            }
           >
             <div className={s['dashboard__card-icon']} style={{ backgroundColor: card.color }}>
               <card.icon size={20} color="#fff" />

@@ -141,7 +141,20 @@ describe('sync-on-value-change contract (sibling picker flow)', () => {
 
   it('updates selections when an outside caller bumps the JSON', () => {
     const before: unknown[] = [];
-    const row = {
+    const row: {
+      additional_work_id: number;
+      name: string;
+      detail: string | null;
+      price: number;
+      currency: string;
+      quantity: number;
+      total: number;
+      materialName: string;
+      type: string;
+      linear_meters: number;
+      assigned_material_id: number;
+      formula_values: Record<string, unknown> | null;
+    } = {
       additional_work_id: 24,
       name: 'Frente / Regrueso',
       detail: null,
@@ -161,7 +174,15 @@ describe('sync-on-value-change contract (sibling picker flow)', () => {
   });
 
   it('keeps selections referentially stable when the JSON matches', () => {
-    const row = {
+    const row: {
+      additional_work_id: number;
+      name: string;
+      detail: string | null;
+      price: number;
+      currency: string;
+      quantity: number;
+      total: number;
+    } = {
       additional_work_id: 1,
       name: 'Pulido',
       detail: null,

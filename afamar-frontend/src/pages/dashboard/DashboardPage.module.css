@@ -46,8 +46,20 @@
 
 .dashboard__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(5, 1fr);
   gap: 16px;
+}
+
+@media (max-width: 1200px) {
+  .dashboard__grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .dashboard__card {
@@ -79,6 +91,14 @@
 
 .dashboard__card--success {
   border-left: 4px solid #16a34a;
+}
+
+.dashboard__card--warning {
+  border-left: 4px solid #d97706;
+}
+
+.dashboard__card--info {
+  border-left: 4px solid #7c3aed;
 }
 
 .dashboard__card-icon {

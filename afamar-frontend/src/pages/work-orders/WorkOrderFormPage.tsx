@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { Suspense, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Eye, Save } from 'lucide-react';
@@ -11,12 +11,14 @@ import { formatCurrency, formatCurrencyValue, todayLocalISO, parseNumber } from 
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import useEntityForm from '../../hooks/useEntityForm';
 import { useSettingsWithTerms } from '../../hooks/useSettingsWithTerms';
+import { useConfirmPayment } from '../../hooks/useConfirmPayment';
+import { createAddressAddedHandler } from '../../hooks/entityFormHelpers';
 import { buildPdfData } from '../../utils/pdf/buildPdfData';
 import type { PdfDocumentData } from '../../utils/pdf/buildPdfData';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
-import PdfPreviewModal from '../../components/ui/PdfPreviewModal/PdfPreviewModal';
-import SketchImageExtractor from '../../components/ui/PdfPreviewModal/SketchImageExtractor';
+const PdfPreviewModal = React.lazy(() => import('../../components/ui/PdfPreviewModal/PdfPreviewModal'));
+const SketchImageExtractor = React.lazy(() => import('../../components/ui/PdfPreviewModal/SketchImageExtractor'));
 import TermsEditor from '../../components/ui/TermsEditor/TermsEditor';
 import FormHeader from '../../components/orders/FormHeader/FormHeader';
 import FormFooter from '../../components/orders/FormFooter/FormFooter';
@@ -102,16 +104,11 @@ export default function WorkOrderForm() {
   // will pick up the fresh data when it mounts).
   const handleSubmit = async (e?: React.FormEvent) => {
     const ok = await legacyHandleSubmit(e);
-    if (!ok) return; // error already notified via onError
+    if (!ok) return;
     queryClient.invalidateQueries({ queryKey: ['work-orders'], refetchType: 'all' });
   };
 
-  const handleAddressAdded = useCallback((clientId: number, address: import('../../types/client').ClientAddress) => {
-    const client = (clientes as unknown as import('../../types/client').Client[]).find((c) => c.id === clientId);
-    if (client) {
-      updateClientAddresses(clientId, [...(client.addresses || []), address]);
-    }
-  }, [clientes, updateClientAddresses]);
+  const handleAddressAdded = useCallback(createAddressAddedHandler(clientes, updateClientAddresses), [clientes, updateClientAddresses]);
 
   const encodeTerms = (items: string[]) => JSON.stringify(items.filter((t) => t.trim() !== ''));
 
@@ -120,25 +117,15 @@ export default function WorkOrderForm() {
   const matsMain = hayAlternativas ? (form.materials_data as unknown as MaterialInForm[] || []).filter((m) => !m.is_alternative) : (form.materials_data as unknown as MaterialInForm[] || []);
   const matsAlt = (form.materials_data as unknown as MaterialInForm[] || []).filter((m) => m.is_alternative);
 
-  const handleConfirmarPago = async () => {
-    if (!id) return;
-    const nuevo = !form.balance_paid;
-    const hoy = todayLocalISO();
-    const payload: Record<string, unknown> = {
-      balance_paid: nuevo,
-      balance_paid_at: nuevo ? hoy : null,
-    };
-    if (nuevo) {
-      payload.deposit_received = Number(form.total);
-      payload.deposit_currency = 'ARS';
-      payload.balance_due = 0;
-      payload.deposit_usd = Number(form.total_usd);
-      payload.balance_due_usd = 0;
-    }
-    await updateWorkOrder(id as string, payload);
-    setForm((prev) => ({ ...prev, ...payload } as EntityFormState));
-    queryClient.invalidateQueries({ queryKey: ['work-orders'], refetchType: 'all' });
-  };
+  const handleConfirmarPago = useConfirmPayment({
+    id,
+    balance_paid: form.balance_paid,
+    total: form.total,
+    total_usd: form.total_usd,
+    updateFn: updateWorkOrder,
+    queryKey: ['work-orders'],
+    setForm,
+  });
 
   const handlePreviewPdf = () => {
     setPdfPreviewLoading(true);
@@ -380,20 +367,24 @@ export default function WorkOrderForm() {
         <FormFooter saving={saving} onCancel={() => navigate('/admin/work-orders')} />
       </form>
 
-      <PdfPreviewModal
-        isOpen={pdfData !== null || pdfPreviewLoading}
-        onClose={handleClosePdfPreview}
-        data={pdfData}
-        loading={pdfPreviewLoading}
-        title="Vista previa — Orden de Trabajo"
-        fileName={`orden_${form.number || 'nueva'}.pdf`}
-      />
+      <Suspense fallback={<LoadingSpinner />}>
+        <PdfPreviewModal
+          isOpen={pdfData !== null || pdfPreviewLoading}
+          onClose={handleClosePdfPreview}
+          data={pdfData}
+          loading={pdfPreviewLoading}
+          title="Vista previa — Orden de Trabajo"
+          fileName={`orden_${form.number || 'nueva'}.pdf`}
+        />
+      </Suspense>
 
       {sketchExtractorActive && (
-        <SketchImageExtractor
-          sketchElements={form.sketch_elements}
-          onReady={handleSketchImagesReady}
-        />
+        <Suspense fallback={null}>
+          <SketchImageExtractor
+            sketchElements={form.sketch_elements}
+            onReady={handleSketchImagesReady}
+          />
+        </Suspense>
       )}
       <ConfirmDialog open={deleteConfirm} onCancel={() => setDeleteConfirm(false)} onConfirm={handleDelete} title="Eliminar orden" message="¿Estás seguro de eliminar esta orden de trabajo?" confirmLabel="Eliminar" danger />
     </div>

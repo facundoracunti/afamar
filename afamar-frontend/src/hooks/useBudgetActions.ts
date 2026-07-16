@@ -36,7 +36,6 @@ interface BudgetFormActions {
   handlePreviewPdf: () => void;
   handleSketchImagesReady: (images: string[]) => void;
   handleClosePdfPreview: () => void;
-  handleConfirmarPago: () => Promise<void>;
 }
 
 export function useBudgetActions({
@@ -205,26 +204,6 @@ export function useBudgetActions({
     setSketchExtractorActive(false);
   }, []);
 
-  const handleConfirmarPago = useCallback(async () => {
-    if (!id) return;
-    const nuevo = !form.balance_paid;
-    const hoy = todayLocalISO();
-    const payload: Record<string, unknown> = {
-      balance_paid: nuevo,
-      balance_paid_at: nuevo ? hoy : null,
-    };
-    if (nuevo) {
-      payload.deposit_received = Number(form.total);
-      payload.deposit_currency = 'ARS';
-      payload.balance_due = 0;
-      payload.deposit_usd = Number(form.total_usd);
-      payload.balance_due_usd = 0;
-    }
-    await updateBudget(id, payload);
-    setForm((prev) => ({ ...prev, ...payload, balance_paid_at: nuevo ? hoy : '' } as EntityFormState));
-    queryClient.invalidateQueries({ queryKey: ['budgets'] });
-  }, [id, form.balance_paid, form.total, form.total_usd, queryClient, setForm]);
-
   return {
     pdfData,
     pdfPreviewLoading,
@@ -242,6 +221,5 @@ export function useBudgetActions({
     handlePreviewPdf,
     handleSketchImagesReady,
     handleClosePdfPreview,
-    handleConfirmarPago,
   };
 }

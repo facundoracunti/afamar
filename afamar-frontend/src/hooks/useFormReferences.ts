@@ -133,8 +133,8 @@ export function useFormReferences({
           onLoaded?.(d);
           setLoading(false);
         }
-      } catch (err) {
-        if (!cancelled) console.error('useFormReferences load error:', err);
+      } catch {
+        if (!cancelled) setLoading(false);
       }
     }
 

@@ -9,6 +9,7 @@
 
 import type { EntityFormState, Pool } from '../types';
 import type { Material } from '../types/material';
+import type { Client, ClientAddress } from '../types/client';
 import { POOL_MATERIAL_GLOBAL, type MaterialInForm, type PoolInForm } from '../types/budget';
 import { INITIAL_FORM, M2_CONCEPTS, CUTOUT_DETAILS, DEFAULT_FINANCIALS } from './entityFormConstants';
 import { buildFinancialPayload, mapFinancialToForm } from './entityFormFinancial';
@@ -76,4 +77,16 @@ export function addPoolToList(
       material: defaultPoolMaterial(form),
     } as unknown as PoolInForm,
   ];
+}
+
+export function createAddressAddedHandler(
+  clientes: unknown[],
+  updateClientAddresses: (clientId: number, addresses: ClientAddress[]) => void,
+) {
+  return (clientId: number, address: ClientAddress) => {
+    const client = (clientes as Client[]).find((c) => c.id === clientId);
+    if (client) {
+      updateClientAddresses(clientId, [...(client.addresses || []), address]);
+    }
+  };
 }

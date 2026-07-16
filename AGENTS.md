@@ -1,7 +1,7 @@
 # AGENTS.md
 
-> **Estado:** Rama `development` con work sin commitear. Todas las fases completadas excepto 4.1 (baja prioridad). 10 archivos muertos de BudgetForm/WorkOrderForm eliminados.
-> `tsc --noEmit` 0 errores · `vite build` ~12s, gzip ~880 KB · vitest 63/63 · pytest 14/14.
+> **Estado:** Rama `development` con work sin commitear. Fases 1-5.9 completadas. Dashboard cards rediseñadas. `noImplicitAny: true` habilitado.
+> `tsc --noEmit` 0 errores · `vite build` ~11s, gzip ~880 KB · vitest 65/65 · pytest 14/14.
 
 ## Reglas de operación
 

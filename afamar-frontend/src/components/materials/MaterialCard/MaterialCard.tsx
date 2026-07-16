@@ -18,7 +18,7 @@ interface MaterialCardProps {
   usdRate?: number;
 }
 
-export default function MaterialCard({
+function MaterialCardInner({
   mat, idx, readOnly, updateMaterial, removeMaterial, num, usdRate = 0,
 }: MaterialCardProps) {
   const m2 = Number(mat.length || 0) * Number(mat.width || 0) * (mat.quantity || 1);
@@ -135,4 +135,6 @@ export default function MaterialCard({
     </div>
   );
 }
+
+export default React.memo(MaterialCardInner);
 

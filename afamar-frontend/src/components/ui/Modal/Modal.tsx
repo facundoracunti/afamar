@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useFocusTrap } from "../../../hooks/useFocusTrap";
 import styles from "./Modal.module.css";
 
 interface ModalProps {
@@ -11,6 +12,8 @@ interface ModalProps {
 }
 
 export function Modal({ isOpen, onClose, title, children, width = "600px" }: ModalProps) {
+  const trapRef = useFocusTrap(isOpen);
+
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: KeyboardEvent) => {
@@ -29,6 +32,7 @@ export function Modal({ isOpen, onClose, title, children, width = "600px" }: Mod
   return createPortal(
     <div className={styles.overlay} onClick={onClose}>
       <div
+        ref={trapRef}
         className={styles.modal}
         style={{ maxWidth: width }}
         onClick={(e) => e.stopPropagation()}

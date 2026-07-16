@@ -9,6 +9,6 @@ interface WorkOrderFormSnapshotProps {
 export default function WorkOrderFormSnapshot({
   form: _form,
   readOnly: _readOnly,
-}: WorkOrderFormSnapshotProps) {
+}: WorkOrderFormSnapshotProps): React.ReactElement | null {
   return null;
 }

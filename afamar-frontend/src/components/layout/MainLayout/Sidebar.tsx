@@ -37,9 +37,9 @@ const accordionGroups: AccordionGroup[] = [
     label: 'PRESUPUESTOS',
     icon: FileText,
     subItems: [
-      { label: 'Presupuesto Local', path: `${PREFIX}/budgets/new`, icon: FileText },
-      { label: 'Presupuesto Local / WhatsApp', path: `${PREFIX}/budgets`, icon: FileText },
-      { label: 'Presupuestos Realizados', path: `${PREFIX}/budgets?status=CONVERTED_TO_OT`, icon: Clock },
+      { label: 'Nuevo Presupuesto', path: `${PREFIX}/budgets/new`, icon: FileText },
+      { label: 'Presupuesto Generados', path: `${PREFIX}/budgets`, icon: FileText },
+      { label: 'Presupuestos Concretados', path: `${PREFIX}/budgets?status=CONVERTED_TO_OT`, icon: Clock },
     ],
   },
   {

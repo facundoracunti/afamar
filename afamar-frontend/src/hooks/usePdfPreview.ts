@@ -35,7 +35,6 @@ export function usePdfPreview(
         }
         const label = entityLabel || 'PDF';
         const suffix = status ? ` (status ${status})` : '';
-        console.error(`Error al generar vista previa del ${label}:`, err);
         notify?.(detail ? `${detail}${suffix}` : `Error al generar la vista previa del ${label}${suffix}`, 'error');
         setState({ pdfPreviewUrl: null, pdfPreviewLoading: false });
       }

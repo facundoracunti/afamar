@@ -5,7 +5,7 @@ import path from 'path'
 export default defineConfig({
   plugins: [react()],
   test: {
-    environment: 'node',
+    environment: 'jsdom',
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     exclude: [
       'node_modules',
@@ -13,7 +13,6 @@ export default defineConfig({
       'e2e',
       'playwright-report',
       'test-results',
-      'src/components/ui/StatusBadge/StatusBadge.test.tsx',
     ],
     globals: true,
     css: true,

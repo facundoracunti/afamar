@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Search } from 'lucide-react';
 import { getWorkOrders, getWorkOrder, deleteWorkOrder, updateWorkOrder, mapWorkOrderStatusToApi } from '@/api/resources/workOrders';
@@ -13,8 +13,8 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinne
 import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
 import { SearchInput } from '../../components/ui/SearchInput/SearchInput';
 import { Pagination } from '../../components/ui/Pagination';
-import PdfPreviewModal from '../../components/ui/PdfPreviewModal/PdfPreviewModal';
-import SketchImageExtractor from '../../components/ui/PdfPreviewModal/SketchImageExtractor';
+const PdfPreviewModal = React.lazy(() => import('../../components/ui/PdfPreviewModal/PdfPreviewModal'));
+const SketchImageExtractor = React.lazy(() => import('../../components/ui/PdfPreviewModal/SketchImageExtractor'));
 import { WorkOrdersTable } from '../../components/common/WorkOrdersTable';
 import { useNotify } from '../../context/NotificationContext';
 import type { WorkOrderListItem } from '../../types/workOrder';
@@ -197,20 +197,24 @@ export default function WorkOrdersList() {
         danger
       />
 
-      <PdfPreviewModal
-        isOpen={pdfData !== null || pdfPreviewLoading}
-        onClose={handleClosePdfPreview}
-        data={pdfData}
-        loading={pdfPreviewLoading}
-        title={pdfPreviewTitle}
-        fileName={`orden_${pendingFormData?.number || ''}.pdf`}
-      />
+      <Suspense fallback={<LoadingSpinner />}>
+        <PdfPreviewModal
+          isOpen={pdfData !== null || pdfPreviewLoading}
+          onClose={handleClosePdfPreview}
+          data={pdfData}
+          loading={pdfPreviewLoading}
+          title={pdfPreviewTitle}
+          fileName={`orden_${pendingFormData?.number || ''}.pdf`}
+        />
+      </Suspense>
 
       {sketchExtractorActive && pendingFormData && (
-        <SketchImageExtractor
-          sketchElements={pendingFormData.sketch_elements}
-          onReady={handleSketchImagesReady}
-        />
+        <Suspense fallback={null}>
+          <SketchImageExtractor
+            sketchElements={pendingFormData.sketch_elements}
+            onReady={handleSketchImagesReady}
+          />
+        </Suspense>
       )}
 
       <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} label="ordenes" />

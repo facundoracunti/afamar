@@ -1,7 +1,7 @@
 from datetime import date
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import select
+from sqlalchemy import case, select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user, get_db
@@ -58,7 +58,11 @@ def list_measurements(
         client_ids_subquery = select(Client.id).where(Client.name.ilike(pattern))
         query = query.filter(Model.client_id.in_(client_ids_subquery))
 
-    query = query.order_by(Model.scheduled_date.desc().nullslast(), Model.id.desc())
+    query = query.order_by(
+        case((Model.scheduled_date.is_(None), 1), else_=0),
+        Model.scheduled_date.desc(),
+        Model.id.desc(),
+    )
     page = paginate(db, query, skip, limit)
     serialized = [MeasurementResponse.from_orm_with_client(m) for m in page.items]
     return success([s.model_dump(mode="json") for s in serialized], page.pagination)

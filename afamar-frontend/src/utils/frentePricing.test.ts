@@ -121,7 +121,7 @@ describe('buildFrenteMaterialOptions', () => {
   });
 
   it('falls back to catalogue lookup by name when the snapshot has no id', () => {
-    const noId = materials.map((m) => ({ ...m, id: null }));
+    const noId = materials.map((m) => ({ ...m, id: null as number | null }));
     const catalogue = [{ id: 7, name: 'Gris Mara', base_price: 50000, price_usd: 0, currency: 'ARS' }];
     const out = buildFrenteMaterialOptions({ materials: noId, catalogueMaterials: catalogue });
     expect(out[1].id).toBe(7);
@@ -180,7 +180,13 @@ describe('buildFrenteSelectionFor', () => {
   });
 
   it('keeps assigned_material_id = null when the material snapshot has no id (legacy budgets)', () => {
-    const mat = {
+    const mat: {
+      id: number | null;
+      name: string;
+      price_per_m2: number;
+      currency: 'ARS' | 'USD';
+      is_alternative: boolean;
+    } = {
       id: null,
       name: 'Negro Brasil',
       price_per_m2: 330,
