@@ -1,6 +1,7 @@
 import type { FormEvent } from "react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { parseApiError } from "../../utils/error";
 import { useAuth } from "../../context/AuthContext";
 import styles from "./LoginPage.module.css";
 
@@ -20,8 +21,7 @@ export default function LoginPage() {
       await login({ username, password });
       navigate("/admin");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Error al iniciar sesión";
-      setError(msg);
+      setError(parseApiError(err, "Error al iniciar sesión"));
     } finally {
       setLoading(false);
     }

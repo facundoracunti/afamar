@@ -312,3 +312,200 @@ describe('buildPdfData — additional works per-section routing', () => {
     expect(mainSection!.additional_works.some((a) => a.type === 'frente')).toBe(false);
   });
 });
+
+describe('buildPdfData — discount and surcharge', () => {
+  const baseParams = {
+    document_type: 'budget' as const,
+    company: {
+      company_name: 'AFAMAR',
+      company_tagline: '',
+      company_address: '',
+      company_phone: '',
+      company_email: '',
+      company_logo: '',
+      pdf_footer: '',
+    },
+    globalTerms: { budget_terms: [], delivery_terms: [], warranty_text: [] },
+    sketchImages: [],
+  };
+
+  it('applies percentage discount to the subtotal+transport base', () => {
+    const fabrication_details = [
+      { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 10000 },
+    ];
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({ fabrication_details, transport: 1000, discount_percentage: 10 }),
+      overrides: {},
+    });
+    // subtotal=10000, transport=1000 → base=11000, discount=1100
+    expect(data.discount_fixed_amount).toBe(1100);
+    expect(data.discount_percentage).toBe(10);
+    expect(data.total).toBe(9900); // 11000 - 1100
+  });
+
+  it('applies fixed amount discount (takes precedence over percentage)', () => {
+    const fabrication_details = [
+      { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 10000 },
+    ];
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({ fabrication_details, transport: 0, discount_fixed_amount: 2500, discount_percentage: 50 }),
+      overrides: {},
+    });
+    // fixed 2500 wins over 50% (5_000)
+    expect(data.discount_fixed_amount).toBe(2500);
+    expect(data.total).toBe(7500); // 10000 - 2500
+  });
+
+  it('adds 0% surcharge for 1-2 installments even when payment method is credit card', () => {
+    const fabrication_details = [
+      { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 10000 },
+    ];
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({ fabrication_details, payment_method: 'TARJETA DE CRÉDITO', installments: 2 }),
+      overrides: {},
+    });
+    expect(data.surcharge_percentage).toBe(0);
+    expect(data.surcharge_amount).toBe(0);
+    expect(data.total).toBe(10000);
+  });
+
+  it('adds 15% surcharge for 3 installments on credit card', () => {
+    const fabrication_details = [
+      { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 10000 },
+    ];
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({ fabrication_details, payment_method: 'TARJETA DE CRÉDITO', installments: 3 }),
+      overrides: {},
+    });
+    expect(data.surcharge_percentage).toBe(15);
+    expect(data.surcharge_amount).toBe(1500);
+    expect(data.total).toBe(11500);
+  });
+
+  it('subtracts deposit_received from total in balance_due', () => {
+    const fabrication_details = [
+      { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 10000 },
+    ];
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({ fabrication_details, deposit_received: 3000 }),
+      overrides: {},
+    });
+    expect(data.total).toBe(10000);
+    expect(data.balance_due).toBe(7000);
+  });
+});
+
+describe('buildPdfData — terms overrides', () => {
+  const baseParams = {
+    document_type: 'budget' as const,
+    company: {
+      company_name: 'AFAMAR',
+      company_tagline: '',
+      company_address: '',
+      company_phone: '',
+      company_email: '',
+      company_logo: '',
+      pdf_footer: '',
+    },
+    sketchImages: [],
+  };
+
+  it('uses override terms when provided for budget', () => {
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm(),
+      globalTerms: { budget_terms: ['Global budget term'], delivery_terms: [], warranty_text: [] },
+      overrides: { budget_terms: ['Override budget term'] },
+    });
+    expect(data.budget_terms_list).toEqual(['Override budget term']);
+  });
+
+  it('falls back to global terms when override is empty', () => {
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm(),
+      globalTerms: { budget_terms: ['Global term'], delivery_terms: ['Global delivery'], warranty_text: ['Global warranty'] },
+      overrides: {},
+    });
+    expect(data.budget_terms_list).toEqual(['Global term']);
+    expect(data.delivery_terms_list).toEqual(['Global delivery']);
+    expect(data.warranty_terms_list).toEqual(['Global warranty']);
+  });
+
+  it('uses override terms for work order (delivery + warranty)', () => {
+    const data = buildPdfData({
+      ...baseParams,
+      document_type: 'work_order',
+      form: makeForm(),
+      globalTerms: { budget_terms: [], delivery_terms: ['Global delivery'], warranty_text: ['Global warranty'] },
+      overrides: { delivery_terms: ['Override delivery'], warranty_terms: ['Override warranty'] },
+    });
+    expect(data.delivery_terms_list).toEqual(['Override delivery']);
+    expect(data.warranty_terms_list).toEqual(['Override warranty']);
+  });
+});
+
+describe('buildPdfData — edge cases', () => {
+  const baseParams = {
+    document_type: 'budget' as const,
+    company: {
+      company_name: 'AFAMAR',
+      company_tagline: '',
+      company_address: '',
+      company_phone: '',
+      company_email: '',
+      company_logo: '',
+      pdf_footer: '',
+    },
+    globalTerms: { budget_terms: [], delivery_terms: [], warranty_text: [] },
+    sketchImages: [],
+  };
+
+  it('renders an empty form without crashing (subtotal=0, total=0)', () => {
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm(),
+      overrides: {},
+    });
+    expect(data.subtotal).toBe(0);
+    expect(data.total).toBe(0);
+    expect(data.balance_due).toBe(0);
+  });
+
+  it('does not crash on malformed additional_works_data JSON', () => {
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({ additional_works_data: '{malformed' }),
+      overrides: {},
+    });
+    expect(data.additional_works).toEqual([]);
+    expect(data.additional_works_subtotal_ars).toBe(0);
+    expect(data.additional_works_subtotal_usd).toBe(0);
+  });
+
+  it('work_order document_type does NOT include alternative sections', () => {
+    const data = buildPdfData({
+      ...baseParams,
+      document_type: 'work_order',
+      form: makeForm({ materials_data: materialsWithAlt }),
+      overrides: {},
+    });
+    // For work orders, only the main section is rendered (no alternatives).
+    const mainSection = data.sections.find((s) => s.is_main);
+    expect(mainSection).toBeDefined();
+    const altSection = data.sections.find((s) => !s.is_main);
+    expect(altSection).toBeUndefined();
+  });
+
+  it('title is PRESUPUESTO for budget and ORDEN DE TRABAJO for work_order', () => {
+    const budget = buildPdfData({ ...baseParams, form: makeForm(), overrides: {} });
+    const wo = buildPdfData({ ...baseParams, document_type: 'work_order', form: makeForm(), overrides: {} });
+    expect(budget.title).toBe('PRESUPUESTO');
+    expect(wo.title).toBe('ORDEN DE TRABAJO');
+  });
+});

@@ -38,3 +38,7 @@
   border: none;
   cursor: pointer;
 }
+
+.cash-movement__table-wrap th.no-print {
+  width: 40px;
+}

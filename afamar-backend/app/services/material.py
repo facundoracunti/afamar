@@ -3,25 +3,10 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import ValidationError
-from app.models.material import Material, MaterialColor, MaterialThickness
+from app.models.material import Material, MaterialCategory, MaterialColor, MaterialThickness
 from app.models.price_history import PriceHistory
-from app.models.reference import Currency
-from app.repositories.material import ColorRepository, MaterialRepository, PriceHistoryRepository, ThicknessRepository
-
-
-def _resolve_currency_id(db: Session, code: str) -> int:
-    """Translate a 3-letter currency code from the wire payload into
-    the matching `currencies.id` row. Raises `ValidationError` if the
-    code doesn't exist (so the API returns 422 with a clear message
-    rather than a 500 IntegrityError on a dangling FK)."""
-    if not code:
-        return 1  # default to ARS (id=1 by the seeder order)
-    cur = db.query(Currency).filter(Currency.code == code.upper()).first()
-    if not cur:
-        raise ValidationError(
-            f"Moneda desconocida: {code!r}. Las monedas válidas se configuran en `currencies`."
-        )
-    return cur.id
+from app.repositories.material import ColorRepository, MaterialCategoryRepository, MaterialRepository, PriceHistoryRepository, ThicknessRepository
+from app.utils.currency import resolve_currency_id
 
 
 class MaterialService:
@@ -29,6 +14,7 @@ class MaterialService:
         self.repo = MaterialRepository(db)
         self.color_repo = ColorRepository(db)
         self.thickness_repo = ThicknessRepository(db)
+        self.category_repo = MaterialCategoryRepository(db)
         self.price_history_repo = PriceHistoryRepository(db)
 
     def get_all(self, skip: int = 0, limit: int = 100) -> List[Material]:
@@ -45,7 +31,7 @@ class MaterialService:
         # expects. The Material ORM model has no `currency` column
         # anymore — only `currency_id`.
         if "currency" in data:
-            data["currency_id"] = _resolve_currency_id(self.repo.db, data.pop("currency"))
+            data["currency_id"] = resolve_currency_id(self.repo.db, data.pop("currency"))
         price = data.get("base_price", 0)
         material = self.repo.create(data)
         if price > 0:
@@ -63,7 +49,7 @@ class MaterialService:
         if not material:
             return None
         if "currency" in data:
-            data["currency_id"] = _resolve_currency_id(self.repo.db, data.pop("currency"))
+            data["currency_id"] = resolve_currency_id(self.repo.db, data.pop("currency"))
         old_price = material.base_price
         result = self.repo.update(material, data)
         if "base_price" in data and data["base_price"] != old_price:
@@ -118,5 +104,34 @@ class MaterialService:
         if not thickness:
             return False
         self.thickness_repo.delete(thickness)
+        self.repo.db.commit()
+        return True
+
+    def list_categories(self) -> List[MaterialCategory]:
+        return self.category_repo.get_all()
+
+    def create_category(self, name: str) -> MaterialCategory:
+        cat = self.category_repo.create(name)
+        self.repo.db.commit()
+        self.repo.db.refresh(cat)
+        return cat
+
+    def get_category(self, category_id: int) -> Optional[MaterialCategory]:
+        return self.category_repo.get_by_id(category_id)
+
+    def update_category(self, category_id: int, name: str) -> Optional[MaterialCategory]:
+        cat = self.category_repo.get_by_id(category_id)
+        if not cat:
+            return None
+        cat.name = name
+        self.repo.db.commit()
+        self.repo.db.refresh(cat)
+        return cat
+
+    def delete_category(self, category_id: int) -> bool:
+        cat = self.category_repo.get_by_id(category_id)
+        if not cat:
+            return False
+        self.category_repo.delete(cat)
         self.repo.db.commit()
         return True

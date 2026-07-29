@@ -1,14 +1,14 @@
 .discount-block {
   margin-top: 8px;
   padding: 8px 10px;
-  background: var(--surface-warning-bg, #fffbe6);
-  border: 1px solid var(--border-warning, #fde68a);
+  background: var(--surface-warning-bg, var(--tw-yellow-50));
+  border: 1px solid var(--border-warning, var(--tw-amber-200));
   border-radius: 8px;
 }
 .discount-block__label {
   font-size: 12px;
   font-weight: 700;
-  color: var(--color-warning-text, #92400e);
+  color: var(--color-warning-text, var(--tw-amber-800));
   display: flex;
   align-items: center;
   gap: 4px;
@@ -26,7 +26,7 @@
 }
 .discount-block__symbol {
   font-size: 12px;
-  color: var(--text-muted, #6b7280);
+  color: var(--text-muted, var(--tw-gray-500));
   font-weight: 600;
 }
 .discount-block__input {
@@ -40,11 +40,11 @@
 }
 .discount-block__sep {
   font-size: 12px;
-  color: var(--text-muted, #9ca3af);
+  color: var(--text-muted, var(--tw-gray-400));
 }
 .discount-block__note {
   font-size: 10px;
-  color: var(--text-muted, #9ca3af);
+  color: var(--text-muted, var(--tw-gray-400));
   margin-top: 4px;
   font-style: italic;
 }

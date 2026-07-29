@@ -14,10 +14,9 @@ router = APIRouter(dependencies=[Depends(get_current_user)])
 @router.get("")
 def list_clients(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     service = ClientService(db)
-    total = service.repo.db.query(service.repo.model).count() or 0
+    total = service.count_all()
     items = service.list_with_stats(skip, limit)
-    page = Page(items=items, pagination=PaginationInfo(total=total, skip=skip, limit=limit))
-    return success(page.items, page.pagination)
+    return success(items, PaginationInfo(total=total, skip=skip, limit=limit))
 
 
 @router.get("/search")

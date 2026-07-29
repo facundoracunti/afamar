@@ -1,9 +1,8 @@
 from datetime import datetime
-from typing import Any
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel
 
-from app.schemas.base import BaseResponse
+from app.schemas.base import BaseResponse, CurrencyCodeMixin
 
 
 class AdditionalWorkBase(BaseModel):
@@ -36,26 +35,7 @@ class AdditionalWorkUpdate(BaseModel):
     formula_constant: float | None = None
 
 
-class AdditionalWorkResponse(AdditionalWorkBase, BaseResponse):
+class AdditionalWorkResponse(AdditionalWorkBase, CurrencyCodeMixin, BaseResponse):
     id: int
     created_at: datetime
     updated_at: datetime
-
-    @model_validator(mode="before")
-    @classmethod
-    def _populate_currency_code(cls, data: Any) -> Any:
-        """Surface `currency_obj.code` as the wire-format `currency`
-        string. Handles both ORM objects and plain dicts (the router
-        dumps the row to JSON first, so dict is the production path).
-        Same pattern as `MaterialResponse._populate_currency_code`."""
-        obj = getattr(data, "currency_obj", None)
-        if obj is None and isinstance(data, dict):
-            obj = data.get("currency_obj")
-        if obj is not None:
-            code = obj.get("code") if isinstance(obj, dict) else getattr(obj, "code", None)
-            if code:
-                try:
-                    data.currency = code
-                except AttributeError:
-                    data["currency"] = code
-        return data

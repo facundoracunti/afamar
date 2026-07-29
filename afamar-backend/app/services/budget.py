@@ -4,15 +4,14 @@ from typing import Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import ValidationError
+from app.core.exceptions import NotFoundError, ValidationError
 from app.models.additional_work import AdditionalWork
 from app.models.budget import Budget, BudgetAdicional, BudgetItem, BudgetSketchElement
 from app.models.material import Material
-from app.models.pool_stock import PoolStock, StockMovement
 from app.models.work_order import WorkOrder
 from app.repositories.budget import BudgetRepository
 from app.repositories.work_order import WorkOrderRepository
-from app.services.work_order import deduct_pool_stock
+from app.services.stock_helpers import deduct_pool_stock, restore_pool_stock
 from app.services.budget_calculator import (
     compute_alternative_totals,
     compute_detail_totals,
@@ -20,6 +19,7 @@ from app.services.budget_calculator import (
     parse_materials_data,
 )
 from app.services.frente_pricing import apply_frente_rows
+from app.utils.client_helpers import resolve_client_id
 from app.utils.numbering import generate_budget_number, generate_work_order_number
 
 
@@ -161,41 +161,10 @@ class BudgetService:
             sketch_data = raw_sketch
         last_number = self.repo.get_last_number()
         data["number"] = generate_budget_number(last_number)
-        client_id = data.get("client_id")
-        if not client_id:
-            client_name = (data.get("client_name") or "").strip()
-            # Normalize whitespace inside the name (e.g. accidental double
-            # spaces) so "gon  zalo" and "gon zalo" don't end up as two
-            # different clients. Look up case-insensitively so the find
-            # branch also catches minor casing drift.
-            if client_name:
-                from app.models.client import Client
-                from sqlalchemy import func
-                client = (
-                    self.repo.db.query(Client)
-                    .filter(func.lower(Client.name) == client_name.lower())
-                    .first()
-                )
-                if not client:
-                    client = Client(
-                        name=client_name,
-                        phone=(data.get("client_phone") or "").strip() or None,
-                        email=(data.get("client_email") or "").strip() or None,
-                        address=(data.get("client_address") or "").strip() or None,
-                    )
-                    self.repo.db.add(client)
-                    self.repo.db.flush()
-                data["client_id"] = client.id
-            else:
-                from app.core.exceptions import ValidationError
-                raise ValidationError("Debe seleccionar o escribir un cliente antes de guardar el presupuesto.")
-        # client_* fields are not stored on the Budget row — they're only
-        # used to resolve client_id above. The response schema populates
-        # them from the related Client via from_orm_with_client.
-        data.pop("client_name", None)
-        data.pop("client_phone", None)
-        data.pop("client_email", None)
-        data.pop("client_address", None)
+        data["client_id"] = resolve_client_id(
+            self.repo.db, data,
+            "Debe seleccionar o escribir un cliente antes de guardar el presupuesto.",
+        )
         budget = self.repo.create(data)
         # Persist the snapshot directly in `additional_works_data`. We don't
         # create `BudgetAdicional` rows anymore (the legacy table is
@@ -218,12 +187,13 @@ class BudgetService:
         if not budget:
             return None
         items_data = data.pop("items", None)
-        # New path: `additional_works_data` (JSON snapshot string from the
-        # catalogue). Set it on the row so the FK-less snapshot survives.
-        # Legacy path: `additional_works` (list of BudgetAdicionalCreate) still
-        # goes through `_sync_children` for backwards compat.
+        # The catalogue selection is persisted as a JSON snapshot in
+        # `additional_works_data` (the canonical wire format from the
+        # frontend). The legacy `BudgetAdicional` 1-N table is read-only
+        # on the update path — historical rows survive but we no longer
+        # write new ones (mirrors the `create` path).
+        data.pop("additional_works", None)
         raw_additional_works_data = data.pop("additional_works_data", None)
-        legacy_additional_works = data.pop("additional_works", None)
         # `sketch_elements` arrives as a JSON-encoded string (wire format).
         # `_sync_children` expects a list — parse it back here.
         raw_sketch = data.pop("sketch_elements", None)
@@ -244,7 +214,6 @@ class BudgetService:
             budget.additional_works_data = _process_additional_works_snapshot(
                 self.repo.db, raw_additional_works_data
             )
-        _sync_children(budget, self.repo, "additional_works", BudgetAdicional, legacy_additional_works)
         _sync_children(budget, self.repo, "sketch_elements", BudgetSketchElement, sketch_data)
         self.repo.db.commit()
         return self.repo.get_by_id(budget.id)
@@ -254,39 +223,10 @@ class BudgetService:
         if not budget:
             return False
         if budget.stock_deducted:
-            pools_restored = set()
-            if budget.pool_id and budget.pool_id not in pools_restored:
-                pool = self.repo.db.query(PoolStock).filter(PoolStock.id == budget.pool_id).first()
-                if pool:
-                    pool.quantity = (pool.quantity or 0) + 1
-                    movement = StockMovement(
-                        pool_id=pool.id,
-                        type="entry",
-                        quantity=1,
-                        notes=f"Restauración por eliminación de presupuesto {budget.number}",
-                    )
-                    self.repo.db.add(movement)
-                pools_restored.add(budget.pool_id)
-            if budget.pools_data:
-                try:
-                    pools_list = json.loads(budget.pools_data) if isinstance(budget.pools_data, str) else budget.pools_data
-                    for entry in pools_list if isinstance(pools_list, list) else []:
-                        pid = entry.get("pool_id") or entry.get("id")
-                        qty = entry.get("quantity", 1)
-                        if pid and pid not in pools_restored:
-                            pool = self.repo.db.query(PoolStock).filter(PoolStock.id == pid).first()
-                            if pool:
-                                pool.quantity = (pool.quantity or 0) + qty
-                                movement = StockMovement(
-                                    pool_id=pool.id,
-                                    type="entry",
-                                    quantity=qty,
-                                    notes=f"Restauración por eliminación de presupuesto {budget.number}",
-                                )
-                                self.repo.db.add(movement)
-                            pools_restored.add(pid)
-                except (json.JSONDecodeError, TypeError):
-                    pass
+            restore_pool_stock(
+                self.repo.db, budget.pool_id, budget.pools_data, budget.number,
+                notes_prefix="Restauración por eliminación de presupuesto",
+            )
             budget.stock_deducted = False
         self.repo.delete(budget)
         self.repo.db.commit()
@@ -295,15 +235,15 @@ class BudgetService:
     def convert_alternative_to_work_order(self, budget_id: int, idx: int) -> WorkOrder:
         budget = self.repo.get_by_id(budget_id)
         if not budget:
-            raise ValueError("Budget not found")
+            raise NotFoundError("Budget")
 
         materials = parse_materials_data(budget.materials_data)
         if idx < 0 or idx >= len(materials):
-            raise ValueError(f"Alternative index {idx} out of range")
+            raise ValidationError(f"Alternative index {idx} out of range")
 
         alt = materials[idx]
         if not (alt.get("is_alternative") or alt.get("es_alternativa")):
-            raise ValueError("Material at index is not marked as alternative")
+            raise ValidationError("Material at index is not marked as alternative")
 
         mat_cost_ars, mat_cost_usd, alt_currency, usd_rate_value, _ = compute_alternative_totals(alt, budget)
 

@@ -1,5 +1,4 @@
-import React, { useMemo, useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import React, { Suspense, useMemo, useState } from 'react';
 import { getReportsDashboard, getMonthlySales, getMostUsedMaterials } from '@/api/resources/reports';
 import { useGet, useList } from '../../api/hooks';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
@@ -7,7 +6,16 @@ import styles from './ReportsPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
 
-const COLORS = ['#3b82f6', '#22c55e', '#ef4444', '#f59e0b', '#8b5cf6', '#06b6d4'];
+// Lazy-load the chart components (recharts ≈ 90 KB min / ≈ 30 KB gzip).
+// The dynamic import creates a separate chunk that is only fetched when
+// the user opens the "Ventas Mensuales" or "Materiales" tabs. Both
+// components share the same recharts chunk, so this only downloads once.
+const MonthlySalesChart = React.lazy(() =>
+  import('./ReportsCharts').then((m) => ({ default: m.MonthlySalesChart }))
+);
+const MostUsedMaterialsChart = React.lazy(() =>
+  import('./ReportsCharts').then((m) => ({ default: m.MostUsedMaterialsChart }))
+);
 
 export default function Reports() {
   const [activeTab, setActiveTab] = useState('presupuestos');
@@ -42,7 +50,7 @@ export default function Reports() {
       total: ((stats.workshop_orders as number) || 0) + ((stats.finished_orders as number) || 0) + ((stats.delivered_orders as number) || 0),
       presupuestadas: stats.workshop_orders,
       en_produccion: stats.finished_orders,
-      finalizadas: stats.delivered_orders,
+      finalizadas: stats.finished_orders,
     };
   }, [stats]);
 
@@ -127,53 +135,22 @@ export default function Reports() {
         )}
 
         {activeTab === 'ventas' && ventas && (
-          <div>
-            <h3 className="section-title">Ventas Mensuales - {(ventas as Record<string, unknown>).año as number}</h3>
-            <ResponsiveContainer width="100%" height={350}>
-              <BarChart data={(ventas as Record<string, unknown>).ventas as Record<string, unknown>[]}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="mes" tickFormatter={(m) => ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][m-1]} />
-                <YAxis />
-                <Tooltip formatter={(v: number) => `$${v?.toFixed(2)}`} />
-                <Bar dataKey="monto" fill="#3b82f6" radius={[4,4,0,0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <Suspense fallback={<LoadingSpinner />}>
+            <MonthlySalesChart
+              data={(ventas as Record<string, unknown>).ventas as Array<Record<string, unknown>>}
+              year={(ventas as Record<string, unknown>).año as number}
+            />
+          </Suspense>
         )}
 
         {activeTab === 'materiales' && (
-          <div>
-            <h3 className="section-title">Materiales Más Utilizados</h3>
-            {materials.length > 0 ? (
-              <div className="grid-2">
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie data={materials} dataKey="total" nameKey="material" cx="50%" cy="50%" outerRadius={100} label={({ material, total }: { material: string; total: number }) => `${material}: ${total}`}>
-                      {materials.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div>
-                  <table>
-                    <thead>
-                      <tr><th>Material</th><th>Veces utilizado</th></tr>
-                    </thead>
-                    <tbody>
-                      {materials.map((m, i) => (
-                        <tr key={i}>
-                          <td className={s['reports__material-name']}>{(m as Record<string, unknown>).material as string}</td>
-                          <td>{(m as Record<string, unknown>).total as number}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ) : (
-              <p className={s['reports__empty-data']}>No hay datos suficientes</p>
-            )}
-          </div>
+          <Suspense fallback={<LoadingSpinner />}>
+            <MostUsedMaterialsChart
+              materials={materials}
+              materialNameClass={s['reports__material-name']}
+              emptyMessage={s['reports__empty-data']}
+            />
+          </Suspense>
         )}
       </div>
     </div>

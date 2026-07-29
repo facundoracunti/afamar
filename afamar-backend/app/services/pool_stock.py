@@ -3,25 +3,11 @@ from typing import List, Optional
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.exceptions import ValidationError
-from app.models.pool_stock import PoolStock, PoolType
-from app.models.reference import Currency
+from app.models.pool_stock import PoolStock, PoolType, StockMovement
 from app.repositories.pool_stock import PoolStockRepository
+from app.utils.currency import resolve_currency_id
 from app.utils.pagination import paginate, Page
-
-
-def _resolve_currency_id(db: Session, code: str) -> int:
-    """Translate a 3-letter currency code into the matching
-    `currencies.id`. Raises `ValidationError` if the code doesn't
-    exist (so the API returns 422 with a clear message rather than a
-    500 IntegrityError on a dangling FK)."""
-    if not code:
-        return 1  # default to ARS (id=1 by the seeder order)
-    cur = db.query(Currency).filter(Currency.code == code.upper()).first()
-    if not cur:
-        raise ValidationError(
-            f"Moneda desconocida: {code!r}. Las monedas válidas se configuran en `currencies`."
-        )
-    return cur.id
+from app.utils.responses import PaginationInfo
 
 
 class PoolStockService:
@@ -70,7 +56,7 @@ class PoolStockService:
         # FK translation lives here so the rest of the stack (Pydantic
         # schemas, ORM, frontend) keeps talking in code rather than ids.
         if "currency" in data:
-            data["currency_id"] = _resolve_currency_id(self.repo.db, data.pop("currency"))
+            data["currency_id"] = resolve_currency_id(self.repo.db, data.pop("currency"))
         pool = self.repo.create(data)
         self.repo.db.commit()
         self.repo.db.refresh(pool)
@@ -87,7 +73,7 @@ class PoolStockService:
         if not pool:
             return None
         if "currency" in data:
-            data["currency_id"] = _resolve_currency_id(self.repo.db, data.pop("currency"))
+            data["currency_id"] = resolve_currency_id(self.repo.db, data.pop("currency"))
         result = self.repo.update(pool, data)
         self.repo.db.commit()
         self.repo.db.refresh(result)
@@ -107,3 +93,9 @@ class PoolStockService:
         self.repo.db.commit()
         self.repo.db.refresh(movement)
         return movement
+
+    def list_movements(self, pool_id: int, skip: int = 0, limit: int = 100) -> tuple[list[StockMovement], PaginationInfo]:
+        query = self.repo.db.query(StockMovement).filter(StockMovement.pool_id == pool_id).order_by(StockMovement.created_at.desc())
+        total = query.count()
+        items = query.offset(skip).limit(limit).all()
+        return items, PaginationInfo(total=total, skip=skip, limit=limit)

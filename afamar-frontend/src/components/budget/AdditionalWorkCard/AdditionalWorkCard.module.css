@@ -29,7 +29,7 @@
 }
 
 .additional-work-card[data-type='frente'] {
-  border-color: var(--color-primary, #1e40af);
+  border-color: var(--color-primary, var(--tw-blue-800));
   background: var(--surface-bg);
 }
 
@@ -66,8 +66,8 @@
 }
 
 .additional-work-card[data-type='frente'] .additional-work-card__type-pill {
-  background: var(--color-primary, #1e40af);
-  border-color: var(--color-primary, #1e40af);
+  background: var(--color-primary, var(--tw-blue-800));
+  border-color: var(--color-primary, var(--tw-blue-800));
   color: var(--surface-bg);
 }
 

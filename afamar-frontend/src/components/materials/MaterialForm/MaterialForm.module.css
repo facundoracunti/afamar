@@ -79,7 +79,7 @@
   margin-left: 8px;
   font-size: 11px;
   font-weight: 500;
-  color: #2563eb;
+  color: var(--tw-blue-600);
   text-transform: none;
   letter-spacing: 0;
   text-decoration: none;
@@ -89,7 +89,7 @@
 }
 
 .material-form__label-link:hover {
-  color: #1d4ed8;
+  color: var(--tw-blue-700);
   text-decoration: underline;
 }
 
@@ -171,7 +171,7 @@
 }
 
 .material-form__warn-text {
-  color: #b45309;
+  color: var(--tw-amber-700);
   font-size: 12px;
   margin-top: 4px;
   display: block;

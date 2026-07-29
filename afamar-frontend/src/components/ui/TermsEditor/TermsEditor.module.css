@@ -75,7 +75,7 @@
 
 .terms-editor__row-delete:hover {
   background: var(--sidebar-item-active-bg);
-  border-color: #fca5a5;
+  border-color: var(--tw-red-300);
 }
 
 .terms-editor__row-delete:disabled {
@@ -91,7 +91,7 @@
   border: 1px dashed var(--input-border);
   border-radius: 6px;
   background: var(--surface-bg);
-  color: #2563eb;
+  color: var(--tw-blue-600);
   font-weight: 600;
   font-size: 13px;
   cursor: pointer;

@@ -49,9 +49,9 @@
   color: var(--text-primary);
 }
 
-.cash__totalValue--income { color: #16a34a; }
+.cash__totalValue--income { color: var(--tw-green-600); }
 .cash__totalValue--expense { color: var(--color-danger); }
-.cash__totalValue--balance { color: #2563eb; }
+.cash__totalValue--balance { color: var(--tw-blue-600); }
 .cash__totalValue--negative { color: var(--color-danger); }
 
 .cash__movements {
@@ -99,8 +99,8 @@
   letter-spacing: 0.4px;
 }
 
-.cash__type--income { background: #d1fae5; color: #065f46; }
-.cash__type--expense { background: #fee2e2; color: #991b1b; }
+.cash__type--income { background: var(--tw-emerald-100); color: var(--tw-emerald-800); }
+.cash__type--expense { background: var(--tw-red-100); color: var(--tw-red-800); }
 
 .cash__empty {
   padding: 48px;

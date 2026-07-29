@@ -257,7 +257,7 @@
 }
 
 .client-form__address-row--default {
-  border-color: var(--color-success, #059669);
+  border-color: var(--color-success, var(--tw-emerald-600));
   background: color-mix(in srgb, var(--color-success, #059669) 8%, var(--surface-bg));
 }
 
@@ -296,7 +296,7 @@
   gap: 4px;
   font-size: 12px;
   font-weight: 700;
-  color: var(--color-success, #059669);
+  color: var(--color-success, var(--tw-emerald-600));
   padding: 4px 8px;
   background: color-mix(in srgb, var(--color-success, #059669) 18%, transparent);
   border-radius: 4px;

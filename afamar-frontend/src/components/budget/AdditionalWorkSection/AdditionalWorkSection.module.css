@@ -15,7 +15,7 @@
 }
 
 .additional-works__empty a {
-  color: var(--color-info, #1e40af);
+  color: var(--color-info, var(--tw-blue-800));
   text-decoration: underline;
 }
 
@@ -34,7 +34,7 @@
 .additional-works__add-frente-select {
   font-size: 13px;
   font-weight: 600;
-  color: var(--color-info, #1e40af);
+  color: var(--color-info, var(--tw-blue-800));
 }
 
 .additional-works__totals {

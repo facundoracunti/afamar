@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 from datetime import date
 from typing import Optional
 
@@ -15,6 +15,7 @@ from app.models.setting import Setting
 from app.schemas.budget import BudgetCreate, BudgetResponse, BudgetUpdate
 from app.services.budget import BudgetService
 from app.services.email import send_budget_email
+from app.services.pdf_helpers import COMPANY_KEYS, TERMS_KEYS, build_company_and_terms, has_terms, load_settings, split_or_default
 from app.services.pdf_html import build_budget_pdf_data, generate_budget_pdf
 
 logger = logging.getLogger(__name__)
@@ -72,35 +73,43 @@ def list_unified_budgets(
     limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
 ):
+    from sqlalchemy import select
     from app.models.client import Client
+    from app.models.budget import Budget
+    from app.repositories.budget import _eager_query
     from app.services.budget import BudgetService
 
     service = BudgetService(db)
-    locales = service.repo.db.query(service.repo.model)
+    query = _eager_query(service.repo.db)
 
     if status == "ALL":
         pass  # explicit "no filter": include CONVERTED_TO_OT too
     elif status:
-        locales = locales.filter(service.repo.model.status == status)
+        query = query.filter(Budget.status == status)
     else:
         # Default landing page: hide converted work orders (they live in
         # /admin/work-orders). APPROVED is shown so the user can still click
         # "Convertir a OT" from the list.
-        locales = locales.filter(service.repo.model.status != "CONVERTED_TO_OT")
+        query = query.filter(Budget.status != "CONVERTED_TO_OT")
 
     if q:
-        locales = locales.outerjoin(Client).filter(
-            service.repo.model.number.ilike(f"%{q}%")
-            | Client.name.ilike(f"%{q}%")
-            | Client.phone.ilike(f"%{q}%")
-            | service.repo.model.material.ilike(f"%{q}%")
+        pattern = f"%{q}%"
+        client_id_subquery = (
+            select(Client.id).where(
+                Client.name.ilike(pattern) | Client.phone.ilike(pattern)
+            )
+        )
+        query = query.filter(
+            Budget.number.ilike(pattern)
+            | Budget.client_id.in_(client_id_subquery)
+            | Budget.material.ilike(pattern)
         )
 
-    locales = locales.order_by(service.repo.model.id.desc()).all()
-    locales = list({p.id: p for p in locales}.values())
+    total = query.count()
+    items = query.order_by(Budget.id.desc()).offset(skip).limit(limit).all()
 
     result = []
-    for p in locales:
+    for p in items:
         c = p.client
         result.append({
             "id": p.id,
@@ -119,10 +128,7 @@ def list_unified_budgets(
             "balance_due": p.balance_due or 0,
             "design_observations": p.design_observations or "",
         })
-    result.sort(key=lambda x: x.get("created_at") or "", reverse=True)
-    total = len(result)
-    page_items = result[skip:skip + limit]
-    return success(page_items, pagination={"total": total, "skip": skip, "limit": limit})
+    return success(result, pagination={"total": total, "skip": skip, "limit": limit})
 
 
 @router.get("/next-number")
@@ -166,68 +172,6 @@ def delete_budget(budget_id: int, db: Session = Depends(get_db)):
         raise NotFoundError("Budget")
 
 
-def _load_settings(db: Session) -> dict:
-    rows = db.query(Setting).all()
-    return {row.key: row.value for row in rows}
-
-
-_COMPANY_KEYS = ["company_name", "company_tagline", "company_address", "company_phone", "company_email", "company_logo", "pdf_footer"]
-_TERMS_KEYS = ["budget_terms", "delivery_terms", "warranty_text", "observaciones_automaticas"]
-
-
-def _split_or_default(value, default_global_terms) -> list[str]:
-    """Return terms from `value` (per-budget override) if it has any,
-    otherwise from `default_global_terms` (loaded via /admin/configuration).
-
-    Accepts override values that may be: JSON list (already decoded), str (JSON or
-    legacy plain text), None. Matches the helper in pdf_html.py but lives here
-    so routers can decide whether a budget/work-order overrides config.
-    """
-    import json as _json
-    if value is None or value == "":
-        return default_global_terms or []
-    if isinstance(value, list):
-        return [str(t) for t in value if str(t).strip()]
-    raw = str(value).strip()
-    if not raw:
-        return default_global_terms or []
-    try:
-        parsed = _json.loads(raw)
-        if isinstance(parsed, list):
-            return [str(t) for t in parsed if str(t).strip()]
-    except (ValueError, TypeError):
-        pass
-    # Legacy plain-text: split on newlines
-    return [t for t in (line.strip() for line in raw.splitlines()) if t]
-
-
-def _build_company_and_terms(settings_data: dict, overrides: dict | None = None) -> tuple[dict, dict]:
-    """Build the `company` and `terms` dicts for the PDF.
-
-    `overrides` is an optional dict with per-budget keys (budget_terms_override,
-    warranty_override) â€” when present and non-empty, they REPLACE the global
-    values from settings_data at the same key.
-    Empty JSON arrays (`"[]"`) from the frontend mean "no per-entity override",
-    so the global config terms are kept.
-    """
-    company = {k: settings_data.get(k, "") for k in _COMPANY_KEYS}
-    overrides = overrides or {}
-    terms = {k: settings_data.get(k, "") for k in _TERMS_KEYS}
-    if _has_terms(overrides.get("budget_terms_override")):
-        terms["budget_terms"] = overrides["budget_terms_override"]
-    if _has_terms(overrides.get("warranty_override")):
-        terms["warranty_text"] = overrides["warranty_override"]
-    return company, terms
-
-
-def _has_terms(value) -> bool:
-    """Return True if `value` is a non-empty terms override (not None, not `"[]"`)."""
-    if not value:
-        return False
-    s = str(value).strip()
-    return s not in ("", "[]")
-
-
 def _prepare_budget_payload(budget, db: Session) -> tuple[dict, dict, dict, dict]:
     budget_data = BudgetResponse.from_orm_with_client(budget).model_dump(mode="json")
     client = budget.client
@@ -237,23 +181,19 @@ def _prepare_budget_payload(budget, db: Session) -> tuple[dict, dict, dict, dict
         "email": client.email,
         "address": client.address,
     }
-    settings_data = _load_settings(db)
-    # Per-budget overrides win over the global config terms.
+    settings_data = load_settings(db)
     overrides = {
         "budget_terms_override": getattr(budget, "budget_terms_override", None),
         "warranty_override": getattr(budget, "warranty_override", None),
     }
-    company, terms = _build_company_and_terms(settings_data, overrides)
+    company, terms = build_company_and_terms(settings_data, "budget_terms_override", overrides)
     return budget_data, client_dict, company, terms
 
 
 @router.post("/{budget_id}/alternatives/{idx}/convert-to-work-order", status_code=201)
 def convert_alternative_to_work_order(budget_id: int, idx: int, db: Session = Depends(get_db)):
     service = BudgetService(db)
-    try:
-        work_order = service.convert_alternative_to_work_order(budget_id, idx)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    work_order = service.convert_alternative_to_work_order(budget_id, idx)
     return created(work_order)
 
 

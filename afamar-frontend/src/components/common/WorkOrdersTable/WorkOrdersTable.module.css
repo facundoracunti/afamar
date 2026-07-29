@@ -22,6 +22,24 @@
   border-bottom: 1px solid var(--border-color);
 }
 
+/* Column widths for the work-orders table. Encoded as nth-child rules
+ * so the JSX stays free of inline `style={{ width: ... }}`. Add a new
+ * column by adding its width here in the same order as the <th>s. */
+.wo-table thead th:nth-child(1) { width: 100px; }
+.wo-table thead th:nth-child(2) { width: 95px; }
+.wo-table thead th:nth-child(3) { /* Cliente — flex */ }
+.wo-table thead th:nth-child(4) { width: 120px; }
+.wo-table thead th:nth-child(5) { /* Material — flex */ }
+.wo-table thead th:nth-child(6) { width: 110px; }
+.wo-table thead th:nth-child(7) { width: 100px; }
+.wo-table thead th:nth-child(8) { width: 110px; }
+.wo-table thead th:nth-child(9) { width: 110px; }
+.wo-table thead th:nth-child(10) { width: 110px; }
+.wo-table thead th:nth-child(11) { width: 90px; }
+.wo-table thead th:nth-child(12) { width: 140px; }
+.wo-table thead th:nth-child(13) { width: 150px; }
+.wo-table thead th:nth-child(14) { width: 70px; }
+
 .wo-table__td {
   padding: 12px;
   font-size: 14px;

@@ -1,3 +1,7 @@
+table thead th:nth-child(6) {
+  width: 160px;
+}
+
 .aw-table__detail-empty {
   color: var(--text-muted);
 }

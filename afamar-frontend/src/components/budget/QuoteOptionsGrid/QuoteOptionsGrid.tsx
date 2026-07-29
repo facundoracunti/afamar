@@ -145,7 +145,7 @@ const QuoteOptionsGrid = ({
               const jobEsUSD = jobCurrency === 'USD';
               return (
                 <div
-                  key={i}
+                  key={`${job.concept}-${job.total}-${job.currency ?? 'ARS'}-${i}`}
                   className={`${s['quote-options__detail-row']} ${s['quote-options__detail-row--dashed']}`}
                 >
                   <span className={s['quote-options__detail-label--muted']}>

@@ -1,9 +1,8 @@
 from datetime import datetime
-from typing import Any
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel
 
-from app.schemas.base import BaseResponse
+from app.schemas.base import BaseResponse, CurrencyCodeMixin
 
 
 class StockMovementCreate(BaseModel):
@@ -59,29 +58,10 @@ class PoolStockUpdate(BaseModel):
     pool_type_id: int | None = None
 
 
-class PoolStockResponse(PoolStockBase, BaseResponse):
+class PoolStockResponse(PoolStockBase, CurrencyCodeMixin, BaseResponse):
     id: int
     pool_type_id: int | None = None
     pool_type_name: str | None = None
     created_at: datetime
     updated_at: datetime
     movements: list[StockMovementResponse] = []
-
-    @model_validator(mode="before")
-    @classmethod
-    def _populate_currency_code(cls, data: Any) -> Any:
-        """Same as `MaterialResponse._populate_currency_code`. Tries
-        `currency_obj` first (works for ORM objects) and falls back to
-        dict access for plain dicts (when the router dumps the row
-        to JSON first)."""
-        obj = getattr(data, "currency_obj", None)
-        if obj is None and isinstance(data, dict):
-            obj = data.get("currency_obj")
-        if obj is not None:
-            code = obj.get("code") if isinstance(obj, dict) else getattr(obj, "code", None)
-            if code:
-                try:
-                    data.currency = code
-                except AttributeError:
-                    data["currency"] = code
-        return data

@@ -82,8 +82,8 @@ export function HomePage() {
         <h2 className={styles.section__title}>Materiales que utilizamos</h2>
         <p className={styles.section__subtitle}>Trabajamos con marcas registradas Neolith y Silestone. Original. Y toda la gama de granitos y mármoles nacionales e importados.</p>
         <div className={styles.materials__grid}>
-          {materials.map((m, i) => (
-            <div key={i} className={styles.material__card}>
+          {materials.map((m) => (
+            <div key={m.name} className={styles.material__card}>
               <div className={styles.material__header} style={{ background: m.gradient }}>
                 <h3 className={styles.material__name}>{m.name}</h3>
               </div>
@@ -147,9 +147,9 @@ export function HomePage() {
           <div className={styles.portfolio__loading}>Cargando fotos...</div>
         ) : (
         <div className={styles.portfolio__grid}>
-          {portfolioItems.map((item, i) => (
+          {portfolioItems.map((item) => (
             <div
-              key={i}
+              key={item.image}
               className={styles.portfolio__card}
               style={{ backgroundImage: `url(${item.image})` }}
               onClick={() => setModalImg(item.image)}

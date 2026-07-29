@@ -31,14 +31,14 @@
 }
 
 .pagination__btn--active {
-  background: var(--color-primary, #1c1917);
-  color: var(--text-inverse, #ffffff);
-  border-color: var(--color-primary, #1c1917);
+  background: var(--color-primary, var(--tw-stone-900));
+  color: var(--text-inverse, var(--tw-white));
+  border-color: var(--color-primary, var(--tw-stone-900));
 }
 
 .pagination__btn--active:hover:not(:disabled) {
-  background: var(--color-primary, #1c1917);
-  color: var(--text-inverse, #ffffff);
+  background: var(--color-primary, var(--tw-stone-900));
+  color: var(--text-inverse, var(--tw-white));
 }
 
 .pagination__gap {

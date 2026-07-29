@@ -23,6 +23,63 @@
   --color-info: #2980b9;
   --color-warning: #f59e0b;
 
+  /* Tailwind palette (consolidated). Use these instead of hardcoding
+   * hex codes in component CSS so dark/light themes can re-skin
+   * consistently. The literal hex values match Tailwind's default
+   * palette (green-600, red-700, etc.) so the visual result is
+   * unchanged. */
+  --tw-green-600: #16a34a;
+  --tw-green-500: #22c55e;
+  --tw-green-700: #15803d;
+  --tw-green-800: #166534;
+  --tw-green-50: #f0fdf4;
+  --tw-green-100: #dcfce7;
+  --tw-green-200: #bbf7d0;
+  --tw-emerald-600: #059669;
+  --tw-emerald-800: #065f46;
+  --tw-emerald-100: #d1fae5;
+  --tw-red-200: #fecaca;
+  --tw-red-300: #fca5a5;
+  --tw-red-400: #f87171;
+  --tw-red-500: #ef4444;
+  --tw-red-600: #dc2626;
+  --tw-red-700: #b91c1c;
+  --tw-red-800: #991b1b;
+  --tw-red-900: #7f1d1d;
+  --tw-red-50: #fef2f2;
+  --tw-red-100: #fee2e2;
+  --tw-orange-600: #ea580c;
+  --tw-orange-700: #c2410c;
+  --tw-blue-500: #3b82f6;
+  --tw-blue-600: #2563eb;
+  --tw-blue-700: #1d4ed8;
+  --tw-blue-800: #1e40af;
+  --tw-blue-50: #eff6ff;
+  --tw-amber-500: #f59e0b;
+  --tw-amber-600: #d97706;
+  --tw-amber-700: #b45309;
+  --tw-amber-800: #92400e;
+  --tw-amber-100: #fef3c7;
+  --tw-amber-200: #fde68a;
+  --tw-violet-700: #6d28d9;
+  --tw-violet-600: #7c3aed;
+  --tw-purple-700: #7e22ce;
+  --tw-purple-500: #a855f7;
+  --tw-slate-500: #64748b;
+  --tw-slate-600: #475569;
+  --tw-slate-700: #334155;
+  --tw-slate-800: #1e293b;
+  --tw-slate-900: #0f172a;
+  --tw-stone-900: #1c1917;
+  --tw-gray-500: #6b7280;
+  --tw-gray-400: #9ca3af;
+  --tw-yellow-50: #fffbe6;
+  --tw-white: #ffffff;
+  /* Brand-specific reds used in CashDailyPage (e51a24 is a slightly
+   * warmer red than the Tailwind palette). Kept as a separate token
+   * so a future re-skin can override just this one. */
+  --color-brand-red: #e51a24;
+
   /* Radii / shadows / spacing / fonts (theme-independent) */
   --radius-sm: 4px;
   --radius-md: 6px;

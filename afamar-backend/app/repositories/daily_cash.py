@@ -2,6 +2,7 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
+from app.core.exceptions import NotFoundError
 from app.models.daily_cash import CashMovement, DailyCash
 
 
@@ -36,7 +37,7 @@ class DailyCashRepository:
     def recalculate(self, cash_id: int) -> DailyCash:
         cash = self.get_by_id(cash_id)
         if not cash:
-            raise ValueError("DailyCash not found")
+            raise NotFoundError("DailyCash")
 
         movements = cash.movements
         total_income = sum(m.amount for m in movements if m.type == "INCOME")

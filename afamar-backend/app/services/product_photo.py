@@ -7,18 +7,11 @@ from PIL import Image
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from app.core.settings import settings
 from app.models.product_photo import ProductPhoto
 from app.repositories.product_photo import ProductPhotoRepository
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
-MAX_FILE_SIZE = 30 * 1024 * 1024
-MAX_DIMENSION = 1920
-
-UPLOAD_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "uploads",
-    "product_photos",
-)
 
 
 class ProductPhotoService:
@@ -39,23 +32,24 @@ class ProductPhotoService:
         if ext not in ALLOWED_EXTENSIONS:
             raise HTTPException(status_code=400, detail=f"Formato no permitido: {ext}. Usá JPG, PNG o WebP.")
 
-        if len(file_data) > MAX_FILE_SIZE:
+        if len(file_data) > settings.MAX_UPLOAD_FILE_SIZE:
             raise HTTPException(status_code=400, detail="La imagen supera los 30MB.")
 
-        os.makedirs(UPLOAD_DIR, exist_ok=True)
+        upload_dir = settings.product_photos_abs_dir
+        os.makedirs(upload_dir, exist_ok=True)
         stored_name = f"{uuid4().hex}.webp"
-        file_path = os.path.join(UPLOAD_DIR, stored_name)
+        file_path = upload_dir / stored_name
 
         img = Image.open(BytesIO(file_data))
         img = img.convert("RGB")
-        if max(img.width, img.height) > MAX_DIMENSION:
-            ratio = MAX_DIMENSION / max(img.width, img.height)
+        if max(img.width, img.height) > settings.MAX_UPLOAD_DIMENSION:
+            ratio = settings.MAX_UPLOAD_DIMENSION / max(img.width, img.height)
             new_size = (int(img.width * ratio), int(img.height * ratio))
             img = img.resize(new_size, Image.LANCZOS)
 
         img.save(file_path, "WEBP", quality=85, optimize=True)
 
-        relative_path = f"/uploads/product_photos/{stored_name}"
+        relative_path = f"/{settings.PRODUCT_PHOTOS_DIR}/{stored_name}"
         photo = self.repo.create({"file_path": relative_path, "title": title, "description": description})
         self.repo.db.commit()
         self.repo.db.refresh(photo)
@@ -74,11 +68,9 @@ class ProductPhotoService:
         photo = self.repo.get_by_id(photo_id)
         if not photo:
             return False
-        full_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-            photo.file_path.lstrip("/"),
-        )
-        if os.path.exists(full_path):
+        stored_name = photo.file_path.rsplit("/", 1)[-1]
+        full_path = settings.product_photos_abs_dir / stored_name
+        if full_path.exists():
             os.remove(full_path)
         self.repo.delete(photo)
         self.repo.db.commit()

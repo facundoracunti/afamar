@@ -2,21 +2,18 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.models.options import AppOption
 from app.repositories.option import OptionRepository
+from app.services.base import BaseService
 
 
-class AppOptionService:
+class AppOptionService(BaseService[AppOption]):
     def __init__(self, db: Session):
         self.repo = OptionRepository(db)
-
-    def get_all(self):
-        return self.repo.get_all()
+        super().__init__(db)
 
     def get_by_category(self, category: str):
         return self.repo.get_by_category(category)
-
-    def get_by_id(self, option_id: int):
-        return self.repo.get_by_id(option_id)
 
     def create(self, data: dict[str, Any]):
         option = self.repo.create(data)

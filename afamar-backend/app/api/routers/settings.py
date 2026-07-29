@@ -5,12 +5,13 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user, get_db
+from app.core.settings import settings
 from app.utils.responses import success
 from app.models.setting import Setting
 from app.schemas.setting import SettingUpdate
 
 
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "uploads")
+UPLOAD_DIR = settings.logos_abs_dir
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
@@ -128,14 +129,14 @@ def upload_logo(file: UploadFile = File(...), db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=f"Archivo no es una imagen válida: {exc}")
 
     for ext in (".png", ".jpg", ".jpeg", ".webp", ".gif"):
-        old = os.path.join(UPLOAD_DIR, f"logo{ext}")
-        if os.path.exists(old):
+        old = UPLOAD_DIR / f"logo{ext}"
+        if old.exists():
             try:
                 os.remove(old)
             except OSError:
                 pass
 
-    dest = os.path.join(UPLOAD_DIR, "logo.png")
+    dest = UPLOAD_DIR / "logo.png"
     if img.mode in ("RGBA", "LA", "P"):
         img.save(dest, format="PNG")
     else:

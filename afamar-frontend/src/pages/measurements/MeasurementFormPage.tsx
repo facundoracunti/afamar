@@ -5,6 +5,7 @@ import { Save } from 'lucide-react';
 import { getMeasurement, createMeasurement, updateMeasurement } from '@/api/resources/measurements';
 import { getClients } from '@/api/resources/clients';
 import { getWorkOrders, getWorkOrder } from '@/api/resources/workOrders';
+import { parseApiError } from '../../utils/error';
 import { measurementStatuses, formatDate } from '../../utils/formatters';
 import { t } from '../../utils/translate';
 import { useGet, useList } from '../../api/hooks';
@@ -69,26 +70,31 @@ export default function MeasurementForm() {
     !!id
   );
 
-  const [clientes, setClientes] = useState<Client[]>([]);
-  useEffect(() => {
-    let cancelled = false;
-    getClients({ limit: 500 }).then((res) => {
-      if (cancelled) return;
-      setClientes((res.data as Client[]) || []);
-    });
-    return () => { cancelled = true; };
-  }, []);
+  // Clients list — TanStack Query with 5min staleTime. The query key is
+  // shared across the form pages so navigating between Budget/WorkOrder/
+  // Measurement forms reuses the cached client list (no extra fetch).
+  const CLIENTS_KEY = ['clients', { limit: 500 }] as const;
+  const { items: clientes } = useList<Client>(
+    CLIENTS_KEY,
+    async () => {
+      const res = await getClients({ limit: 500 });
+      return (res.data as Client[]) || [];
+    },
+  );
 
   const addOrRefreshClientes = useCallback((newClient?: Client) => {
     if (newClient) {
-      setClientes((prev) => {
-        if (prev.some((c) => c.id === newClient.id)) return prev;
-        return [newClient, ...prev];
+      // Prepend the new client to the cached list (no API refetch needed).
+      queryClient.setQueryData<Client[]>(CLIENTS_KEY, (prev) => {
+        const list = prev ?? [];
+        if (list.some((c) => c.id === newClient.id)) return list;
+        return [newClient, ...list];
       });
     } else {
-      getClients({ limit: 500 }).then((res) => setClientes((res.data as Client[]) || []));
+      // No-arg path → full refetch.
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
     }
-  }, []);
+  }, [queryClient]);
 
   const [woKey, setWoKey] = useState(0);
   const { items: workOrders, loading: loadingWorkOrders } = useList<WorkOrderListItem>(
@@ -153,7 +159,9 @@ export default function MeasurementForm() {
         }));
         if (clientId) setSelectedClientId(clientId);
       })
-      .catch(() => { /* ignored — user can fill manually */ });
+      .catch((err) => {
+        console.warn('Pre-fill from work order failed (user can fill manually):', err);
+      });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [presetWorkOrderId, isEdit]);
@@ -208,10 +216,7 @@ export default function MeasurementForm() {
       notify('Medición guardada correctamente', 'success');
       navigate('/admin/measurements');
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-        || (err as Error)?.message
-        || 'Error al guardar';
-      notify(detail, 'error');
+      notify(parseApiError(err, 'Error al guardar'), 'error');
     } finally {
       setSaving(false);
     }

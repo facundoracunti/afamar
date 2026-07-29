@@ -9,81 +9,11 @@ from app.models.pool_stock import PoolStock, StockMovement
 from app.models.work_order import WorkOrder
 from app.repositories.work_order import WorkOrderRepository
 from app.services.daily_cash import DailyCashService
+from app.core.exceptions import ConflictError, ValidationError
+from app.core.settings import settings
+from app.utils.client_helpers import resolve_client_id
 from app.utils.numbering import generate_work_order_number
-
-
-def deduct_pool_stock(db: Session, pool_id: int | None, pools_data: str | None, source_number: str):
-    pools_deducted = set()
-    if pool_id and pool_id not in pools_deducted:
-        pool = db.query(PoolStock).filter(PoolStock.id == pool_id).first()
-        if pool and pool.quantity > 0:
-            pool.quantity -= 1
-            movement = StockMovement(
-                pool_id=pool.id,
-                type="exit",
-                quantity=1,
-                notes=f"Salida por producción - {source_number}",
-            )
-            db.add(movement)
-        pools_deducted.add(pool_id)
-
-    if pools_data:
-        try:
-            pools_list = json.loads(pools_data) if isinstance(pools_data, str) else pools_data
-            for entry in pools_list if isinstance(pools_list, list) else []:
-                pid = entry.get("pool_id") or entry.get("id")
-                qty = entry.get("quantity", 1)
-                if pid and pid not in pools_deducted:
-                    pool = db.query(PoolStock).filter(PoolStock.id == pid).first()
-                    if pool and pool.quantity > 0:
-                        pool.quantity -= qty
-                        movement = StockMovement(
-                            pool_id=pool.id,
-                            type="exit",
-                            quantity=qty,
-                            notes=f"Salida por producción - {source_number}",
-                        )
-                        db.add(movement)
-                    pools_deducted.add(pid)
-        except (json.JSONDecodeError, TypeError):
-            pass
-
-
-def restore_pool_stock(db: Session, pool_id: int | None, pools_data: str | None, source_number: str):
-    pools_restored = set()
-    if pool_id and pool_id not in pools_restored:
-        pool = db.query(PoolStock).filter(PoolStock.id == pool_id).first()
-        if pool:
-            pool.quantity = (pool.quantity or 0) + 1
-            movement = StockMovement(
-                pool_id=pool.id,
-                type="entry",
-                quantity=1,
-                notes=f"Entrada por cancelación - {source_number}",
-            )
-            db.add(movement)
-        pools_restored.add(pool_id)
-
-    if pools_data:
-        try:
-            pools_list = json.loads(pools_data) if isinstance(pools_data, str) else pools_data
-            for entry in pools_list if isinstance(pools_list, list) else []:
-                pid = entry.get("pool_id") or entry.get("id")
-                qty = entry.get("quantity", 1)
-                if pid and pid not in pools_restored:
-                    pool = db.query(PoolStock).filter(PoolStock.id == pid).first()
-                    if pool:
-                        pool.quantity = (pool.quantity or 0) + qty
-                        movement = StockMovement(
-                            pool_id=pool.id,
-                            type="entry",
-                            quantity=qty,
-                            notes=f"Entrada por cancelación - {source_number}",
-                        )
-                        db.add(movement)
-                    pools_restored.add(pid)
-        except (json.JSONDecodeError, TypeError):
-            pass
+from app.services.stock_helpers import deduct_pool_stock, restore_pool_stock
 
 
 def _stash_sketch_into_budgeted_details(data: dict) -> None:
@@ -184,9 +114,9 @@ def _recalculate_totals_from_items(data: dict) -> None:
         parse_materials_data,
     )
 
-    usd_rate = float(data.get("usd_rate") or 1000.0)
+    usd_rate = float(data.get("usd_rate") or settings.DEFAULT_USD_RATE)
     if usd_rate <= 0:
-        usd_rate = 1000.0
+        usd_rate = settings.DEFAULT_USD_RATE
 
     # Fabrication details (Traforo de pileta, Zócalos, Terminación, …).
     # We compute these inline (rather than reusing budget_calculator.compute_detail_totals)
@@ -322,38 +252,18 @@ class WorkOrderService:
     def search(self, term: str) -> List[WorkOrder]:
         return self.repo.search(term)
 
+    def list_filtered(self, status: str | None = None, client_id: int | None = None, date_from: date | None = None, date_to: date | None = None, search: str | None = None, skip: int = 0, limit: int = 100) -> tuple[List[WorkOrder], int]:
+        items = self.repo.list_filtered(status, client_id, date_from, date_to, search, skip, limit)
+        total = self.repo.list_filtered_count(status, client_id, date_from, date_to, search)
+        return items, total
+
     def create(self, data: dict) -> WorkOrder:
         last_number = self.repo.get_last_number()
         data["number"] = generate_work_order_number(last_number)
-        client_id = data.get("client_id")
-        if not client_id:
-            client_name = (data.get("client_name") or "").strip()
-            if client_name:
-                from sqlalchemy import func
-                client = (
-                    self.repo.db.query(Client)
-                    .filter(func.lower(Client.name) == client_name.lower())
-                    .first()
-                )
-                if not client:
-                    client = Client(
-                        name=client_name,
-                        phone=(data.get("client_phone") or "").strip() or None,
-                        email=(data.get("client_email") or "").strip() or None,
-                        address=(data.get("client_address") or "").strip() or None,
-                    )
-                    self.repo.db.add(client)
-                    self.repo.db.flush()
-                data["client_id"] = client.id
-            else:
-                from app.core.exceptions import ValidationError
-                raise ValidationError("Debe seleccionar o escribir un cliente antes de guardar la orden de trabajo.")
-        # client_* fields are not stored on the WorkOrder row — they're only
-        # used to resolve client_id above. The response schema populates
-        # them from the related Client via from_orm_with_client.
-        data.pop("client_name", None)
-        data.pop("client_phone", None)
-        data.pop("client_email", None)
+        data["client_id"] = resolve_client_id(
+            self.repo.db, data,
+            "Debe seleccionar o escribir un cliente antes de guardar la orden de trabajo.",
+        )
         data.pop("client_address", None)
         # The frontend sends the sketch as `sketch_elements` (an array of
         # pages). The WorkOrder model doesn't have a sketch_elements column
@@ -379,9 +289,9 @@ class WorkOrderService:
 
     def create_from_budget(self, budget) -> WorkOrder:
         if budget.status == "CONVERTED_TO_OT":
-            raise ValueError("Budget already converted to a work order")
+            raise ConflictError("Budget already converted to a work order")
         if budget.status != "APPROVED":
-            raise ValueError("Budget must be approved to convert")
+            raise ValidationError("Budget must be approved to convert")
 
         from app.services.budget_calculator import filter_main_materials, parse_materials_data
 
@@ -498,7 +408,7 @@ class WorkOrderService:
             "bacha": budget.bacha,
             "anafe": budget.anafe,
             "currency": budget.currency,
-            "usd_rate": budget.usd_rate or 1000.0,
+            "usd_rate": budget.usd_rate or settings.DEFAULT_USD_RATE,
             "subtotal": float(budget.subtotal or 0),
             "transport": budget.transport or 0,
             "installation": budget.installation or 0,
@@ -626,7 +536,7 @@ class WorkOrderService:
 
         if new_status != old_status:
             if new_status != "CANCELLED" and new_status not in self.VALID_TRANSITIONS.get(old_status, set()):
-                raise ValueError(f"Invalid status transition from {old_status} to {new_status}")
+                raise ValidationError(f"Invalid status transition from {old_status} to {new_status}")
             if new_status == "CANCELLED" and order.stock_deducted:
                 restore_pool_stock(self.repo.db, order.pool_id, order.pools_data, order.number)
                 order.stock_deducted = False

@@ -85,10 +85,10 @@ export default function Calculator() {
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: 16 } as React.CSSProperties}>
-        <h2 className="section-title" style={{ fontSize: 15, marginBottom: 16 } as React.CSSProperties}>Agregar Pieza</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 12, alignItems: 'end' } as React.CSSProperties}>
-          <div className="form-group" style={{ marginBottom: 0 } as React.CSSProperties}>
+      <div className={`card ${s['calculator__card']}`}>
+        <h2 className={s['calculator__sectionTitleSm']}>Agregar Pieza</h2>
+        <div className={s['calculator__formGrid']}>
+          <div className={`form-group ${s['calculator__fieldFlush']}`}>
             <label>Largo (m)</label>
             <input
               className="input"
@@ -101,7 +101,7 @@ export default function Calculator() {
               onKeyDown={handleKeyDown}
             />
           </div>
-          <div className="form-group" style={{ marginBottom: 0 } as React.CSSProperties}>
+          <div className={`form-group ${s['calculator__fieldFlush']}`}>
             <label>Ancho (m)</label>
             <input
               className="input"
@@ -114,7 +114,7 @@ export default function Calculator() {
               onKeyDown={handleKeyDown}
             />
           </div>
-          <div className="form-group" style={{ marginBottom: 0 } as React.CSSProperties}>
+          <div className={`form-group ${s['calculator__fieldFlush']}`}>
             <label>Cantidad</label>
             <input
               className="input"
@@ -126,14 +126,14 @@ export default function Calculator() {
               onKeyDown={handleKeyDown}
             />
           </div>
-          <button className="btn btn-primary" onClick={agregarPieza} style={{ height: 42, alignSelf: 'end' } as React.CSSProperties}>
+          <button className={`btn btn-primary ${s['calculator__addBtn']}`} onClick={agregarPieza}>
             <Plus size={16} /> Agregar Pieza
           </button>
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: 16 } as React.CSSProperties}>
-        <h2 className="section-title" style={{ fontSize: 15, marginBottom: 16 } as React.CSSProperties}>Piezas</h2>
+      <div className={`card ${s['calculator__card']}`}>
+        <h2 className={s['calculator__sectionTitleSm']}>Piezas</h2>
         <div className="table-container">
           <table className="table">
             <thead>
@@ -144,20 +144,20 @@ export default function Calculator() {
                 <th>M² c/u</th>
                 <th>Cantidad</th>
                 <th>Total M²</th>
-                <th style={{ width: 60 } as React.CSSProperties}></th>
+                <th className={s['calculator__th--narrow']}></th>
               </tr>
             </thead>
             <tbody>
               {piezas.map((p, i) => (
                 <tr key={p.id}>
-                  <td style={{ fontWeight: 600 } as React.CSSProperties}>{i + 1}</td>
+                  <td className={s['calculator__td--bold']}>{i + 1}</td>
                   <td>{p.largo.toFixed(2)} m</td>
                   <td>{p.ancho.toFixed(2)} m</td>
                   <td>{(p.largo * p.ancho).toFixed(5)}</td>
                   <td>{p.cantidad}</td>
-                  <td style={{ fontWeight: 600 } as React.CSSProperties}>{(p.largo * p.ancho * p.cantidad).toFixed(5)}</td>
+                  <td className={s['calculator__td--bold']}>{(p.largo * p.ancho * p.cantidad).toFixed(5)}</td>
                   <td>
-                    <button className="btn btn-danger" style={{ padding: '4px 8px' } as React.CSSProperties} onClick={() => eliminarPieza(p.id)} title="Eliminar">
+                    <button className={`btn btn-danger ${s['calculator__deleteBtn']}`} onClick={() => eliminarPieza(p.id)} title="Eliminar">
                       <Trash2 size={14} />
                     </button>
                   </td>
@@ -189,7 +189,7 @@ export default function Calculator() {
 
       {piezas.length > 0 && (
         <div className="card">
-          <h2 className="section-title" style={{ fontSize: 15, marginBottom: 16 } as React.CSSProperties}>Resultados</h2>
+          <h2 className={s['calculator__sectionTitleSm']}>Resultados</h2>
 
           <div className={s['calculator__statGrid']}>
             <div className={s['calculator__statCard']}>
@@ -210,7 +210,7 @@ export default function Calculator() {
             </div>
           </div>
 
-          <div style={{ marginTop: 8 } as React.CSSProperties}>
+          <div className={s['calculator__progressWrap']}>
             <div className={s['calculator__progressMeta']}>
               <span>Utilización</span>
               <span className={s['calculator__progressValue']}>{utilizacion.toFixed(1)}%</span>
@@ -218,7 +218,7 @@ export default function Calculator() {
             <div className={s['calculator__progressTrack']}>
               <div
                 className={barTextClass}
-                style={{ width: `${Math.min(utilizacion, 100)}%` } as React.CSSProperties}
+                style={{ width: `${Math.min(utilizacion, 100)}%` }}
               >
                 {utilizacion >= 15 && `${utilizacion.toFixed(0)}%`}
               </div>

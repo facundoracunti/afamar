@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { parseApiError } from '../../../utils/error';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { FolderTree } from 'lucide-react';
@@ -14,7 +15,7 @@ import {
 } from '@/api/resources/materials';
 import { getSettings } from '@/api/resources/settings';
 import { useNotify } from '../../../context/NotificationContext';
-import { useList } from '../../../api/hooks';
+import { useGet, useList } from '../../../api/hooks';
 import type { MaterialFormData, Material } from '../../../types/material';
 import { LoadingSpinner } from '../../ui/LoadingSpinner/LoadingSpinner';
 import { FormActions } from '../../ui/FormActions/FormActions';
@@ -24,6 +25,8 @@ import styles from './MaterialForm.module.css';
 const s = styles as unknown as Record<string, string>;
 
 const CATEGORIES_KEY = ['material-categories'] as const;
+const SETTINGS_KEY = ['settings'] as const;
+const MATERIAL_KEY = (id: string | number | undefined) => ['material', id] as const;
 
 interface MaterialFormProps {
   /** When provided, the form runs in edit mode and pre-fills from the API. */
@@ -41,9 +44,7 @@ export default function MaterialForm({ materialId, onSaved, onCancel }: Material
   const queryClient = useQueryClient();
   const cancel = onCancel || (() => navigate(-1));
 
-  const [loadingMaterial, setLoadingMaterial] = useState(isEdit);
   const [saving, setSaving] = useState(false);
-  const [tipoCambio, setTipoCambio] = useState(1);
   const [form, setForm] = useState<MaterialFormData>({
     name: '',
     category_id: '',
@@ -71,34 +72,41 @@ export default function MaterialForm({ materialId, onSaved, onCancel }: Material
     }
   );
 
-  useEffect(() => {
-    getSettings().then((res) => {
-      const data = (res.data as Record<string, unknown>) || {};
-      setTipoCambio(Number(data.default_usd_rate) || 1000);
-    }).catch(() => { /* optional */ });
-  }, []);
+  // Settings (USD rate) — TanStack Query with 5min staleTime. Used as the
+  // conversion factor between the ARS and USD price fields.
+  const { data: settings } = useGet<Record<string, unknown>>(
+    SETTINGS_KEY,
+    async () => (await getSettings()).data as Record<string, unknown>,
+    true,
+  );
+  const tipoCambio = Number(settings?.default_usd_rate) || 1000;
+
+  // Material to edit (only when materialId is provided).
+  const { data: materialData, loading: loadingMaterial } = useGet<Material>(
+    MATERIAL_KEY(materialId),
+    async () => {
+      const res = await getMaterial(materialId as string);
+      return res.data as Material;
+    },
+    !!materialId,
+  );
 
   useEffect(() => {
-    if (!materialId) return;
-    setLoadingMaterial(true);
-    getMaterial(materialId).then((res) => {
-      const d = res.data as Material;
-      setForm({
-        name: d.name || '',
-        category_id: d.category_id ? String(d.category_id) : '',
-        color: d.color || '',
-        available_thickness: d.available_thickness || '',
-        base_price: d.base_price || 0,
-        price_usd: d.price_usd || 0,
-        currency: d.currency || 'ARS',
-        supplier: d.supplier || '',
-        stock_available: d.stock_available || 0,
-        notes: d.notes || '',
-      });
-      if (d.photo) setExistingFoto(d.photo);
-      setLoadingMaterial(false);
-    }).catch(() => setLoadingMaterial(false));
-  }, [materialId]);
+    if (!materialData) return;
+    setForm({
+      name: materialData.name || '',
+      category_id: materialData.category_id ? String(materialData.category_id) : '',
+      color: materialData.color || '',
+      available_thickness: materialData.available_thickness || '',
+      base_price: materialData.base_price || 0,
+      price_usd: materialData.price_usd || 0,
+      currency: materialData.currency || 'ARS',
+      supplier: materialData.supplier || '',
+      stock_available: materialData.stock_available || 0,
+      notes: materialData.notes || '',
+    });
+    if (materialData.photo) setExistingFoto(materialData.photo);
+  }, [materialData]);
 
   useEffect(() => {
     return () => {
@@ -185,9 +193,7 @@ export default function MaterialForm({ materialId, onSaved, onCancel }: Material
       if (onSaved) onSaved();
       else navigate('/admin/materials');
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: any } })?.response?.data?.detail
-        ?? (err instanceof Error ? err.message : 'Error al guardar el material');
-      notify(typeof detail === 'string' ? detail : JSON.stringify(detail), 'error');
+      notify(parseApiError(err, 'Error al guardar el material'), 'error');
     } finally {
       setSaving(false);
     }

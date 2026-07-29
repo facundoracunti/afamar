@@ -91,7 +91,7 @@ export function BudgetPaymentSection({
         <div className={s['budget-panel__payment-method-controls']}>
           <select
             className={`input ${s['budget-panel__payment-method-select']}`}
-            value={form.payment_method}
+            value={form.payment_method ?? ''}
             onChange={(e) => {
               const newVal = e.target.value;
               update('payment_method', newVal);

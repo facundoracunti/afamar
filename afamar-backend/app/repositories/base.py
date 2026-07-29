@@ -32,6 +32,9 @@ class BaseRepository:
     def get_by_id(self, id: int):
         return self.db.query(self.model).filter(self.model.id == id).first()  # type: ignore
 
+    def count_all(self) -> int:
+        return self.db.query(self.model).count() or 0
+
     def create(self, data: dict):
         return self.add(self.model(**data))
 

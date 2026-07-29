@@ -68,7 +68,7 @@ function MeasurementsTableInner({
             <SortHeader field="scheduled_date" label="Fecha" currentField={sortField} currentDir={sortDir} onSort={onSort} />
             <SortHeader field="scheduled_time" label="Hora" currentField={sortField} currentDir={sortDir} onSort={onSort} />
             <SortHeader field="status" label="Estado" currentField={sortField} currentDir={sortDir} onSort={onSort} />
-            <th style={{ width: 100 }}>Acciones</th>
+            <th>Acciones</th>
           </tr>
         </thead>
         <tbody>

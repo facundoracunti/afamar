@@ -44,20 +44,20 @@ function WorkOrdersTableInner({
       <table>
         <thead>
           <tr>
-            <th className={s['wo-table__th']} style={{ width: 100 }}>Número</th>
-            <th className={s['wo-table__th']} style={{ width: 95 }}>Fecha</th>
+            <th className={s['wo-table__th']}>Número</th>
+            <th className={s['wo-table__th']}>Fecha</th>
             <th className={s['wo-table__th']}>Cliente</th>
-            <th className={s['wo-table__th']} style={{ width: 120 }}>Teléfono</th>
+            <th className={s['wo-table__th']}>Teléfono</th>
             <th className={s['wo-table__th']}>Material</th>
-            <th className={s['wo-table__th']} style={{ width: 110 }}>Total</th>
-            <th className={s['wo-table__th']} style={{ width: 100 }}>Seña</th>
-            <th className={s['wo-table__th']} style={{ width: 110 }}>Saldo</th>
-            <th className={s['wo-table__th']} style={{ width: 110 }}>Entrega</th>
-            <th className={s['wo-table__th']} style={{ width: 110 }}>Estado</th>
-            <th className={s['wo-table__th']} style={{ width: 90 }}>Avanzar</th>
-            <th className={s['wo-table__th']} style={{ width: 140 }}>Vista</th>
-            <th className={s['wo-table__th']} style={{ width: 150 }}>Notificar</th>
-            <th className={s['wo-table__th']} style={{ width: 70 }}>Eliminar</th>
+            <th className={s['wo-table__th']}>Total</th>
+            <th className={s['wo-table__th']}>Seña</th>
+            <th className={s['wo-table__th']}>Saldo</th>
+            <th className={s['wo-table__th']}>Entrega</th>
+            <th className={s['wo-table__th']}>Estado</th>
+            <th className={s['wo-table__th']}>Avanzar</th>
+            <th className={s['wo-table__th']}>Vista</th>
+            <th className={s['wo-table__th']}>Notificar</th>
+            <th className={s['wo-table__th']}>Eliminar</th>
           </tr>
         </thead>
         <tbody>

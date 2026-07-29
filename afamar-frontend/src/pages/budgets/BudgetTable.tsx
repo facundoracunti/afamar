@@ -56,17 +56,17 @@ export default function BudgetTable({
       <table>
         <thead>
           <tr>
-            <th className={s['budgets__th']} style={{ width: 90 }}>Número</th>
-            <th className={s['budgets__th']} style={{ width: 95, fontSize: 12 }}>Fecha</th>
-            <th className={s['budgets__th']} style={{ width: 160 }}>Cliente</th>
-            <th className={s['budgets__th']} style={{ width: 110 }}>Telefono</th>
-            <th className={s['budgets__th']} style={{ width: 110 }}>Total</th>
-            <th className={s['budgets__th']} style={{ width: 100 }}>Estado</th>
-            <th className={s['budgets__th']} style={{ width: 130 }}>Flujo</th>
-            <th className={s['budgets__th']} style={{ width: 140 }}>Convertir OT</th>
-            <th className={s['budgets__th']} style={{ width: 130 }}>Vista</th>
-            <th className={s['budgets__th']} style={{ width: 150 }}>Notificar</th>
-            <th className={s['budgets__th']} style={{ width: 70 }}>Eliminar</th>
+            <th className={s['budgets__th']}>Número</th>
+            <th className={s['budgets__th']}>Fecha</th>
+            <th className={s['budgets__th']}>Cliente</th>
+            <th className={s['budgets__th']}>Telefono</th>
+            <th className={s['budgets__th']}>Total</th>
+            <th className={s['budgets__th']}>Estado</th>
+            <th className={s['budgets__th']}>Flujo</th>
+            <th className={s['budgets__th']}>Convertir OT</th>
+            <th className={s['budgets__th']}>Vista</th>
+            <th className={s['budgets__th']}>Notificar</th>
+            <th className={s['budgets__th']}>Eliminar</th>
           </tr>
         </thead>
         <tbody>

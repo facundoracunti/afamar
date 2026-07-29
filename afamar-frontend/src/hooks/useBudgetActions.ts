@@ -1,3 +1,4 @@
+import { parseApiError } from '../utils/error';
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
@@ -52,10 +53,7 @@ export function useBudgetActions({
   const [showConvertDialog, setShowConvertDialog] = useState(false);
   const [pendingAltIdx, setPendingAltIdx] = useState<number | null>(null);
 
-  const extractError = (err: unknown): string =>
-    (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
-    || (err as Error).message
-    || 'Error inesperado';
+  const extractError = (err: unknown): string => parseApiError(err);
 
   const handleSubmit = useCallback(async (e?: React.FormEvent) => {
     const wasRejected = form.status === 'REJECTED';
@@ -107,7 +105,7 @@ export function useBudgetActions({
     try {
       const payload = buildPayload();
       const aprobado = { ...payload, status: 'APPROVED' as const } as unknown as BudgetPayload;
-      if (['TARJETA DE CRÉDITO', 'TARJETA DE DÉBITO'].includes(form.payment_method)) {
+      if (form.payment_method && ['TARJETA DE CRÉDITO', 'TARJETA DE DÉBITO'].includes(form.payment_method)) {
         aprobado.deposit_received = Number(form.total);
         aprobado.balance_due = 0;
         aprobado.balance_paid = true;

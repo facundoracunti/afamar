@@ -29,18 +29,18 @@
 
 .toast--success {
   background: var(--color-success);
-  color: #ffffff;
+  color: var(--tw-white);
   border: 1px solid var(--color-success-hover);
 }
 
 .toast--error {
   background: var(--color-danger);
-  color: #ffffff;
+  color: var(--tw-white);
   border: 1px solid var(--color-danger-hover);
 }
 
 .toast--info {
   background: var(--color-info);
-  color: #ffffff;
+  color: var(--tw-white);
   border: 1px solid color-mix(in srgb, var(--color-info) 80%, black);
 }

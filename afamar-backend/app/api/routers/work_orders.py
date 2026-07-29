@@ -5,20 +5,18 @@ from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query
 from fastapi.responses import Response
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
 from app.api.dependencies import get_current_user, get_db
 from app.core.exceptions import NotFoundError
 from app.models.client import Client
-from app.models.setting import Setting
 from app.schemas.work_order import WorkOrderCreate, WorkOrderResponse, WorkOrderUpdate
 from app.services.budget import BudgetService
 from app.services.email import send_work_order_email
+from app.services.pdf_helpers import build_company_and_terms, has_terms, load_settings
 from app.services.pdf_html import build_work_order_pdf_data, generate_work_order_pdf
 from app.services.work_order import WorkOrderService
-from app.utils.pagination import paginate
 from app.utils.responses import created, error, success
 
 logger = logging.getLogger(__name__)
@@ -57,42 +55,10 @@ def list_work_orders(
     db: Session = Depends(get_db),
 ):
     service = WorkOrderService(db)
-    # Base query keeps the original shape (no Client JOIN). The `from_orm_with_client`
-    # serializer accesses `order.client` which triggers a lazy load — this works
-    # fine while the session is active (after `paginate()` returns), and adding
-    # an explicit JOIN here was causing a 500 (the JOIN doesn't populate the
-    # relationship and breaks the lazy-load path on some sessions).
-    query = service.repo.db.query(service.repo.model)
-    if status:
-        query = query.filter(service.repo.model.status == status)
-    if client_id:
-        query = query.filter(service.repo.model.client_id == client_id)
-    if date_from:
-        query = query.filter(service.repo.model.date >= date_from)
-    if date_to:
-        query = query.filter(service.repo.model.date <= date_to)
-    if search:
-        # Use a subquery to filter by client name without adding a JOIN to
-        # the main query (which would break the lazy-load path in the serializer).
-        pattern = f"%{search}%"
-        client_id_subquery = (
-            select(Client.id).where(Client.name.ilike(pattern))
-        )
-        query = query.filter(
-            service.repo.model.number.ilike(pattern)
-            | service.repo.model.client_id.in_(client_id_subquery)
-            | service.repo.model.material.ilike(pattern)
-        )
-    query = query.order_by(service.repo.model.created_at.desc())
-    page = paginate(db, query, skip, limit)
-    # Transform ORM rows through WorkOrderResponse so the response always
-    # carries client_name/phone/email/address populated from the snapshot
-    # (the model has no client_* columns; see WorkOrderResponse.from_orm_with_client).
-    # Defensive: skip rows that fail to serialize (e.g. legacy rows with
-    # incompatible data) and log the offender so the list endpoint doesn't
-    # 500 the whole page because of one bad row.
+    items, total = service.list_filtered(status, client_id, date_from, date_to, search, skip, limit)
+    from app.utils.pagination import PaginationInfo
     serialized = []
-    for o in page.items:
+    for o in items:
         try:
             serialized.append(WorkOrderResponse.from_orm_with_client(o))
         except Exception as exc:
@@ -100,7 +66,7 @@ def list_work_orders(
                 "Skipping work_order id=%s number=%s — serialization failed: %s",
                 getattr(o, "id", None), getattr(o, "number", None), exc,
             )
-    return success([o.model_dump(mode="json") for o in serialized], page.pagination)
+    return success([o.model_dump(mode="json") for o in serialized], PaginationInfo(total=total, skip=skip, limit=limit))
 
 
 @router.get("/next-number")
@@ -155,42 +121,6 @@ def update_work_order(order_id: int, data: WorkOrderUpdate, db: Session = Depend
     return success(order)
 
 
-def _load_settings(db: Session) -> dict:
-    rows = db.query(Setting).all()
-    return {row.key: row.value for row in rows}
-
-
-_COMPANY_KEYS = ["company_name", "company_tagline", "company_address", "company_phone", "company_email", "company_logo", "pdf_footer"]
-_TERMS_KEYS = ["budget_terms", "delivery_terms", "warranty_text"]
-
-
-def _build_company_and_terms(settings_data: dict, overrides: dict | None = None) -> tuple[dict, dict]:
-    """Build the `company` and `terms` dicts for the PDF.
-
-    `overrides` is an optional dict with per-work-order keys (delivery_terms_override,
-    warranty_override) â€” when present and non-empty, they REPLACE the global
-    values from settings_data at the same key.
-    Empty JSON arrays (`"[]"`) from the frontend mean "no per-entity override",
-    so the global config terms are kept.
-    """
-    company = {k: settings_data.get(k, "") for k in _COMPANY_KEYS}
-    overrides = overrides or {}
-    terms = {k: settings_data.get(k, "") for k in _TERMS_KEYS}
-    if _has_terms(overrides.get("delivery_terms_override")):
-        terms["delivery_terms"] = overrides["delivery_terms_override"]
-    if _has_terms(overrides.get("warranty_override")):
-        terms["warranty_text"] = overrides["warranty_override"]
-    return company, terms
-
-
-def _has_terms(value) -> bool:
-    """Return True if `value` is a non-empty terms override."""
-    if not value:
-        return False
-    s = str(value).strip()
-    return s not in ("", "[]")
-
-
 def _build_client_dict_from_form(db: Session, data: dict) -> dict:
     name = data.get("client_name") or ""
     phone = data.get("client_phone") or ""
@@ -207,11 +137,6 @@ def _build_client_dict_from_form(db: Session, data: dict) -> dict:
 
 
 def _prepare_work_order_payload(order, db: Session) -> tuple[dict, dict, dict, dict]:
-    # Use the snapshot-aware helper so client_name/phone/email/address are
-    # populated from the snapshot columns even when those fields aren't
-    # selected (the model has no client_* columns â€” see WorkOrderResponse
-    # docstring for the full story). This also keeps list/get/PDF output
-    # consistent â€” every endpoint returns the same shape now.
     order_data = WorkOrderResponse.from_orm_with_client(order).model_dump(mode="json")
     items = []
     if order.materials_data:
@@ -224,20 +149,18 @@ def _prepare_work_order_payload(order, db: Session) -> tuple[dict, dict, dict, d
         except (json.JSONDecodeError, TypeError):
             pass
     order_data["items"] = items
-    # Populate client data from the related Client row (live data, not frozen snapshot).
     client_dict = {"name": "", "phone": "", "email": "", "address": ""}
     if order.client:
         client_dict["name"] = order.client.name or ""
         client_dict["phone"] = order.client.phone or ""
         client_dict["email"] = order.client.email or ""
         client_dict["address"] = order.client.address or ""
-    settings_data = _load_settings(db)
-    # Per-work-order overrides win over the global config terms.
+    settings_data = load_settings(db)
     overrides = {
         "delivery_terms_override": getattr(order, "delivery_terms_override", None),
         "warranty_override": getattr(order, "warranty_override", None),
     }
-    company, terms = _build_company_and_terms(settings_data, overrides)
+    company, terms = build_company_and_terms(settings_data, "budget_terms_override", overrides)
     return order_data, client_dict, company, terms
 
 

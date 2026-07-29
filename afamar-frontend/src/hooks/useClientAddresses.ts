@@ -2,6 +2,7 @@
  * Client address CRUD hook for ClientFormPage.
  */
 
+import { parseApiError } from '../utils/error';
 import { useState, useCallback } from 'react';
 import type { ClientAddress } from '../types/client';
 import {
@@ -82,10 +83,7 @@ export function useClientAddresses({ clientId }: UseClientAddressesParams): UseC
       await reloadAddresses();
       setShowAddressModal(false);
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-        || (err as Error).message
-        || 'Error al guardar domicilio';
-      notify(detail, 'error');
+      notify(parseApiError(err, 'Error al guardar domicilio'), 'error');
     } finally {
       setAddressSaving(false);
     }
@@ -99,10 +97,7 @@ export function useClientAddresses({ clientId }: UseClientAddressesParams): UseC
       notify('Domicilio eliminado', 'success');
       await reloadAddresses();
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-        || (err as Error).message
-        || 'Error al eliminar domicilio';
-      notify(detail, 'error');
+      notify(parseApiError(err, 'Error al eliminar domicilio'), 'error');
     }
   }, [clientId, reloadAddresses, notify]);
 
@@ -113,10 +108,7 @@ export function useClientAddresses({ clientId }: UseClientAddressesParams): UseC
       notify('Domicilio principal actualizado', 'success');
       await reloadAddresses();
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-        || (err as Error).message
-        || 'Error al cambiar domicilio principal';
-      notify(detail, 'error');
+      notify(parseApiError(err, 'Error al cambiar domicilio principal'), 'error');
     }
   }, [clientId, reloadAddresses, notify]);
 

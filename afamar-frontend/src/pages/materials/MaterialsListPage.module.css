@@ -93,6 +93,10 @@
   border-bottom: 1px solid var(--border-color);
 }
 
+.materials__th:nth-child(1) {
+  width: 60px;
+}
+
 .materials__td {
   padding: 12px;
   font-size: 14px;

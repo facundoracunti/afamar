@@ -36,12 +36,12 @@ export function PieChart({ data }: { data: PieChartData[] }) {
   return (
     <div className={styles.wrapper}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        {slices.map((s, i) => (
-          <path key={i} d={s.path} fill={s.color} stroke="#fff" strokeWidth="2" />
+        {slices.map((s) => (
+          <path key={s.label} d={s.path} fill={s.color} stroke="#fff" strokeWidth="2" />
         ))}
-        {slices.map((s, i) => (
+        {slices.map((s) => (
           <text
-            key={`l${i}`}
+            key={`label-${s.label}`}
             x={s.labelX}
             y={s.labelY}
             textAnchor="middle"
@@ -55,8 +55,8 @@ export function PieChart({ data }: { data: PieChartData[] }) {
         ))}
       </svg>
       <div className={styles.legend}>
-        {slices.map((s, i) => (
-          <div key={i} className={styles.legendItem}>
+        {slices.map((s) => (
+          <div key={`legend-${s.label}`} className={styles.legendItem}>
             <span className={styles.dot} style={{ background: s.color }} />
             <span className={styles.label}>{s.label}</span>
             <span className={styles.value}>{s.value}</span>

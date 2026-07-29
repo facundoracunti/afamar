@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Save } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getSettings, updateSettings, uploadLogo } from '@/api/resources/settings';
+import { parseApiError } from '../../utils/error';
 import { useGet } from '../../api/hooks';
 import { useNotify } from '../../context/NotificationContext';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
@@ -145,8 +146,7 @@ export default function Configuration() {
       setConfigDirty(false);
       notify('Configuración guardada correctamente', 'success');
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error al guardar configuración';
-      notify(msg, 'error');
+      notify(parseApiError(err, 'Error al guardar configuración'), 'error');
     } finally {
       setSaving(false);
     }

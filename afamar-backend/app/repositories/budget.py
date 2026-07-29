@@ -13,9 +13,11 @@ def _eager_query(db: Session):
     return (
         db.query(Budget)
         .options(
+            joinedload(Budget.client),
             joinedload(Budget.items),
             joinedload(Budget.additional_works),
             joinedload(Budget.sketch_elements),
+            joinedload(Budget.work_order),
         )
     )
 
@@ -91,12 +93,14 @@ class BudgetRepository(BaseRepository):
 
     def search(self, term: str) -> List[Budget]:
         pattern = f"%{term}%"
+        client_id_subquery = (
+            select(Client.id).where(Client.name.ilike(pattern))
+        )
         return (
             _eager_query(self.db)
-            .outerjoin(Client)
             .filter(
                 Budget.number.ilike(pattern)
-                | Client.name.ilike(pattern)
+                | Budget.client_id.in_(client_id_subquery)
                 | Budget.material.ilike(pattern)
             )
             .order_by(Budget.id.desc())

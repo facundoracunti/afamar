@@ -215,20 +215,20 @@ function DataTable({
         {headers.map((h, i) => {
           const isLast = i === headers.length - 1;
           return (
-            <View key={i} style={{ flex: colFlex(i), ...(isLast ? styles.cellLast : styles.cell) }}>
+            <View key={h.label} style={{ flex: colFlex(i), ...(isLast ? styles.cellLast : styles.cell) }}>
               <Text style={h.num ? styles.thTextNum : styles.thText}>{h.label}</Text>
             </View>
           );
         })}
       </View>
       {rows.map((row, ri) => (
-        <View key={ri} style={styles.tableRow}>
+        <View key={String(row[0] ?? `row-${ri}`)} style={styles.tableRow}>
           {row.map((cell, ci) => {
             const isLast = ci === row.length - 1;
             const isDash = cell == null || cell === '';
             const value = isDash ? '—' : cell;
             return (
-              <View key={ci} style={{ flex: colFlex(ci), ...(isLast ? styles.cellLast : styles.cell) }}>
+              <View key={headers[ci]?.label ?? `cell-${ci}`} style={{ flex: colFlex(ci), ...(isLast ? styles.cellLast : styles.cell) }}>
                 <Text style={headers[ci]?.num ? styles.tdTextNum : styles.tdText}>
                   {isDash ? <Text style={{ color: SLATE_500 }}>{value}</Text> : value}
                 </Text>
@@ -267,8 +267,8 @@ function TermsList({ title, items }: { title: string; items: string[] }) {
   return (
     <View style={styles.termsBox} wrap={false}>
       <Text style={styles.termsTitle}>{title}</Text>
-      {items.map((t, i) => (
-        <Text key={i} style={styles.termsListItem}>{`• ${t}`}</Text>
+      {items.map((t) => (
+        <Text key={t} style={styles.termsListItem}>{`• ${t}`}</Text>
       ))}
     </View>
   );
@@ -564,8 +564,8 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
       {data.important_observations ? (
         <ObsBox title="Observaciones importantes">
           {data.important_observations_list.length > 0 ? (
-            data.important_observations_list.map((t, i) => (
-              <Text key={i} style={styles.obsListItem}>{`• ${t}`}</Text>
+            data.important_observations_list.map((t) => (
+              <Text key={t} style={styles.obsListItem}>{`• ${t}`}</Text>
             ))
           ) : (
             <Text style={styles.obsText}>{data.important_observations}</Text>
@@ -725,7 +725,7 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
                 <View style={styles.sketchBox}>
                   <Text style={styles.sketchTitle}>Plano</Text>
                   {data.sketch_images.map((img, i) => (
-                    <Image key={i} style={styles.sketchImgLarge} src={img} />
+                    <Image key={img.slice(0, 32) || `sketch-${i}`} style={styles.sketchImgLarge} src={img} />
                   ))}
                 </View>
                 {footer}
@@ -791,7 +791,7 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
               <View style={styles.sketchBox}>
                 <Text style={styles.sketchTitle}>Plano</Text>
                 {data.sketch_images.map((img, i) => (
-                  <Image key={i} style={styles.sketchImgLarge} src={img} />
+                  <Image key={img.slice(0, 32) || `sketch-${i}`} style={styles.sketchImgLarge} src={img} />
                 ))}
               </View>
               {footer}

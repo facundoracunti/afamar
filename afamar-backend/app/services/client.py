@@ -5,17 +5,16 @@ from sqlalchemy.orm import Session
 
 from app.models.client import Client
 from app.repositories.client import ClientRepository
+from app.services.base import BaseService
 
 
-class ClientService:
+class ClientService(BaseService[Client]):
     def __init__(self, db: Session):
         self.repo = ClientRepository(db)
+        super().__init__(db)
 
-    def get_all(self, skip: int = 0, limit: int = 100) -> List[Client]:
-        return self.repo.get_all(skip, limit)
-
-    def get_by_id(self, client_id: int) -> Optional[Client]:
-        return self.repo.get_by_id(client_id)
+    def count_all(self) -> int:
+        return self.repo.count_all()
 
     def get_history(self, client_id: int) -> dict:
         return self.repo.get_history(client_id)

@@ -7,6 +7,7 @@ import {
   updateAdditionalWork,
   deleteAdditionalWork,
 } from '@/api/resources/additionalWorks';
+import { parseApiError } from '../../utils/error';
 import { useList } from '../../api/hooks';
 import { Modal } from '../../components/ui/Modal/Modal';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
@@ -99,10 +100,7 @@ export default function AdditionalWorksPage() {
       queryClient.invalidateQueries({ queryKey: ADDITIONAL_WORKS_KEY });
       setShowForm(false);
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-        || (err as Error).message
-        || 'Error al guardar';
-      notify(detail, 'error');
+      notify(parseApiError(err, 'Error al guardar'), 'error');
     } finally {
       setSaving(false);
     }
@@ -116,10 +114,7 @@ export default function AdditionalWorksPage() {
       notify('Trabajo adicional eliminado', 'success');
       setDeleteId(null);
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-        || (err as Error).message
-        || 'Error al eliminar';
-      notify(detail, 'error');
+      notify(parseApiError(err, 'Error al eliminar'), 'error');
     }
   };
 

@@ -1,4 +1,4 @@
-import React, { Suspense, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Plus, Search } from 'lucide-react';
@@ -16,15 +16,12 @@ import {
 import { usePaginatedList, useDelete } from '../../api/hooks';
 import type { AxiosResponse } from 'axios';
 import { useSettingsWithTerms } from '../../hooks/useSettingsWithTerms';
-import { buildPdfData } from '../../utils/pdf/buildPdfData';
-import type { PdfDocumentData } from '../../utils/pdf/buildPdfData';
-import { mapApiToForm } from '../../hooks/entityFormHelpers';
+import { usePdfPreviewController } from '../../hooks/usePdfPreviewController';
+import { parseApiError } from '../../utils/error';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
 import { Pagination } from '../../components/ui/Pagination';
-const PdfPreviewModal = React.lazy(() => import('../../components/ui/PdfPreviewModal/PdfPreviewModal'));
-const SketchImageExtractor = React.lazy(() => import('../../components/ui/PdfPreviewModal/SketchImageExtractor'));
 import { useNotify } from '../../context/NotificationContext';
 import BudgetTable from './BudgetTable';
 import type { UnifiedBudget } from '../../types/budget';
@@ -45,11 +42,6 @@ export default function BudgetsList() {
   const [estado, setEstado] = useState(searchParams.get('status') || '');
   const [deleteId, setDeleteId] = useState<string | number | null>(null);
   const [pendingConvert, setPendingConvert] = useState<PendingConvert | null>(null);
-  const [pdfData, setPdfData] = useState<PdfDocumentData | null>(null);
-  const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
-  const [pdfPreviewTitle, setPdfPreviewTitle] = useState<string>('Vista previa PDF');
-  const [sketchExtractorActive, setSketchExtractorActive] = useState(false);
-  const [pendingFormData, setPendingFormData] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
     setEstado(searchParams.get('status') || '');
@@ -58,6 +50,17 @@ export default function BudgetsList() {
   const notify = useNotify();
   const queryClient = useQueryClient();
   const { company, globalTerms } = useSettingsWithTerms();
+
+  const pdf = usePdfPreviewController({
+    documentType: 'budget',
+    fetchEntity: async (id) => getBudget(id) as unknown as { data: Record<string, unknown> },
+    defaultStatus: 'PENDING',
+    label: 'Presupuesto',
+    fileNamePrefix: 'presupuesto_',
+    company,
+    globalTerms,
+    notify,
+  });
 
   const { items: data, loading, total, page, pageSize, setPage, refetch } = usePaginatedList<UnifiedBudget>(
     [...BUDGETS_KEY, search, estado],
@@ -93,10 +96,7 @@ export default function BudgetsList() {
       notify('Presupuesto eliminado correctamente', 'success');
       setDeleteId(null);
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
-        || (err as Error).message
-        || 'Error al eliminar';
-      notify(detail, 'error');
+      notify(parseApiError(err, 'Error al eliminar'), 'error');
     }
   };
 
@@ -107,10 +107,7 @@ export default function BudgetsList() {
       notify(`Estado actualizado a ${nuevoEstado}`, 'success');
       refetch();
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
-        || (err as Error).message
-        || 'Error al cambiar estado';
-      notify(detail, 'error');
+      notify(parseApiError(err, 'Error al cambiar estado'), 'error');
     }
   };
 
@@ -123,10 +120,7 @@ export default function BudgetsList() {
       queryClient.invalidateQueries({ queryKey: ['work-orders'], refetchType: 'all' });
       navigate(`/admin/work-orders/${(res.data as Record<string, unknown>).id as string}`);
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
-        || (err as Error).message
-        || 'Error al convertir';
-      notify(detail, 'error');
+      notify(parseApiError(err, 'Error al convertir'), 'error');
     }
   };
 
@@ -151,59 +145,11 @@ export default function BudgetsList() {
       await sendBudgetEmail(id as string);
       notify('Correo enviado correctamente', 'success');
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
-        || (err as Error).message
-        || 'Error al enviar email';
-      notify(detail, 'error');
+      notify(parseApiError(err, 'Error al enviar email'), 'error');
     }
   };
 
-  const handleOpenPdf = async (budget: UnifiedBudget) => {
-    setPdfPreviewLoading(true);
-    setPdfPreviewTitle(`Vista previa — ${budget.number || 'Presupuesto'}`);
-    setPdfData(null);
-    try {
-      const res = await getBudget(budget.id);
-      // Run the raw API response through the same mapper the edit form
-      // uses (`mapApiToForm`). That gives us a fully-typed
-      // `EntityFormState` with dates sliced, JSON-encoded *_data fields
-      // parsed, and — most importantly for this fix — `sketch_elements`
-      // decoded into the page-list the SketchImageExtractor expects.
-      // Without this step, the extractor receives the raw relationship
-      // and the legacy `budgeted_details` text column and silently produces
-      // zero pages (no croquis in the PDF).
-      const apiRow = (res as unknown as { data: Record<string, unknown> }).data;
-      const formData = mapApiToForm(apiRow, budget.status || 'PENDING');
-      setPendingFormData(formData as unknown as Record<string, unknown>);
-      setSketchExtractorActive(true);
-    } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
-        || (err as Error).message
-        || 'Error al cargar el presupuesto';
-      notify(detail, 'error');
-      setPdfPreviewLoading(false);
-    }
-  };
-
-  const handleSketchImagesReady = (images: string[]) => {
-    if (!pendingFormData) { setPdfPreviewLoading(false); return; }
-    const data = buildPdfData({
-      form: pendingFormData,
-      document_type: 'budget',
-      company,
-      globalTerms,
-      sketchImages: images,
-    });
-    setPdfData(data);
-    setPdfPreviewLoading(false);
-    setSketchExtractorActive(false);
-  };
-
-  const handleClosePdfPreview = () => {
-    setPdfData(null);
-    setSketchExtractorActive(false);
-    setPendingFormData(null);
-  };
+  const handleOpenPdf = (budget: UnifiedBudget) => pdf.handleOpenPdf(budget);
 
   return (
     <div className={s['budgets']}>
@@ -277,7 +223,7 @@ export default function BudgetsList() {
           if (pendingConvert) {
             const pc = pendingConvert;
             setPendingConvert(null);
-            void performConvert(pc);
+            void performConvert(pc).catch(() => { /* performConvert already notifies errors */ });
           }
         }}
         title="Convertir a Orden de Trabajo"
@@ -285,25 +231,7 @@ export default function BudgetsList() {
         confirmLabel="Convertir"
       />
 
-      <Suspense fallback={<LoadingSpinner />}>
-        <PdfPreviewModal
-          isOpen={pdfData !== null || pdfPreviewLoading}
-          onClose={handleClosePdfPreview}
-          data={pdfData}
-          loading={pdfPreviewLoading}
-          title={pdfPreviewTitle}
-          fileName={`presupuesto_${pendingFormData?.number || ''}.pdf`}
-        />
-      </Suspense>
-
-      {sketchExtractorActive && pendingFormData && (
-        <Suspense fallback={null}>
-          <SketchImageExtractor
-            sketchElements={pendingFormData.sketch_elements}
-            onReady={handleSketchImagesReady}
-          />
-        </Suspense>
-      )}
+      {pdf.UI}
 
       <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} label="presupuestos" />
     </div>

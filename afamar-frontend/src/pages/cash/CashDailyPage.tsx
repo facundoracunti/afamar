@@ -4,6 +4,7 @@ import { getDailyCash, createCashMovement, deleteCashMovement, setPreviousBalanc
 import { useGet } from '../../api/hooks';
 import { formatCurrency, todayLocalISO } from '../../utils/formatters';
 import { folderStatusClass } from '../../constants';
+import { parseApiError } from '../../utils/error';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import PreviousBalanceCard from '../../components/cash/PreviousBalanceCard/PreviousBalanceCard';
@@ -55,7 +56,7 @@ export default function CashDailyPage() {
       setPreviousBalanceEdit(false);
       loadCaja();
     } catch (err: unknown) {
-      notify((err as Error).message || 'Error al guardar saldo anterior', 'error');
+      notify(parseApiError(err, 'Error al guardar saldo anterior'), 'error');
     }
   };
 
@@ -65,7 +66,7 @@ export default function CashDailyPage() {
       setShowIncome(false);
       await loadCaja();
     } catch (err: unknown) {
-      notify((err as Error).message || 'Error al registrar ingreso', 'error');
+      notify(parseApiError(err, 'Error al registrar ingreso'), 'error');
     }
   };
 
@@ -75,7 +76,7 @@ export default function CashDailyPage() {
       setShowExpense(false);
       await loadCaja();
     } catch (err: unknown) {
-      notify((err as Error).message || 'Error al registrar egreso', 'error');
+      notify(parseApiError(err, 'Error al registrar egreso'), 'error');
     }
   };
 
@@ -86,7 +87,7 @@ export default function CashDailyPage() {
       setDeleteId(null);
       await loadCaja();
     } catch (err: unknown) {
-      notify((err as Error).message || 'Error al eliminar movimiento', 'error');
+      notify(parseApiError(err, 'Error al eliminar movimiento'), 'error');
     }
   };
 
@@ -96,7 +97,7 @@ export default function CashDailyPage() {
       setShowClose(false);
       await loadCaja();
     } catch (err: unknown) {
-      notify((err as Error).message || 'Error al cerrar la caja', 'error');
+      notify(parseApiError(err, 'Error al cerrar la caja'), 'error');
     }
   };
 

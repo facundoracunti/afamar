@@ -93,7 +93,7 @@ export default function FabricationSection({
                   ? `${delta > 0 ? '+' : ''}${delta.toFixed(5)} m²`
                   : '—';
                 return m2Real > 0 || hasBudget ? (
-                  <tr key={i} className={s['fabrication-section__comparison-row']}>
+                  <tr key={m.id ?? `${m.name}-${i}`} className={s['fabrication-section__comparison-row']}>
                     <td className={s['fabrication-section__comparison-name']}>{m.name}</td>
                     <td className={`${s['fabrication-section__comparison-cell-center']} ${m2RealClass}`}>
                       {m2Real.toFixed(5)} m²

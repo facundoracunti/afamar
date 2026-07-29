@@ -98,7 +98,7 @@ export default function ClientsList() {
           <table>
             <thead>
               <tr>
-                <th style={{ width: 60 }}>ID</th>
+                <th>ID</th>
                 <th>Nombre</th>
                 <th>Telefono</th>
                 <th>Correo</th>
@@ -107,7 +107,7 @@ export default function ClientsList() {
                 <th style={{ textAlign: 'center' }}>Órdenes</th>
                 <th>Última orden</th>
                 <th>Fecha alta</th>
-                <th style={{ width: 100 }}>Acciones</th>
+                <th>Acciones</th>
               </tr>
             </thead>
             <tbody>

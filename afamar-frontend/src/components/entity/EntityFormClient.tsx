@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { parseApiError } from '../../utils/error';
 import { MapPin, Plus } from 'lucide-react';
 import ClientSection from '../../components/orders/ClientSection/ClientSection';
 import ClientInfoCard from '../../components/orders/ClientInfoCard/ClientInfoCard';
@@ -47,8 +48,7 @@ export default function EntityFormClient({
       setNewAddrText('');
       notify('Dirección agregada', 'success');
     } catch (err) {
-      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      notify(detail || 'Error al agregar dirección', 'error');
+      notify(parseApiError(err, 'Error al agregar dirección'), 'error');
     } finally {
       setAddingAddr(false);
     }

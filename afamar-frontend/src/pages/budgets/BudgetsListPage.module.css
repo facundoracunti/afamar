@@ -81,6 +81,21 @@
   border-bottom: 1px solid var(--border-color);
 }
 
+/* Column widths for the budgets table. Encoded as nth-child rules so
+ * the JSX stays free of inline `style={{ width: ... }}`. Add a new
+ * column by adding its width here in the same order as the <th>s. */
+.budgets__table thead th:nth-child(1) { width: 90px; }
+.budgets__table thead th:nth-child(2) { width: 95px; font-size: 12px; }
+.budgets__table thead th:nth-child(3) { width: 160px; }
+.budgets__table thead th:nth-child(4) { width: 110px; }
+.budgets__table thead th:nth-child(5) { width: 110px; }
+.budgets__table thead th:nth-child(6) { width: 100px; }
+.budgets__table thead th:nth-child(7) { width: 130px; }
+.budgets__table thead th:nth-child(8) { width: 140px; }
+.budgets__table thead th:nth-child(9) { width: 130px; }
+.budgets__table thead th:nth-child(10) { width: 150px; }
+.budgets__table thead th:nth-child(11) { width: 70px; }
+
 .budgets__td {
   padding: 12px;
   font-size: 14px;
@@ -92,7 +107,7 @@
 .budgets__td--right { text-align: right; }
 .budgets__td--center { text-align: center; }
 .budgets__td--currency { font-weight: 600; }
-.budgets__td--currency-usd { color: #16a34a; font-weight: 600; }
+.budgets__td--currency-usd { color: var(--tw-green-600); font-weight: 600; }
 
 .budgets__cell-actions {
   display: flex;
@@ -191,29 +206,29 @@
 }
 
 .budgets__status--pending {
-  background: #fef3c7;
-  color: #b45309;
+  background: var(--tw-amber-100);
+  color: var(--tw-amber-700);
 }
 
 .budgets__status--pending-online {
-  background: #fef3c7;
-  color: #d97706;
-  border: 1px solid #f59e0b;
+  background: var(--tw-amber-100);
+  color: var(--tw-amber-600);
+  border: 1px solid var(--color-warning);
 }
 
 .budgets__status--done {
-  background: #d1fae5;
-  color: #065f46;
+  background: var(--tw-emerald-100);
+  color: var(--tw-emerald-800);
 }
 
 .budgets__status--approved {
   background: #dbeafe;
-  color: #1e40af;
+  color: var(--tw-blue-800);
 }
 
 .budgets__status--rejected {
-  background: #fee2e2;
-  color: #b91c1c;
+  background: var(--tw-red-100);
+  color: var(--color-danger-hover);
 }
 
 .budgets__row {
@@ -236,7 +251,7 @@
 
 .budgets__numeroSub {
   font-size: 10px;
-  color: #16a34a;
+  color: var(--tw-green-600);
   font-family: 'JetBrains Mono', 'Consolas', monospace;
   margin-top: 2px;
 }
@@ -263,10 +278,10 @@
 .budgets__ot {
   padding: 3px 8px;
   font-size: 11px;
-  color: #16a34a;
-  border-color: #16a34a;
+  color: var(--tw-green-600);
+  border-color: var(--tw-green-600);
   background: var(--surface-bg);
-  border: 1px solid #16a34a;
+  border: 1px solid var(--tw-green-600);
   border-radius: 4px;
   cursor: pointer;
 }

@@ -3,6 +3,7 @@ import type { ClientAddress } from '../../types/client';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Plus, X, Star, MapPin } from 'lucide-react';
 import { getClient, createClient, updateClient } from '@/api/resources/clients';
+import { parseApiError } from '../../utils/error';
 import { useCreate, useUpdate, useGet } from '../../api/hooks';
 import { Modal } from '../../components/ui/Modal/Modal';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
@@ -82,10 +83,7 @@ export default function ClientForm() {
       }
       navigate('/admin/clients');
     } catch (err: unknown) {
-      const apiErr = err as Record<string, unknown>;
-      const response = apiErr.response as Record<string, unknown> | undefined;
-      const data = response?.data as Record<string, unknown> | undefined;
-      notify((data?.detail as string) || 'Error al guardar cliente', 'error');
+      notify(parseApiError(err, 'Error al guardar cliente'), 'error');
     } finally {
       setSaving(false);
     }

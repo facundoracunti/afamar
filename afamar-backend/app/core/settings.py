@@ -58,6 +58,28 @@ class Settings(BaseSettings):
     RATE_LIMIT_LOGIN: str = "60/minute"
     RATE_LIMIT_REGISTER: str = "3/minute"
 
+    # Default values
+    DEFAULT_USD_RATE: float = 1000.0
+
+    # Uploads
+    PRODUCT_PHOTOS_DIR: str = "uploads/product_photos"
+    MATERIALS_DIR: str = "uploads/materials"
+    LOGOS_DIR: str = "uploads"
+    MAX_UPLOAD_FILE_SIZE: int = 30 * 1024 * 1024  # 30 MB
+    MAX_UPLOAD_DIMENSION: int = 1920
+
+    @property
+    def product_photos_abs_dir(self) -> Path:
+        return BASE_DIR / self.PRODUCT_PHOTOS_DIR
+
+    @property
+    def materials_abs_dir(self) -> Path:
+        return BASE_DIR / self.MATERIALS_DIR
+
+    @property
+    def logos_abs_dir(self) -> Path:
+        return BASE_DIR / self.LOGOS_DIR
+
     @property
     def cors_origins_list(self) -> list[str]:
         if self.CORS_ALLOW_ORIGINS == "*":

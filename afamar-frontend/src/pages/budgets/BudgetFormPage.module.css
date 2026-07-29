@@ -148,7 +148,7 @@
 }
 
 .budget-form__btn-ot {
-  background: #16a34a;
+  background: var(--tw-green-600);
 }
 
 .budget-form__btn-convert {
@@ -156,7 +156,7 @@
 }
 
 .budget-form__btn-approve {
-  background: #2563eb;
+  background: var(--tw-blue-600);
 }
 
 .budget-form__btn-save {

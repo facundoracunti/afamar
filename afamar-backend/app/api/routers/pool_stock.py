@@ -69,7 +69,6 @@ def add_movement(pool_id: int, data: StockMovementCreate, db: Session = Depends(
 
 @router.get("/{pool_id}/movements")
 def list_pool_movements(pool_id: int, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    from app.models.pool_stock import StockMovement
-    movements = db.query(StockMovement).filter(StockMovement.pool_id == pool_id).order_by(StockMovement.created_at.desc()).offset(skip).limit(limit).all()
-    total = db.query(StockMovement).filter(StockMovement.pool_id == pool_id).count()
-    return success(movements, PaginationInfo(total=total, skip=skip, limit=limit))
+    service = PoolStockService(db)
+    items, pagination = service.list_movements(pool_id, skip, limit)
+    return success(items, pagination)

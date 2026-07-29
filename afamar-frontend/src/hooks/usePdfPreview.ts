@@ -1,3 +1,4 @@
+import { parseApiError } from '../utils/error';
 import { useState, useCallback } from 'react';
 
 interface PdfPreviewState {
@@ -23,16 +24,8 @@ export function usePdfPreview(
         const url = URL.createObjectURL(blob);
         setState({ pdfPreviewUrl: url, pdfPreviewLoading: false });
       } catch (err: unknown) {
-        const responseData = (err as { response?: { data?: unknown; status?: number } }).response?.data;
         const status = (err as { response?: { status?: number } }).response?.status;
-        let detail: string | undefined;
-        if (typeof responseData === 'string') {
-          detail = responseData;
-        } else if (responseData && typeof responseData === 'object') {
-          const obj = responseData as Record<string, unknown>;
-          if (typeof obj.detail === 'string') detail = obj.detail;
-          else if (typeof obj.error === 'string') detail = obj.error;
-        }
+        const detail = parseApiError(err);
         const label = entityLabel || 'PDF';
         const suffix = status ? ` (status ${status})` : '';
         notify?.(detail ? `${detail}${suffix}` : `Error al generar la vista previa del ${label}${suffix}`, 'error');

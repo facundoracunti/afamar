@@ -42,7 +42,7 @@ export function HeroCarousel() {
     <section className={s['hero']}>
       {slides.map((slide, i) => (
         <div
-          key={i}
+          key={slide.title}
           className={`${s['hero__slide']} ${i === activeSlide ? s['hero__slide--active'] : ''}`}
           style={{ backgroundImage: `url(${slide.image})` }}
         >
@@ -53,9 +53,9 @@ export function HeroCarousel() {
         </div>
       ))}
       <div className={s['hero__dots']}>
-        {slides.map((_, i) => (
+        {slides.map((slide, i) => (
           <button
-            key={i}
+            key={slide.title}
             className={`${s['hero__dot']} ${i === activeSlide ? s['hero__dot--active'] : ''}`}
             onClick={() => goTo(i)}
           />

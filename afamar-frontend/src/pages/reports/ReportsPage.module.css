@@ -65,7 +65,7 @@
 
 .reports__chartBar {
   flex: 1;
-  background: linear-gradient(180deg, var(--color-danger) 0%, #ef4444 100%);
+  background: linear-gradient(180deg, var(--color-danger) 0%, var(--tw-red-500) 100%);
   border-radius: 4px 4px 0 0;
   position: relative;
   min-height: 2px;
@@ -120,10 +120,10 @@
 .reports__td--right { text-align: right; }
 
 /* Stat card colors — semantic colors for dashboard stat values */
-.reports__stat-value--blue { color: #3b82f6; }
-.reports__stat-value--amber { color: #f59e0b; }
-.reports__stat-value--green { color: #22c55e; }
-.reports__stat-value--red { color: #ef4444; }
+.reports__stat-value--blue { color: var(--tw-blue-500); }
+.reports__stat-value--amber { color: var(--color-warning); }
+.reports__stat-value--green { color: var(--tw-green-500); }
+.reports__stat-value--red { color: var(--tw-red-500); }
 .reports__stat-value--purple { color: #8b5cf6; }
 
 .reports__stat-total {

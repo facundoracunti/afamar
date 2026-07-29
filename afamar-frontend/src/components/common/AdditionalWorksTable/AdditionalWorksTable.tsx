@@ -34,7 +34,7 @@ onEdit, onDelete }: AdditionalWorksTableProps) {
               <th>Tipo</th>
               <th>Precio</th>
               <th>Moneda</th>
-              <th style={{ width: 160 }}>Acciones</th>
+              <th>Acciones</th>
             </tr>
           </thead>
           <tbody>

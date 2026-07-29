@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { parseApiError } from '@/utils/error';
 import { useList, useCreate, useUpdate, useDelete } from '@/api/hooks';
 import { getLatestProductPhotos, createProductPhoto, updateProductPhoto, deleteProductPhoto } from '@/api/resources/productPhotos';
 import { Modal } from '@/components/ui/Modal/Modal';
@@ -80,7 +81,7 @@ export default function ProductPhotosPage() {
       if (fileRef.current) fileRef.current.value = '';
       load();
     } catch (e: any) {
-      notify(e.message || 'Error al subir foto', 'error');
+      notify(parseApiError(e, 'Error al subir foto'), 'error');
     } finally {
       setUploading(false);
     }
@@ -93,7 +94,7 @@ export default function ProductPhotosPage() {
       notify('Foto eliminada', 'success');
       load();
     } catch (e: any) {
-      notify(e.message || 'Error al eliminar foto', 'error');
+      notify(parseApiError(e, 'Error al eliminar foto'), 'error');
     }
   };
 
@@ -110,7 +111,7 @@ export default function ProductPhotosPage() {
       setEditingId(null);
       load();
     } catch (e: any) {
-      notify(e.message || 'Error al actualizar', 'error');
+      notify(parseApiError(e, 'Error al actualizar'), 'error');
     }
   };
 

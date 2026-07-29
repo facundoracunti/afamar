@@ -128,16 +128,16 @@
 /* Progress bar colors stay semantic across themes (status indicators). */
 .calculator__progressBar {
   height: 100%;
-  background: linear-gradient(90deg, #16a34a 0%, #22c55e 100%);
+  background: linear-gradient(90deg, var(--tw-green-600) 0%, var(--tw-green-500) 100%);
   transition: width 0.3s ease;
 }
 
 .calculator__progressBar--low {
-  background: linear-gradient(90deg, var(--color-danger) 0%, #f87171 100%);
+  background: linear-gradient(90deg, var(--color-danger) 0%, var(--tw-red-400) 100%);
 }
 
 .calculator__progressBar--mid {
-  background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%);
+  background: linear-gradient(90deg, var(--color-warning) 0%, #fbbf24 100%);
 }
 
 /* ------------------------------------------------------------------ */
@@ -298,7 +298,7 @@
 }
 
 .calculator__progressFill--high { background: var(--color-success); }
-.calculator__progressFill--mid { background: #f59e0b; }
+.calculator__progressFill--mid { background: var(--color-warning); }
 .calculator__progressFill--low { background: var(--color-danger); }
 
 .calculator__progressScale {
@@ -334,4 +334,58 @@
   text-align: center;
   padding: 32px;
   color: var(--text-muted);
+}
+
+/* ------------------------------------------------------------------ */
+/* Add-piece form grid + buttons                                       */
+/* ------------------------------------------------------------------ */
+
+.calculator__card {
+  margin-bottom: 16px;
+}
+
+.calculator__sectionTitleSm {
+  font-size: 15px;
+  margin-bottom: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-top: 0;
+}
+
+.calculator__formGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.calculator__fieldFlush {
+  margin-bottom: 0;
+}
+
+.calculator__addBtn {
+  height: 42px;
+  align-self: end;
+}
+
+.calculator__th--narrow {
+  width: 60px;
+}
+
+.calculator__td--bold {
+  font-weight: 600;
+}
+
+.calculator__deleteBtn {
+  padding: 4px 8px;
+}
+
+.calculator__progressWrap {
+  margin-top: 8px;
+}
+
+.calculator__progressFill--mid-bg {
+  background: var(--color-warning);
 }

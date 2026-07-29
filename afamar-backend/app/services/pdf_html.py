@@ -1,9 +1,12 @@
 import base64
+import logging
 import os
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from PIL import Image as PILImage, ImageDraw
@@ -80,7 +83,7 @@ def _load_logo_base64(logo_path: Optional[str] = None) -> Optional[str]:
                 with open(path, "rb") as f:
                     return base64.b64encode(f.read()).decode("utf-8")
             except Exception:
-                pass
+                logger.warning("Failed to encode logo image")
     return None
 
 

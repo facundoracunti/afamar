@@ -124,7 +124,7 @@ export default function MaterialsList() {
           <table>
             <thead>
               <tr>
-                <th className={s['materials__th']} style={{ width: 60 }}>Foto</th>
+                <th className={s['materials__th']}>Foto</th>
                 <th className={s['materials__th']}>Nombre</th>
                 <th className={s['materials__th']}>Categoria</th>
                 <th className={s['materials__th']}>Color</th>

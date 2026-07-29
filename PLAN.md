@@ -1,88 +1,22 @@
-# Refactor Plan — Frontend Audit 2026
+# Refactor Plan — Code Quality 2026
 
-> **Última actualización:** Julio 2026 — Fase 1.1–1.4, 2.1–2.4, 3.1–3.3, 4.2–4.4, 5.1–5.9 completadas.
-
----
-
-## Ronda 2 — Auditoría profunda
-
-### Fase 5.1 — TypeScript strict: `noImplicitAny`
-
-- ✅ `noImplicitAny: true` en tsconfig.json
-- ✅ 21 errores corregidos (5 archivos: completedWorks stubs, WorkOrderFormSnapshot return type, test object literals)
-- `strictNullChecks`, `noImplicitThis`, etc. van en fases futuras
-
-### Fase 5.2 — Dependencias muertas
-
-- ✅ `html2canvas`, `jspdf`, `@types/jspdf`, `react-beautiful-dnd` eliminados (25 packages, cero imports en src/)
-
-### Fase 5.3 — ConfirmDialog accessibility
-
-- ✅ `role="dialog"` + `aria-modal="true"` + `aria-labelledby` en ConfirmDialog
-- ✅ `useFocusTrap` hook creado — focus trapping en Modal y ConfirmDialog
-- ✅ Escape key handler en ConfirmDialog
-
-### Fase 5.4 — React.memo en componentes de lista
-
-- ✅ WorkOrdersTable, AdditionalWorksTable, MeasurementsTable, MaterialCard, PoolCard wrapped in React.memo
-
-### Fase 5.5 — Lazy-load de componentes pesados
-
-- ✅ PdfPreviewModal + SketchImageExtractor → React.lazy() en 4 pages
-- SketchImageExtractor chunk: 1,804 KB → 1.97 KB (PDF library loaded on demand)
-
-### Fase 5.6 — Dedup BudgetForm/WorkOrderForm
-
-- ✅ `useConfirmPayment` hook extraído (lógica tarjeta→depósito eliminada de useBudgetActions + WorkOrderFormPage)
-- ✅ `createAddressAddedHandler` utility extraído (handler idéntico en ambas pages)
-
-### Fase 5.7 — ConfigurationPage → TanStack Query
-
-- ✅ `useGet(['settings'])` reemplaza raw `useEffect` + `axios.get` — comparte cache con `useSettingsWithTerms`
-- ✅ `console.error` eliminado de ConfigurationPage
-
-### Fase 5.8 — Limpieza menor
-
-- ✅ 2 `console.error` eliminados (usePdfPreview, useFormReferences)
-- ✅ 4 `.catch` vacíos revisados — todos son fallbacks intencionales, se mantienen
-
-### Fase 5.9 — Vitest: jsdom environment
-
-- ✅ `environment: 'jsdom'` en vitest.config.ts
-- ✅ `@testing-library/react` + `@testing-library/jest-dom` instalados
-- ✅ StatusBadge.test.tsx reescrito con 2 tests reales (antes era stub vacío)
+> **Estado:** Rama `development`. Fases 1–6.11 completadas (calidad de código, tests, performance, CSS, dead code, config).
+> Refactor de calidad cerrado. Nuevas features se trackingan en AGENTS.md.
 
 ---
 
-## Fases anteriores (completadas)
+## Fuera de scope (evaluados, no requeridos)
 
-### Fase 4.1 — Inline styles → CSS modules
+Items que se evaluaron durante las fases 6.x y se descartaron con justificación:
 
-- CashDailyPage: ✅ `.cash__page-header-title`, `.cash__date-input`, `.cash__controls-btn`, `.cash__icon-inline`, `.cash__movements-grid`, `.cash__badge`, `.cash__print-footer-block`
-- CashHistoryPage: ✅ `.cash-history__icon-inline`
-- NO action — la mayoría son anchos de columna dinámicos, background images, o valores calculados que NO pueden pasarse a CSS
-
-### Fase 3.4 — Context optimization
-
-- `useSettings`: **no necesario** — TanStack Query ya cachea
+- **`paginate()` con `SELECT COUNT(*)`** (6.2) — aceptable para el volumen actual; cache del count no aporta.
+- **`noUncheckedIndexedAccess` en tsconfig** (6.3) — descartado, genera ~200 falsos positivos con CSS modules.
+- **Test de submit flow en BudgetFormPage** (6.8) — fuera de scope; código estable, alto costo vs valor.
+- **Configurar `@testing-library/user-event`** (6.8) — `fireEvent` cubre los flujos actuales.
 
 ---
 
-## Completado
+## Pendiente menor (backlog)
 
-| Fase | Item |
-|---|---|
-| 1.1 | 13 splits de pages/components |
-| 1.2 | StatusBadge (STATUS_META), PdfPreviewModal (no action needed) |
-| 1.3 | buildPdfData.ts (4 archivos), entityFormHelpers.ts (4 archivos) |
-| 1.4 | React.lazy() en App.tsx |
-| 2.1 | EntityFormFinancial, EntityFormSpecs, EntityFormClient fusionados |
-| 2.2 | useAdditionalWorkSelection (334→241L) + additionalWorkCalc.ts |
-| 2.3 | round2 → utils/math.ts |
-| 2.4 | STATUS_META, PAYMENT_METHODS, M2_CONCEPTS centralizados |
-| 3.1 | AuthContext useMemo, StatusBadge React.memo |
-| 3.2 | BudgetPanelContext (18 props → 3 grupos) + 10 archivos muertos eliminados |
-| 3.3 | EntityFormState materials_data/pools_data tipados |
-| 4.2 | .modal-overlay, .modal, @keyframes spin eliminados de index.css |
-| 4.3 | aria-expanded Sidebar, aria-live notifications, role="dialog" Modal |
-| 4.4 | STATUS_META lookup + t() para labels |
+- Evaluar migrar `pdf_html.py` (legacy xhtml2pdf) a usar el PDF generado por frontend para email/download. Hoy coexisten dos paths: `pdf_html.py` para `/api/v1/budgets/{id}/pdf` + email background, y `@react-pdf/renderer` para preview en el form. Unificarlos eliminaría ~555 LOC de backend.
+- Evaluar drop completo de tabla `budget_adicionales` (read-only hoy) con migración one-time que backfille `additional_works_data` desde las filas legacy.

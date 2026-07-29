@@ -129,6 +129,10 @@ class BudgetBase(BaseModel):
 
 class BudgetCreate(BudgetBase):
     items: list[BudgetItemCreate] = []
+    # Legacy list-of-BudgetAdicionalCreate input. The service is read-only
+    # on this field (it doesn't write new BudgetAdicional rows anymore)
+    # but the schema accepts it for backwards compat — older clients may
+    # still POST the legacy list. The new path uses `additional_works_data`.
     additional_works: list[BudgetAdicionalCreate] = []
     # JSON-encoded array of sketch elements (same wire format as
     # WorkOrderBase.sketch_elements). The Budget has no `sketch_elements`
@@ -200,6 +204,9 @@ class BudgetUpdate(BaseModel):
     stock_deducted: bool | None = None
     pools_data: str | None = None
     items: list[BudgetItemCreate] | None = None
+    # See `BudgetCreate.additional_works` — legacy input still accepted
+    # for backwards compat. Service treats it as a no-op (the new path
+    # uses `additional_works_data` and never writes new BudgetAdicional rows).
     additional_works: list[BudgetAdicionalCreate] | None = None
     # See `BudgetCreate.sketch_elements` — JSON-encoded string.
     sketch_elements: str | None = None

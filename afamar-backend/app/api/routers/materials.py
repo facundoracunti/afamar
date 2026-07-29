@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user, get_db
 from app.core.exceptions import NotFoundError
+from app.core.settings import settings
 from app.utils.responses import created, success
 from app.schemas.material import (
     MaterialCategoryCreate,
@@ -20,11 +21,7 @@ from app.utils.pagination import paginate
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
 
-MATERIALS_UPLOAD_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
-    "uploads",
-    "materials",
-)
+MATERIALS_UPLOAD_DIR = settings.materials_abs_dir
 os.makedirs(MATERIALS_UPLOAD_DIR, exist_ok=True)
 
 
@@ -74,42 +71,29 @@ def delete_thickness(thickness_id: int, db: Session = Depends(get_db)):
 
 @router.get("/categories")
 def list_categories(db: Session = Depends(get_db)):
-    from app.repositories.material import MaterialCategoryRepository
-    repo = MaterialCategoryRepository(db)
-    return success(repo.get_all())
+    service = MaterialService(db)
+    return success(service.list_categories())
 
 
 @router.post("/categories", status_code=201)
 def create_category(data: MaterialCategoryCreate, db: Session = Depends(get_db)):
-    from app.repositories.material import MaterialCategoryRepository
-    repo = MaterialCategoryRepository(db)
-    cat = repo.create(data.name)
-    db.commit()
-    db.refresh(cat)
-    return created(cat)
+    service = MaterialService(db)
+    return created(service.create_category(data.name))
 
 
 @router.delete("/categories/{category_id}", status_code=204)
 def delete_category(category_id: int, db: Session = Depends(get_db)):
-    from app.repositories.material import MaterialCategoryRepository
-    repo = MaterialCategoryRepository(db)
-    cat = repo.get_by_id(category_id)
-    if not cat:
+    service = MaterialService(db)
+    if not service.delete_category(category_id):
         raise NotFoundError("Category")
-    repo.delete(cat)
-    db.commit()
 
 
 @router.put("/categories/{category_id}")
 def update_category(category_id: int, data: MaterialCategoryCreate, db: Session = Depends(get_db)):
-    from app.repositories.material import MaterialCategoryRepository
-    repo = MaterialCategoryRepository(db)
-    cat = repo.get_by_id(category_id)
+    service = MaterialService(db)
+    cat = service.update_category(category_id, data.name)
     if not cat:
         raise NotFoundError("Category")
-    cat.name = data.name
-    db.commit()
-    db.refresh(cat)
     return success(cat)
 
 
@@ -222,7 +206,7 @@ def upload_material_photo(material_id: int, file: UploadFile = File(...), db: Se
     _delete_photo_file(getattr(material, "photo", None))
 
     stored_name = f"{material_id}_{uuid.uuid4().hex[:8]}.png"
-    abs_dest = os.path.join(MATERIALS_UPLOAD_DIR, stored_name)
+    abs_dest = str(MATERIALS_UPLOAD_DIR / stored_name)
     if img.mode in ("RGBA", "LA", "P"):
         img.save(abs_dest, format="PNG")
     else:

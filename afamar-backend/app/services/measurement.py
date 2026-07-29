@@ -4,17 +4,13 @@ from sqlalchemy.orm import Session
 
 from app.models.measurement import Measurement
 from app.repositories.measurement import MeasurementRepository
+from app.services.base import BaseService
 
 
-class MeasurementService:
+class MeasurementService(BaseService[Measurement]):
     def __init__(self, db: Session):
         self.repo = MeasurementRepository(db)
-
-    def get_all(self, skip: int = 0, limit: int = 100) -> List[Measurement]:
-        return self.repo.get_all(skip, limit)
-
-    def get_by_id(self, measurement_id: int) -> Optional[Measurement]:
-        return self.repo.get_by_id(measurement_id)
+        super().__init__(db)
 
     def create(self, data: dict) -> Measurement:
         measurement = self.repo.create(data)

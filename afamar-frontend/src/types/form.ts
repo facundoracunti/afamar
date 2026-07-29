@@ -93,7 +93,6 @@ export interface EntityServices {
 }
 
 export interface UseEntityFormParams {
-  entityType: string;
   services: EntityServices;
   defaultStatus: string;
   id?: string;

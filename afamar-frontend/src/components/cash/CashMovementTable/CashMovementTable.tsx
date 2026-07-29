@@ -52,7 +52,7 @@ export function CashMovementTable({
                   {c.label}
                 </th>
               ))}
-              <th className="no-print" style={{ width: 40 }}></th>
+              <th className="no-print"></th>
             </tr>
           </thead>
           <tbody>

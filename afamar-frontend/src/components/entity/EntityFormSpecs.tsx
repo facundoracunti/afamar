@@ -79,7 +79,7 @@ export default function EntityFormSpecs({
             readOnly={readOnly}
             updateMaterial={updateMaterial}
             removeMaterial={removeMaterial}
-            num={num}
+            num={(v) => num(v as string) ?? 0}
             usdRate={Number(form.usd_rate) || 0}
           />
         ))}

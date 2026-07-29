@@ -92,21 +92,21 @@
   align-items: center;
   gap: 4px;
   padding: 2px 10px;
-  background: #d1fae5;
-  color: #065f46;
+  background: var(--tw-emerald-100);
+  color: var(--tw-emerald-800);
   border-radius: 9999px;
   font-size: 12px;
   font-weight: 600;
 }
 
 .poolStock__cardQty--low {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--tw-amber-100);
+  color: var(--tw-amber-800);
 }
 
 .poolStock__cardQty--out {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--tw-red-100);
+  color: var(--tw-red-800);
 }
 
 .poolStock__cardActions {

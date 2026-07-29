@@ -1,4 +1,9 @@
 import json
+import logging
+
+from app.core.settings import settings
+
+logger = logging.getLogger(__name__)
 
 
 def parse_materials_data(materials_data: str | None | list | dict) -> list:
@@ -54,7 +59,7 @@ def compute_alternative_totals(alt: dict, budget) -> tuple:
     area = m2 * cantidad
 
     alt_currency = alt.get("moneda") or alt.get("currency") or budget.currency or "ARS"
-    usd_rate_value = budget.usd_rate or 1000.0
+    usd_rate_value = budget.usd_rate or settings.DEFAULT_USD_RATE
 
     if alt_currency == "USD":
         mat_cost_usd = round(area * float(alt.get("price_m2_usd") or alt.get("precio_m2_usd", 0) or 0), 2)
@@ -105,6 +110,7 @@ def parse_additional_works_snapshot(raw) -> list:
         try:
             raw = raw.decode("utf-8")
         except Exception:
+            logger.warning("Failed to parse additional works snapshot")
             return []
     try:
         parsed = json.loads(raw)

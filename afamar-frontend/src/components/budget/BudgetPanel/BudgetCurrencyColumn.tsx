@@ -61,7 +61,7 @@ export function BudgetCurrencyColumn({
                 : dd2 > 0 ? Number(d.price) / dd2 : 0;
             const price = isArs ? precioArs : precioUsd;
             return (
-              <div key={i} className={s['lineItem']}>
+              <div key={`${d.concept}-${d.detail ?? ''}-${d.currency}-${i}`} className={s['lineItem']}>
                 <span>
                   {d.concept === 'OTHER' ? d.detail || t('OTHER') : t(d.concept)}
                   {d.material ? ` - ${d.material}` : ''}
@@ -88,7 +88,7 @@ export function BudgetCurrencyColumn({
               : dd2 > 0 ? (m2 * (m.price_m2 || 0)) / dd2 : 0;
           const sub = isArs ? subArs : subUsd;
           return sub > 0 ? (
-            <div key={`m${i}`} className={s['lineItem']}>
+            <div key={m.id ?? `m-${m.name ?? 'unnamed'}-${i}`} className={s['lineItem']}>
               <span>
                 {m.name} ({m2.toFixed(3)} m²)
                 {m.quantity > 1 ? ` x${m.quantity}` : ''}
@@ -111,7 +111,7 @@ export function BudgetCurrencyColumn({
               : dd2 > 0 ? (pt.price || 0) / dd2 : 0;
           const price = isArs ? precioArs : precioUsd;
           return (
-            <div key={`p${i}`} className={s['lineItem']}>
+            <div key={pt.pool_id ?? `p-${pt.brand ?? 'unnamed'}-${pt.model ?? 'unnamed'}-${i}`} className={s['lineItem']}>
               <span>
                 Pileta {pt.brand} - {pt.model}
                 {pt.quantity > 1 ? ` (x${pt.quantity})` : ''}

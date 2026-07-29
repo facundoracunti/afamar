@@ -1,4 +1,17 @@
-import { useState, useEffect } from 'react';
+/**
+ * Loads reference data (clients, materials, pools, settings/logo) for the
+ * Budget/WorkOrder form pages via TanStack Query.
+ *
+ * Reference data is shared across all form pages, so we use stable,
+ * file-level query keys (`CLIENTS_KEY`, `MATERIALS_KEY`, `POOLS_KEY`,
+ * `SETTINGS_KEY`). Reference data has a 5-minute `staleTime` so opening
+ * a second form (e.g. switching from Budgets to WorkOrders) does not
+ * refetch the client/materials/pools lists. The entity being edited
+ * (Budget or WorkOrder) is fetched fresh every time the id changes
+ * (no staleTime) so the form always reflects the latest snapshot.
+ */
+import { useEffect, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../api/http';
 import type { Client } from '../types/client';
 import type { Material } from '../types/material';
@@ -31,6 +44,15 @@ interface UseFormReferencesReturn {
   updateClientAddresses: (clientId: number, addresses: Client['addresses']) => void;
 }
 
+const REFERENCE_STALE_TIME = 5 * 60 * 1000;
+
+export const CLIENTS_KEY = ['clients', 'reference'] as const;
+export const MATERIALS_KEY = ['materials', 'reference'] as const;
+export const POOLS_KEY = ['pools', 'reference'] as const;
+export const SETTINGS_KEY = ['settings', 'reference'] as const;
+const ENTITY_KEY = (entity: string, id: string | undefined) => [entity, id] as const;
+const NEXT_NUMBER_KEY = (entity: string) => [entity, 'next-number'] as const;
+
 export function useFormReferences({
   services,
   defaultStatus,
@@ -40,112 +62,127 @@ export function useFormReferences({
   setLoading,
   onLoaded,
 }: UseFormReferencesParams): UseFormReferencesReturn {
-  const [materials, setMaterials] = useState<Material[]>([]);
-  const [pools, setPools] = useState<Pool[]>([]);
-  const [clientes, setClientes] = useState<Client[]>([]);
-  const [logoUrl, setLogoUrl] = useState<string>('');
+  const queryClient = useQueryClient();
 
-  const fetchClientes = () => {
-    services.getClients({ limit: 500 }).then((res) => {
-      setClientes((res.data as unknown as Client[]) || []);
-    });
-  };
+  // --- Reference data (clients, materials, pools, settings) — 5 min cache.
+  const clientsQuery = useQuery<Client[]>({
+    queryKey: [...CLIENTS_KEY],
+    queryFn: async () => {
+      const res = await services.getClients({ limit: 500 });
+      return (res.data as unknown as Client[]) || [];
+    },
+    staleTime: REFERENCE_STALE_TIME,
+  });
+  const materialsQuery = useQuery<Material[]>({
+    queryKey: [...MATERIALS_KEY],
+    queryFn: async () => {
+      const res = await services.getMaterials({ limit: 500 });
+      return (res.data as unknown as Material[]) || [];
+    },
+    staleTime: REFERENCE_STALE_TIME,
+  });
+  const poolsQuery = useQuery<Pool[]>({
+    queryKey: [...POOLS_KEY],
+    queryFn: async () => {
+      const res = await services.getPools();
+      return (res.data as unknown as Pool[]) || [];
+    },
+    staleTime: REFERENCE_STALE_TIME,
+  });
+  const settingsQuery = useQuery<Record<string, unknown>>({
+    queryKey: [...SETTINGS_KEY],
+    queryFn: async () => {
+      const res = await api.get('/settings');
+      return (res as unknown as Record<string, unknown>).data as Record<string, unknown>;
+    },
+    staleTime: REFERENCE_STALE_TIME,
+  });
 
-  /**
-   * Prepend a freshly-created client to the local cache (no API refetch).
-   * Falls back to a full refresh when called without arguments so existing
-   * callers keep working.
-   */
+  const clientes = clientsQuery.data ?? [];
+  const materials = materialsQuery.data ?? [];
+  const pools = poolsQuery.data ?? [];
+
+  const logoUrl = useMemo(() => {
+    const configs = settingsQuery.data;
+    if (!configs) return '';
+    const logoValue = configs['company_logo'] || configs['logo'];
+    if (!logoValue || typeof logoValue !== 'string') return '';
+    const base = (api.defaults.baseURL || '').replace(/\/api\/v\d+$/, '').replace(/\/api$/, '');
+    return `${base}${logoValue.startsWith('/') ? '' : '/'}${logoValue}`;
+  }, [settingsQuery.data]);
+
+  // --- Next number for new entities.
+  const nextNumberQuery = useQuery<{ number: string }>({
+    queryKey: [...NEXT_NUMBER_KEY(services.listPath)],
+    queryFn: async () => {
+      if (!services.getNextNumero) return { number: '' };
+      const res = await services.getNextNumero();
+      return (res.data as unknown as { number: string });
+    },
+    enabled: !isEdit && !!services.getNextNumero,
+    staleTime: 0, // always refetch when opening a new form
+  });
+  useEffect(() => {
+    if (!nextNumberQuery.data || !nextNumberQuery.data.number) return;
+    setForm((prev) => ({ ...prev, number: nextNumberQuery.data!.number }));
+  }, [nextNumberQuery.data, setForm]);
+
+  // --- Entity being edited (Budget / WorkOrder) — fresh on every id change.
+  const entityQuery = useQuery<Record<string, unknown>>({
+    queryKey: [...ENTITY_KEY(services.listPath, id)],
+    queryFn: async () => {
+      const res = await services.getById(id as string);
+      return res.data as Record<string, unknown>;
+    },
+    enabled: !!id,
+    staleTime: 0,
+  });
+
+  // Bridge the entity query result into the form state and the loading flag.
+  useEffect(() => {
+    if (id && entityQuery.data) {
+      const d = entityQuery.data;
+      setForm(mapApiToForm(d, defaultStatus));
+      onLoaded?.(d);
+      setLoading(false);
+    } else if (!id) {
+      // New form: there's no entity to load — clear the loading state
+      // immediately so the form renders.
+      setLoading(false);
+    }
+    // Errors during entity fetch are intentionally silent: the caller
+    // owns the notification (via the form's onError callback), and we
+    // don't want to drop the loading state on transient errors that
+    // TanStack Query will retry automatically.
+    // We intentionally do not depend on `defaultStatus` — it's captured at mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entityQuery.data, id]);
+
   const addOrRefreshClientes = (newClient?: Client) => {
     if (!newClient) {
-      fetchClientes();
+      void queryClient.invalidateQueries({ queryKey: [...CLIENTS_KEY] });
       return;
     }
-    setClientes((prev) => {
-      // Avoid duplicates if a refresh raced in between create and callback.
-      if (prev.some((c) => c.id === newClient.id)) return prev;
-      return [newClient, ...prev];
+    queryClient.setQueryData<Client[]>([...CLIENTS_KEY], (prev) => {
+      const list = prev ?? [];
+      if (list.some((c) => c.id === newClient.id)) return list;
+      return [newClient, ...list];
     });
   };
 
   const updateClientAddresses = (clientId: number, addresses: Client['addresses']) => {
-    setClientes((prev) =>
-      prev.map((c) => (c.id === clientId ? { ...c, addresses } : c)),
-    );
+    queryClient.setQueryData<Client[]>([...CLIENTS_KEY], (prev) => {
+      const list = prev ?? [];
+      return list.map((c) => (c.id === clientId ? { ...c, addresses } : c));
+    });
   };
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadEverything() {
-      try {
-        // Load reference data (clients, materials, pools, logo, next number).
-        const clientsRes = await services.getClients({ limit: 500 });
-        if (cancelled) return;
-        const loadedClientes = (clientsRes.data as unknown as Client[]) || [];
-        setClientes(loadedClientes);
-
-        // Materials + pools in parallel (independent of clients).
-        const [materialsRes, poolsRes] = await Promise.all([
-          services.getMaterials({ limit: 500 }),
-          services.getPools(),
-        ]);
-        if (cancelled) return;
-        setMaterials((materialsRes.data as unknown as Material[]) || []);
-        setPools((poolsRes.data as unknown as Pool[]) || []);
-
-        // Settings (logo) — fire and forget; the logo is optional.
-        api
-          .get('/settings')
-          .then((res) => {
-            const configs = (res as unknown as Record<string, unknown>).data as Record<string, unknown>;
-            const logoValue = configs?.['company_logo'] || configs?.['logo'];
-            if (logoValue && typeof logoValue === 'string') {
-              const base = (api.defaults.baseURL || '').replace(/\/api\/v\d+$/, '').replace(/\/api$/, '');
-              setLogoUrl(`${base}${logoValue.startsWith('/') ? '' : '/'}${logoValue}`);
-            }
-          })
-          .catch(() => {
-            /* logo is optional */
-          });
-
-        // Next number for new entities.
-        if (!isEdit && services.getNextNumero) {
-          try {
-            const res = await services.getNextNumero();
-            if (cancelled) return;
-            setForm((prev) => ({
-              ...prev,
-              number: (res.data as Record<string, unknown>).number as string,
-            }));
-          } catch {
-            /* not critical */
-          }
-        }
-
-        // Load the entity last so `clientes` is already populated for the
-        // resolver fallback.
-        if (id) {
-          const res = await services.getById(id);
-          if (cancelled) return;
-          const d = res.data as Record<string, unknown>;
-          setForm(mapApiToForm(d, defaultStatus));
-          onLoaded?.(d);
-          setLoading(false);
-        }
-      } catch {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    loadEverything();
-
-    return () => {
-      cancelled = true;
-    };
-    // We intentionally do not depend on `defaultStatus` — it's captured at mount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, isEdit]);
-
-  return { materials, pools, clientes, logoUrl, addOrRefreshClientes, updateClientAddresses };
+  return {
+    materials,
+    pools,
+    clientes,
+    logoUrl,
+    addOrRefreshClientes,
+    updateClientAddresses,
+  };
 }

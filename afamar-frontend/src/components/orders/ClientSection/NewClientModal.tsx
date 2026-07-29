@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { parseApiError } from '../../../utils/error';
 import { Modal } from '../../ui/Modal/Modal';
 import { createClient } from '@/api/resources/clients';
 import { useNotify } from '../../../context/NotificationContext';
@@ -35,8 +36,7 @@ export function NewClientModal({ isOpen, initialName, onClose, onCreated }: NewC
       onClose();
       notify('Cliente creado correctamente', 'success');
     } catch (err) {
-      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      notify(detail || 'Error al crear cliente', 'error');
+      notify(parseApiError(err, 'Error al crear cliente'), 'error');
     } finally {
       setSaving(false);
     }

@@ -87,6 +87,14 @@
   border-bottom: 1px solid var(--border-color);
 }
 
+.clients__table thead th:nth-child(1) {
+  width: 60px;
+}
+
+.clients__table thead th:nth-child(10) {
+  width: 100px;
+}
+
 .clients__table td {
   padding: 12px;
   font-size: 14px;

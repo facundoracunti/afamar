@@ -54,7 +54,7 @@ export default function AdditionalMaterial({
           const m2 = computeM2(d);
           const totalPrice = Number(d.price || 0) * Number(d.quantity || 1);
           return (
-            <div key={i} className={s['additional-material__card']}>
+            <div key={`${d.concept ?? 'concept'}-${d.detail ?? 'detail'}-${i}`} className={s['additional-material__card']}>
               <div className={s['additional-material__card-header']}>
                 <select
                   className={`input ${s['additional-material__select-concept']}`}
