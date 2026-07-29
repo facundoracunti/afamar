@@ -12,7 +12,6 @@ import { useFormCalculationsInput } from './useFormCalculationsInput';
 import { useFormActions } from './useFormActions';
 
 export interface UseEntityFormParams {
-  entityType: string;
   services: EntityServices;
   defaultStatus: string;
   id?: string;
@@ -24,10 +23,13 @@ export interface UseEntityFormParams {
   /** Forwarded to useFormActions — fires on submit/status-change errors
    *  so the parent form can surface a toast instead of the legacy `alert()`. */
   onError?: (message: string) => void;
+  /** If provided, replaces the `navigate(services.listPath)` call after
+   *  submit/delete with this callback. Page-mode default keeps the
+   *  redirect; modal mode wires this to close the modal. */
+  onAfterAction?: () => void;
 }
 
 export default function useEntityForm({
-  entityType,
   services,
   defaultStatus,
   id,
@@ -35,8 +37,8 @@ export default function useEntityForm({
   onLoaded,
   extraPayloadFields: _extraPayloadFields,
   onError,
+  onAfterAction,
 }: UseEntityFormParams): UseEntityFormReturn {
-  void entityType; // entityType kept for future per-type branching
   const isEdit = !!id;
 
   // For NEW documents, seed the `date` to today's local calendar day. We
@@ -143,6 +145,7 @@ export default function useEntityForm({
     buildPayload: buildPayloadFn,
     extraPayloadFields: _extraPayloadFields,
     onError,
+    onAfterAction,
   });
 
   // ----- Outside-click dismiss for menu/dropdown

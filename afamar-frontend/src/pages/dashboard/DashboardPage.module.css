@@ -21,7 +21,7 @@
 }
 
 .dashboard__header {
-  background: linear-gradient(135deg, #e51a24 0%, #b91c1c 100%);
+  background: linear-gradient(135deg, var(--color-brand-red) 0%, var(--color-danger-hover) 100%);
   color: #fff;
   padding: 28px 32px;
   border-radius: 12px;
@@ -82,7 +82,7 @@
 }
 
 .dashboard__card--accent {
-  border-left: 4px solid #2563eb;
+  border-left: 4px solid var(--tw-blue-600);
 }
 
 .dashboard__card--danger {
@@ -90,15 +90,15 @@
 }
 
 .dashboard__card--success {
-  border-left: 4px solid #16a34a;
+  border-left: 4px solid var(--tw-green-600);
 }
 
 .dashboard__card--warning {
-  border-left: 4px solid #d97706;
+  border-left: 4px solid var(--tw-amber-600);
 }
 
 .dashboard__card--info {
-  border-left: 4px solid #7c3aed;
+  border-left: 4px solid var(--tw-violet-600);
 }
 
 .dashboard__card-icon {
@@ -154,7 +154,7 @@
   padding: 12px;
   background: var(--surface-alt-bg);
   border-radius: 8px;
-  border-left: 3px solid #e51a24;
+  border-left: 3px solid var(--color-brand-red);
 }
 
 .dashboard__metric-label {

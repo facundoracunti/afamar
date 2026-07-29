@@ -1,3 +1,4 @@
+import { parseApiError } from '../utils/error';
 import { useCallback } from 'react';
 import type { EntityFormState, EntityServices } from '../types';
 import { todayLocalISO } from './entityFormHelpers';
@@ -19,6 +20,10 @@ interface UseFormActionsParams {
   /** Called instead of the legacy `alert()` when an action fails. The form
    *  page wires this to `useNotify()` so failures surface as a toast. */
   onError?: (message: string) => void;
+  /** If provided, replaces the `navigate(services.listPath)` call after
+   *  submit and delete with this callback. The page-mode default keeps
+   *  the original behaviour; modal mode wires this to close the modal. */
+  onAfterAction?: () => void;
 }
 
 /**
@@ -41,6 +46,7 @@ export function useFormActions({
   buildPayload,
   extraPayloadFields,
   onError,
+  onAfterAction,
 }: UseFormActionsParams) {
   const handleSubmit = useCallback(
     async (e?: React.FormEvent): Promise<boolean> => {
@@ -55,7 +61,7 @@ export function useFormActions({
         if (wasRejected) {
           payload.status = 'PENDING';
         }
-        if (['TARJETA DE CRÉDITO', 'TARJETA DE DÉBITO'].includes(form.payment_method)) {
+        if (form.payment_method && ['TARJETA DE CRÉDITO', 'TARJETA DE DÉBITO'].includes(form.payment_method)) {
           payload.deposit_received = Number(form.total);
           payload.balance_due = 0;
           payload.balance_paid = true;
@@ -71,11 +77,11 @@ export function useFormActions({
         if (wasRejected) {
           setForm((prev) => ({ ...prev, status: 'PENDING' }));
         }
-        navigate(services.listPath);
+        if (onAfterAction) onAfterAction();
+        else navigate(services.listPath);
         return true;
       } catch (err: unknown) {
-        const detail = (err as Error)?.message || 'Error al guardar';
-        onError?.(detail);
+        onError?.(parseApiError(err, 'Error al guardar'));
         return false;
       } finally {
         setSaving(false);
@@ -87,8 +93,9 @@ export function useFormActions({
   const handleDelete = useCallback(async () => {
     if (!id) return;
     await services.delete(id);
-    navigate(services.listPath);
-  }, [id, services, navigate]);
+    if (onAfterAction) onAfterAction();
+    else navigate(services.listPath);
+  }, [id, services, onAfterAction]);
 
   const handleStatusChangeAction = useCallback(
     async (newStatus: string) => {
@@ -104,7 +111,7 @@ export function useFormActions({
           payload.balance_due_usd = 0;
           payload.balance_paid = true;
           payload.balance_paid_at = todayLocalISO(); // eslint-disable-line @typescript-eslint/no-unused-vars
-        } else if (['TARJETA DE CRÉDITO', 'TARJETA DE DÉBITO'].includes(form.payment_method)) {
+        } else if (form.payment_method && ['TARJETA DE CRÉDITO', 'TARJETA DE DÉBITO'].includes(form.payment_method)) {
           payload.deposit_received = Number(form.total);
           payload.balance_due = 0;
           payload.balance_paid = true;
@@ -115,8 +122,7 @@ export function useFormActions({
         await services.update(id as string, payload);
         setForm((prev) => ({ ...prev, ...payload, status: newStatus }));
       } catch (err: unknown) {
-        const detail = (err as Error)?.message || 'Error al cambiar estado';
-        onError?.(detail);
+        onError?.(parseApiError(err, 'Error al cambiar estado'));
       } finally {
         setSaving(false);
       }

@@ -1,20 +1,17 @@
-import React, { Suspense, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Search } from 'lucide-react';
 import { getWorkOrders, getWorkOrder, deleteWorkOrder, updateWorkOrder, mapWorkOrderStatusToApi } from '@/api/resources/workOrders';
+import { parseApiError } from '../../utils/error';
 import { usePaginatedList, useDelete } from '../../api/hooks';
 import { orderStatuses } from '../../utils/formatters';
 import { useSettingsWithTerms } from '../../hooks/useSettingsWithTerms';
-import { buildPdfData } from '../../utils/pdf/buildPdfData';
-import type { PdfDocumentData } from '../../utils/pdf/buildPdfData';
-import { mapApiToForm } from '../../hooks/entityFormHelpers';
+import { usePdfPreviewController } from '../../hooks/usePdfPreviewController';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
 import { SearchInput } from '../../components/ui/SearchInput/SearchInput';
 import { Pagination } from '../../components/ui/Pagination';
-const PdfPreviewModal = React.lazy(() => import('../../components/ui/PdfPreviewModal/PdfPreviewModal'));
-const SketchImageExtractor = React.lazy(() => import('../../components/ui/PdfPreviewModal/SketchImageExtractor'));
 import { WorkOrdersTable } from '../../components/common/WorkOrdersTable';
 import { useNotify } from '../../context/NotificationContext';
 import type { WorkOrderListItem } from '../../types/workOrder';
@@ -24,20 +21,26 @@ const s = styles as unknown as Record<string, string>;
 
 const WORK_ORDERS_KEY = ['work-orders'] as const;
 
-export default function WorkOrdersList() {
+export default function WorkOrdersList({ initialStatus }: { initialStatus?: string } = {}) {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [search, setSearch] = useState<string>(searchParams.get('search') || '');
-  const [estado, setEstado] = useState<string>(searchParams.get('status') || '');
+  const [estado, setEstado] = useState<string>(initialStatus ?? searchParams.get('status') ?? '');
   const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [pdfData, setPdfData] = useState<PdfDocumentData | null>(null);
-  const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
-  const [pdfPreviewTitle, setPdfPreviewTitle] = useState<string>('Vista previa PDF');
-  const [sketchExtractorActive, setSketchExtractorActive] = useState(false);
-  const [pendingFormData, setPendingFormData] = useState<Record<string, unknown> | null>(null);
 
   const notify = useNotify();
   const { company, globalTerms } = useSettingsWithTerms();
+
+  const pdf = usePdfPreviewController({
+    documentType: 'work_order',
+    fetchEntity: async (id) => getWorkOrder(id as number) as unknown as { data: Record<string, unknown> },
+    defaultStatus: 'MEASUREMENT',
+    label: 'Orden de Trabajo',
+    fileNamePrefix: 'orden_',
+    company,
+    globalTerms,
+    notify,
+  });
 
   useEffect(() => {
     setSearch(searchParams.get('search') || '');
@@ -65,10 +68,7 @@ export default function WorkOrdersList() {
       notify('Orden eliminada correctamente', 'success');
       setDeleteId(null);
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
-        || (err as Error).message
-        || 'Error al eliminar';
-      notify(detail, 'error');
+      notify(parseApiError(err, 'Error al eliminar'), 'error');
     }
   };
 
@@ -82,51 +82,11 @@ export default function WorkOrdersList() {
       notify(`Estado actualizado a ${next}`, 'success');
       refetch();
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
-        || (err as Error).message
-        || 'Error al cambiar estado';
-      notify(detail, 'error');
+      notify(parseApiError(err, 'Error al cambiar estado'), 'error');
     }
   };
 
-  const handleOpenPdf = async (o: WorkOrderListItem): Promise<void> => {
-    setPdfPreviewLoading(true);
-    setPdfPreviewTitle(`Vista previa — ${o.number || 'Orden de Trabajo'}`);
-    setPdfData(null);
-    try {
-      const res = await getWorkOrder(o.id);
-      const apiRow = (res as unknown as { data: Record<string, unknown> }).data;
-      const formData = mapApiToForm(apiRow, o.status || 'MEASUREMENT');
-      setPendingFormData(formData as unknown as Record<string, unknown>);
-      setSketchExtractorActive(true);
-    } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-        || (err as Error).message
-        || 'Error al cargar la orden';
-      notify(detail, 'error');
-      setPdfPreviewLoading(false);
-    }
-  };
-
-  const handleSketchImagesReady = (images: string[]): void => {
-    if (!pendingFormData) { setPdfPreviewLoading(false); return; }
-    const data = buildPdfData({
-      form: pendingFormData,
-      document_type: 'work_order',
-      company,
-      globalTerms,
-      sketchImages: images,
-    });
-    setPdfData(data);
-    setPdfPreviewLoading(false);
-    setSketchExtractorActive(false);
-  };
-
-  const handleClosePdfPreview = (): void => {
-    setPdfData(null);
-    setSketchExtractorActive(false);
-    setPendingFormData(null);
-  };
+  const handleOpenPdf = (o: WorkOrderListItem) => pdf.handleOpenPdf(o);
 
   const handleEnviarWhatsApp = (o: WorkOrderListItem): void => {
     const phone = (o.client_phone || '').replace(/[^\d]/g, '');
@@ -197,25 +157,7 @@ export default function WorkOrdersList() {
         danger
       />
 
-      <Suspense fallback={<LoadingSpinner />}>
-        <PdfPreviewModal
-          isOpen={pdfData !== null || pdfPreviewLoading}
-          onClose={handleClosePdfPreview}
-          data={pdfData}
-          loading={pdfPreviewLoading}
-          title={pdfPreviewTitle}
-          fileName={`orden_${pendingFormData?.number || ''}.pdf`}
-        />
-      </Suspense>
-
-      {sketchExtractorActive && pendingFormData && (
-        <Suspense fallback={null}>
-          <SketchImageExtractor
-            sketchElements={pendingFormData.sketch_elements}
-            onReady={handleSketchImagesReady}
-          />
-        </Suspense>
-      )}
+      {pdf.UI}
 
       <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} label="ordenes" />
     </div>

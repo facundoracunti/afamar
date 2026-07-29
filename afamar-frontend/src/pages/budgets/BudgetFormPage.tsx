@@ -1,4 +1,4 @@
-import React, { Suspense, useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Eye, Save, FileOutput, Check, Send } from 'lucide-react';
@@ -6,7 +6,6 @@ import { getBudget, createBudget, updateBudget, deleteBudget, getNextBudgetNumbe
 import { getMaterials } from '@/api/resources/materials';
 import { getPoolStock } from '@/api/resources/poolStock';
 import { getClients } from '@/api/resources/clients';
-import { parseNumber } from '../../utils/formatters';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import useEntityForm from '../../hooks/useEntityForm';
 import { useBudgetQuoteCalculations } from '../../hooks/useBudgetQuoteCalculations';
@@ -15,23 +14,13 @@ import { useConfirmPayment } from '../../hooks/useConfirmPayment';
 import { createAddressAddedHandler } from '../../hooks/entityFormHelpers';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
-const PdfPreviewModal = React.lazy(() => import('../../components/ui/PdfPreviewModal/PdfPreviewModal'));
-const SketchImageExtractor = React.lazy(() => import('../../components/ui/PdfPreviewModal/SketchImageExtractor'));
-import TermsEditor from '../../components/ui/TermsEditor/TermsEditor';
 import { useNotify } from '../../context/NotificationContext';
 import { fetchUsdVenta } from '../../utils/dolarApi';
 import QuoteOptionsGrid from '../../components/budget/QuoteOptionsGrid/QuoteOptionsGrid';
-import AdditionalWorkSection from '../../components/budget/AdditionalWorkSection/AdditionalWorkSection';
 import FormHeader from '../../components/orders/FormHeader/FormHeader';
-import FormFooter from '../../components/orders/FormFooter/FormFooter';
-import EntityFormClient from '../../components/entity/EntityFormClient';
-import SketchSection from '../../components/sketch/SketchSection/SketchSection';
-import EntityFormSpecs from '../../components/entity/EntityFormSpecs';
-import EntityFormFinancial from '../../components/entity/EntityFormFinancial';
-import BudgetFormAdicionales from './BudgetFormAdicionales';
-import FabricationSection from '../../components/budget/FabricationSection/FabricationSection';
+import EntityFormLayout from '../../components/entity/EntityFormLayout';
 import BudgetFormObservations from './BudgetFormObservations';
-import type { MaterialInForm, EntityServices } from '../../types';
+import type { EntityFormState, MaterialInForm, EntityServices } from '../../types';
 import styles from './BudgetFormPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -49,15 +38,24 @@ const budgetServices: EntityServices = {
   listPath: '/admin/budgets',
 };
 
-export default function BudgetForm() {
+interface BudgetFormProps {
+  /** Called after a successful save or delete. Page mode falls back to
+   *  navigating to /admin/budgets; modal mode closes the modal. */
+  onSuccess?: () => void;
+  /** Called when the user cancels. Page mode falls back to navigating
+   *  to /admin/budgets; modal mode closes the modal. */
+  onCancel?: () => void;
+}
+
+export default function BudgetForm(props: BudgetFormProps = {}) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const notify = useNotify();
 
   const [workOrderNumber, setWorkOrderNumber] = useState<string | null>(null);
-  const [budgetTerms, setBudgetTerms] = useState<string[]>([]);
-  const [warrantyTerms, setWarrantyTerms] = useState<string[]>([]);
+
+  const handleCancelClick = () => (props.onCancel ? props.onCancel() : navigate('/admin/budgets'));
 
   const {
     form, loading, saving, materials, pools, logoUrl, clientes, addOrRefreshClientes, updateClientAddresses,
@@ -75,7 +73,6 @@ export default function BudgetForm() {
     handleDelete,
     M2_CONCEPTS,
   } = useEntityForm({
-    entityType: 'budget',
     services: budgetServices,
     defaultStatus: 'PENDING',
     id,
@@ -84,6 +81,7 @@ export default function BudgetForm() {
       setWorkOrderNumber((data.work_order_number as string) || null);
     },
     onError: (msg) => notify(msg, 'error'),
+    onAfterAction: props.onSuccess,
   });
 
   const {
@@ -123,7 +121,9 @@ export default function BudgetForm() {
     let cancelled = false;
     fetchUsdVenta()
       .then((venta) => { if (!cancelled) setForm((prev) => ({ ...prev, usd_rate: venta })); })
-      .catch(() => { /* keep default 1000 if API is down */ });
+      .catch((err) => {
+        console.warn('USD venta fetch failed (keeping default 1000):', err);
+      });
     return () => { cancelled = true; };
   }, [isEdit, setForm]);
 
@@ -204,170 +204,107 @@ export default function BudgetForm() {
         </button>
       </FormHeader>
 
-      <form onSubmit={handleSubmit} onKeyDown={(e: React.KeyboardEvent<HTMLFormElement>) => { if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') e.preventDefault(); }}>
-        <EntityFormClient
-          form={form}
-          readOnly={readOnly}
-          update={update as (field: string, value: unknown) => void}
-          clientes={clientes as unknown as import('../../types/client').Client[]}
-          onClientCreated={addOrRefreshClientes}
-          onAddressAdded={handleAddressAdded}
-          cardClassName="card"
-        />
+      <EntityFormLayout
+        styles={s}
+        prefix="budget-form__"
 
-        <div className={`${s['budget-form__layout']}${showCroquis ? '' : ' ' + s['budget-form__layout--no-sketch']}`}>
-          <div className={s['budget-form__right']}>
-            <EntityFormSpecs
-              form={form}
-              readOnly={readOnly}
-              materials={materials}
-              addMaterial={addMaterial}
-              updateMaterial={updateMaterial}
-              removeMaterial={removeMaterial}
-              update={update}
-              num={parseNumber}
-            />
-            <BudgetFormAdicionales
-              form={form}
-              readOnly={readOnly}
-              pools={pools}
-              formMaterials={(form.materials_data as unknown as MaterialInForm[]) || []}
-              updatePileta={updatePileta}
-              removePileta={removePileta}
-              addPileta={addPileta}
-              num={parseNumber}
-            />
-          </div>
-          <div className={s['budget-form__right']}>
-            <FabricationSection
-              detalles={(form.fabrication_details as unknown as import('../../types/budget').FabricationDetail[]) || []}
-              readOnly={readOnly}
-              formMaterials={(form.materials_data as unknown as MaterialInForm[]) || []}
-              M2_CONCEPTS={M2_CONCEPTS}
-              num={parseNumber as (v: unknown) => number}
-              handleDetailChange={handleDetailChange}
-              addDetalle={addDetalle}
-              removeDetalle={removeDetalle}
-            />
-            <AdditionalWorkSection
-              value={form.additional_works_data}
-              onChange={(json) => setForm({ ...form, additional_works_data: json })}
-              readOnly={readOnly}
-              formMaterials={(form.materials_data as unknown as import('../../types/budget').MaterialInForm[]) || []}
-            />
-          </div>
-        </div>
+        form={form as unknown as EntityFormState}
+        readOnly={readOnly}
+        saving={saving}
+        logoUrl={logoUrl}
 
-        <div className={s['budget-form__bottom']}>
-          <SketchSection
-            showCroquis={showCroquis}
-            setShowCroquis={setShowCroquis}
-            sketchElements={form.sketch_elements}
-            onChange={(v) => update('sketch_elements', v)}
-            readOnly={readOnly}
-            toggleLabel="Diseño / Plano"
-          />
+        clientes={clientes as unknown as import('../../types/client').Client[]}
+        addOrRefreshClientes={addOrRefreshClientes}
+        onAddressAdded={handleAddressAdded}
+        update={update as (field: string, value: unknown) => void}
 
-          <EntityFormFinancial
+        materials={materials}
+        pools={pools}
+        addMaterial={addMaterial}
+        removeMaterial={removeMaterial}
+        updateMaterial={updateMaterial}
+        addPileta={addPileta}
+        removePileta={removePileta}
+        updatePileta={updatePileta}
+        handleDetailChange={handleDetailChange}
+        addDetalle={addDetalle}
+        removeDetalle={removeDetalle}
+        M2_CONCEPTS={M2_CONCEPTS}
+
+        modoUSD={modoUSD}
+        toggleModoUSD={toggleModoUSD}
+        hayUSD={hayUSD}
+        hayAlternativas={hayAlternativas}
+        handleTransportChange={handleTransportChange}
+        handleDepositCurrencyChange={handleDepositCurrencyChange}
+        handleDepositAmountChange={handleDepositAmountChange}
+        handleUsdRateChange={handleUsdRateChange}
+        setForm={setForm}
+        alternativasGrid={alternativasGrid}
+        onConfirmarPago={handleConfirmarPago}
+
+        observations={
+          <BudgetFormObservations
             form={form}
-            modoUSD={modoUSD}
-            toggleModoUSD={toggleModoUSD}
-            hayUSD={hayUSD}
-            hayAlternativas={hayAlternativas}
             readOnly={readOnly}
-            saving={saving}
-            handleTransportChange={handleTransportChange}
-            handleDepositCurrencyChange={handleDepositCurrencyChange}
-            handleDepositAmountChange={handleDepositAmountChange}
-            handleUsdRateChange={handleUsdRateChange}
-            setForm={setForm}
-            update={update as (field: string, value: unknown) => void}
-            num={parseNumber as (v: unknown) => number}
-            alternativasGrid={alternativasGrid}
-            onConfirmarPago={handleConfirmarPago}
+            update={update}
           />
+        }
 
-        </div>
+        handleSubmit={handleSubmit}
+        onCancel={handleCancelClick}
 
-        <BudgetFormObservations
-          form={form}
-          readOnly={readOnly}
-          update={update}
-        />
+        showCroquis={showCroquis}
+        setShowCroquis={setShowCroquis}
 
-        <div className={s['budget-form__card']} style={{ marginTop: 16 }}>
-          <h3 className={s['budget-form__card-title']}>Términos del Presupuesto</h3>
-          <TermsEditor
-            items={budgetTerms}
-            onChange={setBudgetTerms}
-            placeholder="Ej: Se requiere seña del 50% para iniciar trabajo…"
-            hint="Si dejás la lista vacía, se usarán los términos globales configurados en Configuración."
-            disabled={readOnly}
-          />
-        </div>
+        pdfData={pdfData}
+        pdfPreviewLoading={pdfPreviewLoading}
+        sketchExtractorActive={sketchExtractorActive}
+        handleClosePdfPreview={handleClosePdfPreview}
+        handleSketchImagesReady={handleSketchImagesReady}
+        pdfTitle="Vista previa — Presupuesto"
+        pdfFileName={`presupuesto_${form.number || 'nuevo'}.pdf`}
 
-        <div className={s['budget-form__card']} style={{ marginTop: 16 }}>
-          <h3 className={s['budget-form__card-title']}>Garantía</h3>
-          <TermsEditor
-            items={warrantyTerms}
-            onChange={setWarrantyTerms}
-            placeholder="Ej: 12 meses por defectos de fabricación…"
-            hint="Si dejás la lista vacía, se usará la garantía global configurada."
-            disabled={readOnly}
-          />
-        </div>
+        deleteConfirm={deleteConfirm}
+        setDeleteConfirm={setDeleteConfirm}
+        handleDelete={handleDelete}
+        deleteTitle="Eliminar presupuesto"
+        deleteMessage="¿Estás seguro de eliminar este PRESUPUESTO LOCAL?"
+        deleteConfirmLabel="Eliminar"
+        deleteDanger
 
-        <FormFooter saving={saving} onCancel={() => navigate('/admin/budgets')} />
-      </form>
+        extraDialogs={
+          <>
+            <ConfirmDialog
+              open={showConvertDialog}
+              onCancel={() => setShowConvertDialog(false)}
+              onConfirm={() => {
+                setShowConvertDialog(false);
+                void handleConvertirGuardar().catch(() => { /* already notifies errors */ });
+              }}
+              title="Convertir a Orden de Trabajo"
+              message="Se guardará y copiará toda la información: croquis, material, detalles de fabricación, pileta, firma, precios y condiciones comerciales."
+              confirmLabel="Convertir"
+            />
 
-      <ConfirmDialog open={deleteConfirm} onCancel={() => setDeleteConfirm(false)} onConfirm={handleDelete} title="Eliminar presupuesto" message="¿Estás seguro de eliminar este PRESUPUESTO LOCAL?" confirmLabel="Eliminar" danger />
-
-      <ConfirmDialog
-        open={showConvertDialog}
-        onCancel={() => setShowConvertDialog(false)}
-        onConfirm={() => {
-          setShowConvertDialog(false);
-          void handleConvertirGuardar();
-        }}
-        title="Convertir a Orden de Trabajo"
-        message="Se guardará y copiará toda la información: croquis, material, detalles de fabricación, pileta, firma, precios y condiciones comerciales."
-        confirmLabel="Convertir"
+            <ConfirmDialog
+              open={pendingAltIdx !== null}
+              onCancel={() => setPendingAltIdx(null)}
+              onConfirm={() => {
+                if (pendingAltIdx !== null) {
+                  const idx = pendingAltIdx;
+                  setPendingAltIdx(null);
+                  void handleConvertirAlternativa(idx).catch(() => { /* already notifies errors */ });
+                }
+              }}
+              title="Convertir alternativa"
+              message="Se creará una nueva Orden de Trabajo con el material de esta opción más los trabajos comunes."
+              confirmLabel="Convertir"
+            />
+          </>
+        }
       />
 
-      <ConfirmDialog
-        open={pendingAltIdx !== null}
-        onCancel={() => setPendingAltIdx(null)}
-        onConfirm={() => {
-          if (pendingAltIdx !== null) {
-            const idx = pendingAltIdx;
-            setPendingAltIdx(null);
-            void handleConvertirAlternativa(idx);
-          }
-        }}
-        title="Convertir alternativa"
-        message="Se creará una nueva Orden de Trabajo con el material de esta opción más los trabajos comunes."
-        confirmLabel="Convertir"
-      />
-
-      <Suspense fallback={<LoadingSpinner />}>
-        <PdfPreviewModal
-          isOpen={pdfData !== null || pdfPreviewLoading}
-          onClose={handleClosePdfPreview}
-          data={pdfData}
-          loading={pdfPreviewLoading}
-          title="Vista previa — Presupuesto"
-          fileName={`presupuesto_${form.number || 'nuevo'}.pdf`}
-        />
-      </Suspense>
-
-      {sketchExtractorActive && (
-        <Suspense fallback={null}>
-          <SketchImageExtractor
-            sketchElements={form.sketch_elements}
-            onReady={handleSketchImagesReady}
-          />
-        </Suspense>
-      )}
     </div>
   );
 }

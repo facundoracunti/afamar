@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { Suspense, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DollarSign, FileText, ClipboardList, PackageOpen, Truck, Wrench, LayoutGrid, Calculator, type LucideIcon } from 'lucide-react';
 import type { DashboardData } from '../../types/dashboard';
 import { getDashboard } from '@/api/resources/dashboard';
 import { useGet } from '../../api/hooks';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
+import { Modal } from '../../components/ui/Modal/Modal';
+import BudgetForm from '../budgets/BudgetFormPage';
+import WorkOrderForm from '../work-orders/WorkOrderFormPage';
 import { formatCurrencyValue } from '../../utils/formatters';
 import styles from './DashboardPage.module.css';
 
@@ -12,14 +15,41 @@ const s = styles as unknown as Record<string, string>;
 
 type Tone = 'accent' | 'danger' | 'success' | 'warning' | 'info';
 
+/** Each card on the dashboard maps to a `ModalKind` — the dashboard
+ *  dispatches on this enum to render the right page in a modal. */
+type ModalKind =
+  | 'cash'
+  | 'create-budget'
+  | 'create-work-order'
+  | 'work-orders'
+  | 'work-orders-delivered'
+  | 'pool-stock'
+  | 'materials'
+  | 'additional-works'
+  | 'categories'
+  | 'calculator';
+
+// Lazy-loaded pages so the dashboard doesn't eagerly pull in all chunks.
+// These chunks are shared with the route definitions in App.tsx (also
+// `React.lazy`), so opening a modal that lazy-loads the same page won't
+// re-download — it just resolves to the cached chunk.
+const CashDailyPage = React.lazy(() => import('../cash/CashDailyPage'));
+const WorkOrdersListPage = React.lazy(() => import('../work-orders/WorkOrdersListPage'));
+const PoolStockPage = React.lazy(() => import('../pool-stock/PoolStockPage'));
+const MaterialsListPage = React.lazy(() => import('../materials/MaterialsListPage'));
+const AdditionalWorksPage = React.lazy(() => import('../additional-works/AdditionalWorksPage'));
+const MaterialsCategoriesPage = React.lazy(() => import('../materials/MaterialsCategoriesPage'));
+const CalculatorPage = React.lazy(() => import('../calculator/CalculatorPage'));
+
 interface CardDef {
   icon: LucideIcon;
   label: string;
   value?: string;
   color: string;
-  path?: string;
+  path: string;
   description: string;
   tone: Tone;
+  kind: ModalKind;
 }
 
 export default function Dashboard() {
@@ -28,6 +58,7 @@ export default function Dashboard() {
     async () => (await getDashboard()).data as DashboardData
   );
   const navigate = useNavigate();
+  const [activeModal, setActiveModal] = useState<ModalKind | null>(null);
 
   if (loading) return <LoadingSpinner />;
   if (error || !data) return <div className={s['dashboard__error']}>Error al cargar el panel</div>;
@@ -40,17 +71,28 @@ export default function Dashboard() {
   const taller = data.orders_in_workshop ?? 0;
 
   const cards: CardDef[] = [
-    { icon: DollarSign, label: 'CAJA', value: '$' + ing, color: '#2563eb', tone: 'accent', path: '/admin/cash', description: 'Total de ingresos registrados' },
-    { icon: FileText, label: 'NUEVO PRESUPUESTO', color: '#059669', tone: 'success', path: '/admin/budgets/new', description: 'Crear un nuevo presupuesto' },
-    { icon: ClipboardList, label: 'NUEVA ORDEN', color: '#dc2626', tone: 'danger', path: '/admin/work-orders/new', description: 'Crear una nueva orden de trabajo' },
-    { icon: PackageOpen, label: 'ORDENES EN MEDICION / TALLER', value: String(activas), color: '#d97706', tone: 'warning', path: '/admin/work-orders', description: medicion + ' en medicion - ' + taller + ' en taller' },
-    { icon: Truck, label: 'ORDENES TERMINADAS P/ ENVIO', value: String(terminadas), color: '#7c3aed', tone: 'info', path: '/admin/work-orders?estado=DELIVERED', description: 'Listas para retirar' },
-    { icon: PackageOpen, label: 'STOCK DE PILETAS', color: '#be185d', tone: 'info', path: '/admin/pool-stock', description: 'Gestionar stock de piletas' },
-    { icon: PackageOpen, label: 'MATERIALES', color: '#64748b', tone: 'info', path: '/admin/materials', description: 'Gestionar materiales' },
-    { icon: Wrench, label: 'TRABAJOS ADICIONALES', color: '#0891b2', tone: 'info', path: '/admin/additional-works', description: 'Gestionar trabajos adicionales' },
-    { icon: LayoutGrid, label: 'CATEGORIAS', color: '#ea580c', tone: 'info', path: '/admin/materials/categories', description: 'Gestionar categorias' },
-    { icon: Calculator, label: 'CALCULADORA', color: '#4f46e5', tone: 'info', path: '/admin/calculator', description: 'Calculadora de materiales' },
+    { icon: DollarSign, label: 'CAJA', value: '$' + ing, color: '#2563eb', tone: 'accent', kind: 'cash', path: '/admin/cash', description: 'Total de ingresos registrados' },
+    { icon: FileText, label: 'NUEVO PRESUPUESTO', color: '#059669', tone: 'success', kind: 'create-budget', path: '/admin/budgets/new', description: 'Crear un nuevo presupuesto' },
+    { icon: ClipboardList, label: 'NUEVA ORDEN', color: '#dc2626', tone: 'danger', kind: 'create-work-order', path: '/admin/work-orders/new', description: 'Crear una nueva orden de trabajo' },
+    { icon: PackageOpen, label: 'ORDENES EN MEDICION / TALLER', value: String(activas), color: '#d97706', tone: 'warning', kind: 'work-orders', path: '/admin/work-orders', description: medicion + ' en medicion - ' + taller + ' en taller' },
+    { icon: Truck, label: 'ORDENES TERMINADAS P/ ENVIO', value: String(terminadas), color: '#7c3aed', tone: 'info', kind: 'work-orders-delivered', path: '/admin/work-orders?estado=DELIVERED', description: 'Listas para retirar' },
+    { icon: PackageOpen, label: 'STOCK DE PILETAS', color: '#be185d', tone: 'info', kind: 'pool-stock', path: '/admin/pool-stock', description: 'Gestionar stock de piletas' },
+    { icon: PackageOpen, label: 'MATERIALES', color: '#64748b', tone: 'info', kind: 'materials', path: '/admin/materials', description: 'Gestionar materiales' },
+    { icon: Wrench, label: 'TRABAJOS ADICIONALES', color: '#0891b2', tone: 'info', kind: 'additional-works', path: '/admin/additional-works', description: 'Gestionar trabajos adicionales' },
+    { icon: LayoutGrid, label: 'CATEGORIAS', color: '#ea580c', tone: 'info', kind: 'categories', path: '/admin/materials/categories', description: 'Gestionar categorias' },
+    { icon: Calculator, label: 'CALCULADORA', color: '#4f46e5', tone: 'info', kind: 'calculator', path: '/admin/calculator', description: 'Calculadora de materiales' },
   ];
+
+  const closeModal = () => setActiveModal(null);
+
+  // Helper for the "drill down" path: when the user clicks something
+  // inside a list modal that requires navigation (e.g. "Nuevo material"
+  // from the materials modal), we close the modal first and let the
+  // page's own useNavigate take over.
+  const openInFullPage = (path: string) => {
+    closeModal();
+    navigate(path);
+  };
 
   return (
     <div className={s['dashboard']}>
@@ -66,7 +108,7 @@ export default function Dashboard() {
           <article
             key={card.label}
             className={s['dashboard__card'] + ' ' + (s['dashboard__card--' + card.tone] || '')}
-            onClick={() => card.path && navigate(card.path)}
+            onClick={() => setActiveModal(card.kind)}
           >
             <div className={s['dashboard__card-icon']} style={{ backgroundColor: card.color }}>
               <card.icon size={20} color="#fff" />
@@ -99,6 +141,106 @@ export default function Dashboard() {
           </div>
         </div>
       </section>
+
+      {/* ── Modals: each renders the actual page inside. The pages own
+              their own state, filters, and navigation. When a list page
+              wants to drill down (e.g. "Nuevo material"), it calls
+              useNavigate which triggers the route change — the dashboard
+              unmounts and the new page renders full-width. ─────────── */}
+
+      <Suspense fallback={<LoadingSpinner />}>
+        <Modal
+          isOpen={activeModal === 'cash'}
+          onClose={closeModal}
+          title="Caja"
+          width="1200px"
+        >
+          <CashDailyPage />
+        </Modal>
+
+        <Modal
+          isOpen={activeModal === 'create-budget'}
+          onClose={closeModal}
+          title="Nuevo presupuesto"
+          width="1280px"
+        >
+          <BudgetForm onSuccess={closeModal} onCancel={closeModal} />
+        </Modal>
+
+        <Modal
+          isOpen={activeModal === 'create-work-order'}
+          onClose={closeModal}
+          title="Nueva orden de trabajo"
+          width="1280px"
+        >
+          <WorkOrderForm onSuccess={closeModal} onCancel={closeModal} />
+        </Modal>
+
+        <Modal
+          isOpen={activeModal === 'work-orders'}
+          onClose={closeModal}
+          title="Órdenes en medición / taller"
+          width="1400px"
+        >
+          {/* No initialStatus — the user can filter via the page's
+              status dropdown if they want to narrow down. */}
+          <WorkOrdersListPage />
+        </Modal>
+
+        <Modal
+          isOpen={activeModal === 'work-orders-delivered'}
+          onClose={closeModal}
+          title="Órdenes terminadas para envío"
+          width="1400px"
+        >
+          <WorkOrdersListPage initialStatus="DELIVERED" />
+        </Modal>
+
+        <Modal
+          isOpen={activeModal === 'pool-stock'}
+          onClose={closeModal}
+          title="Stock de piletas"
+          width="1200px"
+        >
+          <PoolStockPage />
+        </Modal>
+
+        <Modal
+          isOpen={activeModal === 'materials'}
+          onClose={closeModal}
+          title="Materiales"
+          width="1400px"
+        >
+          <MaterialsListPage />
+        </Modal>
+
+        <Modal
+          isOpen={activeModal === 'additional-works'}
+          onClose={closeModal}
+          title="Trabajos adicionales"
+          width="1200px"
+        >
+          <AdditionalWorksPage />
+        </Modal>
+
+        <Modal
+          isOpen={activeModal === 'categories'}
+          onClose={closeModal}
+          title="Categorías de materiales"
+          width="1200px"
+        >
+          <MaterialsCategoriesPage />
+        </Modal>
+
+        <Modal
+          isOpen={activeModal === 'calculator'}
+          onClose={closeModal}
+          title="Calculadora"
+          width="1200px"
+        >
+          <CalculatorPage />
+        </Modal>
+      </Suspense>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import React, { Suspense, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Eye, Save } from 'lucide-react';
@@ -7,7 +7,6 @@ import { getWorkOrder, createWorkOrder, updateWorkOrder, deleteWorkOrder, getNex
 import { getMaterials } from '@/api/resources/materials';
 import { getPoolStock } from '@/api/resources/poolStock';
 import { getClients } from '@/api/resources/clients';
-import { formatCurrency, formatCurrencyValue, todayLocalISO, parseNumber } from '../../utils/formatters';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import useEntityForm from '../../hooks/useEntityForm';
 import { useSettingsWithTerms } from '../../hooks/useSettingsWithTerms';
@@ -16,22 +15,11 @@ import { createAddressAddedHandler } from '../../hooks/entityFormHelpers';
 import { buildPdfData } from '../../utils/pdf/buildPdfData';
 import type { PdfDocumentData } from '../../utils/pdf/buildPdfData';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
-const PdfPreviewModal = React.lazy(() => import('../../components/ui/PdfPreviewModal/PdfPreviewModal'));
-const SketchImageExtractor = React.lazy(() => import('../../components/ui/PdfPreviewModal/SketchImageExtractor'));
-import TermsEditor from '../../components/ui/TermsEditor/TermsEditor';
 import FormHeader from '../../components/orders/FormHeader/FormHeader';
-import FormFooter from '../../components/orders/FormFooter/FormFooter';
-import EntityFormClient from '../../components/entity/EntityFormClient';
+import EntityFormLayout from '../../components/entity/EntityFormLayout';
 import WorkOrderFormStatus from './WorkOrderFormStatus';
-import EntityFormSpecs from '../../components/entity/EntityFormSpecs';
-import EntityFormFinancial from '../../components/entity/EntityFormFinancial';
-import FabricationSection from '../../components/budget/FabricationSection/FabricationSection';
-import BudgetFormAdicionales from '../budgets/BudgetFormAdicionales';
-import AdditionalWorkSection from '../../components/budget/AdditionalWorkSection/AdditionalWorkSection';
-import SketchSection from '../../components/sketch/SketchSection/SketchSection';
-import WorkOrderFormObservations from './WorkOrderFormObservations';
 import WorkOrderFormSnapshot from './WorkOrderFormSnapshot';
+import WorkOrderFormObservations from './WorkOrderFormObservations';
 import { AlternativeBudgetGrid } from './AlternativeBudgetGrid';
 import type { EntityFormState, EntityServices, MaterialInForm, PoolInForm } from '../../types';
 import styles from './WorkOrderFormPage.module.css';
@@ -51,7 +39,16 @@ const workOrderServices = {
   listPath: '/admin/work-orders',
 };
 
-export default function WorkOrderForm() {
+interface WorkOrderFormProps {
+  /** Called after a successful save or delete. Page mode falls back to
+   *  navigating to /admin/work-orders; modal mode closes the modal. */
+  onSuccess?: () => void;
+  /** Called when the user cancels. Page mode falls back to navigating
+   *  to /admin/work-orders; modal mode closes the modal. */
+  onCancel?: () => void;
+}
+
+export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -62,6 +59,13 @@ export default function WorkOrderForm() {
   const [deliveryTerms, setDeliveryTerms] = useState<string[]>([]);
   const [warrantyTerms, setWarrantyTerms] = useState<string[]>([]);
   const { company, globalTerms } = useSettingsWithTerms();
+
+  const handleCancelClick = () =>
+    props.onCancel ? props.onCancel() : navigate('/admin/work-orders');
+  const handleSuccessCallback = () => {
+    queryClient.invalidateQueries({ queryKey: ['work-orders'], refetchType: 'all' });
+    props.onSuccess?.();
+  };
 
   const {
     form, loading, saving, materials, pools, logoUrl, clientes, addOrRefreshClientes, updateClientAddresses,
@@ -82,7 +86,6 @@ export default function WorkOrderForm() {
     buildPayload,
     M2_CONCEPTS,
   } = useEntityForm({
-    entityType: 'work_order',
     services: workOrderServices,
     defaultStatus: 'MEASUREMENT',
     id,
@@ -92,6 +95,7 @@ export default function WorkOrderForm() {
       warranty_override: encodeTerms(warrantyTerms),
     }),
     onError: (msg) => notify(msg, 'error'),
+    onAfterAction: handleSuccessCallback,
   });
 
   // Wrap the legacy submit so the work-orders list cache is invalidated
@@ -103,9 +107,7 @@ export default function WorkOrderForm() {
   // `refetchType: 'all'` forces the refetch right here (the list page
   // will pick up the fresh data when it mounts).
   const handleSubmit = async (e?: React.FormEvent) => {
-    const ok = await legacyHandleSubmit(e);
-    if (!ok) return;
-    queryClient.invalidateQueries({ queryKey: ['work-orders'], refetchType: 'all' });
+    await legacyHandleSubmit(e);
   };
 
   const handleAddressAdded = useCallback(createAddressAddedHandler(clientes, updateClientAddresses), [clientes, updateClientAddresses]);
@@ -237,156 +239,112 @@ export default function WorkOrderForm() {
         </button>
       </FormHeader>
 
-      <form onSubmit={handleSubmit} onKeyDown={(e: React.KeyboardEvent<HTMLFormElement>) => { if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') e.preventDefault(); }}>
-        <EntityFormClient
-          form={form}
-          readOnly={readOnly}
-          update={update as (field: string, value: unknown) => void}
-          clientes={clientes as unknown as import('../../types/client').Client[]}
-          onClientCreated={addOrRefreshClientes}
-          onAddressAdded={handleAddressAdded}
-        />
+      <EntityFormLayout
+        styles={s}
+        prefix="work-order-form__"
 
-        <div className={s['work-order-form__card-section']}>
-          <WorkOrderFormStatus
+        form={form as unknown as EntityFormState}
+        readOnly={readOnly}
+        saving={saving}
+        logoUrl={logoUrl}
+
+        clientes={clientes as unknown as import('../../types/client').Client[]}
+        addOrRefreshClientes={addOrRefreshClientes}
+        onAddressAdded={handleAddressAdded}
+        update={update as (field: string, value: unknown) => void}
+
+        materials={materials}
+        pools={pools}
+        addMaterial={addMaterial}
+        removeMaterial={removeMaterial}
+        updateMaterial={updateMaterial}
+        addPileta={addPileta}
+        removePileta={removePileta}
+        updatePileta={updatePileta}
+        handleDetailChange={handleDetailChange}
+        addDetalle={addDetalle}
+        removeDetalle={removeDetalle}
+        M2_CONCEPTS={M2_CONCEPTS}
+
+        modoUSD={modoUSD}
+        toggleModoUSD={toggleModoUSD}
+        hayUSD={hayUSD}
+        hayAlternativas={hayAlternativas}
+        handleTransportChange={handleTransportChange}
+        handleDepositCurrencyChange={handleDepositCurrencyChange}
+        handleDepositAmountChange={handleDepositAmountChange}
+        handleUsdRateChange={handleUsdRateChange}
+        setForm={setForm}
+        alternativasGrid={alternativasGrid}
+        discountBlock={discountBlock}
+        onConfirmarPago={handleConfirmarPago}
+
+        beforeLayout={
+          <>
+            <div className={s['work-order-form__card-section']}>
+              <WorkOrderFormStatus
+                form={form}
+                readOnly={readOnly}
+                update={update as (field: string, value: unknown) => void}
+              />
+            </div>
+            <div className={s['work-order-form__card-section']}>
+              <WorkOrderFormSnapshot form={form} readOnly={readOnly} />
+            </div>
+          </>
+        }
+        observations={
+          <WorkOrderFormObservations
             form={form}
             readOnly={readOnly}
-            update={update as (field: string, value: unknown) => void}
+            update={update}
           />
-        </div>
+        }
+        terms={[
+          {
+            title: 'Condiciones de Entrega',
+            items: deliveryTerms,
+            onChange: setDeliveryTerms,
+            placeholder: 'Ej: Entrega a convenir, transporte a cargo del cliente…',
+            hint: 'Si dejás la lista vacía, se usarán las condiciones globales configuradas.',
+            disabled: readOnly,
+          },
+          {
+            title: 'Garantía',
+            items: warrantyTerms,
+            onChange: setWarrantyTerms,
+            placeholder: 'Ej: 12 meses por defectos de fabricación…',
+            hint: 'Si dejás la lista vacía, se usará la garantía global configurada.',
+            disabled: readOnly,
+          },
+        ]}
+        specsCardClassName={`card ${s['specs-card']}`}
+        fabricationShowMeasurementComparison={form.status === 'MEASUREMENT'}
+        fabricationMaterialsData={form.materials_data as unknown as MaterialInForm[]}
 
-        <div className={s['work-order-form__card-section']}>
-          <WorkOrderFormSnapshot form={form} readOnly={readOnly} />
-        </div>
+        handleSubmit={handleSubmit}
+        onCancel={handleCancelClick}
 
-        <div className={`${s['work-order-form__layout']}${showCroquis ? '' : ' ' + s['work-order-form__layout--no-sketch']}`}>
-          <div className={s['work-order-form__right']}>
-            <EntityFormSpecs
-              form={form}
-              readOnly={readOnly}
-              materials={materials}
-              addMaterial={addMaterial}
-              updateMaterial={updateMaterial}
-              removeMaterial={removeMaterial}
-              update={update}
-              num={parseNumber}
-              cardClassName={`card ${s['specs-card']}`}
-            />
-            <BudgetFormAdicionales
-              form={form}
-              readOnly={readOnly}
-              pools={pools}
-              formMaterials={(form.materials_data as unknown as MaterialInForm[]) || []}
-              updatePileta={updatePileta}
-              removePileta={removePileta}
-              addPileta={addPileta}
-              num={parseNumber}
-            />
-          </div>
-          <div className={s['work-order-form__right']}>
-            <FabricationSection
-              detalles={(form.fabrication_details as unknown as import('../../types/budget').FabricationDetail[]) || []}
-              readOnly={readOnly}
-              formMaterials={(form.materials_data as unknown as MaterialInForm[]) || []}
-              M2_CONCEPTS={M2_CONCEPTS}
-              num={parseNumber as (v: unknown) => number}
-              handleDetailChange={handleDetailChange}
-              addDetalle={addDetalle}
-              removeDetalle={removeDetalle}
-              showMeasurementComparison={form.status === 'MEASUREMENT'}
-              materialsData={form.materials_data as unknown as import('../../types').MaterialInForm[]}
-            />
-            <AdditionalWorkSection
-              value={form.additional_works_data}
-              onChange={(json) => setForm({ ...form, additional_works_data: json })}
-              readOnly={readOnly}
-              formMaterials={(form.materials_data as unknown as import('../../types/budget').MaterialInForm[]) || []}
-            />
-          </div>
-        </div>
+        showCroquis={showCroquis}
+        setShowCroquis={setShowCroquis}
 
-        <div className={s['work-order-form__bottom']}>
-          <SketchSection
-            showCroquis={showCroquis}
-            setShowCroquis={setShowCroquis}
-            sketchElements={form.sketch_elements}
-            onChange={(v) => update('sketch_elements', v)}
-            readOnly={readOnly}
-            toggleLabel="Diseño / Plano"
-          />
+        pdfData={pdfData}
+        pdfPreviewLoading={pdfPreviewLoading}
+        sketchExtractorActive={sketchExtractorActive}
+        handleClosePdfPreview={handleClosePdfPreview}
+        handleSketchImagesReady={handleSketchImagesReady}
+        pdfTitle="Vista previa — Orden de Trabajo"
+        pdfFileName={`orden_${form.number || 'nueva'}.pdf`}
 
-          <EntityFormFinancial
-            form={form}
-            modoUSD={modoUSD}
-            toggleModoUSD={toggleModoUSD}
-            hayUSD={hayUSD}
-            hayAlternativas={hayAlternativas}
-            readOnly={readOnly}
-            saving={saving}
-            handleTransportChange={handleTransportChange}
-            handleDepositCurrencyChange={handleDepositCurrencyChange}
-            handleDepositAmountChange={handleDepositAmountChange}
-            handleUsdRateChange={handleUsdRateChange}
-            setForm={setForm}
-            update={update as (field: string, value: unknown) => void}
-            num={parseNumber}
-            alternativasGrid={alternativasGrid}
-            discountBlock={discountBlock}
-            onConfirmarPago={handleConfirmarPago}
-          />
-        </div>
+        deleteConfirm={deleteConfirm}
+        setDeleteConfirm={setDeleteConfirm}
+        handleDelete={handleDelete}
+        deleteTitle="Eliminar orden"
+        deleteMessage="¿Estás seguro de eliminar esta orden de trabajo?"
+        deleteConfirmLabel="Eliminar"
+        deleteDanger
+      />
 
-        <WorkOrderFormObservations
-          form={form}
-          readOnly={readOnly}
-          update={update}
-        />
-
-        <div className={`${s['work-order-form__card']} ${s['work-order-form__terms-card']}`}>
-          <h3 className={s['work-order-form__card-title']}>Condiciones de Entrega</h3>
-          <TermsEditor
-            items={deliveryTerms}
-            onChange={setDeliveryTerms}
-            placeholder="Ej: Entrega a convenir, transporte a cargo del cliente…"
-            hint="Si dejás la lista vacía, se usarán las condiciones globales configuradas."
-            disabled={readOnly}
-          />
-        </div>
-
-        <div className={`${s['work-order-form__card']} ${s['work-order-form__terms-card']}`}>
-          <h3 className={s['work-order-form__card-title']}>Garantía</h3>
-          <TermsEditor
-            items={warrantyTerms}
-            onChange={setWarrantyTerms}
-            placeholder="Ej: 12 meses por defectos de fabricación…"
-            hint="Si dejás la lista vacía, se usará la garantía global configurada."
-            disabled={readOnly}
-          />
-        </div>
-
-        <FormFooter saving={saving} onCancel={() => navigate('/admin/work-orders')} />
-      </form>
-
-      <Suspense fallback={<LoadingSpinner />}>
-        <PdfPreviewModal
-          isOpen={pdfData !== null || pdfPreviewLoading}
-          onClose={handleClosePdfPreview}
-          data={pdfData}
-          loading={pdfPreviewLoading}
-          title="Vista previa — Orden de Trabajo"
-          fileName={`orden_${form.number || 'nueva'}.pdf`}
-        />
-      </Suspense>
-
-      {sketchExtractorActive && (
-        <Suspense fallback={null}>
-          <SketchImageExtractor
-            sketchElements={form.sketch_elements}
-            onReady={handleSketchImagesReady}
-          />
-        </Suspense>
-      )}
-      <ConfirmDialog open={deleteConfirm} onCancel={() => setDeleteConfirm(false)} onConfirm={handleDelete} title="Eliminar orden" message="¿Estás seguro de eliminar esta orden de trabajo?" confirmLabel="Eliminar" danger />
     </div>
   );
 }
