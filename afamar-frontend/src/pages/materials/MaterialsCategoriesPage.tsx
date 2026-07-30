@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Search, Edit, Trash2, Tags } from 'lucide-react';
 import {
   getMaterialCategories,
@@ -11,9 +11,11 @@ import { useList, useCreate, useUpdate, useDelete } from '../../api/hooks';
 import { useNotify } from '../../context/NotificationContext';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
+import { Modal } from '../../components/ui/Modal/Modal';
 import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
 import { SearchInput } from '../../components/ui/SearchInput/SearchInput';
 import { EmptyState } from '../../components/ui/EmptyState/EmptyState';
+import { Pagination } from '../../components/ui/Pagination';
 import styles from './MaterialsCategoriesPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -22,6 +24,8 @@ const CATEGORIES_KEY = ['material-categories'] as const;
 
 type Category = { id: number; name: string };
 
+const PAGE_SIZE = 20;
+
 export default function MaterialsCategories() {
   const [search, setSearch] = useState('');
   const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -29,14 +33,12 @@ export default function MaterialsCategories() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [nameDraft, setNameDraft] = useState('');
   const [saving, setSaving] = useState(false);
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [page, setPage] = useState(1);
   const notify = useNotify();
 
   const { items: data, loading, load } = useList<Category>(
     CATEGORIES_KEY,
     async () => {
-      // The axios interceptor unwraps the {success,data} envelope into res.data,
-      // so res.data IS the array directly (not the response envelope).
       const res = await getMaterialCategories();
       return (res.data as unknown as Category[]) || [];
     }
@@ -60,23 +62,35 @@ export default function MaterialsCategories() {
     { invalidateKeys: [CATEGORIES_KEY] }
   );
 
-  // When materials create a new category, the helper map used by MaterialForm should refresh.
+  const filtered = data.filter((c) =>
+    c.name.toLowerCase().includes(search.toLowerCase().trim())
+  );
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paginated = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
   useEffect(() => {
     primeMaterialCategoryMap();
   }, [data]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [totalPages, page]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
 
   const openCreate = () => {
     setEditingId(null);
     setNameDraft('');
     setModalOpen(true);
-    setTimeout(() => inputRef.current?.focus(), 30);
   };
 
   const openEdit = (category: Category) => {
     setEditingId(category.id);
     setNameDraft(category.name);
     setModalOpen(true);
-    setTimeout(() => inputRef.current?.focus(), 30);
   };
 
   const closeModal = () => {
@@ -131,10 +145,6 @@ export default function MaterialsCategories() {
     }
   };
 
-  const filtered = data.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase().trim())
-  );
-
   return (
     <div className={s['categories']}>
       <PageHeader
@@ -175,7 +185,7 @@ export default function MaterialsCategories() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((category) => (
+              {paginated.map((category) => (
                 <tr key={category.id}>
                   <td className={s['categories__td'] + ' ' + s['categories__td--center']}>
                     {category.id}
@@ -223,54 +233,52 @@ export default function MaterialsCategories() {
               )}
             </tbody>
           </table>
+          {filtered.length > PAGE_SIZE && (
+            <Pagination page={safePage} pageSize={PAGE_SIZE} total={filtered.length} onPageChange={setPage} label="categorías" />
+          )}
         </div>
       )}
 
-      {modalOpen && (
-        <div
-          className={s['categories__modal']}
-          onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}
-          role="dialog"
-          aria-modal="true"
-        >
-          <form className={s['categories__modal-card']} onSubmit={handleSubmit}>
-            <h2 className={s['categories__modal-title']}>
-              {editingId === null ? 'Nueva Categoría' : 'Editar Categoría'}
-            </h2>
-            <div className={s['categories__modal-body']}>
-              <label htmlFor="category-name">Nombre</label>
-              <input
-                id="category-name"
-                ref={inputRef}
-                type="text"
-                value={nameDraft}
-                onChange={(e) => setNameDraft(e.target.value)}
-                placeholder="Ej: Granitos"
-                maxLength={100}
-                disabled={saving}
-                autoComplete="off"
-              />
-            </div>
-            <div className={s['categories__modal-actions']}>
-              <button
-                type="button"
-                className="btn btn-outline"
-                onClick={closeModal}
-                disabled={saving}
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={saving || !nameDraft.trim()}
-              >
-                {saving ? 'Guardando...' : 'Guardar'}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+      <Modal
+        isOpen={modalOpen}
+        onClose={closeModal}
+        title={editingId === null ? 'Nueva Categoría' : 'Editar Categoría'}
+        width="420px"
+      >
+        <form onSubmit={handleSubmit}>
+          <div className={s['categories__modal-body']}>
+            <label htmlFor="category-name">Nombre</label>
+            <input
+              id="category-name"
+              type="text"
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              placeholder="Ej: Granitos"
+              maxLength={100}
+              disabled={saving}
+              autoComplete="off"
+              autoFocus
+            />
+          </div>
+          <div className={s['categories__modal-actions']}>
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={closeModal}
+              disabled={saving}
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={saving || !nameDraft.trim()}
+            >
+              {saving ? 'Guardando...' : 'Guardar'}
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       <ConfirmDialog
         open={!!deleteId}

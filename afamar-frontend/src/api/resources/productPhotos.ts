@@ -1,21 +1,27 @@
 import http from '@/api/http';
+import { createResource } from './createResource';
+
+const productPhotos = createResource('product-photos');
 
 export const getProductPhotos = (skip = 0, limit = 100) =>
-  http.get('/product-photos', { params: { skip, limit } });
+  productPhotos.list({ skip, limit });
 
-export const getLatestProductPhotos = (limit = 12) =>
-  http.get('/product-photos/latest', { params: { limit } });
+export const getProductPhoto = (id: number) => productPhotos.get(id);
 
-export const getProductPhoto = (id: number) =>
-  http.get(`/product-photos/${id}`);
-
+// Multipart upload — uses the raw `http.post` because `createResource`
+// only handles JSON bodies. Keep the helper alongside the rest so the
+// resource shape stays in one place.
 export const createProductPhoto = (formData: FormData) =>
   http.post('/product-photos', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 
 export const updateProductPhoto = (id: number, data: Record<string, unknown>) =>
-  http.put(`/product-photos/${id}`, data);
+  productPhotos.update(id, data);
 
 export const deleteProductPhoto = (id: number) =>
-  http.delete(`/product-photos/${id}`);
+  productPhotos.delete(id);
+
+// Specialised endpoint.
+export const getLatestProductPhotos = (limit = 12) =>
+  http.get('/product-photos/latest', { params: { limit } });

@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Edit, Trash2, FolderTree, Image as ImageIcon } from 'lucide-react';
 import { getMaterials, deleteMaterial, getMaterialCategories, type MaterialCategory } from '@/api/resources/materials';
-import { useList, usePaginatedList, useDelete } from '../../api/hooks';
+import { useList } from '../../api/hooks';
 import type { Material } from '../../types/material';
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
 import { SearchInput } from '../../components/ui/SearchInput/SearchInput';
@@ -12,7 +11,9 @@ import { formatCurrencyValue } from '../../utils/formatters';
 import { EmptyState } from '../../components/ui/EmptyState/EmptyState';
 import { Pagination } from '../../components/ui/Pagination';
 import { Modal } from '../../components/ui/Modal/Modal';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { MaterialFormModal } from '../../components/materials/MaterialFormModal/MaterialFormModal';
+import { useEntityList } from '../../hooks/useEntityList';
 import styles from './MaterialsListPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -21,29 +22,18 @@ const MATERIALS_KEY = ['materials'] as const;
 const CATEGORIES_KEY = ['material-categories'] as const;
 
 export default function MaterialsList() {
-  const [search, setSearch] = useState('');
   const [categoria, setCategoria] = useState('');
-  const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editId, setEditId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
   const [lightboxName, setLightboxName] = useState<string>('');
   const navigate = useNavigate();
 
-  const { items: data, loading, total, page, pageSize, setPage } = usePaginatedList<Material>(
-    [...MATERIALS_KEY, search, categoria],
-    async ({ skip, limit }) => {
-      return getMaterials({ search: search || undefined, categoria: categoria || undefined, skip, limit });
-    },
-    { pageSize: 10 },
-  );
-
   const { items: categorias } = useList<MaterialCategory>(
     CATEGORIES_KEY,
     async () => {
       const res = await getMaterialCategories();
-      const list = (res.data as unknown as MaterialCategory[]) || [];
-      return list;
+      return (res.data as MaterialCategory[]) || [];
     }
   );
 
@@ -53,17 +43,18 @@ export default function MaterialsList() {
     return m;
   }, [categorias]);
 
-  const deleteMutation = useDelete<unknown, number>(
-    MATERIALS_KEY,
-    async (id) => { await deleteMaterial(id); },
-    { invalidateKeys: [MATERIALS_KEY] }
-  );
-
-  const handleDelete = async () => {
-    if (!deleteId) return;
-    await deleteMutation.mutateAsync(deleteId);
-    setDeleteId(null);
-  };
+// The hook owns search + delete + pagination. Category is an extra
+// filter that lives in the page (it's page-specific UI).
+  const list: ReturnType<typeof useEntityList<Material, number>> = useEntityList<Material, number>({
+    queryKey: [...MATERIALS_KEY, categoria],
+    listFetcher: async ({ skip, limit }) =>
+      getMaterials({ search: list.search || undefined, category_id: categoria || undefined, skip, limit }),
+    deleteFn: (id) => deleteMaterial(id),
+    pageSize: 10,
+    successMessage: 'Material eliminado correctamente',
+    errorMessage: 'Error al eliminar material',
+  });
+  const { items: data, loading, total, page, pageSize, setPage, search, setSearch, deleteId, requestDelete, cancelDelete, confirmDelete } = list;
 
   const openEdit = (id: number) => setEditId(id);
   const closeEdit = () => setEditId(null);
@@ -104,7 +95,7 @@ export default function MaterialsList() {
         >
           <option value="">Todas las categorias</option>
           {categorias.map((c) => (
-            <option key={c.id} value={c.name}>{c.name}</option>
+            <option key={c.id} value={String(c.id)}>{c.name}</option>
           ))}
         </select>
         <button
@@ -138,7 +129,7 @@ export default function MaterialsList() {
             <tbody>
               {data.map((m: Material) => {
                 const currency = m.currency || 'ARS';
-                                const precio = currency === 'USD' ? m.price_usd || 0 : m.base_price || 0;
+                const precio = currency === 'USD' ? m.price_usd || 0 : m.base_price || 0;
                 const categoryName = m.category_id
                   ? (categoryNameById[Number(m.category_id)] || `Categoria #${m.category_id}`)
                   : '-';
@@ -193,7 +184,7 @@ export default function MaterialsList() {
                           type="button"
                           className="btn btn-danger"
                           style={{ padding: '4px 8px' }}
-                          onClick={() => setDeleteId(m.id)}
+                          onClick={() => requestDelete(m.id)}
                         >
                           <Trash2 size={14} />
                         </button>
@@ -215,9 +206,9 @@ export default function MaterialsList() {
       )}
 
       <ConfirmDialog
-        open={!!deleteId}
-        onCancel={() => setDeleteId(null)}
-        onConfirm={handleDelete}
+        open={deleteId !== null}
+        onCancel={cancelDelete}
+        onConfirm={confirmDelete}
         title="Eliminar material"
         message="Estas seguro?"
         confirmLabel="Eliminar"

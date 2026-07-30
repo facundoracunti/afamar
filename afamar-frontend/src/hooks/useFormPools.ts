@@ -50,7 +50,7 @@ export function useFormPools({
 
   const removePileta = useCallback(
     (idx: number) => {
-      const list = (form.pools_data as PoolInForm[]) || [];
+      const list = form.pools_data || [];
       update('pools_data', list.filter((_, i) => i !== idx));
     },
     [form.pools_data, update]
@@ -58,7 +58,9 @@ export function useFormPools({
 
   const updatePileta = useCallback(
     (idx: number, field: string, value: unknown) => {
-      const list = [...(form.pools_data as PoolInForm[])];
+      const list = [...(form.pools_data || [])];
+      // Dynamic-key setter: `PoolInForm` has known keys, but the form's
+      // edit handlers pass arbitrary field names.
       (list[idx] as unknown as Record<string, unknown>)[field] = value;
       update('pools_data', list);
     },

@@ -33,7 +33,6 @@ The total is recomputed client-side at edit time and frozen into the
 JSON so historical budgets don't drift when the operator edits the
 catalogue or the assigned material.
 */
-export { useEffect, useMemo, useState, useCallback } from 'react';
 export type { AdditionalWork } from '../types/additionalWork';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';

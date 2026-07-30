@@ -9,10 +9,7 @@
    .categories__td              table data cell
    .categories__cell-actions    actions cell
    .categories__empty           empty state
-   .categories__modal           modal overlay
-   .categories__modal-card      modal card
-   .categories__modal-title     modal title
-   .categories__modal-body      modal body
+   .categories__modal-body      modal form body
    .categories__modal-actions   modal action buttons
 */
 
@@ -129,39 +126,6 @@
   text-align: center;
   color: var(--text-muted);
   font-size: 14px;
-}
-
-.categories__modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 16px;
-}
-
-.categories__modal-card {
-  background: var(--surface-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  width: 100%;
-  max-width: 420px;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 20px 25px -5px var(--shadow-color), 0 8px 10px -6px var(--shadow-color);
-  overflow: hidden;
-  color: var(--text-primary);
-}
-
-.categories__modal-title {
-  margin: 0;
-  padding: 18px 24px;
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-primary);
-  border-bottom: 1px solid var(--border-color);
 }
 
 .categories__modal-body {

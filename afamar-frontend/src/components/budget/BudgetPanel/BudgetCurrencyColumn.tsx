@@ -18,6 +18,9 @@ interface BudgetCurrencyColumnProps {
   onTransportChange: (value: string, source: 'ars' | 'usd') => void;
   onDepositAmountChange: (value: string) => void;
   onUsdRateChange?: (value: string) => void;
+  /** Re-fetch the USD rate from the external API. Only shown for the
+   *  ARS column (the field sits inside the ARS / totals block). */
+  onUsdRateRefresh?: () => void;
   onDepositCurrencyChange?: (currency: string) => void;
 }
 
@@ -31,6 +34,7 @@ export function BudgetCurrencyColumn({
   onTransportChange,
   onDepositAmountChange,
   onUsdRateChange,
+  onUsdRateRefresh,
   onDepositCurrencyChange,
 }: BudgetCurrencyColumnProps) {
   const dd = Number(form.usd_rate);
@@ -168,13 +172,31 @@ export function BudgetCurrencyColumn({
             >
               DÓLAR DEL DÍA
             </label>
-            <input
-              type="number"
-              className={`input ${s['budget-panel__field-row-input']} ${s['budget-panel__usd-rate-input']}`}
-              value={form.usd_rate}
-              onChange={(e) => onUsdRateChange?.(e.target.value)}
-              disabled={readOnly}
-            />
+            <div className={s['budget-panel__usd-rate-controls']}>
+              <input
+                type="number"
+                className={`input ${s['budget-panel__field-row-input']} ${s['budget-panel__usd-rate-input']}`}
+                value={form.usd_rate}
+                onChange={(e) => onUsdRateChange?.(e.target.value)}
+                disabled={readOnly}
+              />
+              {onUsdRateRefresh && !readOnly ? (
+                <button
+                  type="button"
+                  className={s['budget-panel__usd-rate-refresh']}
+                  onClick={onUsdRateRefresh}
+                  title="Actualizar dólar del día desde dolarapi.com"
+                  aria-label="Actualizar dólar del día"
+                >
+                  ↻
+                </button>
+              ) : null}
+            </div>
+            {form.usd_rate_fetched_at ? (
+              <small className={s['budget-panel__usd-rate-fetched-at']}>
+                Actualizado: {new Date(form.usd_rate_fetched_at).toLocaleString('es-AR')}
+              </small>
+            ) : null}
           </div>
 
           <div className={s['budget-panel__balance-row']}>

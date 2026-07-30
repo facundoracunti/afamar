@@ -17,11 +17,17 @@ import type { PdfDocumentData } from '../../utils/pdf/buildPdfData';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import FormHeader from '../../components/orders/FormHeader/FormHeader';
 import EntityFormLayout from '../../components/entity/EntityFormLayout';
+import {
+  EntityFormActionsProvider,
+  EntityFormDomainProvider,
+  EntityFormStateProvider,
+  EntityFormStyleProvider,
+} from '../../components/entity/EntityFormContexts';
 import WorkOrderFormStatus from './WorkOrderFormStatus';
 import WorkOrderFormSnapshot from './WorkOrderFormSnapshot';
 import WorkOrderFormObservations from './WorkOrderFormObservations';
 import { AlternativeBudgetGrid } from './AlternativeBudgetGrid';
-import type { EntityFormState, EntityServices, MaterialInForm, PoolInForm } from '../../types';
+import type { EntityFormState, EntityServices, MaterialInForm } from '../../types';
 import styles from './WorkOrderFormPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -239,111 +245,118 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
         </button>
       </FormHeader>
 
-      <EntityFormLayout
-        styles={s}
-        prefix="work-order-form__"
-
-        form={form as unknown as EntityFormState}
-        readOnly={readOnly}
-        saving={saving}
-        logoUrl={logoUrl}
-
-        clientes={clientes as unknown as import('../../types/client').Client[]}
-        addOrRefreshClientes={addOrRefreshClientes}
-        onAddressAdded={handleAddressAdded}
-        update={update as (field: string, value: unknown) => void}
-
-        materials={materials}
-        pools={pools}
-        addMaterial={addMaterial}
-        removeMaterial={removeMaterial}
-        updateMaterial={updateMaterial}
-        addPileta={addPileta}
-        removePileta={removePileta}
-        updatePileta={updatePileta}
-        handleDetailChange={handleDetailChange}
-        addDetalle={addDetalle}
-        removeDetalle={removeDetalle}
-        M2_CONCEPTS={M2_CONCEPTS}
-
-        modoUSD={modoUSD}
-        toggleModoUSD={toggleModoUSD}
-        hayUSD={hayUSD}
-        hayAlternativas={hayAlternativas}
-        handleTransportChange={handleTransportChange}
-        handleDepositCurrencyChange={handleDepositCurrencyChange}
-        handleDepositAmountChange={handleDepositAmountChange}
-        handleUsdRateChange={handleUsdRateChange}
-        setForm={setForm}
-        alternativasGrid={alternativasGrid}
-        discountBlock={discountBlock}
-        onConfirmarPago={handleConfirmarPago}
-
-        beforeLayout={
-          <>
-            <div className={s['work-order-form__card-section']}>
-              <WorkOrderFormStatus
-                form={form}
-                readOnly={readOnly}
-                update={update as (field: string, value: unknown) => void}
+      <EntityFormStyleProvider value={{ styles: s, prefix: 'work-order-form__' }}>
+        <EntityFormStateProvider
+          value={{
+            form,
+            setForm,
+            update,
+            readOnly,
+            saving,
+            logoUrl,
+            M2_CONCEPTS,
+          }}
+        >
+          <EntityFormDomainProvider
+            value={{
+              clientes,
+              materials,
+              pools,
+              addOrRefreshClientes,
+              onAddressAdded: handleAddressAdded,
+              addMaterial,
+              removeMaterial,
+              updateMaterial,
+              addPileta,
+              removePileta,
+              updatePileta,
+              handleDetailChange,
+              addDetalle,
+              removeDetalle,
+              modoUSD,
+              toggleModoUSD,
+              hayUSD,
+              hayAlternativas,
+              handleTransportChange,
+              handleDepositCurrencyChange,
+              handleDepositAmountChange,
+              handleUsdRateChange,
+              formMaterials: form.materials_data || [],
+            }}
+          >
+            <EntityFormActionsProvider
+              value={{
+                handleSubmit,
+                onCancel: handleCancelClick,
+                onConfirmarPago: handleConfirmarPago,
+                deleteConfirm,
+                setDeleteConfirm,
+                handleDelete,
+                deleteTitle: 'Eliminar orden',
+                deleteMessage: '¿Estás seguro de eliminar esta orden de trabajo?',
+                deleteConfirmLabel: 'Eliminar',
+                deleteDanger: true,
+                pdfData,
+                pdfPreviewLoading,
+                handleClosePdfPreview,
+                pdfTitle: 'Vista previa — Orden de Trabajo',
+                pdfFileName: `orden_${form.number || 'nueva'}.pdf`,
+                sketchExtractorActive,
+                handleSketchImagesReady,
+                showCroquis,
+                setShowCroquis,
+              }}
+            >
+              <EntityFormLayout
+                alternativasGrid={alternativasGrid}
+                discountBlock={discountBlock}
+                beforeLayout={
+                  <>
+                    <div className={s['work-order-form__card-section']}>
+                      <WorkOrderFormStatus
+                        form={form}
+                        readOnly={readOnly}
+                        update={update}
+                      />
+                    </div>
+                    <div className={s['work-order-form__card-section']}>
+                      <WorkOrderFormSnapshot form={form} readOnly={readOnly} />
+                    </div>
+                  </>
+                }
+                observations={
+                  <WorkOrderFormObservations
+                    form={form}
+                    readOnly={readOnly}
+                    update={update}
+                  />
+                }
+                terms={[
+                  {
+                    title: 'Condiciones de Entrega',
+                    items: deliveryTerms,
+                    onChange: setDeliveryTerms,
+                    placeholder: 'Ej: Entrega a convenir, transporte a cargo del cliente…',
+                    hint: 'Si dejás la lista vacía, se usarán las condiciones globales configuradas.',
+                    disabled: readOnly,
+                  },
+                  {
+                    title: 'Garantía',
+                    items: warrantyTerms,
+                    onChange: setWarrantyTerms,
+                    placeholder: 'Ej: 12 meses por defectos de fabricación…',
+                    hint: 'Si dejás la lista vacía, se usará la garantía global configurada.',
+                    disabled: readOnly,
+                  },
+                ]}
+                specsCardClassName={`card ${s['specs-card']}`}
+                fabricationShowMeasurementComparison={form.status === 'MEASUREMENT'}
+                fabricationMaterialsData={form.materials_data}
               />
-            </div>
-            <div className={s['work-order-form__card-section']}>
-              <WorkOrderFormSnapshot form={form} readOnly={readOnly} />
-            </div>
-          </>
-        }
-        observations={
-          <WorkOrderFormObservations
-            form={form}
-            readOnly={readOnly}
-            update={update}
-          />
-        }
-        terms={[
-          {
-            title: 'Condiciones de Entrega',
-            items: deliveryTerms,
-            onChange: setDeliveryTerms,
-            placeholder: 'Ej: Entrega a convenir, transporte a cargo del cliente…',
-            hint: 'Si dejás la lista vacía, se usarán las condiciones globales configuradas.',
-            disabled: readOnly,
-          },
-          {
-            title: 'Garantía',
-            items: warrantyTerms,
-            onChange: setWarrantyTerms,
-            placeholder: 'Ej: 12 meses por defectos de fabricación…',
-            hint: 'Si dejás la lista vacía, se usará la garantía global configurada.',
-            disabled: readOnly,
-          },
-        ]}
-        specsCardClassName={`card ${s['specs-card']}`}
-        fabricationShowMeasurementComparison={form.status === 'MEASUREMENT'}
-        fabricationMaterialsData={form.materials_data as unknown as MaterialInForm[]}
-
-        handleSubmit={handleSubmit}
-        onCancel={handleCancelClick}
-
-        showCroquis={showCroquis}
-        setShowCroquis={setShowCroquis}
-
-        pdfData={pdfData}
-        pdfPreviewLoading={pdfPreviewLoading}
-        sketchExtractorActive={sketchExtractorActive}
-        handleClosePdfPreview={handleClosePdfPreview}
-        handleSketchImagesReady={handleSketchImagesReady}
-        pdfTitle="Vista previa — Orden de Trabajo"
-        pdfFileName={`orden_${form.number || 'nueva'}.pdf`}
-
-        deleteConfirm={deleteConfirm}
-        setDeleteConfirm={setDeleteConfirm}
-        handleDelete={handleDelete}
-        deleteTitle="Eliminar orden"
-        deleteMessage="¿Estás seguro de eliminar esta orden de trabajo?"
-        deleteConfirmLabel="Eliminar"
-        deleteDanger
-      />
+            </EntityFormActionsProvider>
+          </EntityFormDomainProvider>
+        </EntityFormStateProvider>
+      </EntityFormStyleProvider>
 
     </div>
   );

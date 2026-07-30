@@ -195,6 +195,26 @@ export function buildPdfData({
   const computedTotal = Math.max(0, surchargeBase + surchargeAmount);
   const computedBalanceDue = Math.max(0, computedTotal - deposit);
 
+  // Compute USD total from sections (mirrors the ARS logic above).
+  const globalSection = sections.find((s) => s.is_global);
+  const mainSectionSubtotalUsd = mainSection
+    ? mainSection.subtotal_usd
+    : globalSection
+      ? globalSection.subtotal_usd
+      : 0;
+  const transportUsd = num('transport_usd');
+  const discountBaseUsd = mainSectionSubtotalUsd + transportUsd;
+  const discountFixedUsd = discountPct > 0
+    ? Math.round(discountBaseUsd * discountPct) / 100
+    : discountFixedRaw > 0 && usdRate > 0
+      ? Math.round((discountFixedRaw / usdRate) * 100) / 100
+      : 0;
+  const surchargeBaseUsd = Math.max(0, mainSectionSubtotalUsd + transportUsd - discountFixedUsd);
+  const surchargeAmountUsd = surchargePct > 0
+    ? Math.round(surchargeBaseUsd * surchargePct) / 100
+    : 0;
+  const computedTotalUsd = Math.max(0, surchargeBaseUsd + surchargeAmountUsd);
+
   const base: PdfDocumentData = {
     document_type,
     title: document_type === 'budget' ? 'PRESUPUESTO' : 'ORDEN DE TRABAJO',
@@ -222,7 +242,7 @@ export function buildPdfData({
     deposit_received: deposit,
     balance_due: computedBalanceDue,
     total: computedTotal,
-    total_usd: num('total_usd'),
+    total_usd: computedTotalUsd,
     payment_method: str('payment_method'),
     installments: num('installments') || 1,
     notes: str('notes'),
@@ -236,6 +256,8 @@ export function buildPdfData({
       ? overrides.warranty_terms
       : globalTerms.warranty_text,
     sketch_images: sketchImages,
+    usd_rate: usdRate,
+    usd_rate_fetched_at: str('usd_rate_fetched_at') || null,
     company,
     additional_works,
     additional_works_subtotal_ars: additionalWorksSubtotalArs,

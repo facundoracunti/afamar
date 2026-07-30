@@ -2,7 +2,7 @@ import os
 import uuid
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies import get_current_user, get_db
 from app.core.exceptions import NotFoundError
@@ -70,9 +70,21 @@ def delete_thickness(thickness_id: int, db: Session = Depends(get_db)):
 # ── Categories ───────────────────────────────────────────
 
 @router.get("/categories")
-def list_categories(db: Session = Depends(get_db)):
+def list_categories(
+    skip: int = 0,
+    limit: int = 0,
+    db: Session = Depends(get_db),
+):
+    from app.models.material import MaterialCategory
+
     service = MaterialService(db)
-    return success(service.list_categories())
+    if limit > 0:
+        query = db.query(MaterialCategory)
+        page = paginate(db, query, skip, limit)
+        payload = [{"id": c.id, "name": c.name} for c in page.items]
+        return success(payload, page.pagination)
+    payload = [{"id": c.id, "name": c.name} for c in service.list_categories()]
+    return success(payload)
 
 
 @router.post("/categories", status_code=201)
@@ -114,19 +126,14 @@ def list_materials(
     category_id: int | None = None,
     db: Session = Depends(get_db),
 ):
-    # `service.get_all` uses `joinedload(currency_obj)` so the
-    # `_populate_currency_code` validator has the relationship loaded.
-    # We then explicitly `model_validate(...).model_dump()` so the
-    # `model_validator(mode="before")` runs — going through
-    # `jsonable_encoder` directly skips the validator and the
-    # `currency` field ends up null.
-    service = MaterialService(db)
+    from app.models.material import Material
+
+    query = db.query(Material).options(joinedload(Material.currency_obj))
     if category_id:
-        items = service.get_by_category(category_id)
-    else:
-        items = service.get_all(skip=skip, limit=limit)
-    payload = [MaterialResponse.model_validate(m).model_dump(mode="json") for m in items]
-    return success(payload)
+        query = query.filter(Material.category_id == category_id)
+    page = paginate(db, query, skip, limit)
+    payload = [MaterialResponse.model_validate(m).model_dump(mode="json") for m in page.items]
+    return success(payload, page.pagination)
 
 
 @router.get("/{material_id}")

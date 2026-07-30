@@ -2,15 +2,15 @@ import React, { useState } from 'react';
 import { Search, Plus, Trash2 } from 'lucide-react';
 import { getPoolStock, createPool, updatePool, deletePool } from '@/api/resources/poolStock';
 import http from '@/api/http';
-import { useList, usePaginatedList, useDelete } from '../../api/hooks';
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
+import { useList } from '../../api/hooks';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { Pagination } from '../../components/ui/Pagination';
 import { formatCurrencyValue } from '../../utils/formatters';
 import type { Pool, PoolType } from '../../types/poolStock';
-import { useNotify } from '../../context/NotificationContext';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { PoolFormModal, type PoolFormState } from '../../components/pool-stock/PoolFormModal/PoolFormModal';
 import { PoolMovementsModal } from '../../components/pool-stock/PoolMovementsModal/PoolMovementsModal';
+import { useEntityList } from '../../hooks/useEntityList';
 import styles from './PoolStockPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -18,12 +18,9 @@ const s = styles as unknown as Record<string, string>;
 const POOL_STOCK_KEY = ['pool-stock'] as const;
 
 export default function PoolStockPage() {
-  const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [showMov, setShowMov] = useState<Pool | null>(null);
-  const [deleteId, setDeleteId] = useState<number | null>(null);
   const [editItem, setEditItem] = useState<Pool | null>(null);
-  const notify = useNotify();
 
   const { items: poolTypes } = useList<PoolType>(
     ['pool-types'],
@@ -33,19 +30,16 @@ export default function PoolStockPage() {
     }
   );
 
-  const { items: data, loading, total, page, pageSize, setPage, refetch } = usePaginatedList<Pool>(
-    [...POOL_STOCK_KEY, search],
-    async ({ skip, limit }) => {
-      return getPoolStock({ search: search || undefined, skip, limit });
-    },
-    { pageSize: 10 },
-  );
-
-  const deleteMutation = useDelete<unknown, number>(
-    POOL_STOCK_KEY,
-    async (id) => { await deletePool(id); },
-    { invalidateKeys: [POOL_STOCK_KEY] }
-  );
+  const list: ReturnType<typeof useEntityList<Pool, number>> = useEntityList<Pool, number>({
+    queryKey: POOL_STOCK_KEY,
+    listFetcher: async ({ skip, limit }) =>
+      getPoolStock({ search: list.search || undefined, skip, limit }),
+    deleteFn: (id) => deletePool(id),
+    pageSize: 10,
+    successMessage: 'Pileta eliminada correctamente',
+    errorMessage: 'Error al eliminar pileta',
+  });
+  const { items: data, loading, total, page, pageSize, setPage, refetch, search, setSearch, deleteId, requestDelete, cancelDelete, confirmDelete } = list;
 
   const handleOpenForm = (item: Pool | null = null) => {
     setEditItem(item);
@@ -61,12 +55,6 @@ export default function PoolStockPage() {
     }
     setShowForm(false);
     refetch();
-  };
-
-  const handleDelete = async () => {
-    if (!deleteId) return;
-    await deleteMutation.mutateAsync(deleteId);
-    setDeleteId(null);
   };
 
   const handleOpenMov = (pileta: Pool) => {
@@ -113,29 +101,29 @@ export default function PoolStockPage() {
                 {data.map((p) => {
                   const currency = p.currency || 'ARS';
                   return (
-                  <tr key={p.id}>
-                    <td className={s['poolStock__brand']}>{p.brand}</td>
-                    <td>{p.model}</td>
-                    <td><span className={`badge badge-info ${s['poolStock__type-badge']}`}>{p.pool_type_name || 'Simple'}</span></td>
-                    <td>{p.material || '-'}</td>
-                    <td className={`${s['poolStock__price']}${currency === 'USD' ? ' ' + s['poolStock__price--usd'] : ''}`}>
-                      {formatCurrencyValue(Number(p.price || 0), { currency })}
-                    </td>
-                    <td>
-                      <span className={`${s['poolStock__quantity']} ${p.quantity > 0 ? s['poolStock__quantity--positive'] : s['poolStock__quantity--zero']}`}>{p.quantity}</span>
-                    </td>
-                    <td>
-                      <div className={s['poolStock__actions-cell']}>
-                        <button className={`btn btn-outline ${s['poolStock__btn-sm']}`} onClick={() => handleOpenForm(p)}>Editar</button>
-                        <button className={`btn btn-success ${s['poolStock__btn-sm']}`} onClick={() => handleOpenMov(p)} title="Movimientos">
-                          <Plus size={14} />
-                        </button>
-                        <button className={`btn btn-danger ${s['poolStock__btn-sm']}`} onClick={() => setDeleteId(p.id)}>
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                    <tr key={p.id}>
+                      <td className={s['poolStock__brand']}>{p.brand}</td>
+                      <td>{p.model}</td>
+                      <td><span className={`badge badge-info ${s['poolStock__type-badge']}`}>{p.pool_type_name || 'Simple'}</span></td>
+                      <td>{p.material || '-'}</td>
+                      <td className={`${s['poolStock__price']}${currency === 'USD' ? ' ' + s['poolStock__price--usd'] : ''}`}>
+                        {formatCurrencyValue(Number(p.price || 0), { currency })}
+                      </td>
+                      <td>
+                        <span className={`${s['poolStock__quantity']} ${p.quantity > 0 ? s['poolStock__quantity--positive'] : s['poolStock__quantity--zero']}`}>{p.quantity}</span>
+                      </td>
+                      <td>
+                        <div className={s['poolStock__actions-cell']}>
+                          <button className={`btn btn-outline ${s['poolStock__btn-sm']}`} onClick={() => handleOpenForm(p)}>Editar</button>
+                          <button className={`btn btn-success ${s['poolStock__btn-sm']}`} onClick={() => handleOpenMov(p)} title="Movimientos">
+                            <Plus size={14} />
+                          </button>
+                          <button className={`btn btn-danger ${s['poolStock__btn-sm']}`} onClick={() => requestDelete(p.id)}>
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
                   );
                 })}
                 {data.length === 0 && (
@@ -163,9 +151,9 @@ export default function PoolStockPage() {
       />
 
       <ConfirmDialog
-        open={!!deleteId}
-        onCancel={() => setDeleteId(null)}
-        onConfirm={handleDelete}
+        open={deleteId !== null}
+        onCancel={cancelDelete}
+        onConfirm={confirmDelete}
         title="Eliminar pileta"
         message="¿Estás seguro?"
         confirmLabel="Eliminar"

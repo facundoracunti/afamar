@@ -1,7 +1,7 @@
 # AGENTS.md
 
 > **Estado:** Rama `development`. Fases 1-6.11 completadas. Feature: dashboard modales.
-> `tsc --noEmit` 0 errores · `vite build` ~14s, gzip ~770 KB (chunks principales) · vitest 123/123 · pytest 14/14.
+> `tsc --noEmit` 0 errores · `vite build` ~14s, gzip ~770 KB (chunks principales) · vitest 123/123 · pytest 14/14 · playwright 101/101 passing (3 skipped intencionales, ~2.8 min).
 
 ## Reglas de operación
 
@@ -340,8 +340,12 @@ Checks: JSON column corruption, FK orphans (client_id, delivery_address_id, budg
 
 ## E2E Tests (Playwright)
 
-- **Stack:** `@playwright/test@1.61.1` + Chromium. Tests en `afamar-frontend/e2e/`.
-- **Config:** `afamar-frontend/playwright.config.ts` — `webServer` auto-arranca backend (uvicorn 3095) + frontend (vite 3090).
+- **Stack:** `@playwright/test@1.61.1` + Chromium.
+- **Estructura por módulo** (espejo de `src/pages/`): `afamar-frontend/e2e/{auth,clients,budgets,work-orders,materials,pool-stock,additional-works,measurements,calculator,cash,reports,configuration,product-photos,dashboard,smoke,edge-cases}/`. Helpers compartidos en `e2e/helpers/`.
+- **Prefijo numérico** (00, 01, 02...) define el orden de corrida. Sub-features usan sufijo letra (02b, 05b).
+- **Config:** `afamar-frontend/playwright.config.ts` — `webServer` auto-arranca backend (uvicorn 3095) + frontend (vite 3090). `workers: 1`, `fullyParallel: false`, `retries: 0 local / 2 CI`.
+- **Login:** siempre `loginViaApi(page, request)` de `helpers/login.ts` (evita el rate-limit de `/auth/login` 5/min del `loginAsAdmin`).
+- **Datos únicos:** `const UNIQUE = \`E2E-${Math.random().toString(36).slice(2, 7)}\`;` por test. Cleanup best-effort.
 - **Scripts:** `npm run test:e2e` (headless), `npm run test:e2e:ui` (Playwright UI), `npm run test:e2e:debug`.
 
 ## Commands

@@ -149,98 +149,61 @@ export default function Dashboard() {
               unmounts and the new page renders full-width. ─────────── */}
 
       <Suspense fallback={<LoadingSpinner />}>
-        <Modal
-          isOpen={activeModal === 'cash'}
-          onClose={closeModal}
-          title="Caja"
-          width="1200px"
-        >
-          <CashDailyPage />
-        </Modal>
-
-        <Modal
-          isOpen={activeModal === 'create-budget'}
-          onClose={closeModal}
-          title="Nuevo presupuesto"
-          width="1280px"
-        >
-          <BudgetForm onSuccess={closeModal} onCancel={closeModal} />
-        </Modal>
-
-        <Modal
-          isOpen={activeModal === 'create-work-order'}
-          onClose={closeModal}
-          title="Nueva orden de trabajo"
-          width="1280px"
-        >
-          <WorkOrderForm onSuccess={closeModal} onCancel={closeModal} />
-        </Modal>
-
-        <Modal
-          isOpen={activeModal === 'work-orders'}
-          onClose={closeModal}
-          title="Órdenes en medición / taller"
-          width="1400px"
-        >
-          {/* No initialStatus — the user can filter via the page's
-              status dropdown if they want to narrow down. */}
-          <WorkOrdersListPage />
-        </Modal>
-
-        <Modal
-          isOpen={activeModal === 'work-orders-delivered'}
-          onClose={closeModal}
-          title="Órdenes terminadas para envío"
-          width="1400px"
-        >
-          <WorkOrdersListPage initialStatus="DELIVERED" />
-        </Modal>
-
-        <Modal
-          isOpen={activeModal === 'pool-stock'}
-          onClose={closeModal}
-          title="Stock de piletas"
-          width="1200px"
-        >
-          <PoolStockPage />
-        </Modal>
-
-        <Modal
-          isOpen={activeModal === 'materials'}
-          onClose={closeModal}
-          title="Materiales"
-          width="1400px"
-        >
-          <MaterialsListPage />
-        </Modal>
-
-        <Modal
-          isOpen={activeModal === 'additional-works'}
-          onClose={closeModal}
-          title="Trabajos adicionales"
-          width="1200px"
-        >
-          <AdditionalWorksPage />
-        </Modal>
-
-        <Modal
-          isOpen={activeModal === 'categories'}
-          onClose={closeModal}
-          title="Categorías de materiales"
-          width="1200px"
-        >
-          <MaterialsCategoriesPage />
-        </Modal>
-
-        <Modal
-          isOpen={activeModal === 'calculator'}
-          onClose={closeModal}
-          title="Calculadora"
-          width="1200px"
-        >
-          <CalculatorPage />
-        </Modal>
+        {DASHBOARD_MODALS.map(({ kind, title, width, render }) => (
+          <Modal
+            key={kind}
+            isOpen={activeModal === kind}
+            onClose={closeModal}
+            title={title}
+            width={width}
+          >
+            {render(closeModal)}
+          </Modal>
+        ))}
       </Suspense>
     </div>
   );
 }
+
+/**
+ * Each entry maps a `ModalKind` to the page component that should be
+ * rendered inside the modal. Data-driven so adding a new card → modal
+ * is a one-line append.
+ */
+const DASHBOARD_MODALS: ReadonlyArray<{
+  kind: ModalKind;
+  title: string;
+  width: string;
+  render: (close: () => void) => React.ReactNode;
+}> = [
+  { kind: 'cash', title: 'Caja', width: '1200px', render: () => <CashDailyPage /> },
+  {
+    kind: 'create-budget',
+    title: 'Nuevo presupuesto',
+    width: '1280px',
+    render: (close) => <BudgetForm onSuccess={close} onCancel={close} />,
+  },
+  {
+    kind: 'create-work-order',
+    title: 'Nueva orden de trabajo',
+    width: '1280px',
+    render: (close) => <WorkOrderForm onSuccess={close} onCancel={close} />,
+  },
+  {
+    kind: 'work-orders',
+    title: 'Órdenes en medición / taller',
+    width: '1400px',
+    render: () => <WorkOrdersListPage />,
+  },
+  {
+    kind: 'work-orders-delivered',
+    title: 'Órdenes terminadas para envío',
+    width: '1400px',
+    render: () => <WorkOrdersListPage initialStatus="DELIVERED" />,
+  },
+  { kind: 'pool-stock', title: 'Stock de piletas', width: '1200px', render: () => <PoolStockPage /> },
+  { kind: 'materials', title: 'Materiales', width: '1400px', render: () => <MaterialsListPage /> },
+  { kind: 'additional-works', title: 'Trabajos adicionales', width: '1200px', render: () => <AdditionalWorksPage /> },
+  { kind: 'categories', title: 'Categorías de materiales', width: '1200px', render: () => <MaterialsCategoriesPage /> },
+  { kind: 'calculator', title: 'Calculadora', width: '1200px', render: () => <CalculatorPage /> },
+];

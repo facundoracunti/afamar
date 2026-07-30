@@ -2,6 +2,7 @@ import { parseApiError } from '../utils/error';
 import { useCallback } from 'react';
 import type { EntityFormState, EntityServices } from '../types';
 import { todayLocalISO } from './entityFormHelpers';
+import { applyCreditCardAutoFill } from '../utils/creditCardAutoFill';
 
 interface UseFormActionsParams {
   form: EntityFormState;
@@ -61,14 +62,13 @@ export function useFormActions({
         if (wasRejected) {
           payload.status = 'PENDING';
         }
-        if (form.payment_method && ['TARJETA DE CRÉDITO', 'TARJETA DE DÉBITO'].includes(form.payment_method)) {
-          payload.deposit_received = Number(form.total);
-          payload.balance_due = 0;
-          payload.balance_paid = true;
-          payload.deposit_usd = Number(form.total_usd);
-          payload.balance_due_usd = 0;
-          payload.balance_paid_at = todayLocalISO(); // eslint-disable-line @typescript-eslint/no-unused-vars
-        }
+        applyCreditCardAutoFill(
+          payload,
+          form.payment_method,
+          form.total,
+          form.total_usd,
+          todayLocalISO(),
+        );
         if (isEdit) {
           await services.update(id as string, payload);
         } else {
@@ -110,14 +110,15 @@ export function useFormActions({
           payload.deposit_usd = Number(form.total_usd);
           payload.balance_due_usd = 0;
           payload.balance_paid = true;
-          payload.balance_paid_at = todayLocalISO(); // eslint-disable-line @typescript-eslint/no-unused-vars
-        } else if (form.payment_method && ['TARJETA DE CRÉDITO', 'TARJETA DE DÉBITO'].includes(form.payment_method)) {
-          payload.deposit_received = Number(form.total);
-          payload.balance_due = 0;
-          payload.balance_paid = true;
-          payload.deposit_usd = Number(form.total_usd);
-          payload.balance_due_usd = 0;
-          payload.balance_paid_at = todayLocalISO(); // eslint-disable-line @typescript-eslint/no-unused-vars
+          payload.balance_paid_at = todayLocalISO();
+        } else {
+          applyCreditCardAutoFill(
+            payload,
+            form.payment_method,
+            form.total,
+            form.total_usd,
+            todayLocalISO(),
+          );
         }
         await services.update(id as string, payload);
         setForm((prev) => ({ ...prev, ...payload, status: newStatus }));

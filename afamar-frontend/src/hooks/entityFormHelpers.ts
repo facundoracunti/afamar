@@ -20,7 +20,7 @@ export { buildFinancialPayload, mapFinancialToForm };
 export { buildPayload, mapApiToForm, todayLocalISO };
 
 function defaultPoolMaterial(form: EntityFormState): string {
-  const materials = (form.materials_data as unknown as MaterialInForm[]) || [];
+  const materials = form.materials_data || [];
   const firstMain = materials.find((m) => !m.is_alternative);
   if (firstMain) return firstMain.name;
   return POOL_MATERIAL_GLOBAL;
@@ -34,7 +34,7 @@ export function addMaterialToList(
   if (!name) return null;
   const mat = materials.find((m) => m.name === name);
   if (!mat) return null;
-  const current = (form.materials_data as unknown as MaterialInForm[]) || [];
+  const current = form.materials_data || [];
   return [
     ...current,
     {
@@ -51,7 +51,7 @@ export function addMaterialToList(
       length: 0,
       width: 0,
       is_alternative: false,
-    } as unknown as MaterialInForm,
+    },
   ];
 }
 
@@ -63,7 +63,7 @@ export function addPoolToList(
   if (!pid) return null;
   const pt = pools.find((p) => p.id === Number(pid));
   if (!pt) return null;
-  const current = (form.pools_data as unknown as PoolInForm[]) || [];
+  const current = form.pools_data || [];
   return [
     ...current,
     {
@@ -75,7 +75,7 @@ export function addPoolToList(
       image: '',
       quantity: 1,
       material: defaultPoolMaterial(form),
-    } as unknown as PoolInForm,
+    },
   ];
 }
 

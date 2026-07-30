@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, CalendarDays } from 'lucide-react';
 import { getMeasurements, deleteMeasurement } from '@/api/resources/measurements';
@@ -11,6 +11,7 @@ import type { WorkOrderListItem } from '../../types/workOrder';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
+import { Pagination } from '../../components/ui/Pagination';
 import { SearchInput } from '../../components/ui/SearchInput/SearchInput';
 import PendingMeasurementCards from '../../components/measurements/PendingMeasurementCards/PendingMeasurementCards';
 import { MeasurementsTable } from '../../components/measurements/MeasurementsTable/MeasurementsTable';
@@ -19,6 +20,7 @@ import styles from './MeasurementsListPage.module.css';
 const s = styles as unknown as Record<string, string>;
 
 const MEASUREMENTS_KEY = ['measurements'] as const;
+const PAGE_SIZE = 25;
 
 type SortField = 'client_name' | 'client_phone' | 'client_address' | 'scheduled_date' | 'scheduled_time' | 'status';
 type SortDir = 'asc' | 'desc';
@@ -31,6 +33,7 @@ export default function MeasurementsList() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [sortField, setSortField] = useState<SortField>('scheduled_date');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [page, setPage] = useState(1);
   const navigate = useNavigate();
 
   const { items: data, loading } = useList<Measurement>(
@@ -87,7 +90,9 @@ export default function MeasurementsList() {
     }
   };
 
-  const visibleRows = useMemo(() => {
+  useEffect(() => { setPage(1); }, [search, statusFilter, dateFilter, dateFilterEnabled]);
+
+  const visibleRowsAll = useMemo(() => {
     const sorted = [...data].sort((a, b) => {
       const rawA = (a[sortField] ?? '') as string;
       const rawB = (b[sortField] ?? '') as string;
@@ -103,6 +108,13 @@ export default function MeasurementsList() {
     });
     return sorted;
   }, [data, sortField, sortDir]);
+  const totalPages = Math.max(1, Math.ceil(visibleRowsAll.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const visibleRows = visibleRowsAll.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [totalPages, page]);
 
   return (
     <div className={s['measurements']}>
@@ -168,16 +180,19 @@ export default function MeasurementsList() {
       </div>
 
       {loading ? <LoadingSpinner /> : (
-        <MeasurementsTable
-          visibleRows={visibleRows}
-          sortField={sortField}
-          sortDir={sortDir}
-          dateFilter={dateFilter}
-          dateFilterEnabled={dateFilterEnabled}
-          onSort={handleSort}
-          onView={(id) => navigate(`/admin/measurements/${id}`)}
-          onDelete={(id) => setDeleteId(id)}
-        />
+        <>
+          <MeasurementsTable
+            visibleRows={visibleRows}
+            sortField={sortField}
+            sortDir={sortDir}
+            dateFilter={dateFilter}
+            dateFilterEnabled={dateFilterEnabled}
+            onSort={handleSort}
+            onView={(id) => navigate(`/admin/measurements/${id}`)}
+            onDelete={(id) => setDeleteId(id)}
+          />
+          <Pagination page={safePage} pageSize={PAGE_SIZE} total={visibleRowsAll.length} onPageChange={setPage} label="mediciones" />
+        </>
       )}
 
       <ConfirmDialog

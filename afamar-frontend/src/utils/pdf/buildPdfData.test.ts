@@ -398,6 +398,27 @@ describe('buildPdfData — discount and surcharge', () => {
     expect(data.total).toBe(10000);
     expect(data.balance_due).toBe(7000);
   });
+
+  it('computes total_usd from sections instead of passthrough', () => {
+    const fabrication_details = [
+      { concept: 'CUTOUT_SINK', detail: '', length: 0, width: 0, m2: 0, labor: 0, currency: 'USD', quantity: 2, price: 55.25 },
+    ];
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({
+        fabrication_details,
+        transport: 0,
+        transport_usd: 0,
+        discount_percentage: 0,
+        payment_method: 'TARJETA DE CRÉDITO',
+        installments: 3,
+      }),
+      overrides: {},
+    });
+    // subtotal_usd = 110.50 (from section), surcharge 15% = 16.58
+    // total_usd = 110.50 + 16.58 = 127.08
+    expect(data.total_usd).toBe(127.08);
+  });
 });
 
 describe('buildPdfData — terms overrides', () => {

@@ -46,6 +46,14 @@ def get_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
     if not logger.handlers:
         handler = logging.StreamHandler(stream=sys.stdout)
+        # Replace encoding errors with `?` so messages containing
+        # non-ASCII (e.g. "Mármoles") don't crash on a cp1252 stdout
+        # (Windows default). The original character is preserved in
+        # the file/DB — only the console is lossy.
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+        except (AttributeError, ValueError):
+            pass
         handler.setFormatter(
             logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
         )

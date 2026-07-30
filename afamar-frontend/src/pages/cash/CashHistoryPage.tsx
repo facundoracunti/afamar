@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { getCashHistory } from '@/api/resources/cash';
-import { useList } from '../../api/hooks';
+import { usePaginatedList } from '../../api/hooks';
 import CurrencyDisplay from '../../components/ui/CurrencyDisplay';
+import { Pagination } from '../../components/ui/Pagination';
 import { ArrowUpCircle, ArrowDownCircle, Calendar, FileText } from 'lucide-react';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import styles from './CashHistoryPage.module.css';
@@ -9,13 +10,12 @@ import styles from './CashHistoryPage.module.css';
 const s = styles as unknown as Record<string, string>;
 
 export default function CashHistoryPage() {
-  const { items: cashRecords, loading } = useList<Record<string, unknown>>(
-    ['cash-history'],
-    async () => {
-      const res = await getCashHistory();
-      return (res.data as unknown as Record<string, unknown>[]) || [];
-    }
-  );
+  const { items: cashRecords, loading, total, page, pageSize, setPage } =
+    usePaginatedList<Record<string, unknown>>(
+      ['cash-history'],
+      async ({ skip, limit }) => getCashHistory({ skip, limit }),
+      { pageSize: 25 },
+    );
   const [selected, setSelected] = useState<Record<string, unknown> | null>(null);
 
   if (loading) return <LoadingSpinner />;
@@ -70,6 +70,7 @@ export default function CashHistoryPage() {
                   </tbody>
                 </table>
               </div>
+              <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} label="cierres" />
             </div>
           </div>
 

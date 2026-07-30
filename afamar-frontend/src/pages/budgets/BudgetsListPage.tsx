@@ -13,7 +13,7 @@ import {
   mapBudgetStatusToApi,
   mapUnifiedBudget,
 } from '@/api/resources/budgets';
-import { usePaginatedList, useDelete } from '../../api/hooks';
+import { buildDocumentShareMessage, buildWhatsAppUrl } from '../../utils/whatsapp';
 import type { AxiosResponse } from 'axios';
 import { useSettingsWithTerms } from '../../hooks/useSettingsWithTerms';
 import { usePdfPreviewController } from '../../hooks/usePdfPreviewController';
@@ -23,6 +23,7 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinne
 import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
 import { Pagination } from '../../components/ui/Pagination';
 import { useNotify } from '../../context/NotificationContext';
+import { useEntityList } from '../../hooks/useEntityList';
 import BudgetTable from './BudgetTable';
 import type { UnifiedBudget } from '../../types/budget';
 import styles from './BudgetsListPage.module.css';
@@ -38,9 +39,7 @@ interface PendingConvert {
 export default function BudgetsList() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [search, setSearch] = useState('');
   const [estado, setEstado] = useState(searchParams.get('status') || '');
-  const [deleteId, setDeleteId] = useState<string | number | null>(null);
   const [pendingConvert, setPendingConvert] = useState<PendingConvert | null>(null);
 
   useEffect(() => {
@@ -62,9 +61,23 @@ export default function BudgetsList() {
     notify,
   });
 
-  const { items: data, loading, total, page, pageSize, setPage, refetch } = usePaginatedList<UnifiedBudget>(
-    [...BUDGETS_KEY, search, estado],
-    async ({ skip, limit }) => {
+  const {
+    items: data,
+    loading,
+    total,
+    page,
+    pageSize,
+    setPage,
+    refetch,
+    search,
+    setSearch,
+    deleteId,
+    requestDelete,
+    cancelDelete,
+    confirmDelete,
+  } = useEntityList<UnifiedBudget, string | number>({
+    queryKey: [...BUDGETS_KEY, estado],
+    listFetcher: async ({ skip, limit }) => {
       // '' = active default (backend hides CONVERTED_TO_OT), 'ALL' = explicit no filter
       const statusParam = estado === 'ALL' ? 'ALL' : (estado || undefined);
       const res = (await getBudgetsUnified({
@@ -73,32 +86,16 @@ export default function BudgetsList() {
         skip,
         limit,
       })) as AxiosResponse<Record<string, unknown>[]>;
-      // Map snake_case → UnifiedBudget (type guard handled in the mapper)
+      // Map snake_case → UnifiedBudget (type guard handled in the mapper).
       const mapped = (res.data || []).map((r) => mapUnifiedBudget(r as unknown as Parameters<typeof mapUnifiedBudget>[0]));
       // Replace `data` so the hook sees the mapped items in `items`.
       return Object.assign(res, { data: mapped }) as AxiosResponse<UnifiedBudget[]>;
     },
-    { pageSize: 25 },
-  );
-
-  const deleteMutation = useDelete<unknown, string | number>(
-    BUDGETS_KEY,
-    async (id) => {
-      await deleteBudget(id as string);
-    },
-    { invalidateKeys: [BUDGETS_KEY] }
-  );
-
-  const handleDelete = async () => {
-    if (!deleteId) return;
-    try {
-      await deleteMutation.mutateAsync(deleteId);
-      notify('Presupuesto eliminado correctamente', 'success');
-      setDeleteId(null);
-    } catch (err: unknown) {
-      notify(parseApiError(err, 'Error al eliminar'), 'error');
-    }
-  };
+    deleteFn: (id) => deleteBudget(id as string),
+    pageSize: 25,
+    successMessage: 'Presupuesto eliminado correctamente',
+    errorMessage: 'Error al eliminar',
+  });
 
   const handleCambiarEstado = async (budget: UnifiedBudget, nuevoEstado: string) => {
     try {
@@ -129,14 +126,13 @@ export default function BudgetsList() {
   };
 
   const handleEnviarWhatsApp = (presupuesto: UnifiedBudget) => {
-    const phone = (presupuesto.clientPhone || '').replace(/[^\d]/g, '');
-    const nombre = presupuesto.clientName || '';
     const pdfUrl = getBudgetPdf(presupuesto.id as unknown as string);
-    const saludo = nombre ? `Hola ${nombre}! ` : '';
-    const mensaje = `${saludo}Te enviamos el presupuesto formal de AFAMAR Marmoles & Granitos. Podes revisarlo e imprimirlo desde el siguiente link: ${pdfUrl}`;
-    const whatsappUrl = phone
-      ? `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(mensaje)}`
-      : `https://api.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
+    const mensaje = buildDocumentShareMessage({
+      clientName: presupuesto.clientName,
+      documentLabel: 'el presupuesto formal de AFAMAR Mármoles & Granitos',
+      pdfUrl,
+    });
+    const whatsappUrl = buildWhatsAppUrl(presupuesto.clientPhone, mensaje);
     window.open(whatsappUrl, '_blank');
   };
 
@@ -173,7 +169,7 @@ export default function BudgetsList() {
             className="input"
             placeholder="Buscar por Nro / Cliente / Teléfono / Material..."
             value={search}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
+            onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         <select
@@ -184,6 +180,7 @@ export default function BudgetsList() {
         >
           <option value="">Activos (excluye Convertidos a OT)</option>
           <option value="PENDING">Pendiente</option>
+          <option value="ONLINE">Online</option>
           <option value="APPROVED">Aprobado</option>
           <option value="REJECTED">Rechazado</option>
           <option value="CONVERTED_TO_OT">Convertido a OT</option>
@@ -202,14 +199,14 @@ export default function BudgetsList() {
           onEnviarWhatsApp={handleEnviarWhatsApp}
           onEnviarEmail={handleEnviarEmail}
           onCambiarEstado={handleCambiarEstado}
-          onSetDeleteId={setDeleteId}
+          onSetDeleteId={requestDelete}
         />
       )}
 
       <ConfirmDialog
-        open={!!deleteId}
-        onCancel={() => setDeleteId(null)}
-        onConfirm={handleDelete}
+        open={deleteId !== null}
+        onCancel={cancelDelete}
+        onConfirm={confirmDelete}
         title="Eliminar presupuesto"
         message="Estas seguro?"
         confirmLabel="Eliminar"

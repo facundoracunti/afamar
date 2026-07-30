@@ -70,12 +70,12 @@ export function useBudgetQuoteCalculations({ form, hayAlternativas }: BudgetCalc
   );
 
   const matsMain = useMemo(
-    () => ((form.materials_data as unknown as MaterialInForm[]) || []).filter((m) => !m.is_alternative),
+    () => (form.materials_data || []).filter((m) => !m.is_alternative),
     [form.materials_data],
   );
 
   const matsAlt = useMemo(
-    () => ((form.materials_data as unknown as MaterialInForm[]) || []).filter((m) => m.is_alternative),
+    () => (form.materials_data || []).filter((m) => m.is_alternative),
     [form.materials_data],
   );
 

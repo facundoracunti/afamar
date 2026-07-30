@@ -185,4 +185,75 @@ describe('useBudgetCalculations — USD handling', () => {
     // 50 USD → 0 ARS (rate=0), pool 1000 ARS. Subtotal = 0 + 1000 = 1000.
     expect(result.current.form.subtotal).toBe(1000);
   });
+
+  it('rounds subtotal_usd to 2dp when converting ARS items', () => {
+    // Item in ARS should be converted to USD with 2dp rounding.
+    const fabrication_details: FabricationDetail[] = [
+      { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 1234 },
+    ];
+    const { result } = renderCalc(makeForm({ fabrication_details, usd_rate: 1000 }));
+    // 1234 ARS / 1000 = 1.234 USD → round2 = 1.23
+    expect(result.current.form.subtotal_usd).toBe(1.23);
+  });
+
+  it('rounds USD surcharge to 2dp (not integer) for credit card installments', () => {
+    // Bug 1: previously used Math.round() which truncated fractional cents.
+    const fabrication_details: FabricationDetail[] = [
+      { concept: 'CUTOUT_SINK', detail: '', length: 0, width: 0, m2: 0, labor: 0, currency: 'USD', quantity: 2, price: 55.25 },
+    ];
+    const { result } = renderCalc(makeForm({
+      fabrication_details,
+      usd_rate: 1000,
+      payment_method: 'TARJETA DE CRÉDITO',
+      installments: 3,
+    }));
+    // subtotal_usd = 110.50, no transport. Surcharge = 15% of 110.50 = 16.575 → round2 = 16.58
+    // Old bug: Math.round(16.575) = 17 → total_usd = 110.50 + 17 = 127.50
+    // Fixed: total_usd = 110.50 + 16.58 = 127.08
+    expect(result.current.form.total_usd).toBe(127.08);
+  });
+
+  it('rounds USD total after percentage discount to 2dp', () => {
+    const fabrication_details: FabricationDetail[] = [
+      { concept: 'CUTOUT_SINK', detail: '', length: 0, width: 0, m2: 0, labor: 0, currency: 'USD', quantity: 1, price: 200 },
+    ];
+    const { result } = renderCalc(makeForm({
+      fabrication_details,
+      usd_rate: 1000,
+      discount_percentage: 15,
+    }));
+    // subtotal_usd = 200, discount 15% → total = 200 * 0.85 = 170.00
+    expect(result.current.form.total_usd).toBe(170);
+  });
+
+  it('rounds USD total after fixed discount to 2dp', () => {
+    const fabrication_details: FabricationDetail[] = [
+      { concept: 'CUTOUT_SINK', detail: '', length: 0, width: 0, m2: 0, labor: 0, currency: 'USD', quantity: 1, price: 200 },
+    ];
+    const { result } = renderCalc(makeForm({
+      fabrication_details,
+      usd_rate: 1000,
+      discount_fixed_amount: 5000,
+    }));
+    // subtotal_usd = 200, discount = 5000 ARS / 1000 = 5 USD → total = 200 - 5 = 195.00
+    expect(result.current.form.total_usd).toBe(195);
+  });
+
+  it('applies USD surcharge with 2dp rounding in alternative material path', () => {
+    const mats: MaterialInForm[] = [
+      { id: 1, name: 'Negro Brasil', currency: 'USD', price_m2: 0, price_m2_usd: 100, quantity: 1, m2_used: 0, m2_budgeted: 0, length: 1, width: 1, is_alternative: false },
+      { id: 2, name: 'Marmol Carrara', currency: 'USD', price_m2: 0, price_m2_usd: 85.50, quantity: 1, m2_used: 0, m2_budgeted: 0, length: 1, width: 1, is_alternative: true },
+    ];
+    const { result } = renderCalc(makeForm({
+      materials_data: mats,
+      usd_rate: 1000,
+      payment_method: 'TARJETA DE CRÉDITO',
+      installments: 3,
+    }));
+    // Alternative replaces principal: mat cost = 85.50 USD
+    // Total USD = 85.50 (no transport, no fab, no pools)
+    // Surcharge = round2(85.50 * 0.15) = round2(12.825) = 12.83
+    // total_usd = 85.50 + 12.83 = 98.33
+    expect(result.current.form.total_usd).toBe(98.33);
+  });
 });

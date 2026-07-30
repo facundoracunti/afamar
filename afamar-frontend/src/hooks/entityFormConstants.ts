@@ -74,4 +74,5 @@ export const INITIAL_FORM: EntityFormState = {
   budget_terms: [],
   warranty_terms: [],
   delivery_terms: [],
+  usd_rate_fetched_at: '',
 };

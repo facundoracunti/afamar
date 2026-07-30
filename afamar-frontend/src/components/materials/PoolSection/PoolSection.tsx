@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import http from '@/api/http';
 import { useList } from '../../../api/hooks';
 import PoolCard from '../PoolCard/PoolCard';
-import type { PoolType } from '../../../types/poolStock';
+import type { Pool, PoolType } from '../../../types/poolStock';
 import type { MaterialInForm, PoolInForm } from '../../../types/budget';
 import styles from './PoolSection.module.css';
 
@@ -10,7 +10,7 @@ const s = styles as unknown as Record<string, string>;
 
 interface PoolSectionProps {
   /** Catalog of pool types (from /pool-stock). */
-  pools: Record<string, unknown>[];
+  pools: Pool[];
   /** Pools added to the current budget/WorkOrder. */
   formPiletas: PoolInForm[];
   /** Materials added to the current budget/WorkOrder (main + alternatives).

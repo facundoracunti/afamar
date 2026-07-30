@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Search } from 'lucide-react';
 import { getWorkOrders, getWorkOrder, deleteWorkOrder, updateWorkOrder, mapWorkOrderStatusToApi } from '@/api/resources/workOrders';
 import { parseApiError } from '../../utils/error';
-import { usePaginatedList, useDelete } from '../../api/hooks';
+import { buildDocumentShareMessage, buildWhatsAppUrl } from '../../utils/whatsapp';
 import { orderStatuses } from '../../utils/formatters';
 import { useSettingsWithTerms } from '../../hooks/useSettingsWithTerms';
 import { usePdfPreviewController } from '../../hooks/usePdfPreviewController';
@@ -14,6 +14,7 @@ import { SearchInput } from '../../components/ui/SearchInput/SearchInput';
 import { Pagination } from '../../components/ui/Pagination';
 import { WorkOrdersTable } from '../../components/common/WorkOrdersTable';
 import { useNotify } from '../../context/NotificationContext';
+import { useEntityList } from '../../hooks/useEntityList';
 import type { WorkOrderListItem } from '../../types/workOrder';
 import styles from './WorkOrdersListPage.module.css';
 
@@ -26,7 +27,6 @@ export default function WorkOrdersList({ initialStatus }: { initialStatus?: stri
   const navigate = useNavigate();
   const [search, setSearch] = useState<string>(searchParams.get('search') || '');
   const [estado, setEstado] = useState<string>(initialStatus ?? searchParams.get('status') ?? '');
-  const [deleteId, setDeleteId] = useState<number | null>(null);
 
   const notify = useNotify();
   const { company, globalTerms } = useSettingsWithTerms();
@@ -47,30 +47,31 @@ export default function WorkOrdersList({ initialStatus }: { initialStatus?: stri
     setEstado(searchParams.get('status') || '');
   }, [searchParams]);
 
-  const { items: data, loading, total, page, pageSize, setPage, refetch } = usePaginatedList<WorkOrderListItem>(
-    [...WORK_ORDERS_KEY, search, estado],
-    async ({ skip, limit }) => {
-      return getWorkOrders({ search: search || undefined, status: estado || undefined, skip, limit });
-    },
-    { pageSize: 25 },
-  );
-
-  const deleteMutation = useDelete<unknown, number>(
-    WORK_ORDERS_KEY,
-    async (id) => { await deleteWorkOrder(id); },
-    { invalidateKeys: [WORK_ORDERS_KEY] }
-  );
-
-  const handleDelete = async (): Promise<void> => {
-    if (deleteId === null) return;
-    try {
-      await deleteMutation.mutateAsync(deleteId);
-      notify('Orden eliminada correctamente', 'success');
-      setDeleteId(null);
-    } catch (err: unknown) {
-      notify(parseApiError(err, 'Error al eliminar'), 'error');
-    }
-  };
+  const {
+    items: data,
+    loading,
+    total,
+    page,
+    pageSize,
+    setPage,
+    refetch,
+    deleteId,
+    requestDelete,
+    cancelDelete,
+    confirmDelete,
+  } = useEntityList<WorkOrderListItem, number>({
+    // The page-level `search` + `estado` filters participate in the query
+    // key so changing them triggers a refetch. The hook owns `search` so
+    // we wire it through our listFetcher, but we still pass `estado`
+    // here to include it in the key.
+    queryKey: [...WORK_ORDERS_KEY, search, estado],
+    listFetcher: async ({ skip, limit }) =>
+      getWorkOrders({ search: search || undefined, status: estado || undefined, skip, limit }),
+    deleteFn: (id) => deleteWorkOrder(id),
+    pageSize: 25,
+    successMessage: 'Orden eliminada correctamente',
+    errorMessage: 'Error al eliminar',
+  });
 
   const handleStatusAdvance = async (o: WorkOrderListItem, direction: 1 | -1): Promise<void> => {
     const idx = orderStatuses.indexOf(o.status);
@@ -89,13 +90,12 @@ export default function WorkOrdersList({ initialStatus }: { initialStatus?: stri
   const handleOpenPdf = (o: WorkOrderListItem) => pdf.handleOpenPdf(o);
 
   const handleEnviarWhatsApp = (o: WorkOrderListItem): void => {
-    const phone = (o.client_phone || '').replace(/[^\d]/g, '');
-    const nombre = o.client_name || '';
-    const saludo = nombre ? `Hola ${nombre}! ` : '';
-    const mensaje = `${saludo}Te compartimos la información de tu Orden de Trabajo AFAMAR.`;
-    const whatsappUrl = phone
-      ? `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(mensaje)}`
-      : `https://api.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
+    const mensaje = buildDocumentShareMessage({
+      clientName: o.client_name,
+      documentLabel: 'la información de tu Orden de Trabajo AFAMAR',
+      pdfUrl: '', // WorkOrder list doesn't carry the PDF URL — keep raw greeting.
+    });
+    const whatsappUrl = buildWhatsAppUrl(o.client_phone, mensaje);
     window.open(whatsappUrl, '_blank');
   };
 
@@ -143,14 +143,14 @@ export default function WorkOrdersList({ initialStatus }: { initialStatus?: stri
           onStatusAdvance={handleStatusAdvance}
           onOpenPdf={handleOpenPdf}
           onWhatsApp={handleEnviarWhatsApp}
-          onDelete={(id) => setDeleteId(id)}
+          onDelete={requestDelete}
         />
       )}
 
       <ConfirmDialog
         open={deleteId !== null}
-        onCancel={() => setDeleteId(null)}
-        onConfirm={handleDelete}
+        onCancel={cancelDelete}
+        onConfirm={confirmDelete}
         title="Eliminar orden"
         message="Estas seguro?"
         confirmLabel="Eliminar"

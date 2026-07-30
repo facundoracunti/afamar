@@ -1,6 +1,9 @@
 import http from '../http';
 import type { UnifiedBudget } from '../../types/budget';
 
+// Re-export the shared status mapper so existing imports keep working.
+export { mapBudgetStatusToApi } from '../statusMap';
+
 export const getBudgets = (params?: Record<string, unknown>) => http.get('/budgets', { params });
 export const getBudgetsUnified = (params?: Record<string, unknown>) => http.get('/budgets/unified', { params });
 export const getBudget = (id: number | string) => http.get(`/budgets/${id}`);
@@ -14,15 +17,6 @@ export const getNextBudgetNumber = () => http.get('/budgets/next-number');
 export const getBudgetPdf = (id: number | string) => `${http.defaults.baseURL}/budgets/${id}/pdf`;
 export const convertAlternativeToWorkOrder = (budgetId: number | string, idx: number) =>
   http.post(`/budgets/${budgetId}/alternatives/${idx}/convert-to-work-order`);
-
-export const mapBudgetStatusToApi = (status: string): Record<string, unknown> => ({
-  status: {
-    'PENDIENTE': 'PENDING',
-    'APROBADO': 'APPROVED',
-    'RECHAZADO': 'REJECTED',
-    'CONVERTIDO A OT': 'CONVERTED_TO_OT',
-  }[status] || status,
-});
 
 interface UnifiedBudgetRaw {
   id: number;

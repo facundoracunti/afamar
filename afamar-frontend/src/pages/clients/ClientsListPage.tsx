@@ -1,15 +1,14 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Edit, Trash2 } from 'lucide-react';
-import { getClients, deleteClient } from '@/api/resources/clients';
-import { usePaginatedList, useDelete } from '../../api/hooks';
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
+import { getClients, searchClients, deleteClient } from '@/api/resources/clients';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
 import { SearchInput } from '../../components/ui/SearchInput/SearchInput';
 import { EmptyState } from '../../components/ui/EmptyState/EmptyState';
 import { Pagination } from '../../components/ui/Pagination';
-import { useNotify } from '../../context/NotificationContext';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
+import { useEntityList } from '../../hooks/useEntityList';
 import styles from './ClientsListPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -31,37 +30,38 @@ interface LocalClient {
 const CLIENTS_KEY = ['clients'] as const;
 
 export default function ClientsList() {
-  const [search, setSearch] = useState('');
-  const [deleteId, setDeleteId] = useState<number | null>(null);
   const navigate = useNavigate();
-  const notify = useNotify();
 
-  const { items: clients, loading, total, page, pageSize, setPage } = usePaginatedList<LocalClient>(
-    [...CLIENTS_KEY, search],
-    async ({ skip, limit }) => {
-      return getClients({ search: search || undefined, skip, limit });
+  const {
+    items: clients,
+    loading,
+    total,
+    page,
+    pageSize,
+    setPage,
+    search,
+    setSearch,
+    deleteId,
+    requestDelete,
+    cancelDelete,
+    confirmDelete,
+  } = useEntityList<LocalClient, number>({
+    queryKey: CLIENTS_KEY,
+    listFetcher: async ({ skip, limit }) => {
+      if (search.trim()) {
+        const res = await searchClients(search.trim());
+        const items = (res.data ?? []) as LocalClient[];
+        return { ...res, data: items, pagination: { total: items.length, skip, limit } } as typeof res & {
+          pagination: { total: number; skip: number; limit: number };
+        };
+      }
+      return getClients({ skip, limit });
     },
-    { pageSize: 10 },
-  );
-
-  const deleteMutation = useDelete<unknown, number>(
-    CLIENTS_KEY,
-    async (id) => {
-      await deleteClient(id);
-    },
-    { invalidateKeys: [CLIENTS_KEY] }
-  );
-
-  const handleDelete = async () => {
-    if (!deleteId) return;
-    try {
-      await deleteMutation.mutateAsync(deleteId);
-      setDeleteId(null);
-      notify('Cliente eliminado correctamente', 'success');
-    } catch (err) {
-      notify((err as Error).message || 'Error al eliminar cliente', 'error');
-    }
-  };
+    deleteFn: (id) => deleteClient(id),
+    pageSize: 10,
+    successMessage: 'Cliente eliminado correctamente',
+    errorMessage: 'Error al eliminar cliente',
+  });
 
   const formatDate = (d: string | null | undefined): string => {
     if (!d) return '-';
@@ -145,7 +145,7 @@ export default function ClientsList() {
                       <button
                         type="button"
                         className={`btn btn-danger ${s['clients__btn-sm']}`}
-                        onClick={() => setDeleteId(c.id)}
+                        onClick={() => requestDelete(c.id)}
                       >
                         <Trash2 size={14} />
                       </button>
@@ -166,9 +166,9 @@ export default function ClientsList() {
       )}
 
       <ConfirmDialog
-        open={!!deleteId}
-        onCancel={() => setDeleteId(null)}
-        onConfirm={handleDelete}
+        open={deleteId !== null}
+        onCancel={cancelDelete}
+        onConfirm={confirmDelete}
         title="Eliminar cliente"
         message="Estas seguro de eliminar este cliente? Esta accion no se puede deshacer."
         confirmLabel="Eliminar"

@@ -12,8 +12,22 @@ router = APIRouter(dependencies=[Depends(get_current_user)])
 
 
 @router.get("")
-def list_pool_stock(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+def list_pool_stock(
+    skip: int = 0,
+    limit: int = 100,
+    search: str | None = None,
+    db: Session = Depends(get_db),
+):
     service = PoolStockService(db)
+    if search:
+        items = service.search(search)
+        # Apply skip/limit on top of the unpaginated search result so the
+        # pagination hooks in the frontend (which always pass skip/limit)
+        # continue to work. Total is the full filtered row count.
+        total = len(items)
+        items = items[skip:skip + limit]
+        payload = [PoolStockResponse.model_validate(p).model_dump(mode="json") for p in items]
+        return success(payload, PaginationInfo(total=total, skip=skip, limit=limit))
     page = service.get_all_paginated(skip, limit)
     # Explicit `model_validate(...).model_dump()` so the
     # `_populate_currency_code` validator runs — otherwise the FK id

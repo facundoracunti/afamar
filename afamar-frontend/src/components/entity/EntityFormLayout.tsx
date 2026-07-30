@@ -1,5 +1,5 @@
 import React, { Suspense, type ReactNode } from 'react';
-import type { EntityFormState, Client, ClientAddress, MaterialInForm, PoolInForm, FabricationDetail } from '../../types';
+import type { FabricationDetail, MaterialInForm } from '../../types';
 import type { PdfDocumentData } from '../../utils/pdf/buildPdfData';
 import EntityFormClient from './EntityFormClient';
 import EntityFormSpecs from './EntityFormSpecs';
@@ -13,6 +13,12 @@ import FormFooter from '../orders/FormFooter/FormFooter';
 import { ConfirmDialog } from '../ui/ConfirmDialog/ConfirmDialog';
 import { LoadingSpinner } from '../ui/LoadingSpinner/LoadingSpinner';
 import { parseNumber } from '../../utils/formatters';
+import {
+  useEntityFormActions,
+  useEntityFormDomain,
+  useEntityFormState,
+  useEntityFormStyle,
+} from './EntityFormContexts';
 
 const PdfPreviewModal = React.lazy(() => import('../ui/PdfPreviewModal/PdfPreviewModal'));
 const SketchImageExtractor = React.lazy(() => import('../ui/PdfPreviewModal/SketchImageExtractor'));
@@ -26,126 +32,93 @@ interface TermConfig {
   disabled: boolean;
 }
 
-interface EntityFormLayoutProps {
-  styles: Record<string, string>;
-  prefix: string;
-
-  form: EntityFormState;
-  readOnly: boolean;
-  saving: boolean;
-  logoUrl: string;
-
-  clientes: Client[];
-  addOrRefreshClientes: (client: Client) => void;
-  onAddressAdded: (clientId: number, address: ClientAddress) => void;
-  update: (field: string, value: unknown) => void;
-
-  materials: Record<string, unknown>[];
-  pools: Record<string, unknown>[];
-  addMaterial: (name: string) => void;
-  removeMaterial: (idx: number) => void;
-  updateMaterial: (idx: number, field: string, value: unknown) => void;
-  addPileta: (id: string) => void;
-  removePileta: (idx: number) => void;
-  updatePileta: (idx: number, field: string, value: unknown) => void;
-  handleDetailChange: (idx: number, field: string, value: unknown) => void;
-  addDetalle: () => void;
-  removeDetalle: (idx: number) => void;
-  M2_CONCEPTS: string[];
-
-  modoUSD: boolean;
-  toggleModoUSD: () => void;
-  hayUSD: boolean;
-  hayAlternativas: boolean;
-  handleTransportChange: (value: string, source: 'ars' | 'usd') => void;
-  handleDepositCurrencyChange: (currency: string) => void;
-  handleDepositAmountChange: (value: string) => void;
-  handleUsdRateChange: (value: string) => void;
-  setForm: React.Dispatch<React.SetStateAction<EntityFormState>>;
-  alternativasGrid?: ReactNode;
-  discountBlock?: ReactNode;
-  onConfirmarPago?: () => Promise<void>;
-
+/**
+ * Public API. Most state/handlers are consumed from the 4 contexts set up
+ * by the consuming page. The slots below are page-specific extras:
+ *
+ *   - `beforeLayout`, `observations`, `extraDialogs` — render slots
+ *   - `terms` — per-page list of term editor cards (Budget = none,
+ *     WorkOrder = delivery + warranty)
+ *   - `alternativasGrid`, `discountBlock` — only set by the Budget page
+ *   - `specsCardClassName`, `fabricationShowMeasurementComparison`,
+ *     `fabricationMaterialsData` — small layout/materialisation overrides
+ *
+ * The BudgetFormPage and WorkOrderFormPage wrap this component in the
+ * 4 `EntityFormXxxProvider`s from `EntityFormContexts.tsx`.
+ */
+export interface EntityFormLayoutProps {
   beforeLayout?: ReactNode;
   observations?: ReactNode;
-  /** Term cards to render at the bottom of the form. Defaults to [] (none).
-   *  WorkOrder passes delivery + warranty; Budget omits them (the values
-   *  are not wired into the budget form's save payload — they're only
-   *  consumed by the work-order payload via `extraPayloadFields`). */
   terms?: TermConfig[];
+  alternativasGrid?: ReactNode;
+  discountBlock?: ReactNode;
+  extraDialogs?: ReactNode;
   specsCardClassName?: string;
   fabricationShowMeasurementComparison?: boolean;
   fabricationMaterialsData?: MaterialInForm[];
-
-  handleSubmit: (e?: React.FormEvent) => Promise<void>;
-  onCancel: () => void;
-
-  showCroquis: boolean;
-  setShowCroquis: (v: boolean) => void;
-
-  pdfData: PdfDocumentData | null;
-  pdfPreviewLoading: boolean;
-  sketchExtractorActive: boolean;
-  handleClosePdfPreview: () => void;
-  handleSketchImagesReady: (images: string[]) => void;
-  pdfTitle: string;
-  pdfFileName: string;
-
-  deleteConfirm: boolean;
-  setDeleteConfirm: (v: boolean) => void;
-  handleDelete: () => void;
-  deleteTitle: string;
-  deleteMessage: string;
-  deleteConfirmLabel?: string;
-  deleteDanger?: boolean;
-
-  extraDialogs?: ReactNode;
 }
 
-export default function EntityFormLayout({
-  styles,
-  prefix,
+// Helper: ts-friendly accessor — the lazy providers below accept the
+// domain value object directly, but the public prop type re-exports the
+// formMaterials derived field so callers can wire it without recomputing.
+function useEntityFormLayoutInternals() {
+  const { styles, prefix } = useEntityFormStyle();
+  const state = useEntityFormState();
+  const domain = useEntityFormDomain();
+  const actions = useEntityFormActions();
+  return { styles, prefix, state, domain, actions };
+}
 
-  form, readOnly, saving, logoUrl,
+export default function EntityFormLayout(props: EntityFormLayoutProps) {
+  const { styles: s, prefix, state, domain, actions } = useEntityFormLayoutInternals();
+  const {
+    form, setForm, update, readOnly, saving, M2_CONCEPTS,
+  } = state;
+  const {
+    materials: materiales, addMaterial, removeMaterial, updateMaterial,
+    pools, addPileta, removePileta, updatePileta,
+    clientes, addOrRefreshClientes, onAddressAdded,
+    handleDetailChange, addDetalle, removeDetalle,
+    modoUSD, toggleModoUSD, hayUSD, hayAlternativas,
+    handleTransportChange, handleDepositCurrencyChange, handleDepositAmountChange,
+    handleUsdRateChange, onUsdRateRefresh,
+    formMaterials,
+  } = domain;
+  const {
+    handleSubmit, onCancel, onConfirmarPago,
+    showCroquis, setShowCroquis,
+    pdfData, pdfPreviewLoading, handleClosePdfPreview, pdfTitle, pdfFileName,
+    sketchExtractorActive, handleSketchImagesReady,
+    deleteConfirm, setDeleteConfirm, handleDelete,
+    deleteTitle, deleteMessage, deleteConfirmLabel, deleteDanger,
+  } = actions;
 
-  clientes, addOrRefreshClientes, onAddressAdded, update,
+  const {
+    beforeLayout, observations, terms = [],
+    alternativasGrid, discountBlock, extraDialogs,
+    specsCardClassName, fabricationShowMeasurementComparison, fabricationMaterialsData,
+  } = props;
 
-  materials, pools, addMaterial, removeMaterial, updateMaterial,
-  addPileta, removePileta, updatePileta,
-  handleDetailChange, addDetalle, removeDetalle, M2_CONCEPTS,
-
-  modoUSD, toggleModoUSD, hayUSD, hayAlternativas,
-  handleTransportChange, handleDepositCurrencyChange, handleDepositAmountChange, handleUsdRateChange,
-  setForm,
-  alternativasGrid, discountBlock, onConfirmarPago,
-
-  beforeLayout, observations, terms = [],
-  specsCardClassName,
-  fabricationShowMeasurementComparison, fabricationMaterialsData,
-
-  handleSubmit, onCancel,
-
-  showCroquis, setShowCroquis,
-
-  pdfData, pdfPreviewLoading, sketchExtractorActive,
-  handleClosePdfPreview, handleSketchImagesReady,
-  pdfTitle, pdfFileName,
-
-  deleteConfirm, setDeleteConfirm, handleDelete,
-  deleteTitle, deleteMessage, deleteConfirmLabel, deleteDanger,
-
-  extraDialogs,
-}: EntityFormLayoutProps) {
-  const s = styles;
   const layoutClass = showCroquis ? `${prefix}layout` : `${prefix}layout ${prefix}layout--no-sketch`;
+  // The FormHeader is rendered by each page (it depends on page-specific
+  // buttons — save/approve/convert/WhatsApp/PDF preview). The layout
+  // starts from EntityFormClient to keep the same visual flow as before.
+  void setForm; // surfaced to consumers via the context; layout itself doesn't call it directly
 
   return (
     <>
-      <form onSubmit={handleSubmit} onKeyDown={(e: React.KeyboardEvent<HTMLFormElement>) => { if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') e.preventDefault(); }}>
+      <form
+        onSubmit={handleSubmit}
+        onKeyDown={(e: React.KeyboardEvent<HTMLFormElement>) => {
+          // Prevent accidental submit on Enter inside an input (other
+          // than the explicit Save button) — existing behaviour preserved.
+          if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') e.preventDefault();
+        }}
+      >
         <EntityFormClient
           form={form}
           readOnly={readOnly}
-          update={update as (field: string, value: unknown) => void}
+          update={update}
           clientes={clientes}
           onClientCreated={addOrRefreshClientes}
           onAddressAdded={onAddressAdded}
@@ -158,7 +131,7 @@ export default function EntityFormLayout({
             <EntityFormSpecs
               form={form}
               readOnly={readOnly}
-              materials={materials}
+              materials={materiales}
               addMaterial={addMaterial}
               updateMaterial={updateMaterial}
               removeMaterial={removeMaterial}
@@ -170,7 +143,7 @@ export default function EntityFormLayout({
               form={form}
               readOnly={readOnly}
               pools={pools}
-              formMaterials={(form.materials_data as unknown as MaterialInForm[]) || []}
+              formMaterials={formMaterials}
               updatePileta={updatePileta}
               removePileta={removePileta}
               addPileta={addPileta}
@@ -179,9 +152,9 @@ export default function EntityFormLayout({
           </div>
           <div className={s[`${prefix}right`]}>
             <FabricationSection
-              detalles={(form.fabrication_details as unknown as FabricationDetail[]) || []}
+              detalles={(form.fabrication_details as FabricationDetail[]) || []}
               readOnly={readOnly}
-              formMaterials={(form.materials_data as unknown as MaterialInForm[]) || []}
+              formMaterials={formMaterials}
               M2_CONCEPTS={M2_CONCEPTS}
               num={parseNumber as (v: unknown) => number}
               handleDetailChange={handleDetailChange}
@@ -194,7 +167,7 @@ export default function EntityFormLayout({
               value={form.additional_works_data}
               onChange={(json) => setForm({ ...form, additional_works_data: json })}
               readOnly={readOnly}
-              formMaterials={(form.materials_data as unknown as MaterialInForm[]) || []}
+              formMaterials={formMaterials}
             />
           </div>
         </div>
@@ -221,8 +194,9 @@ export default function EntityFormLayout({
             handleDepositCurrencyChange={handleDepositCurrencyChange}
             handleDepositAmountChange={handleDepositAmountChange}
             handleUsdRateChange={handleUsdRateChange}
+            onUsdRateRefresh={onUsdRateRefresh}
             setForm={setForm}
-            update={update as (field: string, value: unknown) => void}
+            update={update}
             num={parseNumber}
             alternativasGrid={alternativasGrid}
             discountBlock={discountBlock}

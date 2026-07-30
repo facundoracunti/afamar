@@ -111,7 +111,7 @@ export default function AdditionalMaterial({
                       <input
                         className={`input ${s['additional-material__input-sm']}`}
                         type="number"
-                        step="0.01"
+                        step="0.001"
                         min="0"
                         value={d.length ?? ''}
                         onChange={(e) => handleDetailChange(i, 'length', num(e.target.value))}
@@ -122,7 +122,7 @@ export default function AdditionalMaterial({
                       <input
                         className={`input ${s['additional-material__input-sm']}`}
                         type="number"
-                        step="0.01"
+                        step="0.001"
                         min="0"
                         value={d.width ?? ''}
                         onChange={(e) => handleDetailChange(i, 'width', num(e.target.value))}
@@ -143,7 +143,7 @@ export default function AdditionalMaterial({
                         <input
                           className={`input ${s['additional-material__input-sm']}`}
                           type="number"
-                          step="0.01"
+                          step="0.001"
                           min="0"
                           value={d.length ?? ''}
                           onChange={(e) => handleDetailChange(i, 'length', num(e.target.value))}
@@ -154,7 +154,7 @@ export default function AdditionalMaterial({
                         <input
                           className={`input ${s['additional-material__input-sm']}`}
                           type="number"
-                          step="0.01"
+                          step="0.001"
                           min="0"
                           value={d.labor ?? ''}
                           onChange={(e) => handleDetailChange(i, 'labor', num(e.target.value))}

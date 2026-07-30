@@ -43,7 +43,7 @@ export default function ClientForm() {
     async () => {
       if (!id) return {};
       const res = await getClient(id);
-      return (res.data as Record<string, unknown>) || {};
+      return res.data || {};
     },
     !!id
   );

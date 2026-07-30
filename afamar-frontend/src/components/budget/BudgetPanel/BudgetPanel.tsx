@@ -12,6 +12,7 @@ interface BudgetPanelProps {
   hidePaymentSection?: boolean;
   sectionTitle?: string;
   discountBlock?: React.ReactNode;
+  onUsdRateRefresh?: () => void;
 }
 
 export default function BudgetPanel({
@@ -19,6 +20,7 @@ export default function BudgetPanel({
   hidePaymentSection,
   sectionTitle = 'PRESUPUESTO',
   discountBlock,
+  onUsdRateRefresh,
 }: BudgetPanelProps) {
   const { form, ui, financial, num, update, setForm, onConfirmarPago } = useBudgetPanel();
   const { hayAlternativas, readOnly, saving } = ui;
@@ -47,6 +49,7 @@ export default function BudgetPanel({
               onTransportChange={financial.handleTransportChange}
               onDepositAmountChange={financial.handleDepositAmountChange}
               onUsdRateChange={financial.handleUsdRateChange}
+              onUsdRateRefresh={onUsdRateRefresh}
             />
             <BudgetCurrencyColumn
               currency="USD"

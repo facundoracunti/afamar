@@ -77,8 +77,6 @@ export function useFormMaterials({
 
   const addMaterial = useCallback(
     (name: string) => {
-      // eslint-disable-next-line no-console
-      console.count('[addMaterial]');
       const list = addMaterialToList(form, materials, name);
       if (list) update('materials_data', list);
     },
@@ -87,7 +85,7 @@ export function useFormMaterials({
 
   const removeMaterial = useCallback(
     (idx: number) => {
-      const list = (form.materials_data as MaterialInForm[]) || [];
+      const list = form.materials_data || [];
       update('materials_data', list.filter((_, i) => i !== idx));
     },
     [form.materials_data, update]
@@ -95,14 +93,17 @@ export function useFormMaterials({
 
   const updateMaterial = useCallback(
     (idx: number, field: string, value: unknown) => {
-      const list = [...(form.materials_data as MaterialInForm[])];
+      const list = [...(form.materials_data || [])];
+      // Dynamic-key setter: `MaterialInForm` has known keys, but the
+      // form's edit handlers pass arbitrary field names. The cast
+      // preserves the surrounding object type.
       (list[idx] as unknown as Record<string, unknown>)[field] = value;
       update('materials_data', list);
     },
     [form.materials_data, update]
   );
 
-  const materialsList = (form.materials_data as MaterialInForm[]) || [];
+  const materialsList = form.materials_data || [];
   const hayUSD = materialsList.some((m) => m.currency === 'USD');
   const hayAlternativas = materialsList.some((m) => m.is_alternative);
 

@@ -62,15 +62,26 @@ def _run_seeders() -> None:
     block the app from starting — production DBs may already be populated and
     dev DBs just need a one-shot bootstrap.
 
-    Seeders run in dependency order: settings + categories first, materials
-    (which need the categories), users last.
+    Seeders run in dependency order: settings + categories first, then
+    pool_types, materials (which need the categories), pool_stock +
+    additional_works (catalogue snapshots), users last.
     """
     try:
-        from scripts.seeders import seed_categories, seed_materials, seed_pool_types, seed_settings, seed_users
+        from scripts.seeders import (
+            seed_additional_works,
+            seed_categories,
+            seed_materials,
+            seed_pool_stock,
+            seed_pool_types,
+            seed_settings,
+            seed_users,
+        )
         seed_settings()
         seed_categories()
-        seed_materials()
         seed_pool_types()
+        seed_materials()
+        seed_pool_stock()
+        seed_additional_works()
         seed_users()
     except Exception as exc:
         logger.warning("Startup seed failed: %s", exc, exc_info=True)

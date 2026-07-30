@@ -300,6 +300,36 @@ export function buildSections(
       flatFabrication.push(...a.fabrication_details);
     }
   } else {
+    // No main material — pool / fabrication / additional rows that aren't
+    // tied to a specific material would otherwise be dropped, since the
+    // "main" section is the only place they were going. Render them in a
+    // synthetic GLOBAL section so the operator still sees a pileta that's
+    // marked "no material" or a traforo de pileta without picking a
+    // principal material first.
+    const globalSubtotalArs =
+      mainPoolRows.reduce((s, r) => s + r.subtotal_ars, 0) +
+      mainFabrication.reduce((s, r) => s + r.subtotal_ars, 0) +
+      mainAdditional.reduce((s, a) => s + a.subtotal_ars, 0);
+    const globalSubtotalUsd =
+      mainPoolRows.reduce((s, r) => s + r.subtotal_usd, 0) +
+      mainFabrication.reduce((s, r) => s + r.subtotal_usd, 0) +
+      mainAdditional.reduce((s, a) => s + a.subtotal_usd, 0);
+    if (mainPoolRows.length || mainFabrication.length || mainAdditional.length) {
+      sections.push({
+        title: 'GLOBAL',
+        is_main: false,
+        is_global: true,
+        material_name: '',
+        materials: [],
+        pools: mainPoolRows,
+        fabrication_details: mainFabrication,
+        additional_works: mainAdditional,
+        subtotal_ars: globalSubtotalArs,
+        subtotal_usd: globalSubtotalUsd,
+      });
+    }
+    flatPools.push(...mainPoolRows);
+    flatFabrication.push(...mainFabrication);
     sections.push(...builtAlternatives);
     for (const a of builtAlternatives) {
       flatMaterials.push(...a.materials);

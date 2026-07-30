@@ -67,7 +67,7 @@ def search_budgets(q: str = Query(min_length=1), db: Session = Depends(get_db)):
 
 @router.get("/unified")
 def list_unified_budgets(
-    q: str | None = Query(None),
+    search: str | None = Query(None),
     status: str | None = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
@@ -92,8 +92,8 @@ def list_unified_budgets(
         # "Convertir a OT" from the list.
         query = query.filter(Budget.status != "CONVERTED_TO_OT")
 
-    if q:
-        pattern = f"%{q}%"
+    if search:
+        pattern = f"%{search}%"
         client_id_subquery = (
             select(Client.id).where(
                 Client.name.ilike(pattern) | Client.phone.ilike(pattern)

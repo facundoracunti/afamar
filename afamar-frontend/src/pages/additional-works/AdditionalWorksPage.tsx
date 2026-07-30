@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import type { AxiosResponse } from 'axios';
 import { Plus } from 'lucide-react';
 import {
-  getAdditionalWorks,
+  getAdditionalWorksPaginated,
   createAdditionalWork,
   updateAdditionalWork,
   deleteAdditionalWork,
 } from '@/api/resources/additionalWorks';
 import { parseApiError } from '../../utils/error';
-import { useList } from '../../api/hooks';
+import { usePaginatedList } from '../../api/hooks';
 import { Modal } from '../../components/ui/Modal/Modal';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
+import { Pagination } from '../../components/ui/Pagination';
 import { AdditionalWorksTable } from '../../components/common/AdditionalWorksTable';
 import { AdditionalWorkForm } from '../../components/common/AdditionalWorkForm';
 import { useNotify } from '../../context/NotificationContext';
@@ -47,10 +49,13 @@ export default function AdditionalWorksPage() {
   const notify = useNotify();
   const queryClient = useQueryClient();
 
-  const { items: data, loading } = useList<AdditionalWork>(
-    [...ADDITIONAL_WORKS_KEY],
-    async () => getAdditionalWorks()
-  );
+  const { items: data, loading, total, page, pageSize, setPage } =
+    usePaginatedList<AdditionalWork>(
+      ADDITIONAL_WORKS_KEY,
+      async ({ skip, limit }: { skip: number; limit: number }) =>
+        getAdditionalWorksPaginated({ skip, limit }) as Promise<AxiosResponse<AdditionalWork[]>>,
+      { pageSize: 25 },
+    );
 
   useEffect(() => {
     if (!showForm) setEditItem(null);
@@ -130,11 +135,14 @@ export default function AdditionalWorksPage() {
       />
 
       {loading ? <LoadingSpinner /> : (
-        <AdditionalWorksTable
-          data={data || []}
-          onEdit={handleOpenForm}
-          onDelete={(id) => setDeleteId(id)}
-        />
+        <>
+          <AdditionalWorksTable
+            data={data || []}
+            onEdit={handleOpenForm}
+            onDelete={(id) => setDeleteId(id)}
+          />
+          <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} label="trabajos adicionales" />
+        </>
       )}
 
       <Modal

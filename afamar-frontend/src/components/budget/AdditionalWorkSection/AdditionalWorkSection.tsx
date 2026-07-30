@@ -65,11 +65,12 @@ export default function AdditionalWorkSection({ value, onChange, readOnly, formM
     return map;
   }, [catalogue]);
 
-  // Resolve the `Frente / Regrueso` catalogue row once it's loaded. Falls
-  // back to a name match for legacy catalogue entries that predate the
-  // `type` column.
-  const frenteCatalogue = React.useMemo(
-    () => catalogue.find((c) => c.type === 'frente') ?? catalogue.find((c) => /frente/i.test(c.name)),
+  // Resolve the `Frente / Regrueso` catalogue rows. There can be more than
+  // one (e.g. "Frente Ingletetado 45°" + "Frente Doble"), so we use *all*
+  // matches instead of `find()` to support operator choice across the
+  // different frente formulas.
+  const frenteCatalogues = React.useMemo(
+    () => catalogue.filter((c) => c.type === 'frente' || /frente/i.test(c.name)),
     [catalogue],
   );
 
@@ -93,12 +94,17 @@ export default function AdditionalWorkSection({ value, onChange, readOnly, formM
    *  into the snapshot. Mirrors the UX of PoolSection's
    *  "+ AGREGAR PILETA" dropdown — the operator picks a material in
    *  one step instead of: add trabajo adicional → pick frente →
-   *  open the card → assign to a material. */
+   *  open the card → assign to a material.
+   *
+   *  The frente catalogue is passed in via the key prefix
+   *  (`fr:<id>:<materialKey>`) so the operator can pick which frente
+   *  formula to use when there are multiple rows in the catalogue. */
   const handleAssignFrente = (rawKey: string) => {
-    if (!frenteCatalogue) return;
-    const mat = materials.find(
-      (m) => String(m.id ?? m.name) === rawKey,
-    );
+    if (!rawKey.startsWith('fr:')) return;
+    const [, frenteId, matKey] = rawKey.split(':');
+    const frente = frenteCatalogues.find((f) => String(f.id) === frenteId);
+    if (!frente) return;
+    const mat = materials.find((m) => String(m.id ?? m.name) === matKey);
     if (!mat) return;
     const pricePerM2 =
       mat.currency === 'USD'
@@ -106,9 +112,9 @@ export default function AdditionalWorkSection({ value, onChange, readOnly, formM
         : Number(mat.price_m2 ?? 0);
     const newRow = buildFrenteSelectionFor(
       {
-        id: frenteCatalogue.id,
-        name: frenteCatalogue.name,
-        detail: frenteCatalogue.detail ?? null,
+        id: frente.id,
+        name: frente.name,
+        detail: frente.detail ?? null,
         currency: mat.currency === 'USD' ? 'USD' : 'ARS',
       },
       {
@@ -118,7 +124,7 @@ export default function AdditionalWorkSection({ value, onChange, readOnly, formM
         currency: mat.currency === 'USD' ? 'USD' : 'ARS',
         is_alternative: !!mat.is_alternative,
       },
-      frenteCatalogue.formula_constant ?? FRENTE_FORMULA_MULTIPLIER_DEFAULT,
+      frente.formula_constant ?? FRENTE_FORMULA_MULTIPLIER_DEFAULT,
     );
     onChange(JSON.stringify([...selections, newRow]));
   };
@@ -149,17 +155,23 @@ export default function AdditionalWorkSection({ value, onChange, readOnly, formM
           >
             <option value="">+ AGREGAR TRABAJO ADICIONAL</option>
             {catalogue
-              .filter((a) => !selectedIds.has(a.id) && a.type !== 'frente')
+              // Flat items: dedup by catalogue id (one row per selected id).
+              // Frente items: keep dedup-by-id as well — the card already
+              // supports the "Asignar material" dropdown so the operator
+              // can add the same frente twice and bind each copy to a
+              // different material. (Multi-add for frentes is handled by
+              // the "ASIGNAR FRENTE A MATERIAL" shortcut below.)
+              .filter((a) => !selectedIds.has(a.id))
               .map((a) => (
                 <option key={a.id} value={a.id}>
-                  {a.type === 'frente' ? '* ' : ''}
+                  {a.type === 'frente' ? '★ ' : ''}
                   {a.name} ({a.currency === 'USD' ? 'USD ' : '$ '}
                   {a.price.toLocaleString('es-AR', { minimumFractionDigits: 2 })}) {a.type === 'frente' ? '[frente]' : ''}
                 </option>
               ))}
           </select>
 
-          {frenteCatalogue && materials.length > 0 ? (
+          {frenteCatalogues.length > 0 && materials.length > 0 ? (
             <select
               className={`input ${s['additional-works__add-frente-select']}`}
               value=""
@@ -171,17 +183,19 @@ export default function AdditionalWorkSection({ value, onChange, readOnly, formM
                 }
               }}
               disabled={readOnly}
-              title="Asigna un costo de mano de obra (Frente / Regrueso) a un material específico de este presupuesto. Equivale a '+ AGREGAR PILETA' pero para frente."
+              title="Asigna un costo de mano de obra (Frente / Regrueso) a un material específico de este presupuesto. Si hay más de un frente configurado, elegí cuál."
             >
               <option value="">+ ASIGNAR FRENTE A MATERIAL</option>
-              {materials
-                .filter((m) => m && m.name)
-                .map((m) => (
-                  <option key={String(m.id ?? m.name)} value={String(m.id ?? m.name)}>
-                    {m.is_alternative ? 'Alternativa: ' : 'Principal: '}
-                    {m.name}
-                  </option>
-                ))}
+              {frenteCatalogues.flatMap((frente) =>
+                materials
+                  .filter((m) => m && m.name)
+                  .map((m) => (
+                    <option key={`fr:${frente.id}:${m.id ?? m.name}`} value={`fr:${frente.id}:${m.id ?? m.name}`}>
+                      {frente.name} → {m.is_alternative ? 'Alternativa: ' : 'Principal: '}
+                      {m.name}
+                    </option>
+                  )),
+              )}
             </select>
           ) : null}
         </div>

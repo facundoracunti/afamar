@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies import get_current_user, get_db
 from app.core.exceptions import NotFoundError
+from app.utils.pagination import paginate
 from app.utils.responses import success, created
 from app.schemas.additional_work import AdditionalWorkCreate, AdditionalWorkResponse, AdditionalWorkUpdate
 from app.services.additional_work import AdditionalWorkService
@@ -21,12 +22,12 @@ def list_additional_works(
     limit: int = 100,
     db: Session = Depends(get_db),
 ):
-    service = AdditionalWorkService(db)
-    items = service.get_all(skip=skip, limit=limit)
-    # `model_validate(...).model_dump(...)` so the validador runs and
-    # the wire format gets `currency: "ARS"` instead of the FK id.
-    payload = [AdditionalWorkResponse.model_validate(a).model_dump(mode="json") for a in items]
-    return success(payload)
+    from app.models.additional_work import AdditionalWork
+
+    query = db.query(AdditionalWork).options(joinedload(AdditionalWork.currency_obj))
+    page = paginate(db, query, skip, limit)
+    payload = [AdditionalWorkResponse.model_validate(a).model_dump(mode="json") for a in page.items]
+    return success(payload, page.pagination)
 
 
 @router.get("/{additional_work_id}")

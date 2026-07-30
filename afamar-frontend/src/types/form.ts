@@ -1,5 +1,7 @@
 import type { FabricationDetail, MaterialInForm, PoolInForm } from './budget';
 import type { Client } from './client';
+import type { Material } from './material';
+import type { Pool } from './poolStock';
 import type { FinancialBase } from './shared';
 
 export interface EntityFormState extends FinancialBase {
@@ -72,6 +74,11 @@ export interface EntityFormState extends FinancialBase {
 
   // Client-side only
   work_order_number: string | null;
+
+  // Form-only metadata — not part of the wire payload. ISO timestamp of
+  // when the USD rate was last fetched from the external API. Used by the
+  // PDF builder to print "Dólar del día (DD/MM HH:mm)" next to the rate.
+  usd_rate_fetched_at?: string;
 }
 
 export type FormField = keyof EntityFormState;
@@ -104,9 +111,9 @@ export interface UseEntityFormReturn {
   form: EntityFormState;
   loading: boolean;
   saving: boolean;
-  materials: Record<string, unknown>[];
-  pools: Record<string, unknown>[];
-  clientes: Record<string, unknown>[];
+  materials: Material[];
+  pools: Pool[];
+  clientes: Client[];
   /**
    * Prepend a freshly-created client to the local cache (preferred — keeps
    * the form values untouched). When called with no arguments, refetches
@@ -125,13 +132,15 @@ export interface UseEntityFormReturn {
   readOnly: boolean;
   hayUSD: boolean;
   hayAlternativas: boolean;
-  filteredClients: unknown[];
+  filteredClients: Client[];
   isEdit: boolean;
   menuRef: React.RefObject<HTMLDivElement | null>;
   clientRef: React.RefObject<HTMLDivElement | null>;
   materialPrecioRef: React.MutableRefObject<number>;
   materialUsdRef: React.MutableRefObject<number>;
-  groupedMaterials: unknown[];
+  /** Materials filtered to entries that have a usable `name` (drops any
+   *  legacy rows that pre-date the form snapshot). */
+  groupedMaterials: Material[];
   M2_CONCEPTS: string[];
   setForm: React.Dispatch<React.SetStateAction<EntityFormState>>;
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;

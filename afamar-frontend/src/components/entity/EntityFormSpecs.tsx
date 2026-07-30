@@ -3,6 +3,7 @@ import MaterialCard from '../../components/materials/MaterialCard/MaterialCard';
 import { useList } from '../../api/hooks';
 import { getMaterialCategories, type MaterialCategory } from '../../api/resources/materials';
 import type { EntityFormState } from '../../types';
+import type { Material } from '../../types/material';
 import styles from './EntityFormSpecs.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -10,7 +11,7 @@ const s = styles as unknown as Record<string, string>;
 interface EntityFormSpecsProps {
   form: EntityFormState;
   readOnly: boolean;
-  materials: Record<string, unknown>[];
+  materials: Material[];
   addMaterial: (name: string) => void;
   updateMaterial: (idx: number, field: string, value: unknown) => void;
   removeMaterial: (idx: number) => void;
@@ -41,7 +42,7 @@ export default function EntityFormSpecs({
 
   const filteredMaterials = useMemo(() => {
     if (!selectedCategoryId) return materials;
-    return materials.filter((m: Record<string, unknown>) => String(m.category_id ?? '') === selectedCategoryId);
+    return materials.filter((m) => String(m.category_id ?? '') === selectedCategoryId);
   }, [materials, selectedCategoryId]);
 
   return (
@@ -63,9 +64,9 @@ export default function EntityFormSpecs({
       <div className="form-group">
         <select className="input" value="" onChange={(e) => { addMaterial(e.target.value); e.target.value = ''; }} disabled={readOnly}>
           <option value="">+ AGREGAR MATERIAL</option>
-          {filteredMaterials.filter((m: Record<string, unknown>) => m.name).map((m: Record<string, unknown>) => (
-            <option key={m.id as number} value={m.name as string}>
-              {m.name as string}{m.color ? ` - ${m.color as string}` : ''}
+          {filteredMaterials.filter((m) => m.name).map((m) => (
+            <option key={m.id} value={m.name}>
+              {m.name}{m.color ? ` - ${m.color}` : ''}
             </option>
           ))}
         </select>
@@ -74,7 +75,7 @@ export default function EntityFormSpecs({
         {(form.materials_data || []).map((mat, idx) => (
           <MaterialCard
             key={idx}
-            mat={mat as unknown as import('../../types/budget').MaterialInForm}
+            mat={mat}
             idx={idx}
             readOnly={readOnly}
             updateMaterial={updateMaterial}

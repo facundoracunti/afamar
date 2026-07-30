@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import type { EntityFormState, FabricationDetail, MaterialInForm, PoolInForm } from '../types';
 import { INSTALLMENT_SURCHARGE_PERCENTAGE, PAYMENT_METHOD_CREDIT_CARD } from '../constants';
+import { round2 } from '../utils/math';
 
 interface AdditionalWorkRow {
   name?: string;
@@ -30,8 +31,8 @@ export function useBudgetCalculations(
 ) {
   useEffect(() => {
     const fabricationDetails = form.fabrication_details || [];
-    const materialsData = (form.materials_data as unknown as MaterialInForm[]) || [];
-    const poolsData = (form.pools_data as unknown as PoolInForm[]) || [];
+    const materialsData = form.materials_data || [];
+    const poolsData = form.pools_data || [];
 
     // Fabrication details respect their own `currency` field (the row's
     // legacy contract). New rows created with the current form-builder
@@ -112,15 +113,15 @@ export function useBudgetCalculations(
     const balanceDue = Math.max(0, total - depositTotalArs);
 
     const tr_usd = Number(form.transport_usd) || 0;
-    const subtotal_usd = usdTotal + matUsd + ppUsd + additionalUsd + (dd > 0 ? (arsTotal + matArs + ppArs + additionalArs) / dd : 0);
+    const subtotal_usd = round2(usdTotal + matUsd + ppUsd + additionalUsd + (dd > 0 ? (arsTotal + matArs + ppArs + additionalArs) / dd : 0));
     const totalBaseUsd = Math.max(0, subtotal_usd + tr_usd);
     let totalConDescuentoUsd = totalBaseUsd;
     if (descPct > 0) {
-      totalConDescuentoUsd = totalBaseUsd * (1 - descPct / 100);
+      totalConDescuentoUsd = round2(totalBaseUsd * (1 - descPct / 100));
     } else if (descFijo > 0 && dd > 0) {
-      totalConDescuentoUsd = Math.max(0, totalBaseUsd - descFijo / dd);
+      totalConDescuentoUsd = round2(Math.max(0, totalBaseUsd - descFijo / dd));
     }
-    const surchargeUsd = Math.round(totalConDescuentoUsd * pctRecargo / 100);
+    const surchargeUsd = round2(totalConDescuentoUsd * pctRecargo / 100);
     const total_usd = totalConDescuentoUsd + surchargeUsd;
     const balance_due_usd = Math.max(0, total_usd - depositTotalUsd);
 

@@ -80,8 +80,8 @@ export default function ProductPhotosPage() {
       setSelectedFile(null);
       if (fileRef.current) fileRef.current.value = '';
       load();
-    } catch (e: any) {
-      notify(parseApiError(e, 'Error al subir foto'), 'error');
+    } catch (err: unknown) {
+      notify(parseApiError(err, 'Error al subir foto'), 'error');
     } finally {
       setUploading(false);
     }
@@ -93,8 +93,8 @@ export default function ProductPhotosPage() {
       await deleteMutation.mutateAsync(id);
       notify('Foto eliminada', 'success');
       load();
-    } catch (e: any) {
-      notify(parseApiError(e, 'Error al eliminar foto'), 'error');
+    } catch (err: unknown) {
+      notify(parseApiError(err, 'Error al eliminar foto'), 'error');
     }
   };
 
@@ -110,8 +110,8 @@ export default function ProductPhotosPage() {
       notify('Foto actualizada', 'success');
       setEditingId(null);
       load();
-    } catch (e: any) {
-      notify(parseApiError(e, 'Error al actualizar'), 'error');
+    } catch (err: unknown) {
+      notify(parseApiError(err, 'Error al actualizar'), 'error');
     }
   };
 

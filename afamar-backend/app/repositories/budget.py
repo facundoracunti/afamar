@@ -60,7 +60,9 @@ class BudgetRepository(BaseRepository):
         if search:
             pattern = f"%{search}%"
             client_id_subquery = (
-                select(Client.id).where(Client.name.ilike(pattern))
+                select(Client.id).where(
+                    Client.name.ilike(pattern) | Client.phone.ilike(pattern)
+                )
             )
             query = query.filter(
                 Budget.number.ilike(pattern)
@@ -82,7 +84,9 @@ class BudgetRepository(BaseRepository):
         if search:
             pattern = f"%{search}%"
             client_id_subquery = (
-                select(Client.id).where(Client.name.ilike(pattern))
+                select(Client.id).where(
+                    Client.name.ilike(pattern) | Client.phone.ilike(pattern)
+                )
             )
             query = query.filter(
                 Budget.number.ilike(pattern)
@@ -94,7 +98,9 @@ class BudgetRepository(BaseRepository):
     def search(self, term: str) -> List[Budget]:
         pattern = f"%{term}%"
         client_id_subquery = (
-            select(Client.id).where(Client.name.ilike(pattern))
+            select(Client.id).where(
+                Client.name.ilike(pattern) | Client.phone.ilike(pattern)
+            )
         )
         return (
             _eager_query(self.db)

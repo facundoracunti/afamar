@@ -9,6 +9,8 @@ import type { PdfDocumentData } from '../utils/pdf/buildPdfData';
 import { useNotify } from '../context/NotificationContext';
 import { useSettingsWithTerms } from './useSettingsWithTerms';
 import type { BudgetPayload, EntityFormState } from '../types';
+import { applyCreditCardAutoFill } from '../utils/creditCardAutoFill';
+import { buildDocumentShareMessage, buildWhatsAppUrl } from '../utils/whatsapp';
 
 interface BudgetFormActionsParams {
   form: EntityFormState;
@@ -105,14 +107,13 @@ export function useBudgetActions({
     try {
       const payload = buildPayload();
       const aprobado = { ...payload, status: 'APPROVED' as const } as unknown as BudgetPayload;
-      if (form.payment_method && ['TARJETA DE CRÉDITO', 'TARJETA DE DÉBITO'].includes(form.payment_method)) {
-        aprobado.deposit_received = Number(form.total);
-        aprobado.balance_due = 0;
-        aprobado.balance_paid = true;
-        aprobado.deposit_usd = Number(form.total_usd);
-        aprobado.balance_due_usd = 0;
-        aprobado.balance_paid_at = todayLocalISO();
-      }
+      applyCreditCardAutoFill(
+        aprobado as unknown as Record<string, unknown>,
+        form.payment_method,
+        form.total,
+        form.total_usd,
+        todayLocalISO(),
+      );
       await updateBudget(id as string, aprobado as unknown as Record<string, unknown>);
       setForm((prev) => ({
         ...prev,
@@ -173,14 +174,13 @@ export function useBudgetActions({
   }, [id, queryClient, notify, setSaving, navigate]);
 
   const handleEnviarWhatsApp = useCallback(() => {
-    const phone = (form.client_phone || '').replace(/[^\d]/g, '');
-    const nombre = form.client_name || '';
     const pdfUrl = getBudgetPdf(id as string);
-    const saludo = nombre ? `Hola ${nombre}! ` : '';
-    const mensaje = `${saludo}Te enviamos el presupuesto formal de AFAMAR Mármoles & Granitos. Podés revisarlo e imprimirlo desde el siguiente link: ${pdfUrl}`;
-    const whatsappUrl = phone
-      ? `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(mensaje)}`
-      : `https://api.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
+    const mensaje = buildDocumentShareMessage({
+      clientName: form.client_name,
+      documentLabel: 'el presupuesto formal de AFAMAR Mármoles & Granitos',
+      pdfUrl,
+    });
+    const whatsappUrl = buildWhatsAppUrl(form.client_phone, mensaje);
     window.open(whatsappUrl, '_blank');
   }, [form.client_phone, form.client_name, id]);
 

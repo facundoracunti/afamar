@@ -15,6 +15,9 @@ interface EntityFormFinancialProps {
   handleDepositCurrencyChange: (currency: string) => void;
   handleDepositAmountChange: (value: string) => void;
   handleUsdRateChange: (value: string) => void;
+  /** Re-fetch the USD rate from the external API. Wired to the
+   *  refresh button next to the "Dólar del día" field. */
+  onUsdRateRefresh?: () => void;
   setForm: React.Dispatch<React.SetStateAction<EntityFormState>>;
   update: (field: FormField, value: unknown) => void;
   num: (v: string) => number | null;
@@ -36,6 +39,7 @@ export default function EntityFormFinancial({
   handleDepositCurrencyChange,
   handleDepositAmountChange,
   handleUsdRateChange,
+  onUsdRateRefresh,
   setForm,
   update,
   num,
@@ -71,6 +75,7 @@ export default function EntityFormFinancial({
         hidePaymentSection={hayAlternativas}
         sectionTitle={sectionTitle}
         discountBlock={discountBlock}
+        onUsdRateRefresh={onUsdRateRefresh}
       />
     </BudgetPanelProvider>
   );

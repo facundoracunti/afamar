@@ -2,7 +2,7 @@ import http from '../http';
 
 export const getMaterials = (params?: Record<string, unknown>) => http.get('/materials', { params });
 export const getMaterial = (id: number | string) => http.get(`/materials/${id}`);
-export const getMaterialCategories = () => http.get('/materials/categories');
+export const getMaterialCategories = (params?: Record<string, unknown>) => http.get('/materials/categories', { params });
 
 /**
  * Coerce the form's `category_id` (string from `<option value>`) to a

@@ -136,6 +136,13 @@ export interface PdfDocumentData {
   delivery_terms_list: string[];
   warranty_terms_list: string[];
   sketch_images: string[];
+  /** USD venta rate frozen on the document at save time. Printed in
+   *  the totals block as "Dólar del día: $X.XXX" so the customer has a
+   *  paper trail of the conversion rate they were quoted. */
+  usd_rate: number;
+  /** ISO timestamp of when the USD rate was fetched. Shown next to the
+   *  rate so the operator / customer can see how stale the quote is. */
+  usd_rate_fetched_at: string | null;
   company: CompanyInfo;
 }
 

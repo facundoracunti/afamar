@@ -21,23 +21,41 @@ sys.path.insert(0, ".")
 
 from scripts.seeders import (  # noqa: E402
     SeedResult,
+    seed_additional_works,
     seed_categories,
     seed_materials,
+    seed_pool_stock,
+    seed_pool_types,
     seed_settings,
     seed_users,
 )
 
 
 _SEEDERS: dict[str, Callable[..., SeedResult]] = {
-    "users":      seed_users,
-    "categories": seed_categories,
-    "materials":  seed_materials,
-    "settings":   seed_settings,
+    "users":             seed_users,
+    "categories":        seed_categories,
+    "materials":         seed_materials,
+    "pool_types":        seed_pool_types,
+    "pool_stock":        seed_pool_stock,
+    "additional_works":  seed_additional_works,
+    "settings":          seed_settings,
 }
 
-# Logical order: settings + categories first (no FKs depend on them), then
-# materials (depends on categories), then users (independent).
-DEFAULT_ORDER: tuple[str, ...] = ("settings", "categories", "materials", "users")
+# Logical order:
+#   1. settings + categories (no FKs depend on them).
+#   2. pool_types (independent, but referenced by pool_stock).
+#   3. materials (depends on categories).
+#   4. pool_stock + additional_works (catalogue snapshots).
+#   5. users (independent).
+DEFAULT_ORDER: tuple[str, ...] = (
+    "settings",
+    "categories",
+    "pool_types",
+    "materials",
+    "pool_stock",
+    "additional_works",
+    "users",
+)
 
 
 def run_all(only: list[str] | None = None, reset_admin_password: bool = False) -> list[SeedResult]:

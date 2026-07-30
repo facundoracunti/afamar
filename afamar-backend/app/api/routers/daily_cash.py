@@ -48,7 +48,17 @@ def close_daily_cash(data: CloseCashRequest, db: Session = Depends(get_db)):
     return service.close_cash(data.date, data.notes)
 
 
-@router.get("/history", response_model=list[DailyCashResponse])
-def get_cash_history(db: Session = Depends(get_db)):
-    service = DailyCashService(db)
-    return service.get_closed()
+@router.get("/history")
+def get_cash_history(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    from app.models.daily_cash import DailyCash
+    from app.utils.pagination import paginate
+    from app.utils.responses import success
+
+    query = db.query(DailyCash).filter(DailyCash.is_closed == True).order_by(DailyCash.date.desc())
+    page = paginate(db, query, skip, limit)
+    payload = [DailyCashResponse.model_validate(c).model_dump(mode="json") for c in page.items]
+    return success(payload, page.pagination)

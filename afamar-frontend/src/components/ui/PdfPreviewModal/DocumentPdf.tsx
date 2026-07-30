@@ -178,6 +178,21 @@ function fmt(v: number): string {
   return (v || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+/** Format the USD rate fetched-at timestamp as a short DD/MM/YYYY HH:mm
+ *  string for the PDF footer. Returns an empty string if the input is
+ *  unparseable so the parent can render the label without a date. */
+function formatUsdFetchedAt(iso: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+}
+
 /** Build the absolute URL for the company logo (served from /uploads/logo.png).
  *  Falls back to no logo when company_logo is empty. */
 function logoUrl(company: PdfDocumentData['company']): string | null {
@@ -585,9 +600,13 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
             <Text style={styles.totalsVal}>{`$ ${fmt(data.transport)}`}</Text>
           </View>
         ) : null}
-        {data.discount_percentage > 0 ? (
+        {data.discount_percentage > 0 || data.discount_fixed_amount > 0 ? (
           <View style={styles.totalsRow}>
-            <Text style={styles.totalsLbl}>{`Descuento (${data.discount_percentage}%)`}</Text>
+            <Text style={styles.totalsLbl}>
+              {data.discount_percentage > 0
+                ? `Descuento (${data.discount_percentage}%)`
+                : 'Descuento (monto fijo)'}
+            </Text>
             <Text style={styles.totalsVal}>{`-$ ${fmt(data.discount_fixed_amount)}`}</Text>
           </View>
         ) : null}
@@ -607,6 +626,14 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
           <View style={styles.totalsRow}>
             <Text style={styles.totalsLbl}>Saldo pendiente</Text>
             <Text style={styles.totalsVal}>{`$ ${fmt(data.balance_due)}`}</Text>
+          </View>
+        ) : null}
+        {data.usd_rate > 0 ? (
+          <View style={styles.totalsRow}>
+            <Text style={styles.totalsLbl}>
+              {`Dólar del día${data.usd_rate_fetched_at ? ` (${formatUsdFetchedAt(data.usd_rate_fetched_at)})` : ''}`}
+            </Text>
+            <Text style={styles.totalsVal}>{`$ ${fmt(data.usd_rate)}`}</Text>
           </View>
         ) : null}
         <View style={styles.grand}>
