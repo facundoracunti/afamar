@@ -16,9 +16,9 @@ import {
   M2_CONCEPTS,
   UNIT_CONCEPTS,
   LINEAR_CONCEPTS,
-  fmtNum,
   fmtMoney,
-  fmtUnit,
+  fmtMeasure,
+  fmtMeasureUnit,
   conceptToDisplay,
   parseJsonList,
 } from './pdfHelpers';
@@ -54,7 +54,7 @@ export function buildFabricationRows(raw: unknown, usdRate: number): PdfDataRow[
     const showWidth = isM2 || width > 0;
     const showM2 = isM2;
     const showQuantity = isM2 || isUnit || quantity > 0;
-    const m2Value = isM2 ? Math.round(length * width * quantity * 10000) / 10000 : null;
+    const m2Value = isM2 ? Math.round(length * width * quantity * 100000000) / 100000000 : null;
 
     const lineTotal = price * quantity;
     const subtotalArs = currency === 'ARS' ? lineTotal : usdRate > 0 ? lineTotal * usdRate : 0;
@@ -70,9 +70,9 @@ export function buildFabricationRows(raw: unknown, usdRate: number): PdfDataRow[
       show_width: showWidth,
       show_m2: showM2,
       show_quantity: showQuantity,
-      length_str: showLength && length ? fmtUnit(length, 2, 'm') : null,
-      width_str: showWidth && width ? fmtUnit(width, 2, 'm') : null,
-      m2_label: isUnit ? 'U' : isM2 ? fmtNum(m2Value) : null,
+      length_str: showLength && length ? fmtMeasureUnit(length, 'm') : null,
+      width_str: showWidth && width ? fmtMeasureUnit(width, 'm') : null,
+      m2_label: isUnit ? 'U' : isM2 ? fmtMeasure(m2Value) : null,
       quantity: Number.isInteger(quantity) ? quantity : quantity,
       currency,
       price_str: fmtMoney(price),
@@ -103,10 +103,10 @@ export function buildMaterialRows(materials: MaterialInForm[], usdRate: number):
     result.push({
       name: src.name || '',
       color: src.color || '',
-      length_str: fmtUnit(length, 2, 'm'),
-      width_str: fmtUnit(width, 2, 'm'),
+      length_str: fmtMeasureUnit(length, 'm'),
+      width_str: fmtMeasureUnit(width, 'm'),
       quantity: Number.isInteger(quantity) ? quantity : quantity,
-      m2_str: fmtNum(m2),
+      m2_str: fmtMeasure(Math.round(m2 * 100000000) / 100000000),
       price_m2_str: fmtMoney(priceM2),
       subtotal_str: fmtMoney(subtotalOriginal),
       currency,

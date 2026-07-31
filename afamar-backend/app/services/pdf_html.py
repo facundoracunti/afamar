@@ -131,7 +131,7 @@ def _concept_to_display(concept_code: str, custom: str = "") -> str:
     return _CONCEPT_DISPLAY.get(concept_code, concept_code or "—")
 
 
-def _fmt_num(value, decimals: int = 2) -> str:
+def _fmt_num(value, decimals: int = 8) -> str:
     """Format a number for the PDF template.
 
     xhtml2pdf's Jinja2 has a buggy `|format` filter — instead of running the
@@ -143,7 +143,7 @@ def _fmt_num(value, decimals: int = 2) -> str:
         n = float(value or 0)
     except (TypeError, ValueError):
         n = 0.0
-    return f"{n:,.{decimals}f}"
+    return f"{n:,.{decimals}f}".rstrip("0").rstrip(".")
 
 
 def _fmt_money(value) -> str:
@@ -156,7 +156,7 @@ def _fmt_money(value) -> str:
     return f"{n:,.2f}"
 
 
-def _fmt_unit(value, decimals: int = 2, suffix: str = "") -> str:
+def _fmt_unit(value, decimals: int = 8, suffix: str = "") -> str:
     """Format a measurement-like value with an optional unit suffix."""
     return f"{_fmt_num(value, decimals)} {suffix}".strip()
 
@@ -212,7 +212,7 @@ def _parse_fabrication_details(raw) -> list[dict]:
 
         # M² is meaningful only when we actually have length & width. For
         # unit cuts the cell shows "U" (unit) instead.
-        m2_value = round(length * width * quantity, 4) if is_m2 else None
+        m2_value = round(length * width * quantity, 8) if is_m2 else None
 
         result.append({
             "concept": _concept_to_display(concept_code, custom),

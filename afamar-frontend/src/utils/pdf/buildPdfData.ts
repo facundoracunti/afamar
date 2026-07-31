@@ -26,6 +26,7 @@ import {
   STATUS_SUB_MAP,
   formatDate,
   fmtMoney,
+  fmtMeasureUnit,
   fmtNum,
   splitTerms,
 } from './pdfHelpers';
@@ -91,7 +92,7 @@ function buildAdditionalWorksRows(
       type: 'frente',
       quantity: linearMeters,
       linear_meters_str: linearMeters > 0
-        ? `${linearMeters.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ml`
+        ? fmtMeasureUnit(linearMeters, 'ml')
         : null,
       material_price_per_m2_str: m2AtSelection > 0 ? fmtMoney(m2AtSelection) : null,
       formula_constant_str: Number.isFinite(multiplier) ? fmtMoney(multiplier) : null,

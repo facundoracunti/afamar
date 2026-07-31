@@ -202,6 +202,7 @@ export default function AdditionalMaterial({
                     className={`input ${s['additional-material__input']}`}
                     type="number"
                     min="1"
+                    step="0.01"
                     value={d.quantity || 1}
                     onChange={(e) => handleDetailChange(i, 'quantity', num(e.target.value))}
                     disabled={readOnly}

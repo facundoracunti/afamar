@@ -313,6 +313,45 @@ describe('buildPdfData — additional works per-section routing', () => {
   });
 });
 
+describe('buildPdfData — measurement precision', () => {
+  it('preserves measurements while keeping monetary values at two decimals', () => {
+    const fabrication_details = [
+      {
+        concept: 'BASEBOARD',
+        detail: '',
+        length: 4,
+        width: 0.105,
+        m2: 0.42,
+        labor: 0,
+        currency: 'ARS',
+        quantity: 1,
+        price: 1234.5,
+      },
+    ];
+    const data = buildPdfData({
+      form: makeForm({ fabrication_details }),
+      document_type: 'budget',
+      company: {
+        company_name: 'AFAMAR',
+        company_tagline: '',
+        company_address: '',
+        company_phone: '',
+        company_email: '',
+        company_logo: '',
+        pdf_footer: '',
+      },
+      globalTerms: { budget_terms: [], delivery_terms: [], warranty_text: [] },
+      overrides: {},
+      sketchImages: [],
+    });
+
+    expect(data.fabrication_details[0].length_str).toBe('4 m');
+    expect(data.fabrication_details[0].width_str).toBe('0,105 m');
+    expect(data.fabrication_details[0].m2_label).toBe('0,42');
+    expect(data.fabrication_details[0].price_str).toBe('1.234,50');
+  });
+});
+
 describe('buildPdfData — discount and surcharge', () => {
   const baseParams = {
     document_type: 'budget' as const,

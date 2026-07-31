@@ -63,8 +63,17 @@ export function fmtMoney(value: unknown): string {
   return fmtNum(value, 2);
 }
 
-export function fmtUnit(value: unknown, decimals = 2, suffix = ''): string {
-  return `${fmtNum(value, decimals)} ${suffix}`.trim();
+export function fmtMeasure(value: unknown, maximumFractionDigits = 8): string {
+  let n: number;
+  if (typeof value === 'number') n = value;
+  else if (value == null || value === '') n = 0;
+  else n = Number(value);
+  if (!Number.isFinite(n)) n = 0;
+  return n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits });
+}
+
+export function fmtMeasureUnit(value: unknown, suffix = '', maximumFractionDigits = 8): string {
+  return `${fmtMeasure(value, maximumFractionDigits)} ${suffix}`.trim();
 }
 
 export function conceptToDisplay(conceptCode: string, custom = ''): string {
