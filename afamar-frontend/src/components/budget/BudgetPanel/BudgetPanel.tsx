@@ -32,15 +32,44 @@ export default function BudgetPanel({
 
   return (
     <div className="card">
-      <div className={`section-title ${s['budget-panel__header']}`}>
-        <span>{sectionTitle}</span>
+      <div className={s['budget-panel__header']}>
+        <div className={`section-title ${s['budget-panel__title']}`}>
+          <span>{sectionTitle}</span>
+        </div>
+        <div className={s['budget-panel__header-rate']}>
+          <div className={s['budget-panel__header-rate-label']}>
+            <span className={s['budget-panel__header-rate-title']}>DÓLAR DEL DÍA</span>
+            <span className={s['budget-panel__header-rate-value']}>
+              {Number(form.usd_rate || 0).toLocaleString('es-AR', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2,
+              })}
+            </span>
+            {!readOnly && onUsdRateRefresh && (
+              <button
+                type="button"
+                className={s['budget-panel__header-rate-refresh']}
+                onClick={onUsdRateRefresh}
+                title="Actualizar dólar del día desde dolarapi.com"
+                aria-label="Actualizar dólar del día"
+              >
+                ↻
+              </button>
+            )}
+          </div>
+          {form.usd_rate_fetched_at && (
+            <span className={s['budget-panel__header-rate-updated']}>
+              Actualizado: {new Date(form.usd_rate_fetched_at).toLocaleString('es-AR')}
+            </span>
+          )}
+        </div>
       </div>
 
       <div>
         {!hayAlternativas && (
           <div className={s['budget-panel__columns']}>
             <BudgetCurrencyColumn
-              currency="ARS"
+              currency="USD"
               form={form}
               fabricationDetails={fabricationDetails}
               materialsAll={matsMain}
@@ -51,16 +80,77 @@ export default function BudgetPanel({
               onUsdRateChange={financial.handleUsdRateChange}
               onUsdRateRefresh={onUsdRateRefresh}
             />
-            <BudgetCurrencyColumn
-              currency="USD"
-              form={form}
-              fabricationDetails={fabricationDetails}
-              materialsAll={matsMain}
-              poolsAll={poolsAll}
-              readOnly={readOnly}
-              onTransportChange={financial.handleTransportChange}
-              onDepositAmountChange={financial.handleDepositAmountChange}
-            />
+            <div className={s['budget-panel__col']}>
+              <div className={s['budget-panel__usd-summary']}>
+                <div className={s['budget-panel__usd-summary-row']}>
+                  <div className={s['budget-panel__usd-summary-cell']}>
+                    <div className={s['budget-panel__usd-summary-label']}>SUBTOTALES (ARS)</div>
+                    <div className={s['budget-panel__usd-summary-value']}>
+                      {materialsAll.reduce((acc, m) => {
+                        const m2 = Number(m.length || 0) * Number(m.width || 0) * (m.quantity || 1);
+                        const sub =
+                          m.currency === 'ARS'
+                            ? m2 * (m.price_m2 || 0)
+                            : Number(form.usd_rate) > 0
+                              ? (m2 * (m.price_m2_usd || 0)) * Number(form.usd_rate)
+                              : 0;
+                        return acc + sub;
+                      }, 0)
+                        .toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                  </div>
+                  <div className={s['budget-panel__usd-summary-cell']}>
+                    <div className={s['budget-panel__usd-summary-label']}>TOTAL ARS</div>
+                    <div className={`${s['budget-panel__usd-summary-value']} ${s['budget-panel__balance-value--ars']}`}>
+                      {Number(form.total || 0).toLocaleString('es-AR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </div>
+                  </div>
+                </div>
+                <div className={s['budget-panel__usd-summary-row']}>
+                  <div className={s['budget-panel__usd-summary-cell']}>
+                    <div className={s['budget-panel__usd-summary-label']}>SALDO PENDIENTE ARS</div>
+                    <div className={`${s['budget-panel__usd-summary-value']} ${s['budget-panel__balance-value--ars']}`}>
+                      {Number(form.balance_due || 0).toLocaleString('es-AR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </div>
+                  </div>
+                  <div className={s['budget-panel__usd-summary-cell']}>
+                    <div className={s['budget-panel__usd-summary-label']}>SEÑA RECIBIDA</div>
+                    <div className={s['budget-panel__usd-summary-value']}>
+                      <div className={s['budget-panel__usd-summary-deposit']}>
+                        <select
+                          className={`input ${s['budget-panel__currency-switch-select']}`}
+                          value={form.deposit_currency || 'ARS'}
+                          onChange={(e) => financial.handleDepositCurrencyChange(e.target.value)}
+                          disabled={readOnly}
+                          aria-label="Moneda de la seña"
+                        >
+                          <option value="ARS">ARS</option>
+                          <option value="USD">USD</option>
+                        </select>
+                        <input
+                          type="number"
+                          className={`input ${s['budget-panel__deposit-input']}`}
+                          value={
+                            (form.deposit_currency || 'ARS') === 'ARS'
+                              ? form.deposit_received
+                              : form.deposit_usd
+                          }
+                          onChange={(e) => financial.handleDepositAmountChange(e.target.value)}
+                          disabled={readOnly}
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

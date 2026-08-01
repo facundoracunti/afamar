@@ -7,6 +7,7 @@ interface FormActionsProps {
   submitLabel?: string;
   onCancel?: () => void;
   cancelLabel?: string;
+  className?: string;
   children?: ReactNode;
 }
 
@@ -15,13 +16,14 @@ export function FormActions({
   submitLabel = "Guardar",
   onCancel,
   cancelLabel = "Cancelar",
+  className,
   children,
 }: FormActionsProps) {
   const navigate = useNavigate();
   const handleCancel = onCancel || (() => navigate(-1));
 
   return (
-    <div className={styles.actions}>
+    <div className={className ? `${styles.actions} ${className}` : styles.actions}>
       {children}
       <button type="submit" className={styles.actions__submit} disabled={loading}>
         {loading ? "Guardando..." : submitLabel}

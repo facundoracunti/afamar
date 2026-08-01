@@ -1,4 +1,4 @@
-import React, { Suspense, type ReactNode } from 'react';
+import React, { Suspense, useState, type ReactNode } from 'react';
 import type { FabricationDetail, MaterialInForm } from '../../types';
 import type { PdfDocumentData } from '../../utils/pdf/buildPdfData';
 import EntityFormClient from './EntityFormClient';
@@ -10,6 +10,7 @@ import AdditionalWorkSection from '../budget/AdditionalWorkSection/AdditionalWor
 import SketchSection from '../sketch/SketchSection/SketchSection';
 import TermsEditor from '../ui/TermsEditor/TermsEditor';
 import FormFooter from '../orders/FormFooter/FormFooter';
+import EntityFormWizard, { type EntityFormWizardStep } from './EntityFormWizard';
 import { ConfirmDialog } from '../ui/ConfirmDialog/ConfirmDialog';
 import { LoadingSpinner } from '../ui/LoadingSpinner/LoadingSpinner';
 import { parseNumber } from '../../utils/formatters';
@@ -56,6 +57,7 @@ export interface EntityFormLayoutProps {
   specsCardClassName?: string;
   fabricationShowMeasurementComparison?: boolean;
   fabricationMaterialsData?: MaterialInForm[];
+  mode?: 'full' | 'wizard';
 }
 
 // Helper: ts-friendly accessor — the lazy providers below accept the
@@ -97,25 +99,189 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
     beforeLayout, observations, terms = [],
     alternativasGrid, discountBlock, extraDialogs,
     specsCardClassName, fabricationShowMeasurementComparison, fabricationMaterialsData,
+    mode = 'full',
   } = props;
+  const [wizardStep, setWizardStep] = useState(0);
 
   const layoutClass = showCroquis ? `${prefix}layout` : `${prefix}layout ${prefix}layout--no-sketch`;
-  // The FormHeader is rendered by each page (it depends on page-specific
-  // buttons — save/approve/convert/WhatsApp/PDF preview). The layout
-  // starts from EntityFormClient to keep the same visual flow as before.
-  void setForm; // surfaced to consumers via the context; layout itself doesn't call it directly
+  const layoutClassName = layoutClass
+    .split(' ')
+    .map((className) => s[className])
+    .filter(Boolean)
+    .join(' ');
+  const wizardTerms = terms.map((t) => (
+    <div key={t.title} className={s[`${prefix}card`]}>
+      <h3 className={s[`${prefix}card-title`]}>{t.title}</h3>
+      <TermsEditor
+        items={t.items}
+        onChange={t.onChange}
+        placeholder={t.placeholder || ''}
+        hint={t.hint}
+        disabled={t.disabled}
+      />
+    </div>
+  ));
+
+  const wizardSteps: EntityFormWizardStep[] = [
+    {
+      id: 'client',
+      label: 'Cliente y entrega',
+      description: 'Datos del cliente y domicilio de obra.',
+      content: (
+        <>
+          <EntityFormClient
+            form={form}
+            readOnly={readOnly}
+            update={update}
+            clientes={clientes}
+            onClientCreated={addOrRefreshClientes}
+            onAddressAdded={onAddressAdded}
+          />
+          {beforeLayout}
+        </>
+      ),
+    },
+    {
+      id: 'materials',
+      label: 'Materiales',
+      description: 'Materiales principales y alternativas.',
+      content: (
+        <EntityFormSpecs
+          form={form}
+          readOnly={readOnly}
+          materials={materiales}
+          addMaterial={addMaterial}
+          updateMaterial={updateMaterial}
+          removeMaterial={removeMaterial}
+          update={update}
+          num={parseNumber}
+          cardClassName={specsCardClassName}
+        />
+      ),
+    },
+    {
+      id: 'pools',
+      label: 'Piletas',
+      description: 'Piletas y asignación a materiales.',
+      content: (
+        <BudgetFormAdicionales
+          form={form}
+          readOnly={readOnly}
+          pools={pools}
+          formMaterials={formMaterials}
+          updatePileta={updatePileta}
+          removePileta={removePileta}
+          addPileta={addPileta}
+          num={parseNumber}
+        />
+      ),
+    },
+    {
+      id: 'fabrication',
+      label: 'Fabricación',
+      description: 'Zócalos, frentes y medidas adicionales.',
+      content: (
+        <FabricationSection
+          detalles={(form.fabrication_details as FabricationDetail[]) || []}
+          readOnly={readOnly}
+          formMaterials={formMaterials}
+          M2_CONCEPTS={M2_CONCEPTS}
+          num={parseNumber as (v: unknown) => number}
+          handleDetailChange={handleDetailChange}
+          addDetalle={addDetalle}
+          removeDetalle={removeDetalle}
+          showMeasurementComparison={fabricationShowMeasurementComparison}
+          materialsData={fabricationMaterialsData}
+        />
+      ),
+    },
+    {
+      id: 'additional-works',
+      label: 'Trabajos adicionales',
+      description: 'Extras, frentes y trabajos del catálogo.',
+      content: (
+        <AdditionalWorkSection
+          value={form.additional_works_data}
+          onChange={(json) => setForm({ ...form, additional_works_data: json })}
+          readOnly={readOnly}
+          formMaterials={formMaterials}
+        />
+      ),
+    },
+    {
+      id: 'sketch',
+      label: 'Diseño y plano',
+      description: 'Croquis, observaciones y diseño.',
+      content: (
+        <SketchSection
+          showCroquis={showCroquis}
+          setShowCroquis={setShowCroquis}
+          sketchElements={form.sketch_elements}
+          onChange={(v) => update('sketch_elements', v)}
+          readOnly={readOnly}
+          toggleLabel="Diseño / Plano"
+        />
+      ),
+    },
+    {
+      id: 'financial',
+      label: 'Totales y pago',
+      description: 'Precios, descuentos, señas y entrega.',
+      content: (
+        <EntityFormFinancial
+          form={form}
+          modoUSD={modoUSD}
+          toggleModoUSD={toggleModoUSD}
+          hayUSD={hayUSD}
+          hayAlternativas={hayAlternativas}
+          readOnly={readOnly}
+          saving={saving}
+          handleTransportChange={handleTransportChange}
+          handleDepositCurrencyChange={handleDepositCurrencyChange}
+          handleDepositAmountChange={handleDepositAmountChange}
+          handleUsdRateChange={handleUsdRateChange}
+          onUsdRateRefresh={onUsdRateRefresh}
+          setForm={setForm}
+          update={update}
+          num={parseNumber}
+          alternativasGrid={alternativasGrid}
+          discountBlock={discountBlock}
+          onConfirmarPago={onConfirmarPago}
+        />
+      ),
+    },
+    {
+      id: 'review',
+      label: 'Observaciones y condiciones',
+      description: 'Notas finales, entrega y garantía.',
+      content: (
+        <div className={s[`${prefix}right`]}>
+          {observations}
+          {wizardTerms}
+        </div>
+      ),
+    },
+  ];
 
   return (
     <>
       <form
         onSubmit={handleSubmit}
         onKeyDown={(e: React.KeyboardEvent<HTMLFormElement>) => {
-          // Prevent accidental submit on Enter inside an input (other
-          // than the explicit Save button) — existing behaviour preserved.
           if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') e.preventDefault();
         }}
       >
-        <EntityFormClient
+        {mode === 'wizard' ? (
+          <EntityFormWizard
+            steps={wizardSteps}
+            activeStep={wizardStep}
+            onStepChange={setWizardStep}
+            onCancel={onCancel}
+            saving={saving}
+          />
+        ) : (
+          <>
+            <EntityFormClient
           form={form}
           readOnly={readOnly}
           update={update}
@@ -126,7 +292,7 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
 
         {beforeLayout}
 
-        <div className={s[layoutClass]}>
+        <div className={layoutClassName}>
           <div className={s[`${prefix}right`]}>
             <EntityFormSpecs
               form={form}
@@ -220,6 +386,8 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
         ))}
 
         <FormFooter saving={saving} onCancel={onCancel} />
+          </>
+        )}
       </form>
 
       <Suspense fallback={<LoadingSpinner />}>

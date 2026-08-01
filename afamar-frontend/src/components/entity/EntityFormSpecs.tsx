@@ -48,9 +48,9 @@ export default function EntityFormSpecs({
   return (
     <div className={cardClassName || 'card'}>
       <h3 className="section-title">MATERIALES</h3>
-      <div className="form-group">
+      <div className={s['specs-controls']}>
         <select
-          className="input"
+          className={`input ${s['specs-category']}`}
           value={selectedCategoryId}
           onChange={(e) => setSelectedCategoryId(e.target.value)}
           disabled={readOnly}
@@ -60,9 +60,8 @@ export default function EntityFormSpecs({
             <option key={c.id} value={String(c.id)}>{c.name}</option>
           ))}
         </select>
-      </div>
-      <div className="form-group">
-        <select className="input" value="" onChange={(e) => { addMaterial(e.target.value); e.target.value = ''; }} disabled={readOnly}>
+        <select
+          className={`input ${s['specs-add-material']}`} value="" onChange={(e) => { addMaterial(e.target.value); e.target.value = ''; }} disabled={readOnly}>
           <option value="">+ AGREGAR MATERIAL</option>
           {filteredMaterials.filter((m) => m.name).map((m) => (
             <option key={m.id} value={m.name}>

@@ -23,6 +23,17 @@ const s = styles as unknown as Record<string, string>;
 
 const WORK_ORDERS_LIMIT = 200;
 
+interface MeasurementFormProps {
+  /** Modal mode: cierra el modal en vez de navegar a /admin/measurements. */
+  onSuccess?: () => void;
+  /** Modal mode: cierra el modal en vez de navegar a /admin/measurements. */
+  onCancel?: () => void;
+  /** Modal mode: id de la medición a editar. Si no se pasa, usa useParams(). */
+  entityId?: number | string;
+  /** Modal mode: pre-rellena desde un work order, equivalente a ?workOrderId=. */
+  presetWorkOrderId?: number | string;
+}
+
 async function fetchWorkOrdersForClient(clientId?: number | null): Promise<WorkOrderListItem[]> {
   const params: Record<string, unknown> = { limit: WORK_ORDERS_LIMIT };
   if (clientId) params.client_id = clientId;
@@ -30,10 +41,15 @@ async function fetchWorkOrdersForClient(clientId?: number | null): Promise<WorkO
   return (res.data as WorkOrderListItem[]) || [];
 }
 
-export default function MeasurementForm() {
-  const { id } = useParams<{ id: string }>();
+export default function MeasurementForm(props: MeasurementFormProps = {}) {
+  const params = useParams<{ id: string }>();
+  const paramId = params.id;
+  const id = props.entityId != null ? String(props.entityId) : paramId;
   const [searchParams] = useSearchParams();
-  const presetWorkOrderId = searchParams.get('workOrderId');
+  const queryWorkOrderId = searchParams.get('workOrderId');
+  const presetWorkOrderId = props.presetWorkOrderId != null
+    ? String(props.presetWorkOrderId)
+    : queryWorkOrderId;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isEdit = !!id;
@@ -47,7 +63,9 @@ export default function MeasurementForm() {
     sketch: [],
     photos: [],
     status: 'PENDING',
-    workOrderId: presetWorkOrderId ? Number(presetWorkOrderId) : '',
+    workOrderId: props.presetWorkOrderId != null
+      ? Number(props.presetWorkOrderId)
+      : (presetWorkOrderId ? Number(presetWorkOrderId) : ''),
   });
 
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
@@ -137,6 +155,10 @@ export default function MeasurementForm() {
     else if (loadedIdRef.current && loadedIdRef.current !== id) loadedIdRef.current = null;
   }, [id]);
 
+  useEffect(() => {
+    loadedIdRef.current = null;
+  }, [props.entityId, props.presetWorkOrderId]);
+
   // When arriving via `?workOrderId=` from the pending-measurement cards, fetch
   // the source work order and pre-fill client + delivery date so the user only
   // has to pick the time + add notes.
@@ -214,7 +236,11 @@ export default function MeasurementForm() {
       queryClient.invalidateQueries({ queryKey: ['measurements'] });
       queryClient.invalidateQueries({ queryKey: ['work-orders'] });
       notify('Medición guardada correctamente', 'success');
-      navigate('/admin/measurements');
+      if (props.onSuccess) {
+        props.onSuccess();
+      } else {
+        navigate('/admin/measurements');
+      }
     } catch (err: unknown) {
       notify(parseApiError(err, 'Error al guardar'), 'error');
     } finally {
@@ -222,16 +248,25 @@ export default function MeasurementForm() {
     }
   };
 
+  const handleCancel = () => {
+    if (props.onCancel) props.onCancel();
+    else navigate('/admin/measurements');
+  };
+
   if (loading || (isEdit && !measurement)) return <LoadingSpinner />;
 
   const selectedWo = workOrders.find((w) => w.id === (form.workOrderId ? Number(form.workOrderId) : 0));
   const selectedClient = clientes.find((c) => c.id === form.clientId);
 
+  const isModal = Boolean(props.onCancel || props.onSuccess);
+
   return (
     <div className={s['measurement-form']}>
-      <div className={s['measurement-form__header']}>
-        <h1 className={s['measurement-form__title']}>{isEdit ? 'Editar Medición' : 'Nueva Medición'}</h1>
-      </div>
+      {!isModal && (
+        <div className={s['measurement-form__header']}>
+          <h1 className={s['measurement-form__title']}>{isEdit ? 'Editar Medición' : 'Nueva Medición'}</h1>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit}>
         <div className={s['measurement-form__layout']}>
@@ -289,7 +324,7 @@ export default function MeasurementForm() {
                 />
               </div>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
-                <button type="button" className="btn btn-outline" onClick={() => navigate('/admin/measurements')}>
+                <button type="button" className="btn btn-outline" onClick={handleCancel}>
                   Cancelar
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>

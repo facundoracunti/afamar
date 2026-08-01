@@ -39,15 +39,26 @@ export default function AdditionalMaterial({
 }: AdditionalMaterialProps) {
   return (
     <div className={s['additional-material']}>
-      <h3 className="section-title">MATERIALES ADICIONALES</h3>
+      <div className={s['additional-material__header']}>
+        <h3 className="section-title">MATERIALES ADICIONALES</h3>
+        <button
+          type="button"
+          className={`btn btn-outline ${s['additional-material__add-btn']}`}
+          onClick={addDetalle}
+          disabled={readOnly}
+        >
+          <Plus size={14} /> Agregar concepto
+        </button>
+      </div>
 
       {detalles.length === 0 && (
         <div className={s['additional-material__empty']}>
-          Sin materiales adicionales. Usá "+ AGREGAR CONCEPTO" para sumar.
+          Sin materiales adicionales. Usá el botón Agregar concepto para sumar.
         </div>
       )}
 
-      <div className={s['additional-material__cards']}>
+      {detalles.length > 0 && (
+        <div className={s['additional-material__cards']}>
         {detalles.map((d, i) => {
           const isM2 = isM2Concept(d.concept, M2_CONCEPTS);
           const assignedMaterial = (d.material as string | undefined) || '';
@@ -210,31 +221,25 @@ export default function AdditionalMaterial({
                 </div>
               </div>
 
-              <div className={s['additional-material__card-footer']}>
-                {isM2 && m2 > 0 && (
-                  <span className={s['additional-material__m2']}>
-                    {m2.toFixed(3)} m²
-                  </span>
-                )}
-                {totalPrice > 0 && (
-                  <span className={s['additional-material__subtotal']}>
-                    Subtotal: {formatPrice(totalPrice, d.currency)}
-                  </span>
-                )}
-              </div>
+              {((isM2 && m2 > 0) || totalPrice > 0) && (
+                <div className={s['additional-material__card-footer']}>
+                  {isM2 && m2 > 0 && (
+                    <span className={s['additional-material__m2']}>
+                      {m2.toFixed(3)} m²
+                    </span>
+                  )}
+                  {totalPrice > 0 && (
+                    <span className={s['additional-material__subtotal']}>
+                      Subtotal: {formatPrice(totalPrice, d.currency)}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
       </div>
-
-      <button
-        type="button"
-        className={`btn btn-outline ${s['additional-material__add-btn']}`}
-        onClick={addDetalle}
-        disabled={readOnly}
-      >
-        <Plus size={14} /> Agregar concepto
-      </button>
+      )}
     </div>
   );
 }

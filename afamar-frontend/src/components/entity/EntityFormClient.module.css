@@ -9,6 +9,10 @@
   gap: 6px;
 }
 
+.entity-form-client__address-control {
+  flex: 1;
+  min-width: 0;
+}
 .entity-form-client__address-hint {
   color: var(--text-muted);
   font-size: 12px;

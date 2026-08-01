@@ -94,11 +94,12 @@ export default function ClientSection({
 
   return (
     <>
-      <div className="card" style={{ marginTop: 16 }}>
-        <div className="orden-grid-4">
+      <div className={`card ${s['client-section']}`}>
+        <div className={s['client-section__grid']}>
           <div className="form-group">
-            <label>Fecha</label>
+            <label htmlFor="budget-date">Fecha</label>
             <input
+              id="budget-date"
               type="date"
               className="input"
               value={form.date || ''}
@@ -107,8 +108,9 @@ export default function ClientSection({
             />
           </div>
           <div className="form-group">
-            <label>Cliente</label>
+            <label htmlFor="budget-client">Cliente</label>
             <ClientTypeahead
+              inputId="budget-client"
               value={form.client_name}
               query={query}
               open={open}
@@ -122,8 +124,9 @@ export default function ClientSection({
             />
           </div>
           <div className="form-group">
-            <label>Teléfono</label>
+            <label htmlFor="budget-phone">Teléfono</label>
             <input
+              id="budget-phone"
               className="input"
               value={form.client_phone}
               onChange={(e) => update('client_phone', e.target.value)}
@@ -132,8 +135,9 @@ export default function ClientSection({
             />
           </div>
           <div className="form-group">
-            <label>E-mail</label>
+            <label htmlFor="budget-email">E-mail</label>
             <input
+              id="budget-email"
               className="input"
               value={form.client_email}
               onChange={(e) => update('client_email', e.target.value)}
@@ -158,9 +162,10 @@ export default function ClientSection({
           </div>
         )}
 
-        <div className="form-group" style={{ marginTop: 8 }}>
-          <label>Domicilio</label>
+        <div className={`form-group ${s['client-section__address-field']}`}>
+          <label htmlFor="budget-address">Domicilio</label>
           <input
+            id="budget-address"
             className="input"
             value={form.client_address}
             onChange={(e) => {

@@ -1,11 +1,32 @@
 /* EntityFormSpecs — BEM */
+.specs-controls {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.8fr) minmax(220px, 1.4fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.specs-controls .input {
+  min-width: 0;
+}
+
 .specs-materials-grid {
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 12px;
 }
 
 .specs-empty {
-  padding: 16px;
+  padding: 12px;
   text-align: center;
   color: var(--text-muted);
+  font-size: 13px;
+  background: var(--surface-alt-bg);
+  border-radius: 6px;
+}
+
+@media (max-width: 640px) {
+  .specs-controls {
+    grid-template-columns: 1fr;
+  }
 }

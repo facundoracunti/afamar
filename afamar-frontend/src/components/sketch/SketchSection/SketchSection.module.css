@@ -1,5 +1,5 @@
 .sketch-section {
-  margin-bottom: 16px;
+  margin-bottom: 0;
 }
 
 .sketch-section__header {
@@ -13,8 +13,8 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
-  padding: 6px 14px;
+  font-size: 12px;
+  padding: 4px 10px;
 }
 
 .sketch-section__hint {

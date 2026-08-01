@@ -52,6 +52,7 @@ interface WorkOrderFormProps {
   /** Called when the user cancels. Page mode falls back to navigating
    *  to /admin/work-orders; modal mode closes the modal. */
   onCancel?: () => void;
+  layoutMode?: 'full' | 'wizard';
 }
 
 export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
@@ -218,17 +219,17 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
         logoUrl={logoUrl}
       >
         {form.status === 'MEASUREMENT' && (
-          <button className={s['work-order-form__btn-measurement']} onClick={() => handleStatusChangeAction('WORKSHOP')} disabled={saving}>
+          <button type="button" className={s['work-order-form__btn-measurement']} onClick={() => handleStatusChangeAction('WORKSHOP')} disabled={saving}>
             🏭 Enviar a Taller
           </button>
         )}
         {form.status === 'WORKSHOP' && (
-          <button className={s['work-order-form__btn-workshop']} onClick={() => handleStatusChangeAction('FINISHED')} disabled={saving}>
+          <button type="button" className={s['work-order-form__btn-workshop']} onClick={() => handleStatusChangeAction('FINISHED')} disabled={saving}>
             ✅ Finalizar Trabajo
           </button>
         )}
         {form.status === 'FINISHED' && (
-          <button className={s['work-order-form__btn-delivery']} onClick={() => handleStatusChangeAction('DELIVERED')} disabled={saving}>
+          <button type="button" className={s['work-order-form__btn-delivery']} onClick={() => handleStatusChangeAction('DELIVERED')} disabled={saving}>
             🚚 Entregar al Cliente
           </button>
         )}
@@ -237,12 +238,14 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
             📦 Trabajo Entregado
           </span>
         )}
-        <button className={`btn btn-outline ${s['work-order-form__preview-btn']}`} onClick={handlePreviewPdf} disabled={pdfPreviewLoading}>
+        <button type="button" className={`btn btn-outline ${s['work-order-form__preview-btn']}`} onClick={handlePreviewPdf} disabled={pdfPreviewLoading}>
           <Eye size={16} /> {pdfPreviewLoading ? 'GENERANDO...' : 'VISTA PREVIA PDF'}
         </button>
-        <button className={`btn btn-primary ${s['work-order-form__btn-save']}`} onClick={handleSubmit} disabled={saving}>
-          <Save size={16} /> {saving ? 'GUARDANDO...' : 'GUARDAR'}
-        </button>
+        {props.layoutMode !== 'wizard' && (
+          <button className={`btn btn-primary ${s['work-order-form__btn-save']}`} onClick={handleSubmit} disabled={saving}>
+            <Save size={16} /> {saving ? 'GUARDANDO...' : 'GUARDAR'}
+          </button>
+        )}
       </FormHeader>
 
       <EntityFormStyleProvider value={{ styles: s, prefix: 'work-order-form__' }}>
@@ -308,6 +311,7 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
               }}
             >
               <EntityFormLayout
+                mode={props.layoutMode || 'full'}
                 alternativasGrid={alternativasGrid}
                 discountBlock={discountBlock}
                 beforeLayout={

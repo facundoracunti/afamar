@@ -181,13 +181,13 @@ const DASHBOARD_MODALS: ReadonlyArray<{
     kind: 'create-budget',
     title: 'Nuevo presupuesto',
     width: '1280px',
-    render: (close) => <BudgetForm onSuccess={close} onCancel={close} />,
+     render: (close) => <BudgetForm onSuccess={close} onCancel={close} layoutMode="wizard" />,
   },
   {
     kind: 'create-work-order',
     title: 'Nueva orden de trabajo',
     width: '1280px',
-    render: (close) => <WorkOrderForm onSuccess={close} onCancel={close} />,
+     render: (close) => <WorkOrderForm onSuccess={close} onCancel={close} layoutMode="wizard" />,
   },
   {
     kind: 'work-orders',

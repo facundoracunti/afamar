@@ -22,7 +22,29 @@
 */
 
 .budget-form {
-  padding: 0;
+  width: min(100%, 1440px);
+  margin: 0 auto;
+  padding: 8px 16px 24px;
+}
+
+.budget-form :global(.card) {
+  padding: 12px;
+  border-radius: 10px;
+}
+
+.budget-form :global(.section-title) {
+  margin-bottom: 8px;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+}
+
+.budget-form :global(.form-group) {
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.budget-form :global(.form-group label) {
+  font-size: 12px;
 }
 
 .budget-form__header {
@@ -47,9 +69,9 @@
 
 .budget-form__layout {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-top: 16px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  margin-top: 12px;
   align-items: start;
 }
 
@@ -65,14 +87,14 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .budget-form__card {
   background: var(--surface-bg);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 20px;
+  border-radius: 10px;
+  padding: 16px;
   box-shadow: 0 1px 3px var(--shadow-color);
   height: 100%;
 }
@@ -99,8 +121,8 @@
 
 .budget-form__materials-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
 }
 
 .budget-form__materials-empty {
@@ -126,8 +148,8 @@
 .budget-form__bottom {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 16px;
-  margin-top: 16px;
+  gap: 10px;
+  margin-top: 10px;
 }
 
 /* Action buttons keep semantic colors. */
@@ -168,6 +190,30 @@
 .budget-form__btn-approve:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+@media (max-width: 760px) {
+  .budget-form__layout,
+  .budget-form__layout--no-sketch {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .budget-form {
+    padding: 4px 10px 16px;
+  }
+
+  .budget-form__layout,
+  .budget-form__right,
+  .budget-form__bottom {
+    gap: 10px;
+  }
+
+  .budget-form :global(.card),
+  .budget-form__card {
+    padding: 12px;
+  }
 }
 
 /* ------------------------------------------------------------------ */

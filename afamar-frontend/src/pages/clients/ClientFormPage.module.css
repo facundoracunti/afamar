@@ -47,9 +47,24 @@
 
 .client-form__row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  grid-template-columns: 1fr;
+  gap: 12px;
   align-items: stretch;
+}
+
+.client-form__layout--create .client-form__row,
+.client-form__layout--edit .client-form__row {
+  grid-template-columns: 1fr;
+}
+
+.client-form__layout--edit .client-form__row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+@media (max-width: 640px) {
+  .client-form__layout--edit .client-form__row {
+    grid-template-columns: 1fr;
+  }
 }
 
 .client-form__col {
@@ -60,6 +75,11 @@
 .client-form__col > * {
   flex: 1;
   width: 100%;
+}
+
+.client-form__col > form.client-form__card {
+  display: flex;
+  flex-direction: column;
 }
 
 @media (max-width: 900px) {
@@ -121,6 +141,17 @@
   gap: 12px;
   justify-content: flex-end;
   margin-top: 24px;
+  flex-wrap: wrap;
+}
+
+.client-form__actions .btn {
+  white-space: nowrap;
+}
+
+.client-form__actions--push {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
 }
 
 .client-form__stats {

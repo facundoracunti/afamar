@@ -22,10 +22,11 @@
 */
 
 .material-card {
+  min-width: 0;
   background: var(--surface-bg);
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  padding: 16px;
+  padding: 12px;
   box-shadow: 0 1px 3px var(--shadow-color);
 }
 
@@ -33,7 +34,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .material-card__title-group {

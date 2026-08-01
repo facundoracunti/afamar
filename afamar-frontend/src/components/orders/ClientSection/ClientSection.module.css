@@ -1,3 +1,40 @@
+.client-section {
+  margin-top: 12px;
+  padding: 16px;
+}
+
+.client-section__grid {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.7fr) minmax(260px, 1.8fr) minmax(150px, 1fr) minmax(180px, 1fr);
+  gap: 10px 12px;
+  align-items: end;
+}
+
+.client-section__grid .form-group {
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.client-section__address-field {
+  margin-top: 10px;
+}
+
+@media (max-width: 1040px) {
+  .client-section__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .client-section {
+    padding: 12px;
+  }
+
+  .client-section__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .client-section__addr-row {
   display: flex;
   align-items: center;

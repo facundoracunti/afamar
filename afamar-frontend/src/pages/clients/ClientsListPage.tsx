@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { Suspense, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Edit, Trash2 } from 'lucide-react';
 import { getClients, searchClients, deleteClient } from '@/api/resources/clients';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
+import { Modal } from '../../components/ui/Modal/Modal';
 import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
 import { SearchInput } from '../../components/ui/SearchInput/SearchInput';
 import { EmptyState } from '../../components/ui/EmptyState/EmptyState';
@@ -11,7 +12,11 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { useEntityList } from '../../hooks/useEntityList';
 import styles from './ClientsListPage.module.css';
 
+const ClientForm = React.lazy(() => import('./ClientFormPage'));
+
 const s = styles as unknown as Record<string, string>;
+
+type ClientModal = null | { kind: 'create' } | { kind: 'edit'; id: number };
 
 // Local interface — `total_budgets`, `total_orders`, `last_order_number`
 // are filled by the backend list endpoint (see ClientService.list_with_stats).
@@ -31,6 +36,8 @@ const CLIENTS_KEY = ['clients'] as const;
 
 export default function ClientsList() {
   const navigate = useNavigate();
+  const [modal, setModal] = useState<ClientModal>(null);
+  const closeModal = () => setModal(null);
 
   const {
     items: clients,
@@ -77,7 +84,7 @@ export default function ClientsList() {
           <button
             type="button"
             className="btn btn-primary"
-            onClick={() => navigate('/admin/clients/new')}
+            onClick={() => setModal({ kind: 'create' })}
           >
             <Plus size={16} /> Nuevo Cliente
           </button>
@@ -115,7 +122,7 @@ export default function ClientsList() {
                 <tr
                   key={c.id}
                   className={s['clients__table-row']}
-                  onClick={() => navigate(`/admin/clients/${c.id}`)}
+                  onClick={() => setModal({ kind: 'edit', id: c.id })}
                 >
                   <td className={s['clients__id-cell']}>{c.id}</td>
                   <td className={s['clients__name-cell']}>{c.name}</td>
@@ -138,7 +145,7 @@ export default function ClientsList() {
                       <button
                         type="button"
                         className={`btn btn-outline ${s['clients__btn-sm']}`}
-                        onClick={() => navigate(`/admin/clients/${c.id}`)}
+                        onClick={() => setModal({ kind: 'edit', id: c.id })}
                       >
                         <Edit size={14} />
                       </button>
@@ -176,6 +183,29 @@ export default function ClientsList() {
       />
 
       <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} label="clientes" />
+
+      <Suspense fallback={<LoadingSpinner />}>
+        {modal && (
+          <Modal
+            isOpen
+            onClose={closeModal}
+            title={modal.kind === 'edit' ? 'Editar Cliente' : 'Nuevo Cliente'}
+            width={modal.kind === 'edit' ? '820px' : '600px'}
+          >
+            {modal.kind === 'create' && (
+              <ClientForm key="client-create" onSuccess={closeModal} onCancel={closeModal} />
+            )}
+            {modal.kind === 'edit' && (
+              <ClientForm
+                key={`client-edit-${modal.id}`}
+                entityId={modal.id}
+                onSuccess={closeModal}
+                onCancel={closeModal}
+              />
+            )}
+          </Modal>
+        )}
+      </Suspense>
     </div>
   );
 }

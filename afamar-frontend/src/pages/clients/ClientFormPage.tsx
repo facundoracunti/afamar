@@ -17,8 +17,19 @@ const s = styles as unknown as Record<string, string>;
 
 const CLIENTS_KEY = ['clients'] as const;
 
-export default function ClientForm() {
-  const { id } = useParams();
+interface ClientFormProps {
+  /** Modal mode: cierra el modal en vez de navegar a /admin/clients. */
+  onSuccess?: () => void;
+  /** Modal mode: cierra el modal en vez de navegar a /admin/clients. */
+  onCancel?: () => void;
+  /** Modal mode: id del cliente a editar. Si no se pasa, usa useParams(). */
+  entityId?: number | string;
+}
+
+export default function ClientForm(props: ClientFormProps = {}) {
+  const params = useParams();
+  const paramId = params.id;
+  const id = props.entityId != null ? String(props.entityId) : paramId;
   const navigate = useNavigate();
   const isEdit = !!id;
   const [saving, setSaving] = useState(false);
@@ -81,7 +92,11 @@ export default function ClientForm() {
       } else {
         await createMutation.mutateAsync(cliente);
       }
-      navigate('/admin/clients');
+      if (props.onSuccess) {
+        props.onSuccess();
+      } else {
+        navigate('/admin/clients');
+      }
     } catch (err: unknown) {
       notify(parseApiError(err, 'Error al guardar cliente'), 'error');
     } finally {
@@ -89,116 +104,178 @@ export default function ClientForm() {
     }
   };
 
+  const handleCancel = () => {
+    if (props.onCancel) props.onCancel();
+    else navigate('/admin/clients');
+  };
+
   if (loading || (isEdit && !clientData)) return <LoadingSpinner />;
+
+  const isModal = Boolean(props.onCancel || props.onSuccess);
 
   return (
     <div className={s['client-form']}>
-      <h1 className={s['client-form__title']}>
-        {isEdit ? 'Editar Cliente' : 'Nuevo Cliente'}
-      </h1>
+      {!isModal && (
+        <h1 className={s['client-form__title']}>
+          {isEdit ? 'Editar Cliente' : 'Nuevo Cliente'}
+        </h1>
+      )}
 
-      <div className={s['client-form__layout']}>
-        <div className={s['client-form__row']}>
-          <div className={s['client-form__col']}>
-            <form onSubmit={handleSubmit} className={`${s['client-form__card']} ${s['client-form__card--fill']}`}>
-              <h3 className={s['client-form__section']}>Datos del cliente</h3>
-              <div className={s['client-form__form-row']}>
-                <div className={s['client-form__group']}>
-                  <label className={s['client-form__label']}>Nombre *</label>
-                  <input className="input" required value={cliente.name} onChange={(e) => setCliente({ ...cliente, name: e.target.value })} />
-                </div>
-                <div className={s['client-form__group']}>
-                  <label className={s['client-form__label']}>Teléfono</label>
-                  <input className="input" value={cliente.phone || ''} onChange={(e) => setCliente({ ...cliente, phone: e.target.value })} />
-                </div>
-              </div>
-              <div className={s['client-form__form-row']}>
-                <div className={s['client-form__group']}>
-                  <label className={s['client-form__label']}>Correo</label>
-                  <input className="input" type="email" value={cliente.email || ''} onChange={(e) => setCliente({ ...cliente, email: e.target.value })} />
-                </div>
-                <div className={s['client-form__group']}>
-                  <label className={s['client-form__label']}>Dirección</label>
-                  <input className="input" value={cliente.address || ''} onChange={(e) => setCliente({ ...cliente, address: e.target.value })} />
-                </div>
-              </div>
-              <div className={s['client-form__group']}>
-                <label className={s['client-form__label']}>Observaciones</label>
-                <textarea className="input" rows={3} value={cliente.notes || ''} onChange={(e) => setCliente({ ...cliente, notes: e.target.value })} />
-              </div>
-
-              {isEdit && (
-                <div className={s['client-form__group']}>
-                  <div className={s['client-form__addresses-header']}>
-                    <label className={s['client-form__label']}>
-                      <MapPin size={14} aria-hidden="true" /> Domicilios alternativos
-                    </label>
-                    <button type="button" className="btn btn-outline" onClick={openNewAddress}>
-                      <Plus size={14} /> Agregar domicilio
-                    </button>
+      <div className={`${s['client-form__layout']} ${isEdit ? s['client-form__layout--edit'] : s['client-form__layout--create']}`}>
+        {isEdit ? (
+          <div className={s['client-form__row']}>
+            <div className={s['client-form__col']}>
+              <form
+                onSubmit={handleSubmit}
+                className={`${s['client-form__card']} ${s['client-form__card--fill']}`}
+              >
+                <h3 className={s['client-form__section']}>Datos del cliente</h3>
+                <div className={s['client-form__form-row']}>
+                  <div className={s['client-form__group']}>
+                    <label className={s['client-form__label']}>Nombre *</label>
+                    <input className="input" required value={cliente.name} onChange={(e) => setCliente({ ...cliente, name: e.target.value })} />
                   </div>
-                  {addresses.length === 0 ? (
-                    <div className={s['client-form__item-empty']}>
-                      Sin domicilios alternativos. El domicilio de arriba se usa como principal.
-                    </div>
-                  ) : (
-                    <div className={s['client-form__addresses-list']}>
-                      {addresses.map((a) => (
-                        <div
-                          key={a.id}
-                          className={`${s['client-form__address-row']} ${a.is_default ? s['client-form__address-row--default'] : ''}`}
-                        >
-                          <div className={s['client-form__address-info']}>
-                            {a.label && (
-                              <span className={s['client-form__address-label']}>{a.label}</span>
-                            )}
-                            <span className={s['client-form__address-text']}>{a.address}</span>
-                          </div>
-                          <div className={s['client-form__address-actions']}>
-                            {a.is_default ? (
-                              <span className={s['client-form__address-default-badge']} title="Domicilio principal">
-                                <Star size={12} fill="currentColor" aria-hidden="true" /> Principal
-                              </span>
-                            ) : (
-                              <button type="button" className="btn btn-outline" onClick={() => handleSetDefault(a)} title="Marcar como domicilio principal">
-                                Hacer principal
-                              </button>
-                            )}
-                            <button type="button" className="btn btn-outline" onClick={() => openEditAddress(a)} aria-label="Editar domicilio">
-                              Editar
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-outline"
-                              onClick={() => handleDeleteAddress(a)}
-                              aria-label="Eliminar domicilio"
-                              disabled={addresses.length <= 1}
-                              title={addresses.length <= 1 ? 'El cliente debe tener al menos un domicilio' : 'Eliminar'}
-                            >
-                              <X size={14} />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <div className={s['client-form__group']}>
+                    <label className={s['client-form__label']}>Teléfono</label>
+                    <input className="input" value={cliente.phone || ''} onChange={(e) => setCliente({ ...cliente, phone: e.target.value })} />
+                  </div>
                 </div>
-              )}
+                <div className={s['client-form__form-row']}>
+                  <div className={s['client-form__group']}>
+                    <label className={s['client-form__label']}>Correo</label>
+                    <input className="input" type="email" value={cliente.email || ''} onChange={(e) => setCliente({ ...cliente, email: e.target.value })} />
+                  </div>
+                  <div className={s['client-form__group']}>
+                    <label className={s['client-form__label']}>Dirección</label>
+                    <input className="input" value={cliente.address || ''} onChange={(e) => setCliente({ ...cliente, address: e.target.value })} />
+                  </div>
+                </div>
+                <FormActions
+                  className={s['client-form__actions--push']}
+                  loading={saving}
+                  submitLabel="Actualizar"
+                  onCancel={handleCancel}
+                />
+              </form>
+            </div>
 
-              <FormActions
-                loading={saving}
-                submitLabel={isEdit ? 'Actualizar' : 'Crear Cliente'}
-                onCancel={() => navigate('/admin/clients')}
-              />
-            </form>
+            <div className={s['client-form__col']}>
+              <div className={`${s['client-form__card']} ${s['client-form__card--fill']}`}>
+                <h3 className={s['client-form__section']}>Notas y domicilios</h3>
+                <div className={s['client-form__group']}>
+                  <label className={s['client-form__label']}>Observaciones</label>
+                  <textarea className="input" rows={4} value={cliente.notes || ''} onChange={(e) => setCliente({ ...cliente, notes: e.target.value })} />
+                </div>
+
+                {isEdit && clientData && (
+                  <div className={s['client-form__group']}>
+                    <div className={s['client-form__addresses-header']}>
+                      <label className={s['client-form__label']}>
+                        <MapPin size={14} aria-hidden="true" /> Domicilios alternativos
+                      </label>
+                      <button type="button" className="btn btn-outline" onClick={openNewAddress}>
+                        <Plus size={14} /> Agregar domicilio
+                      </button>
+                    </div>
+                    {addresses.length === 0 ? (
+                      <div className={s['client-form__item-empty']}>
+                        Sin domicilios alternativos. El domicilio de arriba se usa como principal.
+                      </div>
+                    ) : (
+                      <div className={s['client-form__addresses-list']}>
+                        {addresses.map((a) => (
+                          <div
+                            key={a.id}
+                            className={`${s['client-form__address-row']} ${a.is_default ? s['client-form__address-row--default'] : ''}`}
+                          >
+                            <div className={s['client-form__address-info']}>
+                              {a.label && (
+                                <span className={s['client-form__address-label']}>{a.label}</span>
+                              )}
+                              <span className={s['client-form__address-text']}>{a.address}</span>
+                            </div>
+                            <div className={s['client-form__address-actions']}>
+                              {a.is_default ? (
+                                <span className={s['client-form__address-default-badge']} title="Domicilio principal">
+                                  <Star size={12} fill="currentColor" aria-hidden="true" /> Principal
+                                </span>
+                              ) : (
+                                <button type="button" className="btn btn-outline" onClick={() => handleSetDefault(a)} title="Marcar como domicilio principal">
+                                  Hacer principal
+                                </button>
+                              )}
+                              <button type="button" className="btn btn-outline" onClick={() => openEditAddress(a)} aria-label="Editar domicilio">
+                                Editar
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-outline"
+                                onClick={() => handleDeleteAddress(a)}
+                                aria-label="Eliminar domicilio"
+                                disabled={addresses.length <= 1}
+                                title={addresses.length <= 1 ? 'El cliente debe tener al menos un domicilio' : 'Eliminar'}
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
+        ) : (
+          <div className={s['client-form__row']}>
+            <div className={s['client-form__col']}>
+              <form
+                onSubmit={handleSubmit}
+                className={`${s['client-form__card']} ${s['client-form__card--fill']}`}
+              >
+                <h3 className={s['client-form__section']}>Datos del cliente</h3>
+                <div className={s['client-form__form-row']}>
+                  <div className={s['client-form__group']}>
+                    <label className={s['client-form__label']}>Nombre *</label>
+                    <input className="input" required value={cliente.name} onChange={(e) => setCliente({ ...cliente, name: e.target.value })} />
+                  </div>
+                  <div className={s['client-form__group']}>
+                    <label className={s['client-form__label']}>Teléfono</label>
+                    <input className="input" value={cliente.phone || ''} onChange={(e) => setCliente({ ...cliente, phone: e.target.value })} />
+                  </div>
+                </div>
+                <div className={s['client-form__form-row']}>
+                  <div className={s['client-form__group']}>
+                    <label className={s['client-form__label']}>Correo</label>
+                    <input className="input" type="email" value={cliente.email || ''} onChange={(e) => setCliente({ ...cliente, email: e.target.value })} />
+                  </div>
+                  <div className={s['client-form__group']}>
+                    <label className={s['client-form__label']}>Dirección</label>
+                    <input className="input" value={cliente.address || ''} onChange={(e) => setCliente({ ...cliente, address: e.target.value })} />
+                  </div>
+                </div>
+                <div className={s['client-form__group']}>
+                  <label className={s['client-form__label']}>Observaciones</label>
+                  <textarea className="input" rows={3} value={cliente.notes || ''} onChange={(e) => setCliente({ ...cliente, notes: e.target.value })} />
+                </div>
+                <FormActions
+                  loading={saving}
+                  submitLabel="Crear Cliente"
+                  onCancel={handleCancel}
+                />
+              </form>
+            </div>
+          </div>
+        )}
 
-          {isEdit && clientData && (
+        {isEdit && clientData && !isModal && (
+          <div className={s['client-form__row']}>
             <div className={s['client-form__col']}>
               <ClientHistoryCard clientData={clientData} client={undefined} />
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       <Modal

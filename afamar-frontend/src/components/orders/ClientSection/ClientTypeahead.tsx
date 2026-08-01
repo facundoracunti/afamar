@@ -16,6 +16,7 @@ interface ClientTypeaheadProps {
   onSelect: (c: Client) => void;
   onClear: () => void;
   onCreateNew: (name: string) => void;
+  inputId?: string;
 }
 
 export function ClientTypeahead({
@@ -29,6 +30,7 @@ export function ClientTypeahead({
   onSelect,
   onClear,
   onCreateNew,
+  inputId,
 }: ClientTypeaheadProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const showClear = !readOnly && (!!value || query !== '');
@@ -50,7 +52,11 @@ export function ClientTypeahead({
     <div ref={wrapperRef} style={{ position: 'relative', display: 'flex', gap: 6 }}>
       <div style={{ position: 'relative', flex: 1 }}>
         <input
+          id={inputId}
           className="input"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={open}
           placeholder={value ? '' : 'Buscar cliente por nombre, teléfono o dirección...'}
           value={displayValue}
           onChange={(e) => {

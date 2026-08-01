@@ -44,14 +44,18 @@ test.describe('Clients', () => {
   test('creates a new client and finds it in the list', async ({ page, request }) => {
     const name = `Juan Pérez ${UNIQUE}`;
 
-    await page.goto('/admin/clients/new');
-    const inputs = page.locator('input.input, textarea.input');
+    await page.goto('/admin/clients');
+    await page.getByRole('button', { name: /nuevo cliente/i }).click();
+    const dialog = page.getByRole('dialog', { name: /nuevo cliente/i });
+    await expect(dialog).toBeVisible();
+    const inputs = dialog.locator('input.input, textarea.input');
     await inputs.nth(0).fill(name);
     await inputs.nth(1).fill('+54 11 5555-1234');
     await inputs.nth(2).fill(`juan.${UNIQUE}@example.com`);
     await inputs.nth(3).fill('Av. Test 1234, CABA');
 
-    await page.getByRole('button', { name: /crear cliente/i }).click();
+    await dialog.getByRole('button', { name: /crear cliente/i }).click();
+    await expect(dialog).toBeHidden();
     await expect(page).toHaveURL(/\/admin\/clients$/);
 
     // Use the SearchInput to narrow down to our new client (the
@@ -64,11 +68,14 @@ test.describe('Clients', () => {
   test('edits an existing client', async ({ page }) => {
     const name = `Edit Me ${UNIQUE}`;
 
-    // Create via UI.
-    await page.goto('/admin/clients/new');
-    const inputs = page.locator('input.input, textarea.input');
-    await inputs.nth(0).fill(name);
-    await page.getByRole('button', { name: /crear cliente/i }).click();
+    // Create via the modal.
+    await page.goto('/admin/clients');
+    await page.getByRole('button', { name: /nuevo cliente/i }).click();
+    const createDialog = page.getByRole('dialog', { name: /nuevo cliente/i });
+    await expect(createDialog).toBeVisible();
+    await createDialog.locator('input.input, textarea.input').nth(0).fill(name);
+    await createDialog.getByRole('button', { name: /crear cliente/i }).click();
+    await expect(createDialog).toBeHidden();
     await expect(page).toHaveURL(/\/admin\/clients$/);
 
     // Filter by name.
@@ -79,14 +86,16 @@ test.describe('Clients', () => {
 
     // Click the edit button (first button in the row).
     await row.locator('button').first().click();
-    await expect(page).toHaveURL(/\/admin\/clients\/\d+$/);
-    await expect(page.getByRole('heading', { name: /editar cliente/i })).toBeVisible();
+    const editDialog = page.getByRole('dialog', { name: /editar cliente/i });
+    await expect(editDialog).toBeVisible();
+    await expect(page).toHaveURL(/\/admin\/clients$/);
 
     // Update the phone.
-    const phoneInput = page.locator('input.input, textarea.input').nth(1);
+    const phoneInput = editDialog.locator('input.input, textarea.input').nth(1);
     await phoneInput.fill('+54 11 9999-0000');
 
-    await page.getByRole('button', { name: /actualizar/i }).click();
+    await editDialog.getByRole('button', { name: /actualizar/i }).click();
+    await expect(editDialog).toBeHidden();
     await expect(page).toHaveURL(/\/admin\/clients$/);
 
     // Verify the change persisted via SearchInput.
@@ -143,6 +152,7 @@ test.describe('Clients', () => {
   test('blocks submit when the required name field is empty', async ({ page }) => {
     await page.goto('/admin/clients/new');
     await page.getByRole('button', { name: /crear cliente/i }).click();
+    // Required name field keeps us on the new page.
     await expect(page).toHaveURL(/\/admin\/clients\/new$/);
   });
 });

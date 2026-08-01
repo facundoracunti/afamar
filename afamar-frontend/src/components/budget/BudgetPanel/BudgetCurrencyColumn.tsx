@@ -63,7 +63,8 @@ export function BudgetCurrencyColumn({
             const precioUsd =
               d.currency === 'USD' ? Number(d.price)
                 : dd2 > 0 ? Number(d.price) / dd2 : 0;
-            const price = isArs ? precioArs : precioUsd;
+            const priceArs = precioArs * d.quantity;
+            const priceUsd = precioUsd * d.quantity;
             return (
               <div key={`${d.concept}-${d.detail ?? ''}-${d.currency}-${i}`} className={s['lineItem']}>
                 <span>
@@ -74,9 +75,14 @@ export function BudgetCurrencyColumn({
                   {d.quantity > 1 ? ` x${d.quantity}` : ''}
                 </span>
                 <span className={s['lineItem__value']}>
-                  {isArs
-                    ? formatCurrency(price * d.quantity)
-                    : <CurrencyDisplay value={price * d.quantity} currency="USD" />}
+                  <span className={s['budget-panel__dual']}>
+                    <span className={s['budget-panel__dual-ars']}>
+                      {formatCurrency(priceArs)}
+                    </span>
+                    <span className={s['budget-panel__dual-usd']}>
+                      <CurrencyDisplay value={priceUsd} currency="USD" />
+                    </span>
+                  </span>
                 </span>
               </div>
             );
@@ -90,20 +96,25 @@ export function BudgetCurrencyColumn({
           const subUsd =
             m.currency === 'USD' ? m2 * (m.price_m2_usd || 0)
               : dd2 > 0 ? (m2 * (m.price_m2 || 0)) / dd2 : 0;
-          const sub = isArs ? subArs : subUsd;
-          return sub > 0 ? (
+          if (subArs <= 0 && subUsd <= 0) return null;
+          return (
             <div key={m.id ?? `m-${m.name ?? 'unnamed'}-${i}`} className={s['lineItem']}>
               <span>
                 {m.name} ({m2.toFixed(3)} m²)
                 {m.quantity > 1 ? ` x${m.quantity}` : ''}
               </span>
               <span className={s['lineItem__value']}>
-                {isArs
-                  ? formatCurrency(sub)
-                  : <CurrencyDisplay value={sub} currency="USD" />}
+                <span className={s['budget-panel__dual']}>
+                  <span className={s['budget-panel__dual-ars']}>
+                    {formatCurrency(subArs)}
+                  </span>
+                  <span className={s['budget-panel__dual-usd']}>
+                    <CurrencyDisplay value={subUsd} currency="USD" />
+                  </span>
+                </span>
               </span>
             </div>
-          ) : null;
+          );
         })}
         {poolsAll.map((pt, i) => {
           const dd2 = Number(form.usd_rate);
@@ -113,7 +124,8 @@ export function BudgetCurrencyColumn({
           const precioUsd =
             (pt.currency || 'ARS') === 'USD' ? pt.price || 0
               : dd2 > 0 ? (pt.price || 0) / dd2 : 0;
-          const price = isArs ? precioArs : precioUsd;
+          const arsTotal = precioArs * (pt.quantity || 1);
+          const usdTotal = precioUsd * (pt.quantity || 1);
           return (
             <div key={pt.pool_id ?? `p-${pt.brand ?? 'unnamed'}-${pt.model ?? 'unnamed'}-${i}`} className={s['lineItem']}>
               <span>
@@ -121,9 +133,14 @@ export function BudgetCurrencyColumn({
                 {pt.quantity > 1 ? ` (x${pt.quantity})` : ''}
               </span>
               <span className={s['lineItem__value']}>
-                {isArs
-                  ? formatCurrency(price * (pt.quantity || 1))
-                  : <CurrencyDisplay value={price * (pt.quantity || 1)} currency="USD" />}
+                <span className={s['budget-panel__dual']}>
+                  <span className={s['budget-panel__dual-ars']}>
+                    {formatCurrency(arsTotal)}
+                  </span>
+                  <span className={s['budget-panel__dual-usd']}>
+                    <CurrencyDisplay value={usdTotal} currency="USD" />
+                  </span>
+                </span>
               </span>
             </div>
           );
@@ -142,103 +159,51 @@ export function BudgetCurrencyColumn({
       </div>
 
       {isArs ? (
-        <>
-          <div className={s['budget-panel__total-block']}>
-            <div className={s['budget-panel__total-row']}>
-              <span className={s['budget-panel__total-label']}>TOTAL ARS</span>
-              <span className={totalValueClasses}>
-                {formatCurrency(form.total)}
-              </span>
-            </div>
-          </div>
-
-          <div className={`form-group ${s['budget-panel__field-row']}`}>
-            <label className={s['budget-panel__field-row-label']}>Seña recibida (ARS)</label>
-            <div className={s['budget-panel__deposit-currency']}>
-              <input
-                type="number"
-                className={`input ${s['budget-panel__deposit-input']}`}
-                value={depositValue}
-                onChange={(e) => onDepositAmountChange(e.target.value)}
-                disabled={readOnly}
-                placeholder="0"
-              />
-            </div>
-          </div>
-
-          <div className={`form-group ${s['budget-panel__field-row']}`}>
-            <label
-              className={`${s['budget-panel__field-row-label']} ${s['budget-panel__field-row-label--strong']} ${s['budget-panel__usd-rate-label']}`}
-            >
-              DÓLAR DEL DÍA
-            </label>
-            <div className={s['budget-panel__usd-rate-controls']}>
-              <input
-                type="number"
-                className={`input ${s['budget-panel__field-row-input']} ${s['budget-panel__usd-rate-input']}`}
-                value={form.usd_rate}
-                onChange={(e) => onUsdRateChange?.(e.target.value)}
-                disabled={readOnly}
-              />
-              {onUsdRateRefresh && !readOnly ? (
-                <button
-                  type="button"
-                  className={s['budget-panel__usd-rate-refresh']}
-                  onClick={onUsdRateRefresh}
-                  title="Actualizar dólar del día desde dolarapi.com"
-                  aria-label="Actualizar dólar del día"
-                >
-                  ↻
-                </button>
-              ) : null}
-            </div>
-            {form.usd_rate_fetched_at ? (
-              <small className={s['budget-panel__usd-rate-fetched-at']}>
-                Actualizado: {new Date(form.usd_rate_fetched_at).toLocaleString('es-AR')}
-              </small>
-            ) : null}
-          </div>
-
-          <div className={s['budget-panel__balance-row']}>
-            <span className={s['budget-panel__balance-label']}>Saldo pendiente ARS</span>
-            <span className={balanceValueClasses}>
-              {formatCurrency(form.balance_due)}
+        <div className={s['budget-panel__total-block']}>
+          <div className={s['budget-panel__total-row']}>
+            <span className={s['budget-panel__total-label']}>TOTAL ARS</span>
+            <span className={totalValueClasses}>
+              {formatCurrency(form.total)}
             </span>
           </div>
-        </>
+        </div>
       ) : (
-        <>
-          <div className={s['usdDivider']}>
-            <div className={s['usdDivider__row']}>
-              <span className={s['usdDivider__total']}>TOTAL USD</span>
-              <span className={s['usdDivider__value']}>
-                <CurrencyDisplay value={form.total_usd} currency="USD" />
-              </span>
-            </div>
-          </div>
-
-          <div className={`form-group ${s['budget-panel__field-row']}`}>
-            <label className={s['budget-panel__field-row-label']}>Seña recibida (USD)</label>
-            <div className={s['budget-panel__deposit-currency']}>
-              <input
-                type="number"
-                className={`input ${s['budget-panel__deposit-input']}`}
-                value={depositValue}
-                onChange={(e) => onDepositAmountChange(e.target.value)}
-                disabled={readOnly}
-                placeholder="0"
-              />
-            </div>
-          </div>
-
-          <div className={s['balanceRow']}>
-            <span className={s['balanceRow__label']}>Saldo pendiente USD</span>
-            <span className={s['balanceRow__value']}>
-              <CurrencyDisplay value={form.balance_due_usd} currency="USD" />
+        <div className={s['usdDivider']}>
+          <div className={s['usdDivider__row']}>
+            <span className={s['usdDivider__total']}>TOTAL USD</span>
+            <span className={s['usdDivider__value']}>
+              <CurrencyDisplay value={form.total_usd} currency="USD" />
             </span>
           </div>
-        </>
+        </div>
       )}
+
+      <div className={`form-group ${s['budget-panel__field-row']}`}>
+        <label className={s['budget-panel__field-row-label']}>
+          {isArs ? 'Seña recibida' : 'Seña recibida'}
+        </label>
+        <div className={s['budget-panel__deposit-currency']}>
+          <input
+            type="number"
+            className={`input ${s['budget-panel__deposit-input']}`}
+            value={depositValue}
+            onChange={(e) => onDepositAmountChange(e.target.value)}
+            disabled={readOnly}
+            placeholder="0"
+          />
+        </div>
+      </div>
+
+      <div className={isArs ? s['budget-panel__balance-row'] : s['balanceRow']}>
+        <span className={isArs ? s['budget-panel__balance-label'] : s['balanceRow__label']}>
+          Saldo pendiente
+        </span>
+        <span className={balanceValueClasses}>
+          {isArs
+            ? formatCurrency(form.balance_due)
+            : <CurrencyDisplay value={form.balance_due_usd} currency="USD" />}
+        </span>
+      </div>
     </div>
   );
 }

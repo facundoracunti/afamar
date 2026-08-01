@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useId, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useFocusTrap } from "../../../hooks/useFocusTrap";
 import styles from "./Modal.module.css";
@@ -13,6 +13,7 @@ interface ModalProps {
 
 export function Modal({ isOpen, onClose, title, children, width = "600px" }: ModalProps) {
   const trapRef = useFocusTrap(isOpen);
+  const titleId = useId();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -38,10 +39,11 @@ export function Modal({ isOpen, onClose, title, children, width = "600px" }: Mod
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
       >
         {title && (
           <div className={styles.header}>
-            <h2 className={styles.title}>{title}</h2>
+            <h2 id={titleId} className={styles.title}>{title}</h2>
             <button className={styles.close} onClick={onClose} aria-label="Cerrar">
               ✕
             </button>

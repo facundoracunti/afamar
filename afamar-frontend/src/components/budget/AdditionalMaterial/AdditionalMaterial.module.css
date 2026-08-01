@@ -1,28 +1,43 @@
 .additional-material {
   display: flex;
   flex-direction: column;
+  gap: 8px;
+}
+
+.additional-material__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 8px;
+}
+
+.additional-material__header :global(.section-title) {
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
 .additional-material__empty {
-  font-size: 13px;
+  margin: 0;
+  padding: 4px 0;
+  font-size: 12px;
   color: var(--text-muted);
-  text-align: center;
-  padding: 16px;
-  font-style: italic;
 }
 
 .additional-material__cards {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .additional-material__card {
+  min-width: 0;
   background: var(--surface-bg);
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  padding: 16px;
+  padding: 10px 12px;
   box-shadow: 0 1px 3px var(--shadow-color);
 }
 
@@ -30,7 +45,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .additional-material__select-concept {
@@ -60,9 +75,9 @@
 
 .additional-material__fields {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(150px, 1fr) minmax(180px, 1.35fr) minmax(80px, 0.7fr) 72px;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 0;
 }
 
 .additional-material__field {
@@ -130,7 +145,8 @@
   justify-content: space-between;
   align-items: center;
   background: var(--surface-alt-bg);
-  padding: 10px;
+  padding: 6px 8px;
+  margin-top: 8px;
   border-radius: 6px;
 }
 
@@ -147,5 +163,26 @@
 }
 
 .additional-material__add-btn {
-  align-self: flex-start;
+  flex-shrink: 0;
+  align-self: auto;
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+@media (max-width: 820px) {
+  .additional-material__fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .additional-material__header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .additional-material__add-btn {
+    width: 100%;
+    justify-content: center;
+  }
 }

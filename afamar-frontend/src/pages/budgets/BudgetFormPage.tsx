@@ -52,6 +52,7 @@ interface BudgetFormProps {
   /** Called when the user cancels. Page mode falls back to navigating
    *  to /admin/budgets; modal mode closes the modal. */
   onCancel?: () => void;
+  layoutMode?: 'full' | 'wizard';
 }
 
 export default function BudgetForm(props: BudgetFormProps = {}) {
@@ -167,7 +168,7 @@ export default function BudgetForm(props: BudgetFormProps = {}) {
         badge={!['PENDING'].includes(form.status) ? <StatusBadge status={form.status} /> : undefined}
         logoUrl={logoUrl}
       >
-        <button className="btn btn-outline" onClick={handlePreviewPdf} disabled={pdfPreviewLoading} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <button type="button" className="btn btn-outline" onClick={handlePreviewPdf} disabled={pdfPreviewLoading} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Eye size={16} /> {pdfPreviewLoading ? 'GENERANDO...' : 'VISTA PREVIA PDF'}
         </button>
         {isEdit ? (
@@ -186,12 +187,12 @@ export default function BudgetForm(props: BudgetFormProps = {}) {
               <Check size={16} /> {saving ? 'APROBANDO...' : 'APROBAR PRESUPUESTO'}
             </button>
           ) : null
-        ) : (
+          ) : props.layoutMode !== 'wizard' ? (
           <button className={`btn btn-primary ${s['budget-form__btn-save']}`} onClick={handleSubmit} disabled={saving}>
             <Save size={16} /> {saving ? 'GUARDANDO...' : 'GUARDAR'}
           </button>
-        )}
-        <button className="btn btn-success" onClick={handleEnviarWhatsApp} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', fontSize: 13 }}>
+        ) : null}
+        <button type="button" className="btn btn-success" onClick={handleEnviarWhatsApp} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', fontSize: 13 }}>
           <Send size={16} /> WhatsApp
         </button>
       </FormHeader>
@@ -260,6 +261,7 @@ export default function BudgetForm(props: BudgetFormProps = {}) {
               }}
             >
               <EntityFormLayout
+                mode={props.layoutMode || 'full'}
                 alternativasGrid={alternativasGrid}
                 observations={
                   <BudgetFormObservations

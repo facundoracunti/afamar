@@ -58,14 +58,15 @@ export default function EntityFormClient({
     const addresses = client.addresses || [];
     const showSelect = addresses.length > 1;
     return (
-      <div className={`form-group ${s['entity-form-client__address-picker']}`}>
-        <label className={s['entity-form-client__address-label']}>
+        <div className={`form-group ${s['entity-form-client__address-picker']}`}>
+          <label htmlFor="delivery-address" className={s['entity-form-client__address-label']}>
           <MapPin size={14} aria-hidden="true" /> Domicilio de entrega
         </label>
         <div className={s['entity-form-client__addr-row']}>
           {showSelect ? (
             <select
-              className="input"
+              id="delivery-address"
+              className={`input ${s['entity-form-client__address-control']}`}
               value={form.delivery_address_id ?? ''}
               onChange={(e) => {
                 const val = e.target.value ? Number(e.target.value) : null;
@@ -77,7 +78,6 @@ export default function EntityFormClient({
                   update('client_address', client.address || '');
                 }
               }}
-              style={{ flex: 1 }}
             >
               <option value="">Principal (predeterminado)</option>
               {addresses.map((a) => (
@@ -88,10 +88,10 @@ export default function EntityFormClient({
             </select>
           ) : (
             <input
-              className="input"
+              id="delivery-address"
+              className={`input ${s['entity-form-client__address-control']}`}
               value={client.address || ''}
               readOnly
-              style={{ flex: 1 }}
             />
           )}
           {!readOnly && (
