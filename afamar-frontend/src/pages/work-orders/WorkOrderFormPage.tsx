@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Eye, Save } from 'lucide-react';
 import { useNotify } from '../../context/NotificationContext';
+import { useUsdRate } from '../../hooks/useUsdRate';
 import { getWorkOrder, createWorkOrder, updateWorkOrder, deleteWorkOrder, getNextWorkOrderNumber, getWorkOrderPdf } from '@/api/resources/workOrders';
 import { getMaterials } from '@/api/resources/materials';
 import { getPoolStock } from '@/api/resources/poolStock';
@@ -77,7 +78,7 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
   const {
     form, loading, saving, materials, pools, logoUrl, clientes, addOrRefreshClientes, updateClientAddresses,
     menuOpen, deleteConfirm, showCroquis,
-    readOnly, hayUSD, hayAlternativas,
+    readOnly, hayUSD, hayAlternativas, isEdit,
     modoUSD, toggleModoUSD,
     menuRef,
     setForm,
@@ -130,6 +131,8 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
     queryKey: ['work-orders'],
     setForm,
   });
+
+  const { refresh: refreshUsdRate } = useUsdRate({ form, setForm, isEdit });
 
   if (loading) return <LoadingSpinner />;
 
@@ -284,6 +287,7 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
               handleDepositCurrencyChange,
               handleDepositAmountChange,
               handleUsdRateChange,
+              onUsdRateRefresh: refreshUsdRate,
               formMaterials: form.materials_data || [],
             }}
           >

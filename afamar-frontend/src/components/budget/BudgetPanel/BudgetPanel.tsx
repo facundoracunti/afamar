@@ -1,6 +1,7 @@
 import React from 'react';
 import type { FabricationDetail, MaterialInForm, PoolInForm } from '../../../types/budget';
 import { BudgetCurrencyColumn } from './BudgetCurrencyColumn';
+import { BudgetLineItems } from './BudgetLineItems';
 import { BudgetPaymentSection } from './BudgetPaymentSection';
 import { useBudgetPanel } from './BudgetPanelContext';
 import styles from './BudgetPanel.module.css';
@@ -67,109 +68,51 @@ export default function BudgetPanel({
 
       <div>
         {!hayAlternativas && (
-          <div className={s['budget-panel__columns']}>
-            <BudgetCurrencyColumn
-              currency="USD"
+          <>
+            <BudgetLineItems
               form={form}
               fabricationDetails={fabricationDetails}
-              materialsAll={matsMain}
-              poolsAll={poolsAll}
-              readOnly={readOnly}
-              onTransportChange={financial.handleTransportChange}
-              onDepositAmountChange={financial.handleDepositAmountChange}
-              onUsdRateChange={financial.handleUsdRateChange}
-              onUsdRateRefresh={onUsdRateRefresh}
+              materials={matsMain}
+              pools={poolsAll}
             />
-            <div className={s['budget-panel__col']}>
-              <div className={s['budget-panel__usd-summary']}>
-                <div className={s['budget-panel__usd-summary-row']}>
-                  <div className={s['budget-panel__usd-summary-cell']}>
-                    <div className={s['budget-panel__usd-summary-label']}>SUBTOTALES (ARS)</div>
-                    <div className={s['budget-panel__usd-summary-value']}>
-                      {materialsAll.reduce((acc, m) => {
-                        const m2 = Number(m.length || 0) * Number(m.width || 0) * (m.quantity || 1);
-                        const sub =
-                          m.currency === 'ARS'
-                            ? m2 * (m.price_m2 || 0)
-                            : Number(form.usd_rate) > 0
-                              ? (m2 * (m.price_m2_usd || 0)) * Number(form.usd_rate)
-                              : 0;
-                        return acc + sub;
-                      }, 0)
-                        .toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                  </div>
-                  <div className={s['budget-panel__usd-summary-cell']}>
-                    <div className={s['budget-panel__usd-summary-label']}>TOTAL ARS</div>
-                    <div className={`${s['budget-panel__usd-summary-value']} ${s['budget-panel__balance-value--ars']}`}>
-                      {Number(form.total || 0).toLocaleString('es-AR', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </div>
-                  </div>
-                </div>
-                <div className={s['budget-panel__usd-summary-row']}>
-                  <div className={s['budget-panel__usd-summary-cell']}>
-                    <div className={s['budget-panel__usd-summary-label']}>SALDO PENDIENTE ARS</div>
-                    <div className={`${s['budget-panel__usd-summary-value']} ${s['budget-panel__balance-value--ars']}`}>
-                      {Number(form.balance_due || 0).toLocaleString('es-AR', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </div>
-                  </div>
-                  <div className={s['budget-panel__usd-summary-cell']}>
-                    <div className={s['budget-panel__usd-summary-label']}>SEÑA RECIBIDA</div>
-                    <div className={s['budget-panel__usd-summary-value']}>
-                      <div className={s['budget-panel__usd-summary-deposit']}>
-                        <select
-                          className={`input ${s['budget-panel__currency-switch-select']}`}
-                          value={form.deposit_currency || 'ARS'}
-                          onChange={(e) => financial.handleDepositCurrencyChange(e.target.value)}
-                          disabled={readOnly}
-                          aria-label="Moneda de la seña"
-                        >
-                          <option value="ARS">ARS</option>
-                          <option value="USD">USD</option>
-                        </select>
-                        <input
-                          type="number"
-                          className={`input ${s['budget-panel__deposit-input']}`}
-                          value={
-                            (form.deposit_currency || 'ARS') === 'ARS'
-                              ? form.deposit_received
-                              : form.deposit_usd
-                          }
-                          onChange={(e) => financial.handleDepositAmountChange(e.target.value)}
-                          disabled={readOnly}
-                          placeholder="0"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
+            <div className={s['budget-panel__main']}>
+              <div className={s['budget-panel__columns']}>
+                <BudgetCurrencyColumn
+                  currency="ARS"
+                  form={form}
+                  readOnly={readOnly}
+                  onTransportChange={financial.handleTransportChange}
+                  onDepositCurrencyChange={financial.handleDepositCurrencyChange}
+                  onDepositAmountChange={financial.handleDepositAmountChange}
+                />
+                <BudgetCurrencyColumn
+                  currency="USD"
+                  form={form}
+                  readOnly={readOnly}
+                  onTransportChange={financial.handleTransportChange}
+                  onDepositCurrencyChange={financial.handleDepositCurrencyChange}
+                  onDepositAmountChange={financial.handleDepositAmountChange}
+                />
               </div>
+
+              {!hidePaymentSection && (
+                <BudgetPaymentSection
+                  form={form}
+                  readOnly={readOnly}
+                  saving={saving}
+                  update={update}
+                  setForm={setForm}
+                  num={num}
+                  onConfirmarPago={onConfirmarPago}
+                  discountBlock={discountBlock}
+                />
+              )}
             </div>
-          </div>
+          </>
         )}
 
         {alternativasGrid}
       </div>
-
-      {!hidePaymentSection && (
-        <BudgetPaymentSection
-          form={form}
-          readOnly={readOnly}
-          saving={saving}
-          update={update}
-          setForm={setForm}
-          num={num}
-          handleDepositCurrencyChange={financial.handleDepositCurrencyChange}
-          onConfirmarPago={onConfirmarPago}
-          discountBlock={discountBlock}
-        />
-      )}
     </div>
   );
 }

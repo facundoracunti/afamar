@@ -188,8 +188,21 @@
   flex-wrap: wrap;
 }
 
+.budget-panel__main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .budget-panel__main {
+    grid-template-columns: 1fr;
+  }
+}
+
 .budget-panel__col {
-  flex: 1 1 280px;
+  flex: 1 1 0;
   min-width: 0;
   font-size: 12px;
   line-height: 1.35;
@@ -360,6 +373,10 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+}
+
+.budget-panel__usd-summary-row--single {
+  grid-template-columns: 1fr;
 }
 
 .budget-panel__usd-summary-cell {

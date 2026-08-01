@@ -293,6 +293,11 @@ table { border-spacing: 0; }
   background: var(--surface-alt-bg);
 }
 
+.presupuesto-header,
+.orden-header {
+  margin-bottom: var(--spacing-lg);
+}
+
 .input {
   display: block;
   width: 100%;
