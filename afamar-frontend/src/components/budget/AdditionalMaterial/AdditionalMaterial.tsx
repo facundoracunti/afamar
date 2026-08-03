@@ -75,6 +75,7 @@ export default function AdditionalMaterial({
                 >
                   <option value="BASEBOARD">Zócalo</option>
                   <option value="FRONT">Frente</option>
+                  <option value="OTHER">Otra</option>
                 </select>
                 <button
                   type="button"

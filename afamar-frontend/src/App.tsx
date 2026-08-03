@@ -29,6 +29,7 @@ const ProductPhotosPage = React.lazy(() => import('./pages/product-photos/Produc
 const MeasurementsListPage = React.lazy(() => import('./pages/measurements/MeasurementsListPage'));
 const MeasurementFormPage = React.lazy(() => import('./pages/measurements/MeasurementFormPage'));
 const CalculatorPage = React.lazy(() => import('./pages/calculator/CalculatorPage'));
+const PorcelainTileCalculatorPage = React.lazy(() => import('./pages/porcelain-tile-calculator/PorcelainTileCalculatorPage'));
 const CashDailyPage = React.lazy(() => import('./pages/cash/CashDailyPage'));
 const CashHistoryPage = React.lazy(() => import('./pages/cash/CashHistoryPage'));
 
@@ -78,7 +79,8 @@ function App() {
                 <Route path="measurements" element={<MeasurementsListPage />} />
                 <Route path="measurements/new" element={<MeasurementFormPage key="new" />} />
                 <Route path="measurements/:id" element={<MeasurementFormPage key="edit" />} />
-                <Route path="calculator" element={<CalculatorPage />} />
+                <Route path="plate-calculator" element={<CalculatorPage />} />
+                <Route path="porcelain-tile-calculator" element={<PorcelainTileCalculatorPage />} />
                 <Route path="cash" element={<CashDailyPage />} />
                 <Route path="cash/history" element={<CashHistoryPage />} />
                 <Route path="reports" element={<ReportsPage />} />

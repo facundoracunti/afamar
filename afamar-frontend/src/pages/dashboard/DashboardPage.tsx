@@ -80,7 +80,7 @@ export default function Dashboard() {
     { icon: PackageOpen, label: 'MATERIALES', color: '#64748b', tone: 'info', kind: 'materials', path: '/admin/materials', description: 'Gestionar materiales' },
     { icon: Wrench, label: 'TRABAJOS ADICIONALES', color: '#0891b2', tone: 'info', kind: 'additional-works', path: '/admin/additional-works', description: 'Gestionar trabajos adicionales' },
     { icon: LayoutGrid, label: 'CATEGORIAS', color: '#ea580c', tone: 'info', kind: 'categories', path: '/admin/materials/categories', description: 'Gestionar categorias' },
-    { icon: Calculator, label: 'CALCULADORA', color: '#4f46e5', tone: 'info', kind: 'calculator', path: '/admin/calculator', description: 'Calculadora de materiales' },
+    { icon: Calculator, label: 'CALCULADORA', color: '#4f46e5', tone: 'info', kind: 'calculator', path: '/admin/plate-calculator', description: 'Calculadora de materiales' },
   ];
 
   const closeModal = () => setActiveModal(null);

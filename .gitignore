@@ -84,3 +84,5 @@ desktop.ini
 test-results/
 playwright-report/
 blob-report/
+
+.codebase-memory

@@ -1,0 +1,29 @@
+/* PorcelainTileCalculatorPage — BEM */
+.porcelain-tile-calculator {
+  display: grid;
+  gap: 16px;
+  max-width: 980px;
+}
+
+.porcelain-tile-calculator__header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.porcelain-tile-calculator__title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.porcelain-tile-calculator__subtitle {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.porcelain-tile-calculator__card {
+  padding: 24px;
+}

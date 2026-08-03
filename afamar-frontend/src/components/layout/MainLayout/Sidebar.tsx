@@ -62,7 +62,8 @@ const accordionGroups: AccordionGroup[] = [
       { label: 'Materiales', path: `${PREFIX}/materials`, icon: Box },
       { label: 'Trabajos Adicionales', path: `${PREFIX}/additional-works`, icon: Settings },
       { label: 'Categorías', path: `${PREFIX}/materials/categories`, icon: Tags },
-      { label: 'Calculadora', path: `${PREFIX}/calculator`, icon: Calculator },
+      { label: 'Calculadora de Placa', path: `${PREFIX}/plate-calculator`, icon: Calculator },
+      { label: 'Calculadora de Porcelanato', path: `${PREFIX}/porcelain-tile-calculator`, icon: Calculator },
     ],
   },
   {

@@ -1,7 +1,20 @@
 # AGENTS.md
 
 > **Estado:** Rama `development`. Fases 1-6.11 completadas. Feature: dashboard modales.
-> `tsc --noEmit` 0 errores · `vite build` ~14s, gzip ~770 KB (chunks principales) · vitest 123/123 · pytest 14/14 · playwright 101/101 passing (3 skipped intencionales, ~2.8 min).
+> `tsc --noEmit` 0 errores · `vite build` ~14s, gzip ~770 KB (chunks principales) · vitest 144/144 · pytest 14/14 · playwright 101/101 passing (3 skipped intencionales, ~2.8 min).
+>
+> **Índice del conocimiento (codebase-memory):** proyecto indexado en knowledge graph (3570 nodos / 12533 aristas). ADR de arquitectura en `manage_adr` (project `afamar`). Artefacto persistente en `.codebase-memory/graph.db.zst` (commitearlo para compartir el índice). Ver sección "Índice del conocimiento" abajo.
+
+## Índice del conocimiento (codebase-memory)
+
+El repo está indexado en el knowledge graph de codebase-memory (MCP) bajo el proyecto `afamar`:
+
+- **Reindexar:** `index_repository` con `repo_path=D:\projects\PERSONAL\afamar`, `name=afamar` (usar el override para no crear un proyecto duplicado derivado del path), `mode=full`, `persistence=true`.
+- **Artefacto:** `persistence=true` genera `.codebase-memory/graph.db.zst` (~1.7 MB) — **ya no es una limitación**. El server MCP agrega `.codebase-memory` al `.gitignore`; si se quiere compartir el índice con teammates, commitearlo explícitamente con `git add -f .codebase-memory/graph.db.zst` (o un-ignorearlo).
+- **ADR de arquitectura:** consultable/actualizable con `manage_adr` (project `afamar`) — documenta las capas del backend, el hot-path de `BaseRepository` y `createResource.get`, el facade `useEntityForm`, el contrato snake_case frontend-backend, la arquitectura de dashboard modales y los clusters de-facto.
+- **Hotspots confirmados:** backend `BaseRepository.add` (26 callers) / `save` (24); frontend `createResource.get` (70 callers, #1 global), `parseApiError` (27), `LoadingSpinner` (23), `useNotify` (18), `createResource.update` (18). Optimizaciones de performance deben apuntar ahí.
+- **Complejidad alta:** `usePlateCalculator` (bin-packing, loop_depth 4, cyclomatic 13 — único loop anidado ≥4), `pdf_html._sketch_to_png_base64_list` (loop_depth 3, cyclomatic 25), `WorkOrderService.update` (cyclomatic 12).
+- **Clusters de-facto:** frontend core UI (122 miembros, cohesión 0.83), forms orchestration BudgetForm/WorkOrderForm/useEntityForm/EntityFormLayout (69), backend CRUD genérico (54+52+43+39+36+34+33), budget panel ARS/USD (46), backend PDF+seeders (36, 0.85). Sin dependencia circular entre `app/` y `src/`.
 
 ## Reglas de operación
 
@@ -117,6 +130,9 @@ afamar-frontend/   — Vite + React + TS
       sketch/      — SketchEditor, Toolbar, useSketchState (CanvasArea, SketchPreviewLayer,
                      LineShape, RectangleShape, TextShape)
       signature/   — SignatureCanvas
+      calculator/  — PorcelainTileCalculator (panel núcleo de la calculadora de porcelanato),
+                     PorcelainCalculatorSection (toggle estilo croquis, embebido en
+                     Presupuesto/OT — colapsado por defecto, readOnly lo oculta)
     layouts/       — MainLayout + MainLayout.module.css (sidebar BEM)
     components/layout/MainLayout/ — MainLayout (orchestrator), Sidebar.tsx (accordion nav), Topbar.tsx (profile/date/title)
     context/       — AuthContext, NotificationContext, ThemeContext
@@ -275,6 +291,12 @@ Acepta `extraPayloadFields?: () => Partial<Record<string, unknown>>` para inyecc
 
 El header (FormHeader con botones de status/approve/convert/WhatsApp) queda en cada página porque es demasiado diferente para abstraer.
 
+**Calculadora de porcelanato embebida:** la `PorcelainCalculatorSection` se renderiza en dos lugares del `EntityFormLayout`, según el mode:
+- **full mode** → zona inferior (`${prefix}bottom`), junto a `SketchSection`. Colapsada por defecto (toggle "Activar…").
+- **wizard mode** → paso dedicado `Calculadora de porcelanato` en el `EntityFormWizard`, justo después de "Diseño y plano". Arranca **abierta por defecto** (`defaultOpen`) para que el primer plano del paso sea la calculadora operativa; sigue ofreciendo "Ocultar…" para pleagar.
+
+El handler `addPorcelainDetail` se construye desde `state.update` y `state.form`, así que las páginas no necesitan wiring extra. En `readOnly` la sección no se renderiza. El label del botón se deriva del `prefix`: `"Agregar al presupuesto"` para BudgetForm, `"Agregar a la orden"` para WorkOrderForm. La moneda sigue `modoUSD` del form.
+
 ## Frontend unit tests (vitest)
 
 **Setup:** `vitest@1.6.1` + `@testing-library/react@16.3.2` + `@testing-library/jest-dom@6.9.1`. Environment `jsdom`. `tsc --noEmit` debe estar limpio antes de `vitest run` (archivos `.test.tsx` para JSX, `.test.ts` para lógica pura).
@@ -286,18 +308,21 @@ El header (FormHeader con botones de status/approve/convert/WhatsApp) queda en c
 - **Render:** `render(<Component />)` + `screen.getByText/Role/Title` para asserts. Wrap con `MemoryRouter` si el componente usa `useNavigate`.
 - **Errores/silencios:** los tests deben validar que los errores se surfacean al caller, no que se swallean silenciosamente.
 
-**Coverage actual (123 tests, 11 archivos):**
+**Coverage actual (144 tests, 14 archivos):**
 - `src/hooks/useConfirmPayment.test.tsx` — 5 tests (id undefined, flip ambos sentidos, error no swallow, query keys distintos)
 - `src/hooks/useBudgetQuoteCalculations.test.ts` — 10 tests (breakdown, materials split, sumatorias, useMemo)
-- `src/hooks/useBudgetCalculations.test.tsx` — 9 tests (totals, descuentos, recargo cuotas, alternativa override, deposit, USD=0)
-- `src/utils/pdf/buildPdfData.test.ts` — 16 tests (routing, descuentos, recargo, terms override, edge cases)
+- `src/hooks/useBudgetCalculations.test.tsx` — 14 tests (totals, descuentos, recargo cuotas, alternativa override, deposit, USD=0)
+- `src/utils/pdf/buildPdfData.test.ts` — 18 tests (routing, descuentos, recargo, terms override, edge cases)
 - `src/pages/budgets/BudgetTable.test.tsx` — 10 tests (render, empty, Aprobar/Rechazar, A OT, callbacks)
 - `src/components/common/WorkOrdersTable/WorkOrdersTable.test.tsx` — 12 tests (render, status buttons, terminal "—", callbacks)
 - `src/components/ui/StatusBadge/StatusBadge.test.tsx` — 2 tests
+- `src/components/entity/EntityFormWizard.test.tsx` — 2 tests
+- `src/components/measurements/PendingMeasurementCards/PendingMeasurementCards.test.tsx` — 2 tests
 - `src/hooks/entityFormHelpers.test.ts` — 26 tests (FinancialBase round-trip, payload serialization)
 - `src/hooks/useAdditionalWorkSelection.test.ts` — 11 tests
 - `src/utils/frentePricing.test.ts` — 17 tests
 - `src/utils/materialGroups.test.ts` — 5 tests
+- `src/utils/porcelainCalculator.test.ts` — 10 tests (kerf formula, edge cases, buildPorcelainFabricationDetail)
 
 ## Client address selection
 

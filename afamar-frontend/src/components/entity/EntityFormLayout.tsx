@@ -8,6 +8,7 @@ import BudgetFormAdicionales from '../../pages/budgets/BudgetFormAdicionales';
 import FabricationSection from '../budget/FabricationSection/FabricationSection';
 import AdditionalWorkSection from '../budget/AdditionalWorkSection/AdditionalWorkSection';
 import SketchSection from '../sketch/SketchSection/SketchSection';
+import PorcelainCalculatorSection from '../calculator/PorcelainCalculatorSection/PorcelainCalculatorSection';
 import TermsEditor from '../ui/TermsEditor/TermsEditor';
 import FormFooter from '../orders/FormFooter/FormFooter';
 import EntityFormWizard, { type EntityFormWizardStep } from './EntityFormWizard';
@@ -122,6 +123,23 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
     </div>
   ));
 
+  const addPorcelainDetail = (detail: FabricationDetail) =>
+    update('fabrication_details', [...(form.fabrication_details || []), detail]);
+
+  const porcelainCalculatorProps = {
+    readOnly,
+    currency: modoUSD ? 'USD' as const : 'ARS' as const,
+    onAddDetail: addPorcelainDetail,
+    addLabel: prefix.startsWith('budget') ? 'Agregar al presupuesto' : 'Agregar a la orden',
+  };
+
+  // En el wizard vive en su propio paso: arrancá abierta para que el primer
+  // plano sea la calculadora (no requiera apretar el toggle).
+  const porcelainCalculator = <PorcelainCalculatorSection {...porcelainCalculatorProps} defaultOpen />;
+
+  // En el modo full vive al pie, junto al croquis: collapsed por defecto.
+  const porcelainCalculatorCollapsed = <PorcelainCalculatorSection {...porcelainCalculatorProps} />;
+
   const wizardSteps: EntityFormWizardStep[] = [
     {
       id: 'client',
@@ -222,6 +240,12 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
           toggleLabel="Diseño / Plano"
         />
       ),
+    },
+    {
+      id: 'porcelain-calculator',
+      label: 'Calculadora de porcelanato',
+      description: 'Servicio de corte de zócalos de porcelanato.',
+      content: porcelainCalculator,
     },
     {
       id: 'financial',
@@ -339,6 +363,8 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
         </div>
 
         <div className={s[`${prefix}bottom`]}>
+          {porcelainCalculatorCollapsed}
+
           <SketchSection
             showCroquis={showCroquis}
             setShowCroquis={setShowCroquis}

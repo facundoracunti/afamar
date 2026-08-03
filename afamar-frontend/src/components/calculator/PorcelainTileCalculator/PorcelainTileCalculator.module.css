@@ -1,0 +1,129 @@
+/* PorcelainTileCalculator — BEM */
+.ptc {
+  display: grid;
+  gap: 14px;
+}
+
+.ptc__formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.ptc__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ptc__field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.ptc__field--action {
+  align-self: end;
+}
+
+.ptc__calcBtn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.ptc__error {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-danger);
+  background: var(--tw-red-100);
+  border: 1px solid var(--tw-red-200);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.ptc__results {
+  display: grid;
+  gap: 12px;
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.ptc__note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.ptc__statGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+}
+
+.ptc__statCard {
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ptc__statLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.ptc__statValue {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ptc__statCard--info {
+  background: rgba(56, 132, 255, 0.08);
+  border-color: var(--tw-blue-800);
+}
+
+.ptc__statValue--info {
+  color: var(--tw-blue-800);
+}
+
+.ptc__statCard--success {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: var(--tw-green-600);
+}
+
+.ptc__statValue--success {
+  color: var(--tw-green-600);
+}
+
+.ptc__addWrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ptc__addBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ptc__added {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--tw-green-600);
+}

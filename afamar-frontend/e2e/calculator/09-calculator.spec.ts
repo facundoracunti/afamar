@@ -13,13 +13,13 @@ test.describe('Calculator', () => {
   });
 
   test('loads calculator page', async ({ page }) => {
-    await page.goto('/admin/calculator');
-    await expect(page.getByText(/calculadora de placa/i)).toBeVisible();
+    await page.goto('/admin/plate-calculator');
+    await expect(page.getByRole('heading', { name: /calculadora de placa/i })).toBeVisible();
   });
 
   test('adds a piece and shows it in the list', async ({ page }) => {
-    await page.goto('/admin/calculator');
-    await expect(page.getByText(/calculadora de placa/i)).toBeVisible();
+    await page.goto('/admin/plate-calculator');
+    await expect(page.getByRole('heading', { name: /calculadora de placa/i })).toBeVisible();
 
     // Fill the piece form. The inputs are identified by placeholder
     // (no associated labels).
@@ -34,8 +34,8 @@ test.describe('Calculator', () => {
   });
 
   test('clears all pieces when clicking Limpiar todo', async ({ page }) => {
-    await page.goto('/admin/calculator');
-    await expect(page.getByText(/calculadora de placa/i)).toBeVisible();
+    await page.goto('/admin/plate-calculator');
+    await expect(page.getByRole('heading', { name: /calculadora de placa/i })).toBeVisible();
 
     // Add a piece first.
     const inputs = page.locator('input[placeholder="0.00"]');
@@ -52,8 +52,8 @@ test.describe('Calculator', () => {
   });
 
   test('updates plate dimensions and recalculates area', async ({ page }) => {
-    await page.goto('/admin/calculator');
-    await expect(page.getByText(/calculadora de placa/i)).toBeVisible();
+    await page.goto('/admin/plate-calculator');
+    await expect(page.getByRole('heading', { name: /calculadora de placa/i })).toBeVisible();
 
     // Default plate is 3.00 x 1.80 = 5.40 m². The "Total" text shows this.
     await expect(page.getByText(/Total: 5\.40 m²/)).toBeVisible();
