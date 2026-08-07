@@ -21,42 +21,47 @@ from app.models.material import MaterialColor
 
 
 # Single source of truth: the canonical Spanish labels AFAMAR uses in the UI.
-# The list mirrors the production catalogue after the backfill: the 11
-# original single-word colors plus the compound colors seen in real data
-# (Gris veteado, Negro con vetas, Blanco con vetas gris, …).
+# Mirrors the production `material_colors` catalogue (captured 2026-08-07
+# after the operator cleaned up the unused rows). Keep this tuple in
+# lock-step with `scripts/inspect_colors.py`'s section-1 output.
+#
+# Canonical-name convention: compound labels are written with **only the
+# first word capitalized** (`Beige con vetas`, NOT `Beige Con Vetas`) —
+# the colour backfill inserts them via `strip().lower().capitalize()`
+# and a fresh DB seeded from this tuple must produce the same canonical
+# names.
 COLORS: tuple[str, ...] = (
-    "Blanco",
-    "Negro",
-    "Gris",
-    "Beige",
-    "Crema",
-    "Rojo",
-    "Verde",
-    "Azul",
-    "Marrón",
-    "Dorado",
-    "Plateado",
-    "Rosa",
-    "Gris claro",
-    "Gris oscuro",
-    "Gris veteado",
-    "Gris claro veteado",
-    "Gris claro con vetas",
-    "Gris oscuro con vetas",
-    "Negro brillante",
-    "Negro veteado",
-    "Negro con vetas",
-    "Negro vetas blancas",
-    "Negro con pintas blancas",
-    "Blanco veteado",
-    "Blanco con vetas",
-    "Blanco con vetas gris",
-    "Blanco con vetas grises",
-    "Beige con vetas",
-    "Rojo veteado",
-    "Rojo vetas negras",
-    "Rosa veteado",
-    "Rosa con vetas blancas",
+    # original single-word colours (ids 1–7 kept; 8–11 dropped in 2026-08-07 cleanup
+    # because they had zero materials)
+    "Blanco",                  #  1
+    "Negro",                   #  2
+    "Gris",                    #  3
+    "Beige",                   #  4
+    "Crema",                   #  5
+    "Rojo",                    #  6
+    "Verde",                   #  7
+    # compound colours inserted by the colour backfill (ids 12–32)
+    "Gris veteado",            # 12
+    "Rosa veteado",            # 13
+    "Rojo veteado",            # 14
+    "Negro veteado",           # 15
+    "Negro vetas blancas",     # 16
+    "Gris claro veteado",      # 17
+    "Blanco veteado",          # 18
+    "Blanco con vetas",        # 19
+    "Negro con pintas blancas",# 20
+    "Blanco con vetas gris",   # 21
+    "Negro con vetas",         # 22
+    "Gris oscuro con vetas",   # 23
+    "Gris claro con vetas",    # 24
+    "Beige con vetas",         # 25
+    "Negro brillante",         # 26
+    "Rojo vetas negras",       # 27
+    "Rosa con vetas blancas",  # 28
+    "Rosa",                    # 29
+    "Gris claro",              # 30
+    "Blanco con vetas grises", # 31
+    "Gris oscuro",             # 32
 )
 
 
