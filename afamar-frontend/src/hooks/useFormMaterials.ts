@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import type { Material } from '../types/material';
 import type { EntityFormState, FormField, MaterialInForm } from '../types';
-import { M2_CONCEPTS, addMaterialToList } from './entityFormHelpers';
+import { M2_CONCEPTS, addMaterialToList, addMaterialRowToList, repointSwapReferences, swapMaterialGroupToList } from './entityFormHelpers';
 import type { MutableRefObject } from 'react';
 
 interface UseFormMaterialsParams {
@@ -18,6 +18,19 @@ interface UseFormMaterialsReturn {
   addMaterial: (name: string) => void;
   removeMaterial: (idx: number) => void;
   updateMaterial: (idx: number, field: string, value: unknown) => void;
+  /** Add another measurement row of an already-selected material (keeps
+   *  `materials_data` flat — the MaterialCard renders one card per
+   *  material with N rows grouped in the UI layer). */
+  addMaterialRow: (mat: MaterialInForm) => void;
+  /** Remove every row whose global index is in `idxs` (a whole card). */
+  removeMaterialGroup: (idxs: number[]) => void;
+  /** Set `field` on every row whose global index is in `idxs` in a single
+   *  state update (e.g. toggling the "Alternativa" checkbox on a card). */
+  updateMaterialGroup: (idxs: number[], field: string, value: unknown) => void;
+  /** Replace the catalogue identity (name/color/prices/currency) of every
+   *  row whose global index is in `idxs` (a whole card), keeping each
+   *  row's measurements and alternative flag. */
+  swapMaterialGroup: (idxs: number[], mat: Material) => void;
   hayUSD: boolean;
   hayAlternativas: boolean;
 }
@@ -103,9 +116,72 @@ export function useFormMaterials({
     [form.materials_data, update]
   );
 
+  const addMaterialRow = useCallback(
+    (mat: MaterialInForm) => {
+      const list = addMaterialRowToList(form, mat);
+      if (list) update('materials_data', list);
+    },
+    [form, update]
+  );
+
+  const removeMaterialGroup = useCallback(
+    (idxs: number[]) => {
+      const set = new Set(idxs);
+      const list = (form.materials_data || []).filter((_, i) => !set.has(i));
+      update('materials_data', list);
+    },
+    [form.materials_data, update]
+  );
+
+  const updateMaterialGroup = useCallback(
+    (idxs: number[], field: string, value: unknown) => {
+      const list = [...(form.materials_data || [])];
+      const indexSet = new Set(idxs);
+      for (let i = 0; i < list.length; i += 1) {
+        if (indexSet.has(i)) {
+          (list[i] as unknown as Record<string, unknown>)[field] = value;
+        }
+      }
+      update('materials_data', list);
+    },
+    [form.materials_data, update]
+  );
+
+  const swapMaterialGroup = useCallback(
+    (idxs: number[], mat: Material) => {
+      const list = swapMaterialGroupToList(form, idxs, mat);
+      if (!list) return;
+      const oldNames = new Set(
+        idxs
+          .map((i) => form.materials_data?.[i]?.name)
+          .filter((name): name is string => !!name),
+      );
+      const refs = repointSwapReferences(form, oldNames, mat.name);
+      setForm((prev) => ({
+        ...prev,
+        materials_data: list,
+        pools_data: refs.pools_data,
+        fabrication_details: refs.fabrication_details,
+        additional_works_data: refs.additional_works_data,
+      }));
+    },
+    [form, setForm]
+  );
+
   const materialsList = form.materials_data || [];
   const hayUSD = materialsList.some((m) => m.currency === 'USD');
   const hayAlternativas = materialsList.some((m) => m.is_alternative);
 
-  return { handleMaterialChange, addMaterial, removeMaterial, updateMaterial, hayUSD, hayAlternativas };
+  return {
+    handleMaterialChange,
+    addMaterial,
+    removeMaterial,
+    updateMaterial,
+    addMaterialRow,
+    removeMaterialGroup,
+    updateMaterialGroup,
+    swapMaterialGroup,
+    hayUSD,
+    hayAlternativas,
+  };
 }

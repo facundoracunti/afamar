@@ -10,6 +10,7 @@ function getPageTitle(pathname: string): string {
   if (pathname === '/admin' || pathname === '/admin/') return 'Panel Principal';
   if (pathname === '/admin/cash/history') return 'Historial de Caja';
   if (pathname === '/admin/materials/categories') return 'Categorías de Materiales';
+  if (pathname === '/admin/materials/colors') return 'Colores de Materiales';
 
   const match = (pattern: RegExp, listTitle: string, newTitle: string, editTitle: string): string | null => {
     const m = pathname.match(pattern);

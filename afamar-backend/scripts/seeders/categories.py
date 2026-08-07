@@ -1,9 +1,10 @@
-"""Material categories, colors, and thicknesses seeder.
+"""Material categories and thicknesses seeder.
 
 The list mirrors what is already loaded in the production database:
   - 5 categories: General, Granitos, Cuarzos, Sinterizados, Mármoles
-  - 11 colors
   - 5 thicknesses
+
+Colors live in their own seeder (`scripts/seeders/colors.py`).
 
 The seeder is idempotent: rows are matched by `name` and missing rows are
 inserted. Existing rows are left untouched.
@@ -11,7 +12,7 @@ inserted. Existing rows are left untouched.
 from __future__ import annotations
 
 from scripts.seeders.base import SeedResult, get_logger, session_scope
-from app.models.material import MaterialCategory, MaterialColor, MaterialThickness
+from app.models.material import MaterialCategory, MaterialThickness
 
 
 # Single source of truth: the canonical Spanish labels AFAMAR uses in the UI.
@@ -21,20 +22,6 @@ CATEGORIES: tuple[str, ...] = (
     "Cuarzos",
     "Sinterizados",
     "Mármoles",
-)
-
-COLORS: tuple[str, ...] = (
-    "Blanco",
-    "Negro",
-    "Gris",
-    "Beige",
-    "Crema",
-    "Rojo",
-    "Verde",
-    "Azul",
-    "Marrón",
-    "Dorado",
-    "Plateado",
 )
 
 THICKNESSES: tuple[str, ...] = (
@@ -47,7 +34,7 @@ THICKNESSES: tuple[str, ...] = (
 
 
 def seed_categories() -> SeedResult:
-    """Insert any missing material categories, colors, and thicknesses."""
+    """Insert any missing material categories and thicknesses."""
     logger = get_logger("seeders.categories")
     result = SeedResult(seeder="categories")
     with session_scope() as db:
@@ -59,14 +46,6 @@ def seed_categories() -> SeedResult:
             db.add(MaterialCategory(name=name))
             result.inserted += 1
             logger.info("Added category: %s", name)
-
-        existing_colors = {c.name for c in db.query(MaterialColor).all()}
-        for name in COLORS:
-            if name in existing_colors:
-                result.skipped += 1
-                continue
-            db.add(MaterialColor(name=name))
-            result.inserted += 1
 
         existing_thick = {t.name for t in db.query(MaterialThickness).all()}
         for name in THICKNESSES:

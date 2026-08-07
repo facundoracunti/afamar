@@ -23,6 +23,7 @@ from scripts.seeders import (  # noqa: E402
     SeedResult,
     seed_additional_works,
     seed_categories,
+    seed_colors,
     seed_materials,
     seed_pool_stock,
     seed_pool_types,
@@ -34,6 +35,7 @@ from scripts.seeders import (  # noqa: E402
 _SEEDERS: dict[str, Callable[..., SeedResult]] = {
     "users":             seed_users,
     "categories":        seed_categories,
+    "colors":            seed_colors,
     "materials":         seed_materials,
     "pool_types":        seed_pool_types,
     "pool_stock":        seed_pool_stock,
@@ -42,14 +44,15 @@ _SEEDERS: dict[str, Callable[..., SeedResult]] = {
 }
 
 # Logical order:
-#   1. settings + categories (no FKs depend on them).
+#   1. settings + categories + colors (no FKs depend on them).
 #   2. pool_types (independent, but referenced by pool_stock).
-#   3. materials (depends on categories).
+#   3. materials (depends on categories + colors).
 #   4. pool_stock + additional_works (catalogue snapshots).
 #   5. users (independent).
 DEFAULT_ORDER: tuple[str, ...] = (
     "settings",
     "categories",
+    "colors",
     "pool_types",
     "materials",
     "pool_stock",

@@ -1,24 +1,31 @@
 /* MaterialCard — BEM
    .material-card                       block
-   .material-card__header               top row: title + actions
+   .material-card__header               top row: title + price + actions
    .material-card__title-group          wraps name + category badge
    .material-card__title                material name
    .material-card__category             category badge
-   .material-card__actions              alt checkbox + remove button
+   .material-card__price-block          price display column
+   .material-card__price                displayed price (ARS)
+   .material-card__price--usd           displayed price (USD)
+   .material-card__price-usd            USD approximation under ARS price
+   .material-card__actions              alt checkbox + add/remove buttons
    .material-card__alt-label            "Alternativa" checkbox wrapper
    .material-card__alt-checkbox         the checkbox itself
-   .material-card__remove               × delete button
-   .material-card__fields               2-column inputs grid
+   .material-card__add                  "+" (add another measurement row)
+   .material-card__remove               × delete button (card / row)
+   .material-card__row-remove           × delete button (single row)
+   .material-card__rows                 measurement rows container
+   .material-card__row                  single measurement row grid
    .material-card__field                single field cell
    .material-card__label                field caption
    .material-card__input                shared input style (compact)
-   .material-card__price                displayed price (ARS)
-   .material-card__price--usd           displayed price (USD)
-   .material-card__footer               bottom row: m² + subtotal
-   .material-card__m2                   m² label
-   .material-card__m2-value             m² number
-   .material-card__subtotal             right column of footer
-   .material-card__subtotal-value       the dollar figure
+   .material-card__row-subtotal         subtotal cell per row
+   .material-card__row-subtotal-value   m² · subtotal per row
+   .material-card__footer               bottom row: total m² + total subtotal
+   .material-card__m2                   total m² label
+   .material-card__m2-value             total m² number
+   .material-card__subtotal             total subtotal (right column)
+   .material-card__subtotal-usd         the dollar figure
 */
 
 .material-card {
@@ -34,13 +41,16 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
   margin-bottom: 8px;
+  flex-wrap: wrap;
 }
 
 .material-card__title-group {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .material-card__title {
@@ -49,6 +59,7 @@
   text-transform: uppercase;
   color: var(--text-primary);
   letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
 }
 
 .material-card__category {
@@ -58,6 +69,32 @@
   padding: 2px 8px;
   border-radius: 4px;
   font-weight: 500;
+  white-space: nowrap;
+}
+
+.material-card__price-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 90px;
+}
+
+.material-card__price {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.material-card__price--usd {
+  color: var(--color-success);
+}
+
+.material-card__price-usd {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-top: 2px;
 }
 
 .material-card__actions {
@@ -82,6 +119,61 @@
   accent-color: var(--color-primary);
 }
 
+.material-card__swap {
+  color: var(--color-info);
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 8px;
+  line-height: 1.4;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.material-card__swap:hover {
+  background: var(--surface-alt-bg);
+}
+
+.material-card__swap--active {
+  background: var(--surface-alt-bg);
+  border-color: var(--color-info);
+}
+
+.material-card__picker {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 8px;
+  background: var(--surface-alt-bg);
+  border-radius: 6px;
+}
+
+.material-card__picker :global(.input):nth-child(3) {
+  grid-column: 1 / -1;
+}
+
+.material-card__picker :global(.input) {
+  min-width: 0;
+}
+
+.material-card__add {
+  color: var(--color-primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 20px;
+  padding: 0 4px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.material-card__add:hover {
+  color: var(--color-primary-hover, var(--color-primary));
+}
+
 .material-card__remove {
   color: var(--color-danger);
   background: none;
@@ -96,16 +188,28 @@
   color: var(--color-danger-hover);
 }
 
-.material-card__fields {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+.material-card__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   margin-bottom: 10px;
+}
+
+.material-card__row {
+  display: grid;
+  grid-template-columns: 64px 1fr 1fr 1fr 24px;
+  gap: 8px;
+  align-items: end;
+}
+
+.material-card__row:last-child {
+  margin-bottom: 0;
 }
 
 .material-card__field {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .material-card__label {
@@ -121,23 +225,23 @@
   font-size: 12px;
 }
 
-.material-card__price {
-  font-size: 13px;
-  font-weight: 700;
+.material-card__row-subtotal {
+  justify-content: flex-end;
+}
+
+.material-card__row-subtotal-value {
+  font-size: 12px;
+  font-weight: 600;
   color: var(--text-primary);
   padding: 5px 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.material-card__price--usd {
-  color: var(--color-success);
-}
-
-.material-card__price-usd {
-  display: block;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  margin-top: 2px;
+.material-card__row-remove {
+  font-size: 15px;
+  padding: 5px 2px;
 }
 
 .material-card__footer {

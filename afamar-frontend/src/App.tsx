@@ -21,6 +21,7 @@ const WorkOrderFormPage = React.lazy(() => import('./pages/work-orders/WorkOrder
 const MaterialsListPage = React.lazy(() => import('./pages/materials/MaterialsListPage'));
 const MaterialFormPage = React.lazy(() => import('./pages/materials/MaterialFormPage'));
 const MaterialsCategoriesPage = React.lazy(() => import('./pages/materials/MaterialsCategoriesPage'));
+const MaterialsColorsPage = React.lazy(() => import('./pages/materials/MaterialsColorsPage'));
 const PoolStockPage = React.lazy(() => import('./pages/pool-stock/PoolStockPage'));
 const AdditionalWorksPage = React.lazy(() => import('./pages/additional-works/AdditionalWorksPage'));
 const ReportsPage = React.lazy(() => import('./pages/reports/ReportsPage'));
@@ -72,6 +73,7 @@ function App() {
                 <Route path="work-orders/:id" element={<WorkOrderFormPage key="edit" />} />
                 <Route path="materials" element={<MaterialsListPage />} />
                 <Route path="materials/categories" element={<MaterialsCategoriesPage />} />
+                <Route path="materials/colors" element={<MaterialsColorsPage />} />
                 <Route path="materials/new" element={<MaterialFormPage key="new" />} />
                 <Route path="materials/:id" element={<MaterialFormPage key="edit" />} />
                 <Route path="pool-stock" element={<PoolStockPage />} />

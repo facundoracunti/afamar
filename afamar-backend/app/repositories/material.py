@@ -42,6 +42,12 @@ class ColorRepository(BaseRepository):
     def create(self, data: dict) -> MaterialColor:
         return self.save(MaterialColor(**data))
 
+    def update(self, color: MaterialColor, data: dict) -> MaterialColor:
+        for key, value in data.items():
+            if value is not None:
+                setattr(color, key, value)
+        return self.save(color)
+
     def delete(self, color: MaterialColor) -> None:
         super().delete(color)
 
@@ -74,7 +80,7 @@ class MaterialRepository(BaseRepository):
     def get_by_id(self, material_id: int) -> Optional[Material]:
         return (
             self.db.query(Material)
-            .options(joinedload(Material.currency_obj))
+            .options(joinedload(Material.currency_obj), joinedload(Material.color_obj))
             .filter(Material.id == material_id)
             .first()
         )
@@ -84,10 +90,10 @@ class MaterialRepository(BaseRepository):
         # always populated — the `MaterialResponse._populate_currency_code`
         # validator reads it on the way out. Without this, the lazy load
         # fails silently once the session is closed by the time Pydantic
-        # runs the validator.
+        # runs the validator. Same for `color_obj` → `color`.
         return (
             self.db.query(Material)
-            .options(joinedload(Material.currency_obj))
+            .options(joinedload(Material.currency_obj), joinedload(Material.color_obj))
             .offset(skip)
             .limit(limit)
             .all()
@@ -96,7 +102,7 @@ class MaterialRepository(BaseRepository):
     def get_by_category(self, category_id: int) -> List[Material]:
         return (
             self.db.query(Material)
-            .options(joinedload(Material.currency_obj))
+            .options(joinedload(Material.currency_obj), joinedload(Material.color_obj))
             .filter(Material.category_id == category_id)
             .all()
         )
@@ -110,7 +116,7 @@ class MaterialRepository(BaseRepository):
         # the router serializes the row.
         material = self.save(Material(**data))
         db = self.db
-        db.refresh(material, attribute_names=["currency_obj"])
+        db.refresh(material, attribute_names=["currency_obj", "color_obj"])
         return material
 
     def update(self, material: Material, data: dict) -> Material:
@@ -118,7 +124,7 @@ class MaterialRepository(BaseRepository):
             if value is not None:
                 setattr(material, key, value)
         result = self.save(material)
-        self.db.refresh(result, attribute_names=["currency_obj"])
+        self.db.refresh(result, attribute_names=["currency_obj", "color_obj"])
         return result
 
     def delete(self, material: Material) -> None:

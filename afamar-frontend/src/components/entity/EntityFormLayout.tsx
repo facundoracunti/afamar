@@ -79,6 +79,7 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
   } = state;
   const {
     materials: materiales, addMaterial, removeMaterial, updateMaterial,
+    addMaterialRow, removeMaterialGroup, updateMaterialGroup, swapMaterialGroup,
     pools, addPileta, removePileta, updatePileta,
     clientes, addOrRefreshClientes, onAddressAdded,
     handleDetailChange, addDetalle, removeDetalle,
@@ -171,6 +172,10 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
           addMaterial={addMaterial}
           updateMaterial={updateMaterial}
           removeMaterial={removeMaterial}
+          addMaterialRow={addMaterialRow}
+          removeMaterialGroup={removeMaterialGroup}
+          updateMaterialGroup={updateMaterialGroup}
+          swapMaterialGroup={swapMaterialGroup}
           update={update}
           num={parseNumber}
           cardClassName={specsCardClassName}
@@ -325,6 +330,10 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
               addMaterial={addMaterial}
               updateMaterial={updateMaterial}
               removeMaterial={removeMaterial}
+              addMaterialRow={addMaterialRow}
+              removeMaterialGroup={removeMaterialGroup}
+              updateMaterialGroup={updateMaterialGroup}
+              swapMaterialGroup={swapMaterialGroup}
               update={update}
               num={parseNumber}
               cardClassName={specsCardClassName}

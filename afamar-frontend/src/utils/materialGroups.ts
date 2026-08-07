@@ -16,6 +16,14 @@
 import type { MaterialInForm } from '../types/budget';
 import { round2 } from './math';
 
+/** Stable bucket key for a `materials_data` row — the catalogue `id`
+ *  (preferred) or `name:<name>` for legacy rows that predate the
+ *  `addMaterialToList` fix. Shared by `buildMaterialGroupOptions`,
+ *  the MaterialCard grouping and the frente pickers. */
+export function materialGroupKey(m: Pick<MaterialInForm, 'id' | 'name'>): string {
+  return m.id != null && Number.isFinite(m.id) ? String(m.id) : `name:${m.name}`;
+}
+
 export interface MaterialGroupOption {
   /** Stable bucket key — the catalogue `id` (preferred) or the material
    *  name (legacy fallback for snapshots created before `addMaterialToList`
@@ -64,10 +72,7 @@ export function buildMaterialGroupOptions(
   }>();
   for (const m of materials) {
     if (!m || !m.name) continue;
-    const groupKey =
-      m.id != null && Number.isFinite(m.id)
-        ? String(m.id)
-        : `name:${m.name}`;
+    const groupKey = materialGroupKey(m);
     const existing = groups.get(groupKey);
     if (existing) {
       existing.count += 1;

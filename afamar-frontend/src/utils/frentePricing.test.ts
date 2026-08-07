@@ -131,6 +131,31 @@ describe('buildFrenteMaterialOptions', () => {
     expect(buildFrenteMaterialOptions({ materials: [] })).toEqual([]);
     expect(buildFrenteMaterialOptions({ materials: null })).toEqual([]);
   });
+
+  it('collapses multiple panes of the same material into ONE option', () => {
+    // The MaterialCard groups N measurement rows under one card; the
+    // picker must not re-list the material once per row.
+    const panes: MaterialInForm[] = [
+      { ...materials[0], length: 2.0, width: 1.0 },
+      { ...materials[0], length: 1.5, width: 1.0 },
+      { ...materials[0], length: 1.0, width: 0.5 },
+    ];
+    const out = buildFrenteMaterialOptions({ materials: panes });
+    expect(out).toHaveLength(1);
+    expect(out[0].name).toBe('Negro Brasil');
+    expect(out[0].id).toBe(42);
+  });
+
+  it('dedupes legacy rows by name when no id is present', () => {
+    const panes: MaterialInForm[] = [
+      { ...materials[1], id: null as number | null },
+      { ...materials[1], id: null as number | null },
+      { ...materials[1], id: null as number | null },
+    ];
+    const out = buildFrenteMaterialOptions({ materials: panes });
+    expect(out).toHaveLength(1);
+    expect(out[0].name).toBe('Gris Mara');
+  });
 });
 
 function round2(n: number): number {

@@ -13,14 +13,11 @@ function formatNumber(n: number): string {
   if (!Number.isFinite(n)) return '0';
   return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
-// Note: this card predates the multi-pane dedup helper
-// (`utils/materialGroups.ts`). The picker still renders each snapshot
-// row individually — keys collide if the operator adds 3 panes of the
-// same marble, but React only warns; the underlying form state
-// persists the material by name so picking any of the three identical
-// entries binds the row to the same material. Keep behavior unchanged
-// unless the operator reports the duplicate picker as a usability
-// issue.
+// The material pickers in this card dedupe `materials_data` by physical
+// material (see `utils/materialGroups.ts`): a card holding N panes of the
+// same marble renders as ONE option. The frente picker goes through
+// `buildFrenteMaterialOptions` (deduped), the flat "Asignar a opción"
+// dropdown dedupes by material name above.
 import styles from './AdditionalWorkCard.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -57,6 +54,19 @@ export default function AdditionalWorkCard({
     () => buildFrenteMaterialOptions({ materials: formMaterials }),
     [formMaterials],
   );
+  // Dedup the flat "Asignar a opción" dropdown by material name — one
+  // card can hold N panes of the same material (flat `materials_data`),
+  // so the raw array would render the material N times.
+  const flatMaterialOptions = React.useMemo(() => {
+    const seen = new Set<string>();
+    const out: Array<{ name: string; isAlternative: boolean }> = [];
+    for (const m of formMaterials || []) {
+      if (!m || !m.name || seen.has(m.name)) continue;
+      seen.add(m.name);
+      out.push({ name: m.name, isAlternative: !!m.is_alternative });
+    }
+    return out;
+  }, [formMaterials]);
   const formulaMultiplier = catalogueItem
     ? resolveFrenteMultiplier(catalogueItem)
     : null;
@@ -220,14 +230,14 @@ export default function AdditionalWorkCard({
               disabled={readOnly}
             >
               <option value={POOL_MATERIAL_GLOBAL}>(Global — suma al total)</option>
-              {formMaterials.length === 0 ? (
+              {flatMaterialOptions.length === 0 ? (
                 <option value="" disabled>
                   (Agregá un material arriba para poder asignar)
                 </option>
               ) : null}
-              {formMaterials.map((m) => (
+              {flatMaterialOptions.map((m) => (
                 <option key={m.name} value={m.name}>
-                  {(m.is_alternative ? 'Alternativa: ' : 'Principal: ')}
+                  {(m.isAlternative ? 'Alternativa: ' : 'Principal: ')}
                   {m.name}
                 </option>
               ))}

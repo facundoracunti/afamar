@@ -5,16 +5,19 @@ export const getMaterial = (id: number | string) => http.get(`/materials/${id}`)
 export const getMaterialCategories = (params?: Record<string, unknown>) => http.get('/materials/categories', { params });
 
 /**
- * Coerce the form's `category_id` (string from `<option value>`) to a
- * number so the Pydantic schema (which expects `int`) accepts it.
+ * Coerce the form's `category_id` / `color_id` (strings from
+ * `<option value>`) to numbers so the Pydantic schema (which expects
+ * `int`) accepts them. Empty selection is sent as `null` (no color).
  * The rest of the form payload is already snake_case to match the API
  * and is passed through unchanged.
  */
 function normalizeMaterialPayload(data: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = { ...data };
-  if (out.category_id !== undefined && out.category_id !== '' && out.category_id !== null) {
-    const asNumber = Number(out.category_id);
-    out.category_id = Number.isNaN(asNumber) ? null : asNumber;
+  for (const key of ['category_id', 'color_id'] as const) {
+    if (out[key] !== undefined && out[key] !== '' && out[key] !== null) {
+      const asNumber = Number(out[key]);
+      out[key] = Number.isNaN(asNumber) ? null : asNumber;
+    }
   }
   return out;
 }
@@ -25,6 +28,12 @@ export const updateMaterial = (id: number | string, data: Record<string, unknown
   http.put(`/materials/${id}`, normalizeMaterialPayload(data));
 export const deleteMaterial = (id: number | string) => http.delete(`/materials/${id}`);
 export const getPriceHistory = (id: number | string) => http.get(`/materials/${id}/price-history`);
+
+// Material colors CRUD
+export const getMaterialColors = (params?: Record<string, unknown>) => http.get('/materials/colors', { params });
+export const createMaterialColor = (data: { name: string }) => http.post('/materials/colors', data);
+export const updateMaterialColor = (id: number | string, data: { name: string }) => http.put(`/materials/colors/${id}`, data);
+export const deleteMaterialColor = (id: number | string) => http.delete(`/materials/colors/${id}`);
 
 // Material categories CRUD
 export interface MaterialCategory {

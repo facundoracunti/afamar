@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { act, renderHook } from '@testing-library/react';
+import { useAdditionalWorkSelection } from './useAdditionalWorkSelection';
 import {
   parseAdditionalWorksData,
   serializeAdditionalWorksData,
@@ -286,5 +288,141 @@ describe('removeAt vs remove — multi-frente safety', () => {
     ];
     const after = removeByIdFirstMatch(initial, 99);
     expect(after).toHaveLength(0);
+  });
+});
+
+/**
+ * Contract for the refactored hook: source of truth is the parent JSON
+ * (`value`); mutators call `onChange(json)`. We exercise it with
+ * `@testing-library/react` so we can mutate through the real hook
+ * implementation without rebuilding a mini one like `syncedSelections`
+ * above.
+ *
+ * The repo is configured with `vitest` + `jsdom` and has the
+ * `@testing-library/react` peer already wired (used by
+ * `useConfirmPayment.test.tsx` etc.), so this is a drop-in.
+ */
+describe('useAdditionalWorkSelection — parent-as-source-of-truth contract', () => {
+  const flatItem: import('../types/additionalWork').AdditionalWork = {
+    id: 1,
+    name: 'Pulido',
+    detail: null,
+    price: 15000,
+    currency: 'ARS',
+    type: 'flat',
+    formula_constant: null,
+  };
+
+  it('derives the initial selection from `value` (no local state copy)', () => {
+    const seed = [
+      {
+        additional_work_id: 1,
+        name: 'Pulido',
+        detail: null,
+        price: 15000,
+        currency: 'ARS' as const,
+        quantity: 2,
+        total: 30000,
+        materialName: '__GLOBAL__',
+        type: 'flat' as const,
+      },
+    ];
+    const { result } = renderHook(() =>
+      useAdditionalWorkSelection(serializeAdditionalWorksData(seed), () => {}),
+    );
+    expect(result.current.selections).toHaveLength(1);
+    expect(result.current.selections[0].additional_work_id).toBe(1);
+    expect(result.current.totalArs).toBe(30000);
+  });
+
+  it('add() pushes a row via onChange (no JSON.stringify-of-undefined quirks)', () => {
+    const onChange = vi.fn();
+    const { result } = renderHook(() => useAdditionalWorkSelection(null, onChange));
+    act(() => {
+      result.current.add({ catalogueItem: flatItem, quantity: 1 });
+    });
+    expect(onChange).toHaveBeenCalledTimes(1);
+    const json = onChange.mock.calls[0][0] as string;
+    expect(json).toContain('"additional_work_id":1');
+    expect(json).toContain('"name":"Pulido"');
+    // The new row serialises with the same canonical shape as
+    // parseAdditionalWorksData would produce — no `detail` key omitted
+    // because of `undefined` values (the bug that used to desync the
+    // old `useState` mirror via the `JSON.stringify` bailout).
+    const parsed = parseAdditionalWorksData(json);
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].detail).toBeNull();
+  });
+
+  it('removeAt() drops the row at the given index regardless of catalogue id', () => {
+    const onChange = vi.fn();
+    const seed: import('../utils/additionalWorkParse').AdditionalWorkSelection[] = [
+      { additional_work_id: 24, type: 'frente', assigned_material_id: 42, name: 'Frente A', detail: null, price: 0, currency: 'ARS', quantity: 1, total: 0, materialName: '__GLOBAL__', linear_meters: 1, formula_values: null },
+      { additional_work_id: 24, type: 'frente', assigned_material_id: 17, name: 'Frente B', detail: null, price: 0, currency: 'ARS', quantity: 1, total: 0, materialName: '__GLOBAL__', linear_meters: 1, formula_values: null },
+    ];
+    const { result } = renderHook(() =>
+      useAdditionalWorkSelection(serializeAdditionalWorksData(seed), onChange),
+    );
+    act(() => {
+      result.current.removeAt(0);
+    });
+    const json = onChange.mock.calls[0][0] as string;
+    const parsed = parseAdditionalWorksData(json);
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].assigned_material_id).toBe(17);
+  });
+
+  it('re-rendering with an updated `value` reflects the new snapshot', () => {
+    const onChange = vi.fn();
+    const initial = JSON.stringify([
+      {
+        additional_work_id: 1,
+        name: 'Pulido',
+        detail: null,
+        price: 100,
+        currency: 'ARS' as const,
+        quantity: 1,
+        total: 100,
+        materialName: '__GLOBAL__',
+        type: 'flat' as const,
+      },
+    ]);
+    const { result, rerender } = renderHook(
+      ({ value }: { value: string }) => useAdditionalWorkSelection(value, onChange),
+      { initialProps: { value: initial } },
+    );
+    expect(result.current.selections).toHaveLength(1);
+
+    const updated = JSON.stringify([
+      {
+        additional_work_id: 1,
+        name: 'Pulido',
+        detail: null,
+        price: 100,
+        currency: 'ARS' as const,
+        quantity: 5,
+        total: 500,
+        materialName: '__GLOBAL__',
+        type: 'flat' as const,
+      },
+      {
+        additional_work_id: 2,
+        name: 'Bisel',
+        detail: null,
+        price: 50,
+        currency: 'ARS' as const,
+        quantity: 1,
+        total: 50,
+        materialName: '__GLOBAL__',
+        type: 'flat' as const,
+      },
+    ]);
+    rerender({ value: updated });
+    expect(result.current.selections).toHaveLength(2);
+    expect(result.current.totalArs).toBe(550);
+    // The hook should not have fired onChange while the parent just
+    // pushed an updated value — onChange is the *parent's* write path,
+    // not an echo.
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

@@ -11,6 +11,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import type { EntityFormState } from '../types';
+import type { Material } from '../types/material';
 import {
   DEFAULT_FINANCIALS,
   INITIAL_FORM,
@@ -18,7 +19,11 @@ import {
   mapFinancialToForm,
   buildPayload,
   mapApiToForm,
+  addMaterialRowToList,
+  repointSwapReferences,
+  swapMaterialGroupToList,
 } from './entityFormHelpers';
+import { POOL_MATERIAL_GLOBAL } from '../types/budget';
 
 // All 17 FinancialBase field names. Single source of truth for the tests below.
 const FINANCIAL_FIELDS = [
@@ -402,5 +407,257 @@ describe('fabrication_detail price contract — always in ARS', () => {
     }, 'PENDING');
     expect(form.fabrication_details[0].price).toBe(12500);
     expect(form.fabrication_details[0].m2).toBe(2.5);
+  });
+});
+
+describe('addMaterialRowToList — material card measurement rows', () => {
+  const baseMaterial = {
+    id: 42,
+    name: 'Negro Brasil',
+    category: '1',
+    color: 'Gris',
+    price_m2: 200000,
+    price_m2_usd: 330,
+    currency: 'USD' as const,
+    quantity: 1,
+    m2_used: 0,
+    m2_budgeted: 0,
+    length: 2,
+    width: 1,
+    is_alternative: false,
+  };
+
+  it('appends a new row preserving the material identity and prices', () => {
+    const form = { ...INITIAL_FORM, materials_data: [baseMaterial] };
+    const out = addMaterialRowToList(form, baseMaterial)!;
+    expect(out).toHaveLength(2);
+    expect(out[1].id).toBe(42);
+    expect(out[1].name).toBe('Negro Brasil');
+    expect(out[1].price_m2).toBe(200000);
+    expect(out[1].price_m2_usd).toBe(330);
+    expect(out[1].currency).toBe('USD');
+    expect(out[1].is_alternative).toBe(false);
+  });
+
+  it('starts the new row with blank dimensions and quantity 1', () => {
+    const form = { ...INITIAL_FORM, materials_data: [baseMaterial] };
+    const out = addMaterialRowToList(form, baseMaterial)!;
+    expect(out[1].quantity).toBe(1);
+    expect(out[1].length).toBe(0);
+    expect(out[1].width).toBe(0);
+    expect(out[1].m2_used).toBe(0);
+    expect(out[1].m2_budgeted).toBe(0);
+  });
+
+  it('does not mutate the existing rows (flat array contract)', () => {
+    const form = { ...INITIAL_FORM, materials_data: [baseMaterial] };
+    const out = addMaterialRowToList(form, baseMaterial)!;
+    expect(out[0]).toBe(baseMaterial);
+    expect(form.materials_data).toHaveLength(1);
+  });
+
+  it('carries over the alternative flag when the card is an alternativa', () => {
+    const altMaterial = { ...baseMaterial, is_alternative: true };
+    const form = { ...INITIAL_FORM, materials_data: [altMaterial] };
+    const out = addMaterialRowToList(form, altMaterial)!;
+    expect(out[1].is_alternative).toBe(true);
+  });
+
+  it('returns null for a missing material name (guards the "+" button)', () => {
+    const form = { ...INITIAL_FORM, materials_data: [] };
+    expect(addMaterialRowToList(form, { ...baseMaterial, name: '' })).toBeNull();
+    expect(addMaterialRowToList(form, null as unknown as typeof baseMaterial)).toBeNull();
+  });
+});
+
+describe('swapMaterialGroupToList — "Cambiar material" card swap', () => {
+  const replacement: Material = {
+    id: 99,
+    name: 'Marmol Carrara',
+    category_id: 3,
+    color: 'Blanco',
+    base_price: 250000,
+    price_usd: 410,
+    currency: 'USD',
+  };
+
+  const rowA = {
+    id: 42,
+    name: 'Negro Brasil',
+    category: '1',
+    color: 'Gris',
+    price_m2: 200000,
+    price_m2_usd: 330,
+    currency: 'USD' as const,
+    quantity: 2,
+    m2_used: 4,
+    m2_budgeted: 4,
+    length: 2,
+    width: 1,
+    is_alternative: true,
+  };
+  const rowB = {
+    id: 42,
+    name: 'Negro Brasil',
+    category: '1',
+    color: 'Gris',
+    price_m2: 200000,
+    price_m2_usd: 330,
+    currency: 'USD' as const,
+    quantity: 1,
+    m2_used: 1.5,
+    m2_budgeted: 1.5,
+    length: 1.5,
+    width: 1,
+    is_alternative: true,
+  };
+  const other = {
+    id: 7,
+    name: 'Pileta X',
+    category: '2',
+    color: '',
+    price_m2: 100,
+    price_m2_usd: 5,
+    currency: 'ARS' as const,
+    quantity: 1,
+    m2_used: 0,
+    m2_budgeted: 0,
+    length: 0,
+    width: 0,
+    is_alternative: false,
+  };
+
+  it('replaces the identity of every row in the group keeping measurements', () => {
+    const form = { ...INITIAL_FORM, materials_data: [rowA, rowB, other] };
+    const out = swapMaterialGroupToList(form, [0, 1], replacement)!;
+    expect(out[0].id).toBe(99);
+    expect(out[0].name).toBe('Marmol Carrara');
+    expect(out[0].color).toBe('Blanco');
+    expect(out[0].category).toBe('3');
+    expect(out[0].price_m2).toBe(250000);
+    expect(out[0].price_m2_usd).toBe(410);
+    expect(out[0].currency).toBe('USD');
+    // Measurements + alternative flag survive the swap
+    expect(out[0].quantity).toBe(2);
+    expect(out[0].length).toBe(2);
+    expect(out[0].width).toBe(1);
+    expect(out[0].m2_used).toBe(4);
+    expect(out[0].is_alternative).toBe(true);
+    expect(out[1].length).toBe(1.5);
+    expect(out[1].quantity).toBe(1);
+  });
+
+  it('leaves rows outside the group untouched', () => {
+    const form = { ...INITIAL_FORM, materials_data: [rowA, rowB, other] };
+    const out = swapMaterialGroupToList(form, [0], replacement)!;
+    expect(out[1]).toBe(rowB);
+    expect(out[2]).toBe(other);
+    expect(form.materials_data).toHaveLength(3);
+  });
+
+  it('returns null for an empty material (guards the picker)', () => {
+    const form = { ...INITIAL_FORM, materials_data: [rowA] };
+    expect(swapMaterialGroupToList(form, [0], { ...replacement, name: '' })).toBeNull();
+    expect(swapMaterialGroupToList(form, [0], null as unknown as Material)).toBeNull();
+  });
+});
+
+describe('repointSwapReferences — "Cambiar material" follow-up re-pointing', () => {
+  const poolAttached = {
+    pool_id: 1,
+    brand: 'Johnson',
+    model: 'Acero',
+    price: 50000,
+    currency: 'ARS' as const,
+    quantity: 1,
+    material: 'Negro Brasil',
+  };
+  const poolOther = { ...poolAttached, pool_id: 2, material: 'Pileta X' };
+  const poolGlobal = { ...poolAttached, pool_id: 3, material: POOL_MATERIAL_GLOBAL };
+  const poolEmpty = { ...poolAttached, pool_id: 4, material: '' };
+
+  const fabAttached = {
+    concept: 'Corte',
+    detail: 'Recto',
+    material: 'Negro Brasil',
+    material_price_m2: 330,
+    length: 2,
+    width: 1,
+    m2: 2,
+    labor: null,
+    currency: 'USD' as const,
+    quantity: 1,
+    price: 660,
+  };
+  const fabCommon = { ...fabAttached, material: '' };
+  const fabOther = { ...fabAttached, material: 'Pileta X' };
+
+  it('re-points pool entries whose `material` matches an old name', () => {
+    const form = {
+      ...INITIAL_FORM,
+      pools_data: [poolAttached, poolOther, poolGlobal, poolEmpty],
+    } as EntityFormState;
+    const out = repointSwapReferences(form, new Set(['Negro Brasil']), 'Marmol Carrara');
+    expect(out.pools_data[0].material).toBe('Marmol Carrara');
+    expect(out.pools_data[1].material).toBe('Pileta X');
+    expect(out.pools_data[2].material).toBe(POOL_MATERIAL_GLOBAL);
+    expect(out.pools_data[3].material).toBe('');
+    expect(out.pools_data[0]).not.toBe(poolAttached);
+    expect(out.pools_data[1]).toBe(poolOther);
+  });
+
+  it('re-points fabrication entries and leaves the common bucket alone', () => {
+    const form = {
+      ...INITIAL_FORM,
+      fabrication_details: [fabAttached, fabOther, fabCommon],
+    } as EntityFormState;
+    const out = repointSwapReferences(form, new Set(['Negro Brasil']), 'Marmol Carrara');
+    expect(out.fabrication_details[0].material).toBe('Marmol Carrara');
+    expect(out.fabrication_details[1].material).toBe('Pileta X');
+    expect(out.fabrication_details[2].material).toBe('');
+  });
+
+  it('preserves POOL_MATERIAL_GLOBAL on pools and ignores it as a candidate', () => {
+    const form = {
+      ...INITIAL_FORM,
+      pools_data: [poolAttached, poolGlobal],
+    } as EntityFormState;
+    const out = repointSwapReferences(form, new Set(['Negro Brasil', POOL_MATERIAL_GLOBAL]), 'Marmol Carrara');
+    expect(out.pools_data[0].material).toBe('Marmol Carrara');
+    expect(out.pools_data[1].material).toBe(POOL_MATERIAL_GLOBAL);
+  });
+
+  it('re-points additional_works_data `materialName` and keeps unknown fields', () => {
+    const form = {
+      ...INITIAL_FORM,
+      additional_works_data: JSON.stringify([
+        { additional_work_id: 1, name: 'Pulido', materialName: 'Negro Brasil', quantity: 1, price: 100, total: 100, currency: 'ARS', type: 'flat', detail: null },
+        { additional_work_id: 2, name: 'Frente', materialName: '__ALT__:Negro Brasil', quantity: 1, price: 50, total: 50, currency: 'USD', type: 'frente', detail: null, customTag: 'preserve-me' },
+        { additional_work_id: 3, name: 'Global', materialName: POOL_MATERIAL_GLOBAL, quantity: 1, price: 0, total: 0, currency: 'ARS', type: 'flat', detail: null },
+        { additional_work_id: 4, name: 'Other', material_name: 'Pileta X', quantity: 1, price: 0, total: 0, currency: 'ARS', type: 'flat', detail: null },
+      ]),
+    } as EntityFormState;
+    const out = repointSwapReferences(form, new Set(['Negro Brasil']), 'Marmol Carrara');
+    const rows = JSON.parse(out.additional_works_data!);
+    expect(rows[0].materialName).toBe('Marmol Carrara');
+    expect(rows[1].materialName).toBe('__ALT__:Marmol Carrara');
+    expect(rows[1].customTag).toBe('preserve-me');
+    expect(rows[2].materialName).toBe(POOL_MATERIAL_GLOBAL);
+    expect(rows[3].material_name).toBe('Pileta X');
+  });
+
+  it('returns the original additional_works_data string when no row was repointed', () => {
+    const original = JSON.stringify([
+      { additional_work_id: 1, name: 'Pulido', materialName: 'Pileta X', quantity: 1, price: 0, total: 0, currency: 'ARS', type: 'flat', detail: null },
+    ]);
+    const form = { ...INITIAL_FORM, additional_works_data: original } as EntityFormState;
+    const out = repointSwapReferences(form, new Set(['Negro Brasil']), 'Marmol Carrara');
+    expect(out.additional_works_data).toBe(original);
+  });
+
+  it('keeps null additional_works_data as null when nothing matches', () => {
+    const form = { ...INITIAL_FORM, additional_works_data: null } as EntityFormState;
+    const out = repointSwapReferences(form, new Set(['Negro Brasil']), 'Marmol Carrara');
+    expect(out.additional_works_data).toBeNull();
   });
 });

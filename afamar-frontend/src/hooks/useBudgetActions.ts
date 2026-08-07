@@ -58,6 +58,7 @@ export function useBudgetActions({
   const extractError = (err: unknown): string => parseApiError(err);
 
   const handleSubmit = useCallback(async (e?: React.FormEvent) => {
+    e?.preventDefault();
     const wasRejected = form.status === 'REJECTED';
     setSaving(true);
     try {

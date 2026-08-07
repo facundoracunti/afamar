@@ -257,3 +257,78 @@ describe('useBudgetCalculations — USD handling', () => {
     expect(result.current.form.total_usd).toBe(98.33);
   });
 });
+
+describe('useBudgetCalculations — additional_works_data triggers total recompute', () => {
+  /**
+   * Regression test: the on-form subtotal/total/balance_due in the
+   * Presupuesto section were stale after the operator added/edited/removed
+   * a Trabajo Adicional because `form.additional_works_data` was missing
+   * from the hook's dependency array. The PDF (re-rendered server-side)
+   * was always correct, which is why both surfaces diverged.
+   *
+   * Now that the dep is included (JSON.stringify of the snapshot), adding
+   * an additional work must re-fire the effect and bump `form.total` /
+   * `form.balance_due` so the Presupuesto section agrees with the PDF.
+   */
+  it('updates form.total / balance_due when additional_works_data changes', () => {
+    const { result } = renderCalc(makeForm({
+      additional_works_data: '[]',
+      usd_rate: 1000,
+    }));
+    expect(result.current.form.total).toBe(0);
+    expect(result.current.form.balance_due).toBe(0);
+
+    act(() => {
+      result.current.setForm((prev) => ({
+        ...prev,
+        additional_works_data: JSON.stringify([
+          {
+            additional_work_id: 1,
+            name: 'Pulido de bordes',
+            detail: null,
+            price: 15000,
+            currency: 'ARS',
+            quantity: 2,
+            total: 30000,
+            materialName: '__GLOBAL__',
+            type: 'flat',
+          },
+        ]),
+      }));
+    });
+    expect(result.current.form.subtotal).toBe(30000);
+    expect(result.current.form.total).toBe(30000);
+    expect(result.current.form.balance_due).toBe(30000);
+  });
+
+  it('updates form.total when the operator removes the last additional work', () => {
+    const { result } = renderCalc(makeForm({
+      additional_works_data: JSON.stringify([
+        {
+          additional_work_id: 24,
+          name: 'Frente doble',
+          detail: null,
+          price: 0,
+          currency: 'ARS',
+          quantity: 1,
+          total: 26000,
+          materialName: 'Negro Brasil',
+          type: 'frente',
+          linear_meters: 1,
+          formula_values: {
+            material_price_m2_at_selection: 200000,
+            multiplier: 1.15,
+            computed_at: '2026-01-01T00:00:00.000Z',
+          },
+        },
+      ]),
+      usd_rate: 1000,
+    }));
+    // Triggers the recalc on mount once, then again after the clear.
+    expect(result.current.form.total).toBe(26000);
+    act(() => {
+      result.current.setForm((prev) => ({ ...prev, additional_works_data: '[]' }));
+    });
+    expect(result.current.form.total).toBe(0);
+  });
+});

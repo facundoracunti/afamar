@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { parseApiError } from '../../../utils/error';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { FolderTree } from 'lucide-react';
+import { FolderTree, Palette } from 'lucide-react';
 import {
   getMaterial,
   createMaterial,
@@ -10,21 +10,27 @@ import {
   uploadMaterialPhoto,
   deleteMaterialPhoto,
   getMaterialCategories,
+  getMaterialColors,
   primeMaterialCategoryMap,
   type MaterialCategory,
 } from '@/api/resources/materials';
+import type { MaterialColor } from '../../../types/material';
 import { getSettings } from '@/api/resources/settings';
 import { useNotify } from '../../../context/NotificationContext';
 import { useGet, useList } from '../../../api/hooks';
 import type { MaterialFormData, Material } from '../../../types/material';
 import { LoadingSpinner } from '../../ui/LoadingSpinner/LoadingSpinner';
+import { Modal } from '../../ui/Modal/Modal';
 import { FormActions } from '../../ui/FormActions/FormActions';
 import { MaterialPhotoUploader } from '../MaterialPhotoUploader/MaterialPhotoUploader';
 import styles from './MaterialForm.module.css';
 
 const s = styles as unknown as Record<string, string>;
 
+const MaterialsColorsPage = React.lazy(() => import('../../../pages/materials/MaterialsColorsPage'));
+
 const CATEGORIES_KEY = ['material-categories'] as const;
+const COLORS_KEY = ['material-colors'] as const;
 const SETTINGS_KEY = ['settings'] as const;
 const MATERIAL_KEY = (id: string | number | undefined) => ['material', id] as const;
 
@@ -48,7 +54,7 @@ export default function MaterialForm({ materialId, onSaved, onCancel }: Material
   const [form, setForm] = useState<MaterialFormData>({
     name: '',
     category_id: '',
-    color: '',
+    color_id: '',
     available_thickness: '',
     base_price: 0,
     price_usd: 0,
@@ -69,6 +75,14 @@ export default function MaterialForm({ materialId, onSaved, onCancel }: Material
       const list = (res.data as unknown as MaterialCategory[]) || [];
       await primeMaterialCategoryMap();
       return list;
+    }
+  );
+
+  const { items: colores, loading: loadingColors } = useList<MaterialColor>(
+    COLORS_KEY,
+    async () => {
+      const res = await getMaterialColors();
+      return (res.data as unknown as MaterialColor[]) || [];
     }
   );
 
@@ -96,7 +110,7 @@ export default function MaterialForm({ materialId, onSaved, onCancel }: Material
     setForm({
       name: materialData.name || '',
       category_id: materialData.category_id ? String(materialData.category_id) : '',
-      color: materialData.color || '',
+      color_id: materialData.color_id ? String(materialData.color_id) : '',
       available_thickness: materialData.available_thickness || '',
       base_price: materialData.base_price || 0,
       price_usd: materialData.price_usd || 0,
@@ -177,12 +191,16 @@ export default function MaterialForm({ materialId, onSaved, onCancel }: Material
     }
     setSaving(true);
     try {
+      const payload: Record<string, unknown> = {
+        ...form,
+        color_id: form.color_id === '' || form.color_id === undefined ? null : Number(form.color_id),
+      };
       let materialIdResolved: string | number;
       if (isEdit) {
-        await updateMaterial(materialId as string, form as unknown as Record<string, unknown>);
+        await updateMaterial(materialId as string, payload);
         materialIdResolved = materialId as string;
       } else {
-        const res = await createMaterial(form as unknown as Record<string, unknown>);
+        const res = await createMaterial(payload);
         materialIdResolved = (res.data as Material).id;
       }
       if (selectedFile) {
@@ -242,8 +260,33 @@ export default function MaterialForm({ materialId, onSaved, onCancel }: Material
         </div>
         <div className={s['material-form__row']}>
           <div className={s['material-form__group']}>
-            <label className={s['material-form__label']}>Color</label>
-            <input className="input" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
+            <label className={s['material-form__label']}>
+              Color
+              <a
+                href="/admin/materials/colors"
+                onClick={(e) => { e.preventDefault(); navigate('/admin/materials/colors'); }}
+                className={s['material-form__label-link']}
+                title="Gestionar colores"
+              >
+                <Palette size={12} /> Gestionar
+              </a>
+            </label>
+            <select
+              className="input"
+              value={form.color_id}
+              onChange={(e) => setForm({ ...form, color_id: e.target.value })}
+              disabled={loadingColors && colores.length === 0}
+            >
+              <option value="">Sin color</option>
+              {colores.map((c) => (
+                <option key={c.id} value={String(c.id)}>{c.name}</option>
+              ))}
+            </select>
+            {!loadingColors && colores.length === 0 && (
+              <small className={s['material-form__warn-text']}>
+                No hay colores cargados. Creá uno desde "Gestionar Colores" en el menú.
+              </small>
+            )}
           </div>
           <div className={s['material-form__group']}>
             <label className={s['material-form__label']}>Espesor disponible</label>

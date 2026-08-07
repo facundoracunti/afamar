@@ -1,0 +1,135 @@
+/* MaterialsColorsPage — BEM
+   .colors                     block (page wrapper)
+   .colors__toolbar            toolbar (search + new)
+   .colors__table              table wrapper
+   .colors__th                 table header cell
+   .colors__td                 table data cell
+   .colors__cell-actions       actions cell
+   .colors__modal-body         modal form body
+   .colors__modal-actions      modal action buttons
+*/
+
+.colors {
+  display: grid;
+  gap: 16px;
+}
+
+.colors__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.colors__table {
+  background: var(--surface-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.colors__table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.colors__th {
+  background: var(--surface-alt-bg);
+  text-align: left;
+  padding: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.colors__th--actions {
+  width: 120px;
+  text-align: right;
+}
+
+.colors__td {
+  padding: 12px;
+  font-size: 14px;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.colors__td--center {
+  text-align: center;
+  width: 60px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.colors__td--name {
+  font-weight: 600;
+}
+
+.colors__cell-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.colors__modal-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.colors__modal-body label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.colors__modal-body input {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 14px;
+  outline: none;
+  background: var(--input-bg);
+  color: var(--input-text);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-sizing: border-box;
+}
+
+.colors__modal-body input:focus {
+  border-color: var(--input-focus-border);
+  box-shadow: 0 0 0 3px var(--input-focus-shadow);
+}
+
+.colors__modal-body input:disabled {
+  background: var(--surface-alt-bg);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.colors__modal-actions {
+  padding: 14px 24px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid var(--border-color);
+  background: var(--surface-alt-bg);
+}
+
+.colors__counter {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.colors__tag-icon {
+  vertical-align: middle;
+  margin-right: 6px;
+  color: var(--text-muted);
+}

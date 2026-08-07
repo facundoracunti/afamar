@@ -1,9 +1,9 @@
 # AGENTS.md
 
-> **Estado:** Rama `development`. Fases 1-6.11 completadas. Feature: dashboard modales.
-> `tsc --noEmit` 0 errores · `vite build` ~14s, gzip ~770 KB (chunks principales) · vitest 144/144 · pytest 14/14 · playwright 101/101 passing (3 skipped intencionales, ~2.8 min).
+> **Estado:** Rama `development`. Fases 1-6.11 completadas. Features recientes: dashboard modales, material swap con re-pointing de pools/fabrication/adicionales, totales del Presupuesto live (parseo on-read de `additional_works_data` en `BudgetLineItems` + dep añadida en `useBudgetCalculations`).
+> `tsc --noEmit` 0 errores · `vite build` ~14s, gzip ~770 KB (chunks principales) · vitest 171/171 (15 archivos) · pytest 14/14 · playwright budgets 12/12 passing (1 skipped intencional).
 >
-> **Índice del conocimiento (codebase-memory):** proyecto indexado en knowledge graph (3570 nodos / 12533 aristas). ADR de arquitectura en `manage_adr` (project `afamar`). Artefacto persistente en `.codebase-memory/graph.db.zst` (commitearlo para compartir el índice). Ver sección "Índice del conocimiento" abajo.
+> **Índice del conocimiento (codebase-memory):** proyecto indexado en knowledge graph (3751 nodos / 13286 aristas). ADR de arquitectura en `manage_adr` (project `afamar` — secciones PURPOSE / STACK / ARCHITECTURE / PATTERNS / TRADEOFFS / PHILOSOPHY). Artefacto persistente en `.codebase-memory/graph.db.zst` (commitearlo para compartir el índice). Ver sección "Índice del conocimiento" abajo.
 
 ## Índice del conocimiento (codebase-memory)
 
@@ -11,10 +11,10 @@ El repo está indexado en el knowledge graph de codebase-memory (MCP) bajo el pr
 
 - **Reindexar:** `index_repository` con `repo_path=D:\projects\PERSONAL\afamar`, `name=afamar` (usar el override para no crear un proyecto duplicado derivado del path), `mode=full`, `persistence=true`.
 - **Artefacto:** `persistence=true` genera `.codebase-memory/graph.db.zst` (~1.7 MB) — **ya no es una limitación**. El server MCP agrega `.codebase-memory` al `.gitignore`; si se quiere compartir el índice con teammates, commitearlo explícitamente con `git add -f .codebase-memory/graph.db.zst` (o un-ignorearlo).
-- **ADR de arquitectura:** consultable/actualizable con `manage_adr` (project `afamar`) — documenta las capas del backend, el hot-path de `BaseRepository` y `createResource.get`, el facade `useEntityForm`, el contrato snake_case frontend-backend, la arquitectura de dashboard modales y los clusters de-facto.
-- **Hotspots confirmados:** backend `BaseRepository.add` (26 callers) / `save` (24); frontend `createResource.get` (70 callers, #1 global), `parseApiError` (27), `LoadingSpinner` (23), `useNotify` (18), `createResource.update` (18). Optimizaciones de performance deben apuntar ahí.
+- **ADR de arquitectura:** consultable/actualizable con `manage_adr` (project `afamar`) — documenta el contrato "el form es la fuente de verdad" (form ↔ PDF ↔ DB), el hot-path de `BaseRepository.add`/`save` y `createResource.get`, el facade `useEntityForm`, los invariantes de `useBudgetCalculations` (deps deben incluir `additional_works_data`), `useBudgetActions.handleSubmit` con `e.preventDefault()`, los helpers `swapMaterialGroupToList` + `repointSwapReferences`, y los clusters de-facto. Estructura por secciones: PURPOSE / STACK / ARCHITECTURE / PATTERNS / TRADEOFFS / PHILOSOPHY.
+- **Hotspots confirmados:** backend `BaseRepository.add` (28 callers) / `save` (25); frontend `createResource.get` (71 callers, #1 global), `parseApiError` (27), `LoadingSpinner` (24), `useNotify` (19), `createResource.update` (19), `loginViaApi` (19). Optimizaciones de performance deben apuntar ahí.
 - **Complejidad alta:** `usePlateCalculator` (bin-packing, loop_depth 4, cyclomatic 13 — único loop anidado ≥4), `pdf_html._sketch_to_png_base64_list` (loop_depth 3, cyclomatic 25), `WorkOrderService.update` (cyclomatic 12).
-- **Clusters de-facto:** frontend core UI (122 miembros, cohesión 0.83), forms orchestration BudgetForm/WorkOrderForm/useEntityForm/EntityFormLayout (69), backend CRUD genérico (54+52+43+39+36+34+33), budget panel ARS/USD (46), backend PDF+seeders (36, 0.85). Sin dependencia circular entre `app/` y `src/`.
+- **Clusters de-facto:** frontend core UI (102 miembros, cohesión 0.79), forms orchestration BudgetForm/WorkOrderForm/useEntityForm/EntityFormLayout (74, 0.81), `parseApiError`+`useBudgetActions`+`buildPayload`+`useFormActions` (65, 0.81), budget/quote/fabrication/sketch family (54, 0.88 — cohesión alta). Sin dependencia circular entre `app/` y `src/`.
 
 ## Reglas de operación
 
@@ -145,7 +145,7 @@ afamar-frontend/   — Vite + React + TS
                        for reference data — clients, materials, pools, settings),
                      usePdfPreviewController (shared PDF preview state — used by
                        BudgetsListPage and WorkOrdersListPage),
-                     entityFormHelpers.ts (re-export hub + addMaterialToList/addPoolToList),
+                     entityFormHelpers.ts (re-export hub + addMaterialToList/addPoolToList + addMaterialRowToList + swapMaterialGroupToList + repointSwapReferences),
                      entityFormConstants.ts (M2_CONCEPTS, CUTOUT_DETAILS, DEFAULT_FINANCIALS, INITIAL_FORM),
                      entityFormFinancial.ts (buildFinancialPayload, mapFinancialToForm),
                      entityFormSerialization.ts (buildPayload, mapApiToForm, sketch flatten/unflatten)
@@ -191,6 +191,11 @@ afamar-frontend/   — Vite + React + TS
 - **Status enums:** English en DB (`MEASUREMENT`, `WORKSHOP`, etc.), Spanish en UI via `t(key)` en `utils/translate.ts`.
 - **React keys:** siempre usar IDs estables del data (`m.id`, `slide.title`, `d.concept + '|' + d.detail`, `s.label`, `img.slice(0, 32)`). Nunca `key={i}`.
 - **Client data flow:** Budget/WorkOrder stores only `client_id` (FK) + optional `delivery_address_id` (FK → `client_addresses`). No snapshot columns. `from_orm_with_client()` resolves `client_*` fields from live `Client` row at serialization time. If `delivery_address_id` is set, `client_address` is overridden with the matching `ClientAddress.address`. `delivery_address_id` is patchable on update (both `BudgetUpdate` and `WorkOrderUpdate` include the field). Conversion paths (`create_from_budget`, `convert_alternative_to_work_order`) copy `delivery_address_id` from the source budget.
+- **Submit button pattern:** `useFormActions.handleSubmit` MUST call `e.preventDefault()` (else `<button type="submit">` triggers a native form GET that aborts the in-flight PUT — fixed in `useBudgetActions`; same risk applies to any future router that builds a similar submit). When building a sibling router that uses a submit button, mirror the same `e?.preventDefault()` call.
+- **Totals effect deps:** `useBudgetCalculations` deps array must include `JSON.stringify(...)` for EVERY form slice it reads (incl. `additional_works_data`), otherwise the Presupuesto's SUBTOTAL/TOTAL/SALDO PENDIENTE go stale and disagree with the PDF (which the user notices when comparing both surfaces). Extract each `JSON.stringify(...)` to a stable local variable before the `useEffect` so `react-hooks/exhaustive-deps` can statically check them.
+- **Material swap helpers:** `swapMaterialGroupToList` (identity swap in `materials_data`) + `repointSwapReferences(form, oldNames, newName)` (renames `pools_data[].material`, `fabrication_details[].material`, `additional_works_data[].materialName`/`material_name` — honoring the `__ALT__:` alternative prefix; preserves `POOL_MATERIAL_GLOBAL`, empty links, and unknown additional-work fields). Both consumed together by `useFormMaterials.swapMaterialGroup` via a single functional `setForm`.
+- **Derived UI lists, no local mirrors:** `selections`, `materials_list`, etc. must be derived on each render from the parent form slice (parse JSON on read), not mirrored into local `useState` and synced via `useEffect`. The previous `useAdditionalWorkSelection` had a local mirror with a `JSON.stringify` bailout that desync'ed whenever `detail: undefined`/`null` normalization or float formatting diverged (manifesting as "items don't render in the list even though they sum into totals"). Same risk applies to any derived list — keep the parent as the single source of truth.
+- **E2E auth:** always `loginViaApi(page, request)` from `e2e/helpers/login.ts` to avoid the 5/min `/auth/login` rate-limit of `loginAsAdmin`.
 
 ## Dashboard modales
 
@@ -308,18 +313,19 @@ El handler `addPorcelainDetail` se construye desde `state.update` y `state.form`
 - **Render:** `render(<Component />)` + `screen.getByText/Role/Title` para asserts. Wrap con `MemoryRouter` si el componente usa `useNavigate`.
 - **Errores/silencios:** los tests deben validar que los errores se surfacean al caller, no que se swallean silenciosamente.
 
-**Coverage actual (144 tests, 14 archivos):**
+**Coverage actual (171 tests, 15 archivos):**
 - `src/hooks/useConfirmPayment.test.tsx` — 5 tests (id undefined, flip ambos sentidos, error no swallow, query keys distintos)
 - `src/hooks/useBudgetQuoteCalculations.test.ts` — 10 tests (breakdown, materials split, sumatorias, useMemo)
-- `src/hooks/useBudgetCalculations.test.tsx` — 14 tests (totals, descuentos, recargo cuotas, alternativa override, deposit, USD=0)
+- `src/hooks/useBudgetCalculations.test.tsx` — 16 tests (totals, descuentos, recargo cuotas, alternativa override, deposit, USD=0, additional_works_data re-pointing deps)
 - `src/utils/pdf/buildPdfData.test.ts` — 18 tests (routing, descuentos, recargo, terms override, edge cases)
 - `src/pages/budgets/BudgetTable.test.tsx` — 10 tests (render, empty, Aprobar/Rechazar, A OT, callbacks)
 - `src/components/common/WorkOrdersTable/WorkOrdersTable.test.tsx` — 12 tests (render, status buttons, terminal "—", callbacks)
 - `src/components/ui/StatusBadge/StatusBadge.test.tsx` — 2 tests
 - `src/components/entity/EntityFormWizard.test.tsx` — 2 tests
 - `src/components/measurements/PendingMeasurementCards/PendingMeasurementCards.test.tsx` — 2 tests
-- `src/hooks/entityFormHelpers.test.ts` — 26 tests (FinancialBase round-trip, payload serialization)
-- `src/hooks/useAdditionalWorkSelection.test.ts` — 11 tests
+- `src/hooks/entityFormHelpers.test.ts` — 29 tests (FinancialBase round-trip, payload serialization, `swapMaterialGroupToList` + `repointSwapReferences` swap helpers)
+- `src/hooks/useAdditionalWorkSelection.test.ts` — 15 tests (selector contract: derive from `value`, mutators call `onChange`)
+- `src/components/budget/BudgetPanel/BudgetLineItems.test.tsx` — 3 tests (renders one line per additional work (flat vs frente), omits zero subtotals)
 - `src/utils/frentePricing.test.ts` — 17 tests
 - `src/utils/materialGroups.test.ts` — 5 tests
 - `src/utils/porcelainCalculator.test.ts` — 10 tests (kerf formula, edge cases, buildPorcelainFabricationDetail)
@@ -390,7 +396,7 @@ npm install
 npm run dev
 npm run build              # tsc --noEmit && vite build
 npm run lint               # ESLint
-npx vitest --run           # unit tests (123/123)
+npx vitest --run           # unit tests (171/171)
 npm run test:e2e           # E2E tests
 ```
 

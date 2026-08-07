@@ -2,7 +2,7 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import ValidationError
+from app.core.exceptions import ConflictError, ValidationError
 from app.models.material import Material, MaterialCategory, MaterialColor, MaterialThickness
 from app.models.price_history import PriceHistory
 from app.repositories.material import ColorRepository, MaterialCategoryRepository, MaterialRepository, PriceHistoryRepository, ThicknessRepository
@@ -50,6 +50,11 @@ class MaterialService:
             return None
         if "currency" in data:
             data["currency_id"] = resolve_currency_id(self.repo.db, data.pop("currency"))
+        # Explicit `color_id: null` clears the color. The repository skips
+        # None values generically, so resolve it here against the loaded row.
+        if "color_id" in data and data["color_id"] is None:
+            material.color_id = None
+            del data["color_id"]
         old_price = material.base_price
         result = self.repo.update(material, data)
         if "base_price" in data and data["base_price"] != old_price:
@@ -82,10 +87,22 @@ class MaterialService:
         self.repo.db.refresh(color)
         return color
 
+    def update_color(self, color_id: int, data: dict) -> Optional[MaterialColor]:
+        color = self.color_repo.get_by_id(color_id)
+        if not color:
+            return None
+        result = self.color_repo.update(color, data)
+        self.repo.db.commit()
+        self.repo.db.refresh(result)
+        return result
+
     def delete_color(self, color_id: int) -> bool:
         color = self.color_repo.get_by_id(color_id)
         if not color:
             return False
+        in_use = self.repo.db.query(Material).filter(Material.color_id == color_id).count()
+        if in_use:
+            raise ConflictError("Color en uso por materiales")
         self.color_repo.delete(color)
         self.repo.db.commit()
         return True

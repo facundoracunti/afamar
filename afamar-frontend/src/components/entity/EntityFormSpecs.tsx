@@ -1,9 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import MaterialCard from '../../components/materials/MaterialCard/MaterialCard';
+import MaterialPickerControls from '../../components/materials/MaterialPickerControls/MaterialPickerControls';
 import { useList } from '../../api/hooks';
 import { getMaterialCategories, type MaterialCategory } from '../../api/resources/materials';
-import type { EntityFormState } from '../../types';
+import type { EntityFormState, MaterialInForm } from '../../types';
 import type { Material } from '../../types/material';
+import { materialGroupKey } from '../../utils/materialGroups';
 import styles from './EntityFormSpecs.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -15,9 +17,18 @@ interface EntityFormSpecsProps {
   addMaterial: (name: string) => void;
   updateMaterial: (idx: number, field: string, value: unknown) => void;
   removeMaterial: (idx: number) => void;
+  addMaterialRow: (mat: MaterialInForm) => void;
+  removeMaterialGroup: (idxs: number[]) => void;
+  updateMaterialGroup: (idxs: number[], field: string, value: unknown) => void;
+  swapMaterialGroup: (idxs: number[], mat: Material) => void;
   update: (field: string, value: unknown) => void;
   num: (v: string) => number | null;
   cardClassName?: string;
+}
+
+interface MaterialRowGroup {
+  rows: Array<{ mat: MaterialInForm; idx: number }>;
+  groupKey: string;
 }
 
 export default function EntityFormSpecs({
@@ -27,6 +38,10 @@ export default function EntityFormSpecs({
   addMaterial,
   updateMaterial,
   removeMaterial,
+  addMaterialRow,
+  removeMaterialGroup,
+  updateMaterialGroup,
+  swapMaterialGroup,
   update,
   num,
   cardClassName,
@@ -38,47 +53,51 @@ export default function EntityFormSpecs({
       return (res.data as MaterialCategory[]) || [];
     }
   );
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
 
-  const filteredMaterials = useMemo(() => {
-    if (!selectedCategoryId) return materials;
-    return materials.filter((m) => String(m.category_id ?? '') === selectedCategoryId);
-  }, [materials, selectedCategoryId]);
+  // Group `materials_data` (flat) into one card per physical material —
+  // the MaterialCard renders the N panes as rows inside the card. The
+  // flat array stays the wire/PDF contract; grouping is UI-only.
+  const groups = useMemo<MaterialRowGroup[]>(() => {
+    const rows = form.materials_data || [];
+    const byKey = new Map<string, MaterialRowGroup>();
+    rows.forEach((mat, idx) => {
+      if (!mat || !mat.name) return;
+      const groupKey = materialGroupKey(mat);
+      const group = byKey.get(groupKey);
+      if (group) {
+        group.rows.push({ mat, idx });
+      } else {
+        byKey.set(groupKey, { rows: [{ mat, idx }], groupKey });
+      }
+    });
+    return [...byKey.values()];
+  }, [form.materials_data]);
 
   return (
     <div className={cardClassName || 'card'}>
       <h3 className="section-title">MATERIALES</h3>
       <div className={s['specs-controls']}>
-        <select
-          className={`input ${s['specs-category']}`}
-          value={selectedCategoryId}
-          onChange={(e) => setSelectedCategoryId(e.target.value)}
-          disabled={readOnly}
-        >
-          <option value="">Todas las categorías</option>
-          {categorias.map((c) => (
-            <option key={c.id} value={String(c.id)}>{c.name}</option>
-          ))}
-        </select>
-        <select
-          className={`input ${s['specs-add-material']}`} value="" onChange={(e) => { addMaterial(e.target.value); e.target.value = ''; }} disabled={readOnly}>
-          <option value="">+ AGREGAR MATERIAL</option>
-          {filteredMaterials.filter((m) => m.name).map((m) => (
-            <option key={m.id} value={m.name}>
-              {m.name}{m.color ? ` - ${m.color}` : ''}
-            </option>
-          ))}
-        </select>
+        <MaterialPickerControls
+          materials={materials}
+          categorias={categorias}
+          readOnly={readOnly}
+          onPick={(mat) => addMaterial(mat.name)}
+        />
       </div>
       <div className={s['specs-materials-grid']}>
-        {(form.materials_data || []).map((mat, idx) => (
+        {groups.map((group) => (
           <MaterialCard
-            key={idx}
-            mat={mat}
-            idx={idx}
+            key={group.groupKey}
+            rows={group.rows}
             readOnly={readOnly}
+            materials={materials}
+            categorias={categorias}
             updateMaterial={updateMaterial}
+            updateMaterialGroup={updateMaterialGroup}
             removeMaterial={removeMaterial}
+            removeGroup={removeMaterialGroup}
+            addRow={addMaterialRow}
+            onChangeMaterial={(mat) => swapMaterialGroup(group.rows.map((r) => r.idx), mat)}
             num={(v) => num(v as string) ?? 0}
             usdRate={Number(form.usd_rate) || 0}
           />

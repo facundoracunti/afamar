@@ -1,5 +1,5 @@
 // Barrel re-export — all types use English names.
-export type { Material, MaterialFormData } from './material';
+export type { Material, MaterialColor, MaterialFormData } from './material';
 export type { Client, ClientAddress, ClientFormData, ClientHistory } from './client';
 export type { FinancialBase } from './shared';
 export {

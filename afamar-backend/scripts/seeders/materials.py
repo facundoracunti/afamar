@@ -4,8 +4,12 @@ Snapshot of the AFAMAR production catalogue — 62 materials captured from
 the live database on 2026-07-29. Each entry matches the `Material`
 model's columns:
 
-    (name, category_name, color, thickness, base_price, price_usd,
+    (name, category_name, color_name, thickness, base_price, price_usd,
      currency_id, supplier, stock_available, notes)
+
+The `color_name` string is resolved to a `color_id` FK against the
+`material_colors` catalogue (matched case-insensitively; unknown names
+create the canonical row on the fly).
 
 New rows are inserted on a fresh DB; existing rows are left untouched
 (idempotent — preserves manual price/stock changes).
@@ -31,7 +35,7 @@ from __future__ import annotations
 from typing import Final
 
 from scripts.seeders.base import SeedResult, get_logger, session_scope
-from app.models.material import Material, MaterialCategory
+from app.models.material import Material, MaterialCategory, MaterialColor
 
 
 # Single source of truth: the production catalogue on 2026-07-29.
@@ -125,6 +129,7 @@ def seed_materials() -> SeedResult:
     result = SeedResult(seeder="materials")
     with session_scope() as db:
         cat_map = {c.name: c.id for c in db.query(MaterialCategory).all()}
+        color_map = {c.name.upper(): c.id for c in db.query(MaterialColor).all()}
         existing_names = {m.name for m in db.query(Material.name).all()}
         for row in MATERIALS:
             (name, category_name, color, thickness,
@@ -139,10 +144,11 @@ def seed_materials() -> SeedResult:
                 logger.warning(msg)
                 result.errors.append(msg)
                 continue
+            color_id = _resolve_color_id(db, color, color_map)
             material = Material(
                 name=name,
                 category_id=category_id,
-                color=color,
+                color_id=color_id,
                 available_thickness=thickness,
                 base_price=base_price,
                 price_usd=price_usd,
@@ -161,3 +167,21 @@ def seed_materials() -> SeedResult:
         result.inserted, result.skipped,
     )
     return result
+
+
+def _resolve_color_id(db, color_name: str | None, color_map: dict[str, int]) -> int | None:
+    """Resolve a free-text color name to a `color_id`, creating the canonical
+    catalogue row when the name is unknown (case-insensitive)."""
+    stripped = (color_name or "").strip()
+    if not stripped:
+        return None
+    normalized = stripped.upper()
+    color_id = color_map.get(normalized)
+    if color_id is not None:
+        return color_id
+    canonical = stripped.lower().capitalize()
+    color_obj = MaterialColor(name=canonical)
+    db.add(color_obj)
+    db.flush()
+    color_map[normalized] = color_obj.id
+    return color_obj.id

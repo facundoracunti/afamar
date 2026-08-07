@@ -9,6 +9,7 @@ All seeders are importable as:
 from scripts.seeders.additional_works import seed_additional_works
 from scripts.seeders.base import SeedResult
 from scripts.seeders.categories import seed_categories
+from scripts.seeders.colors import seed_colors
 from scripts.seeders.materials import seed_materials
 from scripts.seeders.pool_stock import seed_pool_stock
 from scripts.seeders.pool_types import seed_pool_types
@@ -19,6 +20,7 @@ __all__ = [
     "SeedResult",
     "seed_additional_works",
     "seed_categories",
+    "seed_colors",
     "seed_materials",
     "seed_pool_stock",
     "seed_pool_types",

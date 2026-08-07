@@ -23,9 +23,7 @@ import {
   buildFrenteSelectionFor,
   FRENTE_FORMULA_MULTIPLIER_DEFAULT,
 } from '../../../utils/frentePricing';
-// (dedup helper `buildMaterialGroupOptions` lives in
-//  `utils/materialGroups.ts` — not consumed here while we keep the
-//  historical per-pane picker behavior.)
+import { buildMaterialGroupOptions, materialGroupKey } from '../../../utils/materialGroups';
 import type { AdditionalWork } from '../../../types/additionalWork';
 import type { MaterialInForm } from '../../../types/budget';
 import AdditionalWorkCard from '../AdditionalWorkCard/AdditionalWorkCard';
@@ -46,14 +44,9 @@ interface AdditionalWorkSectionProps {
 }
 
 export default function AdditionalWorkSection({ value, onChange, readOnly, formMaterials }: AdditionalWorkSectionProps) {
-  const { items: catalogue, loading: catalogueLoading } = useAdditionalWorksCatalogue();
-  const { selections, add, remove, removeAt, updateField, totalArs, totalUsd } =
-    useAdditionalWorkSelection(value);
-
-  React.useEffect(() => {
-    onChange(JSON.stringify(selections));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selections]);
+    const { items: catalogue, loading: catalogueLoading } = useAdditionalWorksCatalogue();
+    const { selections, add, removeAt, updateField, totalArs, totalUsd } =
+      useAdditionalWorkSelection(value, onChange);
 
   const selectedIds = new Set(
     selections.map((s) => s.additional_work_id).filter((id): id is number => id !== null)
@@ -75,6 +68,14 @@ export default function AdditionalWorkSection({ value, onChange, readOnly, formM
   );
 
   const materials = formMaterials ?? [];
+
+  // One option per *physical* material (a card may hold N panes/rows of
+  // the same material — the flat `materials_data` would otherwise render
+  // N identical entries in the dropdown).
+  const materialGroups = React.useMemo(
+    () => buildMaterialGroupOptions(formMaterials ?? []),
+    [formMaterials],
+  );
 
   const handleAdd = (rawId: string) => {
     const id = Number(rawId);
@@ -101,10 +102,12 @@ export default function AdditionalWorkSection({ value, onChange, readOnly, formM
    *  formula to use when there are multiple rows in the catalogue. */
   const handleAssignFrente = (rawKey: string) => {
     if (!rawKey.startsWith('fr:')) return;
-    const [, frenteId, matKey] = rawKey.split(':');
+    const [, frenteId, ...rest] = rawKey.split(':');
+    const matKey = rest.join(':');
     const frente = frenteCatalogues.find((f) => String(f.id) === frenteId);
     if (!frente) return;
-    const mat = materials.find((m) => String(m.id ?? m.name) === matKey);
+    const group = materialGroups.find((g) => g.groupKey === matKey);
+    const mat = group ? materials.find((m) => materialGroupKey(m) === group.groupKey) : undefined;
     if (!mat) return;
     const pricePerM2 =
       mat.currency === 'USD'
@@ -122,7 +125,7 @@ export default function AdditionalWorkSection({ value, onChange, readOnly, formM
         name: mat.name,
         price_per_m2: pricePerM2,
         currency: mat.currency === 'USD' ? 'USD' : 'ARS',
-        is_alternative: !!mat.is_alternative,
+        is_alternative: group?.isAlternative ?? !!mat.is_alternative,
       },
       frente.formula_constant ?? FRENTE_FORMULA_MULTIPLIER_DEFAULT,
     );
@@ -187,14 +190,11 @@ export default function AdditionalWorkSection({ value, onChange, readOnly, formM
             >
               <option value="">+ ASIGNAR FRENTE A MATERIAL</option>
               {frenteCatalogues.flatMap((frente) =>
-                materials
-                  .filter((m) => m && m.name)
-                  .map((m) => (
-                    <option key={`fr:${frente.id}:${m.id ?? m.name}`} value={`fr:${frente.id}:${m.id ?? m.name}`}>
-                      {frente.name} → {m.is_alternative ? 'Alternativa: ' : 'Principal: '}
-                      {m.name}
-                    </option>
-                  )),
+                materialGroups.map((g) => (
+                  <option key={`fr:${frente.id}:${g.groupKey}`} value={`fr:${frente.id}:${g.groupKey}`}>
+                    {frente.name} → {g.label}
+                  </option>
+                )),
               )}
             </select>
           ) : null}

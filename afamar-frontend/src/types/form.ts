@@ -163,6 +163,19 @@ export interface UseEntityFormReturn {
   addMaterial: (name: string) => void;
   removeMaterial: (idx: number) => void;
   updateMaterial: (idx: number, field: string, value: unknown) => void;
+  /** Add another measurement row of an already-selected material (keeps
+   *  `materials_data` flat — the MaterialCard renders one card per
+   *  material with N rows grouped in the UI layer). */
+  addMaterialRow: (mat: MaterialInForm) => void;
+  /** Remove every row whose global index is in `idxs` (a whole card). */
+  removeMaterialGroup: (idxs: number[]) => void;
+  /** Set `field` on every row whose global index is in `idxs` in a single
+   *  state update (e.g. toggling the "Alternativa" checkbox on a card). */
+  updateMaterialGroup: (idxs: number[], field: string, value: unknown) => void;
+  /** Replace the catalogue identity (name/color/prices/currency) of every
+   *  row whose global index is in `idxs` (a whole card), keeping each
+   *  row's measurements and alternative flag. */
+  swapMaterialGroup: (idxs: number[], mat: Material) => void;
   addPileta: (pid: string) => void;
   removePileta: (idx: number) => void;
   updatePileta: (idx: number, field: string, value: unknown) => void;

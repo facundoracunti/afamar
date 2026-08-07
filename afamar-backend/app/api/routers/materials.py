@@ -11,6 +11,7 @@ from app.utils.responses import created, success
 from app.schemas.material import (
     MaterialCategoryCreate,
     MaterialColorCreate,
+    MaterialColorUpdate,
     MaterialThicknessCreate,
     MaterialCreate,
     MaterialResponse,
@@ -37,6 +38,15 @@ def list_colors(db: Session = Depends(get_db)):
 def create_color(data: MaterialColorCreate, db: Session = Depends(get_db)):
     service = MaterialService(db)
     return created(service.create_color(data.model_dump()))
+
+
+@router.put("/colors/{color_id}")
+def update_color(color_id: int, data: MaterialColorUpdate, db: Session = Depends(get_db)):
+    service = MaterialService(db)
+    color = service.update_color(color_id, data.model_dump(exclude_unset=True))
+    if not color:
+        raise NotFoundError("Color")
+    return success(color)
 
 
 @router.delete("/colors/{color_id}", status_code=204)
@@ -124,13 +134,19 @@ def list_materials(
     skip: int = 0,
     limit: int = 100,
     category_id: int | None = None,
+    color_id: int | None = None,
     db: Session = Depends(get_db),
 ):
     from app.models.material import Material
 
-    query = db.query(Material).options(joinedload(Material.currency_obj))
+    query = db.query(Material).options(
+        joinedload(Material.currency_obj),
+        joinedload(Material.color_obj),
+    )
     if category_id:
         query = query.filter(Material.category_id == category_id)
+    if color_id:
+        query = query.filter(Material.color_id == color_id)
     page = paginate(db, query, skip, limit)
     payload = [MaterialResponse.model_validate(m).model_dump(mode="json") for m in page.items]
     return success(payload, page.pagination)

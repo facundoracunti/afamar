@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Edit, Trash2, FolderTree, Image as ImageIcon } from 'lucide-react';
-import { getMaterials, deleteMaterial, getMaterialCategories, type MaterialCategory } from '@/api/resources/materials';
+import { getMaterials, deleteMaterial, getMaterialCategories, getMaterialColors, type MaterialCategory } from '@/api/resources/materials';
 import { useList } from '../../api/hooks';
-import type { Material } from '../../types/material';
+import type { Material, MaterialColor } from '../../types/material';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
 import { SearchInput } from '../../components/ui/SearchInput/SearchInput';
@@ -20,9 +20,11 @@ const s = styles as unknown as Record<string, string>;
 
 const MATERIALS_KEY = ['materials'] as const;
 const CATEGORIES_KEY = ['material-categories'] as const;
+const COLORS_KEY = ['material-colors'] as const;
 
 export default function MaterialsList() {
   const [categoria, setCategoria] = useState('');
+  const [color, setColor] = useState('');
   const [editId, setEditId] = useState<number | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
@@ -37,6 +39,14 @@ export default function MaterialsList() {
     }
   );
 
+  const { items: colores } = useList<MaterialColor>(
+    COLORS_KEY,
+    async () => {
+      const res = await getMaterialColors();
+      return (res.data as MaterialColor[]) || [];
+    }
+  );
+
   const categoryNameById = useMemo(() => {
     const m: Record<number, string> = {};
     categorias.forEach((c) => { m[c.id] = c.name; });
@@ -46,9 +56,9 @@ export default function MaterialsList() {
 // The hook owns search + delete + pagination. Category is an extra
 // filter that lives in the page (it's page-specific UI).
   const list: ReturnType<typeof useEntityList<Material, number>> = useEntityList<Material, number>({
-    queryKey: [...MATERIALS_KEY, categoria],
+    queryKey: [...MATERIALS_KEY, categoria, color],
     listFetcher: async ({ skip, limit }) =>
-      getMaterials({ search: list.search || undefined, category_id: categoria || undefined, skip, limit }),
+      getMaterials({ search: list.search || undefined, category_id: categoria || undefined, color_id: color || undefined, skip, limit }),
     deleteFn: (id) => deleteMaterial(id),
     pageSize: 10,
     successMessage: 'Material eliminado correctamente',
@@ -95,6 +105,17 @@ export default function MaterialsList() {
         >
           <option value="">Todas las categorias</option>
           {categorias.map((c) => (
+            <option key={c.id} value={String(c.id)}>{c.name}</option>
+          ))}
+        </select>
+        <select
+          className="input"
+          style={{ width: 200 }}
+          value={color}
+          onChange={(e) => setColor(e.target.value)}
+        >
+          <option value="">Todos los colores</option>
+          {colores.map((c) => (
             <option key={c.id} value={String(c.id)}>{c.name}</option>
           ))}
         </select>

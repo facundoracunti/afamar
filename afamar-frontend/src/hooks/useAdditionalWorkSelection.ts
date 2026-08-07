@@ -61,36 +61,39 @@ interface AddArgs {
   initialLinearMeters?: number;
 }
 
-/** Hook that owns the selection + a small set of mutators the picker UI
- *  needs. State lives in the parent (BudgetForm / WorkOrderForm); the
- *  hook just bundles the parsing and the mutators so the JSX stays
- *  declarative. */
-export function useAdditionalWorkSelection(initialJson: string | null | undefined) {
-  const [selections, setSelections] = useState<ParseAdditionalWorkSelection[]>(() =>
-    parseAdditionalWorksData(initialJson),
+/** Hook that exposes the current selection + mutators for additional
+ *  works. Source of truth lives in the **parent** (`value` is the JSON
+ *  snapshot stored on the budget / work-order row) — the hook just
+ *  parses it for rendering and serialises it back on every mutation,
+ *  mirroring how `addPileta` writes through `update('pools_data', list)`.
+ *
+ *  Previously this hook kept a `useState` copy and tried to keep it in
+ *  sync with `value` via a `JSON.stringify` bailout in a re-sync
+ *  `useEffect`. That bailout was fragile (key-order diffs, `undefined`
+ *  → `null` normalisations, and float formatting all break string
+ *  equality even when the data is semantically identical), so newly
+ *  added rows kept disappearing from the UI even though the parent
+ *  state was correct. Deriving from `value` instead removes the
+ *  intermediate copy entirely — there's nothing left to desync. */
+export function useAdditionalWorkSelection(
+  value: string | null | undefined,
+  onChange: (json: string) => void,
+) {
+  const selections = useMemo(
+    () => parseAdditionalWorksData(value),
+    [value],
   );
 
-  // Re-sync local state from the parent's `value` whenever it changes
-  // *from outside* the hook's own mutations. Without this, sibling
-  // pickers (e.g. the per-material "Asignar Frente / Regrueso" dropdown
-  // in AdditionalWorkSection) write through `onChange` directly and the
-  // local `selections` array stays stale — so newly added rows never
-  // render even though the parent has them.
-  //
-  // Idempotent: the `JSON.stringify` short-circuit avoids re-rendering
-  // when our own `useEffect([selections])` writes the same JSON back
-  // through the parent.
-  useEffect(() => {
-    const next = parseAdditionalWorksData(initialJson);
-    setSelections((prev) => {
-      if (JSON.stringify(prev) === JSON.stringify(next)) return prev;
-      return next;
-    });
-  }, [initialJson]);
+  const commit = useCallback(
+    (next: ParseAdditionalWorkSelection[]) => {
+      onChange(serializeAdditionalWorksData(next));
+    },
+    [onChange],
+  );
 
-  const add = useCallback((args: AddArgs) => {
-    const { catalogueItem, quantity = 1, initialAssignedMaterialId = null, initialLinearMeters = 0 } = args;
-    setSelections((prev) => {
+  const add = useCallback(
+    (args: AddArgs) => {
+      const { catalogueItem, quantity = 1, initialAssignedMaterialId = null, initialLinearMeters = 0 } = args;
       // Flat items: dedupe by `additional_work_id` so a catalogue item
       // appears at most once (you don't want 3 "Pulido" rows).
       // Frente items: append WITHOUT deduping — the operator needs one
@@ -98,14 +101,15 @@ export function useAdditionalWorkSelection(initialJson: string | null | undefine
       // and the catalogue id is the same for all of them. Removing by
       // index (`removeAt`) is the safe way to drop a specific row.
       const base = catalogueItem.type === 'frente'
-        ? prev
-        : prev.filter((s) => s.additional_work_id !== catalogueItem.id);
+        ? selections
+        : selections.filter((s) => s.additional_work_id !== catalogueItem.id);
+      let next: ParseAdditionalWorkSelection[];
       if (catalogueItem.type === 'frente') {
         const linear_meters = Math.max(0, Number(initialLinearMeters) || 0);
         const newRow: ParseAdditionalWorkSelection = {
           additional_work_id: catalogueItem.id,
           name: catalogueItem.name,
-          detail: catalogueItem.detail,
+          detail: catalogueItem.detail ?? null,
           price: 0,
           currency: catalogueItem.currency,
           quantity: 1,
@@ -116,75 +120,84 @@ export function useAdditionalWorkSelection(initialJson: string | null | undefine
           assigned_material_id: initialAssignedMaterialId,
           formula_values: null,
         };
-        return [...base, newRow];
-      }
-      const total = Math.round((catalogueItem.price * quantity) * 100) / 100;
-      return [
-        ...base,
-        {
+        next = [...base, newRow];
+      } else {
+        const total = Math.round((catalogueItem.price * quantity) * 100) / 100;
+        const newRow: ParseAdditionalWorkSelection = {
           additional_work_id: catalogueItem.id,
           name: catalogueItem.name,
-          detail: catalogueItem.detail,
+          detail: catalogueItem.detail ?? null,
           price: catalogueItem.price,
           currency: catalogueItem.currency,
           quantity,
           total,
           materialName: POOL_MATERIAL_GLOBAL,
           type: 'flat',
-        },
-      ];
-    });
-  }, []);
+        };
+        next = [...base, newRow];
+      }
+      commit(next);
+    },
+    [selections, commit],
+  );
 
-  const remove = useCallback((additionalWorkId: number | null) => {
-    if (additionalWorkId == null) return;
-    setSelections((prev) => {
+  const remove = useCallback(
+    (additionalWorkId: number | null) => {
+      if (additionalWorkId == null) return;
       // Only drop the FIRST matching row. Used for flat items where the
-      // catalogue id is unique within `selections`; for frentes the
+      // catalogue id is unique within the selection; for frentes the
       // parent should call `removeAt(idx)` so the user can pick which
       // row to drop without nuking the rest of the same catalogue id.
-      const idx = prev.findIndex((s) => s.additional_work_id === additionalWorkId);
-      if (idx < 0) return prev;
-      return [...prev.slice(0, idx), ...prev.slice(idx + 1)];
-    });
-  }, []);
+      const idx = selections.findIndex((s) => s.additional_work_id === additionalWorkId);
+      if (idx < 0) return;
+      const next = [...selections.slice(0, idx), ...selections.slice(idx + 1)];
+      commit(next);
+    },
+    [selections, commit],
+  );
 
   /** Remove the row at `idx` regardless of catalogue id. Use this from
    *  the X button on the additional-work card so deleting a frente
    *  tied to one material doesn't accidentally drop the frentes tied
    *  to other materials (which all share the same catalogue id). */
-  const removeAt = useCallback((idx: number) => {
-    setSelections((prev) => prev.filter((_, i) => i !== idx));
-  }, []);
+  const removeAt = useCallback(
+    (idx: number) => {
+      if (idx < 0 || idx >= selections.length) return;
+      const next = selections.filter((_, i) => i !== idx);
+      commit(next);
+    },
+    [selections, commit],
+  );
 
-  const updateQuantity = useCallback((additionalWorkId: number | null, quantity: number) => {
-    if (quantity <= 0) return;
-    setSelections((prev) =>
-      prev.map((s) => {
+  const updateQuantity = useCallback(
+    (additionalWorkId: number | null, quantity: number) => {
+      if (quantity <= 0) return;
+      const next = selections.map((s) => {
         if (s.additional_work_id !== additionalWorkId) return s;
         const total = Math.round((s.price * quantity) * 100) / 100;
         return { ...s, quantity, total };
-      }),
-    );
-  }, []);
+      });
+      commit(next);
+    },
+    [selections, commit],
+  );
 
   const updateField = useCallback(
     (
       idx: number,
       field: string,
-      value: unknown,
+      fieldValue: unknown,
       options?: {
         catalogueItem?: AdditionalWork | null;
         materialOptions?: import('../utils/frentePricing').FrenteMaterialOption[];
       },
     ) => {
-      setSelections((prev) => {
-        const next = [...prev];
-        next[idx] = applyAdditionalWorkField(next[idx], field, value, options);
-        return next;
-      });
+      if (idx < 0 || idx >= selections.length) return;
+      const next = [...selections];
+      next[idx] = applyAdditionalWorkField(next[idx], field, fieldValue, options);
+      commit(next);
     },
-    [],
+    [selections, commit],
   );
 
   const totalArs = useMemo(

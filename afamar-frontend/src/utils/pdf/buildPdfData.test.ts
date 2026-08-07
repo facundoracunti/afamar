@@ -313,6 +313,118 @@ describe('buildPdfData — additional works per-section routing', () => {
   });
 });
 
+describe('buildPdfData — grouped alternative sections', () => {
+  it('collapses multiple panes of the same alternative material into ONE section', () => {
+    const altMaterials = [
+      {
+        id: 1,
+        name: 'Negro Brasil',
+        price_m2: 200000,
+        price_m2_usd: 330,
+        currency: 'USD',
+        quantity: 1,
+        m2_used: 0,
+        m2_budgeted: 0,
+        length: 0,
+        width: 0,
+        is_alternative: false,
+      },
+      {
+        id: 2,
+        name: 'Marmol Carrara',
+        price_m2: 250000,
+        price_m2_usd: 410,
+        currency: 'USD',
+        quantity: 1,
+        m2_used: 0,
+        m2_budgeted: 0,
+        length: 2,
+        width: 1,
+        is_alternative: true,
+      },
+      {
+        id: 2,
+        name: 'Marmol Carrara',
+        price_m2: 250000,
+        price_m2_usd: 410,
+        currency: 'USD',
+        quantity: 1,
+        m2_used: 0,
+        m2_budgeted: 0,
+        length: 1.5,
+        width: 1,
+        is_alternative: true,
+      },
+      {
+        id: 3,
+        name: 'Gris Mara',
+        price_m2: 200000,
+        price_m2_usd: 330,
+        currency: 'USD',
+        quantity: 1,
+        m2_used: 0,
+        m2_budgeted: 0,
+        length: 2,
+        width: 1,
+        is_alternative: true,
+      },
+    ] satisfies MaterialInForm[];
+
+    const data = buildPdfData({
+      form: makeForm({ materials_data: altMaterials }),
+      document_type: 'budget',
+      company: {
+        company_name: 'AFAMAR',
+        company_tagline: '',
+        company_address: '',
+        company_phone: '',
+        company_email: '',
+        company_logo: '',
+        pdf_footer: '',
+      },
+      globalTerms: { budget_terms: [], delivery_terms: [], warranty_text: [] },
+      overrides: {},
+      sketchImages: [],
+    });
+
+    const sections = data.sections.filter((s) => !s.is_main);
+    expect(sections).toHaveLength(2);
+    const carrara = sections.find((s) => s.material_name === 'Marmol Carrara');
+    expect(carrara).toBeDefined();
+    // Both panes of the same alternative material live in ONE section
+    expect(carrara!.materials).toHaveLength(2);
+    expect(carrara!.title).toBe('ALTERNATIVA 1: Marmol Carrara');
+    expect(carrara!.alternative_index).toBe(0);
+    const gris = sections.find((s) => s.material_name === 'Gris Mara');
+    expect(gris).toBeDefined();
+    expect(gris!.title).toBe('ALTERNATIVA 2: Gris Mara');
+    expect(gris!.alternative_index).toBe(1);
+  });
+
+  it('keeps the principal section intact when alternatives are grouped', () => {
+    const data = buildPdfData({
+      form: makeForm({ materials_data: materialsWithAlt }),
+      document_type: 'budget',
+      company: {
+        company_name: 'AFAMAR',
+        company_tagline: '',
+        company_address: '',
+        company_phone: '',
+        company_email: '',
+        company_logo: '',
+        pdf_footer: '',
+      },
+      globalTerms: { budget_terms: [], delivery_terms: [], warranty_text: [] },
+      overrides: {},
+      sketchImages: [],
+    });
+    const mainSection = data.sections.find((s) => s.is_main);
+    expect(mainSection).toBeDefined();
+    expect(mainSection!.materials).toHaveLength(1);
+    expect(data.sections.filter((s) => !s.is_main)).toHaveLength(1);
+  });
+});
+
 describe('buildPdfData — measurement precision', () => {
   it('preserves measurements while keeping monetary values at two decimals', () => {
     const fabrication_details = [

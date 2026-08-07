@@ -29,6 +29,14 @@ export function useBudgetCalculations(
   form: EntityFormState,
   setForm: React.Dispatch<React.SetStateAction<EntityFormState>>
 ) {
+  // Stable stringified views of the JSON-shaped form slices, used both
+  // in the effect for diff detection and as its dependency list (raw
+  // array/object deps would alias across renders and skip re-runs).
+  const fabricationDepsJson = JSON.stringify(form.fabrication_details);
+  const materialsDepsJson = JSON.stringify(form.materials_data);
+  const poolsDepsJson = JSON.stringify(form.pools_data);
+  const additionalDepsJson = JSON.stringify(form.additional_works_data);
+
   useEffect(() => {
     const fabricationDetails = form.fabrication_details || [];
     const materialsData = form.materials_data || [];
@@ -161,9 +169,15 @@ export function useBudgetCalculations(
       balance_due_usd: balanceDueUsdFinal,
     }));
   }, [
-    JSON.stringify(form.fabrication_details),
-    JSON.stringify(form.materials_data),
-    JSON.stringify(form.pools_data),
+    fabricationDepsJson,
+    materialsDepsJson,
+    poolsDepsJson,
+    // `form.additional_works_data` is a JSON-encoded string that drives
+    // `additionalArs` / `additionalUsd` above, so changes to it must
+    // re-trigger the totals (otherwise the on-form subtotal/total/
+    // balance_due stay stale and disagree with the PDF — which the user
+    // sees when comparing both surfaces).
+    additionalDepsJson,
     form.transport, form.transport_usd, form.usd_rate,
     form.payment_method, form.installments,
     form.discount_percentage, form.discount_fixed_amount,

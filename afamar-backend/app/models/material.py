@@ -24,6 +24,7 @@ class MaterialColor(Base):
     category_id: Mapped[int] = mapped_column(ForeignKey("material_categories.id"), nullable=True)
 
     category = relationship("MaterialCategory")
+    materials = relationship("Material", back_populates="color_obj")
 
 
 class MaterialThickness(Base):
@@ -39,7 +40,7 @@ class Material(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     category_id: Mapped[int] = mapped_column(ForeignKey("material_categories.id"), nullable=False)
-    color: Mapped[str] = mapped_column(String(100), nullable=True)
+    color_id: Mapped[int] = mapped_column(ForeignKey("material_colors.id"), nullable=True)
     available_thickness: Mapped[str] = mapped_column(String(100), nullable=True)
     base_price: Mapped[float] = mapped_column(Float, default=0.0)
     price_usd: Mapped[float] = mapped_column(Float, default=0.0)
@@ -59,5 +60,6 @@ class Material(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     category = relationship("MaterialCategory", back_populates="materials")
+    color_obj = relationship("MaterialColor", back_populates="materials")
     currency_obj = relationship("Currency", back_populates="materials")
     price_history = relationship("PriceHistory", back_populates="material", cascade="all, delete-orphan")

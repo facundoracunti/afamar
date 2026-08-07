@@ -1,6 +1,7 @@
 import { AdditionalWork } from '../types/additionalWork';
 import { MaterialInForm } from '../types/budget';
 import { round2 } from './math';
+import { materialGroupKey } from './materialGroups';
 
 /** Re-export the group option type so existing call sites don't need
  *  to import from `./materialGroups` separately. The helper exists in
@@ -39,7 +40,10 @@ export interface MaterialOptionListInput {
 }
 
 /** Flatten the form's `materials_data` snapshot into the option list the
- *  picker wants to show.
+ *  picker wants to show. Dedupes by physical material (`id ?? name`) so a
+ *  card holding N panes of the same marble renders as ONE picker option
+ *  (see `utils/materialGroups.ts` — the material pickers collapse rows the
+ *  same way the MaterialCard does).
  *
  *  Strategy for the `id` field:
  *    1. Prefer the snapshot row's own `id` (set when the operator
@@ -61,22 +65,27 @@ export function buildFrenteMaterialOptions({
       .filter((c) => c && c.name)
       .map((c) => [c.name as string, c]),
   );
-  return materials
-    .filter((m) => m && m.name)
-    .map((m) => {
-      const cat = catalogueByName.get(m.name);
-      const priceUsd = cat?.price_usd ?? m.price_m2_usd ?? 0;
-      const priceArs = cat?.base_price ?? m.price_m2 ?? 0;
-      const currency: 'ARS' | 'USD' = m.currency === 'USD' ? 'USD' : 'ARS';
-      const id = (m.id && Number.isFinite(m.id)) ? m.id : (cat?.id ?? null);
-      return {
-        id,
-        name: m.name,
-        price_per_m2: currency === 'USD' ? priceUsd : priceArs,
-        currency,
-        is_alternative: !!m.is_alternative,
-      };
+  const seen = new Set<string>();
+  const out: FrenteMaterialOption[] = [];
+  for (const m of materials) {
+    if (!m || !m.name) continue;
+    const key = materialGroupKey(m);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const cat = catalogueByName.get(m.name);
+    const priceUsd = cat?.price_usd ?? m.price_m2_usd ?? 0;
+    const priceArs = cat?.base_price ?? m.price_m2 ?? 0;
+    const currency: 'ARS' | 'USD' = m.currency === 'USD' ? 'USD' : 'ARS';
+    const id = (m.id && Number.isFinite(m.id)) ? m.id : (cat?.id ?? null);
+    out.push({
+      id,
+      name: m.name,
+      price_per_m2: currency === 'USD' ? priceUsd : priceArs,
+      currency,
+      is_alternative: !!m.is_alternative,
     });
+  }
+  return out;
 }
 
 /** Resolve the formula multiplier for a catalogue row (defaults to

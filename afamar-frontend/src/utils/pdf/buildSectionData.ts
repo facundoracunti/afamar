@@ -3,6 +3,7 @@
  */
 
 import { POOL_MATERIAL_GLOBAL } from '../../types/budget';
+import { materialGroupKey } from '../materialGroups';
 import type {
   MaterialInForm,
   PoolInForm,
@@ -234,21 +235,34 @@ export function buildSections(
     mainAdditionUsd;
   const mainName = mainMaterials.length === 1 ? mainMaterials[0].name : '';
 
-  // Alternatives
+  // Alternatives — group rows by physical material (catalogue `id`, falling
+  // back to the name for legacy rows) so a material with several panes
+  // collapses into ONE option section, mirroring the MaterialCard grouping
+  // in the form UI. Without this, each `materials_data` row of the same
+  // alternative spawned its own "ALTERNATIVA N" section.
   const builtAlternatives: MaterialSection[] = [];
-  alternatives.forEach((alt, idx) => {
-    const altMaterialRows = buildMaterialRows([alt], usdRate);
+  const altGroups = new Map<string, MaterialInForm[]>();
+  for (const alt of alternatives) {
+    const groupKey = materialGroupKey(alt);
+    const group = altGroups.get(groupKey);
+    if (group) group.push(alt);
+    else altGroups.set(groupKey, [alt]);
+  }
+  let altIdx = 0;
+  for (const [, altGroup] of altGroups) {
+    const representative = altGroup[0];
+    const altMaterialRows = buildMaterialRows(altGroup, usdRate);
     const altFabrication: PdfDataRow[] = [
       ...fabricationCommon,
-      ...(fabricationByMaterial[alt.name] ?? []),
+      ...(fabricationByMaterial[representative.name] ?? []),
     ];
     const altPools: PoolPdfRow[] = [
       ...poolsCommon,
-      ...(poolsByMaterial[alt.name] ?? []),
+      ...(poolsByMaterial[representative.name] ?? []),
     ];
     const altAdditional: AdditionalWorkPdfRow[] = [
       ...addicionalBuckets.additionalCommon,
-      ...(addicionalBuckets.additionalByMaterial[alt.name] ?? []),
+      ...(addicionalBuckets.additionalByMaterial[representative.name] ?? []),
     ];
     const altAdditionArs = altAdditional.reduce((s, a) => s + a.subtotal_ars, 0);
     const altAdditionUsd = altAdditional.reduce((s, a) => s + a.subtotal_usd, 0);
@@ -263,11 +277,11 @@ export function buildSections(
       altFabrication.reduce((s, r) => s + r.subtotal_usd, 0) +
       altAdditionUsd;
     builtAlternatives.push({
-      title: `ALTERNATIVA ${idx + 1}: ${alt.name}`,
+      title: `ALTERNATIVA ${altIdx + 1}: ${representative.name}`,
       is_main: false,
       is_global: false,
-      alternative_index: idx,
-      material_name: alt.name,
+      alternative_index: altIdx,
+      material_name: representative.name,
       materials: altMaterialRows,
       pools: altPools,
       fabrication_details: altFabrication,
@@ -275,7 +289,8 @@ export function buildSections(
       subtotal_ars: altSubtotalArs,
       subtotal_usd: altSubtotalUsd,
     });
-  });
+    altIdx += 1;
+  }
 
   if (hasMain) {
     sections.push({

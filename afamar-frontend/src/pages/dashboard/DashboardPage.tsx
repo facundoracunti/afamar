@@ -1,6 +1,5 @@
 import React, { Suspense, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { DollarSign, FileText, ClipboardList, PackageOpen, Truck, Wrench, LayoutGrid, Calculator, type LucideIcon } from 'lucide-react';
+import { DollarSign, FileText, ClipboardList, PackageOpen, Truck, Wrench, LayoutGrid, Calculator, Palette, type LucideIcon } from 'lucide-react';
 import type { DashboardData } from '../../types/dashboard';
 import { getDashboard } from '@/api/resources/dashboard';
 import { useGet } from '../../api/hooks';
@@ -27,6 +26,7 @@ type ModalKind =
   | 'materials'
   | 'additional-works'
   | 'categories'
+  | 'colors'
   | 'calculator';
 
 // Lazy-loaded pages so the dashboard doesn't eagerly pull in all chunks.
@@ -39,6 +39,7 @@ const PoolStockPage = React.lazy(() => import('../pool-stock/PoolStockPage'));
 const MaterialsListPage = React.lazy(() => import('../materials/MaterialsListPage'));
 const AdditionalWorksPage = React.lazy(() => import('../additional-works/AdditionalWorksPage'));
 const MaterialsCategoriesPage = React.lazy(() => import('../materials/MaterialsCategoriesPage'));
+const MaterialsColorsPage = React.lazy(() => import('../materials/MaterialsColorsPage'));
 const CalculatorPage = React.lazy(() => import('../calculator/CalculatorPage'));
 
 interface CardDef {
@@ -57,7 +58,6 @@ export default function Dashboard() {
     ['dashboard'],
     async () => (await getDashboard()).data as DashboardData
   );
-  const navigate = useNavigate();
   const [activeModal, setActiveModal] = useState<ModalKind | null>(null);
 
   if (loading) return <LoadingSpinner />;
@@ -80,19 +80,11 @@ export default function Dashboard() {
     { icon: PackageOpen, label: 'MATERIALES', color: '#64748b', tone: 'info', kind: 'materials', path: '/admin/materials', description: 'Gestionar materiales' },
     { icon: Wrench, label: 'TRABAJOS ADICIONALES', color: '#0891b2', tone: 'info', kind: 'additional-works', path: '/admin/additional-works', description: 'Gestionar trabajos adicionales' },
     { icon: LayoutGrid, label: 'CATEGORIAS', color: '#ea580c', tone: 'info', kind: 'categories', path: '/admin/materials/categories', description: 'Gestionar categorias' },
+    { icon: Palette, label: 'COLORES', color: '#9333ea', tone: 'info', kind: 'colors', path: '/admin/materials/colors', description: 'Gestionar colores de materiales' },
     { icon: Calculator, label: 'CALCULADORA', color: '#4f46e5', tone: 'info', kind: 'calculator', path: '/admin/plate-calculator', description: 'Calculadora de materiales' },
   ];
 
   const closeModal = () => setActiveModal(null);
-
-  // Helper for the "drill down" path: when the user clicks something
-  // inside a list modal that requires navigation (e.g. "Nuevo material"
-  // from the materials modal), we close the modal first and let the
-  // page's own useNavigate take over.
-  const openInFullPage = (path: string) => {
-    closeModal();
-    navigate(path);
-  };
 
   return (
     <div className={s['dashboard']}>
@@ -205,5 +197,6 @@ const DASHBOARD_MODALS: ReadonlyArray<{
   { kind: 'materials', title: 'Materiales', width: '1400px', render: () => <MaterialsListPage /> },
   { kind: 'additional-works', title: 'Trabajos adicionales', width: '1200px', render: () => <AdditionalWorksPage /> },
   { kind: 'categories', title: 'Categorías de materiales', width: '1200px', render: () => <MaterialsCategoriesPage /> },
+  { kind: 'colors', title: 'Colores de materiales', width: '1200px', render: () => <MaterialsColorsPage /> },
   { kind: 'calculator', title: 'Calculadora', width: '1200px', render: () => <CalculatorPage /> },
 ];

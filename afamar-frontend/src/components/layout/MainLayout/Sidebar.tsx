@@ -1,6 +1,5 @@
-import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X, ChevronDown, LayoutDashboard, FileText, ClipboardList, Users, Box, Bath, Calendar, Calculator, BarChart3, Settings, Send, Wrench, Clock, Truck, DollarSign, Receipt, History, Image, Tags, type LucideIcon } from 'lucide-react';
+import { Menu, X, ChevronDown, LayoutDashboard, FileText, ClipboardList, Users, Box, Bath, Calendar, Calculator, BarChart3, Settings, Send, Wrench, Clock, Truck, DollarSign, Receipt, History, Image, Tags, Palette, type LucideIcon } from 'lucide-react';
 import styles from './MainLayout.module.css';
 
 const SIDEBAR_WIDTH = 280;
@@ -62,6 +61,7 @@ const accordionGroups: AccordionGroup[] = [
       { label: 'Materiales', path: `${PREFIX}/materials`, icon: Box },
       { label: 'Trabajos Adicionales', path: `${PREFIX}/additional-works`, icon: Settings },
       { label: 'Categorías', path: `${PREFIX}/materials/categories`, icon: Tags },
+      { label: 'Colores', path: `${PREFIX}/materials/colors`, icon: Palette },
       { label: 'Calculadora de Placa', path: `${PREFIX}/plate-calculator`, icon: Calculator },
       { label: 'Calculadora de Porcelanato', path: `${PREFIX}/porcelain-tile-calculator`, icon: Calculator },
     ],
