@@ -62,14 +62,16 @@ def _run_seeders() -> None:
     block the app from starting — production DBs may already be populated and
     dev DBs just need a one-shot bootstrap.
 
-    Seeders run in dependency order: settings + categories first, then
-    pool_types, materials (which need the categories), pool_stock +
-    additional_works (catalogue snapshots), users last.
+    Seeders run in dependency order: settings + categories + colors first
+    (no FKs depend on them), then pool_types, materials (which need the
+    categories + colors), pool_stock + additional_works (catalogue
+    snapshots), users last.
     """
     try:
         from scripts.seeders import (
             seed_additional_works,
             seed_categories,
+            seed_colors,
             seed_materials,
             seed_pool_stock,
             seed_pool_types,
@@ -78,6 +80,7 @@ def _run_seeders() -> None:
         )
         seed_settings()
         seed_categories()
+        seed_colors()
         seed_pool_types()
         seed_materials()
         seed_pool_stock()

@@ -1,0 +1,5 @@
+# E2E artifacts — gitignored locally and in CI
+.auth/
+test-results/
+playwright-report/
+playwright/.cache/

@@ -18,7 +18,17 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: 1,
-  reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
+  // Todos los artefactos de Playwright viven bajo e2e/ — nada se
+  // escupe al root del frontend.
+  outputDir: './e2e/test-results',
+  reporter: process.env.CI
+    ? [['github'], ['html', { open: 'never', outputFolder: 'e2e/playwright-report' }]]
+    : [
+        ['list'],
+        ['html', { open: 'never', outputFolder: 'e2e/playwright-report' }],
+        ['json', { outputFile: 'e2e/playwright-report/results.json' }],
+        ['./e2e/reporters/test-report.ts', { outputFile: 'e2e/playwright-report/test_report.html' }],
+      ],
   timeout: 30_000,
   expect: { timeout: 5_000 },
 

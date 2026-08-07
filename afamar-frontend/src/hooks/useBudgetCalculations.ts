@@ -42,6 +42,26 @@ export function useBudgetCalculations(
     const materialsData = form.materials_data || [];
     const poolsData = form.pools_data || [];
 
+    // Set con los nombres de los materiales marcados como alternativos.
+    // Los pools/fabrication/additional-works atados a uno de estos se
+    // excluyen del subtotal del Presupuesto principal (aparecen solo en
+    // la card de la alternativa). Coincide con el filtro de
+    // `BudgetLineItems` y mantiene la consistencia UI ↔ totales.
+    const altMaterialNames = new Set(
+      materialsData.filter((m: MaterialInForm) => m.is_alternative).map((m) => m.name),
+    );
+    const isAltLinked = (materialField: string | null | undefined): boolean => {
+      if (!materialField) return false;
+      if (materialField === '__GLOBAL__') return false;
+      if (materialField.startsWith('__ALT__:')) return true;
+      return altMaterialNames.has(materialField);
+    };
+
+    // Filtrar pools/fabrication/additionals atados a alternativas antes de
+    // calcular los subtotales del Presupuesto principal.
+    const fabricationForMain = fabricationDetails.filter((d) => !isAltLinked(d.material));
+    const poolsForMain = poolsData.filter((pt) => !isAltLinked(pt.material));
+
     // Fabrication details respect their own `currency` field (the row's
     // legacy contract). New rows created with the current form-builder
     // default to ARS (per the user-facing contract — see
@@ -49,19 +69,19 @@ export function useBudgetCalculations(
     // the row followed the material's currency are still USD and we have
     // to honor that in the totals. The PDF then renders whichever
     // currency the row says it is.
-    const arsTotal = fabricationDetails.reduce(
+    const arsTotal = fabricationForMain.reduce(
       (sum: number, d: FabricationDetail) => sum + (d.currency === 'USD' ? 0 : (Number(d.price) || 0) * (d.quantity || 1)),
       0
     );
-    const usdTotal = fabricationDetails.reduce(
+    const usdTotal = fabricationForMain.reduce(
       (sum: number, d: FabricationDetail) => sum + (d.currency === 'USD' ? (Number(d.price) || 0) * (d.quantity || 1) : 0),
       0
     );
     const dd = Number(form.usd_rate);
-    const ppArs = poolsData
+    const ppArs = poolsForMain
       .filter((pt: PoolInForm) => (pt.currency || 'ARS') !== 'USD')
       .reduce((sum: number, pt: PoolInForm) => sum + (pt.price || 0) * (pt.quantity || 1), 0);
-    const ppUsd = poolsData
+    const ppUsd = poolsForMain
       .filter((pt: PoolInForm) => (pt.currency || 'ARS') === 'USD')
       .reduce((sum: number, pt: PoolInForm) => sum + (pt.price || 0) * (pt.quantity || 1), 0);
     // Parse additional works from the JSON snapshot on the form.
@@ -71,6 +91,8 @@ export function useBudgetCalculations(
       try { const p = JSON.parse(additionalWorksRaw); if (Array.isArray(p)) additionalWorksParsed = p as AdditionalWorkRow[]; }
       catch { /* ignore malformed JSON */ }
     }
+    // Filtrar additional works atados a alternativos antes del subtotal principal.
+    const additionalForMain = additionalWorksParsed.filter((a) => !isAltLinked(a.materialName));
     // `frente` rows carry a frozen `total` (set by the picker when the
     // operator last touched the material / linear_meters fields, and
     // persisted by the backend at save time). Honor that value instead of
@@ -80,10 +102,10 @@ export function useBudgetCalculations(
       if (a.type === 'frente') return Number(a.total ?? 0);
       return Number(a.total ?? (Number(a.price ?? 0) * Number(a.quantity ?? 1)));
     };
-    const additionalArs = additionalWorksParsed
+    const additionalArs = additionalForMain
       .filter((a) => (a.currency ?? 'ARS') !== 'USD')
       .reduce((sum, a) => sum + additionalContribution(a), 0);
-    const additionalUsd = additionalWorksParsed
+    const additionalUsd = additionalForMain
       .filter((a) => (a.currency ?? 'ARS') === 'USD')
       .reduce((sum, a) => sum + additionalContribution(a), 0);
 

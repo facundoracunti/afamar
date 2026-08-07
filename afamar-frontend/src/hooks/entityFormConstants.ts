@@ -18,7 +18,7 @@ export const CUTOUT_DETAILS: Record<string, string> = {
 
 export const DEFAULT_FINANCIALS: FinancialBase = {
   currency: 'ARS',
-  usd_rate: 1000,
+  usd_rate: 1500,
   subtotal: 0,
   transport: 0,
   total: 0,

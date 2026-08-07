@@ -9,7 +9,12 @@
      .balanceRow / .balanceRow__label / .balanceRow__value
      .subsectionHeader / .lineItem / .lineItem__value
 
+   Visual language harmonized with QuoteOptionsGrid (mismo border-radius,
+   padding y tipografía) para que Presupuesto y Alternativos se vean como
+   cards hermanos en lugar de uno dominante sobre el otro.
+
    New classes (added for inline-styled parts):
+     .budget-panel__card                 wrapper — mismo style que .quote-options__card
      .budget-panel__header              title bar (.section-title override)
      .budget-panel__toggle              USD/ARS toggle (header variant)
      .budget-panel__toggle--active      modifier when modoUSD
@@ -60,14 +65,40 @@
 /* Header + USD/ARS toggle                                            */
 /* ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ */
+/* Wrapper — Presupuesto y alternatives son cards hermanos             */
+/* ------------------------------------------------------------------ */
+
+.budget-panel__wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Card wrapper (harmonizado con .quote-options__card)                  */
+/* ------------------------------------------------------------------ */
+
+.budget-panel__card {
+  background-color: var(--surface-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 14px;
+  box-shadow: 0 1px 3px var(--shadow-color);
+}
+
+/* ------------------------------------------------------------------ */
+/* Header + USD/ARS toggle                                            */
+/* ------------------------------------------------------------------ */
+
 .budget-panel__header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 12px;
-  padding-bottom: 8px;
+  padding-bottom: 6px;
   border-bottom: 1px solid var(--border-color);
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .budget-panel__title {
@@ -184,15 +215,30 @@
 
 .budget-panel__columns {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .budget-panel__main {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 12px;
   align-items: start;
+}
+
+.budget-panel__left-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.budget-panel__action-block {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color);
 }
 
 @media (max-width: 960px) {
@@ -227,8 +273,72 @@
 
 .budget-panel__subtotal-block {
   border-bottom: 1px solid var(--border-color);
-  padding-bottom: 5px;
-  margin-bottom: 5px;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+}
+
+/* Detail box (CONCEPTO / SUBTOTAL) — mismo patrón que el alternative card */
+.budget-panel__detail-box {
+  background-color: var(--surface-alt-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.budget-panel__detail-header {
+  display: flex;
+  justify-content: space-between;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.budget-panel__detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-top: 6px;
+  gap: 10px;
+}
+
+.budget-panel__detail-row--dashed {
+  padding-top: 6px;
+  border-top: 1px dashed var(--border-color);
+}
+
+.budget-panel__detail-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.budget-panel__detail-value {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+  background-color: var(--surface-bg);
+  border: 1px solid var(--border-color);
+  padding: 2px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.budget-panel__detail-value--usd {
+  color: var(--color-success);
+  border-color: var(--color-success);
+}
+
+.budget-panel__detail-value-usd {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-success);
+  margin-top: 2px;
+  text-align: right;
 }
 
 /* ------------------------------------------------------------------ */
@@ -701,6 +811,18 @@
   flex-direction: column;
   gap: 10px;
   min-width: 0;
+}
+
+.budget-panel__payment-transport {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+@media (max-width: 480px) {
+  .budget-panel__payment-transport {
+    grid-template-columns: 1fr;
+  }
 }
 
 .budget-panel__payment-controls {

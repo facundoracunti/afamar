@@ -21,6 +21,11 @@ interface TrabajoComun {
   total: number;
   /** Native currency of this line. Defaults to ARS when omitted (backward-compat). */
   currency?: 'ARS' | 'USD';
+  /** Link al material al que pertenece este row:
+   *   - null/undefined → trabajo común (aparece en main + TODAS las alts)
+   *   - '__GLOBAL__'  → global (aparece en main + TODAS las alts)
+   *   - '<name>'      → atado a ese material (solo aparece en su card) */
+  materialName?: string | null;
 }
 
 interface Props {
@@ -100,7 +105,9 @@ const QuoteOptionsGrid = ({
             <div className={s['quote-options__detail-row']}>
               <span className={s['quote-options__detail-label']}>Costo Material base:</span>
               <span>
-                <span className={s['quote-options__detail-value']}>{formatMonto(mat.costoMaterialBase, esTarjetaUSD)}</span>
+                <span className={`${s['quote-options__detail-value']} ${esTarjetaUSD ? s['quote-options__detail-value--usd'] : ''}`}>
+                  {formatMonto(mat.costoMaterialBase, esTarjetaUSD)}
+                </span>
                 {t_cambio > 0 && (
                   <span className={s['quote-options__detail-value-usd']}>
                     {esTarjetaUSD
@@ -123,7 +130,7 @@ const QuoteOptionsGrid = ({
                     {job.concept} ({job.quantity && job.quantity > 1 ? `x${job.quantity}` : 'x1'})
                   </span>
                   <span>
-                    <span className={s['quote-options__detail-value--muted']}>
+                    <span className={`${s['quote-options__detail-value--muted']} ${jobEsUSD ? s['quote-options__detail-value--usd'] : ''}`}>
                       {jobEsUSD
                         ? formatCurrencyValue(job.total, { currency: 'USD', locale: 'en-US' })
                         : formatCurrencyValue(job.total, { currency: 'ARS' })}
@@ -140,7 +147,15 @@ const QuoteOptionsGrid = ({
               );
             })}
 
-            {listaTrabajos.map((job: TrabajoComun, i: number) => {
+            {listaTrabajos
+              .filter((job) => {
+                const mn = job.materialName;
+                // Trabajo común o global: aparece en TODAS las cards
+                if (!mn || mn === '__GLOBAL__') return true;
+                // Atado a un material: solo aparece en SU card (main o alt)
+                return mn === mat.name;
+              })
+              .map((job: TrabajoComun, i: number) => {
               const jobCurrency = job.currency || 'ARS';
               const jobEsUSD = jobCurrency === 'USD';
               return (
@@ -152,7 +167,7 @@ const QuoteOptionsGrid = ({
                     {job.concept.replace('CUTOUT_SINK - ', '')}
                   </span>
                   <span>
-                    <span className={s['quote-options__detail-value--muted']}>
+                    <span className={`${s['quote-options__detail-value--muted']} ${jobEsUSD ? s['quote-options__detail-value--usd'] : ''}`}>
                       {jobEsUSD
                         ? formatCurrencyValue(job.total, { currency: 'USD', locale: 'en-US' })
                         : formatCurrencyValue(job.total, { currency: 'ARS' })}
@@ -171,43 +186,68 @@ const QuoteOptionsGrid = ({
           </div>
         </div>
 
-        <div className={s['quote-options__total-wrap']}>
-          <div className={s['quote-options__total']}>
-            <span className={s['quote-options__total-label']}>TOTAL PRESUPUESTO</span>
-            <span className={s['quote-options__total-value']}>
-              {modoUSD && t_cambio > 0
-                ? formatCurrencyValue(mat.totalFinalARS / t_cambio, { currency: 'USD', locale: 'en-US' })
-                : formatCurrencyValue(Math.round(mat.totalFinalARS), { currency: 'ARS', decimals: 0 })}
-            </span>
-            {t_cambio > 0 && (
-              <span className={s['quote-options__total-usd']}>
-                {modoUSD
-                  ? `≈ ${formatCurrencyValue(Math.round(mat.totalFinalARS), { currency: 'ARS', decimals: 0 })}`
-                  : `≈ ${formatCurrencyValue(mat.totalFinalARS / t_cambio, { currency: 'USD', locale: 'en-US' })}`}
-              </span>
-            )}
+        <div className={s['quote-options__totals-block']}>
+          {/* Subtotales + TOTAL — fila con 4 cards (ARS, USD) */}
+          <div className={s['quote-options__totals-row']}>
+            <div className={s['quote-options__totals-cell']}>
+              <div className={s['quote-options__totals-label']}>SUBTOTALES (ARS)</div>
+              <div className={s['quote-options__totals-value']}>
+                {formatCurrencyValue(
+                  Math.round(esTarjetaUSD && t_cambio > 0 ? mat.costoMaterialBase * t_cambio : mat.costoMaterialBase),
+                  { currency: 'ARS', decimals: 0 },
+                )}
+              </div>
+            </div>
+            <div className={s['quote-options__totals-cell']}>
+              <div className={s['quote-options__totals-label']}>TOTAL ARS</div>
+              <div className={s['quote-options__totals-value']}>
+                {formatCurrencyValue(Math.round(mat.totalFinalARS), { currency: 'ARS', decimals: 0 })}
+              </div>
+            </div>
+            <div className={s['quote-options__totals-cell']}>
+              <div className={s['quote-options__totals-label']}>SUBTOTALES (USD)</div>
+              <div className={`${s['quote-options__totals-value']} ${s['quote-options__totals-value--usd']}`}>
+                {t_cambio > 0
+                  ? formatCurrencyValue(mat.costoMaterialBase / t_cambio, { currency: 'USD' })
+                  : '—'}
+              </div>
+            </div>
+            <div className={s['quote-options__totals-cell']}>
+              <div className={s['quote-options__totals-label']}>TOTAL USD</div>
+              <div className={`${s['quote-options__totals-value']} ${s['quote-options__totals-value--usd']}`}>
+                {t_cambio > 0
+                  ? formatCurrencyValue(mat.totalFinalARS / t_cambio, { currency: 'USD' })
+                  : '—'}
+              </div>
+            </div>
+          </div>
+          {/* Saldo pendiente — fila con 2 cards (ARS, USD) que abarcan 2 columnas cada una */}
+          <div className={`${s['quote-options__totals-row']} ${s['quote-options__totals-row--saldo']}`}>
+            <div className={s['quote-options__totals-cell']}>
+              <div className={s['quote-options__totals-label']}>SALDO PENDIENTE ARS</div>
+              <div className={s['quote-options__totals-value']}>
+                {formatCurrencyValue(Math.round(mat.totalFinalARS), { currency: 'ARS', decimals: 0 })}
+              </div>
+            </div>
+            <div className={s['quote-options__totals-cell']}>
+              <div className={s['quote-options__totals-label']}>SALDO PENDIENTE USD</div>
+              <div className={`${s['quote-options__totals-value']} ${s['quote-options__totals-value--usd']}`}>
+                {t_cambio > 0
+                  ? formatCurrencyValue(mat.totalFinalARS / t_cambio, { currency: 'USD' })
+                  : '—'}
+              </div>
+            </div>
           </div>
         </div>
-
-        {!isMain && budgetId && onConvertirAlternativa && (
-          <button
-            type="button"
-            className={s['quote-options__convert']}
-            onClick={() => onConvertirAlternativa(idx)}
-          >
-            <span className={s['quote-options__convert-icon']}>+</span>
-            Convertir Alternativa en OT
-          </button>
-        )}
       </div>
     );
   };
 
   return (
     <div className={s['quote-options']}>
-      <h3 className={s['quote-options__title']}>Opciones de Cotización Disponibles</h3>
-
       <div className={s['quote-options__grid']}>
+        {/* Principal primero (mismo componente que las alternativas) */}
+        {listaPrincipales.map((mat, idx) => renderCard(mat, idx, true))}
         {listaAlternativas.map((mat, idx) => renderCard(mat, idx, false))}
       </div>
     </div>

@@ -5,10 +5,12 @@
 import type { EntityFormState } from '../types';
 import type { FinancialBase } from '../types/shared';
 
+const DEFAULT_USD_RATE = 1500;
+
 export function buildFinancialPayload(form: EntityFormState): FinancialBase {
   return {
     currency: form.currency || 'ARS',
-    usd_rate: Number(form.usd_rate) || 1000,
+    usd_rate: Number(form.usd_rate) || DEFAULT_USD_RATE,
     subtotal: Number(form.subtotal),
     transport: Number(form.transport),
     total: Number(form.total),
@@ -30,7 +32,7 @@ export function buildFinancialPayload(form: EntityFormState): FinancialBase {
 export function mapFinancialToForm(d: Record<string, unknown>): FinancialBase {
   return {
     currency: (d.currency as string) || 'ARS',
-    usd_rate: (d.usd_rate as number) ?? 1000,
+    usd_rate: (d.usd_rate as number) ?? DEFAULT_USD_RATE,
     subtotal: (d.subtotal as number) || 0,
     transport: (d.transport as number) || 0,
     total: (d.total as number) || 0,

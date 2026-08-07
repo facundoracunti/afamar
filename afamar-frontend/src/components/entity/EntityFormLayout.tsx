@@ -54,6 +54,8 @@ export interface EntityFormLayoutProps {
   terms?: TermConfig[];
   alternativasGrid?: ReactNode;
   discountBlock?: ReactNode;
+  /** Slot para acciones primarias (ej: "CONVERTIR A ORDEN"). */
+  actionBlock?: ReactNode;
   extraDialogs?: ReactNode;
   specsCardClassName?: string;
   fabricationShowMeasurementComparison?: boolean;
@@ -99,7 +101,7 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
 
   const {
     beforeLayout, observations, terms = [],
-    alternativasGrid, discountBlock, extraDialogs,
+    alternativasGrid, discountBlock, actionBlock, extraDialogs,
     specsCardClassName, fabricationShowMeasurementComparison, fabricationMaterialsData,
     mode = 'full',
   } = props;
@@ -275,6 +277,7 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
           num={parseNumber}
           alternativasGrid={alternativasGrid}
           discountBlock={discountBlock}
+          actionBlock={actionBlock}
           onConfirmarPago={onConfirmarPago}
         />
       ),
@@ -401,6 +404,7 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
             num={parseNumber}
             alternativasGrid={alternativasGrid}
             discountBlock={discountBlock}
+            actionBlock={actionBlock}
             onConfirmarPago={onConfirmarPago}
           />
         </div>

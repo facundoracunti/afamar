@@ -1,11 +1,11 @@
 {
     "schema_version": 2,
-    "commit": "3a8566272b388d0c91d627b2369df29080167ab4",
-    "indexed_at": "2026-08-07T04:11:14Z",
+    "commit": "a06c15695f68cc0b147d90f37074fa15f46eec19",
+    "indexed_at": "2026-08-07T23:01:10Z",
     "project": "afamar",
-    "nodes": 3751,
-    "edges": 13286,
-    "original_size": 10551296,
-    "compressed_size": 2373079,
+    "nodes": 3820,
+    "edges": 13518,
+    "original_size": 10682368,
+    "compressed_size": 2429597,
     "compression_level": 3
 }

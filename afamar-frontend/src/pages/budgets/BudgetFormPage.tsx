@@ -125,6 +125,20 @@ export default function BudgetForm(props: BudgetFormProps = {}) {
     setForm,
   });
 
+  // Acción primaria "CONVERTIR A ORDEN" — se renderiza debajo de
+  // Traslado/Seña dentro del Presupuesto card, no en el header.
+  const convertAction = isEdit && !workOrderNumber && form.status === 'APPROVED' ? (
+    <button
+      type="button"
+      className={`btn btn-primary ${s['budget-form__btn-convert']}`}
+      onClick={() => setShowConvertDialog(true)}
+      disabled={saving}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+    >
+      <FileOutput size={16} /> {saving ? 'CONVIRTIENDO...' : 'CONVERTIR A ORDEN'}
+    </button>
+  ) : null;
+
   const { refresh: refreshUsdRate } = useUsdRate({ form, setForm, isEdit });
 
   const handleSubmit = useCallback(async (e?: React.FormEvent) => {
@@ -176,11 +190,6 @@ export default function BudgetForm(props: BudgetFormProps = {}) {
           workOrderNumber ? (
             <button type="button" className={s['budget-form__btn-ot']} onClick={() => navigate(`/admin/work-orders?search=${workOrderNumber}`)}>
               <FileOutput size={16} /> OT {workOrderNumber}
-            </button>
-          ) : form.status === 'APPROVED' ? (
-            <button type="button" className={s['budget-form__btn-convert']} onClick={() => setShowConvertDialog(true)}
-              disabled={saving}>
-              <FileOutput size={16} /> {saving ? 'CONVIRTIENDO...' : 'CONVERTIR A ORDEN'}
             </button>
           ) : ['PENDING', 'ONLINE'].includes(form.status) ? (
             <button type="button" className={s['budget-form__btn-approve']} onClick={handleAprobar}
@@ -268,6 +277,7 @@ export default function BudgetForm(props: BudgetFormProps = {}) {
               <EntityFormLayout
                 mode={props.layoutMode || 'full'}
                 alternativasGrid={alternativasGrid}
+                actionBlock={convertAction}
                 observations={
                   <BudgetFormObservations
                     form={form}

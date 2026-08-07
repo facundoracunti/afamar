@@ -19,9 +19,19 @@ export function AlternativeBudgetGrid({ form, matsAlt, modoUSD }: AlternativeBud
   const fabricationDetails = form.fabrication_details || [];
   const poolsData = (form.pools_data || []) as unknown as PoolInForm[];
 
-  const fijosArsAlt = fabricationDetails.reduce((s: number, d) => s + (Number(d.price) || 0) * (d.quantity || 1), 0)
-    + poolsData.reduce((s: number, pt) => s + (Number(pt.price) || 0) * (Number(pt.quantity) || 1), 0)
-    + (Number(form.transport) || 0);
+  /** Devuelve los items comunes aplicables a una alternativa específica:
+   *  - fabricación/pool global (`material === '__GLOBAL__'`)
+   *  - fabricación/pool con `material` vacío (default común)
+   *  - fabricación/pool atado a esta alternativa
+   *  Excluye los atados a OTRAS alternativas o al material principal. */
+  const filterForAlt = <T extends { material?: string | null }>(items: T[], altName: string): T[] =>
+    items.filter((it) => {
+      const m = it.material;
+      if (!m || m === '__GLOBAL__') return true;
+      return m === altName;
+    });
+
+  const transport = Number(form.transport) || 0;
 
   return (
     <div className={s['work-order-form__alt-grid']}>
@@ -35,6 +45,12 @@ export function AlternativeBudgetGrid({ form, matsAlt, modoUSD }: AlternativeBud
           const m2 = Number(mat.length || 0) * Number(mat.width || 0) * (mat.quantity || 1);
           const costoMat = mat.currency === 'USD' ? m2 * (mat.price_m2_usd || 0) : m2 * (mat.price_m2 || 0);
           const costoMatArs = mat.currency === 'USD' ? (dd2 > 0 ? costoMat * dd2 : 0) : costoMat;
+          // Fijos SOLO para esta alternativa: comunes + atados a esta alt
+          const fabForAlt = filterForAlt(fabricationDetails, mat.name);
+          const poolsForAlt = filterForAlt(poolsData, mat.name);
+          const fijosArsAlt = fabForAlt.reduce((s, d) => s + (Number(d.price) || 0) * (Number(d.quantity) || 1), 0)
+            + poolsForAlt.reduce((s, pt) => s + (Number(pt.price) || 0) * (Number(pt.quantity) || 1), 0)
+            + transport;
           const totalArs = costoMatArs + fijosArsAlt;
 
           return (

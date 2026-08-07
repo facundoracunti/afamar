@@ -331,4 +331,45 @@ describe('useBudgetCalculations — additional_works_data triggers total recompu
     });
     expect(result.current.form.total).toBe(0);
   });
+
+  it('excludes pools/fabrication/additional-works tied to an alternative from the main Presupuesto subtotal', async () => {
+    // Materials: 1 main + 1 alternative
+    const materialsData: MaterialInForm[] = [
+      { id: 1, name: 'GRIS MARA', price_m2: 100, price_m2_usd: 0, currency: 'ARS', quantity: 1, m2_used: 1, m2_budgeted: 1, length: 1, width: 1, is_alternative: false },
+      { id: 2, name: 'NEGRO BRASIL', price_m2: 200, price_m2_usd: 0, currency: 'ARS', quantity: 1, m2_used: 1, m2_budgeted: 1, length: 1, width: 1, is_alternative: true },
+    ];
+    // Pool atado al alternativo → NO debe contar en el subtotal principal
+    const poolsData: PoolInForm[] = [
+      { pool_id: 1, brand: 'Johnson', model: 'E36', price: 50000, currency: 'ARS', quantity: 1, material: 'NEGRO BRASIL' },
+      { pool_id: 2, brand: 'MiPileta', model: 'Doble', price: 30000, currency: 'ARS', quantity: 1, material: '__GLOBAL__' },
+    ];
+    // Fabrication atada al main → SÍ cuenta
+    const fabricationDetails: FabricationDetail[] = [
+      { concept: 'BASEBOARD', detail: 'Zocalo', material: 'GRIS MARA', material_price_m2: 0, length: 0, width: 0, m2: 0, labor: null, currency: 'ARS', quantity: 2, price: 10000 },
+      { concept: 'OTHER', detail: 'Apertura pileta', material: 'NEGRO BRASIL', material_price_m2: 0, length: 0, width: 0, m2: 0, labor: null, currency: 'ARS', quantity: 1, price: 20000 },
+    ];
+    const additional_works_data = JSON.stringify([
+      // Global → SÍ cuenta
+      { additional_work_id: 1, name: 'Pulido', price: 5000, currency: 'ARS', quantity: 1, total: 5000, materialName: '__GLOBAL__', type: 'flat' },
+      // Tied to alt → NO cuenta
+      { additional_work_id: 2, name: 'Frente alt', price: 0, currency: 'ARS', quantity: 1, total: 8000, materialName: '__ALT__:NEGRO BRASIL', type: 'frente', linear_meters: 1, formula_values: null },
+    ]);
+
+    const { result } = renderCalc(makeForm({
+      usd_rate: 1000,
+      materials_data: materialsData,
+      pools_data: poolsData,
+      fabrication_details: fabricationDetails,
+      additional_works_data,
+    }));
+
+    // Esperado en el subtotal principal:
+    //   GRIS MARA 1m² x $100 = 100
+    //   + Pileta global $30.000
+    //   + Zócalo GRIS MARA $20.000 (2 x $10.000)
+    //   + Pulido global $5.000
+    //   = 55.100
+    // NO incluye: Pileta NEGRO BRASIL $50.000, Apertura NEGRO BRASIL $20.000, Frente alt $8.000
+    expect(result.current.form.subtotal).toBe(55100);
+  });
 });

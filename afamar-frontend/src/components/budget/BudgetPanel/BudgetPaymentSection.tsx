@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { EntityFormState } from '../../../types/form';
+import { useBudgetPanel } from './BudgetPanelContext';
 import styles from './BudgetPanel.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -25,28 +26,66 @@ export function BudgetPaymentSection({
   onConfirmarPago,
   discountBlock,
 }: BudgetPaymentSectionProps) {
+  const { financial } = useBudgetPanel();
+  const { handleTransportChange, handleDepositCurrencyChange, handleDepositAmountChange } = financial;
+  const [transportCurrency, setTransportCurrency] = useState<'ARS' | 'USD'>('ARS');
+
+  const transportValue = transportCurrency === 'ARS'
+    ? (Number(form.transport) > 0 ? String(form.transport) : '')
+    : (Number(form.transport_usd) > 0 ? String(form.transport_usd) : '');
+  const depositValue = (form.deposit_currency || 'ARS') === 'ARS'
+    ? (Number(form.deposit_received) > 0 ? String(form.deposit_received) : '')
+    : (Number(form.deposit_usd) > 0 ? String(form.deposit_usd) : '');
+
   return (
     <div className={s['budget-panel__payment-col']}>
-      <div
-        className={`${s['paymentStatus']}${form.balance_paid ? ' ' + s['paymentStatus--paid'] : ' ' + s['paymentStatus--pending']}`}
-      >
-        <div className={s['paymentStatus__row']}>
-          <div>
-            <span className={s['paymentStatus__label']}>
-              {form.balance_paid ? '✓ Saldo cobrado' : '⚠ Saldo pendiente de cobro'}
-            </span>
-            {form.balance_paid && form.balance_paid_at && (
-              <div className={s['paymentStatus__date']}>Fecha: {form.balance_paid_at}</div>
-            )}
+      {/* Traslado + Seña recibida — encima del botón Confirmar pago */}
+      <div className={s['budget-panel__payment-transport']}>
+        <div className="form-group">
+          <label>Traslado</label>
+          <div className={s['budget-panel__usd-summary-deposit']}>
+            <select
+              className={`input ${s['budget-panel__currency-switch-select']}`}
+              value={transportCurrency}
+              onChange={(e) => setTransportCurrency(e.target.value as 'ARS' | 'USD')}
+              disabled={readOnly}
+              aria-label="Moneda del traslado"
+            >
+              <option value="ARS">ARS</option>
+              <option value="USD">USD</option>
+            </select>
+            <input
+              type="number"
+              className={`input ${s['budget-panel__deposit-input']}`}
+              value={transportValue}
+              onChange={(e) => handleTransportChange(e.target.value, transportCurrency === 'ARS' ? 'ars' : 'usd')}
+              disabled={readOnly}
+              placeholder="0"
+            />
           </div>
-          <button
-            type="button"
-            onClick={onConfirmarPago}
-            className={`${s['paymentStatus__button']}${form.balance_paid ? ' ' + s['paymentStatus__button--paid'] : ' ' + s['paymentStatus__button--pending']}`}
-            disabled={saving}
-          >
-            {form.balance_paid ? 'Deshacer' : '✓ Confirmar pago'}
-          </button>
+        </div>
+        <div className="form-group">
+          <label>Seña recibida</label>
+          <div className={s['budget-panel__usd-summary-deposit']}>
+            <select
+              className={`input ${s['budget-panel__currency-switch-select']}`}
+              value={form.deposit_currency || 'ARS'}
+              onChange={(e) => handleDepositCurrencyChange(e.target.value)}
+              disabled={readOnly}
+              aria-label="Moneda de la seña"
+            >
+              <option value="ARS">ARS</option>
+              <option value="USD">USD</option>
+            </select>
+            <input
+              type="number"
+              className={`input ${s['budget-panel__deposit-input']}`}
+              value={depositValue}
+              onChange={(e) => handleDepositAmountChange(e.target.value)}
+              disabled={readOnly}
+              placeholder="0"
+            />
+          </div>
         </div>
       </div>
 
@@ -94,6 +133,29 @@ export function BudgetPaymentSection({
               })}
             </select>
           )}
+        </div>
+      </div>
+
+      <div
+        className={`${s['paymentStatus']}${form.balance_paid ? ' ' + s['paymentStatus--paid'] : ' ' + s['paymentStatus--pending']}`}
+      >
+        <div className={s['paymentStatus__row']}>
+          <div>
+            <span className={s['paymentStatus__label']}>
+              {form.balance_paid ? '✓ Saldo cobrado' : '⚠ Saldo pendiente de cobro'}
+            </span>
+            {form.balance_paid && form.balance_paid_at && (
+              <div className={s['paymentStatus__date']}>Fecha: {form.balance_paid_at}</div>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={onConfirmarPago}
+            className={`${s['paymentStatus__button']}${form.balance_paid ? ' ' + s['paymentStatus__button--paid'] : ' ' + s['paymentStatus__button--pending']}`}
+            disabled={saving}
+          >
+            {form.balance_paid ? 'Deshacer' : '✓ Confirmar pago'}
+          </button>
         </div>
       </div>
 

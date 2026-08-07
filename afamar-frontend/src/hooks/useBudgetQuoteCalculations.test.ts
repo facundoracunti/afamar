@@ -119,7 +119,7 @@ describe('useBudgetQuoteCalculations — breakdown (no alternatives)', () => {
     );
     expect(result.current.sumatoriaAdicionalesARS).toBe(80000);
     expect(result.current.detalleTrabajosComunes).toEqual([
-      { concept: 'Pileta Johnson Acero 60x40', quantity: 1, total: 80000, currency: 'ARS' },
+      { concept: 'Pileta Johnson Acero 60x40', quantity: 1, total: 80000, currency: 'ARS', materialName: null },
     ]);
   });
 });

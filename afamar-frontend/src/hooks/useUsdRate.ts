@@ -39,17 +39,17 @@ export function useUsdRate({ form, setForm, isEdit = false }: UseUsdRateParams):
       setFetchedAt(now);
       setForm((prev) => ({ ...prev, usd_rate: venta, usd_rate_fetched_at: now }));
     } catch (err: unknown) {
-      // Default 1000 keeps totals computable; surface the error in dev
-      // and let the operator retry via the refresh button.
+      // Si falla el fetch, mantenemos el rate actual (1500 por default) para
+      // que los totales sigan siendo computables. El operador puede reintentar
+      // con el botón de refresh.
       setError(err instanceof Error ? err.message : 'fetch failed');
-      setForm((prev) => ({ ...prev, usd_rate: prev.usd_rate || 1000 }));
+      setForm((prev) => ({ ...prev, usd_rate: prev.usd_rate || 1500 }));
     } finally {
       setLoading(false);
     }
   }, [setForm]);
 
   useEffect(() => {
-    if (isEdit) return;
     let cancelled = false;
     (async () => {
       try {
@@ -57,15 +57,23 @@ export function useUsdRate({ form, setForm, isEdit = false }: UseUsdRateParams):
         if (cancelled) return;
         const now = new Date().toISOString();
         setFetchedAt(now);
-        setForm((prev) => ({ ...prev, usd_rate: venta, usd_rate_fetched_at: now }));
+        // Solo pisar `usd_rate` cuando:
+        //   - el form aún no tiene uno (caso "nuevo" — usa el default 1500)
+        //   - O cuando estamos editando: actualizar siempre al valor del día
+        //     (el operador puede revertir con el refresh manual).
+        setForm((prev) => ({
+          ...prev,
+          usd_rate: venta,
+          usd_rate_fetched_at: now,
+        }));
       } catch (err) {
-        console.warn('USD venta fetch failed (keeping default 1000):', err);
+        console.warn('USD venta fetch failed (keeping current rate):', err);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [isEdit, setForm]);
+  }, [setForm]);
 
   return { fetchedAt, loading, error, refresh };
 }

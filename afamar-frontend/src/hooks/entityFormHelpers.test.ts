@@ -62,7 +62,7 @@ describe('FinancialBase — shared types', () => {
   it('DEFAULT_FINANCIALS uses safe default values', () => {
     expect(DEFAULT_FINANCIALS).toEqual({
       currency: 'ARS',
-      usd_rate: 1000,
+      usd_rate: 1500,
       subtotal: 0,
       transport: 0,
       total: 0,
@@ -133,12 +133,12 @@ describe('buildFinancialPayload', () => {
     expect(payload.balance_due_usd).toBe(0);
   });
 
-  it('defaults usd_rate to 1000 when value is 0 or NaN', () => {
+  it('defaults usd_rate to 1500 when value is 0 or NaN', () => {
     const form = { ...INITIAL_FORM, usd_rate: NaN } as unknown as EntityFormState;
-    expect(buildFinancialPayload(form).usd_rate).toBe(1000);
+    expect(buildFinancialPayload(form).usd_rate).toBe(1500);
 
     const form2 = { ...INITIAL_FORM, usd_rate: 0 } as unknown as EntityFormState;
-    expect(buildFinancialPayload(form2).usd_rate).toBe(1000);
+    expect(buildFinancialPayload(form2).usd_rate).toBe(1500);
   });
 
   it('returns null payment_method when form value is empty string', () => {
@@ -201,7 +201,7 @@ describe('mapFinancialToForm', () => {
       payment_method: null,
     });
     expect(form.currency).toBe('ARS');
-    expect(form.usd_rate).toBe(1000);
+    expect(form.usd_rate).toBe(1500);
     expect(form.payment_method).toBe('');
   });
 });

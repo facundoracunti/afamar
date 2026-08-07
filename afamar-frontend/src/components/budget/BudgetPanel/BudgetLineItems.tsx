@@ -1,6 +1,5 @@
 import React from 'react';
-import { formatCurrency } from '../../../utils/formatters';
-import { CurrencyDisplay } from '../../ui/CurrencyDisplay/CurrencyDisplay';
+import { formatCurrencyValue } from '../../../utils/formatters';
 import { t } from '../../../utils/translate';
 import type { EntityFormState } from '../../../types/form';
 import type { FabricationDetail, MaterialInForm, PoolInForm } from '../../../types/budget';
@@ -16,149 +15,173 @@ interface BudgetLineItemsProps {
   pools: PoolInForm[];
 }
 
+/** Item genérico: CONCEPTO (label izquierda) + SUBTOTAL (valor
+ *  derecha + US$ en verde debajo). Mismo patrón visual que el detail
+ *  box del alternative card. */
+function DetailRow({
+  label,
+  arsTotal,
+  usdTotal,
+  nativeCurrency,
+  isDashed = false,
+}: {
+  label: string;
+  arsTotal: number;
+  usdTotal: number;
+  nativeCurrency: 'ARS' | 'USD';
+  isDashed?: boolean;
+}) {
+  if (!Number.isFinite(arsTotal) || arsTotal <= 0) return null;
+  const valueClass = nativeCurrency === 'USD'
+    ? `${s['budget-panel__detail-value']} ${s['budget-panel__detail-value--usd']}`
+    : s['budget-panel__detail-value'];
+  const usdRefClass = `${s['budget-panel__detail-value-usd']}`;
+  return (
+    <div className={`${s['budget-panel__detail-row']} ${isDashed ? s['budget-panel__detail-row--dashed'] : ''}`}>
+      <span className={s['budget-panel__detail-label']}>{label}</span>
+      <span>
+        <span className={valueClass}>
+          {nativeCurrency === 'USD'
+            ? formatCurrencyValue(arsTotal, { currency: 'USD' })
+            : formatCurrencyValue(arsTotal, { currency: 'ARS' })}
+        </span>
+        <span className={usdRefClass}>
+          ≈ {nativeCurrency === 'USD'
+            ? formatCurrencyValue(arsTotal, { currency: 'ARS', decimals: 0 })
+            : formatCurrencyValue(usdTotal, { currency: 'USD' })}
+        </span>
+      </span>
+    </div>
+  );
+}
+
 export function BudgetLineItems({ form, fabricationDetails, materials, pools }: BudgetLineItemsProps) {
   // Parse the additional-works snapshot once here so the summary list
-  // and `useBudgetCalculations` share one canonical parser. Earlier
-  // this component never read `additional_works_data` at all, so the
-  // resumen line list was missing the cards even though the totals
-  // (which use the same parser) included them.
+  // and `useBudgetCalculations` share one canonical parser.
   const additionalWorks = parseAdditionalWorksData(form.additional_works_data);
   const dd = Number(form.usd_rate);
 
+  // Set con los nombres de los materiales marcados como alternativos.
+  // Los pools/fabrication/additional-works cuyo `material` (o
+  // `materialName` con prefijo `__ALT__:`) apunte a uno de estos se
+  // renderizan SOLO en la card de la alternativa correspondiente, no en
+  // el Presupuesto principal. Usamos `form.materials_data` (todos los
+  // materiales), NO `materials` (que BudgetPanel ya filtra a main-only).
+  const altMaterialNames = new Set(
+    (form.materials_data ?? []).filter((m) => m.is_alternative).map((m) => m.name),
+  );
+
+  /** Devuelve true si el item está atado a un material alternativo
+   *  (debe ocultarse del Presupuesto principal). */
+  const isTiedToAlternative = (materialField: string | null | undefined): boolean => {
+    if (!materialField) return false;
+    if (materialField === '__GLOBAL__') return false;
+    if (materialField.startsWith('__ALT__:')) return true;
+    return altMaterialNames.has(materialField);
+  };
+
+  // Filtrar pools/fabrication/additionals atados a un alternativo
+  const poolsForMain = pools.filter((pt) => !isTiedToAlternative(pt.material));
+  const fabricationForMain = fabricationDetails.filter((d) => !isTiedToAlternative(d.material));
+  const additionalForMain = additionalWorks.filter((a) => !isTiedToAlternative(a.materialName));
+
   return (
-    <div className={s['budget-panel__subtotal-block']}>
-      {fabricationDetails
+    <div className={s['budget-panel__detail-box']}>
+      <div className={s['budget-panel__detail-header']}>
+        <span>Concepto</span>
+        <span>Subtotal</span>
+      </div>
+
+      {/* Fabricación */}
+      {fabricationForMain
         .filter((d) => Number(d.price) > 0)
         .map((d, i) => {
-          const precioArs =
-            d.currency === 'ARS' ? Number(d.price)
-              : dd > 0 ? Number(d.price) * dd : 0;
-          const precioUsd =
-            d.currency === 'USD' ? Number(d.price)
-              : dd > 0 ? Number(d.price) / dd : 0;
-          const priceArs = precioArs * d.quantity;
-          const priceUsd = precioUsd * d.quantity;
+          const nativeCurrency = d.currency === 'USD' ? 'USD' : 'ARS';
+          const nativePrice = Number(d.price);
+          const arsTotal = nativeCurrency === 'ARS' ? nativePrice * d.quantity : (dd > 0 ? nativePrice * dd * d.quantity : 0);
+          const usdTotal = nativeCurrency === 'USD' ? nativePrice * d.quantity : (dd > 0 ? (nativePrice * d.quantity) / dd : 0);
+          const isGlobal = !d.material;
+          const globalTag = isGlobal ? ' [GLOBAL]' : '';
+          const label = `${d.concept === 'OTHER' ? d.detail || t('OTHER') : t(d.concept)}${d.material ? ` - ${d.material}` : ''}${d.m2 > 0 ? ` (${d.m2} m²)` : ''}${d.length && d.length > 0 && d.concept === 'OTHER' ? ` (${d.length} m)` : ''}${d.quantity > 1 ? ` x${d.quantity}` : ''}${globalTag}`;
           return (
-            <div key={`${d.concept}-${d.detail ?? ''}-${d.currency}-${i}`} className={s['lineItem']}>
-              <span>
-                {d.concept === 'OTHER' ? d.detail || t('OTHER') : t(d.concept)}
-                {d.material ? ` - ${d.material}` : ''}
-                {d.m2 > 0 ? ` (${d.m2} m²)` : ''}
-                {d.length && d.length > 0 && d.concept === 'OTHER' ? ` (${d.length} m)` : ''}
-                {d.quantity > 1 ? ` x${d.quantity}` : ''}
-              </span>
-              <span className={s['lineItem__value']}>
-                <span className={s['budget-panel__dual']}>
-                  <span className={s['budget-panel__dual-ars']}>
-                    {formatCurrency(priceArs)}
-                  </span>
-                  <span className={s['budget-panel__dual-usd']}>
-                    <CurrencyDisplay value={priceUsd} currency="USD" />
-                  </span>
-                </span>
-              </span>
-            </div>
+            <DetailRow
+              key={`${d.concept}-${d.detail ?? ''}-${d.currency}-${i}`}
+              label={label}
+              arsTotal={nativeCurrency === 'ARS' ? arsTotal : usdTotal}
+              usdTotal={usdTotal}
+              nativeCurrency={nativeCurrency}
+            />
           );
         })}
+
+      {/* Materiales */}
       {materials.map((m, i) => {
         const m2 = Number(m.length || 0) * Number(m.width || 0) * (m.quantity || 1);
-        const subArs =
-          m.currency === 'ARS' ? m2 * (m.price_m2 || 0)
-            : dd > 0 ? m2 * (m.price_m2_usd || 0) * dd : 0;
-        const subUsd =
-          m.currency === 'USD' ? m2 * (m.price_m2_usd || 0)
-            : dd > 0 ? (m2 * (m.price_m2 || 0)) / dd : 0;
+        const nativeCurrency = m.currency === 'USD' ? 'USD' : 'ARS';
+        const subArs = nativeCurrency === 'ARS' ? m2 * (m.price_m2 || 0) : (dd > 0 ? m2 * (m.price_m2_usd || 0) * dd : 0);
+        const subUsd = nativeCurrency === 'USD' ? m2 * (m.price_m2_usd || 0) : (dd > 0 ? (m2 * (m.price_m2 || 0)) / dd : 0);
         if (subArs <= 0 && subUsd <= 0) return null;
+        const nativeTotal = nativeCurrency === 'ARS' ? subArs : subUsd;
+        const usdTotal = nativeCurrency === 'USD' ? subUsd : (dd > 0 ? subArs / dd : 0);
+        const label = `${m.name} (${m2.toFixed(3)} m²)${m.quantity > 1 ? ` x${m.quantity}` : ''}`;
         return (
-          <div key={m.id ?? `m-${m.name ?? 'unnamed'}-${i}`} className={s['lineItem']}>
-            <span>
-              {m.name} ({m2.toFixed(3)} m²)
-              {m.quantity > 1 ? ` x${m.quantity}` : ''}
-            </span>
-            <span className={s['lineItem__value']}>
-              <span className={s['budget-panel__dual']}>
-                <span className={s['budget-panel__dual-ars']}>
-                  {formatCurrency(subArs)}
-                </span>
-                <span className={s['budget-panel__dual-usd']}>
-                  <CurrencyDisplay value={subUsd} currency="USD" />
-                </span>
-              </span>
-            </span>
-          </div>
+          <DetailRow
+            key={m.id ?? `m-${m.name ?? 'unnamed'}-${i}`}
+            label={label}
+            arsTotal={nativeTotal}
+            usdTotal={usdTotal}
+            nativeCurrency={nativeCurrency}
+          />
         );
       })}
-      {pools.map((pt, i) => {
-        const precioArs =
-          (pt.currency || 'ARS') === 'ARS' ? pt.price || 0
-            : dd > 0 ? (pt.price || 0) * dd : 0;
-        const precioUsd =
-          (pt.currency || 'ARS') === 'USD' ? pt.price || 0
-            : dd > 0 ? (pt.price || 0) / dd : 0;
-        const arsTotal = precioArs * (pt.quantity || 1);
-        const usdTotal = precioUsd * (pt.quantity || 1);
+
+      {/* Piletas */}
+      {poolsForMain.map((pt, i) => {
+        const nativeCurrency = pt.currency === 'USD' ? 'USD' : 'ARS';
+        const arsTotal = nativeCurrency === 'ARS' ? (pt.price || 0) * (pt.quantity || 1) : (dd > 0 ? (pt.price || 0) * dd * (pt.quantity || 1) : 0);
+        const usdTotal = nativeCurrency === 'USD' ? (pt.price || 0) * (pt.quantity || 1) : (dd > 0 ? ((pt.price || 0) * (pt.quantity || 1)) / dd : 0);
+        const nativeTotal = nativeCurrency === 'ARS' ? arsTotal : usdTotal;
+        const usdRef = nativeCurrency === 'USD' ? usdTotal : (dd > 0 ? arsTotal / dd : 0);
+        const isGlobal = pt.material === '__GLOBAL__' || !pt.material;
+        const globalTag = isGlobal ? ' [GLOBAL]' : '';
+        const label = `Pileta ${pt.brand} - ${pt.model}${pt.quantity > 1 ? ` (x${pt.quantity})` : ''}${globalTag}`;
         return (
-          <div key={pt.pool_id ?? `p-${pt.brand ?? 'unnamed'}-${pt.model ?? 'unnamed'}-${i}`} className={s['lineItem']}>
-            <span>
-              Pileta {pt.brand} - {pt.model}
-              {pt.quantity > 1 ? ` (x${pt.quantity})` : ''}
-            </span>
-            <span className={s['lineItem__value']}>
-              <span className={s['budget-panel__dual']}>
-                <span className={s['budget-panel__dual-ars']}>
-                  {formatCurrency(arsTotal)}
-                </span>
-                <span className={s['budget-panel__dual-usd']}>
-                  <CurrencyDisplay value={usdTotal} currency="USD" />
-                </span>
-              </span>
-            </span>
-          </div>
+          <DetailRow
+            key={pt.pool_id ?? `p-${pt.brand ?? 'unnamed'}-${pt.model ?? 'unnamed'}-${i}`}
+            label={label}
+            arsTotal={nativeTotal}
+            usdTotal={usdRef}
+            nativeCurrency={nativeCurrency}
+          />
         );
       })}
-      {additionalWorks.map((a, i) => {
-        // Mirror `useBudgetCalculations.additionalContribution` so the
-        // list and the totals agree: `frente` rows carry a frozen `total`
-        // (set by the picker at save time), `flat` rows fall back to
-        // `price * quantity` when `total` is missing. Each row has a
-        // single native currency (set by the picker); we display the
-        // canonical amount in that currency and convert to the other
-        // using `form.usd_rate`, matching the materials/pools block.
+
+      {/* Trabajos adicionales */}
+      {additionalForMain.map((a, i) => {
         const nativeTotal =
           a.type === 'frente'
             ? Number(a.total ?? 0)
             : Number(a.total ?? Number(a.price ?? 0) * Number(a.quantity ?? 1));
         if (!Number.isFinite(nativeTotal) || nativeTotal <= 0) return null;
-        const currency = a.currency === 'USD' ? 'USD' : 'ARS';
-        const arsTotal = currency === 'ARS' ? nativeTotal : (dd > 0 ? nativeTotal * dd : 0);
-        const usdTotal = currency === 'USD' ? nativeTotal : (dd > 0 ? nativeTotal / dd : 0);
-        const linearLabel =
-          a.type === 'frente' && a.linear_meters && a.linear_meters > 0
-            ? ` (${a.linear_meters} ml)`
-            : '';
+        const nativeCurrency: 'ARS' | 'USD' = a.currency === 'USD' ? 'USD' : 'ARS';
+        const arsTotal = nativeCurrency === 'ARS' ? nativeTotal : (dd > 0 ? nativeTotal * dd : 0);
+        const usdTotal = nativeCurrency === 'USD' ? nativeTotal : (dd > 0 ? nativeTotal / dd : 0);
+        const linearLabel = a.type === 'frente' && a.linear_meters && a.linear_meters > 0 ? ` (${a.linear_meters} ml)` : '';
         const qtyLabel = a.type !== 'frente' && a.quantity > 1 ? ` x${a.quantity}` : '';
         const detalle = a.detail ? ` - ${a.detail}` : '';
         const frenteTag = a.type === 'frente' ? ' [Frente]' : '';
+        const isGlobal = a.materialName === '__GLOBAL__' || (!a.materialName && a.type !== 'frente');
+        const globalTag = isGlobal ? ' [GLOBAL]' : '';
+        const label = `${a.name}${detalle}${linearLabel}${qtyLabel}${globalTag}${frenteTag}`;
         return (
-          <div key={`aw-${a.additional_work_id ?? 'aw'}-${i}`} className={s['lineItem']}>
-            <span>
-              {a.name}
-              {detalle}
-              {linearLabel}
-              {qtyLabel}
-              {frenteTag}
-            </span>
-            <span className={s['lineItem__value']}>
-              <span className={s['budget-panel__dual']}>
-                <span className={s['budget-panel__dual-ars']}>
-                  {formatCurrency(arsTotal)}
-                </span>
-                <span className={s['budget-panel__dual-usd']}>
-                  <CurrencyDisplay value={usdTotal} currency="USD" />
-                </span>
-              </span>
-            </span>
-          </div>
+          <DetailRow
+            key={`aw-${a.additional_work_id ?? 'aw'}-${i}`}
+            label={label}
+            arsTotal={nativeCurrency === 'ARS' ? nativeTotal : usdTotal}
+            usdTotal={usdTotal}
+            nativeCurrency={nativeCurrency}
+            isDashed
+          />
         );
       })}
     </div>

@@ -23,6 +23,9 @@ interface EntityFormFinancialProps {
   num: (v: string) => number | null;
   alternativasGrid?: ReactNode;
   discountBlock?: ReactNode;
+  /** Slot para acciones primarias (ej: "CONVERTIR A ORDEN"). Renderizado
+   *  debajo de Traslado/Seña. */
+  actionBlock?: ReactNode;
   onConfirmarPago?: () => Promise<void>;
   sectionTitle?: string;
 }
@@ -45,6 +48,7 @@ export default function EntityFormFinancial({
   num,
   alternativasGrid,
   discountBlock,
+  actionBlock,
   onConfirmarPago,
   sectionTitle = 'PRESUPUESTO',
 }: EntityFormFinancialProps) {
@@ -72,9 +76,9 @@ export default function EntityFormFinancial({
     >
       <BudgetPanel
         alternativasGrid={alternativasGrid}
-        hidePaymentSection={hayAlternativas}
         sectionTitle={sectionTitle}
         discountBlock={discountBlock}
+        actionBlock={actionBlock}
         onUsdRateRefresh={onUsdRateRefresh}
       />
     </BudgetPanelProvider>

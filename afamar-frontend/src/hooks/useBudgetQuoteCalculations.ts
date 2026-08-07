@@ -2,7 +2,17 @@ import { useMemo } from 'react';
 import { t as translateConcept } from '../utils/translate';
 import type { MaterialInForm, PoolInForm, EntityFormState } from '../types';
 
-type BreakdownItem = { concept: string; quantity: number; total: number; currency: 'ARS' | 'USD' };
+type BreakdownItem = {
+  concept: string;
+  quantity: number;
+  total: number;
+  currency: 'ARS' | 'USD';
+  /** Link al material al que pertenece este row:
+   *   - null/undefined → trabajo común (aparece en main + en TODAS las alts)
+   *   - '__GLOBAL__'  → global (aparece en main + en TODAS las alts)
+   *   - '<name>'      → atado a ese material (solo aparece en su card) */
+  materialName?: string | null;
+};
 
 interface BudgetCalcParams {
   form: EntityFormState;
@@ -38,7 +48,13 @@ function computeBreakdown(
       const baseLabel = item.concept === 'OTHER' && item.detail
         ? translateConcept('OTHER') + ' - ' + (item.detail as string)
         : translateConcept(item.concept as string);
-      detalleTrabajosComunes.push({ concept: baseLabel, quantity: Number(item.quantity || 1), total: totalItem, currency: itemCurrency });
+      detalleTrabajosComunes.push({
+        concept: baseLabel,
+        quantity: Number(item.quantity || 1),
+        total: totalItem,
+        currency: itemCurrency,
+        materialName: (item.material as string | null | undefined) || null,
+      });
     }
   }
 
@@ -54,6 +70,7 @@ function computeBreakdown(
         quantity: Number(pool.quantity || 1),
         total: totalPil,
         currency: poolCurrency,
+        materialName: (pool.material as string | null | undefined) || null,
       });
     }
   }
