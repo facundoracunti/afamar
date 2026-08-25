@@ -1,6 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { buildPdfData } from './buildPdfData';
 import type { MaterialInForm, PoolInForm } from '../../types/budget';
+import type { PaymentMethod } from '../../types/paymentMethod';
+
+/**
+ * Catalogue fixture mirroring the 4 default rows seeded by
+ * `scripts/seeders/payment_methods.py`. Only the credit-card row is
+ * relevant for the surcharge tests below; the others are kept for
+ * completeness so the table-driven branches in `buildPdfData` see
+ * the same shape the production data has.
+ */
+const PAYMENT_METHODS: PaymentMethod[] = [
+  { id: 1, name: 'EFECTIVO', label: 'Efectivo', color: null, is_active: true, sort_order: 10, type: 'NONE', value: 0, is_percentage: false, applies_to_installments: false, created_at: null, updated_at: null },
+  { id: 2, name: 'TRANSFERENCIA BANCARIA', label: 'Transferencia bancaria', color: null, is_active: true, sort_order: 20, type: 'NONE', value: 0, is_percentage: false, applies_to_installments: false, created_at: null, updated_at: null },
+  { id: 3, name: 'TARJETA DE DÉBITO', label: 'Tarjeta de débito', color: null, is_active: true, sort_order: 30, type: 'NONE', value: 0, is_percentage: false, applies_to_installments: false, created_at: null, updated_at: null },
+  { id: 4, name: 'TARJETA DE CRÉDITO', label: 'Tarjeta de crédito', color: null, is_active: true, sort_order: 40, type: 'SURCHARGE', value: 9, is_percentage: true, applies_to_installments: true, created_at: null, updated_at: null },
+];
 
 const formBase = {
   number: 'P-TEST-1',
@@ -509,32 +524,91 @@ describe('buildPdfData — discount and surcharge', () => {
     expect(data.total).toBe(7500); // 10000 - 2500
   });
 
-  it('adds 0% surcharge for 1-2 installments even when payment method is credit card', () => {
+  it('1 cuota adds 9% (base × 1.09)', () => {
     const fabrication_details = [
       { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 10000 },
     ];
     const data = buildPdfData({
       ...baseParams,
-      form: makeForm({ fabrication_details, payment_method: 'TARJETA DE CRÉDITO', installments: 2 }),
+      form: makeForm({ fabrication_details, payment_method: 'TARJETA DE CRÉDITO', payment_method_id: 4, installments: 1 }),
+      paymentMethods: PAYMENT_METHODS,
       overrides: {},
     });
-    expect(data.surcharge_percentage).toBe(0);
-    expect(data.surcharge_amount).toBe(0);
-    expect(data.total).toBe(10000);
+    expect(data.surcharge_percentage).toBe(9);
+    expect(data.surcharge_amount).toBe(900);
+    expect(data.total).toBe(10900);
   });
 
-  it('adds 15% surcharge for 3 installments on credit card', () => {
+  it('2 cuotas adds 18% (N × value): 10000 × 1.18 = 11800, cuota = 5900', () => {
     const fabrication_details = [
       { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 10000 },
     ];
     const data = buildPdfData({
       ...baseParams,
-      form: makeForm({ fabrication_details, payment_method: 'TARJETA DE CRÉDITO', installments: 3 }),
+      form: makeForm({ fabrication_details, payment_method: 'TARJETA DE CRÉDITO', payment_method_id: 4, installments: 2 }),
+      paymentMethods: PAYMENT_METHODS,
       overrides: {},
     });
-    expect(data.surcharge_percentage).toBe(15);
-    expect(data.surcharge_amount).toBe(1500);
-    expect(data.total).toBe(11500);
+    expect(data.surcharge_percentage).toBe(18);
+    expect(data.surcharge_amount).toBe(1800);
+    expect(data.total).toBe(11800);
+  });
+
+  it('3 cuotas adds 27% (N × value): 10000 × 1.27 = 12700, cuota = 4233.33', () => {
+    const fabrication_details = [
+      { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 10000 },
+    ];
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({ fabrication_details, payment_method: 'TARJETA DE CRÉDITO', payment_method_id: 4, installments: 3 }),
+      paymentMethods: PAYMENT_METHODS,
+      overrides: {},
+    });
+    expect(data.surcharge_percentage).toBe(27);
+    expect(data.surcharge_amount).toBe(2700);
+    expect(data.total).toBe(12700);
+  });
+
+  it('matches the customer-facing example: base=900000, 3 cuotas, value=9 → 1_143_000, cada cuota = 381_000', () => {
+    const fabrication_details = [
+      { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 900000 },
+    ];
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({ fabrication_details, payment_method: 'TARJETA DE CRÉDITO', payment_method_id: 4, installments: 3 }),
+      paymentMethods: PAYMENT_METHODS,
+      overrides: {},
+    });
+    expect(data.surcharge_amount).toBe(243000); // 900000 × 0.27
+    expect(data.total).toBe(1143000); // 900000 × 1.27
+  });
+
+  it('emits catalogue_installment_detail with uniform rows (3 cuotas, base=900000)', () => {
+    const fabrication_details = [
+      { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 900000 },
+    ];
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({ fabrication_details, payment_method: 'TARJETA DE CRÉDITO', payment_method_id: 4, installments: 3 }),
+      paymentMethods: PAYMENT_METHODS,
+      overrides: {},
+    });
+    // total = 900000 × 1.27 = 1143000; cuota = 1143000 / 3 = 381000 (todas iguales)
+    expect(data.catalogue_installment_detail).toEqual([
+      { cuota: 1, interes: 9, monto: 381000 },
+      { cuota: 2, interes: 9, monto: 381000 },
+      { cuota: 3, interes: 9, monto: 381000 },
+    ]);
+  });
+
+  it('emits empty catalogue_installment_detail for non-credit-card methods', () => {
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({ payment_method: 'EFECTIVO', payment_method_id: 1, installments: 1 }),
+      paymentMethods: PAYMENT_METHODS,
+      overrides: {},
+    });
+    expect(data.catalogue_installment_detail).toEqual([]);
   });
 
   it('subtracts deposit_received from total in balance_due', () => {
@@ -550,6 +624,45 @@ describe('buildPdfData — discount and surcharge', () => {
     expect(data.balance_due).toBe(7000);
   });
 
+  it('surfaces catalogue DISCOUNT as a separate line so the PDF can render it', () => {
+    // The operator selects the "TRANSFER" method, which the catalogue
+    // marks as DISCOUNT 5%. The PDF should show:
+    //   - subtotal            = 10000
+    //   - "Descuento (5%) Transferencia bancaria" = 500
+    //   - total               = 9500
+    // Both `catalogue_discount_*` AND the legacy `discount_*` fields
+    // remain so the template can choose which to render.
+    const fabrication_details = [
+      { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 10000 },
+    ];
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({ fabrication_details, payment_method: 'TRANSFERENCIA BANCARIA', payment_method_id: 2, installments: 1 }),
+      paymentMethods: PAYMENT_METHODS,
+      overrides: {},
+    });
+    expect(data.catalogue_discount_percentage).toBe(0); // TRANSFER row has type=NONE in the default seed
+    expect(data.catalogue_discount_amount).toBe(0);
+    expect(data.total).toBe(10000);
+    // The previous test made TRANSFER a DISCOUNT 5% — switch the
+    // catalogue in-place to verify the rendering surface lights up.
+    const transferWithDiscount = PAYMENT_METHODS.map((pm) =>
+      pm.name === 'TRANSFERENCIA BANCARIA'
+        ? { ...pm, type: 'DISCOUNT' as const, value: 5, is_percentage: true }
+        : pm
+    );
+    const data2 = buildPdfData({
+      ...baseParams,
+      form: makeForm({ fabrication_details, payment_method: 'TRANSFERENCIA BANCARIA', payment_method_id: 2, installments: 1 }),
+      paymentMethods: transferWithDiscount,
+      overrides: {},
+    });
+    expect(data2.catalogue_discount_percentage).toBe(5);
+    expect(data2.catalogue_discount_amount).toBe(500);
+    expect(data2.catalogue_method_label).toBe('Transferencia bancaria');
+    expect(data2.total).toBe(9500);
+  });
+
   it('computes total_usd from sections instead of passthrough', () => {
     const fabrication_details = [
       { concept: 'CUTOUT_SINK', detail: '', length: 0, width: 0, m2: 0, labor: 0, currency: 'USD', quantity: 2, price: 55.25 },
@@ -562,13 +675,15 @@ describe('buildPdfData — discount and surcharge', () => {
         transport_usd: 0,
         discount_percentage: 0,
         payment_method: 'TARJETA DE CRÉDITO',
+        payment_method_id: 4,
         installments: 3,
       }),
+      paymentMethods: PAYMENT_METHODS,
       overrides: {},
     });
-    // subtotal_usd = 110.50 (from section), surcharge 15% = 16.58
-    // total_usd = 110.50 + 16.58 = 127.08
-    expect(data.total_usd).toBe(127.08);
+    // subtotal_usd = 110.50, recargo lineal (value=9, N=3):
+    // ratio = 1.27 → total_usd = 110.50 × 1.27 = 140.34 (round2)
+    expect(data.total_usd).toBe(140.34);
   });
 });
 

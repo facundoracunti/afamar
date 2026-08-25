@@ -26,6 +26,7 @@ const PoolStockPage = React.lazy(() => import('./pages/pool-stock/PoolStockPage'
 const AdditionalWorksPage = React.lazy(() => import('./pages/additional-works/AdditionalWorksPage'));
 const ReportsPage = React.lazy(() => import('./pages/reports/ReportsPage'));
 const ConfigurationPage = React.lazy(() => import('./pages/configuration/ConfigurationPage'));
+const PaymentMethodsPage = React.lazy(() => import('./pages/configuration/PaymentMethods/PaymentMethodsPage'));
 const ProductPhotosPage = React.lazy(() => import('./pages/product-photos/ProductPhotosPage'));
 const MeasurementsListPage = React.lazy(() => import('./pages/measurements/MeasurementsListPage'));
 const MeasurementFormPage = React.lazy(() => import('./pages/measurements/MeasurementFormPage'));
@@ -87,6 +88,7 @@ function App() {
                 <Route path="cash/history" element={<CashHistoryPage />} />
                 <Route path="reports" element={<ReportsPage />} />
                 <Route path="configuration" element={<ConfigurationPage />} />
+                <Route path="configuration/payment-methods" element={<PaymentMethodsPage />} />
                 <Route path="product-photos" element={<ProductPhotosPage />} />
               </Route>
             </Route>

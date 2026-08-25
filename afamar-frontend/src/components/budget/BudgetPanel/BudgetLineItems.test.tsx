@@ -41,6 +41,42 @@ describe('BudgetLineItems — additional works rendering', () => {
     expect(text).toContain('≈ US$ 30,00');
   });
 
+  it('renders USD additional work with main value in USD and conversion in ARS (price × dollar rate)', () => {
+    // Bug previo: para ítems en USD la "≈" mostraba el mismo valor USD
+    // formateado como ARS (≈ $ 100,00), en lugar del equivalente real
+    // en pesos (≈ $ 100.000 con usd_rate=1000).
+    const additional_works_data = JSON.stringify([
+      {
+        additional_work_id: 2,
+        name: 'Traforo importado',
+        price: 100,
+        currency: 'USD',
+        quantity: 1,
+        total: 100,
+        materialName: '__GLOBAL__',
+        type: 'flat',
+      },
+    ]);
+    const { container } = render(
+      <MemoryRouter>
+        <BudgetLineItems
+          form={makeForm({ additional_works_data, usd_rate: 1000 })}
+          fabricationDetails={[]}
+          materials={[]}
+          pools={[]}
+        />
+      </MemoryRouter>,
+    );
+    const text = container.textContent || '';
+    // Main value: US$ 100,00 (no decimal-0 rounding on the pill)
+    expect(text).toContain('US$ 100,00');
+    // Conversión: 100 USD × 1000 = 100.000 ARS, con 2 decimales
+    expect(text).toContain('≈ $ 100.000,00');
+    // Y NO debe mostrar la versión buggy (≈ $ 100,00) que era USD
+    // formateado como ARS
+    expect(text).not.toContain('≈ $ 100,00');
+  });
+
   it('renders a frente row with linear_meters label and the frozen `total`', () => {
     const additional_works_data = JSON.stringify([
       {

@@ -1,14 +1,16 @@
 /**
- * Loads reference data (clients, materials, pools, settings/logo) for the
- * Budget/WorkOrder form pages via TanStack Query.
+ * Loads reference data (clients, materials, pools, settings/logo,
+ * payment methods) for the Budget/WorkOrder form pages via TanStack
+ * Query.
  *
  * Reference data is shared across all form pages, so we use stable,
  * file-level query keys (`CLIENTS_KEY`, `MATERIALS_KEY`, `POOLS_KEY`,
- * `SETTINGS_KEY`). Reference data has a 5-minute `staleTime` so opening
- * a second form (e.g. switching from Budgets to WorkOrders) does not
- * refetch the client/materials/pools lists. The entity being edited
- * (Budget or WorkOrder) is fetched fresh every time the id changes
- * (no staleTime) so the form always reflects the latest snapshot.
+ * `SETTINGS_KEY`, `PAYMENT_METHODS_KEY`). Reference data has a
+ * 5-minute `staleTime` so opening a second form (e.g. switching from
+ * Budgets to WorkOrders) does not refetch the catalogue. The entity
+ * being edited (Budget or WorkOrder) is fetched fresh every time the
+ * id changes (no staleTime) so the form always reflects the latest
+ * snapshot.
  */
 import { useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -16,7 +18,9 @@ import api from '../api/http';
 import type { Client } from '../types/client';
 import type { Material } from '../types/material';
 import type { Pool } from '../types/poolStock';
+import type { PaymentMethod } from '../types/paymentMethod';
 import type { EntityFormState, EntityServices } from '../types';
+import { getActivePaymentMethods } from '../api/resources/paymentMethods';
 import { mapApiToForm } from './entityFormHelpers';
 
 interface UseFormReferencesParams {
@@ -33,6 +37,7 @@ interface UseFormReferencesReturn {
   materials: Material[];
   pools: Pool[];
   clientes: Client[];
+  paymentMethods: PaymentMethod[];
   logoUrl: string;
   /**
    * Either refresh the client list from the API (no args), or prepend a
@@ -50,6 +55,7 @@ export const CLIENTS_KEY = ['clients', 'reference'] as const;
 export const MATERIALS_KEY = ['materials', 'reference'] as const;
 export const POOLS_KEY = ['pools', 'reference'] as const;
 export const SETTINGS_KEY = ['settings', 'reference'] as const;
+export const PAYMENT_METHODS_KEY = ['payment-methods', 'reference'] as const;
 const ENTITY_KEY = (entity: string, id: string | undefined) => [entity, id] as const;
 const NEXT_NUMBER_KEY = (entity: string) => [entity, 'next-number'] as const;
 
@@ -89,6 +95,11 @@ export function useFormReferences({
     },
     staleTime: REFERENCE_STALE_TIME,
   });
+  const paymentMethodsQuery = useQuery<PaymentMethod[]>({
+    queryKey: [...PAYMENT_METHODS_KEY],
+    queryFn: async () => getActivePaymentMethods(),
+    staleTime: REFERENCE_STALE_TIME,
+  });
   const settingsQuery = useQuery<Record<string, unknown>>({
     queryKey: [...SETTINGS_KEY],
     queryFn: async () => {
@@ -101,6 +112,7 @@ export function useFormReferences({
   const clientes = clientsQuery.data ?? [];
   const materials = materialsQuery.data ?? [];
   const pools = poolsQuery.data ?? [];
+  const paymentMethods = paymentMethodsQuery.data ?? [];
 
   const logoUrl = useMemo(() => {
     const configs = settingsQuery.data;
@@ -181,6 +193,7 @@ export function useFormReferences({
     materials,
     pools,
     clientes,
+    paymentMethods,
     logoUrl,
     addOrRefreshClientes,
     updateClientAddresses,

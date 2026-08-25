@@ -30,7 +30,7 @@ def _email_budget_background(budget_id: int) -> None:
             logger.warning("Budget %s or client email not found for background email", budget_id)
             return
         budget_data, client_dict, company, terms = _prepare_budget_payload(budget, db)
-        pdf_data = build_budget_pdf_data(budget_data, client_dict, company, terms)
+        pdf_data = build_budget_pdf_data(budget_data, client_dict, company, terms, db=db)
         pdf_bytes = generate_budget_pdf(pdf_data, logo_path=company.get("company_logo")).read()
         company_name = company.get("company_name") or "AFAMAR"
         send_budget_email(budget.client.email, pdf_bytes, budget.number, company_name=company_name)
@@ -205,7 +205,7 @@ def download_budget_pdf(budget_id: int, db: Session = Depends(get_db)):
         raise NotFoundError("Budget")
 
     budget_data, client_dict, company, terms = _prepare_budget_payload(budget, db)
-    pdf_data = build_budget_pdf_data(budget_data, client_dict, company, terms)
+    pdf_data = build_budget_pdf_data(budget_data, client_dict, company, terms, db=db)
     pdf_bytes = generate_budget_pdf(pdf_data, logo_path=company.get("company_logo")).read()
 
     return Response(

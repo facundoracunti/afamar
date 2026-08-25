@@ -1,0 +1,6 @@
+.pm-table__empty-row {
+  text-align: center;
+  padding: 24px;
+  color: var(--color-text-muted, #64748b);
+  font-style: italic;
+}

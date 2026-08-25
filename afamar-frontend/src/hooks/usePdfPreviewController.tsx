@@ -6,6 +6,7 @@ import { mapApiToForm } from './entityFormHelpers';
 import { buildPdfData } from '../utils/pdf/buildPdfData';
 import type { PdfDocumentData } from '../utils/pdf/buildPdfData';
 import type { CompanyInfo, TermsInfo } from '../utils/pdf/pdfTypes';
+import type { PaymentMethod } from '../types/paymentMethod';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner/LoadingSpinner';
 
 const PdfPreviewModal = lazy(() => import('../components/ui/PdfPreviewModal/PdfPreviewModal'));
@@ -27,6 +28,14 @@ interface UsePdfPreviewControllerParams {
   company: CompanyInfo;
   /** Global terms to include in the PDF footer. */
   globalTerms: TermsInfo;
+  /**
+   * Active payment-method catalogue. Without it `buildPdfData` can't
+   * resolve `payment_method_id` / `payment_method` to a row and the
+   * preview silently drops the recargo / per-cuota table for credit
+   * card payments. Pass `[]` only when you know the entity can't
+   * have a SURCHARGE method.
+   */
+  paymentMethods?: PaymentMethod[];
   /** Notification callback for errors. */
   notify?: (msg: string, type: 'error' | 'success') => void;
 }
@@ -48,7 +57,7 @@ interface UsePdfPreviewControllerReturn {
 }
 
 export function usePdfPreviewController(params: UsePdfPreviewControllerParams): UsePdfPreviewControllerReturn {
-  const { documentType, fetchEntity, defaultStatus, label, fileNamePrefix, company, globalTerms, notify } = params;
+  const { documentType, fetchEntity, defaultStatus, label, fileNamePrefix, company, globalTerms, paymentMethods = [], notify } = params;
 
   const [pdfData, setPdfData] = useState<PdfDocumentData | null>(null);
   const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
@@ -80,6 +89,11 @@ export function usePdfPreviewController(params: UsePdfPreviewControllerParams): 
       company,
       globalTerms,
       sketchImages: images,
+      // Pass the catalogue so the helper can resolve the active
+      // payment method to its rule and surface the per-cuota table
+      // (and the catalogue-driven recargo / discount lines) even
+      // when the form hook didn't run for this render path.
+      paymentMethods,
     });
     setPdfData(data);
     setPdfPreviewLoading(false);

@@ -33,6 +33,13 @@ export interface FinancialBase {
 
   // Payment terms.
   payment_method: string | null;
+  /**
+   * Optional FK to the `payment_methods` catalogue. The form's
+   * "Forma de pago" `<select>` matches this id; the snapshot
+   * `payment_method` (string) is what the PDF renders and what
+   * survives after the catalogue row is deleted or renamed.
+   */
+  payment_method_id: number | null;
   installments: number;
 
   // Commercial discount (mutually exclusive: percentage OR fixed amount).

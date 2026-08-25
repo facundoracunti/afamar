@@ -97,6 +97,7 @@ const accordionGroups: AccordionGroup[] = [
     icon: Settings,
     subItems: [
       { label: 'Datos de AFAMAR', path: `${PREFIX}/configuration`, icon: Settings },
+      { label: 'Métodos de Pago', path: `${PREFIX}/configuration/payment-methods`, icon: DollarSign },
       { label: 'Fotos de productos', path: `${PREFIX}/product-photos`, icon: Image },
     ],
   },

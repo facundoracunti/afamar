@@ -86,3 +86,4 @@ playwright-report/
 blob-report/
 
 .codebase-memory
+.trash

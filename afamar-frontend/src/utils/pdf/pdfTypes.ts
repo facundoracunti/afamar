@@ -3,6 +3,7 @@
  */
 
 import type { MaterialInForm, PoolInForm } from '../../types/budget';
+import type { PaymentMethod } from '../../types/paymentMethod';
 
 export type DocumentType = 'budget' | 'work_order';
 
@@ -121,8 +122,28 @@ export interface PdfDocumentData {
   transport: number;
   discount_percentage: number;
   discount_fixed_amount: number;
+  /** Legacy surcharge fields — kept for backward compat with
+   *  `DocumentPdf.tsx` and the buildPdfData tests that already
+   *  reference them. Same value as `catalogue_surcharge_*` for
+   *  the form-driven SURCHARGE row. */
   surcharge_percentage: number;
   surcharge_amount: number;
+  /** Catalogue-driven surcharge (from the `payment_methods` row the
+   *  form selected). When the selected method is `DISCOUNT`,
+   *  `catalogue_discount_*` holds the breakdown instead. */
+  catalogue_surcharge_percentage: number;
+  catalogue_surcharge_amount: number;
+  catalogue_discount_percentage: number;
+  catalogue_discount_amount: number;
+  catalogue_method_label: string;
+  catalogue_installments: number;
+  /**
+   * Per-cuota breakdown (3-column table next to the recargo) for
+   * credit-card percentage surcharges. Empty for every other shape.
+   * Mirrors the backend shape from `_recalculate_totals_from_items` →
+   * `installment_detail_ars` / `installment_detail_usd`.
+   */
+  catalogue_installment_detail: Array<{ cuota: number; interes: number; monto: number }>;
   deposit_received: number;
   balance_due: number;
   total: number;
@@ -157,6 +178,12 @@ export interface BuildPdfDataParams {
   company: CompanyInfo;
   globalTerms: TermsInfo;
   sketchImages?: string[];
+  /** Active payment methods from the catalogue. Used to resolve the
+   *  `payment_method_id` / `payment_method` snapshot into a `type` /
+   *  `value` / `is_percentage` / `applies_to_installments` rule for
+   *  the live PDF total (mirrors `useBudgetCalculations`). Optional —
+   *  the PDF falls back to no surcharge if not provided. */
+  paymentMethods?: PaymentMethod[];
 }
 
 export type { MaterialInForm, PoolInForm };

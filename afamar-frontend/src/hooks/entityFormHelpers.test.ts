@@ -3,9 +3,9 @@
  *
  * Verifies:
  *  - `EntityFormState`, `BudgetPayload`, `WorkOrderPayload` all extend `FinancialBase`
- *  - `DEFAULT_FINANCIALS` provides safe starting values for ALL 17 fields
+ *  - `DEFAULT_FINANCIALS` provides safe starting values for ALL 18 fields
  *  - `buildFinancialPayload(form)` round-trips through `mapFinancialToForm(d)`
- *  - `INITIAL_FORM` contains the 17 FinancialBase fields with the expected defaults
+ *  - `INITIAL_FORM` contains the 18 FinancialBase fields with the expected defaults
  *  - `buildPayload(form)` and `mapApiToForm(d)` correctly handle the FinancialBase slice
  *  - Edge cases: empty/NaN numeric inputs, empty currency strings
  */
@@ -25,7 +25,7 @@ import {
 } from './entityFormHelpers';
 import { POOL_MATERIAL_GLOBAL } from '../types/budget';
 
-// All 17 FinancialBase field names. Single source of truth for the tests below.
+// All 18 FinancialBase field names. Single source of truth for the tests below.
 const FINANCIAL_FIELDS = [
   'currency',
   'usd_rate',
@@ -41,19 +41,20 @@ const FINANCIAL_FIELDS = [
   'balance_due',
   'balance_due_usd',
   'payment_method',
+  'payment_method_id',
   'installments',
   'discount_percentage',
   'discount_fixed_amount',
 ] as const;
 
 describe('FinancialBase — shared types', () => {
-  it('EntityFormState contains all 17 FinancialBase fields', () => {
+  it('EntityFormState contains all 18 FinancialBase fields', () => {
     for (const f of FINANCIAL_FIELDS) {
       expect(f in INITIAL_FORM, `missing field "${f}"`).toBe(true);
     }
   });
 
-  it('DEFAULT_FINANCIALS has exactly the 17 expected keys', () => {
+  it('DEFAULT_FINANCIALS has exactly the 18 expected keys', () => {
     expect(Object.keys(DEFAULT_FINANCIALS).sort()).toEqual(
       [...FINANCIAL_FIELDS].sort()
     );
@@ -75,6 +76,7 @@ describe('FinancialBase — shared types', () => {
       balance_due: 0,
       balance_due_usd: 0,
       payment_method: '',
+      payment_method_id: null,
       installments: 1,
       discount_percentage: 0,
       discount_fixed_amount: 0,
@@ -306,7 +308,7 @@ describe('mapApiToForm — integrates FinancialBase', () => {
     expect(form.discount_percentage).toBe(10);
   });
 
-  it('returns DEFAULT_FINANCIALS for the 17 financial fields when the API row is empty', () => {
+  it('returns DEFAULT_FINANCIALS for the 18 financial fields when the API row is empty', () => {
     const form = mapApiToForm({}, 'PENDING');
     for (const f of FINANCIAL_FIELDS) {
       expect(form[f]).toBe(DEFAULT_FINANCIALS[f]);

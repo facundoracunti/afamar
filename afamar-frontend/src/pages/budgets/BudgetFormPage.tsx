@@ -80,6 +80,7 @@ export default function BudgetForm(props: BudgetFormProps = {}) {
     swapMaterialGroup,
     addPileta, removePileta, updatePileta,
     handleDelete,
+    paymentMethods,
     M2_CONCEPTS,
   } = useEntityForm({
     services: budgetServices,
@@ -113,6 +114,7 @@ export default function BudgetForm(props: BudgetFormProps = {}) {
     handleClosePdfPreview,
   } = useBudgetActions({
     form, setForm, setSaving, saving, buildPayload, isEdit, id,
+    paymentMethods,
   });
 
   const handleConfirmarPago = useConfirmPayment({
@@ -224,6 +226,7 @@ export default function BudgetForm(props: BudgetFormProps = {}) {
               clientes,
               materials,
               pools,
+              paymentMethods,
               addOrRefreshClientes,
               onAddressAdded: handleAddressAdded,
               addMaterial,

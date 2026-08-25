@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { EntityFormState } from '../../../types/form';
+import type { PaymentMethod } from '../../../types/paymentMethod';
 import { useBudgetPanel } from './BudgetPanelContext';
 import styles from './BudgetPanel.module.css';
 
@@ -16,6 +17,33 @@ interface BudgetPaymentSectionProps {
   discountBlock?: React.ReactNode;
 }
 
+/** Human-readable label for the catalogue's `type` column. */
+function describeMethod(pm: PaymentMethod): string {
+  if (pm.type === 'NONE' || !pm.value) return pm.label;
+  const verb = pm.type === 'DISCOUNT' ? 'descuento' : 'recargo';
+  const amount = pm.is_percentage ? `${pm.value}%` : `$${pm.value}`;
+  const suffix = pm.applies_to_installments ? ' por cuota' : '';
+  return `${pm.label} — ${verb} ${amount}${suffix}`;
+}
+
+/** Find the catalogue row that matches the form's current snapshot.
+ *  Prefers `payment_method_id` (FK), falls back to `payment_method`
+ *  (name) for budgets/OTs that predate the FK. */
+function resolveCurrentMethod(
+  form: EntityFormState,
+  catalogue: PaymentMethod[],
+): PaymentMethod | null {
+  if (form.payment_method_id) {
+    const byId = catalogue.find((pm) => pm.id === form.payment_method_id);
+    if (byId) return byId;
+  }
+  if (form.payment_method) {
+    const byName = catalogue.find((pm) => pm.name === form.payment_method);
+    if (byName) return byName;
+  }
+  return null;
+}
+
 export function BudgetPaymentSection({
   form,
   readOnly,
@@ -26,7 +54,8 @@ export function BudgetPaymentSection({
   onConfirmarPago,
   discountBlock,
 }: BudgetPaymentSectionProps) {
-  const { financial } = useBudgetPanel();
+  const { financial, paymentMethods: rawPaymentMethods } = useBudgetPanel();
+  const paymentMethods = rawPaymentMethods ?? [];
   const { handleTransportChange, handleDepositCurrencyChange, handleDepositAmountChange } = financial;
   const [transportCurrency, setTransportCurrency] = useState<'ARS' | 'USD'>('ARS');
 
@@ -36,6 +65,9 @@ export function BudgetPaymentSection({
   const depositValue = (form.deposit_currency || 'ARS') === 'ARS'
     ? (Number(form.deposit_received) > 0 ? String(form.deposit_received) : '')
     : (Number(form.deposit_usd) > 0 ? String(form.deposit_usd) : '');
+
+  const currentMethod = resolveCurrentMethod(form, paymentMethods);
+  const showInstallments = !!currentMethod?.applies_to_installments;
 
   return (
     <div className={s['budget-panel__payment-col']}>
@@ -94,27 +126,36 @@ export function BudgetPaymentSection({
         <div className={s['budget-panel__payment-method-controls']}>
           <select
             className={`input ${s['budget-panel__payment-method-select']}`}
-            value={form.payment_method ?? ''}
+            value={form.payment_method_id ?? form.payment_method ?? ''}
             onChange={(e) => {
-              const newVal = e.target.value;
-              update('payment_method', newVal);
-              if (newVal !== 'EFECTIVO') {
-                setForm((prev) => ({
-                  ...prev,
-                  discount_percentage: 0,
-                  discount_fixed_amount: 0,
-                }));
+              const raw = e.target.value;
+              // "" → no method; "123" → FK id; "EFECTIVO" → legacy name match
+              if (raw === '') {
+                update('payment_method_id', null);
+                update('payment_method', '');
+                return;
+              }
+              const asNumber = Number(raw);
+              if (!Number.isNaN(asNumber) && asNumber > 0 && paymentMethods.some((pm) => pm.id === asNumber)) {
+                const pm = paymentMethods.find((p) => p.id === asNumber)!;
+                update('payment_method_id', pm.id);
+                update('payment_method', pm.name);
+              } else {
+                const pm = paymentMethods.find((p) => p.name === raw);
+                update('payment_method_id', pm?.id ?? null);
+                update('payment_method', raw);
               }
             }}
             disabled={readOnly}
           >
             <option value="">Seleccionar...</option>
-            <option value="EFECTIVO">EFECTIVO</option>
-            <option value="TRANSFERENCIA BANCARIA">TRANSFERENCIA BANCARIA</option>
-            <option value="TARJETA DE DÉBITO">TARJETA DE DÉBITO</option>
-            <option value="TARJETA DE CRÉDITO">TARJETA DE CRÉDITO</option>
+            {paymentMethods.map((pm) => (
+              <option key={pm.id} value={pm.id}>
+                {describeMethod(pm)}
+              </option>
+            ))}
           </select>
-          {form.payment_method === 'TARJETA DE CRÉDITO' && (
+          {showInstallments && (
             <select
               className={`input ${s['budget-panel__installments-select']}`}
               value={form.installments || 1}
@@ -124,7 +165,11 @@ export function BudgetPaymentSection({
               disabled={readOnly}
             >
               {Array.from({ length: 12 }, (_, i) => i + 1).map((c) => {
-                const pct = c <= 2 ? 0 : c * 5;
+                // Credit-card rule: N × value% de recargo sobre el total
+                // (1=9%, 2=18%, 3=27%, …). El total con recargo se
+                // divide en N cuotas iguales. Coincide con el cálculo
+                // del hook + el PDF.
+                const pct = c * (currentMethod?.value ?? 0);
                 return (
                   <option key={c} value={c}>
                     {c} cuota{c > 1 ? 's' : ''} ({pct}%)
@@ -135,6 +180,29 @@ export function BudgetPaymentSection({
           )}
         </div>
       </div>
+
+      {showInstallments && form.installment_detail_ars && form.installment_detail_ars.length > 1 ? (
+        <div
+          className={s['budget-panel__installment-table']}
+          aria-label="Detalle de cuotas"
+        >
+          <div className={s['budget-panel__installment-table-header']}>
+            <span>Cuota #</span>
+            <span>Interés</span>
+            <span>Monto</span>
+          </div>
+          {form.installment_detail_ars.map((row) => (
+            <div
+              key={row.cuota}
+              className={s['budget-panel__installment-table-row']}
+            >
+              <span>{row.cuota}</span>
+              <span>{`${row.interes}%`}</span>
+              <span>{`$ ${row.monto.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       <div
         className={`${s['paymentStatus']}${form.balance_paid ? ' ' + s['paymentStatus--paid'] : ' ' + s['paymentStatus--pending']}`}

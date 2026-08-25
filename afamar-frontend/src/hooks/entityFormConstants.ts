@@ -31,6 +31,7 @@ export const DEFAULT_FINANCIALS: FinancialBase = {
   balance_due: 0,
   balance_due_usd: 0,
   payment_method: '',
+  payment_method_id: null,
   installments: 1,
   discount_percentage: 0,
   discount_fixed_amount: 0,

@@ -11,6 +11,7 @@ import { useSettingsWithTerms } from './useSettingsWithTerms';
 import type { BudgetPayload, EntityFormState } from '../types';
 import { applyCreditCardAutoFill } from '../utils/creditCardAutoFill';
 import { buildDocumentShareMessage, buildWhatsAppUrl } from '../utils/whatsapp';
+import type { PaymentMethod } from '../types/paymentMethod';
 
 interface BudgetFormActionsParams {
   form: EntityFormState;
@@ -20,6 +21,15 @@ interface BudgetFormActionsParams {
   buildPayload: () => Record<string, unknown>;
   isEdit: boolean;
   id: string | undefined;
+  /**
+   * Catálogo de métodos de pago activo. Se pasa a `buildPdfData` para
+   * que el PDF pueda resolver `payment_method_id` / `payment_method` a
+   * la fila del catálogo y renderizar el recargo + la tabla de cuotas
+   * (Cuota # / Interés / Monto) cuando hay tarjeta de crédito.
+   * Sin esto, `catalogue_installment_detail` queda vacío y el PDF del
+   * Presupuesto muestra solo "Forma de pago: …" sin el breakdown.
+   */
+  paymentMethods?: PaymentMethod[];
 }
 
 interface BudgetFormActions {
@@ -42,7 +52,7 @@ interface BudgetFormActions {
 }
 
 export function useBudgetActions({
-  form, setForm, setSaving, saving, buildPayload, isEdit, id,
+  form, setForm, setSaving, saving, buildPayload, isEdit, id, paymentMethods = [],
 }: BudgetFormActionsParams): BudgetFormActions {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -202,11 +212,15 @@ export function useBudgetActions({
       company,
       globalTerms,
       sketchImages: images,
+      // Pasar el catálogo para que el PDF pueda aplicar la regla del
+      // método (SURCHARGE / DISCOUNT) y emitir la tabla 3-columnas
+      // de cuotas cuando hay tarjeta de crédito.
+      paymentMethods,
     });
     setPdfData(data);
     setPdfPreviewLoading(false);
     setSketchExtractorActive(false);
-  }, [form, company, globalTerms]);
+  }, [form, company, globalTerms, paymentMethods]);
 
   const handleClosePdfPreview = useCallback(() => {
     setPdfData(null);

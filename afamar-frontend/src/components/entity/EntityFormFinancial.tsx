@@ -2,6 +2,7 @@ import { type ReactNode } from 'react';
 import BudgetPanel from '../../components/budget/BudgetPanel/BudgetPanel';
 import { BudgetPanelProvider } from '../../components/budget/BudgetPanel/BudgetPanelContext';
 import type { EntityFormState, FormField } from '../../types/form';
+import type { PaymentMethod } from '../../types/paymentMethod';
 
 interface EntityFormFinancialProps {
   form: EntityFormState;
@@ -28,6 +29,10 @@ interface EntityFormFinancialProps {
   actionBlock?: ReactNode;
   onConfirmarPago?: () => Promise<void>;
   sectionTitle?: string;
+  /** Active payment-method catalogue rows. Sourced from
+   *  `useFormReferences` (5 min staleTime) and forwarded to the
+   *  "Forma de pago" `<select>`. */
+  paymentMethods: PaymentMethod[];
 }
 
 export default function EntityFormFinancial({
@@ -51,6 +56,7 @@ export default function EntityFormFinancial({
   actionBlock,
   onConfirmarPago,
   sectionTitle = 'PRESUPUESTO',
+  paymentMethods,
 }: EntityFormFinancialProps) {
   return (
     <BudgetPanelProvider
@@ -73,6 +79,7 @@ export default function EntityFormFinancial({
         saving,
       }}
       onConfirmarPago={onConfirmarPago}
+      paymentMethods={paymentMethods}
     >
       <BudgetPanel
         alternativasGrid={alternativasGrid}

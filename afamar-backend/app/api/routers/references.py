@@ -7,16 +7,19 @@ from app.api.dependencies import get_current_user, get_db
 from app.core.exceptions import NotFoundError
 from app.utils.responses import created, success
 from app.models.pool_stock import PoolType
-from app.models.reference import BudgetStatus, WorkOrderStatus, PaymentMethod, PriorityLevel, FinishType
+from app.models.reference import BudgetStatus, WorkOrderStatus, PriorityLevel, FinishType
 from app.schemas.reference import ReferenceCreate, ReferenceUpdate
 
 router = APIRouter()
 auth_router = APIRouter(dependencies=[Depends(get_current_user)])
 
+# Note: `payment-methods` was removed from this generic dispatcher and
+# now lives in its own router (`routers/payment_methods.py`) because
+# it needs extra payload fields (type/value/is_percentage/...) and an
+# in-use check on delete that the generic CRUD doesn't model.
 MODEL_MAP = {
     "budget-statuses": BudgetStatus,
     "work-order-statuses": WorkOrderStatus,
-    "payment-methods": PaymentMethod,
     "priority-levels": PriorityLevel,
     "finish-types": FinishType,
     "pool-types": PoolType,
@@ -25,7 +28,6 @@ MODEL_MAP = {
 LABEL_MAP = {
     "budget-statuses": "BudgetStatus",
     "work-order-statuses": "WorkOrderStatus",
-    "payment-methods": "PaymentMethod",
     "priority-levels": "PriorityLevel",
     "finish-types": "FinishType",
     "pool-types": "PoolType",

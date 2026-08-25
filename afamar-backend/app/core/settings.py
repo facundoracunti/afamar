@@ -3,11 +3,19 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # settings.py lives at afamar-backend/app/core/settings.py
 # .env lives at afamar-backend/.env (one level above app/)
-BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
+# BASE_DIR points at the backend root so upload paths (PRODUCT_PHOTOS_DIR,
+# MATERIALS_DIR, LOGOS_DIR) resolve to afamar-backend/uploads/... — keeps
+# user data co-located with the app that owns it (instead of leaking into
+# the repo root).
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=str(BASE_DIR / ".env"),
+        # The .env file is co-located with the repo root (one level above
+        # BASE_DIR), not inside the backend package. Hardcoding the path
+        # via `BASE_DIR.parent` keeps the env-var contract intact when
+        # `BASE_DIR` is moved (see the docstring above).
+        env_file=str(BASE_DIR.parent / ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )

@@ -17,6 +17,9 @@ import { buildDocumentShareMessage, buildWhatsAppUrl } from '../../utils/whatsap
 import type { AxiosResponse } from 'axios';
 import { useSettingsWithTerms } from '../../hooks/useSettingsWithTerms';
 import { usePdfPreviewController } from '../../hooks/usePdfPreviewController';
+import { PAYMENT_METHODS_KEY } from '../../hooks/useFormReferences';
+import { useQuery } from '@tanstack/react-query';
+import { getActivePaymentMethods } from '../../api/resources/paymentMethods';
 import { parseApiError } from '../../utils/error';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
@@ -50,6 +53,14 @@ export default function BudgetsList() {
   const queryClient = useQueryClient();
   const { company, globalTerms } = useSettingsWithTerms();
 
+  // Reuse the same TanStack Query key the form page uses so the
+  // catalogue is fetched once and shared across the app.
+  const paymentMethodsQuery = useQuery({
+    queryKey: [...PAYMENT_METHODS_KEY],
+    queryFn: getActivePaymentMethods,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const pdf = usePdfPreviewController({
     documentType: 'budget',
     fetchEntity: async (id) => getBudget(id) as unknown as { data: Record<string, unknown> },
@@ -58,6 +69,7 @@ export default function BudgetsList() {
     fileNamePrefix: 'presupuesto_',
     company,
     globalTerms,
+    paymentMethods: paymentMethodsQuery.data ?? [],
     notify,
   });
 

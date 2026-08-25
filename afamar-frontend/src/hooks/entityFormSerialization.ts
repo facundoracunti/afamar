@@ -171,6 +171,16 @@ export function buildPayload(form: EntityFormState): Record<string, unknown> {
     pools_data: jsonStringify(form.pools_data),
     sketch_elements: jsonStringify(flattenSketchElements(form.sketch_elements)),
     additional_works_data: form.additional_works_data || '[]',
+    // Per-cuota breakdown computed by `useBudgetCalculations` (only set
+    // when the active payment method is a credit-card percentage
+    // surcharge). Serialised as JSON so the list-page PDF preview can
+    // re-render the table even when the form hook isn't running.
+    installment_detail_ars: form.installment_detail_ars
+      ? JSON.stringify(form.installment_detail_ars)
+      : null,
+    installment_detail_usd: form.installment_detail_usd
+      ? JSON.stringify(form.installment_detail_usd)
+      : null,
   };
 }
 
@@ -210,5 +220,9 @@ export function mapApiToForm(d: Record<string, unknown>, defaultStatus: string):
     pools_data: jsonParseList(d.pools_data) as EntityFormState['pools_data'],
     sketch_elements: unflattenSketchElements(d.sketch_elements) as unknown[],
     additional_works_data: (d.additional_works_data as string | null) ?? null,
+    // Per-cuota breakdown persisted by the backend. Empty list when
+    // the active method isn't a credit-card percentage surcharge.
+    installment_detail_ars: jsonParseList(d.installment_detail_ars) as EntityFormState['installment_detail_ars'],
+    installment_detail_usd: jsonParseList(d.installment_detail_usd) as EntityFormState['installment_detail_usd'],
   };
 }

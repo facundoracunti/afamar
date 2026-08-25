@@ -68,8 +68,16 @@ export default function useEntityForm({
     setForm((prev) => ({ ...prev, [field]: value } as EntityFormState));
   }, []);
 
-  // ----- References (materials/pools/clients/logo/next#/initial load)
-  const { materials, pools, clientes, logoUrl, addOrRefreshClientes, updateClientAddresses } = useFormReferences({
+  // ----- References (materials/pools/clients/logo/payment-methods/next#/initial load)
+  const {
+    materials,
+    pools,
+    clientes,
+    paymentMethods,
+    logoUrl,
+    addOrRefreshClientes,
+    updateClientAddresses,
+  } = useFormReferences({
     services,
     defaultStatus,
     id,
@@ -126,7 +134,7 @@ export default function useEntityForm({
   const { filteredClients, handleClientSelect } = useFormClient({ clientes, form, setForm });
 
   // ----- Calculations (subtotal/total/balance_due via useBudgetCalculations)
-  useBudgetCalculations(form, setForm);
+  useBudgetCalculations(form, setForm, paymentMethods);
 
   // ----- Financial input handlers (transport/deposit/USD)
   const {
@@ -170,6 +178,7 @@ export default function useEntityForm({
     materials,
     pools,
     clientes,
+    paymentMethods,
     addOrRefreshClientes,
     updateClientAddresses,
     logoUrl,

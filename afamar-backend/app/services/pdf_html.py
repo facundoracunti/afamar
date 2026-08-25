@@ -488,7 +488,148 @@ def generate_work_order_pdf(data: dict, logo_path: Optional[str] = None) -> Byte
     return _render_pdf(html_str, footer_text=data.get("pdf_footer") or "")
 
 
-def build_budget_pdf_data(budget_data: dict, client_dict: dict, company: dict, terms: dict) -> dict:
+def _resolve_catalogue_adjustment(db, data: dict) -> dict:
+    """Compute the catalogue-driven surcharge / discount for the PDF
+    footer / totals breakdown.
+
+    The form (frontend `useBudgetCalculations` + `buildPdfData` hook)
+    and the server-side `_recalculate_totals_from_items` already apply
+    this rule when persisting `total` / `total_usd`. The PDF only
+    shows a single "TOTAL" line, so the customer can't see the
+    surcharge / discount that came from the catalogue. This helper
+    surfaces it as discrete breakdown lines (the template uses them
+    to render `Recargo (X%)` / `Descuento (X%)` rows + a per-cuota
+    table).
+
+    Returns a dict with:
+      - catalogue_surcharge_percentage: effective % (0 when N/A)
+      - catalogue_surcharge_amount: ARS amount (0 when N/A)
+      - catalogue_discount_percentage: effective % (0 when N/A)
+      - catalogue_discount_amount: ARS amount (0 when N/A)
+      - catalogue_method_label: the row's display label (or "")
+      - catalogue_method_name: the row's stable `name` (or "")
+      - installments: int (echoed for the footer line)
+      - catalogue_installment_detail: list of {cuota, interes, monto}
+        for the per-cuota table (only when the method is a credit-card
+        percentage surcharge).
+    """
+    from app.models.reference import PaymentMethod  # local import: avoid cold-start cycle
+
+    pm_id = data.get("payment_method_id")
+    pm_name = data.get("payment_method")
+    installments = int(data.get("installments") or 1)
+    pm = None
+    if pm_id:
+        pm = db.query(PaymentMethod).filter(PaymentMethod.id == pm_id).first()
+    if pm is None and pm_name:
+        pm = db.query(PaymentMethod).filter(PaymentMethod.name == pm_name).first()
+    if pm is None or pm.type not in ("DISCOUNT", "SURCHARGE") or not pm.value:
+        return {
+            "catalogue_surcharge_percentage": 0,
+            "catalogue_surcharge_amount": 0.0,
+            "catalogue_discount_percentage": 0,
+            "catalogue_discount_amount": 0.0,
+            "catalogue_method_label": "",
+            "catalogue_method_name": "",
+            "installments": installments,
+            "catalogue_installment_detail": [],
+        }
+
+    # Credit-card rule (current spec): *recargo lineal por cuota*.
+    # El interés `value%` se aplica N veces al total, después se
+    # divide en N cuotas iguales. Total = `base × (1 + N × value/100)`.
+    value = float(pm.value)
+    ratio = 1.0
+    if pm.applies_to_installments:
+        n = max(1, installments)
+        ratio = 1 + n * (value / 100)
+    elif pm.is_percentage:
+        ratio = 1 - value / 100 if pm.type == "DISCOUNT" else 1 + value / 100
+
+    subtotal = float(data.get("subtotal") or 0)
+    transport = float(data.get("transport") or 0)
+    discount_pct = float(data.get("discount_percentage") or 0)
+    discount_fijo = float(data.get("discount_fixed_amount") or 0)
+    base = max(0.0, subtotal + transport)
+    if discount_pct > 0:
+        base = round(base * (1 - discount_pct / 100))
+    elif discount_fijo > 0:
+        base = max(0.0, base - discount_fijo)
+
+    # Per-cuota breakdown (only when this is a credit-card percentage
+    # surcharge with installments >= 1). Regla actual: las N cuotas
+    # son uniformes — todas cargan el mismo `interes` (el `value` del
+    # catálogo, p.ej. 9) y el mismo `monto` (total / N). El total
+    # ya incluye el recargo (N × value%) porque la `base` pasada
+    # arriba es el subtotal+traslado-descuento previo al catálogo.
+    installment_detail: list = []
+    if pm.type == "SURCHARGE" and pm.is_percentage and installments >= 1:
+        n = max(1, installments)
+        total_with_surcharge = base * ratio
+        per_cuota = round(total_with_surcharge / n, 2) if total_with_surcharge > 0 else 0.0
+        for i in range(1, int(n) + 1):
+            installment_detail.append(
+                {
+                    "cuota": i,
+                    "interes": value,
+                    "monto": per_cuota,
+                }
+            )
+
+    if pm.type == "SURCHARGE":
+        if pm.is_percentage:
+            # Round headline % to 2dp so floating point noise
+            # (1.09 → 9.000000000000007) doesn't leak into the PDF.
+            headline_pct = round((ratio - 1) * 100, 2)
+            surcharge_amount = round(base * (ratio - 1))
+            return {
+                "catalogue_surcharge_percentage": headline_pct,
+                "catalogue_surcharge_amount": float(surcharge_amount),
+                "catalogue_discount_percentage": 0,
+                "catalogue_discount_amount": 0.0,
+                "catalogue_method_label": pm.label or pm.name,
+                "catalogue_method_name": pm.name,
+                "installments": installments,
+                "catalogue_installment_detail": installment_detail,
+            }
+        # Fixed ARS surcharge
+        return {
+            "catalogue_surcharge_percentage": 0,
+            "catalogue_surcharge_amount": value,
+            "catalogue_discount_percentage": 0,
+            "catalogue_discount_amount": 0.0,
+            "catalogue_method_label": pm.label or pm.name,
+            "catalogue_method_name": pm.name,
+            "installments": installments,
+            "catalogue_installment_detail": installment_detail,
+        }
+    # pm.type == "DISCOUNT"
+    if pm.is_percentage:
+        discount_amount = round(base * (1 - ratio))
+        return {
+            "catalogue_surcharge_percentage": 0,
+            "catalogue_surcharge_amount": 0.0,
+            "catalogue_discount_percentage": round((1 - ratio) * 100, 2),
+            "catalogue_discount_amount": float(discount_amount),
+            "catalogue_method_label": pm.label or pm.name,
+            "catalogue_method_name": pm.name,
+            "installments": installments,
+            "catalogue_installment_detail": [],
+        }
+    # Fixed ARS discount
+    return {
+        "catalogue_surcharge_percentage": 0,
+        "catalogue_surcharge_amount": 0.0,
+        "catalogue_discount_percentage": 0,
+        "catalogue_discount_amount": value,
+        "catalogue_method_label": pm.label or pm.name,
+        "catalogue_method_name": pm.name,
+        "installments": installments,
+        "catalogue_installment_detail": [],
+    }
+
+
+def build_budget_pdf_data(budget_data: dict, client_dict: dict, company: dict, terms: dict, db=None) -> dict:
     from app.services.budget_calculator import filter_main_materials, parse_materials_data
 
     materiales_raw = parse_materials_data(budget_data.get("materials_data"))
@@ -551,6 +692,26 @@ def build_budget_pdf_data(budget_data: dict, client_dict: dict, company: dict, t
         "payment_method": budget_data.get("payment_method", ""),
         "installments": budget_data.get("installments", 1),
 
+        # Catalogue-driven surcharge / discount (see
+        # `_resolve_catalogue_adjustment`). Without these the PDF only
+        # shows the operator-typed manual discount; the surcharge or
+        # discount that came from the `payment_methods` catalogue is
+        # silently absorbed into the TOTAL line.
+        **(
+            _resolve_catalogue_adjustment(db, budget_data)
+            if db is not None
+            else {
+                "catalogue_surcharge_percentage": 0,
+                "catalogue_surcharge_amount": 0.0,
+                "catalogue_discount_percentage": 0,
+                "catalogue_discount_amount": 0.0,
+                "catalogue_method_label": "",
+                "catalogue_method_name": "",
+                "installments": budget_data.get("installments", 1),
+                "catalogue_installment_detail": [],
+            }
+        ),
+
         # Observations
         "notes": budget_data.get("notes") or "",
         "important_observations": important_obs,
@@ -578,7 +739,7 @@ def build_budget_pdf_data(budget_data: dict, client_dict: dict, company: dict, t
     }
 
 
-def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict, terms: dict) -> dict:
+def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict, terms: dict, db=None) -> dict:
     from app.services.budget_calculator import filter_main_materials, parse_materials_data
 
     materiales_raw = parse_materials_data(order_data.get("materials_data"))
@@ -635,6 +796,24 @@ def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict
         "total_usd": total_usd_val,
         "payment_method": order_data.get("payment_method", ""),
         "installments": order_data.get("installments", 1),
+
+        # Catalogue-driven surcharge / discount (see
+        # `_resolve_catalogue_adjustment`). When `db` is None (legacy
+        # call site) the template gets 0s and behaves as before.
+        **(
+            _resolve_catalogue_adjustment(db, order_data)
+            if db is not None
+            else {
+                "catalogue_surcharge_percentage": 0,
+                "catalogue_surcharge_amount": 0.0,
+                "catalogue_discount_percentage": 0,
+                "catalogue_discount_amount": 0.0,
+                "catalogue_method_label": "",
+                "catalogue_method_name": "",
+                "installments": order_data.get("installments", 1),
+                "catalogue_installment_detail": [],
+            }
+        ),
 
         # Observations
         "notes": order_data.get("notes", ""),

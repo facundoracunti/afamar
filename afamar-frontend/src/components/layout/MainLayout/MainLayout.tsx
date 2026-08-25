@@ -45,6 +45,7 @@ function getPageTitle(pathname: string): string {
     '/admin/cash': 'Caja Diaria',
     '/admin/reports': 'Reportes',
     '/admin/configuration': 'Configuración',
+    '/admin/configuration/payment-methods': 'Métodos de Pago',
     '/admin/product-photos': 'Fotos de Productos',
   };
   const prefix = Object.keys(prefixes).find(k => pathname === k || pathname.startsWith(k + '/'));

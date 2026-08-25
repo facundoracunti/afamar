@@ -1,3 +1,14 @@
+/**
+ * "Datos de AFAMAR" page (single page, no tabs).
+ *
+ * Renders the company config (logo, terms, contact info). Sibling
+ * pages mounted at sibling routes via `App.tsx`:
+ *   - /admin/configuration/payment-methods → PaymentMethodsPage
+ *   - /admin/product-photos                 → ProductPhotosPage
+ *
+ * The sidebar (Sidebar.tsx) groups them all under the "CONFIGURACIÓN"
+ * accordion so the operator sees them as a single section.
+ */
 import React, { useState, useRef } from 'react';
 import { Save } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -72,7 +83,7 @@ function buildConfigMap(data: Record<string, unknown>): Record<string, ConfigVal
   return map;
 }
 
-export default function Configuration() {
+export default function ConfigurationPage() {
   const queryClient = useQueryClient();
   const notify = useNotify();
   const { data: rawData, loading } = useGet<Record<string, unknown>>(
@@ -200,14 +211,12 @@ export default function Configuration() {
                 {item.required && <span className={s['configuration__required']}> *</span>}
               </label>
               {item.type === 'terms' ? (
-                <>
-                  <TermsEditor
-                    items={Array.isArray(config[item.key]) ? (config[item.key] as string[]) : []}
-                    onChange={(next) => handleFieldChange(item.key, next)}
-                    placeholder={item.placeholder}
-                    hint={item.help}
-                  />
-                </>
+                <TermsEditor
+                  items={Array.isArray(config[item.key]) ? (config[item.key] as string[]) : []}
+                  onChange={(next) => handleFieldChange(item.key, next)}
+                  placeholder={item.placeholder}
+                  hint={item.help}
+                />
               ) : item.type === 'textarea' ? (
                 <textarea
                   className="input"

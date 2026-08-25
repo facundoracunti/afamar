@@ -40,7 +40,13 @@ class WorkOrderBase(BaseModel):
     balance_due: float = 0.0
     balance_due_usd: float = 0.0
     payment_method: str | None = None
+    payment_method_id: int | None = None
     installments: int = 1
+    # JSON-encoded list[dict] (cuota, interes, monto) for the per-cuota
+    # breakdown surfaced in the form + PDF. `None` until the recalc
+    # helper writes it on save.
+    installment_detail_ars: str | None = None
+    installment_detail_usd: str | None = None
     priority: str = "NORMAL"
     delivery_date: Optional[date] = None
     digital_signature: str | None = None
@@ -102,7 +108,10 @@ class WorkOrderUpdate(BaseModel):
     balance_paid: bool | None = None
     balance_paid_at: Optional[datetime] = None
     payment_method: str | None = None
+    payment_method_id: int | None = None
     installments: int | None = None
+    installment_detail_ars: str | None = None
+    installment_detail_usd: str | None = None
     priority: str | None = None
     delivery_date: Optional[date] = None
     digital_signature: str | None = None

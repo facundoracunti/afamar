@@ -93,6 +93,7 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
     addPileta, removePileta, updatePileta,
     handleSubmit: legacyHandleSubmit, handleDelete, handleStatusChangeAction, handlePrint,
     buildPayload,
+    paymentMethods,
     M2_CONCEPTS,
   } = useEntityForm({
     services: workOrderServices,
@@ -157,6 +158,10 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
       company,
       globalTerms,
       sketchImages: images,
+      // Pasar el catálogo para que el PDF pueda aplicar la regla del
+      // método (SURCHARGE / DISCOUNT) y emitir la tabla 3-columnas
+      // de cuotas cuando hay tarjeta de crédito.
+      paymentMethods,
     });
     setPdfData(data);
     setPdfPreviewLoading(false);
@@ -269,6 +274,7 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
               clientes,
               materials,
               pools,
+              paymentMethods,
               addOrRefreshClientes,
               onAddressAdded: handleAddressAdded,
               addMaterial,

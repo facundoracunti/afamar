@@ -16,38 +16,47 @@ interface BudgetLineItemsProps {
 }
 
 /** Item genérico: CONCEPTO (label izquierda) + SUBTOTAL (valor
- *  derecha + US$ en verde debajo). Mismo patrón visual que el detail
- *  box del alternative card. */
+ *  nativa en el pill + conversión en la otra moneda debajo). Mismo
+ *  patrón visual que el detail box del alternative card. */
 function DetailRow({
   label,
-  arsTotal,
+  displayValue,
+  arsEquivalent,
   usdTotal,
   nativeCurrency,
   isDashed = false,
 }: {
   label: string;
-  arsTotal: number;
+  /** Valor en la moneda nativa (lo que va en el pill verde/blanco). */
+  displayValue: number;
+  /** Mismo valor expresado en ARS — se usa para la conversión cuando
+   *  `nativeCurrency === 'USD'` (debajo del pill). */
+  arsEquivalent: number;
+  /** Mismo valor expresado en USD — se usa para la conversión cuando
+   *  `nativeCurrency === 'ARS'`. */
   usdTotal: number;
   nativeCurrency: 'ARS' | 'USD';
   isDashed?: boolean;
 }) {
-  if (!Number.isFinite(arsTotal) || arsTotal <= 0) return null;
+  if (!Number.isFinite(displayValue) || displayValue <= 0) return null;
   const valueClass = nativeCurrency === 'USD'
     ? `${s['budget-panel__detail-value']} ${s['budget-panel__detail-value--usd']}`
     : s['budget-panel__detail-value'];
-  const usdRefClass = `${s['budget-panel__detail-value-usd']}`;
+  const usdRefClass = nativeCurrency === 'USD'
+    ? `${s['budget-panel__detail-value-usd']} ${s['budget-panel__detail-value-usd--light']}`
+    : `${s['budget-panel__detail-value-usd']}`;
   return (
     <div className={`${s['budget-panel__detail-row']} ${isDashed ? s['budget-panel__detail-row--dashed'] : ''}`}>
       <span className={s['budget-panel__detail-label']}>{label}</span>
       <span>
         <span className={valueClass}>
           {nativeCurrency === 'USD'
-            ? formatCurrencyValue(arsTotal, { currency: 'USD' })
-            : formatCurrencyValue(arsTotal, { currency: 'ARS' })}
+            ? formatCurrencyValue(displayValue, { currency: 'USD' })
+            : formatCurrencyValue(displayValue, { currency: 'ARS' })}
         </span>
         <span className={usdRefClass}>
           ≈ {nativeCurrency === 'USD'
-            ? formatCurrencyValue(arsTotal, { currency: 'ARS', decimals: 0 })
+            ? formatCurrencyValue(arsEquivalent, { currency: 'ARS', decimals: 2 })
             : formatCurrencyValue(usdTotal, { currency: 'USD' })}
         </span>
       </span>
@@ -107,7 +116,8 @@ export function BudgetLineItems({ form, fabricationDetails, materials, pools }: 
             <DetailRow
               key={`${d.concept}-${d.detail ?? ''}-${d.currency}-${i}`}
               label={label}
-              arsTotal={nativeCurrency === 'ARS' ? arsTotal : usdTotal}
+              displayValue={nativeCurrency === 'ARS' ? arsTotal : usdTotal}
+              arsEquivalent={arsTotal}
               usdTotal={usdTotal}
               nativeCurrency={nativeCurrency}
             />
@@ -128,7 +138,8 @@ export function BudgetLineItems({ form, fabricationDetails, materials, pools }: 
           <DetailRow
             key={m.id ?? `m-${m.name ?? 'unnamed'}-${i}`}
             label={label}
-            arsTotal={nativeTotal}
+            displayValue={nativeTotal}
+            arsEquivalent={subArs}
             usdTotal={usdTotal}
             nativeCurrency={nativeCurrency}
           />
@@ -149,7 +160,8 @@ export function BudgetLineItems({ form, fabricationDetails, materials, pools }: 
           <DetailRow
             key={pt.pool_id ?? `p-${pt.brand ?? 'unnamed'}-${pt.model ?? 'unnamed'}-${i}`}
             label={label}
-            arsTotal={nativeTotal}
+            displayValue={nativeTotal}
+            arsEquivalent={arsTotal}
             usdTotal={usdRef}
             nativeCurrency={nativeCurrency}
           />
@@ -177,7 +189,8 @@ export function BudgetLineItems({ form, fabricationDetails, materials, pools }: 
           <DetailRow
             key={`aw-${a.additional_work_id ?? 'aw'}-${i}`}
             label={label}
-            arsTotal={nativeCurrency === 'ARS' ? nativeTotal : usdTotal}
+            displayValue={nativeCurrency === 'ARS' ? nativeTotal : usdTotal}
+            arsEquivalent={arsTotal}
             usdTotal={usdTotal}
             nativeCurrency={nativeCurrency}
             isDashed

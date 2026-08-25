@@ -4,6 +4,17 @@ import type { Material } from './material';
 import type { Pool } from './poolStock';
 import type { FinancialBase } from './shared';
 
+/**
+ * One row of the per-cuota breakdown rendered next to the credit-card
+ * recargo in the form + the PDF (3-column table: Cuota # | Interés | Monto).
+ * Mirrors the backend shape produced by `_recalculate_totals_from_items`.
+ */
+export interface InstallmentDetailRow {
+  cuota: number;
+  interes: number;
+  monto: number;
+}
+
 export interface EntityFormState extends FinancialBase {
   // Client info — matches BudgetBase.client_*
   client_name: string;
@@ -39,6 +50,14 @@ export interface EntityFormState extends FinancialBase {
   // snapshot fields, but the form wants the boolean + date as-is).
   balance_paid: boolean;
   balance_paid_at: string;
+
+  // Per-cuota breakdown for the catalogue-driven credit-card surcharge.
+  // Computed by `useBudgetCalculations` from the final total + the
+  // active payment method; not persisted (the backend recomputes it on
+  // every write). Surfaced to the form (3-column table next to the
+  // recargo) and to `buildPdfData` (same table in the PDF).
+  installment_detail_ars?: InstallmentDetailRow[];
+  installment_detail_usd?: InstallmentDetailRow[];
 
   // Dates & signature
   delivery_date: string;
@@ -114,6 +133,14 @@ export interface UseEntityFormReturn {
   materials: Material[];
   pools: Pool[];
   clientes: Client[];
+  /**
+   * Active payment methods for the "Forma de pago" `<select>`. Loaded
+   * from the `payment_methods` catalogue via TanStack Query (5 min
+   * staleTime). The catalogue row's `type` / `value` / `is_percentage`
+   * / `applies_to_installments` fields drive the live total in
+   * `useBudgetCalculations`.
+   */
+  paymentMethods: import('./paymentMethod').PaymentMethod[];
   /**
    * Prepend a freshly-created client to the local cache (preferred — keeps
    * the form values untouched). When called with no arguments, refetches

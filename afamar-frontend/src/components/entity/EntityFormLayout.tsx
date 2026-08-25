@@ -84,6 +84,7 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
     addMaterialRow, removeMaterialGroup, updateMaterialGroup, swapMaterialGroup,
     pools, addPileta, removePileta, updatePileta,
     clientes, addOrRefreshClientes, onAddressAdded,
+    paymentMethods,
     handleDetailChange, addDetalle, removeDetalle,
     modoUSD, toggleModoUSD, hayUSD, hayAlternativas,
     handleTransportChange, handleDepositCurrencyChange, handleDepositAmountChange,
@@ -279,6 +280,7 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
           discountBlock={discountBlock}
           actionBlock={actionBlock}
           onConfirmarPago={onConfirmarPago}
+          paymentMethods={paymentMethods}
         />
       ),
     },
@@ -406,6 +408,7 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
             discountBlock={discountBlock}
             actionBlock={actionBlock}
             onConfirmarPago={onConfirmarPago}
+            paymentMethods={paymentMethods}
           />
         </div>
 

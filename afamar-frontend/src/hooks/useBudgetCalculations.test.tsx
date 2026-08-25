@@ -10,7 +10,7 @@
  *  - transport is added to the base total
  *  - percentage discount reduces total (and discount_fixed_amount clears it)
  *  - fixed discount reduces total (and discount_percentage clears it)
- *  - installment surcharge (TARJETA DE CRÉDITO) is applied to the total
+ *  - catalogue-driven surcharge (Tarjeta de crédito) is applied per cuota
  *  - the alternative-material total replaces the principal total when alternatives exist
  *  - a USD rate of 0 is treated as 0 (subtotal stays in pure ARS)
  *  - deposit_received (ARS) is subtracted from the total in balance_due
@@ -22,6 +22,19 @@ import { act, renderHook } from '@testing-library/react';
 import { useBudgetCalculations } from './useBudgetCalculations';
 import type { EntityFormState, MaterialInForm } from '../types';
 import type { FabricationDetail, PoolInForm } from '../types/budget';
+import type { PaymentMethod } from '../types/paymentMethod';
+
+/**
+ * Catalogue fixture mirroring the 4 default rows seeded by
+ * `scripts/seeders/payment_methods.py` (only the credit-card row is
+ * used in the surcharge tests below).
+ */
+const PAYMENT_METHODS: PaymentMethod[] = [
+  { id: 1, name: 'EFECTIVO', label: 'Efectivo', color: null, is_active: true, sort_order: 10, type: 'NONE', value: 0, is_percentage: false, applies_to_installments: false, created_at: null, updated_at: null },
+  { id: 2, name: 'TRANSFERENCIA BANCARIA', label: 'Transferencia bancaria', color: null, is_active: true, sort_order: 20, type: 'NONE', value: 0, is_percentage: false, applies_to_installments: false, created_at: null, updated_at: null },
+  { id: 3, name: 'TARJETA DE DÉBITO', label: 'Tarjeta de débito', color: null, is_active: true, sort_order: 30, type: 'NONE', value: 0, is_percentage: false, applies_to_installments: false, created_at: null, updated_at: null },
+  { id: 4, name: 'TARJETA DE CRÉDITO', label: 'Tarjeta de crédito', color: null, is_active: true, sort_order: 40, type: 'SURCHARGE', value: 9, is_percentage: true, applies_to_installments: true, created_at: null, updated_at: null },
+];
 
 function makeForm(overrides: Partial<EntityFormState> = {}): EntityFormState {
   return {
@@ -33,6 +46,7 @@ function makeForm(overrides: Partial<EntityFormState> = {}): EntityFormState {
     transport_usd: 0,
     usd_rate: 1000,
     payment_method: 'EFECTIVO',
+    payment_method_id: 1,
     installments: 1,
     discount_percentage: 0,
     discount_fixed_amount: 0,
@@ -49,14 +63,14 @@ function makeForm(overrides: Partial<EntityFormState> = {}): EntityFormState {
   } as EntityFormState;
 }
 
-function renderCalc(initial: EntityFormState) {
+function renderCalc(initial: EntityFormState, paymentMethods: PaymentMethod[] = PAYMENT_METHODS) {
   const result = renderHook(
-    ({ form }: { form: EntityFormState }) => {
+    ({ form, pms }: { form: EntityFormState; pms: PaymentMethod[] }) => {
       const [current, setCurrent] = useState<EntityFormState>(form);
-      useBudgetCalculations(current, setCurrent);
+      useBudgetCalculations(current, setCurrent, pms);
       return { form: current, setForm: setCurrent };
     },
-    { initialProps: { form: initial } },
+    { initialProps: { form: initial, pms: paymentMethods } },
   );
   return result;
 }
@@ -103,26 +117,93 @@ describe('useBudgetCalculations — discounts', () => {
   });
 });
 
-describe('useBudgetCalculations — installments surcharge', () => {
-  it('adds 0% for 1 installment, 15% for 3 installments with tarjeta de crédito', () => {
+describe('useBudgetCalculations — catalogue-driven surcharge (recargo lineal por cuota)', () => {
+  // The rule is `base × (1 + N × value/100)`. With value=9:
+  //   N=1 → +9%   → total = base × 1.09
+  //   N=2 → +18%  → total = base × 1.18
+  //   N=3 → +27%  → total = base × 1.27
+  // Cada cuota = total / N (uniforme, todas iguales).
+  it('1 cuota adds 9% (total = base × 1.09)', () => {
     const fabrication_details: FabricationDetail[] = [
       { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 10000 },
     ];
-    // Tarjeta 1 cuota → sin recargo
-    const { result: r1 } = renderCalc(makeForm({
+    const { result } = renderCalc(makeForm({
       fabrication_details,
       payment_method: 'TARJETA DE CRÉDITO',
+      payment_method_id: 4,
       installments: 1,
     }));
-    expect(r1.current.form.total).toBe(10000);
+    expect(result.current.form.total).toBe(10900);
+  });
 
-    // Tarjeta 3 cuotas → +15%
-    const { result: r3 } = renderCalc(makeForm({
+  it('2 cuotas adds 18% (total = base × 1.18, cuota = 5900)', () => {
+    const fabrication_details: FabricationDetail[] = [
+      { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 10000 },
+    ];
+    const { result } = renderCalc(makeForm({
       fabrication_details,
       payment_method: 'TARJETA DE CRÉDITO',
+      payment_method_id: 4,
+      installments: 2,
+    }));
+    expect(result.current.form.total).toBe(11800); // 10000 × 1.18
+  });
+
+  it('3 cuotas adds 27% (total = base × 1.27, cuota = 4233.33)', () => {
+    const fabrication_details: FabricationDetail[] = [
+      { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 10000 },
+    ];
+    const { result } = renderCalc(makeForm({
+      fabrication_details,
+      payment_method: 'TARJETA DE CRÉDITO',
+      payment_method_id: 4,
       installments: 3,
     }));
-    expect(r3.current.form.total).toBe(11500); // 10000 + 15% (rounded)
+    expect(result.current.form.total).toBe(12700); // 10000 × 1.27
+  });
+
+  it('matches the customer-facing example: base=900000, 3 cuotas, value=9 → 1_143_000, cada cuota = 381_000', () => {
+    const fabrication_details: FabricationDetail[] = [
+      { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 900000 },
+    ];
+    const { result } = renderCalc(makeForm({
+      fabrication_details,
+      payment_method: 'TARJETA DE CRÉDITO',
+      payment_method_id: 4,
+      installments: 3,
+    }));
+    expect(result.current.form.total).toBe(1143000); // 900000 × 1.27
+  });
+
+  it('exposes installment_detail_ars with uniform rows (3 cuotas, base=900000)', () => {
+    const fabrication_details: FabricationDetail[] = [
+      { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 900000 },
+    ];
+    const { result } = renderCalc(makeForm({
+      fabrication_details,
+      payment_method: 'TARJETA DE CRÉDITO',
+      payment_method_id: 4,
+      installments: 3,
+    }));
+    // total = 900000 × 1.27 = 1143000; cuota = 1143000 / 3 = 381000 (todas iguales)
+    expect(result.current.form.installment_detail_ars).toEqual([
+      { cuota: 1, interes: 9, monto: 381000 },
+      { cuota: 2, interes: 9, monto: 381000 },
+      { cuota: 3, interes: 9, monto: 381000 },
+    ]);
+  });
+
+  it('returns empty installment_detail for non-credit-card payment methods', () => {
+    const fabrication_details: FabricationDetail[] = [
+      { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 10000 },
+    ];
+    const { result } = renderCalc(makeForm({
+      fabrication_details,
+      payment_method: 'EFECTIVO',
+      payment_method_id: 1,
+      installments: 1,
+    }));
+    expect(result.current.form.installment_detail_ars).toEqual([]);
   });
 });
 
@@ -205,12 +286,12 @@ describe('useBudgetCalculations — USD handling', () => {
       fabrication_details,
       usd_rate: 1000,
       payment_method: 'TARJETA DE CRÉDITO',
+      payment_method_id: 4,
       installments: 3,
     }));
-    // subtotal_usd = 110.50, no transport. Surcharge = 15% of 110.50 = 16.575 → round2 = 16.58
-    // Old bug: Math.round(16.575) = 17 → total_usd = 110.50 + 17 = 127.50
-    // Fixed: total_usd = 110.50 + 16.58 = 127.08
-    expect(result.current.form.total_usd).toBe(127.08);
+    // subtotal_usd = 110.50, no transport. Recargo lineal (value=9, N=3):
+    // ratio = 1.27 → total_usd = 110.50 × 1.27 = 140.34 (round2).
+    expect(result.current.form.total_usd).toBe(140.34);
   });
 
   it('rounds USD total after percentage discount to 2dp', () => {
@@ -248,13 +329,13 @@ describe('useBudgetCalculations — USD handling', () => {
       materials_data: mats,
       usd_rate: 1000,
       payment_method: 'TARJETA DE CRÉDITO',
+      payment_method_id: 4,
       installments: 3,
     }));
     // Alternative replaces principal: mat cost = 85.50 USD
-    // Total USD = 85.50 (no transport, no fab, no pools)
-    // Surcharge = round2(85.50 * 0.15) = round2(12.825) = 12.83
-    // total_usd = 85.50 + 12.83 = 98.33
-    expect(result.current.form.total_usd).toBe(98.33);
+    // Recargo lineal (value=9, N=3): ratio = 1.27
+    // total_usd = 85.50 × 1.27 = 108.585 → round2 = 108.59
+    expect(result.current.form.total_usd).toBe(108.59);
   });
 });
 

@@ -155,6 +155,27 @@ const styles = StyleSheet.create({
   grandUsdSub: { fontSize: 8, color: '#fff', opacity: 0.85 },
   // ===== PAYMENT METHOD =====
   paymentRow: { fontSize: 6.5, marginTop: 4, marginBottom: 4 },
+  // Per-cuota breakdown (credit-card surcharges). Renders a compact
+  // 3-column table under the recargo line: Cuota # | Interés | Monto.
+  installmentTable: { marginTop: 4, marginBottom: 4, marginLeft: 8 },
+  installmentHeader: {
+    flexDirection: 'row',
+    backgroundColor: SLATE_100,
+    borderBottom: `1px solid ${SLATE_400}`,
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+  },
+  installmentHeaderCell: { fontSize: 7, fontWeight: 'bold', color: SLATE_700 },
+  installmentHeaderN: { width: '20%' },
+  installmentHeaderPct: { width: '35%', textAlign: 'right' },
+  installmentHeaderAmount: { width: '45%', textAlign: 'right' },
+  installmentRow: {
+    flexDirection: 'row',
+    borderBottom: `0.5px solid ${SLATE_200}`,
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+  },
+  installmentCell: { fontSize: 7, color: SLATE_700 },
   // Bank details block printed under the payment method when the
   // customer picks "Transferencia Bancaria". Slightly indented and
   // muted to make it clear it's a follow-up detail, not a new section.
@@ -610,10 +631,34 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
             <Text style={styles.totalsVal}>{`-$ ${fmt(data.discount_fixed_amount)}`}</Text>
           </View>
         ) : null}
+        {data.catalogue_discount_amount > 0 ? (
+          <View style={styles.totalsRow}>
+            <Text style={styles.totalsLbl}>
+              {`Descuento (${data.catalogue_discount_percentage}%) ${data.catalogue_method_label}`.trim()}
+            </Text>
+            <Text style={styles.totalsVal}>{`-$ ${fmt(data.catalogue_discount_amount)}`}</Text>
+          </View>
+        ) : null}
         {data.surcharge_percentage > 0 ? (
           <View style={styles.totalsRow}>
-            <Text style={styles.totalsLbl}>{`Recargo (${data.surcharge_percentage}%)`}</Text>
-            <Text style={styles.totalsVal}>{`+ $ ${fmt(data.surcharge_amount)}`}</Text>
+            <Text style={styles.totalsLbl}>Interés:</Text>
+            <Text style={styles.totalsVal}>{`$ ${fmt(data.surcharge_amount)}`}</Text>
+          </View>
+        ) : null}
+        {data.catalogue_installment_detail && data.catalogue_installment_detail.length > 1 ? (
+          <View style={styles.installmentTable}>
+            <View style={styles.installmentHeader}>
+              <Text style={[styles.installmentHeaderCell, styles.installmentHeaderN]}>Cuota #</Text>
+              <Text style={[styles.installmentHeaderCell, styles.installmentHeaderPct]}>Interés</Text>
+              <Text style={[styles.installmentHeaderCell, styles.installmentHeaderAmount]}>Monto</Text>
+            </View>
+            {data.catalogue_installment_detail.map((row) => (
+              <View key={row.cuota} style={styles.installmentRow}>
+                <Text style={[styles.installmentCell, styles.installmentHeaderN]}>{row.cuota}</Text>
+                <Text style={[styles.installmentCell, styles.installmentHeaderPct]}>{`${row.interes}%`}</Text>
+                <Text style={[styles.installmentCell, styles.installmentHeaderAmount]}>{`$ ${fmt(row.monto)}`}</Text>
+              </View>
+            ))}
           </View>
         ) : null}
         {data.deposit_received > 0 ? (
@@ -653,8 +698,8 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
             {data.installments && data.installments > 1 ? (
               <Text>
                 {` (${data.installments} cuotas`}
-                {data.surcharge_percentage > 0
-                  ? ` con ${data.surcharge_percentage}% de interés`
+                {data.catalogue_installment_detail && data.catalogue_installment_detail.length > 0
+                  ? ` con ${data.catalogue_installment_detail[0].interes}% de interés por cuota`
                   : ''}
                 {')'}
               </Text>

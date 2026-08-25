@@ -15,6 +15,7 @@ from slowapi.errors import RateLimitExceeded
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.routers.router import router as api_router
+from app.core import settings as app_settings
 from app.core.settings import settings
 from app.utils.logger import setup_logging, check_database
 from app.utils.responses import error
@@ -73,6 +74,7 @@ def _run_seeders() -> None:
             seed_categories,
             seed_colors,
             seed_materials,
+            seed_payment_methods,
             seed_pool_stock,
             seed_pool_types,
             seed_settings,
@@ -85,6 +87,7 @@ def _run_seeders() -> None:
         seed_materials()
         seed_pool_stock()
         seed_additional_works()
+        seed_payment_methods()
         seed_users()
     except Exception as exc:
         logger.warning("Startup seed failed: %s", exc, exc_info=True)
@@ -104,7 +107,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-uploads_dir = Path(__file__).resolve().parent.parent / "uploads"
+uploads_dir = app_settings.BASE_DIR / "uploads"
 uploads_dir.mkdir(exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
 

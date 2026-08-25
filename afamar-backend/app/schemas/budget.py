@@ -101,7 +101,13 @@ class BudgetBase(BaseModel):
     balance_paid: bool = False
     balance_paid_at: Optional[datetime] = None
     payment_method: str | None = None
+    payment_method_id: int | None = None
     installments: int = 1
+    # JSON-encoded list[dict] (cuota, interes, monto) for the per-cuota
+    # breakdown surfaced in the form + PDF. `None` until the recalc
+    # helper writes it on save.
+    installment_detail_ars: str | None = None
+    installment_detail_usd: str | None = None
     validity_days: int = 15
     estimated_delivery: str | None = None
     estimated_date: Optional[date] = None
@@ -181,7 +187,10 @@ class BudgetUpdate(BaseModel):
     balance_paid: bool | None = None
     balance_paid_at: Optional[datetime] = None
     payment_method: str | None = None
+    payment_method_id: int | None = None
     installments: int | None = None
+    installment_detail_ars: str | None = None
+    installment_detail_usd: str | None = None
     validity_days: int | None = None
     estimated_delivery: str | None = None
     estimated_date: Optional[date] = None

@@ -53,6 +53,12 @@ class WorkOrder(Base):
     balance_paid_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     payment_method: Mapped[str] = mapped_column(String(50), nullable=True)
     installments: Mapped[int] = mapped_column(Integer, default=1)
+    # JSON-encoded list[dict] (cuota, interes, monto) for the per-cuota
+    # breakdown surfaced in the form + PDF when the active payment
+    # method is a credit-card percentage surcharge. `None` until the
+    # recalc helper writes it on save.
+    installment_detail_ars: Mapped[str | None] = mapped_column(Text, nullable=True)
+    installment_detail_usd: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     priority: Mapped[str] = mapped_column(String(20), default="NORMAL")
     delivery_date: Mapped[date] = mapped_column(Date, nullable=True)

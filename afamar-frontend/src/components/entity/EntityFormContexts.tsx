@@ -19,6 +19,7 @@ import React, { createContext, useContext, type ReactNode } from 'react';
 import type { EntityFormState, Client, ClientAddress, MaterialInForm } from '../../types';
 import type { Material } from '../../types/material';
 import type { Pool } from '../../types/poolStock';
+import type { PaymentMethod } from '../../types/paymentMethod';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Style context
@@ -67,6 +68,8 @@ export interface EntityFormDomainValue {
   clientes: Client[];
   materials: Material[];
   pools: Pool[];
+  /** Active payment methods for the "Forma de pago" `<select>`. */
+  paymentMethods: PaymentMethod[];
 
   // Clients
   addOrRefreshClientes: (client: Client) => void;

@@ -31,7 +31,7 @@ def _email_work_order_background(order_id: int) -> None:
             logger.warning("Order %s or client email not found for background email", order_id)
             return
         order_data, client_dict, company, terms = _prepare_work_order_payload(order, db)
-        pdf_data = build_work_order_pdf_data(order_data, client_dict, company, terms)
+        pdf_data = build_work_order_pdf_data(order_data, client_dict, company, terms, db=db)
         pdf_bytes = generate_work_order_pdf(pdf_data, logo_path=company.get("company_logo")).read()
         company_name = company.get("company_name") or "AFAMAR"
         send_work_order_email(order.client.email, pdf_bytes, order.number, company_name=company_name)
@@ -172,7 +172,7 @@ def download_work_order_pdf(order_id: int, db: Session = Depends(get_db)):
         raise NotFoundError("Work order")
 
     order_data, client_dict, company, terms = _prepare_work_order_payload(order, db)
-    pdf_data = build_work_order_pdf_data(order_data, client_dict, company, terms)
+    pdf_data = build_work_order_pdf_data(order_data, client_dict, company, terms, db=db)
     pdf_bytes = generate_work_order_pdf(pdf_data, logo_path=company.get("company_logo")).read()
 
     return Response(

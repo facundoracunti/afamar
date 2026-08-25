@@ -1,207 +1,95 @@
 # AGENTS.md
 
-> **Estado:** Rama `development`. Fases 1-6.11 completadas. Features recientes: dashboard modales, material swap con re-pointing de pools/fabrication/adicionales, totales del Presupuesto live (parseo on-read de `additional_works_data` en `BudgetLineItems` + dep añadida en `useBudgetCalculations`).
-> `tsc --noEmit` 0 errores · `vite build` ~14s, gzip ~770 KB (chunks principales) · vitest 171/171 (15 archivos) · pytest 14/14 · playwright budgets 12/12 passing (1 skipped intencional).
+> **Estado:** Rama `development`. **65 archivos modificados/agregados sin commitear** (50 `M` + 15 `??`) — incluye **Fase 7 (Payment Methods)**: catálogo `payment_methods` con 4 columnas de cálculo (`type` / `value` / `is_percentage` / `applies_to_installments`), regla de **interés incremental por cuota** (no más "1-2 cuotas → 0%, 3+ cuotas → N×5%"), tabla 3-columnas (Cuota # / Interés / Monto) en el form y en el PDF, snapshot persistido en `budgets` / `work_orders` (migración `d5e6f7a8b9c0`). Más **7 fixes UX/de schema de esta sesión** (ver "Fixes sobre Fase 7" abajo). Features anteriores: Fases 1-6.11, dashboard modales, material swap con re-pointing, calculadora de porcelanato, totales del Presupuesto live. Ver `PLAN.md` para lo que falta.
+> `tsc --noEmit` 0 errores · `vite build` ~22s, gzip ~497 KB (`PdfPreviewModal-DKwAfI6g.js` = 1.49 MB / 497 KB gzip — el chunk más pesado) · vitest **191/191** (16 archivos) · pytest **39/39** · playwright budgets 13/13 (sin E2E del feature de payment methods todavía — ver `PLAN.md` P3).
 >
-> **Índice del conocimiento (codebase-memory):** proyecto indexado en knowledge graph (3751 nodos / 13286 aristas). ADR de arquitectura en `manage_adr` (project `afamar` — secciones PURPOSE / STACK / ARCHITECTURE / PATTERNS / TRADEOFFS / PHILOSOPHY). Artefacto persistente en `.codebase-memory/graph.db.zst` (commitearlo para compartir el índice). Ver sección "Índice del conocimiento" abajo.
+> **Índice del conocimiento (codebase-memory):** **artefacto desactualizado** (último reindex 2026-08-07, commit `a06c1569` — pre-Fase 7). El MCP `codebase-memory` y el CLI `mavis` local siguen sin estar disponibles (CLI tira `Cannot find module '…\MiniMax Code\resources\resources\daemon\cli.js'`), así que el reindex + el ADR update quedaron pendientes (ver `PLAN.md` P1+P2). Mientras tanto, el ADR commiteable equivalente está en `docs/adr/0007-payment-methods-catalogue.md`.
 
 ## Índice del conocimiento (codebase-memory)
 
-El repo está indexado en el knowledge graph de codebase-memory (MCP) bajo el proyecto `afamar`:
-
-- **Reindexar:** `index_repository` con `repo_path=D:\projects\PERSONAL\afamar`, `name=afamar` (usar el override para no crear un proyecto duplicado derivado del path), `mode=full`, `persistence=true`.
-- **Artefacto:** `persistence=true` genera `.codebase-memory/graph.db.zst` (~1.7 MB) — **ya no es una limitación**. El server MCP agrega `.codebase-memory` al `.gitignore`; si se quiere compartir el índice con teammates, commitearlo explícitamente con `git add -f .codebase-memory/graph.db.zst` (o un-ignorearlo).
-- **ADR de arquitectura:** consultable/actualizable con `manage_adr` (project `afamar`) — documenta el contrato "el form es la fuente de verdad" (form ↔ PDF ↔ DB), el hot-path de `BaseRepository.add`/`save` y `createResource.get`, el facade `useEntityForm`, los invariantes de `useBudgetCalculations` (deps deben incluir `additional_works_data`), `useBudgetActions.handleSubmit` con `e.preventDefault()`, los helpers `swapMaterialGroupToList` + `repointSwapReferences`, y los clusters de-facto. Estructura por secciones: PURPOSE / STACK / ARCHITECTURE / PATTERNS / TRADEOFFS / PHILOSOPHY.
-- **Hotspots confirmados:** backend `BaseRepository.add` (28 callers) / `save` (25); frontend `createResource.get` (71 callers, #1 global), `parseApiError` (27), `LoadingSpinner` (24), `useNotify` (19), `createResource.update` (19), `loginViaApi` (19). Optimizaciones de performance deben apuntar ahí.
-- **Complejidad alta:** `usePlateCalculator` (bin-packing, loop_depth 4, cyclomatic 13 — único loop anidado ≥4), `pdf_html._sketch_to_png_base64_list` (loop_depth 3, cyclomatic 25), `WorkOrderService.update` (cyclomatic 12).
-- **Clusters de-facto:** frontend core UI (102 miembros, cohesión 0.79), forms orchestration BudgetForm/WorkOrderForm/useEntityForm/EntityFormLayout (74, 0.81), `parseApiError`+`useBudgetActions`+`buildPayload`+`useFormActions` (65, 0.81), budget/quote/fabrication/sketch family (54, 0.88 — cohesión alta). Sin dependencia circular entre `app/` y `src/`.
+- **Reindexar (pendiente desde 2026-08-24):** `index_repository(repo_path=D:\projects\PERSONAL\afamar, name=afamar, mode=full, persistence=true)`. Después `git add -f .codebase-memory/graph.db.zst` para commitear el índice.
+- **Artefacto actual:** `.codebase-memory/graph.db.zst` (2.4 MB, 3820 nodos / 13518 aristas) — refleja el código al commit `a06c1569`. **No incluye** el sistema de payment methods ni los fixes UX de esta sesión.
+- **ADR de arquitectura:** `manage_adr(project="afamar")` para consultar/actualizar PURPOSE/STACK/ARCHITECTURE/PATTERNS/TRADEOFFS/PHILOSOPHY. Mientras el MCP no esté disponible, el ADR de Fase 7 vive commiteado en `docs/adr/0007-payment-methods-catalogue.md`. Documenta el contrato "el form es la fuente de verdad" (form ↔ PDF ↔ DB), el hot-path de `BaseRepository.add`/`save` y `createResource.get`, el facade `useEntityForm`, los invariantes de `useBudgetCalculations` (deps deben incluir `additional_works_data`, `paymentMethodsDepsJson`, `form.installments`), `useBudgetActions.handleSubmit` con `e.preventDefault()`, los helpers `swapMaterialGroupToList` + `repointSwapReferences`, y los 4 lugares que aplican la regla del recargo de tarjeta (deben mantenerse en sync).
+- **Hotspots confirmados (al 2026-08-07, re-validar post-reindex):** backend `BaseRepository.add` (28 callers) / `save` (25); frontend `createResource.get` (71, #1 global), `parseApiError` (27), `LoadingSpinner` (24), `useNotify` (19), `createResource.update` (19), `loginViaApi` (19). Tras Fase 7, sumar `useBudgetCalculations.applyPaymentMethodToTotals` (4 callsites nuevos) y `paymentMethodRepository.get_by_name` (CRUD del catálogo).
+- **Complejidad alta:** `usePlateCalculator` (bin-packing, loop_depth 4, cyclomatic 13), `pdf_html._sketch_to_png_base64_list` (loop_depth 3, cyclomatic 25), `WorkOrderService.update` (cyclomatic 12), `_recalculate_totals_from_items` (cyclomatic ~12 con alternativa + catálogo).
+- **Clusters de-facto:** frontend core UI (102, cohesión 0.79), forms orchestration (74, 0.81), `parseApiError`+`useBudgetActions`+`buildPayload`+`useFormActions` (65, 0.81), budget/quote/fabrication/sketch (54, 0.88). Sin dependencia circular entre `app/` y `src/`.
 
 ## Reglas de operación
 
-- **Git es manual**: NO commitear, NO pushear, NO crear PR — **solo cuando el usuario lo pida explícitamente**. Modificar archivos está permitido; versionarlos no.
-- **Inspeccionar antes de versionar**: si el usuario pide commit/PR, antes de stagear revisar `git status`, `git diff` y `git log --oneline -10`; stagear solo los archivos intencionalmente modificados; nunca commitear secretos.
-- **Mensajes concisos**: usar el estilo del repo. Si no hay convención clara, mensajes cortos en inglés o español describiendo el "qué" en lugar del "cómo".
-- **Cero PRs automáticos**: aunque el usuario diga "todo listo", NO crear el PR — esperar a que el usuario lo pida.
+- **Git es manual**: NO commitear, NO pushear, NO crear PR — **solo cuando el usuario lo pida explícitamente**.
+- **Inspeccionar antes de versionar**: si el usuario pide commit/PR, antes de stagear revisar `git status` + `git diff` + `git log --oneline -10`; stagear solo los archivos intencionalmente modificados; nunca commitear secretos.
+- **Mensajes concisos**: estilo del repo. Si no hay convención clara, mensajes cortos en inglés o español.
+- **Cero PRs automáticos**: aunque el usuario diga "todo listo", NO crear el PR.
 
 ## Stack
 
-- **Backend:** Python 3.14 + FastAPI 0.139 + SQLAlchemy 2.0 + MySQL (swappable SQLite via `DATABASE_URL`)
-- **Frontend:** Vite 6 + React 18 + TypeScript 5.9 + CSS Modules (BEM) + Axios + TanStack Query
-- **DB Migrations:** Alembic
-- **Auth:** JWT (python-jose HS256) + passlib bcrypt==4.1.3
-- **PDF:** `@react-pdf/renderer` (frontend, primary) + xhtml2pdf/Jinja2 (legacy backend, solo para `/api/v1/{budgets,work-orders}/{id}/pdf` download + email background)
-- **Modales:** `components/ui/Modal` con focus trap + escape + portal; las páginas reales se embeben en modales desde el dashboard (ver "Dashboard modales" abajo)
-- **Tests:** pytest (backend), vitest (frontend), Playwright (E2E)
+- **Backend:** Python 3.14 + FastAPI 0.139 + SQLAlchemy 2.0 + MySQL (swappable SQLite via `DATABASE_URL`).
+- **Frontend:** Vite 6 + React 18 + TypeScript 5.9 + CSS Modules (BEM) + Axios + TanStack Query.
+- **DB Migrations:** Alembic. **Auth:** JWT (HS256) + passlib bcrypt==4.1.3.
+- **PDF:** `@react-pdf/renderer` (frontend, primary) + xhtml2pdf/Jinja2 (legacy backend, solo para `/api/v1/{budgets,work-orders}/{id}/pdf` download + email background).
+- **Modales:** `components/ui/Modal` con focus trap + escape + portal; las páginas reales se embeben en modales desde el dashboard (ver "Dashboard modales").
+- **Tests:** pytest (backend), vitest (frontend), Playwright (E2E).
 
-## Project structure
+## Project structure (paths críticos)
 
-```
-afamar-backend/    — FastAPI app
-  app/
-    main.py        — entrypoint, lifespan runs Alembic upgrade + seed admin
-    api/
-      dependencies.py  — get_db, get_current_user
-      routers/         — auth, clients, client_addresses, budgets,
-                          additional_works, work_orders, materials, pool_stock,
-                          measurements, daily_cash, dashboard, settings,
-                          reports, search, options, references,
-                          product_photos, whatsapp, additional-works (19 routers)
-    core/          — settings (pydantic — includes DEFAULT_USD_RATE,
-                      PRODUCT_PHOTOS_DIR, MATERIALS_DIR, LOGOS_DIR,
-                      MAX_UPLOAD_FILE_SIZE, MAX_UPLOAD_DIMENSION
-                      + properties `product_photos_abs_dir` / `materials_abs_dir` / `logos_abs_dir`),
-                      exceptions (NotFoundError, ConflictError, ValidationError)
-    db/            — base, session, database
-    models/        — client, budget, work_order, material,
-                     pool_stock, measurement, daily_cash, setting, price_history,
-                     product_photo, reference, user, option,
-                     currency, client_address, additional_work
-    schemas/       — Pydantic (Create/Update/Response separados) +
-                      CurrencyCodeMixin (shared currency resolution)
-    services/      — lógica de negocio (auth, budget, work_order, etc.)
-                     + pdf_helpers.py (load_settings, has_terms, split_or_default,
-                       build_company_and_terms — shared between budgets/wo routers)
-                     + stock_helpers.py (deduct_pool_stock, restore_pool_stock)
-                     + base.py (BaseService[T] generic CRUD base)
-    repositories/  — SQLAlchemy puro (12 repos) con joinedload eager loading
-    utils/         — currency (resolve_currency_id), client_helpers (lookup-or-create),
-                     logger, responses, pagination, numbering
-    templates/     — budget_pdf.html, work_order_pdf.html (Jinja2, legacy)
-  tests/           — pytest con conftest.py (SQLite file-based fixtures)
-  alembic/         — migrations
-  scripts/seed.py  — datos iniciales
-  uploads/         — user uploads
-  requirements.txt, alembic.ini, Dockerfile, pyproject.toml
+Para el árbol completo usar `Get-ChildItem -Recurse`. Lo crítico:
 
-afamar-frontend/   — Vite + React + TS
-  src/
-    main.tsx       — React entrypoint
-    App.tsx        — BrowserRouter + Routes (React.lazy code-split, /admin/* + ProtectedRoute)
-    index.css      — reset CSS + design tokens (CSS vars: brand, sidebar, topbar,
-                     surface, text, input, borders) + Tailwind palette
-                     (--tw-green-600, --tw-red-500, --tw-blue-800, etc.)
-                     + light theme override via [data-theme="light"]
-    global.d.ts    — declare global { Window.APP_CONFIG }
-    css-modules.d.ts — *.module.css + *.jpg/*.png/*.svg/*.webp/*.jpeg
-    api/
-      http.ts      — Axios instance (baseURL: /api/v1) + interceptors
-                     (envelope unwrap + 401 redirect + error normalization)
-      resources/   — 12+ domain files (budgets, clients, cash, etc.)
-      hooks.ts     — TanStack Query hooks (useList, useGet, useCreate, etc.)
-    pages/         — one folder per module (English names), all with *.module.css
-      auth/        (LoginPage)
-      home/        (HomePage)
-      dashboard/   (DashboardPage)
-      clients/     (ClientsListPage, ClientFormPage)
-      budgets/     (BudgetsListPage [→BudgetTable], BudgetFormPage [→useBudgetActions, useBudgetQuoteCalculations])
-      work-orders/ (WorkOrdersListPage [→WorkOrdersTable], WorkOrderFormPage)
-      materials/   (MaterialsListPage, MaterialFormPage)
-      pool-stock/  (PoolStockPage)
-      measurements/ (MeasurementsListPage, MeasurementFormPage [→MeasurementPhotoGrid])
-      cash/        (CashDailyPage, CashHistoryPage)
-      calculator/  (CalculatorPage)
-      configuration/ (ConfigurationPage)
-      reports/     (ReportsPage [lazy-loads ReportsCharts])
-      online-budgets/ (OnlineBudgetsListPage, OnlineBudgetFormPage)
-      additional-works/ (AdditionalWorksPage [→AdditionalWorksTable, AdditionalWorkForm])
-    components/      — reutilizables (todos English)ui/          — primitivas (Button, Modal, StatusBadge, ListPage, etc.)
-      common/      — Loading, ConfirmDialog, PdfPreviewModal,
-                     ClientHistoryCard, WorkOrdersTable,
-                     AdditionalWorksTable, AdditionalWorkForm,
-                     MeasurementPhotoGrid, LinearMetersInput
-      measurements/ — MeasurementsTable (NEW)
-      home/         — HeroCarousel (NEW)
-      entity/      — EntityFormFinancial, EntityFormSpecs, EntityFormClient
-                     + EntityFormLayout (shared form body — used by both
-                       BudgetFormPage and WorkOrderFormPage; slots:
-                       beforeLayout, observations, terms, alternativasGrid,
-                       discountBlock, extraDialogs, specsCardClassName)
-      cash/        — IncomeModal, ExpenseModal, CashTotalCards, etc.
-      budget/      — BudgetPanel (orchestrator), BudgetCurrencyColumn (ARS/USD column),
-                     BudgetPaymentSection (payment block), BudgetPanelContext (context provider),
-                     OnlineBudgetHeader, FabricationTable,
-                     QuoteOptionsGrid, OnlineItemsTable, AdditionalWorkSection,
-                     AdditionalWorkCard, AdditionalMaterial
-      materials/   — MaterialCard, MaterialForm, MaterialFormModal, MaterialPhotoUploader, PoolCard, PoolSection
-      pool-stock/  — PoolFormModal, PoolMovementsModal
-      orders/      — ClientSection (orchestrator), ClientTypeahead, AddressPicker,
-                     NewClientModal, ClientInfoCard,
-                     ApprovalSection, ObservationsSection, FormHeader, FormFooter
-      sketch/      — SketchEditor, Toolbar, useSketchState (CanvasArea, SketchPreviewLayer,
-                     LineShape, RectangleShape, TextShape)
-      signature/   — SignatureCanvas
-      calculator/  — PorcelainTileCalculator (panel núcleo de la calculadora de porcelanato),
-                     PorcelainCalculatorSection (toggle estilo croquis, embebido en
-                     Presupuesto/OT — colapsado por defecto, readOnly lo oculta)
-    layouts/       — MainLayout + MainLayout.module.css (sidebar BEM)
-    components/layout/MainLayout/ — MainLayout (orchestrator), Sidebar.tsx (accordion nav), Topbar.tsx (profile/date/title)
-    context/       — AuthContext, NotificationContext, ThemeContext
-    hooks/         — useEntityForm (facade → 7 composables),
-                     useBudgetCalculations, usePdfPreview, useConfirmPayment,
-                     useAdditionalWorkSelection, useBudgetActions,
-                     useBudgetQuoteCalculations, useClientAddresses,
-                     usePlateCalculator (bin-packing algorithm),
-                     useFormReferences (TanStack Query with staleTime: 5min
-                       for reference data — clients, materials, pools, settings),
-                     usePdfPreviewController (shared PDF preview state — used by
-                       BudgetsListPage and WorkOrdersListPage),
-                     entityFormHelpers.ts (re-export hub + addMaterialToList/addPoolToList + addMaterialRowToList + swapMaterialGroupToList + repointSwapReferences),
-                     entityFormConstants.ts (M2_CONCEPTS, CUTOUT_DETAILS, DEFAULT_FINANCIALS, INITIAL_FORM),
-                     entityFormFinancial.ts (buildFinancialPayload, mapFinancialToForm),
-                     entityFormSerialization.ts (buildPayload, mapApiToForm, sketch flatten/unflatten)
-    constants/     — PAYMENT_METHODS, BANK_INFO, EXPENSE_TYPES, FOLDER_STATUS_MAP, status.ts (STATUS_META)
-    types/         — 17+ files en inglés (EntityFormState en snake_case English)
-    utils/         — translate, formatters,
-                     error.ts (parseApiError — unified error message extraction),
-                     pdf/buildPdfData.ts (orchestrator + re-exports),
-                     pdf/pdfTypes.ts (all PDF interfaces),
-                     pdf/pdfHelpers.ts (formatting/parsing utils),
-                     pdf/buildSectionData.ts (row builders + section bucketing),
-                     pdf/SketchImageExtractor,
-                      frentePricing, additionalWorkParse, additionalWorkCalc, materialGroups, math.ts (round2)
-  tsconfig.json    — path aliases (@/ → src/, @assets/ → src/assets/)
-  vite.config.ts   — proxy /api → http://localhost:3090
-  eslint.config.js, vitest.config.ts, Dockerfile, nginx.conf
-```
+**Backend (`afamar-backend/`):**
+- `app/main.py` — entrypoint, lifespan: Alembic upgrade + seed admin.
+- `app/api/routers/` — 20 routers: auth, clients, client_addresses, budgets, work_orders, materials, pool_stock, measurements, daily_cash, dashboard, settings, reports, search, options, references, product_photos, whatsapp, additional-works, **payment_methods** (dedicado, removido del genérico `references.py` en Fase 7).
+- `app/core/` — settings (Pydantic, includes DEFAULT_USD_RATE, PRODUCT_PHOTOS_DIR, MATERIALS_DIR, LOGOS_DIR, MAX_UPLOAD_FILE_SIZE, MAX_UPLOAD_DIMENSION + properties `*_abs_dir`), exceptions (NotFoundError, ConflictError, ValidationError).
+- `app/models/` — ORM (incluye **payment_method** con FK desde budget/work_order; cols extra `type`/`value`/`is_percentage`/`applies_to_installments` desde migración `b3c4d5e6f7a9`).
+- `app/schemas/` — Pydantic Create/Update/Response separados + CurrencyCodeMixin. **Agregar `payment_method_id` a Base/Update** (Fase 7 fix) para que GETs lo expongan y PUTs lo acepten.
+- `app/services/` — base.py (BaseService[T] generic CRUD) + auth, budget, work_order, **payment_method** (CRUD + validación), pdf_helpers, stock_helpers, pdf_html (legacy xhtml2pdf).
+- `app/repositories/` — 12 repos SQLAlchemy con joinedload eager loading.
+- `app/utils/` — currency, client_helpers, logger, responses, pagination, numbering.
+- `app/templates/` — budget_pdf.html, work_order_pdf.html (Jinja2, legacy).
+- `alembic/versions/` — **`b3c4d5e6f7a9`** = catalog payment_methods con 4 cols; **`d5e6f7a8b9c0`** = installment_detail_ars/usd en budgets/work_orders.
+- `scripts/seeders/` — base.py, **payment_methods.py** (Fase 7), additional_works.py, material_colors, …
+
+**Frontend (`afamar-frontend/src/`):**
+- `api/` — http.ts (Axios con envelope unwrap + 401 redirect) + resources/ (13+ domain files, **paymentMethods.ts** en Fase 7) + hooks.ts (TanStack Query hooks).
+- `pages/` — English names, *.module.css co-localizado. Módulos: auth, home, dashboard, clients, budgets, work-orders, materials, pool-stock, measurements, cash, calculator, **configuration (Datos AFAMAR + PaymentMethods en tabs)**, reports, online-budgets, additional-works.
+- `components/`:
+  - `ui/` — primitivas (Button, Modal, StatusBadge, ListPage).
+  - `entity/` — EntityFormFinancial, EntityFormSpecs, EntityFormClient + **EntityFormLayout** (shared form body, usado por BudgetFormPage y WorkOrderFormPage; slots: beforeLayout, observations, terms, alternativasGrid, discountBlock, extraDialogs, specsCardClassName, fabricationShowMeasurementComparison, fabricationMaterialsData, prefix).
+  - `budget/` — **BudgetPanel** (orchestrator) + **BudgetCurrencyColumn** (ARS/USD) + **BudgetLineItems** (CONCEPTO/SUBTOTAL list; `DetailRow` con `displayValue`/`arsEquivalent`) + **BudgetPaymentSection** (payment block + tabla 3-columnas de cuotas) + BudgetPanelContext, OnlineBudgetHeader, FabricationTable, QuoteOptionsGrid, OnlineItemsTable, AdditionalWorkSection, AdditionalWorkCard, AdditionalMaterial.
+  - `configuration/` — **PaymentMethodsTable** + **PaymentMethodForm** (Fase 7) + PaymentMethods (page, montado desde ConfigurationPage tab).
+  - Otros: `common/` (Loading, ConfirmDialog, PdfPreviewModal, ClientHistoryCard, WorkOrdersTable, AdditionalWorksTable, AdditionalWorkForm, MeasurementPhotoGrid, LinearMetersInput), `cash/`, `materials/`, `pool-stock/`, `orders/` (ClientSection, ClientTypeahead, AddressPicker, NewClientModal, ClientInfoCard, ApprovalSection, ObservationsSection, FormHeader, FormFooter), `sketch/`, `signature/`, `calculator/` (PorcelainTileCalculator + PorcelainCalculatorSection embebida en Presupuesto/OT, full + wizard modes), `measurements/`, `home/`.
+- `hooks/` — **useEntityForm** (facade → 7 composables), **useBudgetCalculations** (hook central del recargo: applyPaymentMethodToTotals + incrementalInterestRatio + computeInstallmentDetail; deps incluyen paymentMethodsDepsJson), usePdfPreview, useConfirmPayment, useAdditionalWorkSelection, useBudgetActions (acepta `paymentMethods?` post-Fase 7), useBudgetQuoteCalculations, useClientAddresses, usePlateCalculator (bin-packing), useFormReferences (TanStack Query con staleTime: 5min; exporta **PAYMENT_METHODS_KEY**), usePdfPreviewController (shared PDF preview state; acepta `paymentMethods?` y los propaga a buildPdfData), entityFormHelpers (re-export hub + swap helpers), entityFormConstants, entityFormFinancial (buildFinancialPayload, mapFinancialToForm), entityFormSerialization (buildPayload + mapApiToForm).
+- `constants/` — PAYMENT_METHODS, BANK_INFO, EXPENSE_TYPES, FOLDER_STATUS_MAP, status.ts (STATUS_META).
+- `types/` — 18+ files (EntityFormState snake_case English; **paymentMethod.ts** con PaymentMethod + PaymentMethodType + PaymentMethodCreate).
+- `utils/` — translate, formatters, error.ts (parseApiError), pdf/buildPdfData.ts (orchestrator) + pdfTypes.ts + pdfHelpers.ts + buildSectionData.ts + SketchImageExtractor, frentePricing, additionalWorkParse, additionalWorkCalc, materialGroups, math.ts (round2).
+- `tsconfig.json`, `vite.config.ts` — path aliases `@/` y `@assets/`; proxy /api → http://localhost:3090.
 
 ## Key conventions
 
-- **BEM + CSS Modules:** cada page tiene `X.module.css` co-localizado. Patrón de import:
-  ```ts
-  import styles from './X.module.css';
-  const s = styles as unknown as Record<string, string>;
-  // <div className={s['x__title']}>
-  ```
-- **CSS tokens:** `src/index.css` define design tokens como custom properties (e.g. `--color-danger`, `--tw-green-600`, `--tw-red-100`). Usar `var(--token)` en módulos en lugar de hex hardcoded. Tabla column widths se especifican con `nth-child` rules en el CSS module del componente, no inline `style={{ width: N }}`.
-- **Path aliases:** `@/` y `@assets/`. Configurados en `tsconfig.json` + `vite.config.ts`. Los aliases `@features/*` y `@shared/*` fueron eliminados en 6.3.
-- **English naming (carpetas/componentes/hooks/funciones/constantes/CSS classes):** todo renombrado. Excepción: `EntityFormState` campos internos (snake_case English que matchean el backend).
-- **TypeScript strict:** habilitado. `tsc --noEmit` antes de `vite build`.
-- **Naming TSX:** PascalCase componentes, camelCase hooks/utils, UPPER_SNAKE_CASE constantes.
-- **Repository pattern:** acceso a DB via `repositories/*.py`. Transacciones en services.
-- **Service layer:** lógica de negocio en `services/*.py`. Routers solo orquestan request/response. Services heredan de `BaseService[T]` para CRUD genérico.
-- **Pydantic v2:** schemas separados Base/Create/Update/Response. `ConfigDict(from_attributes=True)`. `CurrencyCodeMixin` para resolver código de moneda.
+- **BEM + CSS Modules:** cada page tiene `X.module.css` co-localizado. `import styles from './X.module.css'; const s = styles as unknown as Record<string, string>; // <div className={s['x__title']}>`.
+- **CSS tokens:** `src/index.css` define design tokens como custom properties (`--color-danger`, `--tw-green-600`, etc.). Usar `var(--token)` en lugar de hex hardcoded. Tabla column widths con `nth-child` rules en el CSS module del componente, no inline `style={{ width: N }}`.
+- **Path aliases:** `@/` y `@assets/`. (Los aliases `@features/*` y `@shared/*` fueron eliminados en 6.3.)
+- **English naming** (carpetas/componentes/hooks/funciones/constantes/CSS classes): todo renombrado. Excepción: `EntityFormState` campos snake_case English matcheando backend.
+- **TypeScript strict** + `tsc --noEmit` antes de `vite build`. Naming: PascalCase componentes, camelCase hooks/utils, UPPER_SNAKE_CASE constantes.
+- **Repository pattern** (backend): SQLAlchemy puro. Transacciones en services. **Service layer**: lógica en `services/*.py`, routers ≤ 5 líneas.
+- **Pydantic v2:** schemas Base/Create/Update/Response separados. `ConfigDict(from_attributes=True)`. `CurrencyCodeMixin` para resolver código de moneda.
 - **SQLAlchemy 2.0:** `Mapped[T]` + `mapped_column()`. No usar `relationship` lazy sin `joinedload`. `with_for_update()` en stock mutations.
-- **Routers delgados:** ≤ 5 líneas de lógica. Todo en services.
 - **Excepciones de dominio:** `NotFoundError`, `ConflictError`, `ValidationError` en `core/exceptions.py` (heredan de `HTTPException`, manejadas globalmente en `main.py`).
-- **Error handling (frontend):** usar `parseApiError(err, fallback?)` de `src/utils/error.ts` en lugar de extraer `err.response.data.detail` inline. Silent `.catch(() => {})` reemplazados con `console.warn`/`console.error`. Promises fire-and-forget con `void promise.catch(() => {...})` para explicitar la seguridad.
-- **TanStack Query:** usar `useQuery`/`useList`/`useGet` con `staleTime: 5 * 60 * 1000` para reference data (clients, materials, pools, settings). Mutation state via `queryClient.setQueryData` / `invalidateQueries`. Query keys exportadas como `const`s desde el hook.
-- **PDF generation:** `utils/pdf/buildPdfData.ts` (orchestrator) + `pdfTypes.ts` + `pdfHelpers.ts` + `buildSectionData.ts` + `DocumentPdf.tsx` (frontend, `@react-pdf/renderer`). Recharts (en `ReportsCharts.tsx`) está code-split vía `React.lazy()` — solo se descarga al abrir tab de Ventas/Materiales. Legacy: `pdf_html.py` (xhtml2pdf + Jinja2).
-- **Code splitting:** usar `React.lazy(() => import('./Component'))` para deps pesadas (recharts, PDFs). Wrap en `<Suspense fallback={<LoadingSpinner />}>`.
+- **Error handling (frontend):** usar `parseApiError(err, fallback?)` de `src/utils/error.ts`. Silent `.catch(() => {})` reemplazados con `console.warn`/`console.error`. Promises fire-and-forget con `void promise.catch(() => {...})`.
+- **TanStack Query:** `useQuery`/`useList`/`useGet` con `staleTime: 5 * 60 * 1000` para reference data. Mutation state via `setQueryData` / `invalidateQueries`. Query keys exportadas como `const`s desde el hook.
+- **PDF generation:** `utils/pdf/buildPdfData.ts` (orchestrator) + `pdfTypes.ts` + `pdfHelpers.ts` + `buildSectionData.ts` + `DocumentPdf.tsx` (`@react-pdf/renderer`). Recharts code-split via `React.lazy()`. Legacy: `pdf_html.py` (xhtml2pdf + Jinja2).
+- **Code splitting:** `React.lazy(() => import('./Component'))` para deps pesadas. Wrap en `<Suspense fallback={<LoadingSpinner />}>`.
 - **Numbering:** `P-000001` (budgets), `A-000001` (work_orders). Compartido en `utils/numbering.py`.
-- **Status enums:** English en DB (`MEASUREMENT`, `WORKSHOP`, etc.), Spanish en UI via `t(key)` en `utils/translate.ts`.
-- **React keys:** siempre usar IDs estables del data (`m.id`, `slide.title`, `d.concept + '|' + d.detail`, `s.label`, `img.slice(0, 32)`). Nunca `key={i}`.
-- **Client data flow:** Budget/WorkOrder stores only `client_id` (FK) + optional `delivery_address_id` (FK → `client_addresses`). No snapshot columns. `from_orm_with_client()` resolves `client_*` fields from live `Client` row at serialization time. If `delivery_address_id` is set, `client_address` is overridden with the matching `ClientAddress.address`. `delivery_address_id` is patchable on update (both `BudgetUpdate` and `WorkOrderUpdate` include the field). Conversion paths (`create_from_budget`, `convert_alternative_to_work_order`) copy `delivery_address_id` from the source budget.
-- **Submit button pattern:** `useFormActions.handleSubmit` MUST call `e.preventDefault()` (else `<button type="submit">` triggers a native form GET that aborts the in-flight PUT — fixed in `useBudgetActions`; same risk applies to any future router that builds a similar submit). When building a sibling router that uses a submit button, mirror the same `e?.preventDefault()` call.
-- **Totals effect deps:** `useBudgetCalculations` deps array must include `JSON.stringify(...)` for EVERY form slice it reads (incl. `additional_works_data`), otherwise the Presupuesto's SUBTOTAL/TOTAL/SALDO PENDIENTE go stale and disagree with the PDF (which the user notices when comparing both surfaces). Extract each `JSON.stringify(...)` to a stable local variable before the `useEffect` so `react-hooks/exhaustive-deps` can statically check them.
-- **Material swap helpers:** `swapMaterialGroupToList` (identity swap in `materials_data`) + `repointSwapReferences(form, oldNames, newName)` (renames `pools_data[].material`, `fabrication_details[].material`, `additional_works_data[].materialName`/`material_name` — honoring the `__ALT__:` alternative prefix; preserves `POOL_MATERIAL_GLOBAL`, empty links, and unknown additional-work fields). Both consumed together by `useFormMaterials.swapMaterialGroup` via a single functional `setForm`.
-- **Derived UI lists, no local mirrors:** `selections`, `materials_list`, etc. must be derived on each render from the parent form slice (parse JSON on read), not mirrored into local `useState` and synced via `useEffect`. The previous `useAdditionalWorkSelection` had a local mirror with a `JSON.stringify` bailout that desync'ed whenever `detail: undefined`/`null` normalization or float formatting diverged (manifesting as "items don't render in the list even though they sum into totals"). Same risk applies to any derived list — keep the parent as the single source of truth.
+- **Status enums:** English en DB (`MEASUREMENT`, `WORKSHOP`, …), Spanish en UI via `t(key)` en `utils/translate.ts`.
+- **React keys:** siempre IDs estables del data (`m.id`, `slide.title`, `d.concept + '|' + d.detail`, `s.label`, `img.slice(0, 32)`). Nunca `key={i}`.
+- **Client data flow:** Budget/WorkOrder stores only `client_id` (FK) + optional `delivery_address_id` (FK → `client_addresses`). No snapshot columns. `from_orm_with_client()` resolves `client_*` from live `Client` row. If `delivery_address_id` is set, `client_address` is overridden with the matching `ClientAddress.address`. `delivery_address_id` is patchable on update. Conversion paths copy it from the source budget.
+- **Submit button pattern:** `useFormActions.handleSubmit` MUST call `e.preventDefault()` (else `<button type="submit">` triggers a native form GET that aborts the in-flight PUT). Mirror el mismo `e?.preventDefault()` en cualquier router sibling.
+- **Totals effect deps:** `useBudgetCalculations` deps array must include `JSON.stringify(...)` for EVERY form slice it reads (incl. `additional_works_data`, `paymentMethodsDepsJson`, `form.installments`), else SUBTOTAL/TOTAL/SALDO PENDIENTE van stale y no matchean el PDF. Extract cada `JSON.stringify(...)` a una variable local stable antes del `useEffect`.
+- **Material swap helpers:** `swapMaterialGroupToList` (identity swap in `materials_data`) + `repointSwapReferences(form, oldNames, newName)` (renames `pools_data[].material`, `fabrication_details[].material`, `additional_works_data[].materialName`/`material_name` — honoring `__ALT__:` alternative prefix; preserves `POOL_MATERIAL_GLOBAL`, empty links, and unknown additional-work fields). Both consumed together por `useFormMaterials.swapMaterialGroup` via un solo functional `setForm`.
+- **Derived UI lists, no local mirrors:** `selections`, `materials_list`, etc. deben derivarse en cada render desde el form slice padre (parse JSON on read), no mirror en `useState` local sincronizado via `useEffect`. El viejo `useAdditionalWorkSelection` tenía un local mirror con `JSON.stringify` bailout que se desincronizaba.
 - **E2E auth:** always `loginViaApi(page, request)` from `e2e/helpers/login.ts` to avoid the 5/min `/auth/login` rate-limit of `loginAsAdmin`.
 
 ## Dashboard modales
 
-`src/pages/dashboard/DashboardPage.tsx` — cada card abre un modal con el contenido real embebido, en vez de navegar a la URL. Las rutas del aside siguen intactas (mismo `path` que antes).
-
-**Mapeo card → modal:**
+`src/pages/dashboard/DashboardPage.tsx` — cada card abre un modal con el contenido real embebido, en vez de navegar a la URL. Las rutas del aside siguen intactas.
 
 | Card | Modal renderiza |
 |---|---|
@@ -216,13 +104,7 @@ afamar-frontend/   — Vite + React + TS
 | CATEGORIAS | `<MaterialsCategoriesPage />` |
 | CALCULADORA | `<CalculatorPage />` |
 
-**Implementación:**
-- State local: `useState<ModalKind | null>(null)` — un solo modal abierto a la vez
-- `React.lazy(() => import('../path/Page'))` para cada page — comparte chunk con la route definition en `App.tsx`, no duplica descarga
-- Un solo `<Suspense fallback={<LoadingSpinner />}>` envuelve los 10 modales
-- `Modal` (de `components/ui/Modal`) provee focus trap, escape y portal; el `width` se ajusta por card (1200-1400px)
-
-**Drill-down behavior:** cuando el usuario hace click en algo dentro de la lista (ej. "Nuevo material" desde el modal de Materiales), la página llama `useNavigate('/admin/materials/new')` → cambia la route → `DashboardPage` desmonta → `MaterialFormPage` renderiza full-page. El modal desaparece naturalmente (cleanup del `useEffect` del `Modal` restaura `body.overflow`).
+**Implementación:** `useState<ModalKind | null>(null)` (un solo modal abierto a la vez). `React.lazy(() => import('../path/Page'))` para cada page (comparte chunk con la route). Un solo `<Suspense fallback={<LoadingSpinner />}>` envuelve los 10 modales. `Modal` provee focus trap, escape y portal; el `width` se ajusta por card (1200-1400px). **Drill-down:** el `useNavigate` desmonta el dashboard y el modal desaparece naturalmente (cleanup del `useEffect` del `Modal` restaura `body.overflow`).
 
 ## Form callbacks (modal reuse pattern)
 
@@ -230,136 +112,165 @@ Para que `BudgetForm` y `WorkOrderForm` funcionen dentro de un modal sin perder 
 
 ```ts
 interface BudgetFormProps {
-  /** Reemplaza `navigate(services.listPath)` post submit/delete. */
-  onSuccess?: () => void;
-  /** Reemplaza `navigate(services.listPath)` al cancelar. */
-  onCancel?: () => void;
+  onSuccess?: () => void;  // reemplaza navigate(services.listPath) post submit/delete
+  onCancel?: () => void;   // reemplaza navigate(services.listPath) al cancelar
 }
 export default function BudgetForm(props: BudgetFormProps = {}) { ... }
 ```
 
-**Page mode** (default): si no se pasan props, el form usa `navigate` como antes. `App.tsx` sigue importando el default export sin cambios.
-
-**Modal mode:** el caller pasa `onSuccess={closeModal}`. Internamente:
-- `useEntityForm` recibe `onAfterAction?: () => void` → reenvía a `useFormActions`
-- `useFormActions.handleSubmit` / `handleDelete` llaman `onAfterAction()` si existe, si no `navigate(listPath)` (page mode)
-
-**Pieza clave en `useFormActions.ts`:**
-```ts
-if (onAfterAction) onAfterAction();
-else navigate(services.listPath);
-```
-
-`WorkOrderForm` además usa `onAfterAction` para invalidar el cache de `['work-orders']` antes de cerrar el modal (antes lo hacía el wrapper de `handleSubmit`).
+**Page mode** (default): si no se pasan props, el form usa `navigate` como antes.
+**Modal mode:** el caller pasa `onSuccess={closeModal}`. Internamente: `useEntityForm` recibe `onAfterAction?: () => void` → reenvía a `useFormActions`. Pieza clave: `if (onAfterAction) onAfterAction(); else navigate(services.listPath);` en `useFormActions.handleSubmit` / `handleDelete`. `WorkOrderForm` además usa `onAfterAction` para invalidar el cache de `['work-orders']` antes de cerrar el modal.
 
 ## EntityFormState (form state)
 
-`EntityFormState` en `src/types/form.ts` — campos snake_case English que matchean el backend:
-- Client: `client_name`, `client_phone`, `client_address`, `client_email`, `delivery_address_id`
-- Financial: 17 campos de `FinancialBase` (currency, usd_rate, subtotal, transport, total, etc.)
-- Specs: `material`, `material_price_m2`, `color`, `thickness`, `finish`, `bacha`, `anafe`, `pool_id`, `pool_price`, `pool_currency`, `pool_image`
-- Items: `materials_data`, `pools_data`, `fabrication_details`, `additional_works_data`, `sketch_elements`
-- Dates: `date`, `delivery_date`, `signed_at`
-- Notes: `notes`, `design_observations`, `important_observations`
-- Terms: `budget_terms`, `warranty_terms`, `delivery_terms`
-- Misc: `number`, `status`, `digital_signature`, `work_order_number`
+`EntityFormState` en `src/types/form.ts` — snake_case English matcheando el backend:
+- **Client:** `client_name`, `client_phone`, `client_address`, `client_email`, `delivery_address_id`.
+- **Financial:** 17 campos de `FinancialBase` (currency, usd_rate, subtotal, transport, total, etc.).
+- **Payment (Fase 7):** `payment_method: string | null` (snapshot estable, sobrevive renames del catálogo) + **`payment_method_id: number | null`** (FK al catálogo `payment_methods` — fuente de verdad; expuesto en GETs/PUTs tras el fix de esta sesión) + `installments: number` + `installment_detail_ars?: InstallmentDetailRow[]` + `installment_detail_usd?: InstallmentDetailRow[]` (form-only, recalculados por `useBudgetCalculations`, serializados por `buildPayload` a JSON string para el backend).
+- **Specs:** `material`, `material_price_m2`, `color`, `thickness`, `finish`, `bacha`, `anafe`, `pool_id`, `pool_price`, `pool_currency`, `pool_image`.
+- **Items:** `materials_data`, `pools_data`, `fabrication_details`, `additional_works_data`, `sketch_elements`.
+- **Dates:** `date`, `delivery_date`, `signed_at`.
+- **Notes:** `notes`, `design_observations`, `important_observations`.
+- **Terms:** `budget_terms`, `warranty_terms`, `delivery_terms`.
+- **Misc:** `number`, `status`, `digital_signature`, `work_order_number`.
 
-`buildPayload(form)` → passthrough snake_case → snake_case + JSON.stringify arrays + date serialization.
-`mapApiToForm(d)` → passthrough inverso, snake_case → snake_case.
+`InstallmentDetailRow` = `{ cuota: number, interes: number, monto: number }` — 3-columnas de la tabla del recargo. `interes` es el porcentaje **por cuota** (`value` del catálogo, NO `N × value`). `monto` es la cuota uniforme (`(base × (1 + N × value/100)) / N`). Las N filas son idénticas en `interes` y `monto`.
+
+`buildPayload(form)` → passthrough snake_case + JSON.stringify arrays + date serialization.
+`mapApiToForm(d)` → passthrough inverso.
 
 ## useEntityForm (facade)
 
 `src/hooks/useEntityForm.ts` — facade delgado que compone 7 composables:
-- `useFormReferences` — carga materials/pools/clients/logo, fetch next number, initial load, `updateClientAddresses`
-- `useFormDetails` — CRUD `fabrication_details`, refs de material
-- `useFormMaterials` — Material picker + CRUD `materials_data`
-- `useFormPools` — Pool picker + CRUD `pools_data`
-- `useFormClient` — Client typeahead (filtered + handleClientSelect)
-- `useFormCalculationsInput` — Handlers transport/deposit/usd_rate
-- `useFormActions` — Submit/delete/status-change/print
+- `useFormReferences` — carga materials/pools/clients/**paymentMethods**/logo, fetch next number, initial load, `updateClientAddresses`. `PAYMENT_METHODS_KEY = ['payment-methods', 'reference']` se reusa desde los list pages.
+- `useFormDetails` — CRUD `fabrication_details`, refs de material.
+- `useFormMaterials` — Material picker + CRUD `materials_data`.
+- `useFormPools` — Pool picker + CRUD `pools_data`.
+- `useFormClient` — Client typeahead (filtered + handleClientSelect).
+- `useFormCalculationsInput` — Handlers transport/deposit/usd_rate.
+- `useFormActions` — Submit/delete/status-change/print.
 
-Acepta `extraPayloadFields?: () => Partial<Record<string, unknown>>` para inyecciones per-page (e.g. WO terms override). Solo `WorkOrderFormPage` lo usa.
+Acepta `extraPayloadFields?: () => Partial<Record<string, unknown>>` para inyecciones per-page. Solo `WorkOrderFormPage` lo usa.
 
 ## EntityFormLayout (shared form body)
 
-`src/components/entity/EntityFormLayout.tsx` — extrae el ~80% del JSX compartido entre `BudgetFormPage` y `WorkOrderFormPage`. Las diferencias por página se manejan vía props/slots:
+`src/components/entity/EntityFormLayout.tsx` — extrae el ~80% del JSX compartido entre `BudgetFormPage` y `WorkOrderFormPage`. Slots: `beforeLayout`, `observations`, `terms` (array configurable), `alternativasGrid` (`QuoteOptionsGrid` o `AlternativeBudgetGrid`), `discountBlock` (solo WO), `extraDialogs`, `specsCardClassName`, `fabricationShowMeasurementComparison` / `fabricationMaterialsData` (solo WO), `prefix` (CSS class prefix).
 
-- `beforeLayout` — slot para secciones extra antes del grid (WO: `WorkOrderFormStatus` + `WorkOrderFormSnapshot` envueltos en `__card-section`)
-- `observations` — slot para el wrapper de observaciones (`BudgetFormObservations` o `WorkOrderFormObservations`)
-- `terms` — array configurable con título/items/onChange por card (Budget: sin terms; WO: entrega + garantía)
-- `alternativasGrid` — `QuoteOptionsGrid` o `AlternativeBudgetGrid`
-- `discountBlock` — slot opcional (solo WO)
-- `extraDialogs` — slot para ConfirmDialogs adicionales (Budget: convertir a OT + alternativa)
-- `specsCardClassName` — className custom para `EntityFormSpecs` (WO agrega `specs-card`)
-- `fabricationShowMeasurementComparison` / `fabricationMaterialsData` — props extra para `FabricationSection` (solo WO)
-- `prefix` — prefijo CSS (`'budget-form__'` o `'work-order-form__'`) para los class names de los cards
+El header (`FormHeader` con status/approve/convert/WhatsApp) queda en cada página porque es demasiado diferente para abstraer.
 
-El header (FormHeader con botones de status/approve/convert/WhatsApp) queda en cada página porque es demasiado diferente para abstraer.
-
-**Calculadora de porcelanato embebida:** la `PorcelainCalculatorSection` se renderiza en dos lugares del `EntityFormLayout`, según el mode:
+**Calculadora de porcelanato embebida:** `PorcelainCalculatorSection` se renderiza en dos lugares según el mode:
 - **full mode** → zona inferior (`${prefix}bottom`), junto a `SketchSection`. Colapsada por defecto (toggle "Activar…").
-- **wizard mode** → paso dedicado `Calculadora de porcelanato` en el `EntityFormWizard`, justo después de "Diseño y plano". Arranca **abierta por defecto** (`defaultOpen`) para que el primer plano del paso sea la calculadora operativa; sigue ofreciendo "Ocultar…" para pleagar.
+- **wizard mode** → paso dedicado `Calculadora de porcelanato` en `EntityFormWizard`, después de "Diseño y plano". Arranca **abierta por defecto** (`defaultOpen`); ofrece "Ocultar…" para plegar.
 
-El handler `addPorcelainDetail` se construye desde `state.update` y `state.form`, así que las páginas no necesitan wiring extra. En `readOnly` la sección no se renderiza. El label del botón se deriva del `prefix`: `"Agregar al presupuesto"` para BudgetForm, `"Agregar a la orden"` para WorkOrderForm. La moneda sigue `modoUSD` del form.
+El handler `addPorcelainDetail` se construye desde `state.update` y `state.form`. En `readOnly` la sección no se renderiza. El label del botón se deriva del `prefix`: `"Agregar al presupuesto"` / `"Agregar a la orden"`. La moneda sigue `modoUSD` del form.
 
 ## Frontend unit tests (vitest)
 
-**Setup:** `vitest@1.6.1` + `@testing-library/react@16.3.2` + `@testing-library/jest-dom@6.9.1`. Environment `jsdom`. `tsc --noEmit` debe estar limpio antes de `vitest run` (archivos `.test.tsx` para JSX, `.test.ts` para lógica pura).
+**Setup:** `vitest@1.6.1` + `@testing-library/react@16.3.2` + `@testing-library/jest-dom@6.9.1`. Environment `jsdom`. `tsc --noEmit` debe estar limpio antes de `vitest run` (archivos `.test.tsx` para JSX, `.test.ts` para lógica pura). Co-localizado junto al módulo testeado.
 
-**Ubicación:** co-localizado junto al módulo testeado (`src/hooks/useX.test.ts`, `src/utils/pdf/buildPdfData.test.ts`, `src/components/X/X.test.tsx`).
+**Estrategia:** hooks (pure logic) usan `renderHook` con `useState` real. Para hooks con TanStack Query, wrap con `QueryClientProvider` + `QueryClient` con `retry: false`. Render usa `screen.getByText/Role/Title`. Wrap con `MemoryRouter` si el componente usa `useNavigate`. Los tests deben validar que los errores se surfacean al caller, no que se swallean silenciosamente.
 
-**Estrategia:**
-- **Hooks** (pure logic): `renderHook` con `useState` real para capturar el resultado de `useEffect`/`useMemo`. Para hooks que usan TanStack Query, wrap con `QueryClientProvider` y `QueryClient` con `retry: false`.
-- **Render:** `render(<Component />)` + `screen.getByText/Role/Title` para asserts. Wrap con `MemoryRouter` si el componente usa `useNavigate`.
-- **Errores/silencios:** los tests deben validar que los errores se surfacean al caller, no que se swallean silenciosamente.
+**Coverage actual (191 tests, 16 archivos):**
+- `src/hooks/useConfirmPayment.test.tsx` — 5
+- `src/hooks/useBudgetQuoteCalculations.test.ts` — 10
+- `src/hooks/useBudgetCalculations.test.tsx` — 22 (totals, descuentos, **recargo cuota 1=9%/2=13.5%/3=18% con `incrementalInterestRatio`**, alternativa override, deposit, USD=0/+27%, additional_works_data re-pointing deps, **detalle de cuotas con interes incremental**)
+- `src/utils/pdf/buildPdfData.test.ts` — 25 (routing, descuentos, recargo, **catalogue_installment_detail con interes incremental**, terms override, edge cases)
+- `src/pages/budgets/BudgetTable.test.tsx` — 10
+- `src/components/common/WorkOrdersTable/WorkOrdersTable.test.tsx` — 12
+- `src/components/ui/StatusBadge/StatusBadge.test.tsx` — 2
+- `src/components/entity/EntityFormWizard.test.tsx` — 2
+- `src/components/measurements/PendingMeasurementCards/PendingMeasurementCards.test.tsx` — 2
+- `src/hooks/entityFormHelpers.test.ts` — 40 (FinancialBase round-trip, payload serialization, `swapMaterialGroupToList` + `repointSwapReferences` swap helpers)
+- `src/hooks/useAdditionalWorkSelection.test.ts` — 15
+- `src/components/budget/BudgetPanel/BudgetLineItems.test.tsx` — 10 (renders one line per additional work, omits zero subtotals, **[GLOBAL] markers**, **alt-linked items hidden**, **USD item shows real peso equivalent** — agregado en esta sesión)
+- `src/utils/frentePricing.test.ts` — 19
+- `src/utils/materialGroups.test.ts` — 5
+- `src/utils/porcelainCalculator.test.ts` — 10
+- `src/components/budget/BudgetPanel/BudgetPanel.test.tsx` — 2
 
-**Coverage actual (171 tests, 15 archivos):**
-- `src/hooks/useConfirmPayment.test.tsx` — 5 tests (id undefined, flip ambos sentidos, error no swallow, query keys distintos)
-- `src/hooks/useBudgetQuoteCalculations.test.ts` — 10 tests (breakdown, materials split, sumatorias, useMemo)
-- `src/hooks/useBudgetCalculations.test.tsx` — 16 tests (totals, descuentos, recargo cuotas, alternativa override, deposit, USD=0, additional_works_data re-pointing deps)
-- `src/utils/pdf/buildPdfData.test.ts` — 18 tests (routing, descuentos, recargo, terms override, edge cases)
-- `src/pages/budgets/BudgetTable.test.tsx` — 10 tests (render, empty, Aprobar/Rechazar, A OT, callbacks)
-- `src/components/common/WorkOrdersTable/WorkOrdersTable.test.tsx` — 12 tests (render, status buttons, terminal "—", callbacks)
-- `src/components/ui/StatusBadge/StatusBadge.test.tsx` — 2 tests
-- `src/components/entity/EntityFormWizard.test.tsx` — 2 tests
-- `src/components/measurements/PendingMeasurementCards/PendingMeasurementCards.test.tsx` — 2 tests
-- `src/hooks/entityFormHelpers.test.ts` — 29 tests (FinancialBase round-trip, payload serialization, `swapMaterialGroupToList` + `repointSwapReferences` swap helpers)
-- `src/hooks/useAdditionalWorkSelection.test.ts` — 15 tests (selector contract: derive from `value`, mutators call `onChange`)
-- `src/components/budget/BudgetPanel/BudgetLineItems.test.tsx` — 3 tests (renders one line per additional work (flat vs frente), omits zero subtotals)
-- `src/utils/frentePricing.test.ts` — 17 tests
-- `src/utils/materialGroups.test.ts` — 5 tests
-- `src/utils/porcelainCalculator.test.ts` — 10 tests (kerf formula, edge cases, buildPorcelainFabricationDetail)
+**Backend (39 tests):**
+- `tests/test_work_order_recalc.py` — 5 (recalc server-side: 1 cuota = 9%, 3 cuotas = 18%, additional_works, alt override, manual discount antes de catalogue).
+- `tests/test_pdf_catalogue_adjustment.py` — 7 (`_resolve_catalogue_adjustment`: NONE/3-cuotas/1-cuota/2-cuotas/percentage-discount/fixed-discount/name-fallback/manual+manual).
+- Resto: smoke + integración pre-existentes.
 
 ## Client address selection
 
-**Two code paths for address selection:**
+**Two code paths:**
+1. **`ClientSection`** (`components/orders/ClientSection/`) — when NO client is selected yet (typeahead mode). Renders typeahead + address picker dropdown + Domicilio input. Picker shows when client has >1 address; includes inline "add new address" input + button. Sets both `delivery_address_id` and `client_address`.
+2. **`BudgetFormClient` / `WorkOrderFormClient`** — when client IS already selected (read-only mode). Renders `ClientInfoCard` + address picker row. Picker shows `<select>` (when >1 address) or readonly input (1 address) + "Nueva dirección" input + `+` button. Sets both `delivery_address_id` and `client_address`.
 
-1. **`ClientSection`** (`components/orders/ClientSection/`) — when NO client is selected yet (typeahead mode). Renders typeahead + address picker dropdown + Domicilio input. Address picker shows when client has >1 address; includes inline "add new address" input + button at the bottom of the dropdown. Sets both `delivery_address_id` and `client_address`.
+**Key behavior:** Selecting an address sets `delivery_address_id` (FK) + updates `client_address` (text). Deselecting (picking "Principal") resets `delivery_address_id` to null + resets `client_address` to `client.address`. Manually editing the Domicilio input resets `delivery_address_id` to null. Adding a new address inline calls `createClientAddress` API, appends to local `clientes` state via `onAddressAdded` → `updateClientAddresses`, and auto-selects the new address. Backend `from_orm_with_client()` resolves the override: if `delivery_address_id` is set, replaces `client_address` with the matching `ClientAddress.address` text. `delivery_address_id` is persisted on create AND update. Conversion paths copy it from source budget. PDF reads `form.client_address` directly. WhatsApp does NOT use client address (only phone + name).
 
-2. **`BudgetFormClient` / `WorkOrderFormClient`** — when client IS already selected (read-only mode). Renders `ClientInfoCard` + address picker row. Picker shows `<select>` (when >1 address) or readonly input (1 address) + "Nueva dirección" input + `+` button, all in a flex row. Sets both `delivery_address_id` and `client_address`.
+## Payment Methods (Fase 7) + Fixes sobre Fase 7
 
-**Key behavior:**
-- Selecting an address from the dropdown sets `delivery_address_id` (FK) + updates `client_address` (text).
-- Deselecting (picking "Principal") resets `delivery_address_id` to null + resets `client_address` to `client.address`.
-- Manually editing the Domicilio input resets `delivery_address_id` to null.
-- Adding a new address inline calls `createClientAddress` API, appends to local `clientes` state via `onAddressAdded` → `updateClientAddresses`, and auto-selects the new address.
-- Backend `from_orm_with_client()` resolves the override: if `delivery_address_id` is set, replaces `client_address` with the matching `ClientAddress.address` text.
-- `delivery_address_id` is persisted on create AND update (both schemas include it). Conversion paths copy it from source budget.
-- PDF reads `form.client_address` directly — no additional resolution needed.
-- WhatsApp does NOT use client address (only phone + name).
+Catálogo de métodos de pago en `/admin/configuration/payment-methods`. Sustituye la regla hardcodeada de tarjeta que vivía en el form.
+
+**Modelo (`payment_methods` row):** `id`, `name` (estable, snapshot — sobrevive renames), `label` (visible), `is_active`, `sort_order`, `type` (`NONE` | `DISCOUNT` | `SURCHARGE`), `value` (float), `is_percentage` (bool), `applies_to_installments` (bool — si es `true`, escala con la cantidad de cuotas).
+
+**4 métodos seeded** (`scripts/seeders/payment_methods.py`): `EFECTIVO`, `TRANSFERENCIA BANCARIA`, `TARJETA DE DÉBITO` (todos `type=NONE, value=0`) y `TARJETA DE CRÉDITO` (`type=SURCHARGE, value=9, is_percentage=true, applies_to_installments=true`). Idempotente. Migra los 6 legacy English names (`CASH`, `TRANSFER`, `CREDIT_CARD`, `DEBIT_CARD`, `CHECK`, `MIXED`) preservando id.
+
+**Regla de cálculo (recargo lineal por cuota):**
+```
+total = base × (1 + N × value/100)
+cuota = total / N  (todas uniformes)
+```
+Para 1 cuota colapsa a 9% flat. Para 2 cuotas, 18% (2 × 9%). Para 3 cuotas, 27% (3 × 9%). El recargo total (`N × value%`) se aplica al **total** y se divide en N cuotas iguales. La tabla 3-columnas muestra cada cuota con su `monto` (uniforme) y la columna "Interés" muestra el `value` por cuota (no el acumulado). El agregado `N × value%` aparece en la línea "Recargo (X%)" del PDF.
+
+**Ejemplo concreto (base = 900.000, value = 9, N = 3):**
+- recargo = 3 × 9% = 27%
+- total = 900.000 × 1.27 = **1.143.000**
+- cada cuota = 1.143.000 / 3 = **381.000** (3 filas idénticas)
+
+**Por qué la cuota 1 ya carga interés** (vs la regla vieja `1-2 cuotas → 0%`): así es como el banco realmente cobra.
+
+**Mismo cálculo en 4 lugares** (cualquier cambio toca los 4 + sus tests):
+1. `afamar-frontend/src/hooks/useBudgetCalculations.ts` — `applyPaymentMethodToTotals` + `computeInstallmentDetail` (form hook, ARS+USD, live).
+2. `afamar-frontend/src/utils/pdf/buildPdfData.ts` — bloque inline (PDF preview del form). **Recibe `paymentMethods` también en el path del form** (no solo del controller) — ver Fix #6.
+3. `afamar-backend/app/services/work_order.py` — bloque inline en `_recalculate_totals_from_items` (recalc server-side de OT).
+4. `afamar-backend/app/services/pdf_html.py` — `_resolve_catalogue_adjustment` (PDF legacy).
+
+**Persistencia del detalle de cuotas** (migración Alembic `d5e6f7a8b9c0`): `installment_detail_ars` / `installment_detail_usd` (TEXT, JSON) en `budgets` y `work_orders`. El recalc del WO las serializa con `json.dumps` antes de persistir; el frontend las envía en `buildPayload` y las restaura en `mapApiToForm`. Sin este snapshot, el PDF del list page (donde el form hook no corre) no puede renderizar la tabla 3-columnas.
+
+**UI en el form** (`BudgetPaymentSection`): `<select>` "Forma de pago" poblado dinámicamente con el catálogo. **Pre-selección al editar:** el GET retorna `payment_method_id` (FK) desde `mapFinancialToForm`, y el select usa `value={form.payment_method_id ?? form.payment_method ?? ''}` para matchear las options (que tienen `value={pm.id}`). Si `applies_to_installments=true`, segundo `<select>` "N cuotas" con label `9%`, `18%`, `27%`... (calcula `c × value%`). Tabla 3-columnas (Cuota # / Interés / Monto) con `BudgetPanel.module.css` (`budget-panel__installment-table*`).
+
+**UI en el PDF** (`DocumentPdf.tsx` + `document_pdf.html`):
+- **Renglón del recargo** (totals block): dice **"Interés:"** + monto (no "Recargo (X%)" — el X=18 era el promedio y confundía con el 27% de la última cuota de la tabla). El porcentaje correcto está en la tabla.
+- **Renglón "Forma de pago"**: "TARJETA DE CRÉDITO (N cuotas con X% de interés por cuota)" donde X es `catalogue_installment_detail[0].interes` (la base por cuota, ej. 9%), no el promedio.
+- Tabla 3-columnas con header slate-100 + rows slate-200. Mismo formato en el PDF legacy.
+
+**Configuración del interés:** se edita desde `/admin/configuration/payment-methods` → "TARJETA DE CRÉDITO" → campo "Interés por cuota (%)". El change se refleja en el form y el PDF sin redeploy (catálogo con TanStack Query, 5 min `staleTime`, re-fetcheado al invalidar `PAYMENT_METHODS_KEY`).
+
+**Sidebar entry:** "Métodos de Pago" en el accordion CONFIGURACIÓN (entre "Datos de AFAMAR" y "Fotos de productos"). `ConfigurationPage` consolidado en `pages/configuration/ConfigurationPage.tsx` (el wrapper `DatosAfamarTab.tsx` original fue movido a `.trash/`).
+
+**Hot-spot para próximos cambios:** la fórmula vive en 4 lugares. Si aparece un nuevo tipo (ej. "descuento progresivo por tramo de cuotas"): agregar campo al modelo `PaymentMethod` (con migración), implementar la nueva rama en los 4 lugares, actualizar los 4 tests con el caso nuevo, documentar en el ADR.
+
+### Fixes sobre Fase 7 (esta sesión)
+
+1. **`BudgetLineItems.tsx` `DetailRow` — bug del parámetro mal nombrado `arsTotal`.** El parámetro se llamaba `arsTotal` pero guardaba el valor en la **moneda nativa** (no en ARS). Para ítems en USD, la línea "≈" formateaba ese mismo USD con símbolo `$`, mostrando el mismo número con $ en vez del equivalente real en pesos. Renombrado: `arsTotal` → `displayValue` (valor nativo para el pill) + nuevo `arsEquivalent` (valor real en ARS, usado para la conversión de ítems USD). Actualizado el early return para chequear `displayValue` así ítems USD con `dd=0` siguen apareciendo.
+
+2. **`BudgetLineItems.tsx` + `BudgetPanel.module.css` — color del renglón "≈" para ítems USD.** Antes siempre verde (`budget-panel__detail-value-usd`). Ahora para ítems USD se agrega el modificador `--light` (color `var(--text-primary)`) así el renglón no compite visualmente con el pill verde del valor nativo. ARS sigue verde. `usdRefClass` ahora condicional sobre `nativeCurrency`.
+
+3. **`BudgetLineItems.tsx` — decimales de la conversión a USD.** Antes usaba `decimals: 0` ("$ 152.760" sin centavos). Ahora `decimals: 2` ("$ 152.760,00") para matchear la conversión de ítems ARS (que ya usaba 2 decimales). Ejemplo: USD 100 × rate 1000 = "≈ $ 100.000,00".
+
+4. **`DocumentPdf.tsx` — renombre "Recargo" → "Interés" en el totals block del PDF.** El renglón decía "Recargo (18%) + $ 669.197,00" — el 18% era el promedio (avg(9, 18, 27) = 18) y confundía con el 27% de la última cuota de la tabla. Ahora dice "Interés: $ 669.197,00" (sin el % y sin el +).
+
+5. **`DocumentPdf.tsx` — interés por cuota (no promedio) en la línea "Forma de pago".** Antes: "(3 cuotas con 18% de interés)". Ahora: "(3 cuotas con 9% de interés por cuota)" usando `catalogue_installment_detail[0].interes` (la base por cuota del catálogo).
+
+6. **`useBudgetActions.ts` + `BudgetFormPage.tsx` + `WorkOrderFormPage.tsx` — catálogo no llegaba al `buildPdfData` del form.** El `handleSketchImagesReady` del form (vía `useBudgetActions` e inline en `WorkOrderFormPage`) no pasaba `paymentMethods` a `buildPdfData`, así que el PDF del Presupuesto (vía "VISTA PREVIA PDF" en el form) mostraba el "Forma de pago" sin la tabla de cuotas. Mismo bug que el `usePdfPreviewController` del list page ya tenía resuelto. **Fix:** `useBudgetActions` ahora acepta `paymentMethods?: PaymentMethod[]` y lo pasa a `buildPdfData`; `BudgetFormPage` se lo pasa desde `useEntityForm` (ya lo tenía). Para `WorkOrderFormPage` (que arma el PDF inline, no via hook), se agrega `paymentMethods` al `buildPdfData` directamente. Después de este fix, ambos paths (form y list page) muestran la tabla 3-columnas en el PDF.
+
+7. **Backend — `payment_method_id` no se exponía en GETs ni se aceptaba en PUTs.** El `BudgetResponse` / `WorkOrderResponse` heredaban de `BudgetBase` / `WorkOrderBase` que solo tenían `payment_method` (string legacy) y `installments`, sin `payment_method_id` (FK). El `mapFinancialToForm` del front lo mapeaba, pero el backend nunca lo retornaba, así que el select del form (que usa `value={pm.id}`) no podía pre-seleccionar el método al editar un presupuesto/OT existente. Además, `BudgetUpdate` / `WorkOrderUpdate` no aceptaban `payment_method_id` en PUT, así que el bulk update de SQLAlchemy no tocaba la columna. **Fix:** agregar `payment_method_id: int | None = None` a `BudgetBase`, `WorkOrderBase`, `BudgetUpdate`, `WorkOrderUpdate`. La columna ya existía en la DB (migración `b3c4d5e6f7a9`), no se requirió migración nueva.
+
+### Hotspot adicional post-Fase 7
+
+- **`BudgetLineItems.DetailRow`** (4 callsites: fabrication, materials, pools, additional). Cualquier cambio de layout/color/formato del CONCEPTO/SUBTOTAL list toca los 4 callsites en el mismo archivo (no hay helper compartido). Patrón: cada call site computa `displayValue` (nativo) + `arsEquivalent` (ARS) + `usdTotal` (USD) y los pasa a `DetailRow`. Si se agrega un nuevo tipo de ítem (ej. mano de obra), replicar el patrón.
 
 ## DB Maintenance Scripts
 
-Located in `afamar-backend/scripts/`. Run with the project's venv Python.
+`afamar-backend/scripts/`. Run con el venv Python del proyecto.
 
 ```bash
-# Diagnose corrupted work_orders (dry-run)
-.\venv\Scripts\python.exe scripts/fix_corrupt_work_orders.py
-
-# Fix automatically
-.\venv\Scripts\python.exe scripts/fix_corrupt_work_orders.py --fix
-
-# Fix interactively (confirm each)
+.\venv\Scripts\python.exe scripts/fix_corrupt_work_orders.py             # dry-run
+.\venv\Scripts\python.exe scripts/fix_corrupt_work_orders.py --fix       # fix automático
 .\venv\Scripts\python.exe scripts/fix_corrupt_work_orders.py --fix --interactive
 
 # Docker
@@ -373,8 +284,9 @@ Checks: JSON column corruption, FK orphans (client_id, delivery_address_id, budg
 
 - **Stack:** `@playwright/test@1.61.1` + Chromium.
 - **Estructura por módulo** (espejo de `src/pages/`): `afamar-frontend/e2e/{auth,clients,budgets,work-orders,materials,pool-stock,additional-works,measurements,calculator,cash,reports,configuration,product-photos,dashboard,smoke,edge-cases}/`. Helpers compartidos en `e2e/helpers/`.
-- **Prefijo numérico** (00, 01, 02...) define el orden de corrida. Sub-features usan sufijo letra (02b, 05b).
-- **Config:** `afamar-frontend/playwright.config.ts` — `webServer` auto-arranca backend (uvicorn 3095) + frontend (vite 3090). `workers: 1`, `fullyParallel: false`, `retries: 0 local / 2 CI`.
+- **Prefijo numérico** (00, 01, 02…) define el orden de corrida. Sub-features usan sufijo letra (02b, 05b).
+- **Config:** `playwright.config.ts` — `webServer` auto-arranca backend (uvicorn 3095) + frontend (vite 3090). `workers: 1`, `fullyParallel: false`, `retries: 0 local / 2 CI`.
+- **Gap post-Fase 7 (ver `PLAN.md` P3):** el sub-directorio `configuration/` cubre Datos de AFAMAR pero **no tiene E2E del CRUD de Métodos de Pago** ni del flujo "elegir Tarjeta de crédito + 3 cuotas y ver el recargo/tabla en el PDF preview". Tests unitarios (`useBudgetCalculations`, `buildPdfData`) y backend (`test_work_order_recalc`, `test_pdf_catalogue_adjustment`) cubren la fórmula, pero un E2E de smoke del flujo completo es la pieza que falta.
 - **Login:** siempre `loginViaApi(page, request)` de `helpers/login.ts` (evita el rate-limit de `/auth/login` 5/min del `loginAsAdmin`).
 - **Datos únicos:** `const UNIQUE = \`E2E-${Math.random().toString(36).slice(2, 7)}\`;` por test. Cleanup best-effort.
 - **Scripts:** `npm run test:e2e` (headless), `npm run test:e2e:ui` (Playwright UI), `npm run test:e2e:debug`.
@@ -388,16 +300,16 @@ cd afamar-backend
 uvicorn app.main:app --reload --port 3095
 python seed_admin.py
 alembic upgrade head
-pytest
+pytest                                # 39/39
 
 # Frontend (puerto 3090)
 cd afamar-frontend
 npm install
 npm run dev
-npm run build              # tsc --noEmit && vite build
-npm run lint               # ESLint
-npx vitest --run           # unit tests (171/171)
-npm run test:e2e           # E2E tests
+npm run build                         # tsc --noEmit && vite build
+npm run lint
+npx vitest --run                      # 191/191
+npm run test:e2e                      # budgets 13/13
 ```
 
 ## Variables de entorno (afamar-backend/.env)
@@ -430,10 +342,7 @@ MAX_UPLOAD_FILE_SIZE: int = 30 * 1024 * 1024  # 30 MB
 MAX_UPLOAD_DIMENSION: int = 1920
 ```
 
-Properties que resuelven la ruta absoluta (relativa a `BASE_DIR = afamar-backend/`):
-- `settings.product_photos_abs_dir` → `Path` (usado por `services/product_photo.py`)
-- `settings.materials_abs_dir` → `Path` (usado por `api/routers/materials.py`)
-- `settings.logos_abs_dir` → `Path` (usado por `api/routers/settings.py` para logo upload)
+Properties que resuelven la ruta absoluta (relativa a `BASE_DIR = afamar-backend/`): `settings.product_photos_abs_dir`, `settings.materials_abs_dir`, `settings.logos_abs_dir` (todos → `Path`).
 
 ## Schema legacy
 
