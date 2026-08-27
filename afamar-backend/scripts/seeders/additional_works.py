@@ -1,7 +1,7 @@
 """Additional works catalogue seeder.
 
-Snapshot of the AFAMAR production catalogue — 7 trabajos adicionales
-captured from the live database on 2026-07-29. New rows are inserted on
+Snapshot of the AFAMAR production catalogue — 13 trabajos adicionales
+captured from the live database (2026-08-27). New rows are inserted on
 a fresh DB; existing rows are left untouched (idempotent — preserves
 manual price/formula changes).
 
@@ -30,8 +30,16 @@ ADDITIONAL_WORKS: tuple[tuple, ...] = (
     ("Bacha Integrada", "Pileta de Material ", 420.0, 2, "flat", None),
     # frente / USD (price is 0.0 — the actual cost is linear meters *
     # formula_constant, computed at runtime)
-    ("Frente Ingletetado 45�", "Frente 45�", 0.0, 2, "frente", 1.15),
-    ("FRENTE DOBLE", "DOBLE FRENTE PULIDO", 0.0, 2, "frente", 1.0),
+    ("Frente Ingletetado 45°", "Frente 45°", 0.0, 2, "frente", 1.15),
+    ("Frente Doble", "Doble Frente Pulido", 0.0, 2, "frente", 1.0),
+    # frente / ARS
+    ("Frentin Clasico Rasado", "", 0.0, 1, "frente", 1.0),
+    # flat / ARS — nuevos del catálogo actual
+    ("Traforo de Atornillar", "", 20000.0, 1, "flat", None),
+    ("Traforo filtro de agua", "", 20000.0, 1, "flat", None),
+    ("Toma de luz", "Toma de luz por unidad", 20000.0, 1, "flat", None),
+    ("Toma de gas", "", 20000.0, 1, "flat", None),
+    ("Traforo de Ducha", "Apertura de llave de agua", 10000.0, 1, "flat", None),
 )
 
 

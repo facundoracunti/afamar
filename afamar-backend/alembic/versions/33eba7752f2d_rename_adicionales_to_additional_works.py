@@ -7,6 +7,7 @@ Create Date: 2026-07-08 22:45:22.706049
 from typing import Sequence, Union
 
 from alembic import op
+import sqlalchemy as sa
 
 
 revision: str = '33eba7752f2d'
@@ -23,18 +24,18 @@ def upgrade() -> None:
     op.execute('ALTER TABLE additional_works RENAME INDEX ix_adicionales_currency_id TO ix_additional_works_currency_id')
 
     # Rename column in budgets
-    op.alter_column('budgets', 'adicionales_data', new_column_name='additional_works_data')
+    op.alter_column('budgets', 'adicionales_data', new_column_name='additional_works_data', existing_type=sa.Text())
 
     # Rename column in work_orders
-    op.alter_column('work_orders', 'adicionales_data', new_column_name='additional_works_data')
+    op.alter_column('work_orders', 'adicionales_data', new_column_name='additional_works_data', existing_type=sa.Text())
 
 
 def downgrade() -> None:
     # Revert column rename in work_orders
-    op.alter_column('work_orders', 'additional_works_data', new_column_name='adicionales_data')
+    op.alter_column('work_orders', 'additional_works_data', new_column_name='adicionales_data', existing_type=sa.Text())
 
     # Revert column rename in budgets
-    op.alter_column('budgets', 'additional_works_data', new_column_name='adicionales_data')
+    op.alter_column('budgets', 'additional_works_data', new_column_name='adicionales_data', existing_type=sa.Text())
 
     # Revert index renames
     op.execute('ALTER TABLE additional_works RENAME INDEX ix_additional_works_id TO ix_adicionales_id')

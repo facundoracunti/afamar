@@ -85,7 +85,7 @@ def upgrade() -> None:
     )
 
     with op.batch_alter_table('materials') as batch:
-        batch.alter_column('currency_id', nullable=False)
+        batch.alter_column('currency_id', existing_type=sa.Integer(), nullable=False)
 
     # Drop the legacy `currency` string column. The wire format still
     # accepts the string (the service translates it on save), so the
@@ -120,7 +120,7 @@ def upgrade() -> None:
     )
 
     with op.batch_alter_table('pool_stock') as batch:
-        batch.alter_column('currency_id', nullable=False)
+        batch.alter_column('currency_id', existing_type=sa.Integer(), nullable=False)
 
     # Drop the legacy `price_usd` column — the single `price` column
     # now lives in the currency of the FK.

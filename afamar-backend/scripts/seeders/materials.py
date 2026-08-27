@@ -1,7 +1,7 @@
 """Materials seeder.
 
-Snapshot of the AFAMAR production catalogue — 62 materials captured from
-the live database on 2026-07-29. Each entry matches the `Material`
+Snapshot of the AFAMAR production catalogue — 64 materials captured from
+the live database (last refreshed 2026-08-27). Each entry matches the `Material`
 model's columns:
 
     (name, category_name, color_name, thickness, base_price, price_usd,
@@ -76,6 +76,9 @@ MATERIALS: Final[tuple[tuple, ...]] = (
     ("GRIS CITY",                     "Cuarzos",  "GRIS",                  "2 CM",   390.0,   0.39, 2, "",   0, ""),
     ("GRIS CITY",                     "Cuarzos",  "GRIS",                  "2 CM", 390000.0, 390.0,  2, "",   0, ""),
     ("GRIS CITY 1",                   "Cuarzos",  "GRIS",                  "2 CM", 390000.0, 390.0,  2, "", 9999, ""),
+    # nuevos del catálogo actual (2026-08-27)
+    ("Blanco Neves",                  "Cuarzos",  "Blanco",                "2 CM", 350000.0, 350.0,  2, "", 999, ""),
+    ("Blanco paloma",                 "Cuarzos",  "Blanco",                "2",    458000.0, 458.0,  2, "",   0, ""),
     # legacy
     ("Cuarzo Blanco Polar",           "Cuarzos",  "Blanco",                "2cm",     70.0,   0.0,  1, None, 999, None),
     ("Cuarzo Gris Oxford",            "Cuarzos",  "Gris",                  "2cm",     75.0,   0.0,  1, None, 999, None),
@@ -91,6 +94,8 @@ MATERIALS: Final[tuple[tuple, ...]] = (
     ("MARQUINA BRILLANTE",            "Sinterizados", "NEGRO CON VETAS",    "1.2 CM", 350000.0, 350.0, 2, "", 999, ""),
     ("GAMMA GREY",                    "Sinterizados", "GRIS OSCURO",        "1.2 CM", 350000.0, 350.0, 2, "", 999, ""),
     ("CALACATTA LUXURY BRILLANTE",    "Sinterizados", "BLANCO VETEADO",     "1.2 CM", 350000.0, 350.0, 2, "", 999, ""),
+    # nuevo del catálogo actual (2026-08-27)
+    ("Calacatta luxe",                "Sinterizados", "Blanco con vetas",   "1.2 ", 1255000.0, 1255.0, 2, "Neolith", 999, ""),
     ("LIMESTONE CREAM",               "Sinterizados", "BEIGE ",             "1.2 CM", 350000.0, 350.0, 2, "", 999, ""),
     ("TUNDRA GAMMA ",                 "Sinterizados", "GRIS CLARO CON VETAS", "1.2 CM", 350000.0, 350.0, 2, "", 999, ""),
     ("BEIGE CREAM",                   "Sinterizados", "BEIGE",              "1.2 CM", 350000.0, 350.0, 2, "", 999, ""),
@@ -105,6 +110,8 @@ MATERIALS: Final[tuple[tuple, ...]] = (
     # ── Mármoles (cat 5) ────────────────────────────────────────────────────
     ("BLANCO TURCO",                  "Mármoles", "BLANCO",                "2 CM",  530000.0,  530.0, 2, "", 999, ""),
     ("CARRARA",                       "Mármoles", "BLANCO VETEADO",        "2 CM",  680000.0,  680.0, 2, "", 999, ""),
+    # nuevo del catálogo actual (2026-08-27)
+    ("Arabescato",                    "Mármoles", "Rosa con vetas blancas", "2",    970000.0,  970.0, 2, "",   3, ""),
     ("CALACATTA",                     "Mármoles", "BLANCO CON VETAS",      "2 CM", 1560000.0, 1560.0, 2, "", 999, ""),
     ("TRAVERTINO AL AGUA",            "Mármoles", "BEIGE",                 "2 CM",  500000.0,  500.0, 2, "", 999, ""),
     ("TRAVERTINO A LA VETA",          "Mármoles", "BEIGE",                 "2 CM",  680000.0,  680.0, 2, "", 999, ""),
