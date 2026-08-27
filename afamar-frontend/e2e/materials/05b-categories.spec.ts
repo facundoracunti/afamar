@@ -50,7 +50,11 @@ test.describe('Material Categories', () => {
 
   test('creates a new category via the modal', async ({ page, request }) => {
     const token = await loginAndGetToken(request);
-    const name = `Create Category ${UNIQUE}`;
+    // El backend normaliza `name` con `.strip().capitalize()` (ver
+    // `CapitalizeNameMixin` en `app/schemas/material.py`), así que el
+    // input debe estar en formato "primera mayúscula + resto minúscula"
+    // para que el round-trip input→backend→assert sea exacto.
+    const name = `Create category ${UNIQUE.toLowerCase()}`;
 
     await page.goto('/admin/materials/categories');
     await expect(page.locator('table')).toBeVisible();
@@ -81,8 +85,10 @@ test.describe('Material Categories', () => {
 
   test('edits an existing category', async ({ page, request }) => {
     const token = await loginAndGetToken(request);
-    const originalName = `Edit Category ${UNIQUE}`;
-    const updatedName = `Edit Category ${UNIQUE} Updated`;
+    // `name` debe sobrevivir el `strip().capitalize()` del backend para
+    // que el round-trip input→DB→form pre-fill sea exacto.
+    const originalName = `Edit category ${UNIQUE.toLowerCase()}`;
+    const updatedName = `Edit category ${UNIQUE.toLowerCase()} updated`;
     const categoryId = await createCategoryViaApi(request, token, originalName);
 
     await page.goto('/admin/materials/categories');
@@ -135,7 +141,8 @@ test.describe('Material Categories', () => {
 
   test('deletes a category after confirming the dialog', async ({ page, request }) => {
     const token = await loginAndGetToken(request);
-    const name = `Delete Category ${UNIQUE}`;
+    // `name` debe sobrevivir el `strip().capitalize()` del backend.
+    const name = `Delete category ${UNIQUE.toLowerCase()}`;
     await createCategoryViaApi(request, token, name);
 
     await page.goto('/admin/materials/categories');

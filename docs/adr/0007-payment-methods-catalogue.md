@@ -194,3 +194,111 @@ SQLAlchemy no tocaba la columna.
 `BudgetBase`, `WorkOrderBase`, `BudgetUpdate`, `WorkOrderUpdate`.
 La columna ya existía en la DB desde la migración `b3c4d5e6f7a9`,
 no requirió nueva migración.
+
+### 2026-08-26 — WorkOrderService.update: `TypeError` en PATCH con line items
+
+`_recalculate_totals_from_items` está definida como
+`def _recalculate_totals_from_items(db: Session, data: dict)`. En
+`WorkOrderService.create` se llama bien
+(`_recalculate_totals_from_items(self.repo.db, data)`), pero en
+`WorkOrderService.update` se llamaba mal:
+`_recalculate_totals_from_items(merged)`. `merged` se pasaba como
+`db` y `data` quedaba faltando → `TypeError: missing 1 required
+positional argument: 'data'` → 500 al cliente.
+
+El path "convertir presupuesto → OT → abrir en MEDICION → editar
+m² de un material → Guardar" (el más común del día a día) reventaba
+siempre en el PATCH. El bug se coló porque el helper se invoca
+solo cuando el PATCH trae `materials_data` / `fabrication_details` /
+`pools_data` / `payment_method` / `installments` / etc., y
+probablemente se probó solo con PUTs que no tocaban líneas.
+
+**Fix:** 1 línea en `app/services/work_order.py:782`:
+`_recalculate_totals_from_items(self.repo.db, merged)`. Cubierto
+por `tests/test_work_order_update.py::test_update_with_materials_data_does_not_500`.
+
+### 2026-08-26 — installment_detail_ars/usd no persistido en PATCH parcial
+
+Mismo archivo, bug #2 encontrado mientras escribía el test del
+fix de arriba. En `WorkOrderService.update`, después de
+`_recalculate_totals_from_items(self.repo.db, merged)`, el "mirror
+step" solo copiaba 8 keys de vuelta a `data`:
+`subtotal, subtotal_usd, total, total_usd, balance_due,
+balance_due_usd, deposit_received, deposit_usd`. Pero el helper
+también recalcula `installment_detail_ars/usd` — esas 2 keys
+**no** se copiaban, así que el `repo.update` no las persistía.
+
+Consecuencia: un PATCH parcial (ej. solo `materials_data` con
+medición editada en una OT con tarjeta 3 cuotas) borraba la tabla
+3-columnas de cuotas del snapshot, aunque el cálculo en memoria
+estuviera bien. La tabla solo reaparecía en el siguiente PATCH
+completo que volviera a mandar las keys.
+
+**Fix:** agregar `installment_detail_ars, installment_detail_usd`
+a la lista del mirror step (`work_order.py:785-794`). El
+`create` ya estaba bien (data y merged son el mismo dict en ese
+path). Cubierto por
+`test_work_order_update.py::test_update_with_materials_data_and_payment_method`.
+
+### 2026-08-26 — MaterialCategoryRepository: IntegrityError → 500 en vez de 409
+
+`MaterialCategoryRepository.create` instanciaba `MaterialCategory`
+y llamaba a `save` sin capturar `IntegrityError`. La unique
+constraint en `name` (columna `unique=True, nullable=False`) hace
+que un POST con un nombre duplicado levante `IntegrityError`, que
+subía sin handler al global de FastAPI y se devolvía como **500
+Internal Server Error** en vez del **409 Conflict** esperado.
+
+El bug se reproducía cada vez que la suite E2E corría más de una
+vez en la misma DB: el `UNIQUE` random del test chocaba con un
+leftover de la corrida anterior y el POST tiraba 500.
+
+**Fix:** `try/except IntegrityError` en
+`app/repositories/material.py:22-33`, con `db.rollback()` y
+`raise ConflictError(f"Category '{name}' already exists")`. Mismo
+patrón se aplicaría a cualquier otra columna unique que
+actualmente no capture el error.
+
+### 2026-08-26 — `global-setup.ts`: nombres de recursos incorrectos, 404 silencioso
+
+El `TABLES_TO_CLEAR` del global-setup tenía `'material-categories'`,
+`'material-colors'`, `'material-thicknesses'` (singular, flat).
+Pero el backend los sirve como `materials/categories`,
+`materials/colors`, `materials/thicknesses` (nested plural) en
+`app/api/routers/materials.py`. El GET contra la URL plana tira
+**404 Not Found**, que el helper `truncateAll` loguea con
+`console.warn` y sigue (best-effort cleanup) → las tablas
+categoría/color/espesor NUNCA se borraban entre suites.
+
+Consecuencia: en la suite actual se acumulaban ~40 categorías
+"Create category e2e-cat-xxxx" de corridas previas. Cuando el
+test 2 (edits) intentaba crear la suya con el mismo sufijo
+random (sufijo colisionaba con uno previo), el POST tiraba 500
+por el bug de IntegrityError de arriba. Los dos bugs se
+encadenaron.
+
+**Fix:** renombrar las 3 entradas en `e2e/global-setup.ts` a
+`'materials/categories'`, `'materials/colors'`,
+`'materials/thicknesses'`. Comentario explicando el motivo
+para que no se revierta sin querer.
+
+### 2026-08-26 — Tests E2E de categorías: case-sensitivity vs `CapitalizeNameMixin`
+
+`CapitalizeNameMixin` (en `app/schemas/material.py`) normaliza
+`name` con `v.strip().capitalize()`. Esto baja todas las letras
+a minúscula menos la primera — comportamiento intencional y
+consistente con los seeds canónicos ("Cuarzos", "Granitos",
+"Mármoles", "Sinterizados", "General").
+
+Los tests E2E de `05b-categories.spec.ts` asumían case preservado
+("Edit Category E2E-CAT-xxxx" se guardaba como "Edit category
+e2e-cat-xxxx"). Tres asserts fallaban:
+- `c.name === name` en el GET post-POST
+- `nameInput.toHaveValue(originalName)` al abrir el modal de edit
+- `text.includes(originalName)` en el loop de búsqueda de la fila
+
+**Fix:** cambiar los `name` a formato ya-title-case
+(`"Create category ${UNIQUE.toLowerCase()}"`) para que sobrevivan
+el `capitalize()`. Cambio quirúrgico en los 3 tests. **No se
+tocó el comportamiento del backend** — la app real sigue
+capitalizando las categorías como antes.

@@ -35,9 +35,16 @@ const TABLES_TO_CLEAR = [
   'pool-stock-movements',
   'pool-stock',
   'materials',
-  'material-categories',
-  'material-colors',
-  'material-thicknesses',
+  // Material sub-resources are nested under /materials/{name} in the
+  // backend router (`materials.py`). The previous flat names
+  // (`material-categories`, `material-colors`, `material-thicknesses`)
+  // 404'd silently, so E2E categories/colors/thicknesses accumulated
+  // across suite runs and the `creates a new category via the modal`
+  // test crashed with an unhandled `IntegrityError` (500) when the
+  // generated `UNIQUE` collides with a leftover row.
+  'materials/categories',
+  'materials/colors',
+  'materials/thicknesses',
   'price-history',
   'additional-works',
   'product-photos',

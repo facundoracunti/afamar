@@ -42,6 +42,26 @@ uvicorn app.main:app --reload --port 3095
 http://127.0.0.1:3095/docs
 
 
+# los containers están healthy
+docker compose ps
+# esperás: "(healthy)" en ambas filas
+
+# chequeo de Alembic — la última migración aplicada debe ser d5e6f7a8b9c0
+docker compose exec afamar-backend alembic current
+# esperás: d5e6f7a8b9c0 (head)
+
+# chequeo del seed — los 4 métodos están en la DB
+docker compose exec afamar-backend python -c "
+from app.db.session import SessionLocal
+from app.models.reference import PaymentMethod
+db = SessionLocal()
+for pm in db.query(PaymentMethod).order_by(PaymentMethod.sort_order).all():
+    print(pm.name, '|', pm.type, '|', pm.value, '|', pm.is_percentage, '|', pm.applies_to_installments)
+db.close()
+"
+# esperás: las 4 filas en español
+
+
 # Dry-run (solo reporte)
 - Local
 ```bash
@@ -51,7 +71,6 @@ http://127.0.0.1:3095/docs
 ```bash
 docker exec afamar-backend python scripts/fix_corrupt_work_orders.py
 ```
-
 # Fix automático
 - Local
 ```bash

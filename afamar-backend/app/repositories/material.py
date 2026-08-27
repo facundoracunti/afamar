@@ -1,7 +1,9 @@
 from typing import List, Optional
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.exceptions import ConflictError
 from app.models.material import Material, MaterialCategory, MaterialColor, MaterialThickness
 from app.models.price_history import PriceHistory
 from app.repositories.base import BaseRepository
@@ -21,7 +23,14 @@ class MaterialCategoryRepository(BaseRepository):
 
     def create(self, name: str) -> MaterialCategory:
         cat = MaterialCategory(name=name)
-        return self.save(cat)
+        try:
+            return self.save(cat)
+        except IntegrityError:
+            # `name` is unique. Surface as 409 Conflict so the caller can
+            # show a meaningful error (was 500 before — the unhandled
+            # IntegrityError bubbled up to the global handler).
+            self.db.rollback()
+            raise ConflictError(f"Category '{name}' already exists")
 
     def delete(self, category: MaterialCategory) -> None:
         super().delete(category)

@@ -1,9 +1,9 @@
 # AGENTS.md
 
-> **Estado:** Rama `development`. **65 archivos modificados/agregados sin commitear** (50 `M` + 15 `??`) — incluye **Fase 7 (Payment Methods)**: catálogo `payment_methods` con 4 columnas de cálculo (`type` / `value` / `is_percentage` / `applies_to_installments`), regla de **interés incremental por cuota** (no más "1-2 cuotas → 0%, 3+ cuotas → N×5%"), tabla 3-columnas (Cuota # / Interés / Monto) en el form y en el PDF, snapshot persistido en `budgets` / `work_orders` (migración `d5e6f7a8b9c0`). Más **7 fixes UX/de schema de esta sesión** (ver "Fixes sobre Fase 7" abajo). Features anteriores: Fases 1-6.11, dashboard modales, material swap con re-pointing, calculadora de porcelanato, totales del Presupuesto live. Ver `PLAN.md` para lo que falta.
-> `tsc --noEmit` 0 errores · `vite build` ~22s, gzip ~497 KB (`PdfPreviewModal-DKwAfI6g.js` = 1.49 MB / 497 KB gzip — el chunk más pesado) · vitest **191/191** (16 archivos) · pytest **39/39** · playwright budgets 13/13 (sin E2E del feature de payment methods todavía — ver `PLAN.md` P3).
+> **Estado:** Rama `development`. Working tree limpio después de la sesión 2026-08-26 (todos los cambios commiteados en `710f5005` y el commit que se está armando). Última versión: **Fase 7 (Payment Methods)** + capa de **automatización de tests** (suite unificada `npm run test:all`, E2E del flujo cotidiano completo, 6 unit tests nuevos de `WorkOrderService.update`, 3 fixes de bugs reales descubiertos durante el ejercicio). Ver "Fixes sobre Fase 7" y "Capa de tests 2026-08-26" abajo.
+> `tsc --noEmit` 0 errores · `vite build` ~22s, gzip ~497 KB · vitest **191/191** (16 archivos) · pytest **45/45** (39 originales + 6 nuevos en `test_work_order_update.py`) · playwright **108/108** (60 originales + 48 nuevos en este commit).
 >
-> **Índice del conocimiento (codebase-memory):** **artefacto desactualizado** (último reindex 2026-08-07, commit `a06c1569` — pre-Fase 7). El MCP `codebase-memory` y el CLI `mavis` local siguen sin estar disponibles (CLI tira `Cannot find module '…\MiniMax Code\resources\resources\daemon\cli.js'`), así que el reindex + el ADR update quedaron pendientes (ver `PLAN.md` P1+P2). Mientras tanto, el ADR commiteable equivalente está en `docs/adr/0007-payment-methods-catalogue.md`.
+> **Índice del conocimiento (codebase-memory):** **artefacto desactualizado** (último reindex 2026-08-07, commit `a06c1569` — pre-Fase 7). El MCP `codebase-memory` y el CLI `mavis` local siguen sin estar disponibles (CLI tira `Cannot find module '…\MiniMax Code\resources\resources\daemon\cli.js'`), así que el reindex + el ADR update quedaron pendientes (ver `PLAN.md` P1+P2). Mientras tanto, el ADR commiteable equivalente está en `docs/adr/0007-payment-methods-catalogue.md` (con la sección "Updates post-commit" que documenta los fixes del 2026-08-26).
 
 ## Índice del conocimiento (codebase-memory)
 
@@ -188,8 +188,9 @@ El handler `addPorcelainDetail` se construye desde `state.update` y `state.form`
 - `src/utils/porcelainCalculator.test.ts` — 10
 - `src/components/budget/BudgetPanel/BudgetPanel.test.tsx` — 2
 
-**Backend (39 tests):**
+**Backend (45 tests):**
 - `tests/test_work_order_recalc.py` — 5 (recalc server-side: 1 cuota = 9%, 3 cuotas = 18%, additional_works, alt override, manual discount antes de catalogue).
+- `tests/test_work_order_update.py` — 6 (suite nueva 2026-08-26: regression del `TypeError` en PATCH con `materials_data` en MEDICION, PATCH + payment_method_id + 3 cuotas, PATCH + discount_percentage, PATCH + status flip, PATCH sin line-items (no recalc), PATCH + deposit).
 - `tests/test_pdf_catalogue_adjustment.py` — 7 (`_resolve_catalogue_adjustment`: NONE/3-cuotas/1-cuota/2-cuotas/percentage-discount/fixed-discount/name-fallback/manual+manual).
 - Resto: smoke + integración pre-existentes.
 
@@ -264,6 +265,79 @@ Para 1 cuota colapsa a 9% flat. Para 2 cuotas, 18% (2 × 9%). Para 3 cuotas, 27%
 
 - **`BudgetLineItems.DetailRow`** (4 callsites: fabrication, materials, pools, additional). Cualquier cambio de layout/color/formato del CONCEPTO/SUBTOTAL list toca los 4 callsites en el mismo archivo (no hay helper compartido). Patrón: cada call site computa `displayValue` (nativo) + `arsEquivalent` (ARS) + `usdTotal` (USD) y los pasa a `DetailRow`. Si se agrega un nuevo tipo de ítem (ej. mano de obra), replicar el patrón.
 
+### Updates post-Fase 7 — infra (2026-08-26)
+
+Bugs descubiertos mientras se escribía la capa de tests. Todos arreglados, todos con test que los cubre (ver "Capa de tests 2026-08-26" abajo).
+
+1. **`WorkOrderService.update` → `TypeError` en PATCH con line items.** El path "presupuesto → OT → editar m² en MEDICION → Guardar" (el más común del día a día) reventaba con 500 porque la llamada al helper `_recalculate_totals_from_items(merged)` omitía el `self.repo.db` (`merged` se pasaba como `db` y `data` quedaba faltando). En `create` la llamada estaba bien, en `update` se coló un copy-paste roto. **Fix 1 línea:** `app/services/work_order.py:782` ahora pasa los 2 args. Cubierto por `test_work_order_update.py::test_update_with_materials_data_does_not_500`.
+
+2. **`WorkOrderService.update` → `installment_detail_ars/usd` no persistido en PATCH parcial.** Mismo archivo. El "mirror step" de `update()` solo copiaba 8 keys de vuelta a `data` después del recalc (`subtotal, total, balance_due, …`) pero NO `installment_detail_ars/usd`. Así que un PATCH parcial (ej. solo `materials_data` con tarjeta 3 cuotas) borraba la tabla 3-columnas del snapshot. **Fix:** agregar las 2 keys a la lista del mirror step (`work_order.py:785-794`). Cubierto por `test_update_with_materials_data_and_payment_method`.
+
+3. **`MaterialCategoryRepository.create` → `IntegrityError` no capturada, 500 en vez de 409.** El nombre de categoría es `unique=True`. Un POST con duplicado levantaba `IntegrityError` que subía sin handler y devolvía **500 Internal Server Error** en vez del **409 Conflict** esperado. Se reproducía cada vez que la suite E2E corría más de una vez en la misma DB (UNIQUE random del test chocaba con un leftover). **Fix:** `try/except IntegrityError` en `app/repositories/material.py:22-33` con `db.rollback()` + `raise ConflictError`. Mismo patrón se aplicaría a cualquier otra columna unique que no capture el error (auditar antes de agregar uniques).
+
+4. **`e2e/global-setup.ts` → nombres de recursos incorrectos, 404 silencioso, datos se acumulan entre suites.** El `TABLES_TO_CLEAR` tenía `'material-categories'`, `'material-colors'`, `'material-thicknesses'` (singular, flat), pero el backend los sirve como `materials/categories`, `materials/colors`, `materials/thicknesses` (nested plural) en `app/api/routers/materials.py`. El GET contra la URL plana tiraba 404, que el helper `truncateAll` loguea con `console.warn` y sigue (best-effort) → las tablas categoría/color/espesor **nunca** se borraban. Consecuencia: ~40 categorías "Create category e2e-cat-xxxx" de corridas previas. Los tests 2 (edits) y 3 (deletes) de `05b-categories.spec.ts` fallaban por colisión de UNIQUE, que a su vez exponía el bug #3 de arriba. **Fix:** renombrar las 3 entradas en `global-setup.ts` a las URLs correctas, con comentario explicando el motivo para que no se revierta sin querer. (Los demás nombres del array — `budgets`, `work_orders`, `measurements`, `daily-cash`, `cash-movements`, `client-addresses`, `clients`, `pool-stock-movements`, `pool-stock`, `materials`, `price-history`, `additional-works`, `product-photos`, `reference-data`, `options` — sí matchean endpoints existentes y funcionan; el bug era solo en los 3 sub-recursos de materials.)
+
+5. **Tests E2E de `05b-categories.spec.ts` asumían case preservado en `name`.** `CapitalizeNameMixin` (`app/schemas/material.py`) normaliza `name` con `v.strip().capitalize()` (legítimo — los seeds canónicos son "Cuarzos", "Granitos", "Mármoles", "Sinterizados", "General"). Los tests asumían `"Edit Category E2E-CAT-xxxx"` se guardaba tal cual; 3 asserts fallaban (comparación exacta en API GET, `toHaveValue(originalName)` en el modal de edit, `text.includes(originalName)` en el loop de búsqueda). **Fix:** cambiar los `name` a formato ya-title-case (`"Create category ${UNIQUE.toLowerCase()}"`) para que sobrevivan el `capitalize()`. No se tocó el comportamiento del backend — la app real sigue capitalizando.
+
+## Capa de tests 2026-08-26
+
+Sesión dedicada a automatizar lo más posible los flujos manuales. Resultado: **suite unificada `npm run test:all`** que corre todo encadenado (pytest + vitest + playwright), más un **E2E del flujo cotidiano completo** y 6 unit tests nuevos del path `WorkOrderService.update`.
+
+**Comando único:**
+
+```bash
+# en afamar-frontend/
+npm run test:all    # 45 pytest + 191 vitest + 108 E2E encadenados (~4-5 min)
+```
+
+`test:unit` corre solo pytest + vitest (sin E2E, ~30s). `test:e2e` corre solo playwright (~3-4 min). No hay hooks pre-commit ni pre-push por regla del proyecto — el operador decide cuándo correr la suite.
+
+**E2E del flujo cotidiano** (`e2e/work-orders/17-full-daily-flow.spec.ts`):
+
+Recorre el día completo del operador en 7 pasos, end-to-end contra backend + UI reales:
+
+1. Seed `seedDailyBudget` (cliente + 2 materiales [main + alternativo] + pileta + trasforo + zócalos + TARJETA 3 cuotas) via API.
+2. Abre el presupuesto, verifica totales (SUBTOTALES, TOTAL ARS, SALDO PENDIENTE, Forma de pago).
+3. Aprueba desde el listado (`/admin/budgets?estado=ALL`, columna Flujo).
+4. Click "A OT" → "Convertir" → navega a la OT en MEDICION.
+5. **Edita el `length` de un material en la OT + click Guardar** → este paso es la regresión sentinel del bug #1 de arriba (pre-fix: 500; post-fix: 200 + `materials_data` persistido + `total > 0`).
+6. Avanza la OT MEASUREMENT → WORKSHOP → FINISHED → DELIVERED desde la columna "Avanzar estado" del listado (verifica via API cada step, no matchea el label traducido).
+7. PDF preview desde el listado + download endpoint (`%PDF` magic + `%%EOF` trailer).
+
+Captura 7 screenshots por sector (`shot-cross-daily-*`) que se embeben en el `test_report.html` del reporter custom. ~13s cuando corre solo, incluido en la suite completa de ~4 min.
+
+**Unit tests nuevos** (`tests/test_work_order_update.py`):
+
+6 tests del path `WorkOrderService.update` end-to-end contra SQLite in-memory (no solo del `_recalculate_totals_from_items` aislado, que ya tenía cobertura):
+
+| Test | Cubre |
+|---|---|
+| `test_update_with_materials_data_does_not_500` | **Regression sentinel del bug #1** |
+| `test_update_with_materials_data_and_payment_method` | Sentinel del bug #2 (installment_detail persiste en PATCH) |
+| `test_update_with_materials_data_and_discount_percentage` | Manual discount + recalc en el mismo PATCH |
+| `test_update_advances_status_measurement_to_workshop` | Edit m² + flip status en el mismo PATCH (operador real hace esto) |
+| `test_update_with_no_line_item_keys_skips_recalc` | PATCH de metadata puro (notas) no recalcula |
+| `test_update_deposit_persists_and_creates_cash_movement` | Seña se persiste en MEDICION |
+
+**Patrón de los fixtures** (`fresh_db`): pre-seeda los 4 payment methods + 1 cliente + 1 WO en MEDICION (status PENDING al setUp). Cada test modifica el WO via `service.update(1, {...})` y assertea el resultado + re-GET a la DB. Reutiliza el patrón de `test_work_order_recalc.py::pm_session`.
+
+**Por qué unit del `update()` y no solo del helper aislado:** el helper `_recalculate_totals_from_items` ya tenía 5 tests (en `test_work_order_recalc.py`). El bug #1 NO estaba en el helper — estaba en el call site (`WorkOrderService.update` línea 782). El helper funcionaba bien aislado; el bug era que `update()` no le pasaba bien los args. Test del `update()` end-to-end es lo que lo hubiera cazado.
+
+**Cobertura resultante:**
+
+| Capa | Antes | Después | Delta |
+|---|---|---|---|
+| pytest (backend) | 39 | 45 | +6 (`test_work_order_update.py`) |
+| vitest (frontend) | 191 | 191 | =0 (no se tocaron) |
+| playwright (E2E) | ~60 | 108 | +48 (17-full-daily-flow.spec.ts + categorías arregladas que ahora pasan) |
+| **TOTAL** | **~290** | **344** | **+54** |
+
+**Decisiones de scope que NO se tomaron (a propósito):**
+
+- No se hicieron E2E para flujos satellite (caja diaria, métodos de pago, comparativa de medición, conversor de moneda). Son importantes pero más aislados. Si querés automatizarlos, decime cuál primero y armo el spec.
+- No se llevó la cobertura E2E a 100% (cada feature × cada edge case). La cobertura del flujo cotidiano es **alta en los journeys críticos** (los que más te rompen), no exhaustiva. E2E 100% = frágil y caro de mantener, los bugs lógicos se siguen cazando con unit.
+- No se agregó pre-commit / pre-push hook (la regla del proyecto es "git es manual").
+
 ## DB Maintenance Scripts
 
 `afamar-backend/scripts/`. Run con el venv Python del proyecto.
@@ -287,9 +361,11 @@ Checks: JSON column corruption, FK orphans (client_id, delivery_address_id, budg
 - **Prefijo numérico** (00, 01, 02…) define el orden de corrida. Sub-features usan sufijo letra (02b, 05b).
 - **Config:** `playwright.config.ts` — `webServer` auto-arranca backend (uvicorn 3095) + frontend (vite 3090). `workers: 1`, `fullyParallel: false`, `retries: 0 local / 2 CI`.
 - **Gap post-Fase 7 (ver `PLAN.md` P3):** el sub-directorio `configuration/` cubre Datos de AFAMAR pero **no tiene E2E del CRUD de Métodos de Pago** ni del flujo "elegir Tarjeta de crédito + 3 cuotas y ver el recargo/tabla en el PDF preview". Tests unitarios (`useBudgetCalculations`, `buildPdfData`) y backend (`test_work_order_recalc`, `test_pdf_catalogue_adjustment`) cubren la fórmula, pero un E2E de smoke del flujo completo es la pieza que falta.
+- **E2E del flujo cotidiano (2026-08-26):** `e2e/work-orders/17-full-daily-flow.spec.ts` recorre presupuesto "full" → aprobar (desde el listado) → convertir a OT → cambiar m² en MEDICION (regresión del bug 500) → MEASUREMENT → WORKSHOP → FINISHED → DELIVERED (vía columna "Avanzar estado" del listado) → PDF preview + download. **Regresión sentinel** del path más común del día. ~13s. Ver `Capa de tests 2026-08-26` abajo para más detalle.
 - **Login:** siempre `loginViaApi(page, request)` de `helpers/login.ts` (evita el rate-limit de `/auth/login` 5/min del `loginAsAdmin`).
 - **Datos únicos:** `const UNIQUE = \`E2E-${Math.random().toString(36).slice(2, 7)}\`;` por test. Cleanup best-effort.
-- **Scripts:** `npm run test:e2e` (headless), `npm run test:e2e:ui` (Playwright UI), `npm run test:e2e:debug`.
+- **Cleanup global (global-setup.ts):** el `TABLES_TO_CLEAR` lista los endpoints a truncar antes de la suite. Importante: los sub-recursos de `materials` van nested (`materials/categories`, `materials/colors`, `materials/thicknesses`), no flat — el helper loguea warn y sigue si el endpoint tira 404, así que un nombre mal escrito **silenciosamente no borra nada** y los datos se acumulan entre suites (ver bugs en "Updates post-Fase 7 — infra").
+- **Scripts:** `npm run test:e2e` (headless), `npm run test:e2e:ui` (Playwright UI), `npm run test:e2e:debug`, `npm run test:unit` (pytest + vitest, sin E2E), `npm run test:all` (unit + E2E encadenado).
 
 ## Commands
 
@@ -300,7 +376,7 @@ cd afamar-backend
 uvicorn app.main:app --reload --port 3095
 python seed_admin.py
 alembic upgrade head
-pytest                                # 39/39
+pytest                                # 45/45
 
 # Frontend (puerto 3090)
 cd afamar-frontend
@@ -308,8 +384,10 @@ npm install
 npm run dev
 npm run build                         # tsc --noEmit && vite build
 npm run lint
-npx vitest --run                      # 191/191
-npm run test:e2e                      # budgets 13/13
+npm test                              # 191/191 (vitest)
+npm run test:e2e                      # 108/108 (playwright)
+npm run test:unit                     # pytest + vitest
+npm run test:all                      # unit + E2E encadenado (~4-5 min)
 ```
 
 ## Variables de entorno (afamar-backend/.env)

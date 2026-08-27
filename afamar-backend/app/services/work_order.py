@@ -779,12 +779,16 @@ class WorkOrderService:
             for key, value in data.items():
                 if value is not None:
                     merged[key] = value
-            _recalculate_totals_from_items(merged)
+            _recalculate_totals_from_items(self.repo.db, merged)
             # Mirror the recomputed totals into the outgoing payload so the
-            # repo.update() call below writes them back.
+            # repo.update() call below writes them back. The list-page
+            # PDF preview reads `installment_detail_*` directly from the
+            # row, so we must persist it whenever the helper recomputed
+            # it (PATCH with `materials_data` only, status flips, etc.).
             for key in (
                 "subtotal", "subtotal_usd", "total", "total_usd",
                 "balance_due", "balance_due_usd", "deposit_received", "deposit_usd",
+                "installment_detail_ars", "installment_detail_usd",
             ):
                 if key in merged:
                     data[key] = merged[key]
