@@ -1,9 +1,9 @@
 # AGENTS.md
 
-> **Estado:** Rama `development`. Última sesión 2026-08-27: **arranque confiable** — fix de migraciones para MySQL (`existing_type` en `alter_column`), sync de seeders con el catálogo de producción (dedup) y log de readiness. Ver "Fixes de arranque + seeders sync 2026-08-27" y ADR 0008 abajo.
-> `tsc --noEmit` 0 errores · `vite build` ~22s, gzip ~497 KB · vitest **191/191** · pytest **45/45** · playwright **108/108**. Reindex de codebase-memory realizado (commit de esta sesión).
+> **Estado:** Rama `development`. Últimas sesiones: **2026-08-30** — (1) cards de ALTERNATIVA A/B del presupuesto ahora muestran el MISMO "Subtotal Opción" que el PDF (material + zócalo/frente + traforos + pileta), (2) eliminado el bloque "🔒 Descuento Comercial (Solo Vendedor)" de las órdenes de trabajo (+ componente `DiscountBlock` borrado), (3) fix del buscador de materiales en `/admin/materials` (el endpoint backend ignoraba `search`), (4) la COMPARATIVA DE MEDICIÓN del PDF ahora separa cada zócalo/frente como fila de detalle indentada bajo su material (en vez de sumarlos en una sola cifra del material), (5) las filas detalle de la comparativa ahora muestran columnas Presupuestado/Real/Diferencia con unidad (m² zócalos, ml frentes) snapshotteadas al convertir (encabezados genéricos; legacy sin snapshot muestra Real + "—"), (6) **backfill** de OTs legacy (`scripts/backfill_measurement_snapshots.py`) hidrata snapshots faltantes desde el presupuesto origen (idempotente, dry-run por defecto), (7) **fix `WorkOrderUpdate.delivery_date`** — colisión de nombres Pydantic con el campo `date` (ver "Colisión `date` en WorkOrder schemas"). Ver "Cards de alternativa = subtotal del PDF" y "Descuento comercial eliminado" y "Fix buscador de materiales 2026-08-30" y "Comparativa de medición: filas de detalle" y "Backfill de snapshots 2026-08-30" y "Colisión `date` en WorkOrder schemas" abajo.
+> `tsc --noEmit` 0 errores · vitest **207/207** (18 files) · pytest **59/59** · playwright **108/108**.
 >
-> **Índice del conocimiento (codebase-memory):** **reindexado** el 2026-08-27 junto con el commit de esta sesión. ADR de arquitectura persistido en el índice (`manage_adr`) + ADR de decisión commiteado en `docs/adr/0008-database-migrations-and-seeder-sync.md`. El ADR de Fase 7 sigue en `docs/adr/0007-payment-methods-catalogue.md`.
+> **Índice del conocimiento (codebase-memory):** **reindexado** el 2026-08-27 junto con el commit de esa sesión. ADR de arquitectura persistido en el índice (`manage_adr`) + ADR de decisión commiteado en `docs/adr/0008-database-migrations-and-seeder-sync.md`. El ADR de Fase 7 sigue en `docs/adr/0007-payment-methods-catalogue.md`.
 
 ## Índice del conocimiento (codebase-memory)
 
@@ -53,7 +53,7 @@ Para el árbol completo usar `Get-ChildItem -Recurse`. Lo crítico:
 - `pages/` — English names, *.module.css co-localizado. Módulos: auth, home, dashboard, clients, budgets, work-orders, materials, pool-stock, measurements, cash, calculator, **configuration (Datos AFAMAR + PaymentMethods en tabs)**, reports, online-budgets, additional-works.
 - `components/`:
   - `ui/` — primitivas (Button, Modal, StatusBadge, ListPage).
-  - `entity/` — EntityFormFinancial, EntityFormSpecs, EntityFormClient + **EntityFormLayout** (shared form body, usado por BudgetFormPage y WorkOrderFormPage; slots: beforeLayout, observations, terms, alternativasGrid, discountBlock, extraDialogs, specsCardClassName, fabricationShowMeasurementComparison, fabricationMaterialsData, prefix).
+  - `entity/` — EntityFormFinancial, EntityFormSpecs, EntityFormClient + **EntityFormLayout** (shared form body, usado por BudgetFormPage y WorkOrderFormPage; slots: beforeLayout, observations, terms, alternativasGrid, extraDialogs, specsCardClassName, fabricationShowMeasurementComparison, fabricationMaterialsData, prefix).
   - `budget/` — **BudgetPanel** (orchestrator) + **BudgetCurrencyColumn** (ARS/USD) + **BudgetLineItems** (CONCEPTO/SUBTOTAL list; `DetailRow` con `displayValue`/`arsEquivalent`) + **BudgetPaymentSection** (payment block + tabla 3-columnas de cuotas) + BudgetPanelContext, OnlineBudgetHeader, FabricationTable, QuoteOptionsGrid, OnlineItemsTable, AdditionalWorkSection, AdditionalWorkCard, AdditionalMaterial.
   - `configuration/` — **PaymentMethodsTable** + **PaymentMethodForm** (Fase 7) + PaymentMethods (page, montado desde ConfigurationPage tab).
   - Otros: `common/` (Loading, ConfirmDialog, PdfPreviewModal, ClientHistoryCard, WorkOrdersTable, AdditionalWorksTable, AdditionalWorkForm, MeasurementPhotoGrid, LinearMetersInput), `cash/`, `materials/`, `pool-stock/`, `orders/` (ClientSection, ClientTypeahead, AddressPicker, NewClientModal, ClientInfoCard, ApprovalSection, ObservationsSection, FormHeader, FormFooter), `sketch/`, `signature/`, `calculator/` (PorcelainTileCalculator + PorcelainCalculatorSection embebida en Presupuesto/OT, full + wizard modes), `measurements/`, `home/`.
@@ -155,7 +155,7 @@ Acepta `extraPayloadFields?: () => Partial<Record<string, unknown>>` para inyecc
 
 ## EntityFormLayout (shared form body)
 
-`src/components/entity/EntityFormLayout.tsx` — extrae el ~80% del JSX compartido entre `BudgetFormPage` y `WorkOrderFormPage`. Slots: `beforeLayout`, `observations`, `terms` (array configurable), `alternativasGrid` (`QuoteOptionsGrid` o `AlternativeBudgetGrid`), `discountBlock` (solo WO), `extraDialogs`, `specsCardClassName`, `fabricationShowMeasurementComparison` / `fabricationMaterialsData` (solo WO), `prefix` (CSS class prefix).
+`src/components/entity/EntityFormLayout.tsx` — extrae el ~80% del JSX compartido entre `BudgetFormPage` y `WorkOrderFormPage`. Slots: `beforeLayout`, `observations`, `terms` (array configurable), `alternativasGrid` (`QuoteOptionsGrid` o `AlternativeBudgetGrid`), `extraDialogs`, `specsCardClassName`, `fabricationShowMeasurementComparison` / `fabricationMaterialsData` (solo WO), `prefix` (CSS class prefix). (El slot `discountBlock` fue eliminado el 2026-08-30 — ver "Descuento comercial eliminado de OT" abajo.)
 
 El header (`FormHeader` con status/approve/convert/WhatsApp) queda en cada página porque es demasiado diferente para abstraer.
 
@@ -171,7 +171,7 @@ El handler `addPorcelainDetail` se construye desde `state.update` y `state.form`
 
 **Estrategia:** hooks (pure logic) usan `renderHook` con `useState` real. Para hooks con TanStack Query, wrap con `QueryClientProvider` + `QueryClient` con `retry: false`. Render usa `screen.getByText/Role/Title`. Wrap con `MemoryRouter` si el componente usa `useNavigate`. Los tests deben validar que los errores se surfacean al caller, no que se swallean silenciosamente.
 
-**Coverage actual (191 tests, 16 archivos):**
+**Coverage actual (204 tests, 18 archivos):** (a este listado se agregó `src/utils/budgetOptions.test.ts` — 4 tests de las cards de alternativa, 2026-08-30; el resto del listado de archivos no se re-escribió en detalle)
 - `src/hooks/useConfirmPayment.test.tsx` — 5
 - `src/hooks/useBudgetQuoteCalculations.test.ts` — 10
 - `src/hooks/useBudgetCalculations.test.tsx` — 22 (totals, descuentos, **recargo cuota 1=9%/2=13.5%/3=18% con `incrementalInterestRatio`**, alternativa override, deposit, USD=0/+27%, additional_works_data re-pointing deps, **detalle de cuotas con interes incremental**)
@@ -397,7 +397,7 @@ npm install
 npm run dev
 npm run build                         # tsc --noEmit && vite build
 npm run lint
-npm test                              # 191/191 (vitest)
+npm test                              # 204/204 (vitest)
 npm run test:e2e                      # 108/108 (playwright)
 npm run test:unit                     # pytest + vitest
 npm run test:all                      # unit + E2E encadenado (~4-5 min)
@@ -440,3 +440,112 @@ Properties que resuelven la ruta absoluta (relativa a `BASE_DIR = afamar-backend
 - **`online_budgets`** — tabla dropeada via migración `11e4cc1657da`. Sin código activo.
 - **`BudgetAdicional`** legacy table — preservada como read-only. `BudgetService.create/update` ya no escriben filas nuevas (el `create` aún acepta la lista legacy en el input por compat y la convierte on-the-fly a `additional_works_data` JSON). `work_order.py:convert_alternative_to_work_order` la lee para propagar a la OT nueva. Drop completo requiere migración one-time.
 - **`app/services/pdf.py` (740 LOC, reportlab)** — eliminado (6.11). 100% sin imports, superseded por `pdf_html.py` (xhtml2pdf) para downloads/email y `@react-pdf/renderer` para preview. `reportlab` se mantiene en requirements.txt (lo usa `pdf_html.py` para el footer de páginas).
+
+## Cards de alternativa = subtotal del PDF (2026-08-30)
+
+Las tarjetas de ALTERNATIVA A/B del formulario de presupuesto (`QuoteOptionsGrid`) ahora muestran el **mismo "Subtotal Opción" que dibuja el PDF** (material + zócalo/frente revaluados por opción + traforos + pileta), en vez del viejo material + pileta. Elección del usuario (via question): **igualar el SUBTOTAL del PDF** SIN recargo/descuento de tarjeta ni depósito.
+
+**Clave de diseño:** las cards reutilizan la **misma orquestación `buildSections`** que el PDF para que nunca diverjan (convención de la sesión anterior: zócalo/frente revaluados en `buildSectionData.ts`/`pdfTypes.ts`).
+
+- `afamar-frontend/src/utils/pdf/buildPdfData.ts` — nuevo **`buildAlternativeSections(form)`** (export) que devuelve `{ sections, usdRate }` reusing `asMaterials`/`asPools`/`buildFabricationRows`/`buildAdditionalWorksRows`/`bucketAdditionalWorks`/`buildSections`. Import type `MaterialSection` agregado.
+- `afamar-frontend/src/utils/budgetOptions.ts` — `AlternativaLike` + `subtotalARS?`/`subtotalUSD?`/`detail?`; `interface AlternativaDetailRow { concept, quantity?, total, currency, materialName? }`; `BuildOptionArgs` + `subtotalARS?`/`subtotalUSD?`/`detail?`; `buildOptionFromMaterial` usa `subtotalARS` como `totalFinalARS` cuando se provee; nuevo **`buildDetailFromSection(section)`** para líneas (zócalo/fabricación + pileta + adicionales con frente) en moneda nativa — excluye material base (va en "Costo Material base"). Import type `MaterialSection` de `./pdf/pdfTypes`.
+- `afamar-frontend/src/components/budget/QuoteOptionsGrid/QuoteOptionsGrid.tsx` — `Alternativa` + `subtotalARS`/`subtotalUSD`/`detail` y `AlternativaDetailRow`; en `renderCard` calcula `arsTotal`/`usdTotal` (usa subtotales si presentes, si no fallback legacy); celdas SUBTOTALES/TOTAL/SALDO ARS y USD usan `arsTotal`/`usdTotal`; bloque de detalle renderiza `mat.detail` si presente, si no el filtro legacy `listaTrabajos`.
+- `afamar-frontend/src/pages/budgets/BudgetFormPage.tsx` — import `buildDetailFromSection`, `buildAlternativeSections`, `useMemo`; memo `altSections` (filtra `!s.is_main && !s.is_global`, deps `JSON.stringify` de materials/pools/fabrication/additional + usd_rate); `buildAltOption` matchea por `s.material_name === mat.name` y adjunta subtotales/detail; grid usa `alternativas={matsAlt.map(buildAltOption)}`.
+- Test nuevo `afamar-frontend/src/utils/budgetOptions.test.ts` (4 tests) reproduciendo P-000004 con rate 1535: subtotales ZIRCONIUM **4.439.561,60 ARS / 2.892,22 USD** (material 1580.25 USD + zócalo 247.50 + frente 370.01 + traforos 130000 + pileta 936000) y GRIS MARA **1.593.463,00 / 1.038,09**, detalle por opción, propagación de subtotales y fallback legacy. `costoMaterialBase` ZIRCONIUM = 945 (1.26×750, panes representativos, fila separada del subtotal).
+- Contexto de P-000004 (presupuesto id 4): ZIRCONIUM id27 ×2 (2.1×0.6=1.26 m² y 1.54×0.55=0.847 m², USD 750/m²) + GRIS MARA id1 ×2 (ARS 180000/m²), todos `is_alternative=true`, sin main, `usd_rate=1535`. `fabrication_details` = 1 fila zócalo BASEBOARD (price 0, m2 0.33). `additional_works_data` = Traforo de Pileta (60000 ARS flat, `__GLOBAL__`) + Traforo de Anafe (70000 ARS flat, `__GLOBAL__`) + Frente Ingletetado 45° (`type:"frente"`, price 0, legacy `materialName:"ZIRCONIUM"`, `assigned_material_id:null`, `linear_meters:3.3`). Pool JOHNSON SIGNATURE AXIS 55 B: 936000 ARS global. Fórmula frente: `precio_m² × 0.13 (FRENTE_LINEAR_COEFFICIENT) × 1.15 (FRENTE_FORMULA_MULTIPLIER_DEFAULT) × linear_meters (3.3)`.
+- Verificación: `tsc --noEmit` limpio · vitest **204/204** (18 files, +4). ESLint sin errores nuevos (solo baseline preexistente + warnings exhaustive-deps del `useMemo` siguiendo convención repo).
+
+## Descuento comercial eliminado de OT (2026-08-30)
+
+Eliminado el bloque "🔒 Descuento Comercial (Solo Vendedor)" del formulario de órdenes de trabajo, porque los descuentos ahora viven en los **métodos de pago** de la configuración (base de datos), no en el código.
+
+- `afamar-frontend/src/pages/work-orders/WorkOrderFormPage.tsx` — eliminado el bloque `discountBlock` (input % / $ + hint) y el prop `discountBlock` al `EntityFormLayout`.
+- `afamar-frontend/src/components/entity/EntityFormLayout.tsx` / `EntityFormFinancial.tsx` — removido el prop `discountBlock` del doc-comment, tipo, destructure y forwards. (OJO: el AGENTS.md anterior aún menciona `discountBlock` como slot de EntityFormLayout — **ya no existe**. Actualizar si se toca esa parte.)
+- `afamar-frontend/src/components/budget/BudgetPanel/BudgetPanel.tsx` / `BudgetPaymentSection.tsx` — removido el prop `discountBlock`.
+- **Componente borrado:** `afamar-frontend/src/components/ui/DiscountBlock/` (`.tsx` + `.module.css`) — confirmado huérfano (sin imports, sin barrels `index.*` en `components/ui`), eliminado por completo.
+- Nota: los campos manuales `discount_percentage`/`discount_fixed_amount` **siguen existiendo** en el modelo de datos/backend (no se tocaron); solo se removió la UI en el form de OT. Los tests NO cubren QuoteOptionsGrid ni budgetOptions (menos riesgo).
+- Verificación: `tsc --noEmit` limpio · vitest **204/204** (BudgetPanel.test, etc. intactos).
+
+## Fix buscador de materiales 2026-08-30
+
+El search en `/admin/materials` no filtraba: escribir un término no hacía nada. **Causa raíz:** el endpoint backend `list_materials` (`afamar-backend/app/api/routers/materials.py`) **no aceptaba el parámetro `search`**. El frontend envía `search:` al tipear (vía `useEntityList` → cambia la query key → refetch), pero el backend lo ignoraba silenciosamente.
+
+**Fix:** agregado `search: str | None = None` al endpoint `list_materials` + filtro case-insensitive con `or_` sobre `Material.name` y `Material.supplier` (`ilike`), aplicado ANTES de `category_id`/`color_id` y de `paginate`. `paginate` ya cuenta el total de la query filtrada, así que la paginación y el `total` del frontend siguen correctos. Import `from sqlalchemy import or_` agregado.
+
+- Ejemplo buscado por el usuario: "negro absoluto" (nombre de material).
+- OJO: `Material` **no tiene columna `color`** — el color vive en `MaterialColor` vía relación `color_obj`. Intentar `Material.color.ilike(...)` rompe el query build. Solo se filtran `name` y `supplier` (columnas reales).
+- Verificación: pytest backend **45/45** pasan.
+- Convención del mismo estilo ya existente en `list_pool_stock` (`app/api/routers/pool_stock.py`): param `search` en el list endpoint + `or_`/`ilike` en el service, con skip/limit sobre el resultado filtrado.
+
+## Comparativa de medición: filas de detalle (2026-08-30)
+
+La COMPARATIVA DE MEDICIÓN del PDF de órdenes de trabajo (vista previa `DocumentPdf` + descarga legacy) muestra cada **zócalo/frente** como **fila de detalle indentada** bajo su material. Cada detalle lleva su **subtotal ARS/USD con signo** (delta monetario) **más sus columnas de medida con unidad** — m² para zócalos, ml (metros lineales) para frentes. Elección del usuario (via question): filas detalle indentadas, con **ambos orígenes** (fabricación + catálogo) y con medida real siempre visible.
+
+**Formato por material (encabezados genéricos — la unidad vive en cada celda):**
+```
+                Presupuestado   Real   Diferencia   Subtotal ARS   Subtotal USD
+Miami White     2,00 m²         2,20 m²  +0,20 m²    +$ 45.000,00   +USD 30,00
+   Zócalo       0,34 m²         0,42 m²  +0,08 m²    +$ 12.000,00   +USD 6,00
+   Frente       3 ml            3 ml     0 ml        +$ 35.000,00   +USD 22,00
+```
+- La fila del **material** conserva las columnas M² Presupuestado/Real/Diferencia y su subtotal = **SOLO** el delta de su propio m² `(real − presup) × precio/m²`.
+- Cada **fila detalle** (`is_detail: true`) muestra su subtotal ARS/USD con signo (`+`/`−`) Y sus medidas (Presupuestado/Real/Diferencia) con unidad `m²`/`ml`. Label: fabricación → `conceptToDisplay` + nombre del material (ej. "Zócalo Miami White"); catálogo → `name` del trabajo adicional (ej. "Frente Ingletetado 45°"). Trabajos `flat` asignados a un material: SÍ salen como detalle pero con medidas `—` (no tienen medida).
+- **Medida "Real"** = estado actual de la OT (`length × width × quantity` para M², `linear_meters` para el frente). **Medida "Presupuestado/Diferencia"** = snapshot `m2_budgeted`/`linear_meters_budgeted` tomado al convertir (ver abajo). **OTs legacy sin snapshot dimensional** muestran Real + budgeted/delta `—` (ej. el frente de A-000003 re-congelado post-conversión: real `3 ml`, presup `—`).
+- **Los ítems detalle SIEMPRE se muestran**, incluso con delta `0,00` (OTs sin snapshot o ítems sin cambios) — decisión del usuario para que el cliente vea la composición completa: material + zócalo + frente. `signedMoney(0)` → `"0,00"`.
+- La **fila TOTAL** suma todos los subtotales (materiales + detalles). Sus celdas de medida quedan `—` (unidades mixtas m²/ml, no se suman). Globales/sin-match se omiten (siguen viéndose en su propia tabla ADICIONALES).
+
+**Snapshots al convertir (`work_order.py::create_from_budget`):** `fabrication_details` → `m2_budgeted` (`length×width×quantity`, conceptos M2) o `linear_meters_budgeted` (`length×quantity`, conceptos lineales); `additional_works_data` → `linear_meters_budgeted` para `type == 'frente'`. Encabezados de la tabla: "Presupuestado / Real / Diferencia" (sin "M²" — mixto m²/ml, unidad por celda).
+
+**Cambios por capa (los 2 builders deben mantenerse en sync):**
+- `afamar-frontend/src/utils/pdf/buildSectionData.ts` — `buildMeasurementComparison` emite filas planas (material → sus detalles → siguiente material); `detailRow(label, ars, usd, signed, measure)` formatea medidas con unidad; el detalle viene de `fabrication_details` (match `material`, unidad por `M2_CONCEPTS`/`LINEAR_CONCEPTS`) y `additional_works_data` (match `materialName` desprefijado, omite `POOL_MATERIAL_GLOBAL`/`__ALT__:`; frentes → ml). El subtotal del material ya NO incluye los deltas vinculados.
+- `afamar-frontend/src/utils/pdf/pdfTypes.ts` — `MeasurementComparisonRow` ganó `is_detail?`, `measure_budgeted/real/delta`, `measure_unit: 'm2' | 'ml' | null` y `measure_*_str` pre-formateadas con unidad.
+- `afamar-frontend/src/components/ui/PdfPreviewModal/DocumentPdf.tsx` — `COMPARISON_HEADERS` genéricos (`Concepto | Presupuestado | Real | Diferencia | Subtotal ARS | Subtotal USD`); `comparisonRowCells` indenta detalles con NBSP (`\u00A0`) y llena las 3 celdas de medida desde `measure_*_str`; `comparisonRowsWithTotal` suma TODO.
+- `afamar-backend/app/services/pdf_html.py` — `_build_measurement_comparison` replicado (detalle con `measure_*_str`/`measure_unit`, sets `_FAB_M2_CONCEPTS`/`_FAB_LINEAR_CONCEPTS`, helper `_measure_str`); `work_order.py::create_from_budget` agrega los snapshots dimensionales. Total ARS/USD siguen sumándose en `build_work_order_pdf_data`.
+- `afamar-backend/app/templates/document_pdf.html` — encabezados genéricos; `<tr>` detalle con clase `detail-cell` (padding-left) renderiza `c.measure_budgeted_str/measure_real_str/measure_delta_str`.
+
+**Verificación:** `tsc --noEmit` limpio · vitest **207/207** · pytest **58/58**. El test "emits linked zócalo/frente as indented detail rows…" cubre medidas con snapshot (zócalo `0,34 → 0,42 m² +0,08`, frente `3 ml → 3 ml 0`); el test "always emits linked detail rows even when the delta is zero…" cubre el legacy A-000003 (real visible, presup/delta `—`). Backend: **6 tests nuevos** en `tests/test_measurement_comparison.py` (material propio delta; zócalo con/sin snapshot; frente ml; flat sin medida; globales/unmatched omitidos) + **7 tests** del backfill en `tests/test_backfill_measurement_snapshots.py` (hidrata missing, preserva existentes, idempotente, duplicados posicionales, unmatched/global/no-budget skip).
+
+## Backfill de snapshots 2026-08-30
+
+El A-000003 (convertido antes que existieran los snapshots dimensionales, con el frente re-frozen post-conversión) mostró que la columna "Presupuestado" podía decir "—" y el subtotal "$0,00" cuando en realidad el frente **había subido de 2,5 ml a 3 ml** (+$ 40.170,95 / +USD 26,17). El script `afamar-backend/scripts/backfill_measurement_snapshots.py` resuelve esto one-shot: lee `wo.budget_id` y matchea cada fila de la OT con la fila correspondiente del presupuesto origen (fabricación por `concept+material`; adicionales por `additional_work_id` con fallback `(name+materialName)` desprefijando `__ALT__:`), hidratando `m2_budgeted` / `linear_meters_budgeted` / `total_*_budgeted` desde la fila del presupuesto. Mismas fórmulas de cálculo que `create_from_budget`. Idempotente (solo rellena lo faltante, nunca pisa snapshots existentes) + dry-run por defecto. Globales (`__GLOBAL__`/`POOL_MATERIAL_GLOBAL`) y unmatched → skip contados.
+
+**Uso (con venv Python):**
+```bash
+# Ver qué cambiaría (sin escribir)
+.\venv\Scripts\python.exe scripts/backfill_measurement_snapshots.py --work-order 3
+.\venv\Scripts\python.exe scripts/backfill_measurement_snapshots.py             # todas las OTs
+
+# Aplicar (commit per-OT al final)
+.\venv\Scripts\python.exe scripts/backfill_measurement_snapshots.py --fix
+
+# Docker
+docker exec afamar-backend python scripts/backfill_measurement_snapshots.py
+docker exec afamar-backend python scripts/backfill_measurement_snapshots.py --fix
+```
+
+El A-000003 después del backfill: `Zócalo FORTALEZA 0,105 → 0,1 m² -0,005 m² -$1.842 / USD -1,20` + `Frente Ingletetado 45° 2,5 → 3 ml +0,5 ml +$40.170,95 / +USD 26,17`. Funciona para preview y descarga porque escribe los snapshots en el JSON de la propia OT (sin cambios de API/schema). Las OTs sin `budget_id` o con presupuesto eliminado quedan en `—/$0,00` (sin match posible).
+
+## Colisión `date` en WorkOrder schemas (2026-08-30)
+
+Síntoma: el operador guarda la OT (seña USD + fecha de entrega) y la API responde `422 Input should be None, input: '2026-09-11'` sobre `body.delivery_date`. El campo acepta el `deposit_*` pero rechaza cualquier valor no-None en `delivery_date`.
+
+**Causa raíz** (Pydantic 2.13 + Python 3.14): el módulo `app/schemas/work_order.py` importaba `from datetime import date, datetime` y declaraba `delivery_date: Optional[date] = None` en una clase con un campo literal llamado `date` (`WorkOrderBase.date: Optional[datetime] = None`, la fecha del documento). El statement `date: ... = None` en el cuerpo de la clase crea `cls.date = None`. Cuando Pydantic arma el modelo, su `ModelMetaclass.__new__` re-evalúa los `__annotations__` usando `localns=cls.__dict__`; el lookup de `date` resuelve a `None`, y la anotación `Optional[date]` colapsa silenciosamente a `Optional[None]` = `NoneType`. El campo termina aceptando sólo `None` aunque el código fuente diga lo contrario. Ningún validator custom, ningún `field_validator`, ningún `model_validator` — el bug está en la resolución de nombres de Pydantic. Reproduce en aislado:
+
+```python
+from datetime import date, datetime
+from typing import Optional
+from pydantic import BaseModel
+class T(BaseModel):
+    a: Optional[date] = None   # se re-evalúa cuando `date` ya es class attr
+    date: Optional[datetime] = None  # crea cls.date = None
+print(T.model_fields['a'].annotation)  # NoneType (bug)
+```
+
+**Fix** en `afamar-backend/app/schemas/work_order.py`:
+- Cambiar el import de `from datetime import date, datetime` a `import datetime` (así el módulo `datetime` queda en el namespace y sus atributos `datetime.date`/`datetime.datetime` no chocan con el campo).
+- Cambiar las dos anotaciones `delivery_date: Optional[date]` (líneas 51, 119) a `Optional[datetime.date]`.
+- Cambiar todas las demás `Optional[datetime]` y `datetime` pelados (líneas 75, 112, 121, 136, 146, 147, 148, 149) a `Optional[datetime.datetime]` / `datetime.datetime`, porque ahora `datetime` es el módulo, no la clase.
+
+**Regla**: en cualquier schema Pydantic, **nunca combinar `from datetime import datetime` con un campo cuyo nombre colisione con un tipo del módulo `datetime`** (`date`, `datetime`, `time`, `timedelta`, `tzinfo`). Si el campo se llama `date`, usar `import datetime` + `datetime.date` para el tipo. Misma regla aplica a cualquier otro módulo que importes nombres que un field pueda shadowear.
+
+**Regression sentinel** en `tests/test_work_order_update.py::test_work_order_update_accepts_delivery_date_string`: asserta `WorkOrderUpdate.model_fields['delivery_date'].annotation == date | None` (cualquier valor distinto significa que la colisión volvió).

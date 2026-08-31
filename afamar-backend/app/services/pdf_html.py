@@ -12,6 +12,8 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from PIL import Image as PILImage, ImageDraw
 from xhtml2pdf import pisa
 
+from app.core.settings import settings
+
 _TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates"
 _env = Environment(
     loader=FileSystemLoader(str(_TEMPLATE_DIR)),
@@ -739,6 +741,213 @@ def build_budget_pdf_data(budget_data: dict, client_dict: dict, company: dict, t
     }
 
 
+def _parse_raw_list(raw):
+    """Parse a JSON array (string or list) into a list of dicts, else []."""
+    if not raw:
+        return []
+    import json as _json
+    try:
+        parsed = _json.loads(raw) if isinstance(raw, str) else raw
+        return parsed if isinstance(parsed, list) else []
+    except (_json.JSONDecodeError, TypeError):
+        return []
+
+
+def _build_measurement_comparison(
+    materiales_raw: list,
+    usd_rate: float = 0,
+    fabrication_raw: str = None,
+    additional_raw: str = None,
+) -> list[dict]:
+    """Build "COMPARATIVA DE MEDICIÓN" rows from `materials_data`.
+
+    One primary row per main material with its M² Real (length × width ×
+    quantity), M² Presupuestado (the snapshot `m2_budgeted` taken at
+    conversion time) and their Diferencia. Only main materials participate
+    (alternatives are filtered out upstream by `filter_main_materials`).
+
+    Each primary row carries a monetary DIFERENCIA subtotal (ARS + USD): the
+    price of the m² delta `(real − budgeted) × price/m²` in the material's
+    native currency, converted to both currencies with `usd_rate` — i.e. the
+    material's own delta ONLY.
+
+    Directly below each material, linked zócalo/frente rows are emitted as
+    indented detail rows (`is_detail=True`) showing only their own monetary
+    delta (ARS + USD, signed) — one line per linked row from BOTH sources
+    (fabrication_details + additional_works_data) whose `material` /
+    `materialName` matches the material's name. A linked row's delta is
+    `subtotal − total_*_budgeted` (snapshot taken at conversion), capturing
+    measure (M²/ML) and material re-assignment changes. Global / unmatched
+    rows are ignored.
+    """
+
+    def _delta(actual, budgeted):
+        return 0 if budgeted is None else actual - budgeted
+
+    def _signed(value):
+        return f"{'+' if value > 0 else ''}{_fmt_money(value)}"
+
+    def _measure_str(value, unit, sign=False):
+        if value is None or not unit:
+            return None
+        body = f"{'+' if sign and value > 0 else ''}{_fmt_num(value)}"
+        return f"{body} {unit}"
+
+    _FAB_M2_CONCEPTS = {"LENGTH", "BASEBOARD", "FRONT", "LARGO", "ZOCALOS", "FRENTE"}
+    _FAB_LINEAR_CONCEPTS = {"TERMINACION"}
+
+    _FAB_LABELS = {
+        "BASEBOARD": "Zócalo",
+        "ZOCALOS": "Zócalo",
+        "FRONT": "Frente",
+        "FRENTE": "Frente",
+        "LENGTH": "Longitud",
+        "TERMINACION": "Terminación",
+    }
+
+    fabrication_items = _parse_raw_list(fabrication_raw)
+    additional_items = _parse_raw_list(additional_raw)
+
+    rows = []
+    for mat in materiales_raw or []:
+        if not isinstance(mat, dict):
+            continue
+        length = float(mat.get("length") or mat.get("largo") or 0)
+        width = float(mat.get("width") or mat.get("ancho") or 0)
+        quantity = float(mat.get("quantity") or mat.get("cantidad") or 1)
+        m2_real = length * width * quantity
+        m2_budgeted = float(mat.get("m2_budgeted") or 0)
+        delta = m2_real - m2_budgeted
+        currency = "USD" if str(mat.get("currency") or "").upper() == "USD" else "ARS"
+        price_m2 = (
+            float(mat.get("price_m2_usd") or mat.get("precio_m2_usd") or 0)
+            if currency == "USD"
+            else float(mat.get("price_m2") or mat.get("precio_m2") or 0)
+        )
+        delta_native = delta * price_m2
+        subtotal_ars = delta_native if currency == "ARS" else (delta_native * usd_rate if usd_rate > 0 else 0)
+        subtotal_usd = delta_native if currency == "USD" else (delta_native / usd_rate if usd_rate > 0 else 0)
+        name = mat.get("name") or mat.get("nombre") or ""
+
+        if m2_real > 0 or m2_budgeted > 0:
+            rows.append({
+                "name": name,
+                "is_detail": False,
+                "m2_budgeted_str": _fmt_num(m2_budgeted) if m2_budgeted else None,
+                "m2_real_str": _fmt_num(m2_real),
+                "delta_str": f"{'+' if delta > 0 else ''}{_fmt_num(delta)}" if m2_budgeted else None,
+                "subtotal_ars_str": _signed(subtotal_ars) if m2_budgeted else None,
+                "subtotal_usd_str": _signed(subtotal_usd) if m2_budgeted else None,
+                "subtotal_ars": subtotal_ars,
+                "subtotal_usd": subtotal_usd,
+            })
+
+        # Indented detail rows — zócalo/frente from the fabrication table.
+        for d in fabrication_items:
+            mat_name = (d.get("material") or d.get("material_name") or "").strip()
+            if not mat_name or mat_name != name:
+                continue
+            d_currency = "USD" if str(d.get("currency") or "").upper() == "USD" else "ARS"
+            line_total = float(d.get("price") or d.get("precio") or 0) * float(d.get("quantity") or d.get("cantidad") or 1)
+            line_ars = line_total if d_currency == "ARS" else (line_total * usd_rate if usd_rate > 0 else 0)
+            line_usd = line_total if d_currency == "USD" else (line_total / usd_rate if usd_rate > 0 else 0)
+            d_ars = _delta(line_ars, d.get("total_ars_budgeted"))
+            d_usd = _delta(line_usd, d.get("total_usd_budgeted"))
+            concept_code = str(d.get("concept") or d.get("concepto") or "").strip().upper()
+            label = f"{_FAB_LABELS.get(concept_code, concept_code or 'Trabajo de fabricación')} {name}".strip()
+            # Measure unit follows the concept: m² for zócalos/frentes, ml for
+            # linear work. Budgeted = the `m2_budgeted` / `linear_meters_budgeted`
+            # snapshot taken at conversion; legacy rows without it show '—'.
+            fd_length = float(d.get("length") or d.get("largo") or 0)
+            fd_width = float(d.get("width") or d.get("ancho") or 0)
+            fd_qty = float(d.get("quantity") or d.get("cantidad") or 1)
+            if concept_code in _FAB_M2_CONCEPTS:
+                unit = "m²"
+                real = fd_length * fd_width * fd_qty
+                budgeted = d.get("m2_budgeted")
+                budgeted = None if budgeted is None else float(budgeted)
+            elif concept_code in _FAB_LINEAR_CONCEPTS:
+                unit = "ml"
+                real = fd_length * fd_qty
+                budgeted = d.get("linear_meters_budgeted")
+                budgeted = None if budgeted is None else float(budgeted)
+            else:
+                unit = None
+                real = None
+                budgeted = None
+            d_delta = None if (budgeted is None or real is None) else real - budgeted
+            rows.append({
+                "name": label,
+                "is_detail": True,
+                "m2_budgeted_str": None,
+                "m2_real_str": None,
+                "delta_str": None,
+                "measure_budgeted": budgeted,
+                "measure_real": real,
+                "measure_delta": d_delta,
+                "measure_unit": unit,
+                "measure_budgeted_str": _measure_str(budgeted, unit),
+                "measure_real_str": _measure_str(real, unit),
+                "measure_delta_str": _measure_str(d_delta, unit, sign=True),
+                "subtotal_ars_str": _signed(d_ars),
+                "subtotal_usd_str": _signed(d_usd),
+                "subtotal_ars": d_ars,
+                "subtotal_usd": d_usd,
+            })
+
+        # Indented detail rows — frentes/adicionales from the catalogue,
+        # assigned to this material (globals are shown separately).
+        for r in additional_items:
+            raw_mat = str(r.get("materialName") or r.get("material_name") or "")
+            if not raw_mat or raw_mat == "POOL_MATERIAL_GLOBAL":
+                continue
+            if raw_mat.startswith("__ALT__:"):
+                raw_mat = raw_mat[len("__ALT__:"):]
+            if raw_mat != name:
+                continue
+            r_currency = "USD" if str(r.get("currency") or "").upper() == "USD" else "ARS"
+            price = float(r.get("price") or 0)
+            quantity = float(r.get("quantity") or 1)
+            total_src = float(r.get("total") or price * quantity)
+            line_ars = total_src if r_currency == "ARS" else (total_src * usd_rate if usd_rate > 0 else 0)
+            line_usd = total_src if r_currency == "USD" else (total_src / usd_rate if usd_rate > 0 else 0)
+            d_ars = _delta(line_ars, r.get("total_ars_budgeted"))
+            d_usd = _delta(line_usd, r.get("total_usd_budgeted"))
+            label = str(r.get("name") or "Trabajo adicional")
+            # Frentes are measured in ml (snapshot `linear_meters_budgeted`);
+            # flat works carry no measure at all.
+            is_frente = str(r.get("type") or "").lower() == "frente"
+            if is_frente:
+                unit = "ml"
+                real = None if r.get("linear_meters") is None else float(r.get("linear_meters"))
+                budgeted = r.get("linear_meters_budgeted")
+                budgeted = None if budgeted is None else float(budgeted)
+            else:
+                unit = None
+                real = None
+                budgeted = None
+            r_delta = None if (budgeted is None or real is None) else real - budgeted
+            rows.append({
+                "name": label,
+                "is_detail": True,
+                "m2_budgeted_str": None,
+                "m2_real_str": None,
+                "delta_str": None,
+                "measure_budgeted": budgeted,
+                "measure_real": real,
+                "measure_delta": r_delta,
+                "measure_unit": unit,
+                "measure_budgeted_str": _measure_str(budgeted, unit),
+                "measure_real_str": _measure_str(real, unit),
+                "measure_delta_str": _measure_str(r_delta, unit, sign=True),
+                "subtotal_ars_str": _signed(d_ars),
+                "subtotal_usd_str": _signed(d_usd),
+                "subtotal_ars": d_ars,
+                "subtotal_usd": d_usd,
+            })
+    return rows
+
+
 def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict, terms: dict, db=None) -> dict:
     from app.services.budget_calculator import filter_main_materials, parse_materials_data
 
@@ -752,10 +961,45 @@ def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict
     total_ars = float(order_data.get("total") or 0)
     total_usd_val = float(order_data.get("total_usd") or 0)
     sena = float(order_data.get("deposit_received") or 0)
+    deposit_usd = float(order_data.get("deposit_usd") or 0)
+    deposit_currency = (order_data.get("deposit_currency") or "ARS").upper()
+    # The Seña row mirrors the frontend preview: it always shows the
+    # native amount (USD when `deposit_currency == 'USD'`, ARS otherwise)
+    # alongside its converted equivalent so the customer has both on
+    # paper. Derived server-side because the legacy xhtml2pdf template
+    # can't compute.
+    usd_rate_for_pdf = float(order_data.get("usd_rate") or settings.DEFAULT_USD_RATE)
+    deposit_ars_equivalent = (
+        deposit_usd * usd_rate_for_pdf if deposit_currency == "USD" and usd_rate_for_pdf > 0
+        else sena
+    )
+    deposit_usd_equivalent = (
+        sena / usd_rate_for_pdf if deposit_currency != "USD" and usd_rate_for_pdf > 0
+        else deposit_usd
+    )
     saldo = max(0, float(order_data.get("balance_due") or (total_ars - sena)))
 
     important_obs = order_data.get("important_observations") or ""
     status = order_data.get("status", "")
+
+    # COMPARATIVA DE MEDICIÓN — only for work orders, and only when the
+    # per-order flag is true (toggled in the form; defaults to on). Rows
+    # are always computed from `materials_data` so the template can render
+    # them without further parsing. Only main materials participate
+    # (alternatives are filtered out by `filter_main_materials`), matching
+    # the form's table.
+    include_comparison = bool(order_data.get("include_measurement_comparison_in_pdf", True))
+    usd_rate_value = float(order_data.get("usd_rate") or 0) or settings.DEFAULT_USD_RATE
+    measurement_comparison = (
+        _build_measurement_comparison(
+            main_materials,
+            usd_rate_value,
+            order_data.get("fabrication_details"),
+            order_data.get("additional_works_data"),
+        )
+        if include_comparison
+        else []
+    )
 
     return {
         # Header
@@ -782,6 +1026,18 @@ def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict
         # Materials (English field names with computed m2/subtotal)
         "materials": materials,
 
+        # COMPARATIVA DE MEDICIÓN (Concepto | M² Real | M² Presupuestado |
+        # Diferencia). Empty when the per-order flag is off.
+        "measurement_comparison": measurement_comparison,
+        "measurement_comparison_total_ars": (
+            f"{'+' if (t := sum(r['subtotal_ars'] for r in measurement_comparison)) > 0 else ''}{_fmt_money(t)}"
+            if measurement_comparison else ""
+        ),
+        "measurement_comparison_total_usd": (
+            f"{'+' if (t := sum(r['subtotal_usd'] for r in measurement_comparison)) > 0 else ''}{_fmt_money(t)}"
+            if measurement_comparison else ""
+        ),
+
         # Pools (English field names with computed subtotal)
         "pools": pools,
 
@@ -791,6 +1047,10 @@ def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict
         "discount_percentage": float(order_data.get("discount_percentage") or 0),
         "discount_fixed_amount": float(order_data.get("discount_fixed_amount") or 0),
         "deposit_received": sena,
+        "deposit_usd": deposit_usd,
+        "deposit_currency": deposit_currency,
+        "deposit_ars_equivalent": deposit_ars_equivalent,
+        "deposit_usd_equivalent": deposit_usd_equivalent,
         "balance_due": saldo,
         "total": total_ars,
         "total_usd": total_usd_val,

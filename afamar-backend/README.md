@@ -62,6 +62,50 @@ db.close()
 # esperás: las 4 filas en español
 
 
+## 🌱 Seeders (por modelo, manual)
+
+El seeder **ya no corre automático al levantar el servidor**. Se ejecuta a mano,
+por modelo, con `scripts.seed`. Cada modelo tiene su propio seeder en
+`scripts/seeders/` y se invoca con `--only <nombre>`. Son **idempotentes**
+(re-ejecutables sin duplicar ni pisar datos manuales).
+
+Orden recomendado (respetá las dependencias entre tablas):
+
+| Orden | Seeder | Depende de |
+|---|---|---|
+| 1 | `settings` | — |
+| 2 | `categories` | — |
+| 3 | `colors` | — |
+| 4 | `pool_types` | — |
+| 5 | `materials` | categories + colors |
+| 6 | `pool_stock` | pool_types + materials |
+| 7 | `additional_works` | — |
+| 8 | `payment_methods` | — |
+| 9 | `users` | — |
+
+- Correr todo en orden (mismo resultado que uno por uno):
+```bash
+# Local
+.\venv\Scripts\python.exe -m scripts.seed
+# Dockerizado
+docker exec -it afamar-backend python -m scripts.seed
+```
+
+- Un seeder individual:
+```bash
+# Local
+.\venv\Scripts\python.exe -m scripts.seed --only materials
+# Dockerizado
+docker exec -it afamar-backend python -m scripts.seed --only materials
+```
+
+- Un subconjunto / resetear la contraseña del admin:
+```bash
+.\venv\Scripts\python.exe -m scripts.seed --only categories,colors,materials
+.\venv\Scripts\python.exe -m scripts.seed --only users --reset-admin-password
+```
+
+
 # Dry-run (solo reporte)
 - Local
 ```bash

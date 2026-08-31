@@ -182,9 +182,41 @@ def test_case_4_catalogue_discount_applies(pm_session):
         "payment_method_id": 3,
         "payment_method": "TRANSFER",
         "installments": 1,
+        # The discount is opt-in per order — the operator has to flip
+        # `apply_cash_discount` on for this client (see test_case_4b
+        # for the negative path).
+        "apply_cash_discount": True,
     }
     _recalculate_totals_from_items(pm_session, data)
     assert data["total"] == 9500, f"10000 - 5% should be 9500, got {data['total']}"
+
+
+def test_case_4b_catalogue_discount_skipped_when_flag_off(pm_session):
+    """Regression sentinel: the DISCOUNT branch must NOT fire when the
+    operator leaves `apply_cash_discount` off, even if the selected
+    payment method has a non-zero discount percentage configured.
+    """
+    data = {
+        "fabrication_details": json.dumps(
+            [{"price": 10000, "quantity": 1, "currency": "ARS"}]
+        ),
+        "materials_data": "[]",
+        "pools_data": "[]",
+        "additional_works_data": "[]",
+        "usd_rate": 1000,
+        "transport": 0,
+        "discount_percentage": 0,
+        "discount_fixed_amount": 0,
+        "payment_method_id": 3,
+        "payment_method": "TRANSFER",
+        "installments": 1,
+        "apply_cash_discount": False,
+    }
+    _recalculate_totals_from_items(pm_session, data)
+    assert data["total"] == 10000, (
+        f"with apply_cash_discount off the total must equal the subtotal; "
+        f"got {data['total']}"
+    )
 
 
 def test_case_5_manual_discount_before_catalogue(pm_session):

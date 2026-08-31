@@ -67,6 +67,12 @@ export default function AdditionalWorkSection({ value, onChange, readOnly, formM
     [catalogue],
   );
 
+  // Ids of the frente rows. These are NOT offered in the generic
+  // "+ AGREGAR TRABAJO ADICIONAL" dropdown — they have their own dedicated
+  // "ASIGNAR FRENTE A MATERIAL" select (a frente must be bound to a specific
+  // material, so selecting it as a plain additional work makes no sense).
+  const frenteIds = React.useMemo(() => new Set(frenteCatalogues.map((c) => c.id)), [frenteCatalogues]);
+
   const materials = formMaterials ?? [];
 
   // One option per *physical* material (a card may hold N panes/rows of
@@ -158,6 +164,10 @@ export default function AdditionalWorkSection({ value, onChange, readOnly, formM
           >
             <option value="">+ AGREGAR TRABAJO ADICIONAL</option>
             {catalogue
+              // Frente rows are handled exclusively by the "ASIGNAR FRENTE A
+              // MATERIAL" select below — they must be bound to a material, so
+              // they don't belong in this generic picker.
+              .filter((a) => !frenteIds.has(a.id))
               // Flat items: dedup by catalogue id (one row per selected id).
               // Frente items: keep dedup-by-id as well — the card already
               // supports the "Asignar material" dropdown so the operator

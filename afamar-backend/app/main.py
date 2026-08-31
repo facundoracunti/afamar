@@ -28,14 +28,20 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
 
 def run_migrations():
     alembic_cfg = AlembicConfig("alembic.ini")
+    # NOTE: never stamp the head as a fallback. Doing so marks the DB as
+    # migrated while leaving the real schema half-applied, which silently
+    # breaks every seeder and query against the missing columns. If the
+    # upgrade fails, abort startup loudly so the problem is fixed instead
+    # of masked (the app must NOT serve requests against a stale schema).
     try:
         command.upgrade(alembic_cfg, "head")
     except Exception:
-        logger.warning("Alembic upgrade failed — stamping head instead", exc_info=True)
-        try:
-            command.stamp(alembic_cfg, "head")
-        except Exception:
-            logger.warning("Alembic stamp also failed", exc_info=True)
+        logger.error(
+            "Alembic upgrade FAILED. Refusing to stamp head — fix the "
+            "migration instead. Details:",
+            exc_info=True,
+        )
+        raise RuntimeError("Database migration failed; aborting startup.")
 
 
 @asynccontextmanager
@@ -54,62 +60,11 @@ async def lifespan(app: FastAPI):
         logger.error("Database check: %s", msg)
         raise RuntimeError(msg)
     run_migrations()
-    summaries = _run_seeders()
-    if summaries:
-        logger.info("Seeders done:")
-        for summary in summaries:
-            logger.info("  - %s", summary)
     logger.info("=" * 60)
     logger.info("AFAMAR initialization OK — ready to serve requests")
     logger.info("Frontend: %s", settings.FRONTEND_URL)
     logger.info("=" * 60)
     yield
-
-
-def _run_seeders() -> list[str]:
-    """Run every idempotent seeder on startup. Failures are logged but never
-    block the app from starting — production DBs may already be populated and
-    dev DBs just need a one-shot bootstrap.
-
-    Seeders run in dependency order: settings + categories + colors first
-    (no FKs depend on them), then pool_types, materials (which need the
-    categories + colors), pool_stock + additional_works (catalogue
-    snapshots), users last.
-
-    Returns a list of human-readable summaries for startup logging.
-    """
-    summaries: list[str] = []
-    try:
-        from scripts.seeders import (
-            seed_additional_works,
-            seed_categories,
-            seed_colors,
-            seed_materials,
-            seed_payment_methods,
-            seed_pool_stock,
-            seed_pool_types,
-            seed_settings,
-            seed_users,
-        )
-        seeders = (
-            ("settings", seed_settings),
-            ("categories", seed_categories),
-            ("colors", seed_colors),
-            ("pool_types", seed_pool_types),
-            ("materials", seed_materials),
-            ("pool_stock", seed_pool_stock),
-            ("additional_works", seed_additional_works),
-            ("payment_methods", seed_payment_methods),
-            ("users", seed_users),
-        )
-        for name, seeder in seeders:
-            r = seeder()
-            summaries.append(f"{name}: +{r.inserted} ~{r.updated} /{r.skipped}")
-            for err in r.errors:
-                logger.error("Seeder %s: %s", name, err)
-    except Exception as exc:
-        logger.warning("Startup seed failed: %s", exc, exc_info=True)
-    return summaries
 
 
 app = FastAPI(title=settings.APP_NAME, version=settings.APP_VERSION, lifespan=lifespan)

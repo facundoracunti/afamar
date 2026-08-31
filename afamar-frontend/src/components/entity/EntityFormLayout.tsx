@@ -41,7 +41,7 @@ interface TermConfig {
  *   - `beforeLayout`, `observations`, `extraDialogs` — render slots
  *   - `terms` — per-page list of term editor cards (Budget = none,
  *     WorkOrder = delivery + warranty)
- *   - `alternativasGrid`, `discountBlock` — only set by the Budget page
+ *   - `alternativasGrid` — only set by the Budget page
  *   - `specsCardClassName`, `fabricationShowMeasurementComparison`,
  *     `fabricationMaterialsData` — small layout/materialisation overrides
  *
@@ -53,7 +53,6 @@ export interface EntityFormLayoutProps {
   observations?: ReactNode;
   terms?: TermConfig[];
   alternativasGrid?: ReactNode;
-  discountBlock?: ReactNode;
   /** Slot para acciones primarias (ej: "CONVERTIR A ORDEN"). */
   actionBlock?: ReactNode;
   extraDialogs?: ReactNode;
@@ -101,8 +100,8 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
   } = actions;
 
   const {
-    beforeLayout, observations, terms = [],
-    alternativasGrid, discountBlock, actionBlock, extraDialogs,
+      beforeLayout, observations, terms = [],
+    alternativasGrid, actionBlock, extraDialogs,
     specsCardClassName, fabricationShowMeasurementComparison, fabricationMaterialsData,
     mode = 'full',
   } = props;
@@ -277,7 +276,6 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
           update={update}
           num={parseNumber}
           alternativasGrid={alternativasGrid}
-          discountBlock={discountBlock}
           actionBlock={actionBlock}
           onConfirmarPago={onConfirmarPago}
           paymentMethods={paymentMethods}
@@ -405,7 +403,6 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
             update={update}
             num={parseNumber}
             alternativasGrid={alternativasGrid}
-            discountBlock={discountBlock}
             actionBlock={actionBlock}
             onConfirmarPago={onConfirmarPago}
             paymentMethods={paymentMethods}

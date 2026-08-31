@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Search, Plus, Trash2 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { getPoolStock, createPool, updatePool, deletePool } from '@/api/resources/poolStock';
 import http from '@/api/http';
 import { useList } from '../../api/hooks';
@@ -11,6 +12,7 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { PoolFormModal, type PoolFormState } from '../../components/pool-stock/PoolFormModal/PoolFormModal';
 import { PoolMovementsModal } from '../../components/pool-stock/PoolMovementsModal/PoolMovementsModal';
 import { useEntityList } from '../../hooks/useEntityList';
+import { POOLS_KEY } from '../../hooks/useFormReferences';
 import styles from './PoolStockPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -21,6 +23,8 @@ export default function PoolStockPage() {
   const [showForm, setShowForm] = useState(false);
   const [showMov, setShowMov] = useState<Pool | null>(null);
   const [editItem, setEditItem] = useState<Pool | null>(null);
+
+  const queryClient = useQueryClient();
 
   const { items: poolTypes } = useList<PoolType>(
     ['pool-types'],
@@ -55,6 +59,9 @@ export default function PoolStockPage() {
     }
     setShowForm(false);
     refetch();
+    // Keep the Budget/WorkOrder form's "AGREGAR PILETA" catalogue in sync:
+    // mark the pools reference stale so a new pool shows up there too.
+    await queryClient.invalidateQueries({ queryKey: POOLS_KEY });
   };
 
   const handleOpenMov = (pileta: Pool) => {

@@ -112,7 +112,11 @@ export default function AdditionalWorkCard({
             <select
               className={`input ${s['additional-work-card__select']}`}
               data-testid="frente-assign-material"
-              value={selection.assigned_material_id ?? ''}
+              value={
+                selection.assigned_material_id != null
+                  ? String(selection.assigned_material_id)
+                  : POOL_MATERIAL_GLOBAL
+              }
               onChange={(e) =>
                 updateAdditionalWork(idx, 'assigned_material_id', e.target.value, {
                   catalogueItem,
@@ -121,7 +125,7 @@ export default function AdditionalWorkCard({
               }
               disabled={readOnly}
             >
-              <option value="">Seleccionar…</option>
+              <option value={POOL_MATERIAL_GLOBAL}>(Global — suma al total)</option>
               {materialOptions.length === 0 ? (
                 <option value="" disabled>
                   (Agregá un material arriba para poder asignar)

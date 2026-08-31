@@ -22,9 +22,8 @@ interface EntityFormFinancialProps {
   setForm: React.Dispatch<React.SetStateAction<EntityFormState>>;
   update: (field: FormField, value: unknown) => void;
   num: (v: string) => number | null;
-  alternativasGrid?: ReactNode;
-  discountBlock?: ReactNode;
-  /** Slot para acciones primarias (ej: "CONVERTIR A ORDEN"). Renderizado
+    alternativasGrid?: ReactNode;
+    /** Slot para acciones primarias (ej: "CONVERTIR A ORDEN"). Renderizado
    *  debajo de Traslado/Seña. */
   actionBlock?: ReactNode;
   onConfirmarPago?: () => Promise<void>;
@@ -49,11 +48,10 @@ export default function EntityFormFinancial({
   handleUsdRateChange,
   onUsdRateRefresh,
   setForm,
-  update,
-  num,
-  alternativasGrid,
-  discountBlock,
-  actionBlock,
+    update,
+    num,
+    alternativasGrid,
+    actionBlock,
   onConfirmarPago,
   sectionTitle = 'PRESUPUESTO',
   paymentMethods,
@@ -81,11 +79,10 @@ export default function EntityFormFinancial({
       onConfirmarPago={onConfirmarPago}
       paymentMethods={paymentMethods}
     >
-      <BudgetPanel
-        alternativasGrid={alternativasGrid}
-        sectionTitle={sectionTitle}
-        discountBlock={discountBlock}
-        actionBlock={actionBlock}
+          <BudgetPanel
+          alternativasGrid={alternativasGrid}
+          sectionTitle={sectionTitle}
+          actionBlock={actionBlock}
         onUsdRateRefresh={onUsdRateRefresh}
       />
     </BudgetPanelProvider>

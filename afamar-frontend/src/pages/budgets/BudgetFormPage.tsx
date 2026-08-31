@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Eye, Save, FileOutput, Check, Send } from 'lucide-react';
@@ -27,7 +27,12 @@ import {
 } from '../../components/entity/EntityFormContexts';
 import BudgetFormObservations from './BudgetFormObservations';
 import type { EntityFormState, MaterialInForm, EntityServices } from '../../types';
-import { buildOptionFromMaterial, type AlternativaLike } from '../../utils/budgetOptions';
+import {
+  buildOptionFromMaterial,
+  buildDetailFromSection,
+  type AlternativaLike,
+} from '../../utils/budgetOptions';
+import { buildAlternativeSections } from '../../utils/pdf/buildPdfData';
 import styles from './BudgetFormPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -162,12 +167,45 @@ export default function BudgetForm(props: BudgetFormProps = {}) {
     [form.usd_rate, sumatoriaMaterialesPrincipalARS, sumatoriaAdicionalesARS],
   );
 
+  // Per-option subtotals + detail lines for the ALTERNATIVE cards, derived
+  // from the SAME orchestration the PDF uses (`buildAlternativeSections`), so
+  // the cards can never drift from the "Subtotal Opción" the PDF draws (a
+  // sole-alternatives budget revalues global zócalo/frente per option).
+  const altSections = useMemo(
+    () => buildAlternativeSections(form as unknown as Record<string, unknown>).sections
+      .filter((s) => !s.is_main && !s.is_global),
+    [
+      JSON.stringify(form.materials_data),
+      JSON.stringify(form.pools_data),
+      JSON.stringify(form.fabrication_details),
+      JSON.stringify(form.additional_works_data),
+      form.usd_rate,
+    ],
+  );
+
+  const buildAltOption = useCallback(
+    (mat: MaterialInForm): AlternativaLike => {
+      const card = buildOption(mat);
+      const section = altSections.find((s) => s.material_name === mat.name);
+      if (!section) {
+        return card;
+      }
+      return {
+        ...card,
+        subtotalARS: Math.round(section.subtotal_ars * 100) / 100,
+        subtotalUSD: Math.round(section.subtotal_usd * 100) / 100,
+        detail: buildDetailFromSection(section),
+      };
+    },
+    [buildOption, altSections],
+  );
+
   if (loading) return <LoadingSpinner />;
 
   const alternativasGrid = hayAlternativas && materials ? (
     <QuoteOptionsGrid
       mainMaterials={matsMain.map(buildOption)}
-      alternativas={matsAlt.map(buildOption)}
+      alternativas={matsAlt.map(buildAltOption)}
       principalesBreakdown={principalesBreakdown}
       detalleTrabajosComunes={detalleTrabajosComunes}
       tipoCambio={Number(form.usd_rate) || 1}

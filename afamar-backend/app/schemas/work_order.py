@@ -1,4 +1,4 @@
-from datetime import date, datetime
+import datetime
 from typing import Optional
 
 from pydantic import BaseModel
@@ -48,7 +48,7 @@ class WorkOrderBase(BaseModel):
     installment_detail_ars: str | None = None
     installment_detail_usd: str | None = None
     priority: str = "NORMAL"
-    delivery_date: Optional[date] = None
+    delivery_date: Optional[datetime.date] = None
     digital_signature: str | None = None
     fabrication_details: str | None = None
     budgeted_details: str | None = None
@@ -69,7 +69,13 @@ class WorkOrderBase(BaseModel):
     # Optional per-work-order term overrides (JSON list, may be empty string).
     delivery_terms_override: str | None = ""
     warranty_override: str | None = ""
-    date: Optional[datetime] = None
+    # Whether the "COMPARATIVA DE MEDICIÓN" table is printed in this order's
+    # PDF. Defaults to `True`; toggled per order in the form.
+    include_measurement_comparison_in_pdf: bool = True
+    # Per-order opt-in for the discount configured on the selected
+    # payment method (e.g. "Efectivo — descuento 7%"). Off by default.
+    apply_cash_discount: bool = False
+    date: Optional[datetime.datetime] = None
 
 
 class WorkOrderCreate(WorkOrderBase):
@@ -106,16 +112,16 @@ class WorkOrderUpdate(BaseModel):
     balance_due: float | None = None
     balance_due_usd: float | None = None
     balance_paid: bool | None = None
-    balance_paid_at: Optional[datetime] = None
+    balance_paid_at: Optional[datetime.datetime] = None
     payment_method: str | None = None
     payment_method_id: int | None = None
     installments: int | None = None
     installment_detail_ars: str | None = None
     installment_detail_usd: str | None = None
     priority: str | None = None
-    delivery_date: Optional[date] = None
+    delivery_date: Optional[datetime.date] = None
     digital_signature: str | None = None
-    signed_at: Optional[datetime] = None
+    signed_at: Optional[datetime.datetime] = None
     fabrication_details: str | None = None
     budgeted_details: str | None = None
     sketch_elements: str | None = None
@@ -129,7 +135,9 @@ class WorkOrderUpdate(BaseModel):
     design_observations: str | None = None
     important_observations: str | None = None
     notes: str | None = None
-    date: Optional[datetime] = None
+    include_measurement_comparison_in_pdf: bool | None = None
+    apply_cash_discount: bool | None = None
+    date: Optional[datetime.datetime] = None
 
 
 class WorkOrderResponse(WorkOrderBase, BaseResponse):
@@ -139,10 +147,10 @@ class WorkOrderResponse(WorkOrderBase, BaseResponse):
     origin: str
     stock_deducted: bool
     balance_paid: bool
-    balance_paid_at: Optional[datetime] = None
-    signed_at: Optional[datetime] = None
-    created_at: datetime
-    updated_at: datetime
+    balance_paid_at: Optional[datetime.datetime] = None
+    signed_at: Optional[datetime.datetime] = None
+    created_at: datetime.datetime
+    updated_at: datetime.datetime
 
     @classmethod
     def from_orm_with_client(cls, order) -> "WorkOrderResponse":

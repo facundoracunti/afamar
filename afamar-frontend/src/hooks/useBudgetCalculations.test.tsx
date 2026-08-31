@@ -93,6 +93,62 @@ describe('useBudgetCalculations — basic totals', () => {
   });
 });
 
+describe('useBudgetCalculations — apply_cash_discount opt-in (catalogue DISCOUNT)', () => {
+  // TRANSFER is configured as DISCOUNT 5% (percentage). The total must
+  // equal the subtotal when the flag is off and drop to subtotal × 0.95
+  // when the flag is on — and the hook must react to the toggle without
+  // requiring any other field change.
+  const TRANSFER_DISCOUNT = PAYMENT_METHODS.map((pm) =>
+    pm.name === 'TRANSFERENCIA BANCARIA'
+      ? { ...pm, type: 'DISCOUNT' as const, value: 5, is_percentage: true }
+      : pm
+  );
+  const fabrication_details: FabricationDetail[] = [
+    { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 10000 },
+  ];
+
+  it('leaves the total = subtotal when apply_cash_discount is off', () => {
+    const { result } = renderCalc(
+      makeForm({
+        fabrication_details,
+        payment_method: 'TRANSFERENCIA BANCARIA',
+        payment_method_id: 2,
+        installments: 1,
+        apply_cash_discount: false,
+      }),
+      TRANSFER_DISCOUNT
+    );
+    expect(result.current.form.subtotal).toBe(10000);
+    expect(result.current.form.total).toBe(10000);
+  });
+
+  it('recalculates the total live when the flag toggles to true (regression sentinel for the useEffect dep)', () => {
+    const initial = makeForm({
+      fabrication_details,
+      payment_method: 'TRANSFERENCIA BANCARIA',
+      payment_method_id: 2,
+      installments: 1,
+      apply_cash_discount: false,
+    });
+    const { result } = renderCalc(initial, TRANSFER_DISCOUNT);
+    expect(result.current.form.total).toBe(10000);
+
+    // Toggle the flag without touching anything else. The hook's deps
+    // must include `apply_cash_discount` so this single change triggers
+    // the recalc and the total drops to 9500.
+    act(() => {
+      result.current.setForm({ ...initial, apply_cash_discount: true });
+    });
+    expect(result.current.form.total).toBe(9500);
+
+    // Toggling back to false restores the subtotal.
+    act(() => {
+      result.current.setForm({ ...initial, apply_cash_discount: false });
+    });
+    expect(result.current.form.total).toBe(10000);
+  });
+});
+
 describe('useBudgetCalculations — discounts', () => {
   it('applies discount_percentage', () => {
     const fabrication_details: FabricationDetail[] = [

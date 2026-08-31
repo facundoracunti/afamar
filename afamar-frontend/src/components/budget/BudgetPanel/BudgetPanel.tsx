@@ -8,21 +8,19 @@ import styles from './BudgetPanel.module.css';
 
 const s = styles as unknown as Record<string, string>;
 
-interface BudgetPanelProps {
-  alternativasGrid?: React.ReactNode;
-  sectionTitle?: string;
-  discountBlock?: React.ReactNode;
-  /** Slot renderizado debajo de Traslado/Seña (ej: "CONVERTIR A ORDEN"). */
-  actionBlock?: React.ReactNode;
+  interface BudgetPanelProps {
+    alternativasGrid?: React.ReactNode;
+    sectionTitle?: string;
+    /** Slot renderizado debajo de Traslado/Se��a (ej: "CONVERTIR A ORDEN"). */
+    actionBlock?: React.ReactNode;
   onUsdRateRefresh?: () => void;
 }
 
-export default function BudgetPanel({
-  alternativasGrid,
-  sectionTitle = 'PRESUPUESTO',
-  discountBlock,
-  actionBlock,
-  onUsdRateRefresh,
+  export default function BudgetPanel({
+    alternativasGrid,
+    sectionTitle = 'PRESUPUESTO',
+    actionBlock,
+    onUsdRateRefresh,
 }: BudgetPanelProps) {
   const { form, ui, financial, num, update, setForm, onConfirmarPago } = useBudgetPanel();
   const { hayAlternativas, readOnly, saving } = ui;
@@ -91,11 +89,10 @@ export default function BudgetPanel({
             readOnly={readOnly}
             saving={saving}
             update={update}
-            setForm={setForm}
-            num={num}
-            onConfirmarPago={onConfirmarPago}
-            discountBlock={discountBlock}
-          />
+              setForm={setForm}
+              num={num}
+              onConfirmarPago={onConfirmarPago}
+            />
         </div>
       </div>
 

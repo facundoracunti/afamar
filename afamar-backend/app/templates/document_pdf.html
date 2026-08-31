@@ -61,6 +61,7 @@
   .data-table th { background: #f1f5f9; font-size: 7.5pt; font-weight: bold; color: #334155; padding: 4px 6px; text-align: left; border: 1px solid #cbd5e1; }
   .data-table td { font-size: 8.5pt; padding: 4px 6px; border: 1px solid #e2e8f0; vertical-align: top; }
   .data-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .data-table .detail-cell { padding-left: 15px; color: #475569; }
   .data-table .total-row { font-weight: bold; background: #fef9c3; }
 
   /* ===== TOTALS (resumen) ===== */
@@ -207,6 +208,55 @@
 {% endif %}
 
 {# =========================================================================
+   COMPARATIVA DE MEDICIÓN (work orders only, per-order flag)
+   Concepto | Presupuestado | Real | Diferencia
+   (materials/zócalos in m², frentes in ml — unit per cell)
+   ========================================================================= #}
+{% if measurement_comparison %}
+<div class="section-title">Comparativa de medición</div>
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Concepto</th>
+      <th class="num">Presupuestado</th>
+      <th class="num">Real</th>
+      <th class="num">Diferencia</th>
+      <th class="num">Subtotal ARS</th>
+      <th class="num">Subtotal USD</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for c in measurement_comparison %}
+    {% if c.is_detail %}
+    <tr>
+      <td class="detail-cell">{{ c.name or "—" }}</td>
+      <td class="num">{{ c.measure_budgeted_str or "—" }}</td>
+      <td class="num">{{ c.measure_real_str or "—" }}</td>
+      <td class="num">{{ c.measure_delta_str or "—" }}</td>
+      <td class="num">{% if c.subtotal_ars_str %}$ {{ c.subtotal_ars_str }}{% else %}—{% endif %}</td>
+      <td class="num">{% if c.subtotal_usd_str %}USD {{ c.subtotal_usd_str }}{% else %}—{% endif %}</td>
+    </tr>
+    {% else %}
+    <tr>
+      <td>{{ c.name or "—" }}</td>
+      <td class="num">{{ c.m2_budgeted_str or "—" }}{% if c.m2_budgeted_str %} m²{% endif %}</td>
+      <td class="num">{{ c.m2_real_str or "0.00" }} m²</td>
+      <td class="num">{{ c.delta_str or "—" }}{% if c.delta_str %} m²{% endif %}</td>
+      <td class="num">{% if c.subtotal_ars_str %}$ {{ c.subtotal_ars_str }}{% else %}—{% endif %}</td>
+      <td class="num">{% if c.subtotal_usd_str %}USD {{ c.subtotal_usd_str }}{% else %}—{% endif %}</td>
+    </tr>
+    {% endif %}
+    {% endfor %}
+    <tr class="total-row">
+      <td class="total-cell" colspan="4"><strong>TOTAL</strong></td>
+      <td class="num total-cell"><strong>{% if measurement_comparison_total_ars %}$ {{ measurement_comparison_total_ars }}{% else %}—{% endif %}</strong></td>
+      <td class="num total-cell"><strong>{% if measurement_comparison_total_usd %}USD {{ measurement_comparison_total_usd }}{% else %}—{% endif %}</strong></td>
+    </tr>
+  </tbody>
+</table>
+{% endif %}
+
+{# =========================================================================
    POOLS
    ========================================================================= #}
 {% if pools %}
@@ -317,10 +367,16 @@
     </td>
   </tr>
   {% endif %}
-  {% if deposit_received %}
+  {% if deposit_received or deposit_usd %}
   <tr>
     <td class="lbl">Seña</td>
-    <td class="val">$ {{ "{:,.2f}"|format(deposit_received or 0) }}</td>
+    <td class="val">
+      {% if (deposit_currency or 'ARS')|upper == 'USD' %}
+        USD {{ "{:,.2f}"|format(deposit_usd or 0) }} &nbsp; $ {{ "{:,.2f}"|format(deposit_ars_equivalent or 0) }}
+      {% else %}
+        $ {{ "{:,.2f}"|format(deposit_received or 0) }}{% if deposit_usd_equivalent %} &nbsp; USD {{ "{:,.2f}"|format(deposit_usd_equivalent) }}{% endif %}
+      {% endif %}
+    </td>
   </tr>
   {% endif %}
   {% if balance_due %}

@@ -67,12 +67,26 @@ export function applyAdditionalWorkField(
     updated.linear_meters = Math.max(0, Number(value) || 0);
     return recomputeFrenteRow(updated, _options?.catalogueItem, _options?.materialOptions);
   } else if (field === 'assigned_material_id') {
+    if (value === POOL_MATERIAL_GLOBAL) {
+      // "GLOBAL - SUMA AL TOTAL": no material of its own. The frente renders
+      // in every option (alternatives-only budget) revalued with each
+      // option's material (see `buildSectionData` revaluation helpers).
+      updated.assigned_material_id = null;
+      delete (updated as Record<string, unknown>).assigned_material_name;
+      updated.materialName = POOL_MATERIAL_GLOBAL;
+      updated.price = 0;
+      updated.total = 0;
+      updated.formula_values = null;
+      return updated;
+    }
     if (value === null || value === undefined || value === '') {
       updated.assigned_material_id = null;
     } else {
       const numeric = Number(value);
-      if (Number.isFinite(numeric) && _options?.materialOptions?.some((m) => m.id === numeric)) {
+      const matOpt = _options?.materialOptions?.find((m) => m.id === numeric);
+      if (Number.isFinite(numeric) && matOpt) {
         updated.assigned_material_id = numeric;
+        updated.materialName = matOpt.is_alternative ? `__ALT__:${matOpt.name}` : matOpt.name;
       } else {
         (updated as Record<string, unknown>).assigned_material_name = String(value);
         updated.assigned_material_id = null;

@@ -181,44 +181,6 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
     />
   ) : null;
 
-  const discountBlock = (
-    <>{form.payment_method === 'EFECTIVO' && (
-      <div className={s['work-order-form__discount']}>
-        <label className={s['work-order-form__discount-label']}>
-          🔒 Descuento Comercial (Solo Vendedor)
-        </label>
-        <div className={s['work-order-form__discount-row']}>
-          <div className={s['work-order-form__discount-group']}>
-            <span className={s['work-order-form__discount-prefix']}>%</span>
-            <input type="number" className={`input ${s['work-order-form__discount-input']}`}
-              placeholder="0" min="0" max="100"
-              value={form.discount_percentage || ''}
-              onChange={(e) => {
-                const val = Number(e.target.value) || 0;
-                setForm({ ...form, discount_percentage: val, discount_fixed_amount: val > 0 ? 0 : form.discount_percentage });
-              }}
-              disabled={readOnly} />
-          </div>
-          <span className={s['work-order-form__discount-or']}>o</span>
-          <div className={s['work-order-form__discount-group']}>
-            <span className={s['work-order-form__discount-prefix']}>$</span>
-            <input type="number" className={`input ${s['work-order-form__discount-input--fixed']}`}
-              placeholder="Monto fijo"
-              value={form.discount_fixed_amount || ''}
-              onChange={(e) => {
-                const val = Number(e.target.value) || 0;
-                setForm({ ...form, discount_fixed_amount: val, discount_percentage: val > 0 ? 0 : form.discount_percentage });
-              }}
-              disabled={readOnly} />
-          </div>
-        </div>
-        <div className={s['work-order-form__discount-hint']}>
-          Este descuento modifica el TOTAL ARS final pero no se muestra en el PDF del cliente.
-        </div>
-      </div>
-    )}</>
-  );
-
   return (
     <div className={s['work-order-form']}>
       <FormHeader
@@ -327,9 +289,8 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
             >
               <EntityFormLayout
                 mode={props.layoutMode || 'full'}
-                alternativasGrid={alternativasGrid}
-                discountBlock={discountBlock}
-                beforeLayout={
+                  alternativasGrid={alternativasGrid}
+                  beforeLayout={
                   <>
                     <div className={s['work-order-form__card-section']}>
                       <WorkOrderFormStatus
@@ -340,6 +301,28 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
                     </div>
                     <div className={s['work-order-form__card-section']}>
                       <WorkOrderFormSnapshot form={form} readOnly={readOnly} />
+                    </div>
+                    <div className={s['work-order-form__card-section']}>
+                      <div className={`card ${s['work-order-form__pdf-toggle-card']}`}>
+                        <label className={s['work-order-form__pdf-toggle']}>
+                          <input
+                            type="checkbox"
+                            checked={form.include_measurement_comparison_in_pdf !== false}
+                            disabled={readOnly}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                include_measurement_comparison_in_pdf: e.target.checked,
+                              })
+                            }
+                          />
+                          <span>Incluir comparativa de medición en el PDF</span>
+                        </label>
+                        <p className={s['work-order-form__pdf-toggle-hint']}>
+                          Muestra la tabla COMPARATIVA DE MEDICIÓN (M² Real / M²
+                          Presupuestado / Diferencia) en el PDF de esta orden.
+                        </p>
+                      </div>
                     </div>
                   </>
                 }

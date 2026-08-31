@@ -41,6 +41,14 @@ export interface FinancialBase {
    */
   payment_method_id: number | null;
   installments: number;
+  /**
+   * Per-order opt-in for the promotional DISCOUNT configured on the
+   * selected payment method (e.g. "Efectivo — descuento 7%"). Off by
+   * default so the operator decides client-by-client whether the
+   * discount applies; mirrors the same-name boolean column on
+   * `work_orders` / `budgets`.
+   */
+  apply_cash_discount: boolean;
 
   // Commercial discount (mutually exclusive: percentage OR fixed amount).
   discount_percentage: number;

@@ -43,18 +43,19 @@ const FINANCIAL_FIELDS = [
   'payment_method',
   'payment_method_id',
   'installments',
+  'apply_cash_discount',
   'discount_percentage',
   'discount_fixed_amount',
 ] as const;
 
 describe('FinancialBase — shared types', () => {
-  it('EntityFormState contains all 18 FinancialBase fields', () => {
+  it('EntityFormState contains all 19 FinancialBase fields', () => {
     for (const f of FINANCIAL_FIELDS) {
       expect(f in INITIAL_FORM, `missing field "${f}"`).toBe(true);
     }
   });
 
-  it('DEFAULT_FINANCIALS has exactly the 18 expected keys', () => {
+  it('DEFAULT_FINANCIALS has exactly the 19 expected keys', () => {
     expect(Object.keys(DEFAULT_FINANCIALS).sort()).toEqual(
       [...FINANCIAL_FIELDS].sort()
     );
@@ -78,6 +79,7 @@ describe('FinancialBase — shared types', () => {
       payment_method: '',
       payment_method_id: null,
       installments: 1,
+      apply_cash_discount: false,
       discount_percentage: 0,
       discount_fixed_amount: 0,
     });

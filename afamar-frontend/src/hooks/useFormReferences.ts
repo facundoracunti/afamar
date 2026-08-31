@@ -94,6 +94,10 @@ export function useFormReferences({
       return (res.data as unknown as Pool[]) || [];
     },
     staleTime: REFERENCE_STALE_TIME,
+    // Always refetch when the window regains focus so a pool added in the
+    // Stock de Piletas page shows up automatically in the form's "AGREGAR
+    // PILETA" select without waiting for the 5-min cache to expire.
+    refetchOnWindowFocus: () => true,
   });
   const paymentMethodsQuery = useQuery<PaymentMethod[]>({
     queryKey: [...PAYMENT_METHODS_KEY],

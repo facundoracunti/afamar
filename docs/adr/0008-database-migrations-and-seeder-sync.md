@@ -86,9 +86,15 @@ poblada, se truncan las 3 tablas de catálogo y se re-seedea
 
 ### 4. Log de readiness explícito en el arranque
 
-Antes, el último log era el del seeder y nada avisaba "listo". Ahora
-`_run_seeders()` captura cada `SeedResult` y devuelve resúmenes
-(`name: +N ~N /N`), y el lifespan loguea al final:
+> **Actualización (2026-08-29):** el seeder **ya no corre automático en el
+> arranque**. `_run_seeders()` fue removido de `app.main.lifespan`; ahora se
+> ejecuta manualmente por modelo vía `python -m scripts.seed [--only <nombres>]`
+> (ver README). El lifespan solo hace migraciones + loguea readiness.
+
+Histórico: antes, el último log era el del seeder y nada avisaba
+"listo". En esa versión `_run_seeders()` capturaba cada `SeedResult` y
+devolvía resúmenes (`name: +N ~N /N`), y el lifespan logueaba al
+final:
 
 ```
 Seeders done:
@@ -98,8 +104,10 @@ AFAMAR initialization OK — ready to serve requests
 Frontend: <URL>
 ```
 
-Así hay una señal clara de que migraciones + seeders terminaron y la
-app quedó a la escucha, sin confundir el final con un cuelgue.
+Así hay una señal clara de que migraciones (+ seeders, cuando se
+corrían automáticos) terminaron y la app quedó a la escucha, sin
+confundir el final con un cuelgue. El log `AFAMAR initialization OK —
+ready to serve requests` se conserva tras remover la auto-seed.
 
 ## Consecuencias
 
@@ -128,8 +136,8 @@ app quedó a la escucha, sin confundir el final con un cuelgue.
 - `afamar-backend/alembic/versions/c2d3e4f5a6b8_add_currencies_table.py`
 - `afamar-backend/alembic/versions/33eba7752f2d_rename_adicionales_to_additional_works.py`
 - `afamar-backend/scripts/seeders/{materials,pool_stock,additional_works}.py`
-- `afamar-backend/app/main.py` (`_run_seeders` devuelve resúmenes;
-  lifespan loguea readiness)
+- `afamar-backend/app/main.py` (lifespan: migraciones + log de
+  readiness; auto-seed removido el 2026-08-29 — ahora manual)
 
 ## Alternativas consideradas
 

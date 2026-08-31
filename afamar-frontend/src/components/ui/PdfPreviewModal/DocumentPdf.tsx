@@ -149,6 +149,20 @@ const styles = StyleSheet.create({
   totalsRow: { flexDirection: 'row', paddingVertical: 2 },
   totalsLbl: { width: '70%', textAlign: 'right', color: SLATE_700 },
   totalsVal: { width: '30%', textAlign: 'right', fontWeight: 'bold' },
+  // Seña row carries both currencies stacked vertically inside the value
+  // cell so the label can stay right-aligned at the same width as the
+  // other totals rows (70% / 30%). The native amount is bold + the
+  // same size; the ARS/USD equivalent is rendered just below in a
+  // smaller, lighter weight so the line never overflows the 30% cell.
+  totalsLblSeña: { width: '70%' },
+  totalsValSeña: {
+    width: '30%',
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    justifyContent: 'flex-end',
+  },
+  totalsValPrimary: { fontWeight: 'bold', textAlign: 'right' },
+  totalsValSecondary: { fontSize: 9, fontWeight: 'bold', textAlign: 'right', opacity: 0.7 },
   grand: { flexDirection: 'row', backgroundColor: BLUE_700, paddingVertical: 6, paddingHorizontal: 8, marginTop: 4 },
   grandLbl: { width: '70%', color: '#fff', fontWeight: 'bold' },
   grandVal: { width: '30%', color: '#fff', fontWeight: 'bold', textAlign: 'right' },
@@ -371,8 +385,64 @@ const ADDITIONAL_WORKS_HEADERS = [
 ];
 const ADDITIONAL_WORKS_FLEXES = [2, 2.4, 0.4, 1, 0.5, 1.2, 1.2];
 
-function adicRowCells(a: import('../../../utils/pdf/buildPdfData').AdditionalWorkPdfRow): (string | null)[] {
-  const priceLabel = a.type === 'frente' ? `$ ${a.price_str} x ml` : `$ ${a.price_str}`;
+const COMPARISON_HEADERS = [
+  { label: 'Concepto' },
+  { label: 'Presupuestado', num: true },
+  { label: 'Real', num: true },
+  { label: 'Diferencia', num: true },
+  { label: 'Subtotal ARS', num: true },
+  { label: 'Subtotal USD', num: true },
+];
+const COMPARISON_FLEXES = [2.4, 1.25, 1.25, 1.3, 1.25, 1.25];
+
+function comparisonRowCells(
+  c: import('../../../utils/pdf/buildPdfData').MeasurementComparisonRow,
+): (string | null)[] {
+  if (c.is_detail) {
+    // Indented detail row (zócalo/frente): indent the label, show the
+    // monetary subtotals and — when a measure (m² / ml) exists — the unit-aware
+    // Presupuestado/Real/Diferencia columns. Legacy rows without a dimensional
+    // snapshot leave them as '—'.
+    const INDENT = '\u00A0\u00A0\u00A0\u00A0';
+    return [
+      `${INDENT}${c.concepto}`,
+      c.measure_budgeted_str || null,
+      c.measure_real_str || null,
+      c.measure_delta_str || null,
+      c.subtotal_ars_str ? `$ ${c.subtotal_ars_str}` : null,
+      c.subtotal_usd_str ? `USD ${c.subtotal_usd_str}` : null,
+    ];
+  }
+  return [
+    c.concepto,
+    c.measure_budgeted_str || (c.m2_budgeted_str ? `${c.m2_budgeted_str} m²` : null),
+    c.measure_real_str || (c.m2_real_str ? `${c.m2_real_str} m²` : '-'),
+    c.measure_delta_str || (c.delta_str ? `${c.delta_str} m²` : null),
+    c.subtotal_ars_str ? `$ ${c.subtotal_ars_str}` : null,
+    c.subtotal_usd_str ? `USD ${c.subtotal_usd_str}` : null,
+  ];
+}
+
+function comparisonRowsWithTotal(
+  comparison: import('../../../utils/pdf/buildPdfData').MeasurementComparisonRow[],
+): (string | null)[][] {
+  const rowCells = comparison.map(comparisonRowCells);
+  if (comparison.length === 0) return rowCells;
+  const totalArs = comparison.reduce((s, r) => s + Number(r.subtotal_ars || 0), 0);
+  const totalUsd = comparison.reduce((s, r) => s + Number(r.subtotal_usd || 0), 0);
+  const signed = (v: number): string => (v > 0 ? `+${fmt(v)}` : fmt(v));
+  rowCells.push([
+    'TOTAL',
+    null,
+    null,
+    null,
+    `$ ${signed(totalArs)}`,
+    `USD ${signed(totalUsd)}`,
+  ]);
+  return rowCells;
+}
+
+function adicRowCells(a: import('../../../utils/pdf/buildPdfData').AdditionalWorkPdfRow): (string | null)[] {  const priceLabel = a.type === 'frente' ? `$ ${a.price_str} x ml` : `$ ${a.price_str}`;
   return [
     a.name,
     a.detail,
@@ -587,10 +657,41 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
     </>
   );
 
-  // Document-level totals + payment + signatures — only on the principal
-  // page (where the customer signs the chosen option).
-  const principalExtras = (
+  // Document-level totals + payment + signatures. Normally rendered only on
+  // the principal page (where the customer signs the chosen option). When the
+  // budget has NO principal material, every alternative is a standalone quote,
+  // so this block is rendered on EACH alternative using that option's OWN
+  // totals (`section.total_ars` etc., computed in buildPdfData) so all of
+  // them show their correct final price regardless of how many alternatives
+  // there are.
+  const renderExtras = (section?: Partial<MaterialSection> | null) => (
     <>
+{/* COMPARATIVA DE MEDICIÓN — work orders only, per-order flag; the
+          `measurement_comparison` array is empty when disabled */}
+      {data.document_type === 'work_order' && data.measurement_comparison.length > 0 ? (
+        <View style={{ marginTop: 4 }}>
+          <Text style={styles.sectionTitle}>Comparativa de medición</Text>
+          <DataTable
+            headers={COMPARISON_HEADERS}
+            rows={comparisonRowsWithTotal(data.measurement_comparison)}
+            flexes={COMPARISON_FLEXES}
+          />
+        </View>
+      ) : null}
+
+      {/* TOTAL blue bar — always rendered right after the (possibly
+          empty) comparison block, so it sits at the top of the financial
+          summary regardless of document type. For work orders with a
+          comparison it appears right after the table; for budgets
+          (no comparison) it sits above the Subtotal/Traslado/etc. rows. */}
+      <View style={[styles.grand, { marginTop: 2 }]}>
+        <Text style={styles.grandLbl}>TOTAL</Text>
+        <Text style={styles.grandVal}>
+          {`$ ${fmt(section?.total_ars ?? data.total)}`}
+          {(section?.total_usd ?? data.total_usd) > 0 ? <Text style={styles.grandUsdSub}>{`  (USD $${fmt(section?.total_usd ?? data.total_usd)})`}</Text> : null}
+        </Text>
+      </View>
+
       {/* OBSERVATIONS — only on principal page */}
       {data.notes ? (
         <ObsBox title="Observaciones">
@@ -613,7 +714,7 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
       <View style={styles.totals}>
         <View style={styles.totalsRow}>
           <Text style={styles.totalsLbl}>Subtotal</Text>
-          <Text style={styles.totalsVal}>{`$ ${fmt(data.subtotal)}`}</Text>
+          <Text style={styles.totalsVal}>{`$ ${fmt(section?.subtotal_ars ?? data.subtotal)}`}</Text>
         </View>
         {data.transport > 0 ? (
           <View style={styles.totalsRow}>
@@ -628,7 +729,7 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
                 ? `Descuento (${data.discount_percentage}%)`
                 : 'Descuento (monto fijo)'}
             </Text>
-            <Text style={styles.totalsVal}>{`-$ ${fmt(data.discount_fixed_amount)}`}</Text>
+            <Text style={styles.totalsVal}>{`-$ ${fmt(section?.discount_fixed_amount ?? data.discount_fixed_amount)}`}</Text>
           </View>
         ) : null}
         {data.catalogue_discount_amount > 0 ? (
@@ -639,20 +740,20 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
             <Text style={styles.totalsVal}>{`-$ ${fmt(data.catalogue_discount_amount)}`}</Text>
           </View>
         ) : null}
-        {data.surcharge_percentage > 0 ? (
+        {(section?.surcharge_percentage ?? data.surcharge_percentage) > 0 ? (
           <View style={styles.totalsRow}>
             <Text style={styles.totalsLbl}>Interés:</Text>
-            <Text style={styles.totalsVal}>{`$ ${fmt(data.surcharge_amount)}`}</Text>
+            <Text style={styles.totalsVal}>{`$ ${fmt(section?.surcharge_amount ?? data.surcharge_amount)}`}</Text>
           </View>
         ) : null}
-        {data.catalogue_installment_detail && data.catalogue_installment_detail.length > 1 ? (
+        {(section?.catalogue_installment_detail ?? data.catalogue_installment_detail) && (section?.catalogue_installment_detail ?? data.catalogue_installment_detail).length > 1 ? (
           <View style={styles.installmentTable}>
             <View style={styles.installmentHeader}>
               <Text style={[styles.installmentHeaderCell, styles.installmentHeaderN]}>Cuota #</Text>
               <Text style={[styles.installmentHeaderCell, styles.installmentHeaderPct]}>Interés</Text>
               <Text style={[styles.installmentHeaderCell, styles.installmentHeaderAmount]}>Monto</Text>
             </View>
-            {data.catalogue_installment_detail.map((row) => (
+            {(section?.catalogue_installment_detail ?? data.catalogue_installment_detail).map((row) => (
               <View key={row.cuota} style={styles.installmentRow}>
                 <Text style={[styles.installmentCell, styles.installmentHeaderN]}>{row.cuota}</Text>
                 <Text style={[styles.installmentCell, styles.installmentHeaderPct]}>{`${row.interes}%`}</Text>
@@ -661,16 +762,29 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
             ))}
           </View>
         ) : null}
-        {data.deposit_received > 0 ? (
+        {(data.deposit_received > 0 || data.deposit_usd > 0) ? (
           <View style={styles.totalsRow}>
-            <Text style={styles.totalsLbl}>Seña</Text>
-            <Text style={styles.totalsVal}>{`$ ${fmt(data.deposit_received)}`}</Text>
+            <Text style={[styles.totalsLbl, styles.totalsLblSeña]}>Seña</Text>
+            <View style={styles.totalsValSeña}>
+              <Text style={styles.totalsValPrimary}>
+                {data.deposit_currency === 'USD'
+                  ? `USD ${fmt(data.deposit_usd)}`
+                  : `$ ${fmt(data.deposit_received)}`}
+              </Text>
+              <Text style={styles.totalsValSecondary}>
+                {data.deposit_currency === 'USD'
+                  ? `$ ${fmt(data.deposit_ars_equivalent)}`
+                  : data.usd_rate > 0
+                    ? `USD ${fmt(data.deposit_received / data.usd_rate)}`
+                    : ''}
+              </Text>
+            </View>
           </View>
         ) : null}
-        {data.balance_due > 0 ? (
+        {(section?.balance_due ?? data.balance_due) > 0 ? (
           <View style={styles.totalsRow}>
             <Text style={styles.totalsLbl}>Saldo pendiente</Text>
-            <Text style={styles.totalsVal}>{`$ ${fmt(data.balance_due)}`}</Text>
+            <Text style={styles.totalsVal}>{`$ ${fmt(section?.balance_due ?? data.balance_due)}`}</Text>
           </View>
         ) : null}
         {data.usd_rate > 0 ? (
@@ -681,13 +795,6 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
             <Text style={styles.totalsVal}>{`$ ${fmt(data.usd_rate)}`}</Text>
           </View>
         ) : null}
-        <View style={styles.grand}>
-          <Text style={styles.grandLbl}>TOTAL</Text>
-          <Text style={styles.grandVal}>
-            {`$ ${fmt(data.total)}`}
-            {data.total_usd > 0 ? <Text style={styles.grandUsdSub}>{`  (USD $${fmt(data.total_usd)})`}</Text> : null}
-          </Text>
-        </View>
       </View>
 
       {data.payment_method ? (
@@ -698,8 +805,8 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
             {data.installments && data.installments > 1 ? (
               <Text>
                 {` (${data.installments} cuotas`}
-                {data.catalogue_installment_detail && data.catalogue_installment_detail.length > 0
-                  ? ` con ${data.catalogue_installment_detail[0].interes}% de interés por cuota`
+                {(section?.catalogue_installment_detail ?? data.catalogue_installment_detail) && (section?.catalogue_installment_detail ?? data.catalogue_installment_detail).length > 0
+                  ? ` con ${(section?.catalogue_installment_detail ?? data.catalogue_installment_detail)[0].interes}% de interés por cuota`
                   : ''}
                 {')'}
               </Text>
@@ -744,6 +851,13 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
     </Text>
   ) : null;
 
+  // When the budget has NO principal material (e.g. only alternatives), there
+  // is no `is_main` section to host the totals/payment/signatures block. In
+  // that case we render it on the FIRST alternative page so the document-level
+  // totals (precio final, dólar del día, forma de pago, firmas) are still
+  // visible even though every option is an alternative.
+  const hasMainSection = (data.sections || []).some((s) => s.is_main);
+
   return (
     <Document title={`${data.title} ${data.number}`} author={data.company.company_name}>
       {data.sections && data.sections.length > 0 ? (
@@ -753,7 +867,7 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
         // If the principal has a croquis, we also emit a dedicated page
         // (same header + client + footer) so the drawing has room to
         // breathe — otherwise it gets squeezed below the totals block.
-        data.sections.map((section) => (
+        data.sections.map((section, index) => (
           <Fragment key={section.title}>
             <Page size="A4" style={styles.page} wrap>
               {/* HEADER */}
@@ -773,8 +887,10 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
                   self-contained with its own terms block) */}
               {termsBlock}
 
-              {/* TOTALS / PAYMENT / SIGNATURES — only on the principal page */}
-              {section.is_main ? principalExtras : null}
+              {/* TOTALS / PAYMENT / SIGNATURES — on the principal page, or on
+                  EVERY alternative when the budget has no principal material
+                  (each option is its own self-contained quote with its own total) */}
+              {section.is_main || !hasMainSection ? renderExtras(section) : null}
 
               {/* FOOTER — `fixed` makes it appear on every page automatically */}
               {footer}
@@ -844,7 +960,7 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
                 />
               </View>
             ) : null}
-            {principalExtras}
+            {renderExtras(undefined)}
             {termsBlock}
             {footer}
           </Page>

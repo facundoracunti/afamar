@@ -2,6 +2,7 @@ import os
 import uuid
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies import get_current_user, get_db
@@ -133,6 +134,7 @@ def get_price_history(material_id: int, db: Session = Depends(get_db)):
 def list_materials(
     skip: int = 0,
     limit: int = 100,
+    search: str | None = None,
     category_id: int | None = None,
     color_id: int | None = None,
     db: Session = Depends(get_db),
@@ -143,6 +145,14 @@ def list_materials(
         joinedload(Material.currency_obj),
         joinedload(Material.color_obj),
     )
+    if search:
+        pattern = f"%{search}%"
+        query = query.filter(
+            or_(
+                Material.name.ilike(pattern),
+                Material.supplier.ilike(pattern),
+            )
+        )
     if category_id:
         query = query.filter(Material.category_id == category_id)
     if color_id:

@@ -13,6 +13,24 @@ interface Alternativa {
   length: number;
   width: number;
   quantity: number;
+  /** Total m² for the option (length × width × quantity). */
+  totalM2?: number;
+  /** Per-option ARS subtotal (from the PDF section builder). When present
+   *  every total cell uses it — the number the PDF draws for this option. */
+  subtotalARS?: number;
+  /** Per-option USD subtotal. */
+  subtotalUSD?: number;
+  /** Per-option detail lines. When present, rendered instead of the shared
+   *  common jobs (each alternative shows its own revalued rows). */
+  detail?: AlternativaDetailRow[];
+}
+
+interface AlternativaDetailRow {
+  concept: string;
+  quantity?: number;
+  total: number;
+  currency: 'ARS' | 'USD';
+  materialName?: string | null;
 }
 
 interface TrabajoComun {
@@ -81,6 +99,16 @@ const QuoteOptionsGrid = ({
       ? `${s['quote-options__card']} ${s['quote-options__card--main']}`
       : s['quote-options__card'];
 
+    // Per-option totals. When the card carries a PDF-derived subtotal
+    // (`subtotalARS`/`subtotalUSD`) every total cell uses it so the card
+    // mirrors the "Subtotal Opción" the PDF draws. Otherwise it falls back
+    // to the legacy single-number behaviour.
+    const hasSubtotal = mat.subtotalARS != null && mat.subtotalUSD != null;
+    const arsTotal = hasSubtotal ? mat.subtotalARS! : Math.round(mat.totalFinalARS);
+    const usdTotal = hasSubtotal
+      ? mat.subtotalUSD!
+      : (t_cambio > 0 ? Math.round(mat.totalFinalARS / t_cambio * 100) / 100 : 0);
+
     return (
       <div key={isMain ? `main-${idx}` : `alt-${idx}`} className={cardClass}>
         <div className={stripeClass} />
@@ -89,7 +117,7 @@ const QuoteOptionsGrid = ({
           <div className={s['quote-options__card-head']}>
             <span className={badgeClass}>{badgeLabel}</span>
             <span className={s['quote-options__qty']}>
-              {mat.quantity || 1} pza. ({Number(mat.length * mat.width || 1.216).toFixed(2)} m²)
+              {mat.quantity || 1} pza. ({Number(mat.totalM2 ?? (mat.length * mat.width || 1.216)).toFixed(2)} m²)
             </span>
           </div>
 
@@ -147,20 +175,36 @@ const QuoteOptionsGrid = ({
               );
             })}
 
-            {listaTrabajos
-              .filter((job) => {
-                const mn = job.materialName;
-                // Trabajo común o global: aparece en TODAS las cards
-                if (!mn || mn === '__GLOBAL__') return true;
-                // Atado a un material: solo aparece en SU card (main o alt)
-                return mn === mat.name;
-              })
-              .map((job: TrabajoComun, i: number) => {
-              const jobCurrency = job.currency || 'ARS';
-              const jobEsUSD = jobCurrency === 'USD';
+            {(mat.detail && mat.detail.length > 0
+              ? mat.detail.map((job: AlternativaDetailRow, i: number) => ({
+                  concept: job.concept,
+                  quantity: job.quantity,
+                  total: job.total,
+                  currency: job.currency,
+                  materialName: job.materialName,
+                  key: `${job.concept}-${job.total}-${job.currency}-${i}`,
+                }))
+              : listaTrabajos
+                  .filter((job) => {
+                    const mn = job.materialName;
+                    // Trabajo común o global: aparece en TODAS las cards
+                    if (!mn || mn === '__GLOBAL__') return true;
+                    // Atado a un material: solo aparece en SU card (main o alt)
+                    return mn === mat.name;
+                  })
+                  .map((job: TrabajoComun, i: number) => ({
+                    concept: job.concept,
+                    quantity: job.quantity,
+                    total: job.total,
+                    currency: job.currency || 'ARS',
+                    materialName: job.materialName,
+                    key: `${job.concept}-${job.total}-${job.currency ?? 'ARS'}-${i}`,
+                  }))
+            ).map((job) => {
+              const jobEsUSD = job.currency === 'USD';
               return (
                 <div
-                  key={`${job.concept}-${job.total}-${job.currency ?? 'ARS'}-${i}`}
+                  key={job.key}
                   className={`${s['quote-options__detail-row']} ${s['quote-options__detail-row--dashed']}`}
                 >
                   <span className={s['quote-options__detail-label--muted']}>
@@ -192,23 +236,20 @@ const QuoteOptionsGrid = ({
             <div className={s['quote-options__totals-cell']}>
               <div className={s['quote-options__totals-label']}>SUBTOTALES (ARS)</div>
               <div className={s['quote-options__totals-value']}>
-                {formatCurrencyValue(
-                  Math.round(esTarjetaUSD && t_cambio > 0 ? mat.costoMaterialBase * t_cambio : mat.costoMaterialBase),
-                  { currency: 'ARS', decimals: 0 },
-                )}
+                {formatCurrencyValue(arsTotal, { currency: 'ARS', decimals: 0 })}
               </div>
             </div>
             <div className={s['quote-options__totals-cell']}>
               <div className={s['quote-options__totals-label']}>TOTAL ARS</div>
               <div className={s['quote-options__totals-value']}>
-                {formatCurrencyValue(Math.round(mat.totalFinalARS), { currency: 'ARS', decimals: 0 })}
+                {formatCurrencyValue(arsTotal, { currency: 'ARS', decimals: 0 })}
               </div>
             </div>
             <div className={s['quote-options__totals-cell']}>
               <div className={s['quote-options__totals-label']}>SUBTOTALES (USD)</div>
               <div className={`${s['quote-options__totals-value']} ${s['quote-options__totals-value--usd']}`}>
                 {t_cambio > 0
-                  ? formatCurrencyValue(mat.costoMaterialBase / t_cambio, { currency: 'USD' })
+                  ? formatCurrencyValue(usdTotal, { currency: 'USD' })
                   : '—'}
               </div>
             </div>
@@ -216,7 +257,7 @@ const QuoteOptionsGrid = ({
               <div className={s['quote-options__totals-label']}>TOTAL USD</div>
               <div className={`${s['quote-options__totals-value']} ${s['quote-options__totals-value--usd']}`}>
                 {t_cambio > 0
-                  ? formatCurrencyValue(mat.totalFinalARS / t_cambio, { currency: 'USD' })
+                  ? formatCurrencyValue(usdTotal, { currency: 'USD' })
                   : '—'}
               </div>
             </div>
@@ -226,14 +267,14 @@ const QuoteOptionsGrid = ({
             <div className={s['quote-options__totals-cell']}>
               <div className={s['quote-options__totals-label']}>SALDO PENDIENTE ARS</div>
               <div className={s['quote-options__totals-value']}>
-                {formatCurrencyValue(Math.round(mat.totalFinalARS), { currency: 'ARS', decimals: 0 })}
+                {formatCurrencyValue(arsTotal, { currency: 'ARS', decimals: 0 })}
               </div>
             </div>
             <div className={s['quote-options__totals-cell']}>
               <div className={s['quote-options__totals-label']}>SALDO PENDIENTE USD</div>
               <div className={`${s['quote-options__totals-value']} ${s['quote-options__totals-value--usd']}`}>
                 {t_cambio > 0
-                  ? formatCurrencyValue(mat.totalFinalARS / t_cambio, { currency: 'USD' })
+                  ? formatCurrencyValue(usdTotal, { currency: 'USD' })
                   : '—'}
               </div>
             </div>

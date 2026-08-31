@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { t as translateConcept } from '../utils/translate';
+import { materialGroupKey } from '../utils/materialGroups';
 import type { MaterialInForm, PoolInForm, EntityFormState } from '../types';
 
 type BreakdownItem = {
@@ -78,6 +79,44 @@ function computeBreakdown(
   return { sumatoriaAdicionalesARS, detalleTrabajosComunes };
 }
 
+/** Collapse multiple `materials_data` rows of the SAME physical material
+ *  (same catalogue id, `name:<id>` legacy fallback) into a single row, while
+ *  AGGREGATING the pile info — total piece count and total m² — so the option
+ *  card (and its cost, which is derived from `length × width × quantity`)
+ *  reflects ALL panes, not just the first one.
+ *
+ *  A representative is kept for the material identity; its `quantity` becomes
+ *  the total piece count across the group and its dimensions are re-encoded so
+ *  that the downstream `l × w × qty` reconstruction still equals the group's
+ *  total m² (i.e. `cost` stays correct). Order follows first occurrence. */
+function dedupeMaterials(materials: MaterialInForm[]): MaterialInForm[] {
+  const groups = new Map<string, MaterialInForm[]>();
+  for (const m of materials) {
+    const key = materialGroupKey(m);
+    const g = groups.get(key);
+    if (g) g.push(m);
+    else groups.set(key, [m]);
+  }
+  const out: MaterialInForm[] = [];
+  for (const [, group] of groups) {
+    const rep = { ...group[0] };
+    if (group.length === 1) {
+      out.push(rep);
+      continue;
+    }
+    const totalM2 = group.reduce(
+      (s, m) => s + Number(m.length || 0) * Number(m.width || 0) * Number(m.quantity || 1),
+      0,
+    );
+    const totalQty = group.reduce((s, m) => s + Number(m.quantity || 1), 0);
+    rep.quantity = totalQty;
+    rep.length = totalM2 / totalQty;
+    rep.width = 1;
+    out.push(rep);
+  }
+  return out;
+}
+
 export function useBudgetQuoteCalculations({ form, hayAlternativas }: BudgetCalcParams): BudgetQuoteCalculations {
   const dd2 = Number(form.usd_rate) || 1;
 
@@ -91,8 +130,13 @@ export function useBudgetQuoteCalculations({ form, hayAlternativas }: BudgetCalc
     [form.materials_data],
   );
 
+  // One card per PHYSICAL material, not per pane: multiple `materials_data`
+  // rows for the same alternative material (e.g. two planchas of BLANCO
+  // SUGGAR) must collapse into a single card — exactly like the PDF section
+  // builder (`buildSectionData` groups by `materialGroupKey`). Otherwise the
+  // grid would render one extra card per duplicate pane.
   const matsAlt = useMemo(
-    () => (form.materials_data || []).filter((m) => m.is_alternative),
+    () => dedupeMaterials((form.materials_data || []).filter((m) => m.is_alternative)),
     [form.materials_data],
   );
 

@@ -22,10 +22,10 @@ Notes on the snapshot:
   included in the snapshot for completeness so the local DB mirrors
   production 1:1. They are not curated reference data — treat them as
   regular catalogue rows.
-- Production has a few duplicate names (`NEGRO BRASIL LEATHER` x2,
-  `GRIS CITY` x2). The seeder keeps one canonical row per name and
-  drops the duplicate snapshot entries — those are operator data
-  issues, not catalogue entries.
+- Production had a few duplicate names (`NEGRO BRASIL LEATHER` x2,
+  `GRIS CITY` x2). The snapshot keeps one canonical row per name —
+  those duplicate entries were operator data issues, not catalogue
+  entries, and have been deduplicated here.
 - Price history: we do NOT auto-create `PriceHistory` rows for snapshot
   entries. The historical prices are part of the operator's reality and
   the report accepts a missing history row gracefully.
@@ -56,7 +56,6 @@ MATERIALS: Final[tuple[tuple, ...]] = (
     ("DALLAS",                        "Granitos", "GRIS CLARO",            "2 CM", 300000.0, 300.0,  2, "", 999, ""),
     ("CARAVELLAS WHITE",              "Granitos", "BLANCO",                "2 CM", 350000.0, 350.0,  2, "", 999, ""),
     ("NEGRO BRASIL LEATHER",          "Granitos", "NEGRO",                 "2 CM", 330000.0, 330.0,  2, "", 999, ""),
-    ("NEGRO BRASIL LEATHER",          "Granitos", "NEGRO ",                "2 CM", 330000.0, 330.0,  2, "",  98, ""),
     ("Rojo Sierra Chica",             "Granitos", "Rojo Vetas Negras",     "2 cm", 200000.0, 200.0,  1, "", 998, ""),
     ("ROJO DRAGON",                   "Granitos", "ROJO ",                 "2",    200000.0, 200.0,  1, "",   5, ""),
     # ── legacy COMMON_MATERIALS ids preserved ──────────────────────────────
@@ -73,7 +72,6 @@ MATERIALS: Final[tuple[tuple, ...]] = (
     ("MIAMI WHITE",                   "Cuarzos",  "BLANCO",                "2 CM", 680000.0, 680.0,  2, "", 999, ""),
     ("GRIS TOPO",                     "Cuarzos",  "GRIS",                  "2 CM", 680000.0, 680.0,  2, "", 999, ""),
     ("ZIRCONIUM",                     "Cuarzos",  "NEGRO CON PINTAS BLANCAS", "2 CM", 750000.0, 750.0, 2, "", 999, ""),
-    ("GRIS CITY",                     "Cuarzos",  "GRIS",                  "2 CM",   390.0,   0.39, 2, "",   0, ""),
     ("GRIS CITY",                     "Cuarzos",  "GRIS",                  "2 CM", 390000.0, 390.0,  2, "",   0, ""),
     ("GRIS CITY 1",                   "Cuarzos",  "GRIS",                  "2 CM", 390000.0, 390.0,  2, "", 9999, ""),
     # nuevos del catálogo actual (2026-08-27)
@@ -127,10 +125,8 @@ MATERIALS: Final[tuple[tuple, ...]] = (
 def seed_materials() -> SeedResult:
     """Insert any missing materials (idempotent — matched by name).
 
-    Matched by `name` only. Production may have duplicate names (e.g.
-    `NEGRO BRASIL LEATHER` x2, `GRIS CITY` x2) — those are operator
-    errors rather than catalogue entries, so the seeder keeps one
-    canonical row per name and skips the duplicate snapshot entries.
+    Matched by `name` only. The snapshot is already deduplicated (one
+    canonical row per name), so re-running never inserts duplicates.
     """
     logger = get_logger("seeders.materials")
     result = SeedResult(seeder="materials")

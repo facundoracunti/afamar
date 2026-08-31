@@ -48,8 +48,16 @@ export default function PoolSection({
   }, [poolTypeList]);
 
   const filteredPools = useMemo(() => {
-    if (poolTypeFilter === 'all') return pools;
-    return pools.filter((p) => (p.pool_type_id as number) === poolTypeFilter);
+    const base = poolTypeFilter === 'all' ? pools : pools.filter((p) => (p.pool_type_id as number) === poolTypeFilter);
+    // Order the picker alphabetically by brand (then model) so the list is
+    // stable and predictable regardless of insertion order from stock.
+    return [...base].sort((a, b) => {
+      const ab = `${a.brand ?? ''}`.toLowerCase();
+      const bb = `${b.brand ?? ''}`.toLowerCase();
+      if (ab < bb) return -1;
+      if (ab > bb) return 1;
+      return `${a.model ?? ''}`.toLowerCase().localeCompare(`${b.model ?? ''}`.toLowerCase());
+    });
   }, [pools, poolTypeFilter]);
 
   return (

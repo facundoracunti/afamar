@@ -14,7 +14,6 @@ interface BudgetPaymentSectionProps {
   setForm: React.Dispatch<React.SetStateAction<EntityFormState>>;
   num: (v: string) => number | null;
   onConfirmarPago?: () => Promise<void>;
-  discountBlock?: React.ReactNode;
 }
 
 /** Human-readable label for the catalogue's `type` column. */
@@ -52,7 +51,6 @@ export function BudgetPaymentSection({
   setForm,
   num,
   onConfirmarPago,
-  discountBlock,
 }: BudgetPaymentSectionProps) {
   const { financial, paymentMethods: rawPaymentMethods } = useBudgetPanel();
   const paymentMethods = rawPaymentMethods ?? [];
@@ -181,6 +179,37 @@ export function BudgetPaymentSection({
         </div>
       </div>
 
+      {/* Per-order opt-in for the promotional discount configured on the
+          selected payment method (e.g. "Efectivo — descuento 7%"). Only
+          renders when the active method is a DISCOUNT; SURCHARGE and
+          NONE methods ignore the flag. The form re-sends this boolean
+          on every change so the server-side recalc gates the DISCOUNT
+          branch accordingly. */}
+      {currentMethod?.type === 'DISCOUNT' ? (
+        <div className="form-group">
+          <label
+            className={s['budget-panel__cash-discount-toggle']}
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <input
+              type="checkbox"
+              checked={!!form.apply_cash_discount}
+              disabled={readOnly}
+              onChange={(e) =>
+                update('apply_cash_discount', e.target.checked)
+              }
+              aria-label="Aplicar descuento promocional por efectivo"
+            />
+            <span>
+              Aplicar descuento promocional ({currentMethod.value}
+              {currentMethod.is_percentage ? '%' : ''}) por
+              {' '}
+              {currentMethod.label}
+            </span>
+          </label>
+        </div>
+      ) : null}
+
       {showInstallments && form.installment_detail_ars && form.installment_detail_ars.length > 1 ? (
         <div
           className={s['budget-panel__installment-table']}
@@ -226,8 +255,6 @@ export function BudgetPaymentSection({
           </button>
         </div>
       </div>
-
-      {discountBlock}
 
       <div className={s['budget-panel__dates']}>
         <div className={`form-group ${s['budget-panel__delivery-row']}`}>

@@ -76,6 +76,11 @@ export interface EntityFormState extends FinancialBase {
   warranty_terms: string[];
   delivery_terms: string[];
 
+  // Whether the "COMPARATIVA DE MEDICIÓN" table (Concepto | M² Real |
+  // M² Presupuestado | Diferencia) is printed in this order's PDF.
+  // Work-order only; default `true`, toggled per order in the form.
+  include_measurement_comparison_in_pdf: boolean;
+
   // Fabrication
   fabrication_details: FabricationDetail[];
 

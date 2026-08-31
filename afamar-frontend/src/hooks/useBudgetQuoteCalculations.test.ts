@@ -177,4 +177,30 @@ describe('useBudgetQuoteCalculations — materials split', () => {
     expect(row.total).toBe(400); // 2 (m2) * 1 (qty) * 200 (USD/m2)
     expect(row.currency).toBe('USD');
   });
+
+  it('collapses duplicate alternative panes of the same material into ONE card', () => {
+    // P-000003-like: BLANCO SUGGAR and ABSOLUTE WHITE each carry TWO
+    // alternative rows (different length/width panes). The grid must show
+    // one card per PHYSICAL material (2), not per pane (4) — same grouping
+    // rule as buildSectionData (group by materialGroupKey = id).
+    const mats: MaterialInForm[] = [
+      { id: 21, name: 'BLANCO SUGGAR', currency: 'USD', price_m2: 335000, price_m2_usd: 335, quantity: 1, m2_used: 0, m2_budgeted: 0, length: 1.5, width: 0.5, is_alternative: true },
+      { id: 21, name: 'BLANCO SUGGAR', currency: 'USD', price_m2: 335000, price_m2_usd: 335, quantity: 1, m2_used: 0, m2_budgeted: 0, length: 2.12, width: 0.62, is_alternative: true },
+      { id: 22, name: 'ABSOLUTE WHITE', currency: 'USD', price_m2: 400000, price_m2_usd: 400, quantity: 1, m2_used: 0, m2_budgeted: 0, length: 1.5, width: 0.5, is_alternative: true },
+      { id: 22, name: 'ABSOLUTE WHITE', currency: 'USD', price_m2: 400000, price_m2_usd: 400, quantity: 1, m2_used: 0, m2_budgeted: 0, length: 2.12, width: 0.62, is_alternative: true },
+    ];
+    const { result } = renderHook(() =>
+      useBudgetQuoteCalculations({
+        form: makeForm({ materials_data: mats, usd_rate: 1535 }),
+        hayAlternativas: true,
+      }),
+    );
+    expect(result.current.matsAlt).toHaveLength(2);
+    expect(result.current.matsAlt.map((m) => m.name)).toEqual(['BLANCO SUGGAR', 'ABSOLUTE WHITE']);
+    // Panes are aggregated, not dropped: total pieces = 2 and the dimensions
+    // are re-encoded so `length × width × quantity` = total m² of the group
+    // (0.75 + 1.3144 = 2.0644) — so the card shows "2 pza." and the right m².
+    expect(result.current.matsAlt[0].quantity).toBe(2);
+    expect(result.current.matsAlt[0].length * result.current.matsAlt[0].width * result.current.matsAlt[0].quantity).toBeCloseTo(2.0644, 4);
+  });
 });

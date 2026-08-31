@@ -114,10 +114,47 @@ cat stack-compose.yml
 ```
 
 ## PASO 5
-Ejecutar el seeder:
+Ejecutar las migraciones (se corren automáticamente al arrancar el backend, pero podés aplicarlas manualmente):
 ```bash
-docker exec -it afamar-backend python -m app.scripts.seed
+# Dockerizado
+docker exec -it afamar-backend python -m alembic upgrade head
+
+# Local (desde afamar-backend/)
+.\venv\Scripts\python.exe -m alembic upgrade head
 ```
+
+## PASO 6
+Ejecutar el seeder (opcional — **ya no corre automático al levantar el servidor**).
+Corré el seeder por separado, modelo por modelo, en este orden (respetá el orden porque hay dependencias entre tablas):
+
+```bash
+# Dockerizado — cada seeder en su propio comando
+docker exec -it afamar-backend python -m scripts.seed --only settings
+docker exec -it afamar-backend python -m scripts.seed --only categories
+docker exec -it afamar-backend python -m scripts.seed --only colors
+docker exec -it afamar-backend python -m scripts.seed --only pool_types
+docker exec -it afamar-backend python -m scripts.seed --only materials
+docker exec -it afamar-backend python -m scripts.seed --only pool_stock
+docker exec -it afamar-backend python -m scripts.seed --only additional_works
+docker exec -it afamar-backend python -m scripts.seed --only payment_methods
+docker exec -it afamar-backend python -m scripts.seed --only users
+```
+
+Para correrlos todos de una vez en orden (mismo resultado):
+```bash
+docker exec -it afamar-backend python -m scripts.seed
+```
+
+O un subconjunto:
+```bash
+docker exec -it afamar-backend python -m scripts.seed --only categories,colors,materials
+```
+
+> **Local** (desde `afamar-backend/`, con el venv activo) `./venv/Scripts/python.exe -m scripts.seed` seguido de los mismos `--only`/argumentos de arriba. Ejemplo: `.\venv\Scripts\python.exe -m scripts.seed --only users`.
+>
+> Los seeders son **idempotentes**: se pueden re-ejecutar sin duplicar ni pisar datos manuales.
+>
+> `--reset-admin-password` fuerza el reseteo de la contraseña del admin.
 
 ## Comandos adicionales:
 Saber version de DB:

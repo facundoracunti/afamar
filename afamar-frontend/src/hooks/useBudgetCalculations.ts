@@ -96,6 +96,11 @@ function linearInstallmentRatio(
  * stay in sync) and in `work_order._recalculate_totals_from_items`
  * (server-side safety net). Touch the three together.
  *
+ * DISCOUNT is opt-in via the per-order `apply_cash_discount` flag so the
+ * operator decides client-by-client whether the promotional discount
+ * applies. SURCHARGE (e.g. credit-card recargo) and the credit-card
+ * installment multiplier always apply when selected.
+ *
  * Credit-card rule (current spec): recargo lineal por cuota — `value`
  * se aplica N veces al total, dividido en N cuotas iguales (ver
  * `linearInstallmentRatio` arriba). Para métodos sin installments
@@ -108,12 +113,18 @@ function applyPaymentMethodToTotals(
   totalArs: number,
   totalUsd: number,
   usdRate: number,
+  applyCashDiscount: boolean,
 ): { totalArs: number; totalUsd: number } {
   if (!pm || pm.type === 'NONE' || !pm.value) {
     return { totalArs, totalUsd };
   }
   const value = Number(pm.value) || 0;
   if (value <= 0) return { totalArs, totalUsd };
+  // Gate the DISCOUNT branch on the per-order flag. SURCHARGE and
+  // installment recargo always apply.
+  if (pm.type === 'DISCOUNT' && !applyCashDiscount) {
+    return { totalArs, totalUsd };
+  }
 
   // Effective ratio applied to the total (1 = no change).
   let ratio = 1;
@@ -283,12 +294,14 @@ export function useBudgetCalculations(
     // hardcoded "TARJETA DE CRÉDITO + N*5%" rule).
     const pm = resolvePaymentMethod(form, paymentMethods);
     const installmentsCount = Math.max(1, Number(form.installments) || 1);
+    const applyCashDiscount = !!form.apply_cash_discount;
     const { totalArs: totalWithMethod } = applyPaymentMethodToTotals(
       pm,
       installmentsCount,
       totalConDescuento,
       0, // ARS-only path; USD mirror computed below
       dd,
+      applyCashDiscount,
     );
     const total = totalWithMethod;
 
@@ -314,6 +327,7 @@ export function useBudgetCalculations(
       totalConDescuentoUsd,
       totalConDescuentoUsd,
       dd,
+      applyCashDiscount,
     );
     const total_usd = totalUsdWithMethod;
     const balance_due_usd = Math.max(0, total_usd - depositTotalUsd);
@@ -347,6 +361,7 @@ export function useBudgetCalculations(
           totalAltConDesc,
           0,
           dd2,
+          applyCashDiscount,
         );
         totalFinal = totalAltConMethod;
         const costoMatUsd = primeraAlt.currency === 'USD' ? m2 * precioMat : m2 * precioMat / dd2;
@@ -359,6 +374,7 @@ export function useBudgetCalculations(
           totalAltConDescUsd,
           totalAltConDescUsd,
           dd2,
+          applyCashDiscount,
         );
         totalUsdFinal = totalAltUsdWithMethod;
         balanceDueFinal = Math.max(0, totalFinal - depositTotalArs);
@@ -402,6 +418,9 @@ export function useBudgetCalculations(
     form.transport, form.transport_usd, form.usd_rate,
     form.payment_method, form.payment_method_id, form.installments,
     form.discount_percentage, form.discount_fixed_amount,
+    // Per-order opt-in for the catalogue DISCOUNT branch — must be in
+    // deps so toggling the checkbox re-runs the recalc immediately.
+    form.apply_cash_discount,
     form.deposit_received, form.deposit_usd, form.deposit_currency,
   ]);
 }

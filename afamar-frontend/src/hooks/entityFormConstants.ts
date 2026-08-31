@@ -33,6 +33,7 @@ export const DEFAULT_FINANCIALS: FinancialBase = {
   payment_method: '',
   payment_method_id: null,
   installments: 1,
+  apply_cash_discount: false,
   discount_percentage: 0,
   discount_fixed_amount: 0,
 };
@@ -75,5 +76,6 @@ export const INITIAL_FORM: EntityFormState = {
   budget_terms: [],
   warranty_terms: [],
   delivery_terms: [],
+  include_measurement_comparison_in_pdf: true,
   usd_rate_fetched_at: '',
 };

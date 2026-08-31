@@ -280,30 +280,59 @@ def _recalculate_totals_from_items(db: Session, data: dict) -> None:
         pm = db.query(PaymentMethod).filter(PaymentMethod.name == payment_method_name).first()
     pre_pm_total_ars = total_ars
     pre_pm_total_usd = total_usd
-    if pm is not None and (pm.type in ("DISCOUNT", "SURCHARGE")) and pm.value:
+    # DISCOUNT is opt-in via the per-order `apply_cash_discount` flag so
+    # the operator decides client-by-client whether the promotional
+    # discount applies. SURCHARGE (e.g. credit-card recargo) and the
+    # credit-card installment multiplier always apply when selected.
+    apply_discount = bool(data.get("apply_cash_discount"))
+    if (
+        pm is not None
+        and pm.type == "DISCOUNT"
+        and pm.value
+        and apply_discount
+    ):
         value = float(pm.value)
-        # Multiplier applied to the whole total.
+        # Percentage discount: `value%` of the total, possibly scaled by
+        # the installment count when `applies_to_installments=True`.
+        # Fixed-amount discount: subtract the raw value as ARS. These
+        # two branches don't share the `ratio != 1` gate — the fixed
+        # amount is applied whenever the flag is on, regardless of how
+        # the percentage formula would evaluate.
+        if pm.is_percentage:
+            ratio = 1.0
+            if pm.applies_to_installments:
+                n = max(1, installments)
+                ratio = 1 - n * (value / 100)
+            else:
+                ratio = 1 - value / 100
+            total_ars = max(0.0, round(total_ars * ratio))
+            total_usd = max(0.0, round((total_usd * ratio) * 100) / 100)
+        else:
+            # Fixed-amount DISCOUNT: `value` is treated as ARS. Convert
+            # the USD side via `usd_rate` so the two currencies stay in
+            # sync. When the operator configured EFECTIVO with
+            # `is_percentage=false` this branch is the one that fires.
+            total_ars = max(0.0, total_ars - value)
+            total_usd = (
+                max(0.0, round((total_usd - value / usd_rate) * 100) / 100)
+                if usd_rate > 0
+                else total_usd
+            )
+    elif pm is not None and pm.type == "SURCHARGE" and pm.value:
+        value = float(pm.value)
         ratio = 1.0
         if pm.applies_to_installments:
             n = max(1, installments)
             ratio = 1 + n * (value / 100)
         elif pm.is_percentage:
-            ratio = 1 - value / 100 if pm.type == "DISCOUNT" else 1 + value / 100
+            ratio = 1 + value / 100
         if ratio != 1:
-            if pm.type == "DISCOUNT":
-                if pm.is_percentage:
-                    total_ars = max(0.0, round(total_ars * ratio))
-                    total_usd = max(0.0, round((total_usd * ratio) * 100) / 100)
-                else:
-                    total_ars = max(0.0, total_ars - value)
-                    total_usd = max(0.0, round((total_usd - value / usd_rate) * 100) / 100) if usd_rate > 0 else total_usd
-            elif pm.type == "SURCHARGE":
-                if pm.is_percentage:
-                    total_ars = round(total_ars * ratio)
-                    total_usd = round((total_usd * ratio) * 100) / 100
-                else:
-                    total_ars = total_ars + value
-                    total_usd = total_usd + (value / usd_rate if usd_rate > 0 else 0)
+            if pm.is_percentage:
+                total_ars = round(total_ars * ratio)
+                total_usd = round((total_usd * ratio) * 100) / 100
+            else:
+                total_ars = total_ars + value
+                total_usd = total_usd + (value / usd_rate if usd_rate > 0 else 0)
 
     # Alternative-material override (matches the hook's `hasAlternative`
     # branch). When the form has at least one `is_alternative=true`
@@ -463,18 +492,35 @@ def _recalculate_totals_from_items(db: Session, data: dict) -> None:
     data["installment_detail_usd"] = (
         json.dumps(installment_detail_usd, ensure_ascii=False) if installment_detail_usd else None
     )
+    # Keep the legacy `payment_method` string in sync with the FK so
+    # downstream consumers (PDFs, list endpoint, exports) that still
+    # read the legacy column show the catalogue label, not a stale
+    # name from a previous selection. `pm` was resolved earlier from
+    # either `payment_method_id` or `payment_method`.
+    if pm is not None and (pm.name != data.get("payment_method") or not data.get("payment_method")):
+        data["payment_method"] = pm.name
 
-    # Deposit + balance due. We preserve the deposit value sent in (or recompute
-    # both currencies from it) but never let balance go negative.
+    # Deposit + balance due. The form keeps `deposit_received` (ARS) and
+    # `deposit_usd` (USD) as parallel columns and toggles which one carries
+    # the native value via `deposit_currency`. The `balance_due` math must
+    # subtract the deposit in its NATIVE currency, converted to the
+    # display currency — not just the ARS field, which is zero when the
+    # seña was paid in USD (causing the saldo to stay frozen at total).
     deposit = float(data.get("deposit_received") or 0)
-    deposit_currency = (data.get("deposit_currency") or "ARS").upper()
     deposit_usd = float(data.get("deposit_usd") or 0)
-    if deposit > 0 and deposit_usd == 0 and deposit_currency == "ARS" and usd_rate > 0:
-        deposit_usd = round((deposit / usd_rate) * 100) / 100
-    elif deposit > 0 and deposit_usd == 0 and deposit_currency == "USD":
-        deposit_usd = round(deposit * 100) / 100
+    deposit_currency = (data.get("deposit_currency") or "ARS").upper()
+    if deposit_currency == "USD":
+        # Native = USD. ARS equivalent is what we subtract from total_ars.
+        deposit_ars = deposit_usd * usd_rate if usd_rate > 0 else 0
+    else:
+        deposit_ars = deposit
+        # Derive USD when the operator typed the seña in ARS but the row
+        # was saved without the USD field (so balance_due_usd can also
+        # reflect the deposit).
+        if deposit_usd == 0 and deposit > 0 and usd_rate > 0:
+            deposit_usd = round((deposit / usd_rate) * 100) / 100
 
-    balance_due = max(0.0, total_ars - deposit)
+    balance_due = max(0.0, total_ars - deposit_ars)
     balance_due_usd = max(0.0, round((total_usd - deposit_usd) * 100) / 100)
 
     # Persist everything so the PDF / list endpoint never see $0 again.
@@ -627,6 +673,35 @@ class WorkOrderService:
                 for ad in budget.additional_works
             ]
 
+        # Snapshot the budgeted ARS/USD value of each additional-work row
+        # (frentes + flats) so the WO's COMPARATIVA DE MEDICIÓN can show the
+        # monetary delta of measure (M²/ML) and material re-assignment
+        # changes. Mirrors the material `m2_budgeted` snapshot: without it the
+        # original quoted value is lost the moment the operator edits
+        # `linear_meters` / `assigned_material_id` / price during MEASUREMENT.
+        wo_usd_rate = float(budget.usd_rate or settings.DEFAULT_USD_RATE)
+        additional_works_with_snapshot = []
+        for aw in additional_works_list:
+            if not isinstance(aw, dict):
+                additional_works_with_snapshot.append(aw)
+                continue
+            aw_currency = "USD" if str(aw.get("currency") or "").upper() == "USD" else "ARS"
+            aw_total = float(
+                aw.get("total")
+                or (aw.get("price") or aw.get("unit_price") or 0)
+                * (aw.get("quantity") or 1)
+            )
+            aw_ars = aw_total if aw_currency == "ARS" else (aw_total * wo_usd_rate if wo_usd_rate > 0 else 0)
+            aw_usd = aw_total if aw_currency == "USD" else (aw_total / wo_usd_rate if wo_usd_rate > 0 else 0)
+            aw_snapshot = {"total_ars_budgeted": aw_ars, "total_usd_budgeted": aw_usd}
+            # Frentes are measured in ml — snapshot the budgeted linear meters
+            # so the COMPARATIVA DE MEDICIÓN can show "Presupuestado vs Real"
+            # on the frente detail row (flat works have no measure).
+            if str(aw.get("type") or "").lower() == "frente" and "linear_meters" in aw:
+                aw_snapshot["linear_meters_budgeted"] = float(aw.get("linear_meters") or 0)
+            additional_works_with_snapshot.append({**aw, **aw_snapshot})
+        additional_works_list = additional_works_with_snapshot
+
         sketch_list = []
         if budget.sketch_elements:
             # The frontend's wire format is a flat list of
@@ -645,6 +720,51 @@ class WorkOrderService:
         sketch_json = (
             json.dumps(sketch_list, ensure_ascii=False) if sketch_list else None
         )
+
+        # Snapshot the budgeted ARS/USD value of each fabrication detail
+        # (zócalo / frente / regrueso) so the WO's COMPARATIVA DE MEDICIÓN can
+        # show the monetary delta of measure changes. Same rationale as the
+        # `m2_budgeted` / `total_*_budgeted` snapshots above.
+        fabrication_details = budget.fabrication_details
+        # The measure unit follows the concept, mirroring the frontend
+        # M2_CONCEPTS / LINEAR_CONCEPTS: zócalos/frentes are quoted in m²
+        # (length × width × quantity), linear work (TERMINACION) in ml
+        # (length × quantity). The snapshot feeds the "Presupuestado" column
+        # of the COMPARATIVA DE MEDICIÓN detail rows.
+        fab_m2_concepts = {"LENGTH", "BASEBOARD", "FRONT", "LARGO", "ZOCALOS", "FRENTE"}
+        fab_linear_concepts = {"TERMINACION"}
+        if fabrication_details:
+            try:
+                fab_parsed = (
+                    json.loads(fabrication_details)
+                    if isinstance(fabrication_details, str)
+                    else fabrication_details
+                )
+                if isinstance(fab_parsed, list):
+                    fab_with_snapshot = []
+                    for fd in fab_parsed:
+                        if not isinstance(fd, dict):
+                            fab_with_snapshot.append(fd)
+                            continue
+                        fd_currency = "USD" if str(fd.get("currency") or "").upper() == "USD" else "ARS"
+                        fd_total = float(
+                            (fd.get("price") or 0) * (fd.get("quantity") or 1)
+                        )
+                        fd_ars = fd_total if fd_currency == "ARS" else (fd_total * wo_usd_rate if wo_usd_rate > 0 else 0)
+                        fd_usd = fd_total if fd_currency == "USD" else (fd_total / wo_usd_rate if wo_usd_rate > 0 else 0)
+                        fd_length = float(fd.get("length") or fd.get("largo") or 0)
+                        fd_width = float(fd.get("width") or fd.get("ancho") or 0)
+                        fd_qty = float(fd.get("quantity") or fd.get("cantidad") or 1)
+                        fd_concept = str(fd.get("concept") or fd.get("concepto") or "").strip().upper()
+                        fd_snapshot = {"total_ars_budgeted": fd_ars, "total_usd_budgeted": fd_usd}
+                        if fd_concept in fab_m2_concepts:
+                            fd_snapshot["m2_budgeted"] = fd_length * fd_width * fd_qty
+                        elif fd_concept in fab_linear_concepts:
+                            fd_snapshot["linear_meters_budgeted"] = fd_length * fd_qty
+                        fab_with_snapshot.append({**fd, **fd_snapshot})
+                    fabrication_details = json.dumps(fab_with_snapshot, ensure_ascii=False)
+            except (ValueError, TypeError):
+                pass
 
         data = {
             "number": generate_work_order_number(last_number),
@@ -687,7 +807,7 @@ class WorkOrderService:
             "priority": budget.priority or "NORMAL",
             "delivery_date": budget.delivery_date,
             "notes": budget.notes,
-            "fabrication_details": budget.fabrication_details,
+            "fabrication_details": fabrication_details,
             "pool_id": budget.pool_id,
             "pool_price": budget.pool_price or 0,
             "pool_currency": budget.pool_currency or "ARS",
@@ -756,6 +876,7 @@ class WorkOrderService:
                 "fabrication_details", "materials_data", "pools_data",
                 "usd_rate", "transport", "transport_usd", "discount_percentage",
                 "discount_fixed_amount", "payment_method", "installments",
+                "apply_cash_discount",
                 "deposit_received", "deposit_usd", "deposit_currency",
             )
         ):
@@ -769,6 +890,7 @@ class WorkOrderService:
                 "discount_fixed_amount": order.discount_fixed_amount,
                 "payment_method": order.payment_method,
                 "installments": order.installments,
+                "apply_cash_discount": order.apply_cash_discount,
                 "deposit_received": order.deposit_received,
                 "deposit_usd": order.deposit_usd,
                 "deposit_currency": order.deposit_currency,
@@ -789,6 +911,10 @@ class WorkOrderService:
                 "subtotal", "subtotal_usd", "total", "total_usd",
                 "balance_due", "balance_due_usd", "deposit_received", "deposit_usd",
                 "installment_detail_ars", "installment_detail_usd",
+                # The recalc may rewrite this when `payment_method_id`
+                # resolves to a catalogue row whose name differs from the
+                # stale legacy string — propagate it so the repo writes it.
+                "payment_method",
             ):
                 if key in merged:
                     data[key] = merged[key]

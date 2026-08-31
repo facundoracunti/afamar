@@ -95,6 +95,19 @@ class WorkOrder(Base):
     # Optional per-work-order overrides for the PDF terms.
     delivery_terms_override: Mapped[str] = mapped_column(Text, nullable=True)
     warranty_override: Mapped[str] = mapped_column(Text, nullable=True)
+    # Whether the "COMPARATIVA DE MEDICIÓN" table (Concepto | M² Real |
+    # M² Presupuestado | Diferencia) is printed in this order's PDF.
+    # Defaults to `True`; the operator can toggle it per order in the form.
+    include_measurement_comparison_in_pdf: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="1"
+    )
+    # Per-order opt-in for the promotional discount configured on the
+    # selected payment method (e.g. "Efectivo — descuento 7%"). Off by
+    # default so existing orders keep their current total unless the
+    # operator explicitly opts in for the client at hand.
+    apply_cash_discount: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0"
+    )
     date: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

@@ -243,3 +243,83 @@ def test_update_deposit_persists_and_creates_cash_movement(fresh_db):
     })
     assert result.deposit_received == 50000
     assert result.deposit_currency == "ARS"
+
+
+# ────────────────────────────────────────────────────────────────────
+# Schema-level regression: `delivery_date` annotation must accept a date.
+# ────────────────────────────────────────────────────────────────────
+
+def test_work_order_update_accepts_delivery_date_string():
+    """Regression sentinel for the Pydantic annotation collision bug.
+
+    `WorkOrderBase` / `WorkOrderUpdate` both declare a `date` field
+    (the document date). With `from datetime import date, datetime`,
+    the class body created `cls.date = None`, and Pydantic's
+    `ModelMetaclass.__new__` re-resolves `Optional[date]` (used on the
+    `delivery_date` field) against `localns=cls.__dict__`, where `date`
+    resolved to `None` — silently collapsing the annotation to
+    `Optional[None]` = `NoneType`. PUT with a `delivery_date` then
+    returned `Input should be None`. The fix switched the imports to
+    `import datetime` and the annotation to `Optional[datetime.date]`.
+
+    This test asserts the schema now parses a date string and the
+    annotation is `datetime.date | None` (not `NoneType`).
+    """
+    from datetime import date as _date
+
+    from app.schemas.work_order import WorkOrderUpdate
+
+    ann = WorkOrderUpdate.model_fields["delivery_date"].annotation
+    assert ann == _date | None, (
+        f"WorkOrderUpdate.delivery_date annotation collapsed to {ann!r}; "
+        "this means a Pydantic name-resolution collision with the `date` "
+        "field rebroke — see test_work_order_update.py docstring."
+    )
+    parsed = WorkOrderUpdate(delivery_date="2026-09-11")
+    assert parsed.delivery_date == _date(2026, 9, 11)
+
+
+# ────────────────────────────────────────────────────────────────────
+# `balance_due` must subtract the deposit in its NATIVE currency.
+# ────────────────────────────────────────────────────────────────────
+
+def test_update_with_usd_deposit_subtracts_ars_equivalent(fresh_db):
+    """Regression sentinel for the USD-seña balance freeze.
+
+    The form keeps `deposit_received` (ARS) and `deposit_usd` (USD) as
+    parallel columns and toggles which carries the native value via
+    `deposit_currency`. The earlier recalc only subtracted the ARS
+    field, so a USD seña left `balance_due == total` (frozen at total).
+
+    This test asserts `balance_due = total - deposit_usd × usd_rate`
+    when `deposit_currency == 'USD'`.
+    """
+    svc = WorkOrderService(fresh_db)
+    # First add an ARS fabrication line worth 1.000.000 so the total is
+    # well-defined and > the ARS equivalent of the USD deposit.
+    svc.update(1, {
+        "fabrication_details": json.dumps([
+            {"concept": "LENGTH", "length": 1, "width": 0, "m2": 1,
+             "currency": "ARS", "price": 1000000, "quantity": 1},
+        ]),
+    })
+    # Now register a USD seña of 650. Read total + balance from the SAME
+    # result so the assertion is independent of fixture state. Compute the
+    # expected ARS-equivalent of the deposit dynamically from the order's
+    # usd_rate (which differs between fixtures).
+    result = svc.update(1, {
+        "deposit_received": 0,
+        "deposit_usd": 650,
+        "deposit_currency": "USD",
+    })
+    total_ars = result.total
+    total_usd = result.total_usd
+    rate = result.usd_rate
+    deposit_ars = 650 * rate  # ARS equivalent of the USD seña
+    expected_balance_ars = total_ars - deposit_ars
+    expected_balance_usd = round(total_usd - 650, 2)
+    assert result.balance_due == expected_balance_ars, (
+        f"balance_due frozen at total — USD deposit not subtracted. "
+        f"got {result.balance_due}, expected {expected_balance_ars}."
+    )
+    assert abs(result.balance_due_usd - expected_balance_usd) < 0.01
