@@ -1,5 +1,3 @@
-from datetime import date
-
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -8,7 +6,9 @@ from app.schemas.daily_cash import (
     CashMovementCreate,
     CashMovementResponse,
     CloseCashRequest,
+    CloseCashResponse,
     DailyCashResponse,
+    OpenCashRequest,
     UpdatePreviousBalance,
 )
 from app.services.daily_cash import DailyCashService
@@ -16,11 +16,28 @@ from app.services.daily_cash import DailyCashService
 router = APIRouter(prefix="/cash", tags=["Daily Cash"], dependencies=[Depends(get_current_user)])
 
 
-@router.get("/daily", response_model=DailyCashResponse)
-def get_daily_cash(query_date: date, db: Session = Depends(get_db)):
+@router.get("/current", response_model=DailyCashResponse)
+def get_current_cash(db: Session = Depends(get_db)):
     service = DailyCashService(db)
-    cash = service.get_or_create(query_date)
-    return cash
+    return service.get_current()
+
+
+@router.post("/current/open", response_model=DailyCashResponse)
+def open_current_cash(data: OpenCashRequest, db: Session = Depends(get_db)):
+    service = DailyCashService(db)
+    return service.open_cash(data.previous_balance)
+
+
+@router.put("/current/previous-balance", response_model=DailyCashResponse)
+def update_previous_balance(data: UpdatePreviousBalance, db: Session = Depends(get_db)):
+    service = DailyCashService(db)
+    return service.set_previous_balance(data.previous_balance)
+
+
+@router.post("/current/close", response_model=CloseCashResponse)
+def close_current_cash(data: CloseCashRequest, db: Session = Depends(get_db)):
+    service = DailyCashService(db)
+    return service.close_cash(data.notes)
 
 
 @router.post("/movements", response_model=CashMovementResponse)
@@ -36,18 +53,6 @@ def delete_movement(movement_id: int, db: Session = Depends(get_db)):
     return {"success": True}
 
 
-@router.put("/previous-balance", response_model=DailyCashResponse)
-def update_previous_balance(data: UpdatePreviousBalance, db: Session = Depends(get_db)):
-    service = DailyCashService(db)
-    return service.update_previous_balance(data.date, data.previous_balance)
-
-
-@router.post("/daily/close", response_model=DailyCashResponse)
-def close_daily_cash(data: CloseCashRequest, db: Session = Depends(get_db)):
-    service = DailyCashService(db)
-    return service.close_cash(data.date, data.notes)
-
-
 @router.get("/history")
 def get_cash_history(
     skip: int = 0,
@@ -55,10 +60,20 @@ def get_cash_history(
     db: Session = Depends(get_db),
 ):
     from app.models.daily_cash import DailyCash
+    from app.services.daily_cash import DailyCashService
     from app.utils.pagination import paginate
     from app.utils.responses import success
 
-    query = db.query(DailyCash).filter(DailyCash.is_closed == True).order_by(DailyCash.date.desc())
+    service = DailyCashService(db)
+    query = (
+        db.query(DailyCash)
+        .filter(DailyCash.is_closed == True)  # noqa: E712
+        .order_by(DailyCash.number.desc())
+    )
     page = paginate(db, query, skip, limit)
-    payload = [DailyCashResponse.model_validate(c).model_dump(mode="json") for c in page.items]
+    payload = []
+    for c in page.items:
+        item = DailyCashResponse.model_validate(c).model_dump(mode="json")
+        item["summary"] = service._build_summary(c)
+        payload.append(item)
     return success(payload, page.pagination)

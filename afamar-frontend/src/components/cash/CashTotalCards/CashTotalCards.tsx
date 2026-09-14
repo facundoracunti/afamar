@@ -32,11 +32,11 @@ export default function CashTotalCards({ suma, totalSalidas, currentBalance, efe
       </div>
       <div className={`card ${s['cash-totals__card']} ${s['cash-totals__highlight']}`}>
         <div className={s['cash-totals__highlight-label']}>
-          <Banknote size={16} /> Caja del Día
+          <Banknote size={16} /> Caja Actual
         </div>
         <div className={s['cash-totals__highlight-value']}>{formatCurrency(efectivoReal)}</div>
         <div className={s['cash-totals__highlight-hint']}>
-          Efectivo real en cajón (excluye TB)
+          Efectivo real en cajón (excluye transferencias)
         </div>
       </div>
     </div>

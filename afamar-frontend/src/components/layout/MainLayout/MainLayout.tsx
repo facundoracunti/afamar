@@ -42,7 +42,7 @@ function getPageTitle(pathname: string): string {
     '/admin/measurements': 'Mediciones',
     '/admin/plate-calculator': 'Calculadora de Placa',
     '/admin/porcelain-tile-calculator': 'Calculadora de Porcelanato',
-    '/admin/cash': 'Caja Diaria',
+    '/admin/cash': 'Caja',
     '/admin/reports': 'Reportes',
     '/admin/configuration': 'Configuración',
     '/admin/configuration/payment-methods': 'Métodos de Pago',

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Trash2, Plus } from 'lucide-react';
+import type { CashMovement } from '../../../types/cash';
 import styles from './CashMovementTable.module.css';
 import { EmptyState } from '../../ui/EmptyState/EmptyState';
 
@@ -9,8 +10,8 @@ interface CashMovementTableProps {
   titleColor: string;
   addLabel: string;
   emptyMessage: string;
-  movements: Record<string, unknown>[];
-  columns: { key: string; label: string; width?: number; render: (row: Record<string, unknown>) => ReactNode }[];
+  movements: CashMovement[];
+  columns: { key: string; label: string; width?: number; render: (row: CashMovement) => ReactNode }[];
   closed: boolean;
   onAdd: () => void;
   onDelete: (id: number) => void;

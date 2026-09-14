@@ -1,7 +1,8 @@
 # AGENTS.md
 
-> **Estado:** Rama `development`. Últimas sesiones: **2026-08-30** — (1) cards de ALTERNATIVA A/B del presupuesto ahora muestran el MISMO "Subtotal Opción" que el PDF (material + zócalo/frente + traforos + pileta), (2) eliminado el bloque "🔒 Descuento Comercial (Solo Vendedor)" de las órdenes de trabajo (+ componente `DiscountBlock` borrado), (3) fix del buscador de materiales en `/admin/materials` (el endpoint backend ignoraba `search`), (4) la COMPARATIVA DE MEDICIÓN del PDF ahora separa cada zócalo/frente como fila de detalle indentada bajo su material (en vez de sumarlos en una sola cifra del material), (5) las filas detalle de la comparativa ahora muestran columnas Presupuestado/Real/Diferencia con unidad (m² zócalos, ml frentes) snapshotteadas al convertir (encabezados genéricos; legacy sin snapshot muestra Real + "—"), (6) **backfill** de OTs legacy (`scripts/backfill_measurement_snapshots.py`) hidrata snapshots faltantes desde el presupuesto origen (idempotente, dry-run por defecto), (7) **fix `WorkOrderUpdate.delivery_date`** — colisión de nombres Pydantic con el campo `date` (ver "Colisión `date` en WorkOrder schemas"). Ver "Cards de alternativa = subtotal del PDF" y "Descuento comercial eliminado" y "Fix buscador de materiales 2026-08-30" y "Comparativa de medición: filas de detalle" y "Backfill de snapshots 2026-08-30" y "Colisión `date` en WorkOrder schemas" abajo.
-> `tsc --noEmit` 0 errores · vitest **207/207** (18 files) · pytest **59/59** · playwright **108/108**.
+> **Estado:** Rama `development`. Sesión **2026-09-10** — nueva feature **FICHA DE TALLER**: documento PDF técnico separado del presupuesto/cliente (SIN precios) para la orden de trabajo, con N° de orden, material, pileta, croquis grande y la grilla de especificaciones de taller (CORTE / FAJA / PERF / TRAS-PEG / TERM / SOPAPAS) impresa **siempre en blanco** debajo del croquis para que los trabajadores la completen **a mano con lapicera sobre el papel** (NO por la web — *corrección 2026-09-10: el bloque de 6 inputs del form fue ELIMINADO*, ver "Ficha de Taller 2026-09-10" abajo). Botón "Ficha" en el listado de OTs **y** en el form de OT (modo edición). 6 columnas nuevas en `work_orders` + migración `c5d6e7f8a9b1`, PDF react-pdf dedicado (`WorkshopSheet`). *(Última sesión anterior: 2026-09-07 — fixes comparativa de medición, backfill de snapshots, cobro de seña en update().)*
+
+> `tsc --noEmit` 0 errores · vitest **234/234** (22 files) · pytest **83/83** · `npm run build` OK · ESLint 0 errores nuevos (2 preexistentes: `EntityFormLayout.tsx:3` 'PdfDocumentData' unused, `entityFormSerialization.ts:99` 'rest' unused). *(Nota 2026-09-01 noche: vitest **222/222**, pytest **72/72** — ver "Navegación tras guardar + tarjeta cobra 100%" y "Señas fantasma + duplicado real" abajo.)* *(Nota 2026-09-02: pytest **77/77** — +5 tests de idempotencia de caja.)* *(Nota 2026-09-03: vitest **223/223** — +1 test del fix "Deshacer" en modo crear; ver "Fix botón Deshacer en modo crear 2026-09-03" abajo.)* *(Nota 2026-09-03 (tarde): + botón de retroceso de estado en OT — ver "Botón de retroceso de estado 2026-09-03" abajo.)*
 >
 > **Índice del conocimiento (codebase-memory):** **reindexado** el 2026-08-27 junto con el commit de esa sesión. ADR de arquitectura persistido en el índice (`manage_adr`) + ADR de decisión commiteado en `docs/adr/0008-database-migrations-and-seeder-sync.md`. El ADR de Fase 7 sigue en `docs/adr/0007-payment-methods-catalogue.md`.
 
@@ -14,6 +15,139 @@
 - **Hotspots confirmados (reindex 2026-08-27):** backend `BaseRepository.add` (32 callers, #2) / `save` (25); frontend `createResource.get` (74, #1 global), `parseApiError` (29), `LoadingSpinner` (25), `loginViaApi` (21), `createResource.update` (19), `useNotify` (19). Tras Fase 7, sumar `useBudgetCalculations.applyPaymentMethodToTotals` (4 callsites nuevos) y `paymentMethodRepository.get_by_name` (CRUD del catálogo).
 - **Complejidad alta:** `usePlateCalculator` (bin-packing, loop_depth 4, cyclomatic 13), `pdf_html._sketch_to_png_base64_list` (loop_depth 3, cyclomatic 25), `WorkOrderService.update` (cyclomatic 12), `_recalculate_totals_from_items` (cyclomatic ~12 con alternativa + catálogo).
 - **Clusters de-facto:** frontend core UI (102, cohesión 0.79), forms orchestration (74, 0.81), `parseApiError`+`useBudgetActions`+`buildPayload`+`useFormActions` (65, 0.81), budget/quote/fabrication/sketch (54, 0.88). Sin dependencia circular entre `app/` y `src/`.
+
+## Auto-consume de material en "Asignar a opción" (2026-09-12)
+
+En el form de presupuesto (`/admin/budgets/new`), al hacer click en **"Agregar concepto"** (que agrega un material adicional tipo zócalo/frente), el select **"Asignar a opción"** ahora **se auto-consuma** el material cargado en el listado MATERIALES — antes el operador tenía que elegirlo **manualmente** cada vez (con 1 solo material cargado, es un paso redundante que se repite por cada detalle).
+
+**Dónde:** `src/hooks/useFormDetails.ts::addDetalle` (líneas ~98-133) — el hook compartido que alimenta a `BudgetFormPage` y `WorkOrderFormPage` vía `useEntityForm` → `useEntityForm.addDetalle` → `AdditionalMaterial` (cada form con su `addDetalle`). También respeta material por página de croquis (ver "Material por página de croquis" abajo).
+
+**Lógica (obtenida de `form.materials_data`, determinista por render):**
+- **Exactamente 1 material que NO es alternativa** (`!singleMain.is_alternative`) → el detalle nuevo arranca con ese material: `material = singleMain.name`, `material_price_m2` = `price_m2`/`price_m2_usd` según la moneda del material, `currency` = la del material. Cero clicks del operador.
+- **Exactamente 1 material pero ES alternativa** → `material: ''` (**global** — un detalle global suma al total sin pincharse a la opción; una alternativa no debe "tragarse" los detalles).
+- **Múltiples materiales / alternativas presentes** → `material: ''` (global). El operador asigna a mano con el picker (que muestra SOLO los materiales del `materials_data`, deduped — ver `components/budget/AdditionalMaterial`).
+
+**Regla de oro:** el auto-consume es pura conveniencia del operador — **no** sobrescribe una opción ya elegida en una fila existente; solo setea el default de la fila **recién creada**. El cambio de opción manual sigue intacto (`handleDetailChange`).
+
+**Sin cambios de backend** (el ancho del select y el shape del detalle ya existían). **Verificación:** `tsc --noEmit` 0 errores · vitest **276/276** (24 files) · pytest 83/83.
+
+## LONGTEXT en fotos/croquis de mediciones (2026-09-12)
+
+Fix de **truncado silencioso** en las mediciones: una medición con fotos o croquis grande se guardaba incompleta en MySQL y las fotos "desaparecían" al recargar.
+
+**Causa raíz:** MySQL `TEXT` tiene tope de **64 KB**. `photos_data` y `sketch_data` se guardan como **JSON en base64/data-URL** (una sola foto de celular fácilmente supera los 64 KB) → MySQL **trunca silenciosamente** a mitad del JSON → la columna queda con JSON corrupto y al re-leer se "pierden" las fotos. En SQLite no pasa (TEXT no tiene límite), por eso el bug era solo en producción MySQL.
+
+**Fix aplicado (2 capas, deben mantenerse en sync):**
+- **Migración Alembic `e2f3a4b5c6d7`** (`alembic/versions/e2f3a4b5c6d7_measurement_photos_sketch_longtext.py`): `alter_column` de `photos_data` y `sketch_data` en `measurements` de `sa.Text()` → **`LONGTEXT`** (vía `with_variant(mysql.LONGTEXT(), "mysql")`). En SQLite la variante es no-op (TEXT no tiene tope).
+- **Modelo (`app/models/measurement.py:13`):** constante `_TEXT = Text().with_variant(mysql.LONGTEXT(), "mysql")` aplicada a los dos `mapped_column`. **Regla:** si en el futuro otro campo guarda payloads grandes (fotos/croquis/JSON base64), usar `_TEXT` en vez de `Text` pelado.
+
+**Datos perdidos (irrecuperables):** la fila de medición que disparó el reporte ya se había guardado con la columna todavía `TEXT` — los bytes truncados no existen (pérdida real, la investigamos y no hay forma de recuperar el JSON completo; la medición se cargó de nuevo). No hacer backfill intentando "recuperar" de filas truncadas — el JSON cortado no se puede reconstruir.
+
+**Verificación:** migración aplicada a **prod MySQL** + roundtrip E2E con **~200 KB** de fotos base64 → `ROUNDTRIP OK: True` (antes fallaba con el truncado). `SHOW FULL COLUMNS` confirma `longtext` en prod. `tsc --noEmit` 0 errores · vitest **276/276** · pytest **83/83**.
+
+## Ficha de Taller 2026-09-10
+
+Nueva feature: un **documento interno para el taller** separado del presupuesto/cliente. El operador imprime la Ficha de Taller y se la entrega a los trabajadores junto con la orden física. **SIN precios** (no es para el cliente), con el croquis grande para que el taller sepa qué cortar. Aplica **solo a órdenes de trabajo** (no a presupuestos).
+
+**Contenido del PDF** (`WorkshopSheet`): N° de orden, material, pileta, croquis/plano grande, y la grilla **"Especificaciones para el taller"** con 6 celdas: **Corte / Faja / Perf. / Tras.+Peg. / Term. / Sopapas** — impresas **siempre en blanco** debajo del croquis para que los trabajadores las completen **a mano con lapicera sobre el papel**. Los operarios **NO usan la web para cargar estos datos** (quedó eliminado el bloque de 6 inputs del form, corrección de esta sesión). También un bloque "Observaciones" (usa `design_observations`) impreso relleno.
+
+### El form NO tiene los 6 campos (corrección 2026-09-10)
+
+El flujo inicial de la feature agregaba un bloque "Especificaciones para taller" con 6 inputs al form (`showWorkshopSpecs: EntityFormSpecs` + los 6 campos en `EntityFormState`/`buildPayload`/`mapApiToForm`). El usuario lo rechazó: los trabajadores del taller llenan la hoja **a mano** (el cortador, ej. Cristian, completa "Corte" cuando termina de cortar) — el form no debe pedir esos datos. **Corrección aplicada esta sesión:**
+
+- **Eliminado de TODA la capa frontend del form:** el bloque JSX y prop `showWorkshopSpecs` de `EntityFormSpecs.tsx` (+ clases `specs-workshop*` de su `.module.css`), el prop del `EntityFormLayout.tsx` (interface/arg/2 forwards/doc-comment), y los 6 campos `workshop_*` de `src/types/form.ts` (`EntityFormState`), `entityFormConstants.ts` (defaults) y `entityFormSerialization.ts` (`buildPayload`/`mapApiToForm`).
+- **El builder imprime siempre en blanco:** `buildWorkshopPdfData.ts` ya NO lee valores del form — `SPEC_FIELDS` mapea a `value: ''` literal (constante `EMPTY_SPEC_VALUE`), con doc-comment explicando el porqué. `WorkshopFormLike` ya no declara las keys `workshop_*`.
+- **Test actualizado:** `buildWorkshopPdfData.test.ts` ahora asserta `specs.every((s) => s.value === '')` incluso cuando el form trae `workshop_*` (test "keeps the spec grid blank even when the form carries values").
+
+### Backend se conserva (columnas reservadas)
+
+Las 6 columnas `workshop_*` (`String(100) nullable`) en `work_orders` + migración Alembic **`c5d6e7f8a9b1`** (aplicada a MySQL prod) se **mantienen** como columnas reservadas: el taller completa en papel, pero si en el futuro se digitaliza la captura, el schema ya las soporta. Sin uso activo en el form — `create_from_budget` sigue copiándolas con `getattr(budget, ..., None) or ""` (harmless) y `test_update_persists_workshop_sheet_fields` sigue pasando (verifica persistencia por `update()`). NO eliminarlas: la migración ya está en head de prod.
+
+**Frontend (impresión → listado de OTs):**
+- `WorkOrdersTable` — botón **`🖨️ Ficha`** (verde, junto a `PDF`) en la columna vista. Prop `onOpenFicha`.
+- `useWorkshopPdfController.tsx` — clon de `usePdfPreviewController` pero con `buildWorkshopPdfData` y el modal dedicado.
+- `WorkshopPdfPreviewModal.tsx` — misma shell que `PdfPreviewModal` (overlay/header/PDFViewer/PDFDownloadLink) renderizando `WorkshopSheet`.
+- `WorkshopSheet.tsx` — documento `@react-pdf/renderer` A4 portrait, header con logo + "FICHA DE TALLER" + N° grande, fila Material/Pileta/Cliente, croquis (máx 300px altura, fondo blanco), grilla specs 3×2 con label + celda vacía, bloque Observaciones. Sin precios, sin tablas de ítems, sin términos de pago.
+- `buildWorkshopPdfData.ts` — builder con types `WorkshopPdfData`/`WorkshopSpecCell`; material de `form.material` (fallback `materials_data[0]`), pileta de `pools_data[0].brand+model`, specs SIEMPRE `''`.
+
+**Frontend (impresión → form de OT, agregado esta sesión):**
+- `WorkOrderFormPage.tsx` — botón **`🖨️ Ficha de Taller`** en el header junto a "VISTA PREVIA PDF" (mismo estilo `.work-order-form__preview-btn`), habilitado solo en **modo edición** (`id` presente; deshabilitado en crear). Usa el mismo `useWorkshopPdfController` con `fetchEntity: getWorkOrder`, `defaultStatus: 'MEASUREMENT'`; `{ficha.UI}` renderizado al final del form. `handlePrintFicha` definido después del destructure de `useEntityForm` (usa `form.number`/`form.status`).
+
+**En la DB:** columnas ya migradas a MySQL prod (head = `c5d6e7f8a9b1`). Una OT pre-existente guardada con los 6 campos los persiste vía `update()` (ver test `test_update_persists_workshop_sheet_fields`) — pero ningún form los genera ahora.
+
+**Archivos clave (para mantener en sync si cambia el shape):**
+- `afamar-frontend/src/utils/pdf/buildWorkshopPdfData.ts` ↔ `WorkshopSheet.tsx` (tipos `WorkshopPdfData` ↔ render).
+- `src/hooks/useWorkshopPdfController.tsx` ↔ `usePdfPreviewController.tsx` (mismo patrón de fetch → sketch extract → build → modal).
+- Si se agrega un 7º campo de spec: tocar `SPEC_FIELDS` del builder (sigue `''`) + el grid de `WorkshopSheet.tsx`; NO tocar el form.
+
+**Cierre:** `npm run build` (`tsc --noEmit && vite build`), `npm test` (vitest 234/234), pytest 83/83. El preview se abre desde el listado de OTs (botón "Ficha") y desde el form de OT en modo edición (botón "Ficha de Taller").
+
+## Material por página de croquis + persistencia multipágina (2026-09-10, continuación)
+
+El croquis de la Ficha de Taller ahora etiqueta **cada página** con el **material** elegido, y las páginas **persisten** su `name` + `material` al guardar/reabrir (antes el wire format aplanaba todo a "Página 1" y sólo sobrevivía un dibujo).
+
+**Volantes previos de esta sesión:** `flattenSketchElements` (wire flat `[{type,data,order}]`) → reemplazado por **`serializeSketchPages`** (wire `[{ pagina_id, name, material?, dibujo }]`) en `src/hooks/entityFormSerialization.ts`. NOTA: al tocar ese archivo se arregló un mojibake preexistente (`P�gina` → `Página`) en `useSketchState.ts` (`normPages`/`savePayload`), con reemplazo de bytes — el archivo se guardó UTF-8 sin BOM.
+
+**Wire format nuevo (WorkOrders):**
+```
+[{ "pagina_id": 1, "name": "Mesada 1", "material": "NEGRO BRASIL",
+   "dibujo": [ { "type": "line", "data": "{...geometry JSON...}", "order": 0 } ] }]
+```
+- `serializeSketchPages(raw)` — acepta el shape del editor (páginas con `dibujo`/`elements`) Y la lista plana legacy (la envuelve en "Página 1"). Compacta cada elemento a `{type, data, order}` (reusa un `data` existente en vez de re-stringificar).
+- `unflattenSketchElements(raw)` — acepta el string JSON (columna TEXT de OT), el array de páginas, y la lista plana legacy (Budget 1-N / OTs viejas → 1 página sin material). Expande cada elemento a geometría `{...data, type}`.
+- `buildPayload` → `sketch_elements: jsonStringify(serializeSketchPages(form.sketch_elements))`; `mapApiToForm` → `unflattenSketchElements(d.sketch_elements)`.
+
+**Backend (`app/services/budget.py`):** helper `_flatten_sketch_pages(sketch_data)` normaliza el wire nuevo a las filas planas `{type, data, order}` que `BudgetSketchElement` (1-N) espera — Budget NO tiene columnas por página, así que aplanar (pierde `name`/`material`, aceptado: la Ficha es solo de OTs). Aplicado en `create()` y `update()` (también protege `None`). `WorkOrder.sketch_elements` (TEXT) guarda el wire nuevo íntegro.
+
+**Flujo de OT:** el operador edita el croquis en el form de OT (modo medición), elige material por página (`Toolbar` → select `toolbar__material-select`, badge en readOnly), Guardar → `savePayload` emite `material` por página → `buildPayload`/`serializeSketchPages` lo persiste → al reabrir y al imprimir la Ficha (`resolveSketchPages` zippea `sketch_pages` con las imágenes del extractor y renderiza `[name — material]` en el rótulo). El extractor ignora `material`, solo dibuja la geometría.
+
+**Conversión budget→OT:** `create_from_budget` (work_order.py:752-769) lee `budget.sketch_elements` (filas planas, sin páginas) → la OT hereda croquis legacy flat. El operador re-etiqueta material en la OT si lo necesita. OTs directas sin budget ni páginas → 1 página genérica.
+
+**Tests:** `entityFormHelpers.test.ts` — round-trip páginas completas preservando `name`/`material` (buildPayload→mapApiToForm), flat legacy envuelto en 1 página, legacy wire sin páginas no crashea, y el test Budget 1-N existente sigue pasando. `buildWorkshopPdfData.test.ts` — `sketch_pages` con `name`/`material`/`image` y fallback genérico.
+
+**Verificación:** `tsc --noEmit` 0 errores · vitest **240/240** (22 files, +6) · pytest **83/83** · `npm run build` OK · ESLint: 6 errores en los archivos tocados, TODOS preexistentes en HEAD (7 en HEAD; el rewrite eliminó uno). Reindexar el knowledge graph si se commiteara el `.codebase-memory/`.
+
+## Material no persistente en presupuesto (decidido)
+
+La elección del usuario fue "persistir páginas completas" SOLO en OTs (donde se imprime la Ficha). En **presupuestos**, `BudgetSketchElement` sigue siendo filas planas `{type,data,order}` — el multipágina colapsa en 1 página al reabrir (índice `sketch_elements` GET /budgets/{id}), y para la COMPARATIVA/PDF de presupuesto se usa `buildPdfData` (extractor, no taller). Si en el futuro se quiere material por página en presupuestos → migración para agregar `name`/`material` a `budget_sketch_elements` + actualizar `_flatten_sketch_pages`/batch paths.
+
+## Flujo de trabajo de la OT — ciclo de vida (operativo, validado 2026-09-07)
+
+El operador del sistema vive este flujo todos los días. Validado end-to-end contra el backend real con pruebas manuales + automatizadas:
+
+```
+[Presupuesto]                          [OT]                                    [Caja]
+PENDING ─► APPROVED ─► CONVERTED ─► MEASUREMENT ─► WORKSHOP ─► FINISHED ─► DELIVERED
+(informativo,           (con `budget_id`)    (seña real cargada    (saldo
+ sin seña)                                  durante MEDICIÓN)      pendiente
+                                                                  se cobra
+                                                                  automático)
+```
+
+**Detalle de cada etapa (con la lógica de caja que dispara):**
+
+| Etapa | Acción del operador | Bookea caja | Marca |
+|---|---|---|---|
+| Crear presupuesto | POST `/budgets` con `deposit_received=0` | — (presupuesto informativo) | status=PENDING |
+| Aprobar presupuesto | PUT `/budgets/{id}` con `status=APPROVED` | — | status=APPROVED |
+| Convertir a OT | POST `/work-orders/from-budget/{id}` | Si presupuesto tenía seña → INCOME por el monto; flag `sena_registered=True`. Si NO tenía seña → sin movimiento | status=MEASUREMENT, `budget_id` poblado, `origin=Budget` |
+| Editar OT en MEDICIÓN | PUT `/work-orders/{id}` con `deposit_received=X` (donde X > 0) y `sena_registered=False` | **INCOME por $X**; flag `sena_registered=True`. Idempotente (re-guardar no duplica) | deposit=X, saldo=total-X, sena=True |
+| WORKSHOP → FINISHED | PUT con `status` | — | transiciones válidas via `VALID_TRANSITIONS` |
+| FINISHED → DELIVERED | PUT con `status` | Si `balance_due > 0` → **INCOME por el saldo** con `remaining_balance=0`; flag `saldo_registered=True` | status=DELIVERED, saldo=$0, balance_paid=True |
+
+**Reglas de negocio críticas:**
+
+- **Una OT NO se entrega sin cobrar el saldo total.** `balance_due` debe ser $0 al pasar a DELIVERED.
+- **Tarjeta débito/crédito al crear OT** → `balance_paid=True`, `deposit_received=total`, `sena_registered=True` desde el `create()`. NO se re-cobra en update ni en DELIVERED.
+- **Idempotencia:** `sena_registered` y `saldo_registered` previenen doble bookeo si el operador guarda varias veces.
+- **`create_from_budget()` se llama con `register_flag="sena_registered"`** (atributo Python temporal, eliminado con `delattr` antes del `return` para que `jsonable_encoder` no lo serialice en lugar del objeto WorkOrder). Ver "Fix crítico (hallado durante el debug E2E) — `delattr(order, "register_flag")`" en la sección del 2026-09-07 más abajo.
+
+**Issue conocido (no resuelto):** el `_recalculate_totals_from_items` puede pisar el `total` enviado por el cliente en `materials_data='[]'`, poniendo `total=0, balance_due=0`. En el flujo real del frontend esto no pasa porque el form siempre envía `materials_data` con datos reales. Solo afecta a pruebas API directas.
+
+**Limitaciones del flujo automatizado:**
+- No se valida que `balance_due == 0` antes de aceptar la transición a DELIVERED. Confiar en la disciplina del operador.
+
+## Reglas de operación
 
 ## Reglas de operación
 
@@ -549,3 +683,447 @@ print(T.model_fields['a'].annotation)  # NoneType (bug)
 **Regla**: en cualquier schema Pydantic, **nunca combinar `from datetime import datetime` con un campo cuyo nombre colisione con un tipo del módulo `datetime`** (`date`, `datetime`, `time`, `timedelta`, `tzinfo`). Si el campo se llama `date`, usar `import datetime` + `datetime.date` para el tipo. Misma regla aplica a cualquier otro módulo que importes nombres que un field pueda shadowear.
 
 **Regression sentinel** en `tests/test_work_order_update.py::test_work_order_update_accepts_delivery_date_string`: asserta `WorkOrderUpdate.model_fields['delivery_date'].annotation == date | None` (cualquier valor distinto significa que la colisión volvió).
+
+## Caja por sesión (backend) 2026-08-31
+
+**Contexto de negocio:** la caja NO es un kiosco — no tiene día definido, ni es semanal/mensual. El operador hace la caja cuando se le juntan varias órdenes o hay ingresos elevados y puede abarcar varios días. En Excel la numeran por sesión (#1, #2, #3...). Este cambio transforma el modelo de caja **diaria** (una fila por `date`, unique) a **cajas por sesión numeradas**, on-demand. **SOLO BACKEND en esta fase** (el frontend se actualiza en la siguiente).
+
+**Reglas de negocio (decisiones del usuario):**
+- **Siempre hay exactamente UNA caja abierta** (`is_closed == False`). Nunca más de una.
+- **Cerrar una caja → automáticamente se abre la #siguiente** (número consecutivo). Cero pasos extra para el operador.
+- **Numeración continua por sesión** (#1, #2, #3...), NO por día. Computada en el repo como `max(number)+1` (no hay unique en DB para coexistir con filas legacy `number=NULL`).
+- **Saldo anterior SIEMPRE manual**, se setea al abrir (`POST /cash/current/open` / `PUT /cash/current/previous-balance`).
+- **`real_cash` = todo EXCEPTO transferencia bancaria.** Efectivo, efectivo en USD y tarjetas (débito/crédito) cuentan como efectivo real; las **transferencias NO** (ese dinero no se tiene físicamente). Las transferencias igual van a los totales de Suma/Saldo, pero no al `real_cash`. Implementada en `DailyCashRepository.recalculate` con el helper `_is_transfer(payment_method)` (matchea por substring `TRANSFER`/`TRANSFERENCIA`) para ingreso, y `expense_type == "BANK_TRANSFER"` para egreso.
+- Una caja puede **abarcar varios días** (abierta un día, cerrada cuando se juntan órdenes).
+- **Numeración nueva desde cero** (los datos legacy de caja diaria NO se convierten; quedan con `number=NULL` como referencia histórica).
+
+**Migración Alembic `a9b8c7d6e5f4` (`alembic/versions/a9b8c7d6e5f4_cash_registers_by_session.py`):**
+- `daily_cash` gana `number INT NULL`, `opened_at DATETIME NULL`, `closed_at DATETIME NULL`.
+- Se **dropea el unique de `date`** (`ix_daily_cash_date`), la columna se mantiene (ya no identifica la caja; rellena `date.today()` al crear).
+- **Sin backfill**: los registros legacy quedan con `number=NULL`. Numeración nueva empieza en #1.
+- Batch mode (`batch_alter_table`) para que el unique-drop funcione portable en SQLite (rebuild) y MySQL.
+
+**Modelo (`app/models/daily_cash.py`):** `DailyCash` agrega `number`, `opened_at`, `closed_at`; `date` ya no es `unique`. `CashMovement` sin cambios.
+
+**Repositorio (`app/repositories/daily_cash.py`):**
+- `get_current()` → la única fila `is_closed == False` (invariante una-abierta).
+- `get_or_create_current()` → crea si no hay, con `_next_number()`, `date=today`, `opened_at=now`, saldo 0.
+- `_next_number()` → `int(max(number) or 0) + 1`.
+- `get_by_number(number)`, `get_closed()` ordenado por `number.desc()`.
+- **Eliminados** `get_by_date`, `get_or_create(query_date)`.
+- `recalculate` → **`real_cash` = prev + (ingresos − transfer_income) − (egresos − transfer_expenses)** (arregla también el mismatch `EFECTIVO`/`CASH` que rompía el cálculo con los métodos del catálogo en español).
+
+**Servicio (`app/services/daily_cash.py`):**
+- `get_current()`, `open_cash(previous_balance=0)` (idempotente), `set_previous_balance(value)`.
+- `create_movement(movement_data)` → **sin `date`**; resuelve la caja abierta (`get_or_create_current`) e ignora la clave `date` si llega. Si no hay caja abierta (edge legacy), la crea.
+- `close_cash(notes=None)` → valida `total_sum >= total_expenses`, cierra (`is_closed=True`, `closed_at=now`, notas), **abre la siguiente** y retorna `{closed_cash, summary, next_cash}`.
+- `_build_summary(cash)` → `{number, opened_at, closed_at, duration_seconds, total_by_payment, ingreso_count, egreso_count, previous_balance, total_income, total_expenses, current_balance, real_cash}` (total por forma de pago agrupado por `payment_method`).
+
+**Schemas (`app/schemas/daily_cash.py`):** `CashMovementCreate` **sin `date`**; `DailyCashResponse` con `number/opened_at/closed_at` (sin `date`); `OpenCashRequest/UpdatePreviousBalance` solo con `previous_balance`; `CloseCashRequest` solo notas; nuevos `CashSummary` + `CloseCashResponse {closed_cash, summary, next_cash}`. Usa `import datetime` (regla de colisión de nombres).
+
+**Router (`app/api/routers/daily_cash.py`)** — el prefijo `/cash` se mantiene:
+```
+GET    /cash/current                  → caja abierta actual (+ movimientos)
+POST   /cash/current/open             → { previous_balance? } asegura/abre la actual (idempotente)
+PUT    /cash/current/previous-balance → { previous_balance }
+POST   /cash/current/close            → { notes? } → CloseCashResponse (cierra + abre #siguiente)
+GET    /cash/history                  → cajas cerradas por número, con `summary` por fila
+POST   /cash/movements                → sin date → cae en la caja abierta actual
+DELETE /cash/movements/{id}           → igual
+```
+**Endpoints legacy con fecha eliminados:** `/cash/daily`, `/cash/previous-balance`, `/cash/daily/close`.
+
+**`app/services/work_order.py::_create_cash_movement_on_deposit`:** simplificado — ya NO arma `date` ni `date.today()`; el `create_movement` resuelve la caja abierta actual. (El `import datetime/date` se mantiene porque `date` se usa en `list_filtered` y `budget.date`.)
+
+**Tests:** `tests/test_cash_register.py` (9 tests): numeración 1→2→3, una-abierta invariante, cerrado abre siguiente, movimiento sin fecha, auto-crea caja sin caja abierta, `real_cash` excluye transferencias (EFECTIVO+TARJETA SÍ, TRANSFERENCIA NO), resumen por forma de pago, validación egresos>suma, idempotencia de open. **pytest 70/70.**
+
+## Fix TOTAL comparativa 2026-08-31
+
+**Síntoma (A-000 / WO5):** el **TOTAL de la COMPARATIVA DE MEDICIÓN** del PDF mostraba `$717.343,88 ARS / +467,33 USD` aunque la fila material (BLANCO SUGGAR) mostrara Subtotal `—`. **Causa raíz:** en `buildMeasurementComparison` (`afamar-frontend/src/utils/pdf/buildSectionData.ts`), una fila material **sin snapshot** de `m2_budgeted` (legacy re-frozen post-conversión) tenía `m2_budgeted=0` → `delta = m2Real − 0 = m2Real`, así que `subtotal_ars = m2Real × price × rate` = **el precio COMPLETO del material** (USD 335/m² × 1,395 m² × 1535 = $717.343,88). La celda de display sí era `—` (`subtotal_ars_str` se gateaba con `hasBudget`), pero el **TOTAL** (`comparisonRowsWithTotal`, `DocumentPdf.tsx:431`) sumaba el **valor crudo** `subtotal_ars`, no el string → inflaba el total.
+
+**Fix:** en `buildSectionData.ts`, `subtotal_ars`/`subtotal_usd` se ponen a **0 cuando `hasBudget=false`** (además del string vacío). Así el TOTAL solo suma filas con delta real `(real − budgeted)`. En WO5 post-fix: TOTAL de comparativa = **$0,00 / USD 0,00** (los zócalo/frente ligados tienen delta 0 y el material huérfano no contribuye). **Regression sentinel:** `buildPdfData.test.ts::'orphan material row (no m2_budgeted snapshot) does NOT inflate the comparison TOTAL'` (asserta `subtotal_ars===0`, `subtotal_ars_str===''` y TOTAL=0). `tsc` limpio · vitest **213/213**.
+
+## Caja por sesión (frontend) 2026-08-31
+
+Fase de frontend que acompaña al backend "Caja por sesión (backend)". La página de caja deja de ser "diaria" (picker de fecha) y pasa a operar sobre **la caja abierta actual** (la única, `#N`).
+
+**`src/types/cash.ts`:** tipos snake_case completos matcheando el backend: `CashMovement` (`type/amount/description/payment_method/folder_status/order_id/order_number/order_total/client_name/expense_type/remaining_balance/daily_cash_id/created_at`), `CashRegister` (`number/opened_at/closed_at/previous_balance/total_income/total_expenses/total_sum/current_balance/real_cash/is_closed/notes/movements`), `CashSummary` (`duration_seconds/total_by_payment/ingreso_count/egreso_count/...`), `CashHistoryItem = CashRegister & { summary }`, `CloseCashResult`.
+
+**`src/api/resources/cash.ts`:** funciones nuevas contra el API `/cash/current/*`:
+```
+getCurrentCash()                       GET    /cash/current
+openCash(previous_balance=0)           POST   /cash/current/open
+setPreviousBalance(previous_balance)   PUT    /cash/current/previous-balance
+closeCash(notes?)                      POST   /cash/current/close  → CloseCashResult
+getCashHistory({skip,limit})           GET    /cash/history  (páginado, cada fila con `summary`)
+createCashMovement(CashMovePayload)    POST   /cash/movements   (SIN `date`)
+deleteCashMovement(id)                 DELETE /cash/movements/{id}
+```
+Se eliminaron `getDailyCash`, `closeDailyCash` (old `closeDailyCash(date, notes)` ya no existe). `getCashHistory` devuelve `Promise<AxiosResponse<CashHistoryItem[]>>` para el `usePaginatedList` (que lee el `pagination` adjuntado por el interceptor http).
+
+**`src/pages/cash/CashDailyPage.tsx`:** ahora es la página de **caja abierta actual**. Sin date picker ni botón "Hoy". Header muestra `Caja #N` + badge Abierta/Cerrada. Muestra `Apertura` (+ Cierre si está cerrada). `useGet(['cash','current'], getCurrentCash)`. Los totales vienen **del backend** (source única de verdad): `total_sum`, `total_expenses`, `current_balance`, `real_cash` → `CashTotalCards`. `handleCloseCash` llama `closeCash(notes)` y notifica `Caja #N+1 abierta`. Se importa `formatDateTime`/`formatDuration` inline (helpers locales del módulo).
+
+**`src/components/cash/CloseCashModal/CloseCashModal.tsx`:** ahora recibe `numero` (#N) y `totales` (el `CashRegister` actual) en vez de `fecha`. Muestra un **resumen previo al cierre** (Ingresos, Egresos, cantidad de movimientos IN/OUT, Saldo Actual, Efectivo Real) y el aviso "al cerrar se abrirá automáticamente la caja #N+1". Renglones estilizados en `CloseCashModal.module.css` (`close-cash__summary*` — verde ingreso, rojo egreso, azul saldo, real destacado).
+
+**`src/components/cash/CashMovementTable/CashMovementTable.tsx`:** el prop `movements` y las columnas `render(row)` pasan de `Record<string, unknown>` a **`CashMovement`** tipado (los call sites de CashDailyPage simplificaron los casts `(m as CashMovement)` a uso directo).
+
+**`src/components/cash/IncomeModal/IncomeModal.tsx`:** el `<select>` "Forma de pago" ahora se puebla con el **catálogo vivo de métodos de pago** (`getActivePaymentMethods` vía TanStack Query, key `['payment-methods','reference']`, `staleTime 5min`) en vez del `PAYMENT_METHODS` hardcodeado legacy (`['CASH','TRANSFER','CREDIT_CARD']`). Default `'EFECTIVO'`. Se elimina el envío de `date:''` (el backend ya no lo acepta — `CashMovementCreate` no tiene `date`, y Pydantic lo descartaría igual). `resetForm` usa `'EFECTIVO'`.
+
+**`src/components/cash/ExpenseModal/ExpenseModal.tsx`:** se elimina el envío de `date:''`.
+
+**`src/pages/cash/CashHistoryPage.tsx`:** listado de **cajas cerradas por número de sesión** (columna `#N`), con Apertura/Cierre (fecha+hr), Ingresos/Salidas/Saldo Actual/Efectivo Real. El detalle muestra: `Caja #N`, apertura·cierre·duración (de `summary.duration_seconds`), conteos de movimientos `(N)`, observaciones, y la tabla **"Totales por forma de pago"** desde `summary.total_by_payment`. Movimientos del detalle igual que antes. Nuevas clases en el CSS module (`cash-history__number`, `--detail-times`, `--detail-count`, `--by-payment*`).
+
+**Labels/rutas:** `MainLayout` y `Sidebar` renombran "Caja Diaria" → "Caja". Rutas intactas: `/admin/cash` y `/admin/cash/history` (App.tsx:87-88). Backend `/cash/history` envuelve con `success(payload, pagination)` (páginado por número desc).
+
+**NOTA — `real_cash` es del backend:** CashDailyPage ya NO recalcula `efectivoReal` en el front filtrando `payment_method === 'CASH'` (que era el mismatch con los métodos en español). Usa el `real_cash` que devuelve el config (regla: todo excepto transferencia). Mismo criterio para `total_sum`/`current_balance`. Un solo lugar que define la verdad.
+
+**Verificación:** `tsc --noEmit` 0 errores · vitest **213/213** (18 files) · pytest **70/70** · **Playwright** `e2e/cash/10-cash.spec.ts` reescrito para el flujo por-sesión (`open → income → expense → close → #N+1 → history` + `real_cash` excluye transferencia) — **4/4 pasan**. El spec era 100% legacy (`/cash/daily`, `/cash/previous-balance` con `date`) y rompía con el backend nuevo; se reemplazó con el smoke del flujo completo. Nota: no se puede truncar `daily_cash` en global-setup (no hay DELETE de cajas, solo de movimientos), así que el smoke es robusto a cajas pre-existentes (compara números relativos, no absolutos).
+
+## Nota E2E 2026-09-01 (suite completa)
+
+Al correr `npm run test:all` completo contra el backend en producción (MySQL) para esta sesión, la suite E2E dio **106/108** (2 fallos, ambos **ajenos a la caja**):
+
+- **`e2e/smoke/00-smoke.spec.ts:38` "Caja Diaria"** — causa ADECUADA por el rename a "Caja" (esta sesión). **Arreglado** (`title: 'Caja'`), pasa en la re-corrida aislada junto con el resto del smoke.
+- **`e2e/budgets/03-budgets.spec.ts` "converts an APPROVED budget to a work order"** — `ECONNRESET` en `GET /budgets/23` durante la suite completa. **Flaky de infraestructura**: pasa aislado. 
+- **`e2e/budgets/16-budget-full-flow.spec.ts` "Presupuesto + PDF renderizan..."** — **fallo PREEXISTENTE de selector** (`getByText(/Vista previa.*Presupuesto/i)` matchea 2 elementos: el `<p>` "VISTA PREVIA PDF APROBAR" y el `<h2>` del modal → strict mode violation). No relacionado con caja.
+- **`e2e/work-orders/17-full-daily-flow.spec.ts`** — **timeout de 30s del test en el paso 7** (PDF download legacy `/work-orders/{id}/pdf`, `xhtml2pdf`). La suite de 11.6 min estresa el backend y el PDF legacy tarda; el PDF del presupuesto en el paso 6 sí pasa. No relacionado con caja.
+
+**Conclusión:** la feature de caja por sesión no introduce ningún fallo E2E propio. Los 2 fallos restantes (PDF del flujo full de presupuestos y PDF download de OT) son **preexistentes / de rendimiento del entorno**, en módulos no tocados por esta sesión (budgets, PDF preview, PDF legacy). Si se quiere la suite 108/108 verde, esos 2 hay que atacarlos aparte (selector strict-mode de `16-budget-full-flow` + flakiness del PDF legacy).
+
+## Navegación tras guardar + tarjeta cobra 100% (2026-09-01)
+
+Sesión después de resolver el incidente de **órdenes duplicadas** (doble POST) y la **caja con señas contadas x2** en MySQL producción.
+
+**Incidente duplicados (root cause + fix):** `WorkOrderFormPage` pasaba `onAfterAction: handleSuccessCallback`, que NO navegaba en page mode → tras un create OK el form quedaba montado en modo "crear" con GUARDAR re-habilitado → un segundo click re-POSTeaba la misma OT (pares A-000027/A-000028 pepeluis, A-000029/A-000030 camila, cada uno con su movimiento de seña en la caja). Se limpió la DB vía API (DELETE de los 2 duplicados + sus 2 movimientos de caja; la caja quedó con una fila por orden). El fix duplicado-relámpago fue `submittingRef` en `useFormActions` + GUARDAR `type="button"` (aunque el guard ref sigue siendo la pieza clave).
+
+**Navegación tras guardar (nuevo contrato, `useFormActions`):** `onAfterAction` ahora recibe `AfterActionInfo` (`{ created?: boolean; deleted?: boolean; id?: number|string|null }`):
+- **CREATE** → `onAfterAction({ created: true, id })` (el id sale de `created?.data?.id` — el response de `services.create` ya viene unwrapped por http.ts) → `WorkOrderFormPage` **navega al edit page** `/admin/work-orders/{id}` para seguir retocando. Bonus: al montarse en edición, el form deja de ser "create mode" → imposible re-enviar.
+- **UPDATE** → `onAfterAction({ created: false })` → **se queda en el form** (el operador ya no vuelve a la lista tras cada Guardar).
+- **DELETE** → `onAfterAction({ deleted: true })` → vuelve al listado (page mode).
+- Modal mode: `props.onSuccess` sigue cerrando el modal (BudgetFormPage sigue como `onAfterAction: props.onSuccess`; los `() => void` son asignables al nuevo tipo).
+
+**Tarjeta débito/crédito = cobro 100% visible en el form (`BudgetPaymentSection`):** la regla de negocio ya existía en `applyCreditCardAutoFill` (`utils/creditCardAutoFill.ts`, matchea `TARJETA DE CRÉDITO`/`TARJETA DE DÉBITO` — los nombres del catálogo), y al guardar el payload ya quedaba con `deposit_received = total`. El vacío UX: **no se veía en el form** (la seña seguía mostrando el valor viejo hasta dar Guardar). **Fix:** el `onChange` del select "Forma de pago" ahora, al elegir una tarjeta, autocompleta al instante la seña con el **total en la moneda activa de la seña** (`handleDepositAmountChange`) + marca `balance_paid=true` + `balance_paid_at=today`. Así el operador ve "Seña = total" y "✓ Saldo cobrado" antes de guardar; puede deshacer con el botón si quiere seña parcial. Nota sobre crédito con N cuotas: el recargo crece el total, pero el autofill-de-guardado de `applyCreditCardAutoFill` vuelve a forzar 100% del total actual en ese momento — el input de seña no se re-autofillea live al cambiar el N de cuotas a propósito, para no pelear con una seña editada manualmente; solo el select de método dispara el autofill.
+
+**Tests:** `useFormActions.test.tsx` +3 (create pasa `{created,id}`; update pasa `{created:false}`; delete pasa `{deleted:true}`) · **`BudgetPaymentSection.test.tsx` nuevo** (harness stateful con catálogo; seleccionar TARJETA DE DÉBITO → seña = total + "✓ Saldo cobrado"). El select de pago ganó `aria-label="Forma de pago"`. **Verificación:** `tsc --noEmit` 0 errores · vitest **218/218** (20 files · +4).
+
+## Fix duplicados por micro-ventana + fecha PDF 2026-09-01 (tarde)
+
+**Duplicados otra vez (root cause correcto):** el guard `submittingRef` bloqueaba el doble-click **solo mientras el POST estaba en vuelo**. Al resolverse, `finally` soltaba el ref y re-habilitaba GUARDAR (`setSaving(false)`) **antes** de que el desmonte post-navegación ocurriera — quedaba una ventana de unos pocos ms donde un segundo click re-POSTeaba otra OT. **Fix:** `createdRef` en `useFormActions` — se setea `true` **después** de un create exitoso y **antes** de navegar; `handleSubmit` corta si `submittingRef.current || createdRef.current`. Un create exitoso ya nunca puede repetirse en ese mount, pase lo que pase con la navegación. Test sentinel en `useFormActions.test.tsx`: "blocks a SECOND submit after the first create already completed".
+
+**Fecha del PDF corrida un día (root cause):** `formatDate` (`utils/pdf/pdfHelpers.ts`) hacía `new Date('YYYY-MM-DD')` (parseado como **UTC midnight**) y luego `toLocaleDateString('es-AR')` en **hora local** → en Argentina (UTC-3) el día retrocede uno: hoy 2026-09-01 mostraba **31/8/2026**, y una entrega del 16 mostraba el 15. **Fix:** las cadenas date-only se parsean por componentes con `new Date(y, m-1, d)` (hora local). También se endureció el fallback: si `new Date()` da `Invalid Date`, devuelve el string crudo (antes `toLocaleDateString` sobre fecha inválida devolvía `'Invalid Date'` silenciosamente en vez de tirar, así el `catch` nunca corría). **`pdfHelpers.test.ts` nuevo** (3 tests: date-only sin shift, ISO timestamp, fallbacks). Verificado en preview (`DocumentPdf` lee `data.date`/`data.delivery_date` que `buildPdfData` formatea con `formatDate`). El PDF legacy (backend `pdf_html.py`) formatea las fechas por su lado — no se tocó.
+
+**Verificación:** `tsc --noEmit` 0 errores · vitest **222/222** (21 files · +4).
+
+## Señas fantasma + duplicado real 2026-09-01 (noche)
+
+Dos problemas reportados tras el anterior fix de navegación, ambos reales en MySQL producción:
+
+**1. Duplicado de OT por micro-ventana (A-000031/A-000032).** El `createdRef` ya estaba en el código, pero el duplicado se creó a las 17:19 (antes de que el browser recargara el fix). Confirmado como la misma causa raíz: el guard bloqueaba el POST solo en vuelo; el `finally` re-habilitaba GUARDAR antes del desmonte. `createdRef` (seteado tras un create exitoso y antes de navegar) queda como la barrera permanente. **No hace falta más código** — el usuario solo debe hard-refresh. Se limpió el duplicado vía API (DELETE `/work-orders/34` + sus 6 movimientos).
+
+**2. Señas fantasma por delta-booking en `update()` (bug de plata real).** En `WorkOrderService.update`, cada PUT con `deposit_received` mayor al persistido asentaba la **diferencia** como un nuevo movimiento INCOME en la caja. Cuando una OT se paga 100% por tarjeta, el autofill de seña re-envía en cada GUARDAR un depósito esencialmente igual, pero con deriva de redondeo (round-trip USD) → cada click de Guardar acuñaba un movimiento fantasma de ~4.4 ARS. En A-000032 se acumularon **5×4.4 = 22 ARS fantasma** en la caja #6 (además de su seña real). **Fix:** `update()` ahora solo asienta el delta cuando la OT **NO** está fully-paid (`not (data.get("balance_paid") or order.balance_paid)`). Una OT fully-paid no tiene nada que top-up → re-guardarla jamás acuña dinero. Test sentinel `test_update_fully_paid_does_not_book_phantom_delta`: re-guardar una OT fully-paid con deriva de 4.4 no agrega movimientos.
+
+**Estado tras cleanup:** solo queda A-000031 (original, id 33, pepeluis, 1.459.170, tarjeta débito, saldo 0) con un único movimiento (id 26). Caja #6 `total_income=8.108.150`, `real_cash=7.458.150` (excluye transferencias). Sin plata fantasma.
+
+**Verificación:** pytest **72/72** (¡+1 test del fix!), backend reiniciado con el nuevo `work_order.py`.
+
+**Lección para el día a día:** si ves que una OT duplicada O movimientos de seña gigantes/micro en la caja tras un "Guardar" repetido, la causa es esta combinación. Si vuelve a duplicarse una OT, casi seguro es que el browser sirvió código viejo (OneDrive + vite HMR) — hard-refresh.
+
+## Cobro idempotente en caja 2026-09-02
+
+Consolidación de la garantía "el dinero de cada OT entra a la caja exactamente UNA vez" a nivel de DATOS (no de botón), tras los incidentes de duplicados y señas fantasma. Elección del usuario (via questions): **una seña al crear + cobro automático del saldo al entregar**, reusando cash_movements (sin tabla nueva), sin backfill (solo OTs nuevas).
+
+**Columnas nuevas** en work_orders (migración Alembic **4c5d6e7f8a0**, head previo 9b8c7d6e5f4):
+- sena_registered (bool, server_default=0): la seña inicial ya entró a caja.
+- saldo_registered (bool, server_default=0): el saldo restante ya se cobró en ENTREGADA.
+- Ambas se setean **server-side en la misma transacción que bookea el movimiento** → una vez True, todo re-bookeo es no-op.
+
+**Flujo resultante:** la seña entra a caja solo en create()/create_from_budget() (flag sena_registered); al alcanzar DELIVERED se bookea automáticamente alance_due (flag saldo_registered); si el cliente dejó el 100% (alance_due=0) no se cobra nada. **update() ya NO bookea señas top-ups** (se eliminó el bloque de delta; el resto se cobra automático al entregar). El saldo restante entra SOLO en el tránsito a ENTREGADA.
+
+**Cambios (famar-backend):**
+- pp/models/work_order.py — 2 columnas nuevas.
+- lembic/versions/b4c5d6e7f8a0_add_work_order_cash_idempotency_flags.py — nuevo.
+- pp/services/work_order.py — _create_cash_movement_on_deposit(db, order, amount, deposit_currency, payment_method) refactorizado: acepta el order, usa order.register_flag (default sena_registered) como guard atómico, setea el flag ANTES del commit interno de create_movement, y enriquece el movimiento con order_id/order_total/status/emaining_balance; devuelve ool (booked o no). create() y create_from_budget() lo llaman con egister_flag="sena_registered"; el transito a DELIVERED en update() lo llama con egister_flag="saldo_registered" (solo cuando old_status != DELIVERED y 
+ew_status == DELIVERED). Se eliminó el bloque de top-up por delta de update().
+- pp/schemas/work_order.py — sena_registered/saldo_registered solo en WorkOrderResponse (read-only, server-managed; NO en Create/Update para que el cliente no pueda voltear los flags).
+
+**Frontend — IncomeModal sin obligación de orden:** el CashMovementCreate backend ya tenía order_id/order_number/order_total opcionales, así que registrar un ingreso SIN orden (ej. canilla/accesorio aparte) ya funcionaba. En IncomeModal.tsx se aclaró la UX: label de la sección "Vincular a Orden **(opcional)**", hint "Dejalo vacío para registrar un ingreso general (ej. accesorio, canilla…)", y label del monto dinámico ("Monto (Seña)" con orden / "Monto" sin orden). ExpenseModal ya no obligaba a orden — sin cambios.
+
+**Tests (	ests/test_work_order_cash.py, 5 nuevos):** seña entra 1 vez aunque create() se re-ingrese; update() ya no bookea top-ups de seña; DELIVERED bookea alance_due exacto una vez (y re-guardar no duplica); DELIVERED con OT fully-paid (balance_due=0) no bookea nada; los flags persisten y se exponen (y Create/Update NO los aceptan). **pytest 77/77.**
+
+**Verificación:** pytest **77/77** · 	sc --noEmit 0 errores · vitest **222/222**. Migración aplicada a MySQL producción (lembic current → 4c5d6e7f8a0 (head); columnas NULL-less con server_default=0, additive/safe). Backend reiniciado con el nuevo work_order.py (uvicorn --reload NO levanta cambios en OneDrive — siempre hard-restart + el browser necesita Ctrl+Shift+R).
+
+**Nota operativa:** lembic upgrade --sql (offline) falla en el chain porque una migración previa (1b2c3d4e5f6) usa inspect(bind) en runtime; validar migraciones nuevas aplicándolas a un SQLite temporal en ONLINE (no con --sql). CUIDADO: lembic upgrade head sin definir DATABASE_URL en el proceso corre contra producción MySQL (settings con ENVIRONMENT=production arma la URL MySQL) — es additive/safe aquí, pero evitar correr migraciones contra prod sin intención.
+
+## Fix botón "Deshacer" en modo crear (2026-09-03)
+
+El botón "Deshacer" de la sección de estado de pago (el que revierte el "✓ Saldo cobrado" de la tarjeta-100%) **no hacía nada** en el formulario de OT/presupuesto **nuevo** (/work-orders/new, sin id). **Causa raíz:** useConfirmPayment (src/hooks/useConfirmPayment.ts) arrancaba con if (!id) return; — sin id (modo crear) el handler salía antes de hacer nada. El autofill de tarjeta (BudgetPaymentSection.tsx) marca alance_paid=true en el form local al seleccionar TARJETA, pero como no había id para persistir, el "Deshacer" quedaba colgado (seguía mostrando "✓ Saldo cobrado").
+
+**Fix (useConfirmPayment):**
+- **Modo crear (!id)**: al desmarcar el pago (click "Deshacer"), el handler ya NO vuelve a guardar ni requiere id; solo revierte el ESTADO LOCAL del form vía setForm: alance_paid=false, alance_paid_at='', deposit_received=0, deposit_usd=0, deposit_currency='ARS', alance_due=prev.total, alance_due_usd=prev.total_usd. Sin llamada al backend (nada que persistir todavía). Decisión del usuario (opción A): la seña se revierte a  , no al valor pre-tarjeta.
+- **Modo edición**: al desmarcar (
+uevo=false) ya no deja la seña colgada — el payload ahora además revierte deposit_received=0, deposit_usd=0 y restaura alance_due=total, alance_due_usd=total_usd (antes solo mandaba alance_paid:false y el saldo quedaba en 0).
+
+**Cuidado con los tipos:** deposit_received/deposit_usd/alance_due son 
+umber en FinancialBase (no string) — usar  , no ''.
+
+**Tests:** useConfirmPayment.test.tsx — actualizado el caso "true→false" (edición) para esperar deposit_received=0/alance_due=5000 en el payload, y agregado un test nuevo del modo crear (id undefined + alance_paid=true) que verifica que NO llama al backend pero sí revierte el estado local (seña 0 + alance_due restaurado). El test viejo "does nothing when id is undefined" (con alance_paid=false) sigue pasando. **vitest 223/223** (21 files, +1) · 	sc --noEmit 0 errores · ESLint limpio.
+
+## Fix input "Saldo Anterior" de la caja (2026-09-03)
+
+En /admin/cash no se podía escribir ningún valor en el Saldo Anterior: tipear no hacía nada visible. **Causa raíz:** en CashDailyPage.tsx el PreviousBalanceCard recibía previousBalance={cashData?.previous_balance ?? 0} (el valor persistido, que NO cambia hasta guardar) PERO el onChange actualizaba un **estado local aparte** (previousBalanceState) que el card nunca volvía a leer. Duplicación de estado desincronizada → el input estaba controlado por cashData (estático) y lo escrito se perdía visualmente.
+
+**Fix:** el card ahora recibe previousBalance={previousBalance} (el estado local, que onChange actualiza), y un useEffect sincroniza previousBalanceState con cashData?.previous_balance **solo cuando NO está en modo edición** (if (!previousBalanceEdit)) — así no pisa lo que el operador está tipeando. handleSavePreviousBalance ya guardaba el estado local, así que el valor escrito se persiste correctamente.
+
+**Verificación:** 	sc --noEmit 0 errores · ESLint limpio (0 errores, 0 warnings) · vitest **223/223**. (Este archivo era CashDailyPage.tsx:31 → doble estado; ahora el estado local es la fuente del card.)
+
+## Tarjeta = pago total (no hay seña) 2026-09-03
+
+Aclaración de negocio del usuario (corrige el diseño previo): **en tarjeta (débito/crédito) NO existe la seña** — se cobra el 100% del total (con el recargo de cuotas si es crédito) al momento de la venta, y ese cobro entra a la caja en ese momento (no al entregar). La **seña** (adelanto + saldo al entregar) aplica SOLO para transferencia bancaria y efectivo (métodos NONE).
+
+**Rediseño del form de pago (BudgetPaymentSection.tsx):**
+- Cuando el método es tarjeta (isCardPaymentMethod(currentMethod.name)), el campo "Seña recibida" se **oculta** y se muestra en su lugar un display **"Pago total con tarjeta "** con hint "Incluye el interés de las cuotas" / "No incluye interés" según showInstallments.
+- El estado de pago para tarjeta muestra fijo **"✓ Pago cobrado (tarjeta)"** SIN botón "Deshacer" (no hay seña que revertir). Para no-tarjeta (efectivo/transferencia) se mantiene "✓ Saldo cobrado"/"⚠ Saldo pendiente" + botón Confirmar/Deshacer como antes.
+- **Nuevo useEffect de sincronización**: cuando es tarjeta, sincroniza deposit_received/deposit_usd al total (ARS/USD), alance_due/alance_due_usd=0, alance_paid=true, alance_paid_at=hoy. Deps [isCard, readOnly, form.total, form.total_usd]. Esto **resuelve el bug reportado**: al cambiar las cuotas, el recargo sube orm.total → el effect re-dispara → el "cobro 100%" sigue el total CON interés (antes la seña quedaba en el total sin recargo). Sin loop de render: los campos que mutate no están en las deps.
+- Se **eliminó el autofill manual** del onChange del select de método (handleDepositAmountChange + update('balance_paid'...)), reemplazado por el effect (usaba orm.total del render previo, sin recargo).
+- Removido setForm de las props destructured (no se usa en el cuerpo).
+
+**Persistencia (backend, sin cambios):** create()/create_from_budget() bookean la seña (sena_registered) con deposit_received = total CON recargo (porque useBudgetCalculations calcula el total final con cuotas y pplyCreditCardAutoFill fuerza deposit_received = total). alance_due=0 → al entregar no se cobra nada. El recargo se recalcula server-side en _recalculate_totals_from_items con el mismo catálogo → coherente.
+
+**Test:** BudgetPaymentSection.test.tsx reescrito — al elegir tarjeta espera: oculta "Seña recibida", muestra "Pago total con tarjeta" + "$ 120.000,00" + "✓ Pago cobrado (tarjeta)" (antes esperaba getByDisplayValue('120000') + "✓ Saldo cobrado"). **vitest 223/223** · 	sc --noEmit 0 errores · ESLint limpio.
+
+## Fix readOnly en modo crear (2026-09-03)
+
+Al CREAR una OT en /admin/work-orders/new, si el operador elegía estado WORKSHOP (TALLER) antes de guardar, el form se **bloqueaba por completo** (todos los campos deshabilitados), impidiendo rellenar la información. **Causa raíz:** en useEntityForm.ts (compartido por presupuestos y OT) el flag eadOnly dependía solo de orm.status:
+
+`	s
+const readOnly = ['WORKSHOP', 'FINISHED', 'DELIVERED', 'CONVERTED_TO_OT', 'REJECTED'].includes(form.status);
+`
+
+Así que elegir TALLER (o FINISHED/DELIVERED) en modo crear activaba eadOnly sin importar que se estuviera cargando la info por primera vez.
+
+**Fix:** agregar isEdit && — el bloqueo read-only aplica SOLO al **editar** una orden ya guardada en un estado avanzado (taller/terminada/entregada: el material ya se cortó y no se modifican las medidas). En **modo crear NUNCA se bloquea**, aunque el estado seleccionado sea WORKSHOP.
+
+`	s
+const readOnly = isEdit && ['WORKSHOP', 'FINISHED', 'DELIVERED', 'CONVERTED_TO_OT', 'REJECTED'].includes(form.status);
+`
+
+**Verificación:** 	sc --noEmit 0 errores · vitest **223/223**. (Sin cambios en backend.)
+
+## Comparativa de medición como toggle colapsable (2026-09-03)
+
+En /admin/work-orders/new, la tarjeta "Incluir comparativa de medición en el PDF" (checkbox siempre visible) mostraba su contenido por defecto. El usuario quiere que se comporte igual que los otros toggles del form (Calculadora de Porcelanato 🧮 y Diseño/Plano 📐): **colapsada por defecto**, y que haya que dar click para desplegarla.
+
+**Cambio (WorkOrderFormPage.tsx + WorkOrderFormPage.module.css):**
+- Nuevo estado local showComparisonToggle (arranca alse = colapsado).
+- La tarjeta ahora tiene un botón toggle estilo croquis: ⚖️ Activar Comparativa de medición + hint "Comparativa oculta." cuando está plegada; 👁️ Ocultar Comparativa de medición + el checkbox + su hint cuando está desplegada.
+- El checkbox interno sigue siendo orm.include_measurement_comparison_in_pdf (marcado por defecto) — no cambia; solo se oculta/despliega el panel.
+- Deshabilitado con eadOnly (igual que el resto en estados avanzados al editar).
+- Solo aplica a órdenes de trabajo (los presupuestos no tienen esta tarjeta).
+
+**Verificación:** 	sc --noEmit 0 errores · vitest **223/223**. (Los 8 errores de eslint de WorkOrderFormPage.tsx son preexistentes — no los introduce este cambio.)
+
+## Botón "Quitar cliente" para corregir selección (2026-09-03)
+
+Reporte del operador: al crear un presupuesto se equivocó de cliente y **no podía sacarlo** — el form de presupuesto, una vez seleccionado un cliente, muestra el ClientInfoCard en modo solo-lectura sin ninguna forma de deseleccionar. **Causa raíz:** EntityFormClient.tsx (compartido por Presupuesto y OT) hace early-return a ClientInfoCard + address picker cuando hasClient (!!form.client_name && !!selectedClient), sin botón para volver al typeahead.
+
+**Fix (EntityFormClient.tsx + EntityFormClient.module.css):**
+- Nuevo handler handleRemoveClient() que limpia client_name, client_phone, client_email, client_address, delivery_address_id (=null) → hasClient pasa a alse → se remonta ClientSection (typeahead) con query='' (estado local reseteado al montar).
+- Nueva fila .entity-form-client__info-row (flex, justify-content: space-between) con ClientInfoCard + botón **"Quitar cliente"** (.entity-form-client__remove-btn, rojo/ar(--color-danger), hover invierte) cuando !readOnly.
+- El botón NO se muestra en readOnly (estados avanzados al editar) ni afecta a MeasurementFormPage (que usa ClientInfoCard directo, no EntityFormClient).
+- Aplica a Presupuesto Y OT (mismo componente compartido) — la corrección de cliente funciona en ambos.
+
+**Verificación:** 	sc --noEmit 0 errores · ESLint 0 errores · vitest **223/223** (no hay tests de estos componentes).
+
+## Botón de retroceso de estado 2026-09-03
+
+Reporte del operador: una OT quedó "atascada" en TALLER (WORKSHOP) por error y no se podía desbloquear — el `readOnly` (que se activa al editar estados avanzados, ver "Fix readOnly en modo crear") bloquea TODOS los campos incluido el select de estado, así que no había forma de retroceder y seguir editando. El backend ya permitía `WORKSHOP → MEASUREMENT` en `VALID_TRANSITIONS`; faltaba la salida en el frontend.
+
+**Cambio (WorkOrderFormPage.tsx + WorkOrderFormPage.module.css):** botón de retroceso de estado en el header, junto a los botones de avanzar:
+- `WORKSHOP` → "↩ Volver a Medición" (MEASUREMENT)
+- `FINISHED` → "↩ Volver a Taller" (WORKSHOP)
+- `DELIVERED` → "↩ Volver a Terminada" (FINISHED)
+- Oculto en `MEASUREMENT`, `CANCELLED`, `CONVERTED_TO_OT` (no aplican retroceso).
+
+**Detalles:**
+- Mapeo explícito (no genérico): constante `STATUS_ROLLBACK: Record<string, string>` = `{ WORKSHOP: 'MEASUREMENT', FINISHED: 'WORKSHOP', DELIVERED: 'FINISHED' }` — evita depender de `orderStatuses.indexOf(...) - 1` (que para MEASUREMENT daba -1 → fallback confuso al propio estado).
+- Label con `t(STATUS_ROLLBACK[form.status])` (import de `t` de `utils/translate` agregado; los estados ya se traducen).
+- `onClick={() => handleStatusChangeAction(STATUS_ROLLBACK[form.status])}` — reutiliza `handleStatusChangeAction` (de `useFormActions` → `updateWorkOrder(id, { status })`), el mismo handler de los botones de avanzar. El backend valida la transición.
+- CSS `.work-order-form__btn-rollback` (background `var(--color-warning)` naranja), incluido en los bloques compartidos de botones de acción (flex/gap/padding/border-radius/font-weight) y en el bloque `:disabled` (opacity .6 + cursor not-allowed).
+
+**Verificación:** `tsc --noEmit` 0 errores (los 8 de ESLint de WorkOrderFormPage siguen siendo preexistentes). Sin cambios en backend. El botón es frontend puro; requiere hard-reload (Ctrl+Shift+R) en el navegador por OneDrive.
+
+## Comparativa de medici�n � frentes duplicados + OTs directas 2026-09-07
+
+El operador report� dos issues en la COMPARATIVA DE MEDICI�N del PDF de OTs:
+
+**Issue 1 (doble dibujo del frente):** el caso de la screenshot eran 2 mesadas de NEGRO BRASIL (mismos nombre y tipo) y UN solo frente ingletado de 3,43 ml (un �nico �tem del cat�logo con materialName='NEGRO BRASIL'). El PDF dibujaba **dos** filas "Frente Ingletetado 45�" � una por cada mesada. Regla de negocio: **"1 frente en ML totales, no por mesada"** (si son 10 mesadas de un edificio, el frente sigue siendo UNO y se cobra en ML totales, no por mesada).
+
+**Issue 2 (TOTAL no sumaba frentes):** adem�s, el delta del TOTAL no inclu�a los frentes porque el linear_meters_budgeted no se persist�a en el Presupuesto origen (solo se persist�a en la OT al convertir, v�a create_from_budget). Como la OT A-000038 ven�a de un presupuesto, su frente no ten�a snapshot ? celda "�" en Presupuestado, subtotal ,00, no sumaba al TOTAL.
+
+**Issue 3 (regla de negocio):** cuando el operador CREA una OT directa en /admin/work-orders/new (cliente que ya sab�a las medidas exactas), el form mostraba el toggle y el PDF renderizaba la COMPARATIVA � **confuso y no aplica**: no hay "estimado vs real" porque el cliente no dio medidas estimativas. Regla: la comparativa **solo se muestra si la OT viene de un presupuesto** (udget_id presente). Directas = sin comparativa.
+
+**Fixes aplicados:**
+
+### Fix #1 � Deduplicar frentes en la comparativa (frontend + backend legacy)
+
+El matching dditional_works_data[].materialName == material.name corr�a **dentro del loop de materiales**, as� que un frente asignado a "NEGRO BRASIL" matcheaba con cada mesada de ese material y se emit�a N veces. Soluci�n: un Set<dedupe_key> (clave = dditional_work_id o fallback a 
+ame) se mantiene entre iteraciones de materiales; la primera vez que un frente matchea, se emite su fila detalle y se agrega la key al set. Las siguientes mesadas con el mismo material la skipean. Resultado: 1 sola fila detalle por frente �nico, sin importar cu�ntas mesadas con ese materialName haya.
+
+- Frontend: src/utils/pdf/buildSectionData.ts ? uildMeasurementComparison (emittedFrenteKeys: Set<string> al inicio de la funci�n, agregado al Set justo antes del esult.push(detailRow)).
+- Backend legacy: pp/services/pdf_html.py ? _build_measurement_comparison (mismo patr�n con emitted_frente_keys).
+
+### Fix #2 � Ocultar comparativa en OTs directas (frontend + backend legacy + form)
+
+- Frontend (uildPdfData.ts): nueva gate isDirectWorkOrder que detecta document_type === 'work_order' && (form.budget_id == null || form.budget_id === '') y suma !isDirectWorkOrder a la condici�n includeComparison. La secci�n solo se construye si hay udget_id.
+- Backend legacy (pdf_html.py ~ l�nea 985): la l�nea include_comparison = bool(order_data.get("include_measurement_comparison_in_pdf", True)) se reemplaz� por include_comparison = has_budget_origin and bool(...) donde has_budget_origin = order_data.get("budget_id") is not None. Las OTs directas salen con measurement_comparison = [].
+- Form (WorkOrderFormPage.tsx): toda la card "Activar/Ocultar Comparativa de medici�n" se envuelve en {form.budget_id != null && (...)}. Para una OT directa el toggle no aparece y el estado inicial del flag es irrelevante.
+
+### Fix #3 � Persistir snapshot del frente en el PRESUPUESTO (no en OT directa)
+
+_process_additional_works_snapshot en pp/services/budget.py:45 solo snapshoteaba price/total/formula_values (v�a pply_frente_rows); faltaba el **snapshot dimensional** del frente (linear_meters_budgeted) y los snapshots monetarios (	otal_ars_budgeted/	otal_usd_budgeted). Modifiqu� esa funci�n para que, despu�s de pply_frente_rows, itere las filas y para cada 	ype == 'frente' con linear_meters presente, llene linear_meters_budgeted, 	otal_ars_budgeted y 	otal_usd_budgeted con el c�lculo que ya usaba create_from_budget (work_order.py:719-739). Firma nueva: acepta usd_rate: Optional[float] = None para que el c�lculo use el usd_rate del presupuesto. Los 2 callsites (create y update) le pasan data.get("usd_rate") (con fallback a udget.usd_rate para update). En OTs directas NO se aplica � porque la comparativa no se muestra para esas (decisi�n de negocio confirmada por el operador).
+
+### Fix cr�tico (hallado durante el debug E2E) � delattr(order, "register_flag")
+
+Al debuggear con PowerShell + REST API, descubr� que el POST de OT (POST /work-orders y POST /work-orders/from-budget/{id}) **devolv�a {"success":true,"data":{}}** � data VAC�O en vez del objeto WorkOrder. Causa ra�z: la l�nea order.register_flag = "sena_registered" (introducida en la sesi�n 2026-09-02 "Cobro idempotente en caja" para que _create_cash_movement_on_deposit sepa qu� flag setear) dejaba un atributo Python en la instancia del ORM. jsonable_encoder (en pp/utils/responses.py:22) serializa TODOS los atributos del ORM, no solo columnas de la tabla � as� que el data del response quedaba como {register_flag: "sena_registered"} en vez del WorkOrder completo. La OT S� se creaba (el row en la DB estaba bien), pero el frontend/post-clients no recib�an nada �til. Fix: delattr(order, "register_flag") inmediatamente antes del eturn order, con 	ry/except AttributeError por si el set nunca se hizo. Aplicado en WorkOrderService.create() (l�nea ~633) y WorkOrderService.create_from_budget() (l�nea ~897). Adem�s agregu� self.repo.db.refresh(order) post-delattr para forzar el reload de columnas despu�s del commit() (SQLAlchemy expire instance state).
+
+
+## Cobro de seña en update() 2026-09-07 (tarde)
+
+**Contexto de negocio:** el presupuesto es **informativo** (el cliente da medidas estimativas). Cuando el operador toma la MEDICIÓN real y abre la OT correspondiente, recién ahí cobra la seña que el cliente paga en ese momento. El flujo era:
+
+1. Crear presupuesto → aprobar → convertir a OT (sin seña)
+2. Operador edita la OT en MEDICIÓN con las medidas reales + la seña (deposit_received)
+3. Operador hace click en **Guardar** (PUT a /work-orders/{id})
+
+**Bug:** WorkOrderService.update() no bookeaba la seña cuando el operador la agregaba en una edición posterior. Solo create() y create_from_budget() lo hacían. Por diseño de la sesión 2026-09-02 ("Cobro idempotente en caja"), update() NO bookeaba top-ups para evitar doble cobro. Pero esto rompía el flujo real del operador.
+
+**Fix (pp/services/work_order.py::update()):** después del self.repo.update(order, data), agregar:
+
+`python
+if (
+    "deposit_received" in data
+    and not order.sena_registered
+    and not order.balance_paid
+    and (data.get("deposit_received") or 0) > 0
+):
+    result.register_flag = "sena_registered"
+    _create_cash_movement_on_deposit(
+        self.repo.db, result,
+        result.deposit_received,
+        result.deposit_currency,
+        result.payment_method,
+    )
+`
+
+**Idempotencia:** ya estaba garantizada por sena_registered (que el helper setea a True tras bookear). Si el operador re-edita y vuelve a Guardar con el mismo deposit_received, el 
+ot order.sena_registered es False → no bookea. Lo mismo para alance_paid=True (OTs de tarjeta débito/crédito cobradas al 100% al crear: nunca debe bookear en update()).
+
+**Tests (	ests/test_work_order_update.py):**
+
+- 	est_update_with_deposit_books_sena_when_sena_registered_false: regresión del bug. Crear OT sin seña → sena_registered=False, sin movimiento en caja. PUT con deposit_received=600000 → sena_registered=True, caja tiene +1 movimiento. PUT sin cambios → caja NO cambia (idempotencia).
+- 	est_update_does_not_book_sena_when_balance_paid_true: OT creada con tarjeta débito (full payment) → alance_paid=True, sena_registered=True. PUT con un drift de redondeo en deposit_received → caja sigue con 1 movimiento (no doble cobro).
+
+**Verificación:**
+- 	sc --noEmit 0 errores
+- vitest 227/227
+- pytest **82/82** (80 anteriores + 2 nuevos)
+- E2E manual contra el backend real: presupuesto sin seña → OT (caja sin cambios) → PUT con deposit_received=400000 (caja +.000, mov id 59, sena_registered=True) ✅
+
+**Cambios en useFormActions:** ninguno. El frontend ya invalida la query ['cash', 'current'] después de guardar (línea 124), así que la caja se refresca automáticamente al volver a /admin/cash.
+
+## Fix emaining_balance=0 al cobrar saldo en DELIVERED (2026-09-07)
+
+El operador reportó que al pasar una OT a DELIVERED con saldo pendiente, el emaining_balance del cash_movement quedaba con el monto cobrado en vez de 0. Eso dejaba la fila en el grid de /admin/cash mostrando saldo pendiente aunque la OT ya estaba cobrada.
+
+**Causa:** _create_cash_movement_on_deposit (pp/services/work_order.py:98) calcula emaining_balance = order.balance_due para reflejar lo que falta después del cobro. Esa semántica es correcta para la seña (después de cobrar , falta 	otal - ). Pero para el cobro del saldo al DELIVERED es inversa: el cobro del saldo es el ÚLTIMO pago, así que después de cobrar alance_due, no queda nada pendiente → emaining_balance debe ser 0.
+
+**Fix (WorkOrderService.update(), branch DELIVERED):** después de llamar al helper, se hace un UPDATE directo en el cash_movement más reciente de la OT para forzar emaining_balance=0:
+
+`python
+latest_mov = (
+    self.repo.db.query(CashMovement)
+    .filter(CashMovement.order_id == result.id, CashMovement.type == "INCOME")
+    .order_by(CashMovement.id.desc())
+    .first()
+)
+if latest_mov is not None:
+    latest_mov.remaining_balance = 0.0
+`
+
+**Test actualizado** (	ests/test_work_order_cash.py::test_delivered_books_balance_due_once): el assert viejo movs[0].remaining_balance == 3000.0 se reemplazó por movs[0].remaining_balance == 0.0 (con comentario explicando que esta fila ES el cobro final y por eso el saldo después del cobro debe ser 0).
+
+**Verificación:**
+- tsc --noEmit 0 errores
+- vitest 227/227
+- pytest **82/82**
+- E2E manual: OT directa con seña  → DELIVERED → cash_movement con emaining_balance=0 ✅
+
+## Fix mapApiToForm no copiaba udget_id (2026-09-07, tarde)
+
+El operador reportó que el toggle "Activar Comparativa de medición" (que activa el checkbox "Incluir comparativa de medición en el PDF" en WorkOrderFormPage) no se mostraba en /admin/work-orders/77, una OT convertida de presupuesto (udget_id=77).
+
+**Causa:** mapApiToForm (src/hooks/entityFormSerialization.ts) copiaba todos los campos del API EXCEPTO udget_id. La línea 196 copiaba delivery_address_id, pero faltaba udget_id. Por defecto orm.budget_id quedaba en 
+ull (del INITIAL_FORM), y el gate {form.budget_id != null && (...)} siempre era alse → el toggle NUNCA se renderizaba para ninguna OT convertida de presupuesto. Era un bug preexistente al Fix #2 de la sesión (que oculta la comparativa para OTs directas), pero combinado hacía que el toggle tampoco apareciera para OTs CON presupuesto.
+
+**Fix:** agregar udget_id: (d.budget_id as number | null) ?? null en mapApiToForm justo después de delivery_address_id, con doc-comment explicando el rol del flag para el gate de la comparativa. Ahora orm.budget_id se hidrata desde el response de la API y el toggle aparece correctamente para OTs con presupuesto origen.
+
+**Verificación:**
+- tsc --noEmit 0 errores
+- vitest 227/227
+
+
+## Backfill snapshots OTs pre-fix #3 (2026-09-07, tarde)
+
+Después de aplicar el Fix #3 (snapshots dimensionales del frente en el presupuesto) descubrimos que las OTs ya existentes (creadas antes del fix) no tenían `linear_meters_budgeted`, `total_ars_budgeted` ni `total_usd_budgeted` en su `additional_works_data` del frente. Eso hacía que la comparativa del PDF mostrara "Presupuestado —" y "$0.00" en los subtotales del frente.
+
+**Solución:** script preexistente `scripts/backfill_measurement_snapshots.py` (creado en sesión 2026-08-30) que hidrata los snapshots faltantes desde el presupuesto origen.
+
+**Aplicado en producción 2026-09-07:**
+- 51 OTs escaneadas.
+- 41 OTs directas (sin presupuesto origen — sin backfill aplicable).
+- **2 OTs arregladas** con frentes que mostraban $0 en la comparativa:
+  - **A-000036 (id 39)** — Frente Doble: `lm_budgeted=2.55`, `ars_budgeted=$152.158,50`, `usd_budgeted=$99,45`
+  - **A-000038 (id 42)** — Frente Ingletado 45°: `lm_budgeted=3.3`, `ars_budgeted=$249.099,30`, `usd_budgeted=$162,81`
+- A-000054 (id 77) ya se había backfilled manualmente durante el debug.
+
+**Si volvés a ver frentes con $0 en la comparativa**, corré (con venv):
+
+```bash
+.\venv\Scripts\python.exe scripts/backfill_measurement_snapshots.py --fix
+```
+
+## Comparativa de medición SIEMPRE visible (2026-09-11) — reversión de la regla 2026-09-07
+
+La regla de la sesión 2026-09-07 ("OTs directas = sin comparativa, el toggle se oculta si `budget_id` es null") fue **revertida por elección del usuario**: el botón "Activar/Ocultar Comparativa de medición" debe estar **siempre visible**, incluso cuando la OT **no** viene de un presupuesto (el operador veía la card en OTs convertidas como la 79 pero no en directas como la 81).
+
+**Los 3 gates se eliminaron (todos apuntan solo al flag, nunca a `budget_id`):**
+
+- **Form (`WorkOrderFormPage.tsx`):** la card `work-order-form__pdf-toggle-card` ya NO se envuelve en `{form.budget_id != null && (...)}` — siempre se renderiza (comentario actualizado explicando que el operador puede imprimir la comparativa en directas, p.ej. como referencia de medidas reales).
+- **Builder frontend (`buildPdfData.ts`):** se eliminó `isDirectWorkOrder` + `!isDirectWorkOrder` de `includeComparison`. La condición queda solo `document_type === 'work_order' && include_measurement_comparison_in_pdf !== false`. Para directas sin snapshot, la columna Presupuestado sale "—" (comportamiento legacy ya cubierto en `buildMeasurementComparison`).
+- **Backend legacy (`pdf_html.py::build_work_order_pdf_data`):** se eliminó `has_budget_origin`; `include_comparison` ahora es solo `bool(order_data.get("include_measurement_comparison_in_pdf", True))`.
+
+**Tests actualizados (regresión de la regla vieja):**
+- `buildPdfData.test.ts` — el test "hides the comparison for direct work orders… even when the flag is on" pasó a **"keeps the comparison for direct work orders…"** (`budget_id: null` → `measurement_comparison` tiene 1 fila) + nuevo test "hides … when the explicit flag is off".
+- `test_measurement_comparison.py::test_build_work_order_pdf_data_skips_comparison_for_direct_orders` → renombrado y **invertido**: directa con flag on → comparativa NO vacía; flag off → vacía.
+
+**Verificación:** `tsc --noEmit` 0 errores · vitest **258/258** (23 files, +1) · pytest **88/88** · `npm run build` OK · ESLint 0 errores nuevos (los 16 de `WorkOrderFormPage`/`buildPdfData` son preexistentes).
+
+## Comparativa de medición OPT-IN (checkbox desactivado por default) 2026-09-11
+
+El checkbox "Incluir comparativa de medición en el PDF" ahora arranca **desmarcado** en TODAS las OTs (nuevas y existentes); el operador lo activa manualmente si la quiere en el PDF. Antes el default era `true` (`server_default=1`).
+
+**Los 6 lugares que definían el default se cambiaron a OFF:**
+
+- **Form (`entityFormConstants.ts`):** `include_measurement_comparison_in_pdf: false` en `INITIAL_FORM`.
+- **`mapApiToForm` (`entityFormSerialization.ts`):** fallback `?? false` (antes `?? true`).
+- **Builder frontend (`buildPdfData.ts`):** `includeComparison` = `document_type === 'work_order' && form.include_measurement_comparison_in_pdf === true` (antes `!== false`, que era default-on; ahora flag ausente/undefined = OFF).
+- **Checkbox (`WorkOrderFormPage.tsx`):** `checked={form.include_measurement_comparison_in_pdf === true}`.
+- **Schema backend (`work_order.py`):** `WorkOrderBase.include_measurement_comparison_in_pdf: bool = False` (antes `True`).
+- **PDF legacy (`pdf_html.py::build_work_order_pdf_data`):** `order_data.get("include_measurement_comparison_in_pdf", False)` (antes `True`).
+
+**Modelo + migración:** `work_order.py` ORM `mapped_column(Boolean, default=False, server_default="0")`. Nueva migración **`d7e8f9a0b1c2`** que (1) hace `alter_column` del `server_default` de `1` → `0` y (2) backfillea `UPDATE work_orders SET include_measurement_comparison_in_pdf = 0` (todas las OTs existentes tenían `1`). Plain `UPDATE` dentro de la migración (no batch) para SQLite/MySQL; validada en SQLite aislado (create_all + stamp al head previo + upgrade) — el chain completo NO corre de cero en SQLite por `DROP FOREIGN KEY` MySQL-only preexistente en una migración previa.
+
+**Tests actualizados:** los 8 tests de `buildPdfData.test.ts` que dependían del default-on ahora setean `include_measurement_comparison_in_pdf: true` explícito (el que asumía "(default)" pasó a "when the flag is explicitly on"). El backend `test_measurement_comparison.py` ya seteaba el flag explícito (sin cambios).
+
+**Verificación:** `tsc --noEmit` 0 errores · vitest **258/258** (23 files) · pytest **88/88** · migración `d7e8f9a0b1c2` validada en SQLite (DEFAULT '0'). Nota operativa: aplicar la migración con `ENVIRONMENT=production` corre contra MySQL — hacerlo cuando el usuario lo pida (agrega default 0 + backfill de las OTs).
+

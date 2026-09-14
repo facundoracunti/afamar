@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { ChevronLeft, ChevronRight, Eye, FileDown, Send, Mail, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ClipboardList, Eye, FileDown, Send, Mail, Trash2 } from 'lucide-react';
 import { orderStatuses, formatDate } from '../../../utils/formatters';
 import CurrencyDisplay from '../../ui/CurrencyDisplay';
 import { StatusBadge } from '../../ui/StatusBadge';
@@ -19,6 +19,7 @@ interface WorkOrdersTableProps {
   onView: (o: WorkOrderListItem) => void;
   onStatusAdvance: (o: WorkOrderListItem, direction: 1 | -1) => Promise<void>;
   onOpenPdf: (o: WorkOrderListItem) => Promise<void>;
+  onOpenFicha: (o: WorkOrderListItem) => Promise<void>;
   onWhatsApp: (o: WorkOrderListItem) => void;
   onDelete: (id: number) => void;
 }
@@ -36,6 +37,7 @@ function WorkOrdersTableInner({
   onView,
   onStatusAdvance,
   onOpenPdf,
+  onOpenFicha,
   onWhatsApp,
   onDelete,
 }: WorkOrdersTableProps) {
@@ -140,6 +142,9 @@ function WorkOrdersTableInner({
                     </button>
                     <button type="button" className={btnCls()} onClick={() => onOpenPdf(o)} title="Vista previa del PDF">
                       <FileDown size={12} /> PDF
+                    </button>
+                    <button type="button" className={btnCls('success')} onClick={() => onOpenFicha(o)} title="Vista previa de la Ficha de Taller">
+                      <ClipboardList size={12} /> Ficha
                     </button>
                   </div>
                 </td>

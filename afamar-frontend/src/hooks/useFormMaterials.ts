@@ -1,6 +1,8 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Material } from '../types/material';
 import type { EntityFormState, FormField, MaterialInForm } from '../types';
+import { getAdditionalWorks } from '../api/resources/additionalWorks';
+import type { AdditionalWork } from '../types/additionalWork';
 import { M2_CONCEPTS, addMaterialToList, addMaterialRowToList, repointSwapReferences, swapMaterialGroupToList } from './entityFormHelpers';
 import type { MutableRefObject } from 'react';
 
@@ -54,6 +56,30 @@ export function useFormMaterials({
   materialPrecioRef,
   materialUsdRef,
 }: UseFormMaterialsParams): UseFormMaterialsReturn {
+  // Frente catalogue — fetched once per form mount so a "Cambiar material"
+  // swap can reprice the re-pointed frentes with the exact formula
+  // multiplier (mirrors `recomputeFrenteRow`/`resolveFrenteMultiplier`).
+  // Same pattern as `useAdditionalWorksCatalogue` in the picker.
+  const [frenteCatalogue, setFrenteCatalogue] = useState<AdditionalWork[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await getAdditionalWorks();
+        if (!cancelled) setFrenteCatalogue(data as AdditionalWork[]);
+      } catch {
+        if (!cancelled) setFrenteCatalogue([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const catalogueById = useMemo(
+    () => new Map(frenteCatalogue.map((c) => [c.id, c])),
+    [frenteCatalogue],
+  );
+
   const handleMaterialChange = useCallback(
     (name: string) => {
       const m = materials.find((mat) => mat.name === name);
@@ -156,7 +182,7 @@ export function useFormMaterials({
           .map((i) => form.materials_data?.[i]?.name)
           .filter((name): name is string => !!name),
       );
-      const refs = repointSwapReferences(form, oldNames, mat.name);
+      const refs = repointSwapReferences(form, oldNames, mat.name, { mat, catalogueById });
       setForm((prev) => ({
         ...prev,
         materials_data: list,
@@ -165,7 +191,7 @@ export function useFormMaterials({
         additional_works_data: refs.additional_works_data,
       }));
     },
-    [form, setForm]
+    [form, setForm, catalogueById]
   );
 
   const materialsList = form.materials_data || [];

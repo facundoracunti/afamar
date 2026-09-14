@@ -14,6 +14,9 @@ interface ToolbarProps {
   canUndo: boolean;
   canRedo: boolean;
   currentShapes: SketchElement[];
+  /** Unique material names available for labeling the active page ('' = none). */
+  materials: string[];
+  pageMaterial: string;
 
   onSetTool: (t: SketchToolType) => void;
   onSetSnap: () => void;
@@ -21,6 +24,7 @@ interface ToolbarProps {
   onAddPage: () => void;
   onRemovePage: (id: number) => void;
   onRenamePage: (id: number, name: string) => void;
+  onSetPageMaterial: (v: string) => void;
   onUndo: () => void;
   onRedo: () => void;
   onDeleteSelected: () => void;
@@ -33,6 +37,7 @@ const toolsList: { id: SketchToolType; label: string; icon: string }[] = [
   { id: 'line', label: 'Línea', icon: '╱' },
   { id: 'rect', label: 'Rectángulo Mesada', icon: '▭' },
   { id: 'cutout', label: 'Bacha / Anafe', icon: '⊡' },
+  { id: 'circle', label: 'Círculo (pileta redonda / grifería)', icon: '◯' },
   { id: 'text', label: 'Texto', icon: 'T' },
 ];
 
@@ -57,6 +62,8 @@ export default function Toolbar({
   canUndo,
   canRedo,
   currentShapes,
+  materials,
+  pageMaterial,
 
   onSetTool,
   onSetSnap,
@@ -64,6 +71,7 @@ export default function Toolbar({
   onAddPage,
   onRemovePage,
   onRenamePage,
+  onSetPageMaterial,
   onUndo,
   onRedo,
   onDeleteSelected,
@@ -74,7 +82,12 @@ export default function Toolbar({
     <>
       <div className={s['toolbar__title-bar']}>
         <span>DISEÑO / CROQUIS</span>
-        {snap && <span className={s['toolbar__snap-indicator']}>Imán activado</span>}
+        <div className={s['toolbar__title-right']}>
+          {readOnly && pageMaterial && (
+            <span className={s['toolbar__material-badge']}>{pageMaterial}</span>
+          )}
+          {snap && <span className={s['toolbar__snap-indicator']}>Imán activado</span>}
+        </div>
       </div>
 
       {!readOnly && (
@@ -115,6 +128,18 @@ export default function Toolbar({
           >
             + Agregar Página
           </button>
+          <select
+            className={s['toolbar__material-select']}
+            value={pageMaterial}
+            onChange={(e) => onSetPageMaterial(e.target.value)}
+            aria-label="Material de la página activa"
+            title="Material de esta página (se imprime en la Ficha de Taller)"
+          >
+            <option value="">Material…</option>
+            {materials.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
         </div>
       )}
 

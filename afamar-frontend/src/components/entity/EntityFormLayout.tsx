@@ -42,7 +42,7 @@ interface TermConfig {
  *   - `terms` — per-page list of term editor cards (Budget = none,
  *     WorkOrder = delivery + warranty)
  *   - `alternativasGrid` — only set by the Budget page
- *   - `specsCardClassName`, `fabricationShowMeasurementComparison`,
+ *   - `specsCardClassName`, `fabricationShowMeasurementComparison` —
  *     `fabricationMaterialsData` — small layout/materialisation overrides
  *
  * The BudgetFormPage and WorkOrderFormPage wrap this component in the
@@ -81,7 +81,7 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
   const {
     materials: materiales, addMaterial, removeMaterial, updateMaterial,
     addMaterialRow, removeMaterialGroup, updateMaterialGroup, swapMaterialGroup,
-    pools, addPileta, removePileta, updatePileta,
+    pools, addPileta, removePileta, updatePileta, setPoolFields,
     clientes, addOrRefreshClientes, onAddressAdded,
     paymentMethods,
     handleDetailChange, addDetalle, removeDetalle,
@@ -128,6 +128,19 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
 
   const addPorcelainDetail = (detail: FabricationDetail) =>
     update('fabrication_details', [...(form.fabrication_details || []), detail]);
+
+  // Unique material names from the form so each sketch page can be labeled
+  // with the countertop material it draws (printed on the taller sheet).
+  // Trimmed: catalog names may carry a trailing space (e.g. "ROSA DE SALTO "),
+  // while `setPageMaterial` persists the trimmed value — the <option> values
+  // must match the persisted value or the select falls back to "Material…".
+  const sketchMaterials = Array.from(
+    new Set(
+      formMaterials
+        .map((m) => (m.name || '').trim())
+        .filter((n): n is string => Boolean(n && n.trim())),
+    ),
+  );
 
   const porcelainCalculatorProps = {
     readOnly,
@@ -197,6 +210,7 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
           updatePileta={updatePileta}
           removePileta={removePileta}
           addPileta={addPileta}
+          setPoolFields={setPoolFields}
           num={parseNumber}
         />
       ),
@@ -245,6 +259,7 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
           onChange={(v) => update('sketch_elements', v)}
           readOnly={readOnly}
           toggleLabel="Diseño / Plano"
+          materials={sketchMaterials}
         />
       ),
     },
@@ -349,6 +364,7 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
               updatePileta={updatePileta}
               removePileta={removePileta}
               addPileta={addPileta}
+              setPoolFields={setPoolFields}
               num={parseNumber}
             />
           </div>
@@ -384,6 +400,7 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
             onChange={(v) => update('sketch_elements', v)}
             readOnly={readOnly}
             toggleLabel="Diseño / Plano"
+            materials={sketchMaterials}
           />
 
           <EntityFormFinancial

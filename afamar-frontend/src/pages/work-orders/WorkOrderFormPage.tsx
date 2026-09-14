@@ -10,9 +10,12 @@ import { getPoolStock } from '@/api/resources/poolStock';
 import { getClients } from '@/api/resources/clients';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import useEntityForm from '../../hooks/useEntityForm';
+import type { AfterActionInfo } from '../../hooks/useFormActions';
 import { useSettingsWithTerms } from '../../hooks/useSettingsWithTerms';
+import { useWorkshopPdfController } from '../../hooks/useWorkshopPdfController';
 import { useConfirmPayment } from '../../hooks/useConfirmPayment';
 import { createAddressAddedHandler } from '../../hooks/entityFormHelpers';
+import { t } from '../../utils/translate';
 import { buildPdfData } from '../../utils/pdf/buildPdfData';
 import type { PdfDocumentData } from '../../utils/pdf/buildPdfData';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
@@ -46,6 +49,12 @@ const workOrderServices = {
   listPath: '/admin/work-orders',
 };
 
+const STATUS_ROLLBACK: Record<string, string> = {
+  WORKSHOP: 'MEASUREMENT',
+  FINISHED: 'WORKSHOP',
+  DELIVERED: 'FINISHED',
+};
+
 interface WorkOrderFormProps {
   /** Called after a successful save or delete. Page mode falls back to
    *  navigating to /admin/work-orders; modal mode closes the modal. */
@@ -66,13 +75,31 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
   const [sketchExtractorActive, setSketchExtractorActive] = useState(false);
   const [deliveryTerms, setDeliveryTerms] = useState<string[]>([]);
   const [warrantyTerms, setWarrantyTerms] = useState<string[]>([]);
+  const [showComparisonToggle, setShowComparisonToggle] = useState(false);
   const { company, globalTerms } = useSettingsWithTerms();
+
+  // Ficha de Taller: documento interno SIN precios para los trabajadores del
+  // taller. Los 6 specs (CORTE/FAJA/PERF/TRAS-PEG/TERM/SOPAPAS) se imprimen
+  // SIEMPRE en blanco bajo el croquis — el cortador los completa a mano con
+  // lapicera sobre el papel, no por esta web.
+  const ficha = useWorkshopPdfController({
+    fetchEntity: async (id) => getWorkOrder(id as number) as unknown as { data: Record<string, unknown> },
+    defaultStatus: 'MEASUREMENT',
+    company,
+    notify,
+  });
 
   const handleCancelClick = () =>
     props.onCancel ? props.onCancel() : navigate('/admin/work-orders');
-  const handleSuccessCallback = () => {
+  // Create → jump to the just-created record's edit page so the operator can
+  // keep tweaking without re-opening it (and the form stops being "create
+  // mode" re-submittable, preventing duplicates). Update → stay put.
+  // Delete in page mode → back to the list.
+  const handleSuccessCallback = (info?: AfterActionInfo) => {
     queryClient.invalidateQueries({ queryKey: ['work-orders'], refetchType: 'all' });
-    props.onSuccess?.();
+    if (props.onSuccess) props.onSuccess();
+    else if (info?.created && info.id != null) navigate(`/admin/work-orders/${info.id}`);
+    else if (info?.deleted) navigate('/admin/work-orders');
   };
 
   const {
@@ -90,7 +117,7 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
     handleDetailChange, addDetalle, removeDetalle,
     addMaterial, removeMaterial, updateMaterial, addMaterialRow, removeMaterialGroup, updateMaterialGroup,
     swapMaterialGroup,
-    addPileta, removePileta, updatePileta,
+    addPileta, removePileta, updatePileta, setPoolFields,
     handleSubmit: legacyHandleSubmit, handleDelete, handleStatusChangeAction, handlePrint,
     buildPayload,
     paymentMethods,
@@ -118,6 +145,18 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
   // will pick up the fresh data when it mounts).
   const handleSubmit = async (e?: React.FormEvent) => {
     await legacyHandleSubmit(e);
+  };
+
+  const handlePrintFicha = () => {
+    if (!id) return; // Solo órdenes guardadas tienen ficha imprimible.
+    // Pasar el form EN VIVO (no re-fetchear del API): si el operador
+    // asignó cada pileta a su mesada en "Asignar a opción" y todavía no
+    // guardó, la ficha debe reflejar esa asignación igual que el PDF del
+    // cliente refleja el resto de los cambios sin guardar.
+    ficha.handleOpenWorkshopSheet(
+      { id, number: form.number, status: form.status },
+      { liveForm: form as unknown as Record<string, unknown> }
+    );
   };
 
   const handleAddressAdded = useCallback(createAddressAddedHandler(clientes, updateClientAddresses), [clientes, updateClientAddresses]);
@@ -199,6 +238,11 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
             ✅ Finalizar Trabajo
           </button>
         )}
+        {(form.status === 'WORKSHOP' || form.status === 'FINISHED' || form.status === 'DELIVERED') && (
+          <button type="button" className={s['work-order-form__btn-rollback']} onClick={() => handleStatusChangeAction(STATUS_ROLLBACK[form.status])} disabled={saving}>
+            ↩ Volver a {t(STATUS_ROLLBACK[form.status])}
+          </button>
+        )}
         {form.status === 'FINISHED' && (
           <button type="button" className={s['work-order-form__btn-delivery']} onClick={() => handleStatusChangeAction('DELIVERED')} disabled={saving}>
             🚚 Entregar al Cliente
@@ -209,11 +253,14 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
             📦 Trabajo Entregado
           </span>
         )}
+        <button type="button" className={`btn btn-outline ${s['work-order-form__preview-btn']}`} onClick={() => handlePrintFicha()} disabled={!id || pdfPreviewLoading}>
+          🖨️ Ficha de Taller
+        </button>
         <button type="button" className={`btn btn-outline ${s['work-order-form__preview-btn']}`} onClick={handlePreviewPdf} disabled={pdfPreviewLoading}>
           <Eye size={16} /> {pdfPreviewLoading ? 'GENERANDO...' : 'VISTA PREVIA PDF'}
         </button>
         {props.layoutMode !== 'wizard' && (
-          <button className={`btn btn-primary ${s['work-order-form__btn-save']}`} onClick={handleSubmit} disabled={saving}>
+          <button type="button" className={`btn btn-primary ${s['work-order-form__btn-save']}`} onClick={handleSubmit} disabled={saving}>
             <Save size={16} /> {saving ? 'GUARDANDO...' : 'GUARDAR'}
           </button>
         )}
@@ -249,6 +296,7 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
               addPileta,
               removePileta,
               updatePileta,
+              setPoolFields,
               handleDetailChange,
               addDetalle,
               removeDetalle,
@@ -302,26 +350,53 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
                     <div className={s['work-order-form__card-section']}>
                       <WorkOrderFormSnapshot form={form} readOnly={readOnly} />
                     </div>
+                    {/* The measurement-comparison toggle is available for BOTH
+                        work orders converted from a budget (shows estimated vs
+                        real measures) and direct work orders (the operator can
+                        still activate it — e.g. to print the real measures as a
+                        spec reference). It is always visible. */}
                     <div className={s['work-order-form__card-section']}>
                       <div className={`card ${s['work-order-form__pdf-toggle-card']}`}>
-                        <label className={s['work-order-form__pdf-toggle']}>
-                          <input
-                            type="checkbox"
-                            checked={form.include_measurement_comparison_in_pdf !== false}
+                        <div className={s['work-order-form__comparison-toggle-header']}>
+                          <button
+                            type="button"
+                            className={`btn btn-outline ${s['work-order-form__comparison-toggle']}`}
+                            onClick={() => setShowComparisonToggle(!showComparisonToggle)}
                             disabled={readOnly}
-                            onChange={(e) =>
-                              setForm({
-                                ...form,
-                                include_measurement_comparison_in_pdf: e.target.checked,
-                              })
-                            }
-                          />
-                          <span>Incluir comparativa de medición en el PDF</span>
-                        </label>
-                        <p className={s['work-order-form__pdf-toggle-hint']}>
-                          Muestra la tabla COMPARATIVA DE MEDICIÓN (M² Real / M²
-                          Presupuestado / Diferencia) en el PDF de esta orden.
-                        </p>
+                          >
+                            {showComparisonToggle ? '👁️' : '⚖️'}{' '}
+                            {showComparisonToggle
+                              ? 'Ocultar Comparativa de medición'
+                              : 'Activar Comparativa de medición'}
+                          </button>
+                          {!showComparisonToggle && (
+                            <span className={s['work-order-form__comparison-toggle-hint']}>
+                              Comparativa oculta.
+                            </span>
+                          )}
+                        </div>
+                        {showComparisonToggle && (
+                          <div className={s['work-order-form__comparison-toggle-panel']}>
+                            <label className={s['work-order-form__pdf-toggle']}>
+                              <input
+                                type="checkbox"
+                                checked={form.include_measurement_comparison_in_pdf === true}
+                                disabled={readOnly}
+                                onChange={(e) =>
+                                  setForm({
+                                    ...form,
+                                    include_measurement_comparison_in_pdf: e.target.checked,
+                                  })
+                                }
+                              />
+                              <span>Incluir comparativa de medición en el PDF</span>
+                            </label>
+                            <p className={s['work-order-form__pdf-toggle-hint']}>
+                              Muestra la tabla COMPARATIVA DE MEDICIÓN (M² Real / M²
+                              Presupuestado / Diferencia) en el PDF de esta orden.
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </>
@@ -359,6 +434,8 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
           </EntityFormDomainProvider>
         </EntityFormStateProvider>
       </EntityFormStyleProvider>
+
+      {ficha.UI}
 
     </div>
   );

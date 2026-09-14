@@ -181,3 +181,137 @@ def test_global_and_unmatched_rows_are_skipped():
     )
     assert len(rows) == 1
     assert rows[0]["is_detail"] is False
+
+
+def _two_mesadas_negro_brasil():
+    """Helper: two NEGRO BRASIL materials — the regression scenario."""
+    return [
+        {
+            "id": 1,
+            "name": "NEGRO BRASIL",
+            "currency": "USD",
+            "price_m2_usd": 330.0,
+            "price_m2": 0,
+            "quantity": 1,
+            "length": 2.75,
+            "width": 0.64,
+            "m2_budgeted": 1.728,
+            "is_alternative": False,
+        },
+        {
+            "id": 2,
+            "name": "NEGRO BRASIL",
+            "currency": "USD",
+            "price_m2_usd": 330.0,
+            "price_m2": 0,
+            "quantity": 1,
+            "length": 0.68,
+            "width": 0.64,
+            "m2_budgeted": 0.384,
+            "is_alternative": False,
+        },
+    ]
+
+
+def test_single_frente_assigned_to_multiple_mesadas_is_deduplicated():
+    """Regression: one "Frente Ingletetado 45°" assigned to NEGRO BRASIL
+    covers two mesadas. The frente is billed in TOTAL METROS LINEALES, so
+    the comparison must render it exactly once — not twice.
+    """
+    additional = json.dumps([
+        {
+            "additional_work_id": 88,
+            "name": "Frente Ingletetado 45°",
+            "type": "frente",
+            "currency": "USD",
+            "price": 49.33,
+            "quantity": 1,
+            "total": 169.20,  # 49.33 × 3.43 ml (single item, both mesadas)
+            "materialName": "NEGRO BRASIL",
+            "linear_meters": 3.43,
+            "linear_meters_budgeted": 3.3,
+            "total_ars_budgeted": 5068.0,
+            "total_usd_budgeted": 163.49,
+        },
+    ])
+    rows = _build_measurement_comparison(
+        _two_mesadas_negro_brasil(), usd_rate=1000, additional_raw=additional
+    )
+    # 2 NEGRO BRASIL rows + exactly 1 frente detail row (deduped).
+    assert len(rows) == 3
+    detail_rows = [r for r in rows if r["is_detail"]]
+    assert len(detail_rows) == 1
+    frente = detail_rows[0]
+    assert frente["name"] == "Frente Ingletetado 45°"
+    assert frente["measure_unit"] == "ml"
+    assert frente["measure_real_str"] == "3.43 ml"
+    assert frente["measure_budgeted_str"] == "3.3 ml"
+    assert frente["measure_delta_str"] == "+0.13 ml"
+    # Subtotal = real_total − budgeted_total in USD: 169.20 − 163.49 = 5.71.
+    assert abs(frente["subtotal_usd"] - 5.71) < 0.01
+
+
+def test_frente_without_id_dedupes_by_name_fallback():
+    """When the adicional has no `additional_work_id`, dedupe by `name`
+    so a single "Frente Ingletetado 45°" still renders only once even if
+    its catalogue id is missing (legacy rows).
+    """
+    additional = json.dumps([
+        {
+            "name": "Frente Ingletetado 45°",
+            "type": "frente",
+            "currency": "USD",
+            "price": 49.33,
+            "quantity": 1,
+            "total": 169.20,
+            "materialName": "NEGRO BRASIL",
+            "linear_meters": 3.43,
+        },
+    ])
+    rows = _build_measurement_comparison(
+        _two_mesadas_negro_brasil(), usd_rate=1000, additional_raw=additional
+    )
+    detail_rows = [r for r in rows if r["is_detail"]]
+    assert len(detail_rows) == 1
+
+
+def test_build_work_order_pdf_data_keeps_comparison_for_direct_orders():
+    """Business rule: the COMPARATIVA DE MEDICIÓN toggle is available for
+    BOTH direct work orders and orders converted from a budget. The gate is
+    the per-order flag `include_measurement_comparison_in_pdf` only — a
+    direct order may still print the comparison (its Presupuestado column
+    renders "—" since there is no estimated snapshot).
+    """
+    from app.services.pdf_html import build_work_order_pdf_data
+
+    base_order = {
+        "number": "A-DIRECT-1",
+        "status": "MEASUREMENT",
+        "client_name": "Test",
+        "currency": "ARS",
+        "materials_data": json.dumps(_two_mesadas_negro_brasil()),
+        "additional_works_data": json.dumps([
+            {
+                "additional_work_id": 88,
+                "name": "Frente Ingletetado 45°",
+                "type": "frente",
+                "currency": "USD",
+                "price": 49.33,
+                "quantity": 1,
+                "total": 169.20,
+                "materialName": "NEGRO BRASIL",
+                "linear_meters": 3.43,
+            },
+        ]),
+        # No `budget_id` key → direct work order. The flag is on by
+        # default, so the comparison IS built.
+        "include_measurement_comparison_in_pdf": True,
+        "usd_rate": 1000,
+    }
+    data = build_work_order_pdf_data(base_order, {}, {}, {})
+    assert data["measurement_comparison"] != []
+
+    # And the flag is still honoured: off → empty comparison.
+    flag_off = {**base_order, "include_measurement_comparison_in_pdf": False}
+    data2 = build_work_order_pdf_data(flag_off, {}, {}, {})
+    assert data2["measurement_comparison"] == []

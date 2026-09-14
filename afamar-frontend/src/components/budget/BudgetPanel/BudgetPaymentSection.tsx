@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { EntityFormState } from '../../../types/form';
 import type { PaymentMethod } from '../../../types/paymentMethod';
 import { useBudgetPanel } from './BudgetPanelContext';
+import { isCardPaymentMethod } from '../../../utils/creditCardAutoFill';
+import { todayLocalISO } from '../../../hooks/entityFormHelpers';
 import styles from './BudgetPanel.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -48,7 +50,6 @@ export function BudgetPaymentSection({
   readOnly,
   saving,
   update,
-  setForm,
   num,
   onConfirmarPago,
 }: BudgetPaymentSectionProps) {
@@ -66,6 +67,26 @@ export function BudgetPaymentSection({
 
   const currentMethod = resolveCurrentMethod(form, paymentMethods);
   const showInstallments = !!currentMethod?.applies_to_installments;
+  const isCard = isCardPaymentMethod(currentMethod?.name);
+
+  // Cuando el método es tarjeta (débito/crédito) NO hay seña: el total
+  // completo (con el recargo de cuotas si es crédito) se cobra al momento
+  // de la venta. Sincronizamos el deposit/balance con el total con recargo
+  // y lo re-sincronizamos cada vez que cambia el total (ej. al cambiar la
+  // cantidad de cuotas el interés sube el total) para que el "cobro 100%"
+  // siga siempre el total final, incluido el interés.
+  useEffect(() => {
+    if (readOnly || !isCard) return;
+    const totalArs = Number(form.total) || 0;
+    const totalUsd = Number(form.total_usd) || 0;
+    update('deposit_received', totalArs);
+    update('deposit_usd', totalUsd);
+    update('balance_due', 0);
+    update('balance_due_usd', 0);
+    update('balance_paid', true);
+    update('balance_paid_at', todayLocalISO());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCard, readOnly, form.total, form.total_usd]);
 
   return (
     <div className={s['budget-panel__payment-col']}>
@@ -94,29 +115,43 @@ export function BudgetPaymentSection({
             />
           </div>
         </div>
-        <div className="form-group">
-          <label>Seña recibida</label>
-          <div className={s['budget-panel__usd-summary-deposit']}>
-            <select
-              className={`input ${s['budget-panel__currency-switch-select']}`}
-              value={form.deposit_currency || 'ARS'}
-              onChange={(e) => handleDepositCurrencyChange(e.target.value)}
-              disabled={readOnly}
-              aria-label="Moneda de la seña"
-            >
-              <option value="ARS">ARS</option>
-              <option value="USD">USD</option>
-            </select>
-            <input
-              type="number"
-              className={`input ${s['budget-panel__deposit-input']}`}
-              value={depositValue}
-              onChange={(e) => handleDepositAmountChange(e.target.value)}
-              disabled={readOnly}
-              placeholder="0"
-            />
+        {isCard ? (
+          <div className="form-group">
+            <label>Pago total con tarjeta</label>
+            <div className={s['budget-panel__usd-summary-deposit']}>
+              <span className={`input ${s['budget-panel__deposit-input']} ${s['budget-panel__card-total-display']}`}>
+                {depositValue ? `$ ${Number(depositValue).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '$ 0,00'}
+              </span>
+            </div>
+            <span className={s['budget-panel__card-total-hint']}>
+              {showInstallments ? 'Incluye el interés de las cuotas' : 'No incluye interés'}
+            </span>
           </div>
-        </div>
+        ) : (
+          <div className="form-group">
+            <label>Seña recibida</label>
+            <div className={s['budget-panel__usd-summary-deposit']}>
+              <select
+                className={`input ${s['budget-panel__currency-switch-select']}`}
+                value={form.deposit_currency || 'ARS'}
+                onChange={(e) => handleDepositCurrencyChange(e.target.value)}
+                disabled={readOnly}
+                aria-label="Moneda de la seña"
+              >
+                <option value="ARS">ARS</option>
+                <option value="USD">USD</option>
+              </select>
+              <input
+                type="number"
+                className={`input ${s['budget-panel__deposit-input']}`}
+                value={depositValue}
+                onChange={(e) => handleDepositAmountChange(e.target.value)}
+                disabled={readOnly}
+                placeholder="0"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="form-group">
@@ -124,6 +159,7 @@ export function BudgetPaymentSection({
         <div className={s['budget-panel__payment-method-controls']}>
           <select
             className={`input ${s['budget-panel__payment-method-select']}`}
+            aria-label="Forma de pago"
             value={form.payment_method_id ?? form.payment_method ?? ''}
             onChange={(e) => {
               const raw = e.target.value;
@@ -133,13 +169,14 @@ export function BudgetPaymentSection({
                 update('payment_method', '');
                 return;
               }
+              let pm: PaymentMethod | undefined;
               const asNumber = Number(raw);
-              if (!Number.isNaN(asNumber) && asNumber > 0 && paymentMethods.some((pm) => pm.id === asNumber)) {
-                const pm = paymentMethods.find((p) => p.id === asNumber)!;
-                update('payment_method_id', pm.id);
-                update('payment_method', pm.name);
+              if (!Number.isNaN(asNumber) && asNumber > 0 && paymentMethods.some((p) => p.id === asNumber)) {
+                pm = paymentMethods.find((p) => p.id === asNumber);
+                update('payment_method_id', pm!.id);
+                update('payment_method', pm!.name);
               } else {
-                const pm = paymentMethods.find((p) => p.name === raw);
+                pm = paymentMethods.find((p) => p.name === raw);
                 update('payment_method_id', pm?.id ?? null);
                 update('payment_method', raw);
               }
@@ -233,6 +270,22 @@ export function BudgetPaymentSection({
         </div>
       ) : null}
 
+      {isCard ? (
+      <div
+        className={`${s['paymentStatus']} ${s['paymentStatus--paid']}`}
+      >
+        <div className={s['paymentStatus__row']}>
+          <div>
+            <span className={s['paymentStatus__label']}>
+              ✓ Pago cobrado (tarjeta)
+            </span>
+            {form.balance_paid_at && (
+              <div className={s['paymentStatus__date']}>Fecha: {form.balance_paid_at}</div>
+            )}
+          </div>
+        </div>
+      </div>
+      ) : (
       <div
         className={`${s['paymentStatus']}${form.balance_paid ? ' ' + s['paymentStatus--paid'] : ' ' + s['paymentStatus--pending']}`}
       >
@@ -255,6 +308,7 @@ export function BudgetPaymentSection({
           </button>
         </div>
       </div>
+      )}
 
       <div className={s['budget-panel__dates']}>
         <div className={`form-group ${s['budget-panel__delivery-row']}`}>

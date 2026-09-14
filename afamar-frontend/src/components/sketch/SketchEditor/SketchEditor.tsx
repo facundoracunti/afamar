@@ -12,10 +12,11 @@ const TOOLS: { id: SketchToolType; label: string }[] = [
   { id: 'line', label: 'Línea' },
   { id: 'rect', label: 'Rectángulo Mesada' },
   { id: 'cutout', label: 'Bacha / Anafe' },
+  { id: 'circle', label: 'Círculo' },
   { id: 'text', label: 'Texto' },
 ];
 
-export default function SketchEditor({ sketch, onChange, readOnly = false }: SketchEditorProps) {
+export default function SketchEditor({ sketch, onChange, readOnly = false, materials = [] }: SketchEditorProps) {
   const st = useSketchState(sketch, onChange, readOnly);
   const sRef = useRef(st);
   sRef.current = st;
@@ -49,12 +50,15 @@ export default function SketchEditor({ sketch, onChange, readOnly = false }: Ske
         canUndo={st.canUndo}
         canRedo={st.canRedo}
         currentShapes={st.currentShapes}
+        materials={materials}
+        pageMaterial={st.pages[st.pageIdx]?.material || ''}
         onSetTool={st.setTool}
         onSetSnap={() => st.setSnap(!st.snap)}
         onSetPageIdx={st.setPageIdx}
         onAddPage={st.addPage}
         onRemovePage={st.removePage}
         onRenamePage={st.renamePage}
+        onSetPageMaterial={(v) => st.setPageMaterial(st.pages[st.pageIdx]?.id ?? 0, v)}
         onUndo={st.undo}
         onRedo={st.redo}
         onDeleteSelected={() => st.sid && st.deleteShape(st.sid)}

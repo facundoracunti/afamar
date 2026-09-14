@@ -32,6 +32,15 @@ export interface EntityFormState extends FinancialBase {
   number: string;
   date: string;
   status: string;
+  /**
+   * Origin marker — only meaningful for work orders. Set to the id of the
+   * budget this order was converted from (via `create_from_budget` /
+   * `convert_alternative_to_work_order`); null for direct work orders
+   * created manually. Drives the COMPARATIVA DE MEDICIÓN gate: only
+   * work orders with a `budget_id` show the comparison block in the PDF
+   * (direct orders skip it — see `buildPdfData.ts`).
+   */
+  budget_id?: number | null;
 
   // Material specs
   material: string;
@@ -211,6 +220,7 @@ export interface UseEntityFormReturn {
   addPileta: (pid: string) => void;
   removePileta: (idx: number) => void;
   updatePileta: (idx: number, field: string, value: unknown) => void;
+  setPoolFields: (idx: number, fields: Record<string, unknown>) => void;
   handleSubmit: (e?: React.FormEvent) => Promise<boolean>;
   handleDelete: () => Promise<void>;
   handleStatusChangeAction: (newStatus: string) => Promise<void>;

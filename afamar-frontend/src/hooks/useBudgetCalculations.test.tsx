@@ -147,6 +147,37 @@ describe('useBudgetCalculations — apply_cash_discount opt-in (catalogue DISCOU
     });
     expect(result.current.form.total).toBe(10000);
   });
+
+  it('applies a FIXED-AMOUNT DISCOUNT (is_percentage=false) when the flag toggles on', () => {
+    // Regression sentinel for the "monto fijo" bug: EFECTIVO configured as
+    // DISCOUNT with a fixed `value` (e.g. $600.000) used to short-circuit
+    // at the `ratio === 1` early return of `applyPaymentMethodToTotals` —
+    // the fixed branch was dead code, so the discount never applied. The
+    // fixed-amount branch must run regardless of the ratio.
+    const TRANSFER_FIXED_DISCOUNT = PAYMENT_METHODS.map((pm) =>
+      pm.name === 'TRANSFERENCIA BANCARIA'
+        ? { ...pm, type: 'DISCOUNT' as const, value: 3000, is_percentage: false }
+        : pm
+    );
+    const fabrication_details: FabricationDetail[] = [
+      { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 10000 },
+    ];
+    const initial = makeForm({
+      fabrication_details,
+      payment_method: 'TRANSFERENCIA BANCARIA',
+      payment_method_id: 2,
+      installments: 1,
+      apply_cash_discount: true,
+    });
+    const { result } = renderCalc(initial, TRANSFER_FIXED_DISCOUNT);
+    expect(result.current.form.total).toBe(7000); // 10000 - 3000
+
+    // Toggling off restores the subtotal (DISCOUNT is opt-in).
+    act(() => {
+      result.current.setForm({ ...initial, apply_cash_discount: false });
+    });
+    expect(result.current.form.total).toBe(10000);
+  });
 });
 
 describe('useBudgetCalculations — discounts', () => {
@@ -303,6 +334,24 @@ describe('useBudgetCalculations — deposit & balance_due', () => {
     }));
     expect(result.current.form.total).toBe(1000);
     expect(result.current.form.balance_due).toBe(0);
+  });
+
+  it('counts the seña ONLY in its active currency (ARS) — does NOT double-count the USD mirror', () => {
+    // Regression: total 2.502.183, seña en ARS $1.500.000. El sistema guarda
+    // además deposit_usd (espejo en USD) que NO debe sumarse otra vez. Si se
+    // suma, el "total de seña" supera al total y el saldo se clampa a 0.
+    const fabrication_details: FabricationDetail[] = [
+      { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 2502183 },
+    ];
+    const { result } = renderCalc(makeForm({
+      fabrication_details,
+      deposit_received: 1500000,
+      deposit_usd: 980.39,
+      deposit_currency: 'ARS',
+      usd_rate: 1530,
+    }));
+    expect(result.current.form.total).toBe(2502183);
+    expect(result.current.form.balance_due).toBe(1002183);
   });
 });
 

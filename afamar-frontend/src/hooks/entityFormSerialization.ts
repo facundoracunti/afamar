@@ -18,66 +18,123 @@ function jsonStringify(value: unknown): string | null {
   }
 }
 
-function flattenSketchElements(raw: unknown): { type: string; data: string | null; order: number }[] {
-  if (!raw) return [];
-  const out: { type: string; data: string | null; order: number }[] = [];
-  const tryPush = (e: Record<string, unknown>, fallbackOrder: number) => {
-    if (typeof e.type !== 'string') return;
-    const { type: _t, order: _o, ...rest } = e;
-    void _t;
-    void _o;
-    let dataStr: string | null = null;
+type SketchWireElement = { type: string; data: string | null; order: number };
+
+interface SketchWirePage {
+  pagina_id: number;
+  name: string;
+  material?: string;
+  dibujo: unknown[];
+}
+
+/** Compact a single drawn element to the wire `{type, data, order}` shape. */
+function toWireElement(e: Record<string, unknown>, order: number): SketchWireElement | null {
+  if (typeof e.type !== 'string') return null;
+  const { type: _t, order: _o, data, ...rest } = e;
+  void _t;
+  void _o;
+  // If the element is already in wire shape (`data` is a JSON string of
+  // the geometry), reuse it verbatim — double-stringifying it would break
+  // the round-trip for legacy flat lists fed into the form.
+  if (typeof data === 'string' && data.length > 0) {
+    return { type: e.type, data, order };
+  }
+  let dataStr: string | null = null;
+  if (data && typeof data === 'object') {
+    try {
+      dataStr = JSON.stringify(data);
+    } catch {
+      dataStr = null;
+    }
+  } else if (data === null || data === undefined) {
     try {
       dataStr = JSON.stringify(rest);
     } catch {
       dataStr = null;
     }
-    out.push({
-      type: e.type,
-      data: dataStr,
-      order: typeof e.order === 'number' ? e.order : fallbackOrder,
-    });
-  };
+  } else {
+    // Odd scalar payload — keep as-is.
+    return { type: e.type, data: String(data), order };
+  }
+  return { type: e.type, data: dataStr, order };
+}
+
+/** Expand a wire element back into its geometry (`{...data, type}`). */
+function fromWireElement(e: Record<string, unknown>): unknown {
+  const { type, data, order: _o, ...rest } = e;
+  void _o;
+  let parsed: Record<string, unknown> = {};
+  if (typeof data === 'string' && data.length > 0) {
+    try { parsed = JSON.parse(data) as Record<string, unknown>; } catch { parsed = {}; }
+  } else if (data && typeof data === 'object') {
+    parsed = data as Record<string, unknown>;
+  }
+  return { ...parsed, ...rest, type };
+}
+
+/**
+ * Serialise the editor's page list to the wire format.
+ *
+ * Wire format (persisted by the backend):
+ *   `[{ pagina_id, name, material?, dibujo: [{ type, data, order }] }, ...]`
+ *
+ * Pages PRESERVE their id, name and material — the taller-sheet PDF reads
+ * the per-page material label from here. (Historically the wire format was
+ * the FLAT element list `[{type,data,order}]`, which collapsed multi-page
+ * croquis into "Página 1" on reload. Budget keeps producing flat rows for
+ * the 1-N `BudgetSketchElement` table, but WorkOrders now persist the
+ * full page shape.) Accepts the legacy flat element list as input too and
+ * wraps it in a single page.
+ */
+function serializeSketchPages(raw: unknown): SketchWirePage[] {
+  if (!raw) return [];
+
+  const pageFrom = (
+    obj: Record<string, unknown>,
+    pageIdx: number,
+    elements: unknown[],
+  ): SketchWirePage => ({
+    pagina_id: (obj.pagina_id as number) || (obj.id as number) || pageIdx + 1,
+    name: String(obj.name || obj.nombre || `Página ${pageIdx + 1}`),
+    material: typeof obj.material === 'string' && obj.material ? obj.material : undefined,
+    dibujo: elements.map((e, idx) => toWireElement(e as Record<string, unknown>, idx)).filter((x): x is SketchWireElement => x !== null),
+  });
 
   if (Array.isArray(raw)) {
-    const looksLikePagesArray = raw.length === 0 || raw.every((p) => p && typeof p === 'object' && ('dibujo' in p || 'pagina_id' in p || 'elements' in p));
-    if (looksLikePagesArray) {
-      let order = 0;
-      raw.forEach((page: unknown) => {
-        const obj = page as Record<string, unknown> | null;
-        if (!obj) return;
-        const dibujo = obj.dibujo;
-        if (Array.isArray(dibujo)) {
-          dibujo.forEach((e) => tryPush(e as Record<string, unknown>, order++));
-        } else if (Array.isArray(obj.elements)) {
-          obj.elements.forEach((e) => tryPush(e as Record<string, unknown>, order++));
-        }
+    const looksLikePages = raw.length === 0 || raw.every((p) => p && typeof p === 'object' && ('dibujo' in p || 'pagina_id' in p || 'elements' in p));
+    if (looksLikePages) {
+      return raw.map((page: unknown, i: number) => {
+        const obj = (page || {}) as Record<string, unknown>;
+        const elements = Array.isArray(obj.dibujo) ? obj.dibujo : (Array.isArray(obj.elements) ? obj.elements : []);
+        return pageFrom(obj, i, elements as unknown[]);
       });
-      return out;
     }
-    raw.forEach((e, idx) => tryPush(e as Record<string, unknown>, idx));
-    return out;
+    // Legacy flat element list → wrap into a single page.
+    return [pageFrom({}, 0, raw as unknown[])];
   }
 
   if (typeof raw === 'object') {
     const obj = raw as Record<string, unknown>;
     if (Array.isArray(obj.pages)) {
-      let order = 0;
-      obj.pages.forEach((page: unknown) => {
-        const elements = (page as Record<string, unknown> | null)?.elements;
-        if (Array.isArray(elements)) {
-          elements.forEach((e) => tryPush(e as Record<string, unknown>, order++));
-        }
+      return obj.pages.map((page: unknown, i: number) => {
+        const p = (page || {}) as Record<string, unknown>;
+        const elements = Array.isArray(p.elements) ? p.elements : [];
+        return pageFrom(p, i, elements as unknown[]);
       });
-    } else if (Array.isArray(obj.elements)) {
-      let order = 0;
-      obj.elements.forEach((e) => tryPush(e as Record<string, unknown>, order++));
+    }
+    if (Array.isArray(obj.elements)) {
+      return [pageFrom({}, 0, obj.elements as unknown[])];
     }
   }
-  return out;
+  return [];
 }
 
-function unflattenSketchElements(raw: unknown): { pagina_id: number; name: string; dibujo: unknown[] }[] {
+/**
+ * Rehydrate the wire format back into the editor's page list. Accepts either
+ * the new page shape (`[{pagina_id, name, material?, dibujo}]`) or the legacy
+ * flat element list (wrapped into a single "Página 1").
+ */
+function unflattenSketchElements(raw: unknown): SketchWirePage[] {
   let arr: unknown[] = [];
   if (Array.isArray(raw)) {
     arr = raw;
@@ -90,23 +147,25 @@ function unflattenSketchElements(raw: unknown): { pagina_id: number; name: strin
     }
   }
   if (arr.length === 0) return [];
-  return [{
-    pagina_id: 1,
-    name: 'Página 1',
-    dibujo: arr.map((e) => {
-      if (!e || typeof e !== 'object') return e;
-      const obj = e as Record<string, unknown>;
-      const { type, data, order: _o, ...rest } = obj;
-      void _o;
-      let parsed: Record<string, unknown> = {};
-      if (typeof data === 'string' && data.length > 0) {
-        try { parsed = JSON.parse(data) as Record<string, unknown>; } catch { parsed = {}; }
-      } else if (data && typeof data === 'object') {
-        parsed = data as Record<string, unknown>;
-      }
-      return { ...parsed, type };
-    }),
-  }];
+  const looksLikePages = arr.every((p) => p && typeof p === 'object' && ('dibujo' in p || 'elements' in p) && !('type' in p));
+  if (!looksLikePages) {
+    // Legacy flat element list → single page.
+    return [{
+      pagina_id: 1,
+      name: 'Página 1',
+      dibujo: arr.map((e) => fromWireElement((e || {}) as Record<string, unknown>)),
+    }];
+  }
+  return arr.map((page: unknown, i: number) => {
+    const obj = (page || {}) as Record<string, unknown>;
+    const elements = Array.isArray(obj.dibujo) ? obj.dibujo : (Array.isArray(obj.elements) ? obj.elements : []);
+    return {
+      pagina_id: (obj.pagina_id as number) || i + 1,
+      name: String(obj.name || obj.nombre || `Página ${i + 1}`),
+      material: typeof obj.material === 'string' ? obj.material : undefined,
+      dibujo: elements.map((e) => fromWireElement((e || {}) as Record<string, unknown>)),
+    };
+  });
 }
 
 function jsonParseList(raw: unknown): unknown[] {
@@ -170,7 +229,7 @@ export function buildPayload(form: EntityFormState): Record<string, unknown> {
     fabrication_details: jsonStringify(form.fabrication_details),
     materials_data: jsonStringify(form.materials_data),
     pools_data: jsonStringify(form.pools_data),
-    sketch_elements: jsonStringify(flattenSketchElements(form.sketch_elements)),
+    sketch_elements: jsonStringify(serializeSketchPages(form.sketch_elements)),
     additional_works_data: form.additional_works_data || '[]',
     // Per-cuota breakdown computed by `useBudgetCalculations` (only set
     // when the active payment method is a credit-card percentage
@@ -194,6 +253,12 @@ export function mapApiToForm(d: Record<string, unknown>, defaultStatus: string):
     client_address: (d.client_address as string) || '',
     client_email: (d.client_email as string) || '',
     delivery_address_id: (d.delivery_address_id as number | null) ?? null,
+    // Origin marker — only meaningful for work orders. Set to the id of
+    // the budget this order was converted from; null for direct work
+    // orders created manually. Drives the COMPARATIVA DE MEDICIÓN gate:
+    // only work orders with a `budget_id` show the comparison toggle in
+    // the form (direct orders skip it).
+    budget_id: (d.budget_id as number | null) ?? null,
     number: (d.number as string) || (d.numero as string) || '',
     date: sliceDateToInput(d.date) || todayLocalISO(),
     status: (d.status as string) || (d.estado as string) || defaultStatus,
@@ -216,7 +281,7 @@ export function mapApiToForm(d: Record<string, unknown>, defaultStatus: string):
     notes: (d.notes as string) || '',
     design_observations: (d.design_observations as string) || '',
     important_observations: (d.important_observations as string) || '',
-    include_measurement_comparison_in_pdf: (d.include_measurement_comparison_in_pdf as boolean) ?? true,
+    include_measurement_comparison_in_pdf: (d.include_measurement_comparison_in_pdf as boolean) ?? false,
     fabrication_details: jsonParseList(d.fabrication_details) as EntityFormState['fabrication_details'],
     materials_data: jsonParseList(d.materials_data) as EntityFormState['materials_data'],
     pools_data: jsonParseList(d.pools_data) as EntityFormState['pools_data'],

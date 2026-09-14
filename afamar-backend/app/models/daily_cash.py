@@ -10,7 +10,10 @@ class DailyCash(Base):
     __tablename__ = "daily_cash"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    date: Mapped[date] = mapped_column(Date, unique=True, nullable=False, index=True)
+    date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    opened_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     previous_balance: Mapped[float] = mapped_column(Float, default=0.0)
     total_income: Mapped[float] = mapped_column(Float, default=0.0)
     total_expenses: Mapped[float] = mapped_column(Float, default=0.0)

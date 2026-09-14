@@ -9,6 +9,21 @@
   align-items: center;
 }
 
+.toolbar__title-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toolbar__material-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--color-info);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
 .toolbar__snap-indicator {
   font-size: 11px;
   color: var(--color-success);
@@ -70,6 +85,16 @@
   color: #fff;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.toolbar__material-select {
+  padding: 3px 6px;
+  font-size: 12px;
+  border-radius: 4px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface-bg);
+  color: var(--text-primary);
+  max-width: 160px;
 }
 
 .toolbar__tools-row {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, Trash2, ArrowUp, ArrowUpDown, ArrowDown } from 'lucide-react';
+import { Eye, Trash2, ArrowUp, ArrowUpDown, ArrowDown, Check } from 'lucide-react';
 import { formatDate } from '../../../utils/formatters';
 import { StatusBadge } from '../../ui/StatusBadge';
 import { EmptyState } from '../../ui/EmptyState/EmptyState';
@@ -42,9 +42,22 @@ interface MeasurementsTableProps {
   sortDir: SortDir;
   dateFilter: string;
   dateFilterEnabled: boolean;
+  activeStatus: string;
   onSort: (field: SortField) => void;
   onView: (id: number) => void;
   onDelete: (id: number) => void;
+  onDone: (id: number) => void;
+}
+
+const EMPTY_MESSAGES: Record<string, string> = {
+  PENDING: 'No hay mediciones pendientes',
+  DONE: 'No hay mediciones realizadas',
+  CANCELLED: 'No hay mediciones canceladas',
+};
+
+function emptyMessage(activeStatus: string, dateFilter: string, dateFilterEnabled: boolean): string {
+  const base = activeStatus ? EMPTY_MESSAGES[activeStatus] || 'No hay mediciones' : 'No hay mediciones';
+  return dateFilterEnabled ? `${base} para el ${formatDate(dateFilter)}.` : `${base} registradas.`;
 }
 
 function MeasurementsTableInner({
@@ -53,9 +66,11 @@ function MeasurementsTableInner({
   sortDir,
   dateFilter,
   dateFilterEnabled,
+  activeStatus,
   onSort,
   onView,
   onDelete,
+  onDone,
 }: MeasurementsTableProps) {
   return (
     <div className={s['m-table']}>
@@ -82,6 +97,15 @@ function MeasurementsTableInner({
               <td><StatusBadge status={m.status || ''} /></td>
               <td>
                 <div className={s['m-table__cell-actions']}>
+                  {m.status === 'PENDING' && (
+                    <button
+                      className="btn btn-success m-table__done-btn"
+                      onClick={() => onDone(m.id)}
+                      title="Marcar la medición como realizada sin abrir el formulario"
+                    >
+                      <Check size={14} /> Realizar
+                    </button>
+                  )}
                   <button className="btn btn-outline" onClick={() => onView(m.id)}>
                     <Eye size={14} />
                   </button>
@@ -95,13 +119,7 @@ function MeasurementsTableInner({
           {visibleRows.length === 0 && (
             <tr>
               <td colSpan={7}>
-                <EmptyState
-                  message={
-                    dateFilterEnabled
-                      ? `No hay mediciones programadas para el ${formatDate(dateFilter)}.`
-                      : 'No hay mediciones registradas.'
-                  }
-                />
+                <EmptyState message={emptyMessage(activeStatus, dateFilter, dateFilterEnabled)} />
               </td>
             </tr>
           )}

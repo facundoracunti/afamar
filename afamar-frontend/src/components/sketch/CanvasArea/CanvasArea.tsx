@@ -5,6 +5,7 @@ import type { SketchToolType, SketchElement, SketchPage, Point } from '@/types/s
 import LineShape from '../LineShape/LineShape';
 import RectangleShape from '../RectangleShape/RectangleShape';
 import TextShape from '../TextShape/TextShape';
+import CircleShape from '../CircleShape/CircleShape';
 import { SketchPreviewLayer } from '../SketchPreviewLayer/SketchPreviewLayer';
 import { SKETCH_STAGE_WIDTH, SKETCH_STAGE_HEIGHT } from '../../../constants';
 import styles from './CanvasArea.module.css';
@@ -44,7 +45,7 @@ interface CanvasAreaProps {
   setDrawEnd: (p: Point | null) => void;
   addShape: (shape: SketchElement) => void;
   updateElementPosition: (id: string, offsetX: number, offsetY: number) => void;
-  updateElementTransform: (id: string, scaleX: number, scaleY: number, rotation: number) => void;
+  updateElementTransform: (id: string, next: SketchElement) => void;
 
   snapCoord: (v: number) => number;
   snapNear: (v: number) => number;
@@ -207,7 +208,20 @@ export default function CanvasArea({
           stroke: '#000',
           strokeWidth: 2,
         } as SketchElement
-      : {
+      : tool === 'circle'
+        ? {
+            id: genId(),
+            type: 'circle',
+            cx: clampCoord(snapCoord(drawStart.x), STAGE_W),
+            cy: clampCoord(snapCoord(drawStart.y), STAGE_H),
+            radius: Math.max(1, Math.hypot(
+              clampCoord(drawEnd.x, STAGE_W) - clampCoord(drawStart.x, STAGE_W),
+              clampCoord(drawEnd.y, STAGE_H) - clampCoord(drawStart.y, STAGE_H),
+            )),
+            stroke: '#000',
+            strokeWidth: 2,
+          } as SketchElement
+        : {
           id: genId(),
           type: tool === 'cutout' ? 'cutout' : 'rect',
           x: clampCoord(Math.min(drawStart.x, drawEnd.x), STAGE_W),
@@ -243,9 +257,67 @@ export default function CanvasArea({
     if (readOnly) return;
     const node = e.target;
     const id = node.id();
-    updateElementTransform(id, node.scaleX(), node.scaleY(), node.rotation());
+    const el = currentShapes.find((s) => s.id === id);
+    if (!el) return;
+
+    // Capture the node's current matrix BEFORE resetting it. The Transformer
+    // has applied scale + rotation + an anchor-compensation offset to the
+    // node; the stored element geometry is still the pre-transform values.
+    // "Baking" maps the local geometry through the absolute transform so the
+    // scale actually survives (the old code discarded it for lines/text,
+    // which made them jump/flip and prevented text from growing).
+    const absTransform = node.getAbsoluteTransform();
+
+    let baked: SketchElement | null = null;
+
+    if (el.type === 'line') {
+      const pts: number[] = [];
+      for (let i = 0; i < el.points.length; i += 2) {
+        const p = absTransform.point({ x: el.points[i], y: el.points[i + 1] });
+        pts.push(clampCoord(p.x, STAGE_W), clampCoord(p.y, STAGE_H));
+      }
+      baked = { ...el, points: pts, x: 0, y: 0 };
+    } else if (el.type === 'text') {
+      const k = Math.min(Math.abs(node.scaleX()), Math.abs(node.scaleY())) || 1;
+      const topLeft = absTransform.point({ x: 0, y: 0 });
+      baked = {
+        ...el,
+        x: clampCoord(topLeft.x, STAGE_W),
+        y: clampCoord(topLeft.y, STAGE_H),
+        fontSize: Math.max(6, Math.round((el.fontSize || 16) * k)),
+        rotation: node.rotation(),
+      };
+    } else if (el.type === 'circle') {
+      const k = Math.min(Math.abs(node.scaleX()), Math.abs(node.scaleY())) || 1;
+      const center = absTransform.point({ x: 0, y: 0 });
+      baked = {
+        ...el,
+        cx: clampCoord(center.x, STAGE_W),
+        cy: clampCoord(center.y, STAGE_H),
+        radius: Math.max(4, Math.round((el.radius || 40) * k)),
+      };
+    } else if (el.type === 'rect' || el.type === 'cutout') {
+      const topLeft = absTransform.point({ x: 0, y: 0 });
+      baked = {
+        ...el,
+        x: clampCoord(topLeft.x, STAGE_W),
+        y: clampCoord(topLeft.y, STAGE_H),
+        width: Math.max(5, Math.round((el.width || 0) * Math.abs(node.scaleX()))),
+        height: Math.max(5, Math.round((el.height || 0) * Math.abs(node.scaleY()))),
+        rotation: node.rotation(),
+      };
+    }
+
+    // Reset the node back to identity so the baked geometry is authoritative
+    // (otherwise the transformer scale/position would double-apply on re-render).
     node.scaleX(1);
     node.scaleY(1);
+    node.rotation(0);
+    node.x(0);
+    node.y(0);
+    node.getLayer()?.batchDraw();
+
+    if (baked) updateElementTransform(id, baked);
   };
 
   const gridLines: React.ReactElement[] = [];
@@ -324,11 +396,24 @@ export default function CanvasArea({
               );
             }
 
+            if (el.type === 'circle') {
+              return (
+                <CircleShape
+                  key={el.id}
+                  element={el}
+                  isDraggable={isDraggable}
+                  onDragEnd={handleDragEnd}
+                  onTransformEnd={handleTransformEnd}
+                  onSelect={handleShapeSelect}
+                />
+              );
+            }
+
             return null;
           })}
 
           <SketchPreviewLayer
-            tool={tool as 'line' | 'rect' | 'cutout' | 'select' | 'text'}
+            tool={tool as 'line' | 'rect' | 'cutout' | 'circle' | 'select' | 'text'}
             isDrawing={isDrawing}
             drawStart={drawStart}
             drawEnd={drawEnd}
@@ -337,7 +422,12 @@ export default function CanvasArea({
           {tool === 'select' && sid && (
             <Transformer
               ref={trRef}
-              boundBoxFunc={(o, n) => (n.width < 10 || n.height < 10 ? o : n)}
+              boundBoxFunc={(o, n) => {
+                const el = currentShapes.find((s) => s.id === sid);
+                const isLineOrText = el?.type === 'line' || el?.type === 'text';
+                if (isLineOrText) return n;
+                return n.width < 10 || n.height < 10 ? o : n;
+              }}
             />
           )}
         </Layer>

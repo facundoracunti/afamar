@@ -25,7 +25,7 @@
 }
 
 .m-table thead th:nth-child(7) {
-  width: 100px;
+  width: 220px;
 }
 
 .m-table__th-sortable {
@@ -79,6 +79,7 @@
 
 .m-table__cell-actions button {
   padding: 4px 8px;
+  white-space: nowrap;
 }
 
 .m-table__empty {

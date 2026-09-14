@@ -199,6 +199,11 @@ export function buildMeasurementComparison(
   const additionalActual = parseJsonList(additionalRaw) as Array<Record<string, unknown>>;
 
   const result: MeasurementComparisonRow[] = [];
+  // Tracks the additional_work_id (or name fallback) of catalogue frentes
+  // already emitted as a detail row, so a single item that matches
+  // multiple materials (e.g. one frente assigned to NEGRO BRASIL covering
+  // two mesadas) is rendered exactly once. See the dedupe comment above.
+  const emittedFrenteKeys = new Set<string>();
 
   for (const m of mainMaterials) {
     const length = Number(m.length || 0);
@@ -307,12 +312,25 @@ export function buildMeasurementComparison(
 
     // Indented detail rows — frentes/adicionales from the catalogue, assigned
     // to this material (globals are shown separately and are excluded here).
+    //
+    // Dedupe rule: a single `additional_work_id` (or `name` fallback) is
+    // emitted EXACTLY ONCE across the whole comparison, even when its
+    // `materialName` matches multiple main materials (e.g. one "Frente
+    // Ingletetado 45°" assigned to NEGRO BRASIL covers two mesadas — we
+    // draw it once under whichever material matches first, not twice).
+    // This mirrors the business reality that frentes are billed in TOTAL
+    // METROS LINEALES, not per mesada.
     for (const row of additionalActual || []) {
       if (typeof row !== 'object' || row == null) continue;
       const rawMat = (row['materialName'] ?? row['material_name'] ?? '') as string;
       if (!rawMat || rawMat === POOL_MATERIAL_GLOBAL) continue;
       const mat = rawMat.startsWith('__ALT__:') ? rawMat.slice('__ALT__:'.length) : rawMat;
       if (mat !== name) continue;
+      const dedupeKey = String(
+        row['additional_work_id'] ?? row['name'] ?? '',
+      );
+      if (!dedupeKey) continue;
+      if (emittedFrenteKeys.has(dedupeKey)) continue;
       const awCurrency: 'ARS' | 'USD' = row['currency'] === 'USD' ? 'USD' : 'ARS';
       const price = Number(row['price']) || 0;
       const quantity = Number(row['quantity']) || 1;
@@ -332,6 +350,7 @@ export function buildMeasurementComparison(
         isFrente && awMeasureReal != null && awMeasureBudgeted != null
           ? awMeasureReal - awMeasureBudgeted
           : null;
+      emittedFrenteKeys.add(dedupeKey);
       result.push(
         detailRow(label, deltaArs, deltaUsd, signedMoney, {
           unit: isFrente ? 'ml' : null,
@@ -403,12 +422,12 @@ function priceM2ForMaterial(alt: MaterialInForm): number {
 
 /**
  * Revalue a GLOBAL (unassigned) m² fabrication row — typically a ZÓCALO —
- * against a specific option's material. In an alternatives-only budget an
- * unassigned m² row has no material to derive its price from (stored price
- * 0, hence "sin ningún valor" in the PDF). Since the row is folded into
- * EVERY option, we give each option its own valuation using that option's
- * material price per m². Non-m² rows and already-valued rows pass through
- * unchanged.
+ * against a specific section's material. An unassigned m² row has no
+ * material to derive its price from (stored price 0, hence "sin ningún
+ * valor" in the PDF). Since the row is folded into EVERY section (PRINCIPAL
+ * and each ALTERNATIVA), we give each section its own valuation using that
+ * section's material price per m². Non-m² rows and already-valued rows
+ * pass through unchanged.
  */
 function revalueGlobalFabricationForMaterial(
   row: PdfDataRow,
@@ -434,10 +453,10 @@ function revalueGlobalFabricationForMaterial(
 
 /**
  * Revalue a global FRENTE (additional work row of type `frente`) against a
- * specific option's material. A frente left in "GLOBAL - SUMA AL TOTAL" has
- * no material of its own (`assigned_material_id` null → price/total 0); in
- * an alternatives-only budget it should take the value of each option's
- * material, mirroring the ZÓCALO behaviour. Linked frontes that already
+ * specific section's material. A frente left in "GLOBAL - SUMA AL TOTAL" has
+ * no material of its own (`assigned_material_id` null → price/total 0); it
+ * should take the value of the section's material (PRINCIPAL or each
+ * ALTERNATIVA), mirroring the ZÓCALO behaviour. Linked frontes that already
  * carry a value (or aren't frontes / have no linear meters) pass through.
  */
 function revalueGlobalFrenteForMaterial(
@@ -520,13 +539,21 @@ export function buildSections(
   // Main section
   const hasMain = mainMaterials.length > 0;
 
-  // Alternatives-only budget (no principal, ≥1 alternative): global zócalos /
-  // globales frentes take each option's own material value (see revaluation
-  // helpers used in the alternative loop below).
-  const revalueForOptions = !hasMain && alternatives.length > 0;
+  // GLOBAL (unassigned) zócalos / frentes carry a $0 stored subtotal because
+  // they have no material of their own. Every section that has a material —
+  // the PRINCIPAL (when a main exists) and each ALTERNATIVA — revalues those
+  // rows against that section's own material price, mirroring how flat
+  // GLOBAL additional works appear in every section. `representativeMain` is
+  // the price source for the PRINCIPAL section (the first main material, the
+  // same representative convention the alternatives use).
+  const representativeMain = mainMaterials.length > 0 ? mainMaterials[0] : null;
 
   const uniqueMainNames = [...new Set(mainMaterials.map((m) => m.name))];
-  const mainFabrication: PdfDataRow[] = [...fabricationCommon];
+  const mainFabrication: PdfDataRow[] = representativeMain
+    ? fabricationCommon.map((f) =>
+        revalueGlobalFabricationForMaterial(f, representativeMain, usdRate),
+      )
+    : [...fabricationCommon];
   for (const name of uniqueMainNames) {
     if (fabricationByMaterial[name]) {
       mainFabrication.push(...fabricationByMaterial[name]);
@@ -538,12 +565,21 @@ export function buildSections(
       mainPoolRows.push(...poolsByMaterial[name]);
     }
   }
-  const mainAdditional: AdditionalWorkPdfRow[] = [
-    ...addicionalBuckets.additionalCommon,
-  ];
+  const mainAdditional: AdditionalWorkPdfRow[] = representativeMain
+    ? addicionalBuckets.additionalCommon.map((a) =>
+        revalueGlobalFrenteForMaterial(a, representativeMain, usdRate),
+      )
+    : [...addicionalBuckets.additionalCommon];
   for (const name of uniqueMainNames) {
-    if (addicionalBuckets.additionalByMaterial[name]) {
-      mainAdditional.push(...addicionalBuckets.additionalByMaterial[name]);
+    const byMainName = addicionalBuckets.additionalByMaterial[name];
+    if (byMainName) {
+      mainAdditional.push(
+        ...byMainName.map((a) =>
+          a.type === 'frente' && a.subtotal_ars === 0 && a.subtotal_usd === 0 && representativeMain
+            ? revalueGlobalFrenteForMaterial(a, representativeMain, usdRate)
+            : a,
+        ),
+      );
     }
   }
   const mainAdditionArs = mainAdditional.reduce((s, a) => s + a.subtotal_ars, 0);
@@ -577,37 +613,31 @@ export function buildSections(
   for (const [, altGroup] of altGroups) {
     const representative = altGroup[0];
     const altMaterialRows = buildMaterialRows(altGroup, usdRate);
-    // Alternatives-only budget: a GLOBAL (unassigned) m² fabrication row
-    // (ZÓCALO) and a GLOBAL frente have no material of their own, so they
-    // render "sin ningún valor" ($0). Fold them into each option revalued
-    // with THAT option's material price. When a principal exists the global
-    // extras keep their stored value in every section (existing behaviour).
-    const altFabrication: PdfDataRow[] = revalueForOptions
-      ? [
-          ...fabricationCommon.map((f) => revalueGlobalFabricationForMaterial(f, representative, usdRate)),
-          ...(fabricationByMaterial[representative.name] ?? []),
-        ]
-      : [
-          ...fabricationCommon,
-          ...(fabricationByMaterial[representative.name] ?? []),
-        ];
+    // A GLOBAL (unassigned) m² fabrication row (ZÓCALO) and a GLOBAL frente
+    // have no material of their own, so they render "sin ningún valor" ($0).
+    // Fold them into each option revalued with THAT option's material price —
+    // regardless of whether a principal exists, so a GLOBAL frente / zócalo
+    // appears in every section, just like a flat GLOBAL additional work.
+    const altFabrication: PdfDataRow[] = [
+      ...fabricationCommon.map((f) =>
+        revalueGlobalFabricationForMaterial(f, representative, usdRate),
+      ),
+      ...(fabricationByMaterial[representative.name] ?? []),
+    ];
     const altPools: PoolPdfRow[] = [
       ...poolsCommon,
       ...(poolsByMaterial[representative.name] ?? []),
     ];
-    const altAdditional: AdditionalWorkPdfRow[] = revalueForOptions
-      ? [
-          ...addicionalBuckets.additionalCommon.map((a) => revalueGlobalFrenteForMaterial(a, representative, usdRate)),
-          ...(addicionalBuckets.additionalByMaterial[representative.name] ?? []).map((a) =>
-            a.type === 'frente' && a.subtotal_ars === 0 && a.subtotal_usd === 0
-              ? revalueGlobalFrenteForMaterial(a, representative, usdRate)
-              : a,
-          ),
-        ]
-      : [
-          ...addicionalBuckets.additionalCommon,
-          ...(addicionalBuckets.additionalByMaterial[representative.name] ?? []),
-        ];
+    const altAdditional: AdditionalWorkPdfRow[] = [
+      ...addicionalBuckets.additionalCommon.map((a) =>
+        revalueGlobalFrenteForMaterial(a, representative, usdRate),
+      ),
+      ...(addicionalBuckets.additionalByMaterial[representative.name] ?? []).map((a) =>
+        a.type === 'frente' && a.subtotal_ars === 0 && a.subtotal_usd === 0
+          ? revalueGlobalFrenteForMaterial(a, representative, usdRate)
+          : a,
+      ),
+    ];
     const altAdditionArs = altAdditional.reduce((s, a) => s + a.subtotal_ars, 0);
     const altAdditionUsd = altAdditional.reduce((s, a) => s + a.subtotal_usd, 0);
     const altSubtotalArs =

@@ -88,7 +88,12 @@ export default function useEntityForm({
   });
 
   // ----- Read-only derived flags
-  const readOnly = ['WORKSHOP', 'FINISHED', 'DELIVERED', 'CONVERTED_TO_OT', 'REJECTED'].includes(
+  // Al CREAR (isEdit=false) NUNCA se bloquea el form, aunque el estado
+  // seleccionado sea WORKSHOP/TALLER: el operador todavía está cargando la
+  // información. El bloqueo read-only aplica SOLO al EDITAR una orden ya
+  // guardada que esté en un estado avanzado (taller/terminada/entregada:
+  // el material ya se cortó y no se pueden modificar las medidas).
+  const readOnly = isEdit && ['WORKSHOP', 'FINISHED', 'DELIVERED', 'CONVERTED_TO_OT', 'REJECTED'].includes(
     form.status
   );
 
@@ -123,7 +128,7 @@ export default function useEntityForm({
   });
 
   // ----- Pools CRUD
-  const { handlePoolImage, addPileta, removePileta, updatePileta } = useFormPools({
+  const { handlePoolImage, addPileta, removePileta, updatePileta, setPoolFields } = useFormPools({
     form,
     setForm,
     update,
@@ -228,6 +233,7 @@ export default function useEntityForm({
     addPileta,
     removePileta,
     updatePileta,
+    setPoolFields,
     handleSubmit,
     handleDelete,
     handleStatusChangeAction,

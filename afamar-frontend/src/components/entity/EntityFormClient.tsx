@@ -124,10 +124,30 @@ export default function EntityFormClient({
     );
   };
 
+  const handleRemoveClient = () => {
+    update('client_name', '');
+    update('client_phone', '');
+    update('client_email', '');
+    update('client_address', '');
+    update('delivery_address_id', null);
+  };
+
   if (hasClient) {
     return (
       <div className={cardClassName}>
-        <ClientInfoCard client={selectedClient} />
+        <div className={s['entity-form-client__info-row']}>
+          <ClientInfoCard client={selectedClient} />
+          {!readOnly && (
+            <button
+              type="button"
+              className={s['entity-form-client__remove-btn']}
+              onClick={handleRemoveClient}
+              title="Quitar este cliente para elegir otro"
+            >
+              Quitar cliente
+            </button>
+          )}
+        </div>
         {renderAddressPicker(selectedClient)}
       </div>
     );

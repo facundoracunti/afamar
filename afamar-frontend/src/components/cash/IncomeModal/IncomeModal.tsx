@@ -2,11 +2,16 @@ import React, { useState } from 'react';
 import { Search } from 'lucide-react';
 import { Modal } from '../../ui/Modal/Modal';
 import { getWorkOrders } from '@/api/resources/workOrders';
+import { useQuery } from '@tanstack/react-query';
+import { getActivePaymentMethods } from '@/api/resources/paymentMethods';
+import type { PaymentMethod } from '../../../types/paymentMethod';
 import { formatCurrency } from '../../../utils/formatters';
-import { PAYMENT_METHODS, folderStatusClass } from '../../../constants';
+import { folderStatusClass } from '../../../constants';
 import styles from './IncomeModal.module.css';
 
 const s = styles as unknown as Record<string, string>;
+
+const PAYMENT_METHODS_REF_KEY = ['payment-methods', 'reference'] as const;
 
 interface Props {
   isOpen: boolean;
@@ -16,12 +21,19 @@ interface Props {
 
 export default function IncomeModal({ isOpen, onClose, onSubmit }: Props) {
   const [incomeForm, setIncomeForm] = useState<Record<string, unknown>>({
-    amount: '', paymentMethod: 'CASH', folderStatus: 'MEASUREMENT',
+    amount: '', paymentMethod: 'EFECTIVO', folderStatus: 'MEASUREMENT',
     orderNumber: '', clientName: '', order_id: null, order_total: null,
   });
   const [orderSearch, setOrderSearch] = useState<string>('');
   const [orderResults, setOrderResults] = useState<Record<string, unknown>[]>([]);
   const [showOrderSearch, setShowOrderSearch] = useState<boolean>(false);
+
+  const { data: paymentMethods = [] } = useQuery<PaymentMethod[]>({
+    queryKey: [...PAYMENT_METHODS_REF_KEY],
+    queryFn: () => getActivePaymentMethods(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const paymentMethodOptions = paymentMethods.map((pm) => pm.label || pm.name);
 
   const searchOrders = async (q: string) => {
     setOrderSearch(q);
@@ -61,7 +73,6 @@ export default function IncomeModal({ isOpen, onClose, onSubmit }: Props) {
     e.preventDefault();
     if (!incomeForm.amount || Number(incomeForm.amount) <= 0) return;
     await onSubmit({
-      date: '',
       type: 'INCOME',
       amount: Number(incomeForm.amount),
       description: incomeForm.orderNumber
@@ -77,7 +88,7 @@ export default function IncomeModal({ isOpen, onClose, onSubmit }: Props) {
   };
 
   const resetForm = () => {
-    setIncomeForm({ amount: '', paymentMethod: 'CASH', folderStatus: 'MEASUREMENT', orderNumber: '', clientName: '', order_id: null, order_total: null });
+    setIncomeForm({ amount: '', paymentMethod: 'EFECTIVO', folderStatus: 'MEASUREMENT', orderNumber: '', clientName: '', order_id: null, order_total: null });
     setOrderSearch('');
     setOrderResults([]);
     setShowOrderSearch(false);
@@ -86,32 +97,37 @@ export default function IncomeModal({ isOpen, onClose, onSubmit }: Props) {
   return (
     <Modal isOpen={isOpen} onClose={() => { resetForm(); onClose(); }} title="Agregar Ingreso" width="550px">
       <form onSubmit={handleSubmit}>
-        <div className="form-group">
-          <label>Vincular a Orden</label>
-          <div className={s['income-modal__search-row']}>
-            <div className={s['income-modal__search-inputs']}>
-              <input
-                className={`input ${s['income-modal__search-input']}`} placeholder="Buscar orden por número o cliente..."
-                value={orderSearch}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => searchOrders(e.target.value)}
-                onFocus={() => setShowOrderSearch(true)}
-              />
-              <Search size={16} className={s['income-modal__search-icon']} />
-              <button type="button" className="btn btn-outline" onClick={() => { setShowOrderSearch(false); setOrderSearch(''); setOrderResults([]); }}>Limpiar</button>
-            </div>
-            {showOrderSearch && orderResults.length > 0 && (
-              <div className={s['income-modal__dropdown']}>
-                {orderResults.map((o: Record<string, unknown>) => (
-                  <div key={o.id as number} className={s['income-modal__dropdown-item']}
-                    onClick={() => selectOrder(o)}>
-                    <strong className={s['income-modal__dropdown-item-number']}>{(o.number as string)}</strong> — {(o.client_name as string) || 'Sin cliente'}
-                    <span className={s['income-modal__dropdown-item-total']}>{formatCurrency(o.total as number)}</span>
-                  </div>
-                ))}
+          <div className="form-group">
+            <label>Vincular a Orden (opcional)</label>
+            <div className={s['income-modal__search-row']}>
+              <div className={s['income-modal__search-inputs']}>
+                <input
+                  className={`input ${s['income-modal__search-input']}`} placeholder="Buscar orden por número o cliente..."
+                  value={orderSearch}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => searchOrders(e.target.value)}
+                  onFocus={() => setShowOrderSearch(true)}
+                />
+                <Search size={16} className={s['income-modal__search-icon']} />
+                <button type="button" className="btn btn-outline" onClick={() => { setShowOrderSearch(false); setOrderSearch(''); setOrderResults([]); }}>Limpiar</button>
               </div>
+              {showOrderSearch && orderResults.length > 0 && (
+                <div className={s['income-modal__dropdown']}>
+                  {orderResults.map((o: Record<string, unknown>) => (
+                    <div key={o.id as number} className={s['income-modal__dropdown-item']}
+                      onClick={() => selectOrder(o)}>
+                      <strong className={s['income-modal__dropdown-item-number']}>{(o.number as string)}</strong> — {(o.client_name as string) || 'Sin cliente'}
+                      <span className={s['income-modal__dropdown-item-total']}>{formatCurrency(o.total as number)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {!incomeForm.orderNumber && (
+              <small className={s['income-modal__optional-hint']}>
+                Dejalo vacío para registrar un ingreso general (ej. accesorio, canilla…).
+              </small>
             )}
           </div>
-        </div>
 
         {!!incomeForm.orderNumber && (
           <div className={s['income-modal__selected']}>
@@ -138,9 +154,9 @@ export default function IncomeModal({ isOpen, onClose, onSubmit }: Props) {
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setIncomeForm({ ...incomeForm, clientName: e.target.value })} />
           </div>
           <div className="form-group">
-            <label>Monto (Seña) *</label>
+            <label>{incomeForm.orderNumber ? 'Monto (Seña) *' : 'Monto *'}</label>
             <input className="input" type="number" step="0.01" min="0" required
-              placeholder="Monto real que paga el cliente"
+              placeholder={incomeForm.orderNumber ? 'Monto real que paga el cliente' : 'Monto del ingreso'}
               value={incomeForm.amount as string}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setIncomeForm({ ...incomeForm, amount: e.target.value })} />
           </div>
@@ -150,7 +166,7 @@ export default function IncomeModal({ isOpen, onClose, onSubmit }: Props) {
             <label>Forma de Pago</label>
             <select className="input" value={incomeForm.paymentMethod as string}
               onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setIncomeForm({ ...incomeForm, paymentMethod: e.target.value })}>
-              {PAYMENT_METHODS.map((f: string) => <option key={f} value={f}>{f}</option>)}
+              {paymentMethodOptions.map((label) => <option key={label} value={label}>{label}</option>)}
             </select>
           </div>
           <div className="form-group">

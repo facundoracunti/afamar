@@ -175,6 +175,7 @@ export default function AdditionalWorkSection({ value, onChange, readOnly, formM
               // different material. (Multi-add for frentes is handled by
               // the "ASIGNAR FRENTE A MATERIAL" shortcut below.)
               .filter((a) => !selectedIds.has(a.id))
+              .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }))
               .map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.type === 'frente' ? '★ ' : ''}
@@ -199,7 +200,9 @@ export default function AdditionalWorkSection({ value, onChange, readOnly, formM
               title="Asigna un costo de mano de obra (Frente / Regrueso) a un material específico de este presupuesto. Si hay más de un frente configurado, elegí cuál."
             >
               <option value="">+ ASIGNAR FRENTE A MATERIAL</option>
-              {frenteCatalogues.flatMap((frente) =>
+              {[...frenteCatalogues]
+                .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }))
+                .flatMap((frente) =>
                 materialGroups.map((g) => (
                   <option key={`fr:${frente.id}:${g.groupKey}`} value={`fr:${frente.id}:${g.groupKey}`}>
                     {frente.name} → {g.label}

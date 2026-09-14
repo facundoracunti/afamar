@@ -126,6 +126,31 @@ function applyPaymentMethodToTotals(
     return { totalArs, totalUsd };
   }
 
+  // Fixed-amount methods are applied directly (no ratio): a fixed
+  // SURCHARGE adds `value` (ARS), a fixed DISCOUNT subtracts it; the
+  // USD mirror converts via `usdRate`. These must NOT share the
+  // `ratio === 1` early return below — a fixed amount would never
+  // apply because `ratio` stays 1 when neither `is_percentage` nor
+  // `applies_to_installments` is set.
+  if (!pm.is_percentage && !pm.applies_to_installments) {
+    if (pm.type === 'SURCHARGE') {
+      return {
+        totalArs: totalArs + value,
+        totalUsd: usdRate > 0 ? totalUsd + value / usdRate : totalUsd,
+      };
+    }
+    if (pm.type === 'DISCOUNT') {
+      return {
+        totalArs: Math.max(0, totalArs - value),
+        totalUsd:
+          usdRate > 0
+            ? round2(Math.max(0, totalUsd - value / usdRate))
+            : totalUsd,
+      };
+    }
+    return { totalArs, totalUsd };
+  }
+
   // Effective ratio applied to the total (1 = no change).
   let ratio = 1;
   if (pm.applies_to_installments) {
@@ -305,10 +330,20 @@ export function useBudgetCalculations(
     );
     const total = totalWithMethod;
 
+    const depositCurrency = form.deposit_currency || 'ARS';
     const depositArs = Number(form.deposit_received) || 0;
     const depositUsdVal = Number(form.deposit_usd) || 0;
-    const depositTotalArs = depositArs + (dd > 0 ? depositUsdVal * dd : 0);
-    const depositTotalUsd = depositUsdVal + (dd > 0 ? depositArs / dd : 0);
+    // La seña se cuenta SOLO en su moneda activa (deposit_currency). El otro
+    // campo (deposit_received o deposit_usd) es el "espejo" que el sistema
+    // guarda para mostrar la otra columna y NO debe sumarse otra vez — si no,
+    // el saldo pendiente se subcuenta (suma seña en ARS y en USD a la vez) y
+    // puede clamar a 0 aunque haya saldo real.
+    const depositTotalArs = depositCurrency === 'USD'
+      ? (dd > 0 ? depositUsdVal * dd : 0)
+      : depositArs;
+    const depositTotalUsd = depositCurrency === 'ARS'
+      ? (dd > 0 ? depositArs / dd : 0)
+      : depositUsdVal;
     const balanceDue = Math.max(0, total - depositTotalArs);
 
     // USD mirror

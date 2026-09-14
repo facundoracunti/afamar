@@ -140,3 +140,13 @@
 .cash__movements-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
 .cash__badge { font-size: 13px; }
 .cash__print-footer-block { text-align: center; margin-top: 20px; font-size: 11px; }
+
+.cash__meta {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+.cash__meta strong { color: var(--text-primary); font-weight: 600; }

@@ -20,7 +20,6 @@ export default function ExpenseModal({ isOpen, onClose, onSubmit }: Props) {
     e.preventDefault();
     if (!expenseForm.amount || Number(expenseForm.amount) <= 0) return;
     await onSubmit({
-      date: '',
       type: 'EXPENSE',
       amount: Number(expenseForm.amount),
       description: expenseForm.description as string,

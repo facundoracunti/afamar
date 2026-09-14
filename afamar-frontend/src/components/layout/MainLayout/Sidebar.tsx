@@ -71,7 +71,7 @@ const accordionGroups: AccordionGroup[] = [
     label: 'CAJA',
     icon: DollarSign,
     subItems: [
-      { label: 'Caja Diaria', path: `${PREFIX}/cash`, icon: Receipt },
+      { label: 'Caja', path: `${PREFIX}/cash`, icon: Receipt },
       { label: 'Copia de Caja', path: `${PREFIX}/cash/history`, icon: History },
     ],
   },

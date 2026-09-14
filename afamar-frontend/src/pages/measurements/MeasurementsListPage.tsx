@@ -1,13 +1,13 @@
 import React, { Suspense, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Plus, Search, CalendarDays } from 'lucide-react';
-import { getMeasurements, deleteMeasurement } from '@/api/resources/measurements';
+import { getMeasurements, updateMeasurement, deleteMeasurement } from '@/api/resources/measurements';
 import { getWorkOrders } from '@/api/resources/workOrders';
-import { useList, useDelete, useGet } from '../../api/hooks';
-import { measurementStatuses, todayLocalISO } from '../../utils/formatters';
+import { useList, useUpdate, useDelete, useGet } from '../../api/hooks';
+import { todayLocalISO } from '../../utils/formatters';
 import { t } from '../../utils/translate';
 import type { Measurement } from '../../types/measurement';
 import type { WorkOrderListItem } from '../../types/workOrder';
+import { computeScheduledWorkOrderIds, countMeasurementStatuses } from '../../utils/measurementHelpers';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { Modal } from '../../components/ui/Modal/Modal';
@@ -34,9 +34,14 @@ const PENDING_PAGE_SIZE = 15;
 type SortField = 'client_name' | 'client_phone' | 'client_address' | 'scheduled_date' | 'scheduled_time' | 'status';
 type SortDir = 'asc' | 'desc';
 
+/** Tabs reemplazan el dropdown de estados: '' muestra todos los estados. */
+type StatusTab = '' | 'PENDING' | 'DONE' | 'CANCELLED';
+
+const STATUS_TABS: StatusTab[] = ['', 'PENDING', 'DONE', 'CANCELLED'];
+
 export default function MeasurementsList() {
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [activeStatus, setActiveStatus] = useState<StatusTab>('');
   const [dateFilter, setDateFilter] = useState<string>(todayLocalISO());
   const [dateFilterEnabled, setDateFilterEnabled] = useState<boolean>(true);
   const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -47,16 +52,26 @@ export default function MeasurementsList() {
   const [pendingSort, setPendingSort] = useState<PendingMeasurementSort>('delivery_asc');
   const [modal, setModal] = useState<MeasurementModal>(null);
   const closeMeasurementModal = () => setModal(null);
-  const navigate = useNavigate();
 
   const { items: data, loading } = useList<Measurement>(
-    [...MEASUREMENTS_KEY, search, statusFilter, dateFilter, dateFilterEnabled],
+    [...MEASUREMENTS_KEY, search, activeStatus, dateFilter, dateFilterEnabled],
     async () => {
       const res = await getMeasurements({
         search: search || undefined,
-        status: statusFilter || undefined,
+        status: activeStatus || undefined,
         scheduled_date: dateFilterEnabled ? dateFilter : undefined,
       });
+      return (res.data as Measurement[]) || [];
+    }
+  );
+
+  // All measurements WITHOUT the agenda date filter. Drives both the pending
+  // cards (a work order hides as soon as it has a non-cancelled visit, even
+  // when that visit is scheduled for another day) and the tab counters.
+  const { data: allMeasurements } = useGet<Measurement[]>(
+    [...MEASUREMENTS_KEY, 'agenda-ids'],
+    async () => {
+      const res = await getMeasurements({ limit: 1000 });
       return (res.data as Measurement[]) || [];
     }
   );
@@ -64,6 +79,12 @@ export default function MeasurementsList() {
   const deleteMutation = useDelete<unknown, number>(
     MEASUREMENTS_KEY,
     async (id) => { await deleteMeasurement(id); },
+    { invalidateKeys: [MEASUREMENTS_KEY] }
+  );
+
+  const doneMutation = useUpdate<unknown, number>(
+    MEASUREMENTS_KEY,
+    async (id) => { await updateMeasurement(id, { status: 'DONE' }); },
     { invalidateKeys: [MEASUREMENTS_KEY] }
   );
 
@@ -75,13 +96,15 @@ export default function MeasurementsList() {
     }
   );
 
-  const scheduledWorkOrderIds = useMemo(() => {
-    const ids = new Set<number>();
-    for (const m of data) {
-      if (m.work_order_id && m.status !== 'CANCELLED') ids.add(m.work_order_id);
-    }
-    return ids;
-  }, [data]);
+  const scheduledWorkOrderIds = useMemo(
+    () => computeScheduledWorkOrderIds(allMeasurements || []),
+    [allMeasurements],
+  );
+
+  const statusCounts = useMemo(
+    () => countMeasurementStatuses(allMeasurements || []),
+    [allMeasurements],
+  );
 
   const unscheduledOrders = useMemo(
     () => (pendingOrders || []).filter((wo) => !scheduledWorkOrderIds.has(wo.id)),
@@ -123,6 +146,10 @@ export default function MeasurementsList() {
     setDeleteId(null);
   };
 
+  const handleDone = async (id: number): Promise<void> => {
+    await doneMutation.mutateAsync(id);
+  };
+
   const handleSort = (field: SortField): void => {
     if (sortField === field) {
       setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -132,7 +159,7 @@ export default function MeasurementsList() {
     }
   };
 
-  useEffect(() => { setPage(1); }, [search, statusFilter, dateFilter, dateFilterEnabled]);
+  useEffect(() => { setPage(1); }, [search, activeStatus, dateFilter, dateFilterEnabled]);
   useEffect(() => { setPendingPage(1); }, [pendingSort]);
   useEffect(() => {
     if (pendingPage > pendingTotalPages) setPendingPage(pendingTotalPages);
@@ -186,6 +213,26 @@ export default function MeasurementsList() {
       />
 
       <div className={s['measurements__filters']}>
+        <div className={s['measurements__tabs']} role="group" aria-label="Filtrar mediciones por estado">
+          {STATUS_TABS.map((status) => {
+            const count = status
+              ? (statusCounts[status] || 0)
+              : Object.values(statusCounts).reduce((sum, c) => sum + c, 0);
+            return (
+              <button
+                key={status || 'ALL'}
+                type="button"
+                className={`${s['measurements__tab']} ${activeStatus === status ? s['measurements__tab--active'] : ''}`}
+                onClick={() => setActiveStatus(status)}
+                aria-pressed={activeStatus === status}
+              >
+                {status === '' ? 'Todas' : t(status)}
+                <span className={s['measurements__tab-count']}>{count}</span>
+              </button>
+            );
+          })}
+        </div>
+
         <SearchInput
           value={search}
           onChange={setSearch}
@@ -220,19 +267,11 @@ export default function MeasurementsList() {
             type="button"
             className={`btn ${dateFilterEnabled ? 'btn-outline' : 'btn-primary'}`}
             onClick={() => setDateFilterEnabled((v) => !v)}
-            title={dateFilterEnabled ? 'Mostrar todas las mediciones' : 'Filtrar por día'}
+            title={dateFilterEnabled ? 'Mostrar las mediciones de cualquier fecha' : 'Filtrar por día'}
           >
-            {dateFilterEnabled ? 'Todas' : 'Filtrar por día'}
+            {dateFilterEnabled ? 'Limpiar fecha' : 'Filtrar por día'}
           </button>
         </div>
-        <select
-          className={`input ${s['measurements__filter']}`}
-          value={statusFilter}
-          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setStatusFilter(e.target.value)}
-        >
-          <option value="">Todos los estados</option>
-          {measurementStatuses.map((e: string) => <option key={e} value={e}>{t(e)}</option>)}
-        </select>
       </div>
 
       {loading ? <LoadingSpinner /> : (
@@ -243,9 +282,11 @@ export default function MeasurementsList() {
             sortDir={sortDir}
             dateFilter={dateFilter}
             dateFilterEnabled={dateFilterEnabled}
+            activeStatus={activeStatus}
             onSort={handleSort}
             onView={(id) => setModal({ kind: 'edit', id })}
             onDelete={(id) => setDeleteId(id)}
+            onDone={handleDone}
           />
           <Pagination page={safePage} pageSize={PAGE_SIZE} total={visibleRowsAll.length} onPageChange={setPage} label="mediciones" />
         </>

@@ -37,11 +37,13 @@ export default function MaterialPickerControls({
   );
 
   const filteredMaterials = useMemo(() => {
-    return (materials || []).filter((m) => {
-      if (selectedCategoryId && String(m.category_id ?? '') !== selectedCategoryId) return false;
-      if (selectedColor && m.color !== selectedColor) return false;
-      return true;
-    });
+    return (materials || [])
+      .filter((m) => {
+        if (selectedCategoryId && String(m.category_id ?? '') !== selectedCategoryId) return false;
+        if (selectedColor && m.color !== selectedColor) return false;
+        return true;
+      })
+      .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
   }, [materials, selectedCategoryId, selectedColor]);
 
   return (

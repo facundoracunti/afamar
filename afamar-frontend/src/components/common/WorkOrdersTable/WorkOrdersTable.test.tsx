@@ -19,7 +19,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { WorkOrdersTable } from './WorkOrdersTable';
 import type { WorkOrderListItem } from '../../../types/workOrder';
 
-const noop = () => undefined;
+const noop = async () => {};
 
 function renderTable(data: WorkOrderListItem[]) {
   return render(
@@ -27,8 +27,9 @@ function renderTable(data: WorkOrderListItem[]) {
       data={data}
       onView={noop}
       onStatusAdvance={async () => undefined}
-      onOpenPdf={async () => undefined}
-      onWhatsApp={noop}
+onOpenPdf={async () => undefined}
+        onOpenFicha={noop}
+        onWhatsApp={noop}
       onDelete={noop}
     />,
   );
@@ -114,6 +115,7 @@ describe('WorkOrdersTable', () => {
         onView={onView}
         onStatusAdvance={async () => undefined}
         onOpenPdf={async () => undefined}
+        onOpenFicha={noop}
         onWhatsApp={noop}
         onDelete={noop}
       />,
@@ -130,6 +132,7 @@ describe('WorkOrdersTable', () => {
         onView={noop}
         onStatusAdvance={onStatusAdvance}
         onOpenPdf={async () => undefined}
+        onOpenFicha={noop}
         onWhatsApp={noop}
         onDelete={noop}
       />,
@@ -149,6 +152,7 @@ describe('WorkOrdersTable', () => {
         onView={noop}
         onStatusAdvance={onStatusAdvance}
         onOpenPdf={async () => undefined}
+        onOpenFicha={noop}
         onWhatsApp={noop}
         onDelete={noop}
       />,
@@ -167,6 +171,7 @@ describe('WorkOrdersTable', () => {
         onView={noop}
         onStatusAdvance={async () => undefined}
         onOpenPdf={async () => undefined}
+        onOpenFicha={noop}
         onWhatsApp={noop}
         onDelete={onDelete}
       />,
@@ -183,6 +188,7 @@ describe('WorkOrdersTable', () => {
         onView={noop}
         onStatusAdvance={async () => undefined}
         onOpenPdf={onOpenPdf}
+        onOpenFicha={noop}
         onWhatsApp={noop}
         onDelete={noop}
       />,

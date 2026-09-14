@@ -22,7 +22,7 @@ const ROUTES: { path: string; title: string }[] = [
   { path: '/admin/measurements', title: 'Mediciones' },
   { path: '/admin/plate-calculator', title: 'Calculadora de Placa' },
   { path: '/admin/porcelain-tile-calculator', title: 'Calculadora de Porcelanato' },
-  { path: '/admin/cash', title: 'Caja Diaria' },
+  { path: '/admin/cash', title: 'Caja' },
   { path: '/admin/cash/history', title: 'Historial de Caja' },
   { path: '/admin/reports', title: 'Reportes' },
   { path: '/admin/configuration', title: 'Configuración' },

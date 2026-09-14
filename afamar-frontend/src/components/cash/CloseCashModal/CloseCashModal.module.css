@@ -19,3 +19,38 @@
 .close-cash__btn-icon {
   margin-right: 4px;
 }
+
+.close-cash__summary {
+  background: var(--surface-alt-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.close-cash__summary-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.close-cash__summary-row strong { font-weight: 600; }
+
+.close-cash__summary-row--total {
+  border-top: 1px solid var(--border-color);
+  padding-top: 8px;
+  margin-top: 4px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.close-cash__summary-row--real { color: var(--text-primary); }
+
+.close-cash__summary-income { color: var(--color-success); }
+.close-cash__summary-expense { color: var(--color-danger); }
+.close-cash__summary-total { color: var(--tw-blue-600); }
+.close-cash__summary-real { color: var(--text-primary); }

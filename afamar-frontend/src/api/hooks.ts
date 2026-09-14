@@ -60,8 +60,20 @@ export function usePaginatedList<T>(
   };
 }
 
-export function useGet<T>(key: QueryKey, fetcher: () => Promise<T>, enabled = true) {
-  const result = useQuery({ queryKey: key, queryFn: fetcher, enabled });
+export function useGet<T>(
+  key: QueryKey,
+  fetcher: () => Promise<T>,
+  enabled = true,
+  refetchInterval?: number | false,
+  staleTime?: number,
+) {
+  const result = useQuery({
+    queryKey: key,
+    queryFn: fetcher,
+    enabled,
+    refetchInterval: refetchInterval ?? false,
+    staleTime,
+  });
   return {
     data: result.data,
     loading: result.isLoading,

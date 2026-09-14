@@ -114,7 +114,7 @@ describe('useConfirmPayment', () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey });
   });
 
-  it('flips balance_paid true → false and clears balance_paid_at', async () => {
+  it('flips balance_paid true → false, clears balance_paid_at and reverts the deposit to 0', async () => {
     const updateFn = vi.fn().mockResolvedValue({});
     const setForm = vi.fn();
     const queryClient = makeQueryClient();
@@ -138,9 +138,47 @@ describe('useConfirmPayment', () => {
     const [, sentPayload] = updateFn.mock.calls[0];
     expect(sentPayload.balance_paid).toBe(false);
     expect(sentPayload.balance_paid_at).toBeNull();
-    // No deposit / balance update on the unpay path
-    expect(sentPayload.deposit_received).toBeUndefined();
-    expect(sentPayload.balance_due).toBeUndefined();
+    // Unpaying reverts the deposit to 0 and restores the full balance due.
+    expect(sentPayload.deposit_received).toBe(0);
+    expect(sentPayload.deposit_usd).toBe(0);
+    expect(sentPayload.balance_due).toBe(5000);
+    expect(sentPayload.balance_due_usd).toBe(5);
+  });
+
+  it('reverts the local form (no backend call) when unpaying in CREATE mode (no id)', async () => {
+    const updateFn = vi.fn().mockResolvedValue({});
+    const setForm = vi.fn();
+    const queryClient = makeQueryClient();
+
+    const { result } = renderHook(
+      () =>
+        useConfirmPayment({
+          id: undefined,
+          balance_paid: true,
+          total: 1000,
+          total_usd: 1,
+          updateFn,
+          queryKey: queryKey as unknown as string[],
+          setForm: setForm as React.Dispatch<React.SetStateAction<EntityFormState>>,
+        }),
+      { wrapper: makeWrapper(queryClient) },
+    );
+
+    await act(async () => { await result.current(); });
+
+    // No backend call (no id to persist to).
+    expect(updateFn).not.toHaveBeenCalled();
+    // But the local form is reverted: uncheck "Saldo cobrado" + seña a 0.
+    expect(setForm).toHaveBeenCalledTimes(1);
+    const updater = setForm.mock.calls[0][0];
+    const prev = makeForm({ balance_paid: true, total: 1000, total_usd: 1 });
+    const next = updater(prev);
+    expect(next.balance_paid).toBe(false);
+    expect(next.balance_paid_at).toBe('');
+    expect(next.deposit_received).toBe(0);
+    expect(next.deposit_usd).toBe(0);
+    expect(next.balance_due).toBe(1000);
+    expect(next.balance_due_usd).toBe(1);
   });
 
   it('does NOT swallow API errors', async () => {

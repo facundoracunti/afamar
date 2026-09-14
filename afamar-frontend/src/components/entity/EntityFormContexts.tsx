@@ -97,6 +97,7 @@ export interface EntityFormDomainValue {
   addPileta: (id: string) => void;
   removePileta: (idx: number) => void;
   updatePileta: (idx: number, field: string, value: unknown) => void;
+  setPoolFields: (idx: number, fields: Record<string, unknown>) => void;
 
   // Fabrication details CRUD
   handleDetailChange: (idx: number, field: string, value: unknown) => void;

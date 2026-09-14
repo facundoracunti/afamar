@@ -43,8 +43,21 @@ export const LINEAR_CONCEPTS = new Set(['TERMINACION']);
 export function formatDate(d: unknown): string {
   if (!d) return new Date().toLocaleDateString('es-AR');
   const s = String(d);
+  // Date-only strings ('YYYY-MM-DD') handed to `new Date()` are parsed as
+  // UTC midnight, and `toLocaleDateString` renders in LOCAL time — so in
+  // negative-UTC-offset timezones (e.g. Argentina, UTC-3) the date shifts
+  // BACK one day: '2026-09-01' became "31/8/2026". Parse the components
+  // in local time instead.
+  const dm = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (dm) {
+    const [, y, mo, dg] = dm.map(Number);
+    const local = new Date(y, mo - 1, dg);
+    if (!Number.isNaN(local.getTime())) return local.toLocaleDateString('es-AR');
+  }
   try {
-    return new Date(s.slice(0, 10)).toLocaleDateString('es-AR');
+    const dt = new Date(s.slice(0, 10));
+    if (Number.isNaN(dt.getTime())) return s;
+    return dt.toLocaleDateString('es-AR');
   } catch {
     return s;
   }

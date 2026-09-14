@@ -435,6 +435,20 @@
   border: none;
 }
 
+.budget-panel__card-total-display {
+  background: var(--surface-alt-bg);
+  color: var(--color-success);
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.budget-panel__card-total-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 /* ------------------------------------------------------------------ */
 /* DOLAR DEL DÍA (blue accent)                                        */
 /* ------------------------------------------------------------------ */

@@ -249,37 +249,55 @@ export function computeTotals({
     && (pm.type !== 'DISCOUNT' || applyCashDiscount)
   ) {
     const value = Number(pm.value);
-    let ratio = 1;
-    if (pm.applies_to_installments) {
-      const n = Math.max(1, installments);
-      ratio = 1 + n * (value / 100);
-    } else if (pm.is_percentage) {
-      ratio = pm.type === 'DISCOUNT' ? 1 - value / 100 : 1 + value / 100;
-    }
-    if (ratio !== 1) {
+    // Fixed-amount methods apply directly (no ratio) — mirror of
+    // `applyPaymentMethodToTotals` in useBudgetCalculations.ts. A fixed
+    // DISCOUNT/SURCHARGE (`is_percentage=false`,
+    // `applies_to_installments=false`) leaves `ratio` at 1, so it must
+    // NOT share the `ratio !== 1` gate below or it would never surface.
+    const isFixedAmount = !pm.is_percentage && !pm.applies_to_installments;
+    if (isFixedAmount) {
       if (pm.type === 'SURCHARGE') {
-        if (pm.is_percentage) {
-          const headlinePct = round2((ratio - 1) * 100);
-          catalogueSurchargePct = headlinePct;
-          surchargePct = headlinePct;
-          catalogueSurchargeAmount = Math.round(surchargeBase * (ratio - 1));
-          surchargeAmount = catalogueSurchargeAmount;
-        } else {
-          catalogueSurchargeAmount = value;
-          surchargeAmount = value;
-        }
-        totalArs = Math.round(surchargeBase * ratio);
+        catalogueSurchargeAmount = value;
+        surchargeAmount = value;
+        totalArs = Math.round(surchargeBase + value);
       } else if (pm.type === 'DISCOUNT') {
-        if (pm.is_percentage) {
-          catalogueDiscountPct = round2((1 - ratio) * 100);
-          catalogueDiscountAmount = Math.round(surchargeBase * (1 - ratio));
-          totalArs = Math.max(0, Math.round(surchargeBase * ratio));
-        } else {
-          catalogueDiscountAmount = value;
-          totalArs = Math.max(0, surchargeBase - value);
-        }
+        catalogueDiscountAmount = value;
+        totalArs = Math.max(0, surchargeBase - value);
       }
       catalogueMethodLabel = pm.label || pm.name;
+    } else {
+      let ratio = 1;
+      if (pm.applies_to_installments) {
+        const n = Math.max(1, installments);
+        ratio = 1 + n * (value / 100);
+      } else if (pm.is_percentage) {
+        ratio = pm.type === 'DISCOUNT' ? 1 - value / 100 : 1 + value / 100;
+      }
+      if (ratio !== 1) {
+        if (pm.type === 'SURCHARGE') {
+          if (pm.is_percentage) {
+            const headlinePct = round2((ratio - 1) * 100);
+            catalogueSurchargePct = headlinePct;
+            surchargePct = headlinePct;
+            catalogueSurchargeAmount = Math.round(surchargeBase * (ratio - 1));
+            surchargeAmount = catalogueSurchargeAmount;
+          } else {
+            catalogueSurchargeAmount = value;
+            surchargeAmount = value;
+          }
+          totalArs = Math.round(surchargeBase * ratio);
+        } else if (pm.type === 'DISCOUNT') {
+          if (pm.is_percentage) {
+            catalogueDiscountPct = round2((1 - ratio) * 100);
+            catalogueDiscountAmount = Math.round(surchargeBase * (1 - ratio));
+            totalArs = Math.max(0, Math.round(surchargeBase * ratio));
+          } else {
+            catalogueDiscountAmount = value;
+            totalArs = Math.max(0, surchargeBase - value);
+          }
+        }
+        catalogueMethodLabel = pm.label || pm.name;
+      }
     }
   }
 
@@ -321,25 +339,37 @@ export function computeTotals({
     && (pm.type !== 'DISCOUNT' || applyCashDiscount)
   ) {
     const value = Number(pm.value);
-    let ratio = 1;
-    if (pm.applies_to_installments) {
-      const n = Math.max(1, installments);
-      ratio = 1 + n * (value / 100);
-    } else if (pm.is_percentage) {
-      ratio = pm.type === 'DISCOUNT' ? 1 - value / 100 : 1 + value / 100;
-    }
-    if (ratio !== 1) {
+    // Fixed-amount methods apply directly (no ratio) — mirror of the ARS
+    // block above. A fixed DISCOUNT/SURCHARGE leaves `ratio` at 1, so it
+    // must NOT share the `ratio !== 1` gate.
+    const isFixedAmountUsd = !pm.is_percentage && !pm.applies_to_installments;
+    if (isFixedAmountUsd) {
       if (pm.type === 'SURCHARGE') {
-        if (pm.is_percentage) {
-          totalUsd = round2(surchargeBaseUsd * ratio);
-        } else if (usdRate > 0) {
-          totalUsd = round2(surchargeBaseUsd + value / usdRate);
-        }
+        totalUsd = usdRate > 0 ? round2(surchargeBaseUsd + value / usdRate) : surchargeBaseUsd;
       } else if (pm.type === 'DISCOUNT') {
-        if (pm.is_percentage) {
-          totalUsd = round2(Math.max(0, surchargeBaseUsd * ratio));
-        } else if (usdRate > 0) {
-          totalUsd = round2(Math.max(0, surchargeBaseUsd - value / usdRate));
+        totalUsd = usdRate > 0 ? round2(Math.max(0, surchargeBaseUsd - value / usdRate)) : surchargeBaseUsd;
+      }
+    } else {
+      let ratio = 1;
+      if (pm.applies_to_installments) {
+        const n = Math.max(1, installments);
+        ratio = 1 + n * (value / 100);
+      } else if (pm.is_percentage) {
+        ratio = pm.type === 'DISCOUNT' ? 1 - value / 100 : 1 + value / 100;
+      }
+      if (ratio !== 1) {
+        if (pm.type === 'SURCHARGE') {
+          if (pm.is_percentage) {
+            totalUsd = round2(surchargeBaseUsd * ratio);
+          } else if (usdRate > 0) {
+            totalUsd = round2(surchargeBaseUsd + value / usdRate);
+          }
+        } else if (pm.type === 'DISCOUNT') {
+          if (pm.is_percentage) {
+            totalUsd = round2(Math.max(0, surchargeBaseUsd * ratio));
+          } else if (usdRate > 0) {
+            totalUsd = round2(Math.max(0, surchargeBaseUsd - value / usdRate));
+          }
         }
       }
     }
@@ -494,9 +524,9 @@ export function buildPdfData({
     balance_due: computedBalanceDue,
   } = totals;
 
-  // No main material + at least one alternative: value EVERY alternative's
-  // own final price so each option page shows its correct total (dólar,
-  // recargo, descuento, saldo) — works for any number of alternatives.
+// No main material + at least one alternative: value EVERY alternative's
+    // own final price so each option page shows its correct total (dólar,
+    // recargo, descuento, saldo) — works for any number of alternatives.
   if (!mainSection && !globalSection) {
     for (const section of sections) {
       const st = computeTotals({
@@ -522,11 +552,16 @@ export function buildPdfData({
     }
   }
 
-  // COMPARATIVA DE MEDICIÓN (work orders only). Only emitted when the
-  // per-order flag is true (defaults to on). Always computed from the main
-  // materials so DocumentPdf can render the table it without further parsing.
+  // COMPARATIVA DE MEDICIÓN (work orders only). Gated ONLY by the per-order
+  // flag `include_measurement_comparison_in_pdf` (defaults to OFF since
+  // 2026-09-11 — the operator opts in manually via the form checkbox). The
+  // toggle is visible on both orders converted from a budget and direct
+  // orders; a direct order simply has no "estimated" snapshot, so the
+  // Presupuestado column renders "—".
+  // Always computed from the main materials so DocumentPdf can render the
+  // table it without further parsing.
   const includeComparison = document_type === 'work_order'
-    && (form.include_measurement_comparison_in_pdf !== false);
+    && form.include_measurement_comparison_in_pdf === true;
   const measurement_comparison = includeComparison
     ? buildMeasurementComparison(
         allMaterials,
@@ -535,6 +570,15 @@ export function buildPdfData({
         form.additional_works_data,
       )
     : [];
+
+  // Active payment methods from the catalogue, printed as a reference box in
+  // the PDF ("METODO DE PAGO") so the customer sees every option they can
+  // pay with. Uppercase `name`s (stable snapshot keys, same convention as
+  // the "Forma de pago:" row), ordered by the catalogue `sort_order`.
+  const payment_methods_catalogue = paymentMethods
+    .filter((p) => p.is_active !== false)
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    .map((p) => p.name);
 
   const base: PdfDocumentData = {
     document_type,
@@ -576,6 +620,7 @@ export function buildPdfData({
     total: computedTotal,
     total_usd: computedTotalUsd,
     payment_method: str('payment_method'),
+    payment_methods_catalogue,
     installments: num('installments') || 1,
     notes: str('notes'),
     important_observations: str('important_observations'),

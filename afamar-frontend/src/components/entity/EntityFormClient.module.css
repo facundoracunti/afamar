@@ -1,4 +1,29 @@
 /* EntityFormClient — BEM */
+.entity-form-client__info-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.entity-form-client__remove-btn {
+  padding: 5px 12px;
+  font-size: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--surface-alt-bg);
+  color: var(--color-danger);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.entity-form-client__remove-btn:hover {
+  border-color: var(--color-danger);
+  background: var(--color-danger);
+  color: #fff;
+}
+
 .entity-form-client__address-picker {
   margin-top: 12px;
 }

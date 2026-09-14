@@ -98,23 +98,39 @@ export function useFormDetails({
   const addDetalle = useCallback(() => {
     // eslint-disable-next-line no-console
     console.count('[addDetalle]');
+    // Auto-consume the loaded material when there is exactly one material in
+    // the form (normal budget with a single option). When alternatives exist
+    // (multiple `materials_data` rows / `is_alternative`), the "Asignar a
+    // opción" select must default to GLOBAL (`material: ''`) — the additional
+    // concept then sums into the total without being pinned to any option.
+    const formMaterials = form.materials_data || [];
+    const singleMain =
+      formMaterials.length === 1 && !formMaterials[0].is_alternative
+        ? formMaterials[0]
+        : null;
+
+    const base: FabricationDetail = {
+      concept: 'BASEBOARD',
+      detail: '',
+      material: singleMain ? (singleMain.name || '') : '',
+      material_price_m2: singleMain
+        ? (singleMain.currency === 'USD'
+            ? (singleMain.price_m2_usd || 0)
+            : (singleMain.price_m2 || 0))
+        : 0,
+      length: null,
+      width: null,
+      m2: 0,
+      labor: null,
+      quantity: 1,
+      currency: (singleMain?.currency as 'ARS' | 'USD') || 'ARS',
+      price: 0,
+    };
     update('fabrication_details', [
       ...(form.fabrication_details || []),
-      {
-        concept: 'BASEBOARD',
-        detail: '',
-        material: '',
-        material_price_m2: 0,
-        length: null,
-        width: null,
-        m2: 0,
-        labor: null,
-        quantity: 1,
-        currency: 'ARS' as const,
-        price: 0,
-      },
+      base,
     ]);
-  }, [form.fabrication_details, update]);
+  }, [form.fabrication_details, form.materials_data, update]);
 
   const removeDetalle = useCallback(
     (idx: number) => {

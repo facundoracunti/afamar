@@ -90,6 +90,13 @@ export interface PoolInForm {
    *   carry its own sink).
    */
   material?: string;
+  /** Dimensions of the specific mesada this pool is assigned to (filled by
+   *  the PoolCard dropdown when the user picks a material row). When both
+   *  are set, the Ficha de Taller renders "L X A MATERIAL" instead of just
+   *  the material name — so workers know exactly which countertop the pool
+   *  goes on. */
+  mesada_length?: number;
+  mesada_width?: number;
 }
 
 export interface BudgetPayload extends FinancialBase {

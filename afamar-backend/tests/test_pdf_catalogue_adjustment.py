@@ -13,7 +13,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.db.base import Base
 from app.models.reference import PaymentMethod
-from app.services.pdf_html import _resolve_catalogue_adjustment
+from app.services.pdf_html import _payment_methods_catalogue, _resolve_catalogue_adjustment
 
 from tests.conftest import TestingSessionLocal, engine
 
@@ -169,3 +169,37 @@ def test_manual_discount_applied_before_catalogue(pm_session):
     res = _resolve_catalogue_adjustment(pm_session, data)
     # base = 10000 - 10% = 9000 → 27% surcharge → 2430
     assert res["catalogue_surcharge_amount"] == 2430
+
+
+def test_payment_methods_catalogue_orders_active_by_sort_order(pm_session):
+    """The PDF "METODO DE PAGO" reference box consumes the live
+    `payment_methods` catalogue: active rows only, ordered by `sort_order`,
+    as uppercase names — mirroring the frontend preview."""
+    rows = _payment_methods_catalogue(pm_session)
+    assert rows == [
+        "EFECTIVO_5_OFF",   # sort_order 5
+        "EFECTIVO",         # sort_order 10
+        "TRANSFER",         # sort_order 20
+        "TARJETA DE CRÉDITO",  # sort_order 40
+    ]
+
+
+def test_payment_methods_catalogue_excludes_inactive(pm_session):
+    pm_session.add(PaymentMethod(
+        id=5, name="TARJETA DE DÉBITO", label="Tarjeta de débito",
+        is_active=False, sort_order=30,
+        type="NONE", value=0.0, is_percentage=False, applies_to_installments=False,
+    ))
+    pm_session.commit()
+    rows = _payment_methods_catalogue(pm_session)
+    assert "TARJETA DE DÉBITO" not in rows
+    assert rows == [
+        "EFECTIVO_5_OFF",
+        "EFECTIVO",
+        "TRANSFER",
+        "TARJETA DE CRÉDITO",
+    ]
+
+
+def test_payment_methods_catalogue_none_db_returns_empty():
+    assert _payment_methods_catalogue(None) == []

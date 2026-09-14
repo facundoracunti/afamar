@@ -1,9 +1,16 @@
 from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, String, Text, func
+from sqlalchemy.dialects.mysql import LONGTEXT
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+# Photos are stored as base64 data-URLs inside a JSON array — a single phone
+# photo easily exceeds the 65 KB cap of MySQL TEXT, which truncates silently
+# and corrupts the JSON (photos "disappear" on reload). LONGTEXT (4 GB) via a
+# MySQL variant keeps SQLite on plain TEXT (unlimited).
+_TEXT = Text().with_variant(LONGTEXT(), "mysql")
 
 
 class Measurement(Base):
@@ -16,8 +23,8 @@ class Measurement(Base):
     scheduled_date: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     scheduled_time: Mapped[str] = mapped_column(String(10), nullable=True)
     notes: Mapped[str] = mapped_column(Text, nullable=True)
-    sketch_data: Mapped[str] = mapped_column(Text, nullable=True)
-    photos_data: Mapped[str] = mapped_column(Text, nullable=True)
+    sketch_data: Mapped[str] = mapped_column(_TEXT, nullable=True)
+    photos_data: Mapped[str] = mapped_column(_TEXT, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="PENDING")
 
     work_order_id: Mapped[int | None] = mapped_column(

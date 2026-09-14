@@ -24,6 +24,8 @@ import {
   swapMaterialGroupToList,
 } from './entityFormHelpers';
 import { POOL_MATERIAL_GLOBAL } from '../types/budget';
+import type { AdditionalWork } from '../types/additionalWork';
+import { FRENTE_FORMULA_MULTIPLIER_DEFAULT, computeFrenteTotal } from '../utils/frentePricing';
 
 // All 18 FinancialBase field names. Single source of truth for the tests below.
 const FINANCIAL_FIELDS = [
@@ -368,6 +370,88 @@ describe('mapApiToForm — sketch_elements round-trip', () => {
     const form3 = mapApiToForm({ sketch_elements: null }, 'PENDING');
     expect(form3.sketch_elements).toEqual([]);
   });
+
+  it('round-trips full pages through buildPayload → mapApiToForm, preserving name + material', () => {
+    // The editor shape: pages with `pagina_id`, `name`, `material` (the
+    // taller sheet needs the per-page material label), each holding the
+    // expanded element geometry. buildPayload must NOT collapse this to a
+    // flat element list anymore — WorkOrders persist the page shape.
+    const pages = [
+      {
+        pagina_id: 1,
+        name: 'Mesada 1',
+        material: 'NEGRO BRASIL',
+        dibujo: [
+          { type: 'line', x: 10, y: 20, points: [0, 0, 50, 50] },
+          { type: 'rect', x: 0, y: 0, width: 200, height: 100 },
+        ],
+      },
+      {
+        pagina_id: 2,
+        name: 'Mesada 2',
+        material: 'BLANCO SUGGAR',
+        dibujo: [{ type: 'circle', cx: 30, cy: 30, radius: 40 }],
+      },
+    ];
+    const payload = buildPayload({ ...INITIAL_FORM, sketch_elements: pages } as never);
+    const wire = JSON.parse(payload.sketch_elements as string) as { pagina_id: number; name?: string; material?: string; dibujo: unknown[] }[];
+    expect(wire).toHaveLength(2);
+    expect(wire[0].pagina_id).toBe(1);
+    expect(wire[0].name).toBe('Mesada 1');
+    expect(wire[0].material).toBe('NEGRO BRASIL');
+    expect(wire[0].dibujo).toHaveLength(2);
+    // Element geometry is JSON-stringified into `data` on the wire.
+    expect((wire[0].dibujo[0] as { type: string; data: string }).type).toBe('line');
+    expect(JSON.parse((wire[0].dibujo[0] as { data: string }).data)).toMatchObject({ x: 10, y: 20 });
+
+    // mapApiToForm parses it straight back to the page shape (a WO reload).
+    const form = mapApiToForm({ sketch_elements: payload.sketch_elements }, 'MEASUREMENT');
+    expect(form.sketch_elements).toHaveLength(2);
+    const p0 = form.sketch_elements[0] as { pagina_id: number; name: string; material?: string; dibujo: unknown[] };
+    const p1 = form.sketch_elements[1] as { pagina_id: number; name: string; material?: string; dibujo: unknown[] };
+    expect(p0.pagina_id).toBe(1);
+    expect(p0.name).toBe('Mesada 1');
+    expect(p0.material).toBe('NEGRO BRASIL');
+    expect(p0.dibujo[0]).toMatchObject({ type: 'line', x: 10, y: 20 });
+    expect(p1.pagina_id).toBe(2);
+    expect(p1.name).toBe('Mesada 2');
+    expect(p1.material).toBe('BLANCO SUGGAR');
+    expect(p1.dibujo[0]).toMatchObject({ type: 'circle', cx: 30, cy: 30 });
+  });
+
+  it('emits a page-shaped wire list even when the editor holds a legacy flat list', () => {
+    // `useSketchState` always stores pages, but a legacy code path could
+    // still feed a flat `{type,data,order}` list into the form. The
+    // serializer must wrap it into a single page instead of pushing the
+    // raw element objects blindly (which would fail at `JSON.stringify`
+    // on the BudgetSketchElement row). One page, no material.
+    const flat = [
+      { type: 'line', data: JSON.stringify({ x: 5, y: 5, points: [0, 0, 100, 100] }), order: 0 },
+    ];
+    const payload = buildPayload({ ...INITIAL_FORM, sketch_elements: flat } as never);
+    const wire = JSON.parse(payload.sketch_elements as string) as { pagina_id: number; name: string; material?: string; dibujo: unknown[] }[];
+    expect(wire).toHaveLength(1);
+    expect(wire[0].pagina_id).toBe(1);
+    expect(wire[0].name).toBe('Página 1');
+    expect(wire[0].material).toBeUndefined();
+    expect(wire[0].dibujo).toHaveLength(1);
+    expect(JSON.parse((wire[0].dibujo[0] as { data: string }).data)).toMatchObject({ x: 5, y: 5 });
+  });
+
+  it('keeps legacy flat wire lists (Budget relationship / old WO TEXT) as a single page without material', () => {
+    // A WO converted BEFORE the page-format existed, or any Budget 1-N
+    // relationship, has no `name`/`material`/`dibujo` keys — unflatten
+    // must not crash and must wrap it in "Página 1".
+    const legacyWire = JSON.stringify([
+      { type: 'line', data: JSON.stringify({ x: 5, y: 5, points: [0, 0, 100, 100] }), order: 0 },
+    ]);
+    const form = mapApiToForm({ sketch_elements: legacyWire }, 'MEASUREMENT');
+    expect(form.sketch_elements).toHaveLength(1);
+    const page = form.sketch_elements[0] as { name: string; material?: string; dibujo: unknown[] };
+    expect(page.name).toBe('Página 1');
+    expect(page.material).toBeUndefined();
+    expect(page.dibujo[0]).toMatchObject({ type: 'line', x: 5, y: 5 });
+  });
 });
 
 describe('fabrication_detail price contract — always in ARS', () => {
@@ -663,5 +747,184 @@ describe('repointSwapReferences — "Cambiar material" follow-up re-pointing', (
     const form = { ...INITIAL_FORM, additional_works_data: null } as EntityFormState;
     const out = repointSwapReferences(form, new Set(['Negro Brasil']), 'Marmol Carrara');
     expect(out.additional_works_data).toBeNull();
+  });
+});
+
+describe('repointSwapReferences with reprice — frente follows the swapped card price (budget 81 regression)', () => {
+  const beige = {
+    additional_work_id: 5,
+    name: 'Frente / Regrueso',
+    materialName: 'Beige Cream',
+    type: 'frente',
+    linear_meters: 3,
+    assigned_material_id: 30,
+    price: 50,
+    total: 150,
+    currency: 'USD' as const,
+    quantity: 1,
+    detail: null,
+    formula_values: null as null,
+  };
+  const mat = { id: 99, name: 'Marmol Carrara', base_price: 250000, price_usd: 410, currency: 'USD' as const };
+
+  it('re-prices a repointed frente with the new material price', () => {
+    const form = { ...INITIAL_FORM, additional_works_data: JSON.stringify([beige]) } as EntityFormState;
+    const out = repointSwapReferences(form, new Set(['Beige Cream']), mat.name, { mat });
+    const [row] = JSON.parse(out.additional_works_data!);
+    expect(row.assigned_material_id).toBe(99);
+    expect(row.materialName).toBe('Marmol Carrara');
+    const expected = computeFrenteTotal(410, FRENTE_FORMULA_MULTIPLIER_DEFAULT, 3);
+    expect(row.price).toBe(expected.price_per_meter);
+    expect(row.total).toBe(expected.total);
+    expect(row.currency).toBe('USD');
+    expect(row.formula_values.material_price_m2_at_selection).toBe(410);
+    expect(row.formula_values.multiplier).toBe(FRENTE_FORMULA_MULTIPLIER_DEFAULT);
+  });
+
+  it('resolves the catalogue multiplier when the map is provided (custom formula_constant)', () => {
+    const catalogue = new Map<number, AdditionalWork>([
+      [5, { id: 5, name: 'Frente Doble', detail: null, price: 0, currency: 'ARS', type: 'frente', formula_constant: 2 }],
+    ]);
+    const form = { ...INITIAL_FORM, additional_works_data: JSON.stringify([beige]) } as EntityFormState;
+    const out = repointSwapReferences(form, new Set(['Beige Cream']), mat.name, { mat, catalogueById: catalogue });
+    const [row] = JSON.parse(out.additional_works_data!);
+    const expected = computeFrenteTotal(410, 2, 3);
+    expect(row.price).toBe(expected.price_per_meter);
+    expect(row.total).toBe(expected.total);
+    expect(row.formula_values.multiplier).toBe(2);
+  });
+
+  it('falls back to the frozen formula_values.multiplier when the catalogue is missing', () => {
+    const withFrozenMultiplier = { ...beige, formula_values: { material_price_m2_at_selection: 330, multiplier: 1.5, computed_at: '2026-01-01T00:00:00.000Z' } };
+    const form = { ...INITIAL_FORM, additional_works_data: JSON.stringify([withFrozenMultiplier]) } as EntityFormState;
+    const out = repointSwapReferences(form, new Set(['Beige Cream']), mat.name, { mat });
+    const [row] = JSON.parse(out.additional_works_data!);
+    const expected = computeFrenteTotal(410, 1.5, 3);
+    expect(row.price).toBe(expected.price_per_meter);
+    expect(row.total).toBe(expected.total);
+    expect(row.formula_values.multiplier).toBe(1.5);
+  });
+
+  it('keeps the __ALT__ prefix and follows the material currency when swapping an alternativa', () => {
+    const altFrente = {
+      ...beige,
+      materialName: '__ALT__:Beige Cream',
+      currency: 'USD' as const,
+    };
+    const arsMat = { id: 7, name: 'Gris Mara', base_price: 180000, price_usd: 0, currency: 'ARS' as const };
+    const form = { ...INITIAL_FORM, additional_works_data: JSON.stringify([altFrente]) } as EntityFormState;
+    const out = repointSwapReferences(form, new Set(['Beige Cream']), arsMat.name, { mat: arsMat });
+    const [row] = JSON.parse(out.additional_works_data!);
+    expect(row.materialName).toBe('__ALT__:Gris Mara');
+    expect(row.assigned_material_id).toBe(7);
+    expect(row.currency).toBe('ARS');
+    const expected = computeFrenteTotal(180000, FRENTE_FORMULA_MULTIPLIER_DEFAULT, 3);
+    expect(row.total).toBe(expected.total);
+  });
+
+  it('renames flat rows without repricing and leaves GLOBAL / other-material rows untouched', () => {
+    const form = {
+      ...INITIAL_FORM,
+      additional_works_data: JSON.stringify([
+        { additional_work_id: 1, name: 'Pulido', materialName: 'Beige Cream', type: 'flat', price: 100, total: 100, currency: 'ARS', quantity: 1, detail: null },
+        { additional_work_id: 2, name: 'Global', materialName: POOL_MATERIAL_GLOBAL, type: 'flat', price: 0, total: 0, currency: 'ARS', quantity: 1, detail: null },
+        { additional_work_id: 3, name: 'Frente otro', materialName: 'Pileta X', type: 'frente', price: 60, total: 180, currency: 'USD', linear_meters: 3, assigned_material_id: 8, formula_values: null, quantity: 1, detail: null },
+      ]),
+    } as EntityFormState;
+    const out = repointSwapReferences(form, new Set(['Beige Cream']), mat.name, { mat });
+    const rows = JSON.parse(out.additional_works_data!);
+    expect(rows[0].materialName).toBe('Marmol Carrara');
+    expect(rows[0].total).toBe(100); // flat rows are renamed, never repriced
+    expect(rows[1].materialName).toBe(POOL_MATERIAL_GLOBAL);
+    expect(rows[2]).toEqual({
+      additional_work_id: 3, name: 'Frente otro', materialName: 'Pileta X', type: 'frente', price: 60, total: 180, currency: 'USD', linear_meters: 3, assigned_material_id: 8, formula_values: null, quantity: 1, detail: null,
+    });
+  });
+
+  it('re-prices a repointed M2 fabrication row (zócalo BASEBOARD) with the new material price', () => {
+    const fabricacion = {
+      concept: 'BASEBOARD',
+      detail: '',
+      material: 'Beige Cream',
+      material_price_m2: 780,
+      length: 3.38,
+      width: 0.1,
+      m2: 0.338,
+      labor: null,
+      currency: 'USD' as const,
+      quantity: 1,
+      price: 780 * 0.338,
+    };
+    const form = { ...INITIAL_FORM, fabrication_details: [fabricacion] } as EntityFormState;
+    const out = repointSwapReferences(form, new Set(['Beige Cream']), mat.name, { mat });
+    expect(out.fabrication_details[0].material).toBe('Marmol Carrara');
+    expect(out.fabrication_details[0].currency).toBe('USD');
+    expect(out.fabrication_details[0].material_price_m2).toBe(410);
+    expect(out.fabrication_details[0].m2).toBe(0.338);
+    expect(out.fabrication_details[0].price).toBe(Math.round(0.338 * 410 * 100) / 100);
+  });
+
+  it('re-prices an ARS fabrication row using base_price and flips its currency', () => {
+    const arsMat = { id: 7, name: 'Gris Mara', base_price: 180000, price_usd: 0, currency: 'ARS' as const };
+    const fabricacion = {
+      concept: 'FRONT',
+      detail: '',
+      material: 'Beige Cream',
+      material_price_m2: 0,
+      length: 2,
+      width: 1,
+      m2: 2,
+      labor: null,
+      currency: 'USD' as const,
+      quantity: 1,
+      price: 500,
+    };
+    const form = { ...INITIAL_FORM, fabrication_details: [fabricacion] } as EntityFormState;
+    const out = repointSwapReferences(form, new Set(['Beige Cream']), arsMat.name, { mat: arsMat });
+    expect(out.fabrication_details[0].material).toBe('Gris Mara');
+    expect(out.fabrication_details[0].currency).toBe('ARS');
+    expect(out.fabrication_details[0].material_price_m2).toBe(180000);
+    expect(out.fabrication_details[0].price).toBe(360000);
+  });
+
+  it('computes m2 from length×width×quantity when the row has no stored m2', () => {
+    const fabricacion = {
+      concept: 'BASEBOARD',
+      detail: '',
+      material: 'Beige Cream',
+      material_price_m2: 780,
+      length: 3,
+      width: 0.1,
+      m2: 0,
+      labor: null,
+      currency: 'USD' as const,
+      quantity: 2,
+      price: 0,
+    };
+    const form = { ...INITIAL_FORM, fabrication_details: [fabricacion] } as EntityFormState;
+    const out = repointSwapReferences(form, new Set(['Beige Cream']), mat.name, { mat });
+    expect(out.fabrication_details[0].m2).toBe(0.6);
+    expect(out.fabrication_details[0].price).toBe(Math.round(0.6 * 410 * 100) / 100);
+  });
+
+  it('renames non-M2 fabrication rows without repricing (cutout/flat concepts stay frozen)', () => {
+    const fabricacion = {
+      concept: 'CUTOUT_SINK',
+      detail: 'Apertura y pegado de pileta',
+      material: 'Beige Cream',
+      material_price_m2: 0,
+      length: null,
+      width: null,
+      m2: 0,
+      labor: null,
+      currency: 'ARS' as const,
+      quantity: 1,
+      price: 120000,
+    };
+    const form = { ...INITIAL_FORM, fabrication_details: [fabricacion] } as EntityFormState;
+    const out = repointSwapReferences(form, new Set(['Beige Cream']), mat.name, { mat });
+    expect(out.fabrication_details[0].material).toBe('Marmol Carrara');
+    expect(out.fabrication_details[0].price).toBe(120000);
+    expect(out.fabrication_details[0].currency).toBe('ARS');
   });
 });

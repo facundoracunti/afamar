@@ -15,6 +15,10 @@ interface UseFormPoolsReturn {
   addPileta: (pid: string) => void;
   removePileta: (idx: number) => void;
   updatePileta: (idx: number, field: string, value: unknown) => void;
+  /** Set multiple fields on a pool row in a single state update (e.g. when
+   *  selecting a material in the PoolCard dropdown, we need to set `material`,
+   *  `mesada_length`, and `mesada_width` atomically). */
+  setPoolFields: (idx: number, fields: Record<string, unknown>) => void;
 }
 
 /**
@@ -67,5 +71,14 @@ export function useFormPools({
     [form.pools_data, update]
   );
 
-  return { handlePoolImage, addPileta, removePileta, updatePileta };
+  const setPoolFields = useCallback(
+    (idx: number, fields: Record<string, unknown>) => {
+      const list = [...(form.pools_data || [])];
+      list[idx] = { ...list[idx], ...fields } as PoolInForm;
+      update('pools_data', list);
+    },
+    [form.pools_data, update]
+  );
+
+  return { handlePoolImage, addPileta, removePileta, updatePileta, setPoolFields };
 }

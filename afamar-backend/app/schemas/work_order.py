@@ -22,6 +22,15 @@ class WorkOrderBase(BaseModel):
     finish: str | None = None
     bacha: str | None = None
     anafe: str | None = None
+    # Workshop sheet fields — printed BLANK on the "FICHA DE TALLER" PDF so the
+    # shop-floor workers fill them by hand. Technical spec grid: Corte, Faja,
+    # Perf, Tras/PEG, Terminación, Sopapas. OT-only (no budget column).
+    workshop_corte: str | None = None
+    workshop_faja: str | None = None
+    workshop_perf: str | None = None
+    workshop_tras_peg: str | None = None
+    workshop_term: str | None = None
+    workshop_sopapas: str | None = None
     currency: str = "ARS"
     usd_rate: float = 1000.0
     subtotal: float = 0.0
@@ -70,8 +79,8 @@ class WorkOrderBase(BaseModel):
     delivery_terms_override: str | None = ""
     warranty_override: str | None = ""
     # Whether the "COMPARATIVA DE MEDICIÓN" table is printed in this order's
-    # PDF. Defaults to `True`; toggled per order in the form.
-    include_measurement_comparison_in_pdf: bool = True
+    # PDF. Defaults to `False` (opt-in); toggled per order in the form.
+    include_measurement_comparison_in_pdf: bool = False
     # Per-order opt-in for the discount configured on the selected
     # payment method (e.g. "Efectivo — descuento 7%"). Off by default.
     apply_cash_discount: bool = False
@@ -94,6 +103,12 @@ class WorkOrderUpdate(BaseModel):
     finish: str | None = None
     bacha: str | None = None
     anafe: str | None = None
+    workshop_corte: str | None = None
+    workshop_faja: str | None = None
+    workshop_perf: str | None = None
+    workshop_tras_peg: str | None = None
+    workshop_term: str | None = None
+    workshop_sopapas: str | None = None
     currency: str | None = None
     usd_rate: float | None = None
     subtotal: float | None = None
@@ -151,6 +166,11 @@ class WorkOrderResponse(WorkOrderBase, BaseResponse):
     signed_at: Optional[datetime.datetime] = None
     created_at: datetime.datetime
     updated_at: datetime.datetime
+    # Idempotency flags for the cash box (server-managed, read-only). Exposed
+    # so the UI/tests can see "this WO's seña / saldo has already entered the
+    # cash box" and know it will never be re-booked.
+    sena_registered: bool = False
+    saldo_registered: bool = False
 
     @classmethod
     def from_orm_with_client(cls, order) -> "WorkOrderResponse":

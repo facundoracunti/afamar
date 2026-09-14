@@ -5,6 +5,7 @@ import type {
   SketchLine,
   SketchRect,
   SketchCutout,
+  SketchCircle,
   SketchText,
   SketchPage,
   Point,
@@ -122,7 +123,20 @@ function normEls(arr: RawElement[]): SketchElement[] {
       } as SketchLine;
     }
 
-    if (t === 'circle' || t === 'hole') {
+    if (t === 'circle') {
+      return {
+        id,
+        type: 'circle',
+        cx: (el.cx as number) ?? (el.x as number) ?? 0,
+        cy: (el.cy as number) ?? (el.y as number) ?? 0,
+        radius: (el.radius as number) ?? (el.r as number) ?? 40,
+        stroke: (el.stroke as string) || '#000',
+        strokeWidth: (el.strokeWidth as number) ?? 2,
+        dash: (el.dash as number[] | undefined) || undefined,
+      } as SketchCircle;
+    }
+
+    if (t === 'hole') {
       const r = (el.r as number) || 12;
       return {
         id,
@@ -144,14 +158,15 @@ function normEls(arr: RawElement[]): SketchElement[] {
 
 function normPages(sketch: unknown): SketchPage[] {
   if (!Array.isArray(sketch) || !sketch.length) {
-    return [{ id: pid(), name: 'P�gina 1', elements: [] }];
+    return [{ id: pid(), name: 'Página 1', elements: [] }];
   }
   if (!sketch[0]?.pagina_id) {
-    return [{ id: pid(), name: 'P�gina 1', elements: normEls(sketch as RawElement[]) }];
+    return [{ id: pid(), name: 'Página 1', elements: normEls(sketch as RawElement[]) }];
   }
   return sketch.map((p: Record<string, unknown>, i: number): SketchPage => ({
     id: (p.pagina_id as number) || pid(),
-    name: (p.nombre as string) || (p.name as string) || `P�gina ${i + 1}`,
+    name: (p.nombre as string) || (p.name as string) || `Página ${i + 1}`,
+    material: ((p.material as string) || '').trim() || undefined,
     elements: normEls((p.dibujo || p.elements || []) as RawElement[]),
   }));
 }
@@ -160,12 +175,42 @@ function savePayload(pages: SketchPage[]): unknown {
   return pages.map((p) => ({
     pagina_id: p.id,
     name: p.name,
+    material: p.material || undefined,
     dibujo: p.elements.map(({ id, ...rest }) => ({ ...rest, id })),
   }));
 }
 
 function clonePages(pages: SketchPage[]): SketchPage[] {
   return pages.map((p) => ({ ...p, elements: p.elements.map((el) => ({ ...el })) }));
+}
+
+/** Deeply sort object keys so `JSON.stringify` outputs become order-agnostic.
+ *
+ * Used by the re-init guard in `useSketchState`: `setPageMaterial` and the
+ * other page mutators apply `{ ...p, material }` which APPENDS the key to the
+ * end of the page object, while `normPages` rebuilds the page with `material`
+ * in the middle. Two objects with the same fields but different key order
+ * compare unequal under `JSON.stringify` → every material pick would trigger a
+ * re-init (jumping back to page 0 and resetting undo history). Sorting both
+ * sides first makes the guard see "structurally identical" as identical. */
+function canonicalJSON(value: unknown): string {
+  return JSON.stringify(sortKeysDeep(value));
+}
+
+function sortKeysDeep(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((v) => sortKeysDeep(v));
+  }
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    Object.keys(value as Record<string, unknown>)
+      .sort()
+      .forEach((k) => {
+        out[k] = sortKeysDeep((value as Record<string, unknown>)[k]);
+      });
+    return out;
+  }
+  return value;
 }
 
 export interface UseSketchStateReturn {
@@ -197,7 +242,7 @@ export interface UseSketchStateReturn {
   deleteLast: () => void;
   clearAll: () => void;
   updateElementPosition: (id: string, absX: number, absY: number) => void;
-  updateElementTransform: (id: string, scaleX: number, scaleY: number, rotation: number) => void;
+  updateElementTransform: (id: string, next: SketchElement) => void;
 
   undo: () => void;
   redo: () => void;
@@ -205,6 +250,7 @@ export interface UseSketchStateReturn {
   addPage: () => void;
   removePage: (pageId: number) => void;
   renamePage: (pageId: number, name: string) => void;
+  setPageMaterial: (pageId: number, material: string) => void;
 
   buildPayload: () => unknown;
 
@@ -257,7 +303,17 @@ export function useSketchState(
       // `sketch` prop reference. Without this guard, `pageIdx` and
       // `history` would be wiped on every single click — the user couldn't
       // even move between pages without losing their selection state.
-      if (JSON.stringify(prev) === JSON.stringify(pp)) return prev;
+      //
+      // IMPORTANT: both sides must go through the SAME normalisation
+      // pipeline (`normPages(savePayload(...))`). The raw `prev` state is
+      // NOT byte-identical to `pp` even for a faithful round-trip: drawn
+      // elements are stored without their defaults (a line has no `x`/`y`,
+      // a rect has no `rotation`) while `normEls` fills those in. A naive
+      // `JSON.stringify` / key-sorted comparison would therefore ALWAYS
+      // mismatch and re-init — resetting `pageIdx` to 0 and wiping undo on
+      // every single select. This is what made the per-page material pick
+      // in the toolbar appear to "not save" (it jumped back to page 1).
+      if (canonicalJSON(normPages(savePayload(prev))) === canonicalJSON(pp)) return prev;
       // Otherwise (initial load or external replacement), re-init everything.
       setPageIdx(0);
       setSid(null);
@@ -322,6 +378,9 @@ export function useSketchState(
         );
         return { ...shape, points: newPoints, x: 0, y: 0 };
       }
+      if (shape.type === 'circle') {
+        return { ...shape, cx: absX, cy: absY };
+      }
       return { ...shape, x: absX, y: absY };
     });
     const next = pages.map((p, i) =>
@@ -330,22 +389,14 @@ export function useSketchState(
     persist(next);
   }, [pages, pageIdx, persist]);
 
-  const updateElementTransform = useCallback((id: string, scaleX: number, scaleY: number, rotation: number) => {
-    const updatedShapes = pages[pageIdx].elements.map((el) => {
-      if (el.id !== id) return el;
-      if (el.type === 'line') return { ...el };
-      if (el.type === 'text') return { ...el, rotation };
-      return {
-        ...el,
-        width: Math.max(5, (el.width || 0) * scaleX),
-        height: Math.max(5, (el.height || 0) * scaleY),
-        rotation,
-      };
-    });
-    const next = pages.map((p, i) =>
+  const updateElementTransform = useCallback((id: string, next: SketchElement) => {
+    const updatedShapes = pages[pageIdx].elements.map((el) =>
+      el.id === id ? next : el,
+    );
+    const updatedPages = pages.map((p, i) =>
       i === pageIdx ? { ...p, elements: updatedShapes } : p,
     );
-    persist(next);
+    persist(updatedPages);
   }, [pages, pageIdx, persist]);
 
   const undo = useCallback(() => {
@@ -402,6 +453,14 @@ const addPage = useCallback(() => {
     onChange(savePayload(next));
   }, [pages, onChange]);
 
+  const setPageMaterial = useCallback((pageId: number, material: string) => {
+    const next = pages.map((p) =>
+      p.id === pageId ? { ...p, material: material.trim() || undefined } : p,
+    );
+    setPages(next);
+    onChange(savePayload(next));
+  }, [pages, onChange]);
+
   const handleSetTool = useCallback((t: SketchToolType) => {
     setTool(t);
     setIsDrawing(false);
@@ -447,6 +506,7 @@ const addPage = useCallback(() => {
     addPage,
     removePage,
     renamePage,
+    setPageMaterial,
 
     buildPayload,
 

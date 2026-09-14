@@ -219,6 +219,68 @@ def test_case_4b_catalogue_discount_skipped_when_flag_off(pm_session):
     )
 
 
+def test_case_4c_catalogue_fixed_discount_applies(pm_session):
+    """EFECTIVO configured as DISCOUNT with a FIXED amount
+    (`is_percentage=false`, e.g. $600.000) must subtract that value from
+    the subtotal when `apply_cash_discount` is on. Regression sentinel:
+    the fixed-amount branches DON'T share the `ratio != 1` gate — that
+    was the "descuento con monto fijo no aplica" bug in the form hook."""
+    pm_session.add(PaymentMethod(
+        id=5, name="EFECTIVO_FIJO", label="Efectivo monto fijo",
+        is_active=True, sort_order=5,
+        type="DISCOUNT", value=2000.0, is_percentage=False, applies_to_installments=False,
+    ))
+    pm_session.commit()
+    data = {
+        "fabrication_details": json.dumps(
+            [{"price": 10000, "quantity": 1, "currency": "ARS"}]
+        ),
+        "materials_data": "[]",
+        "pools_data": "[]",
+        "additional_works_data": "[]",
+        "usd_rate": 1000,
+        "transport": 0,
+        "discount_percentage": 0,
+        "discount_fixed_amount": 0,
+        "payment_method_id": 5,
+        "payment_method": "EFECTIVO_FIJO",
+        "installments": 1,
+        "apply_cash_discount": True,
+    }
+    _recalculate_totals_from_items(pm_session, data)
+    assert data["total"] == 8000, f"10000 - 2000 fijo should be 8000, got {data['total']}"
+
+
+def test_case_4d_catalogue_fixed_surcharge_applies(pm_session):
+    """SURCHARGE with a FIXED amount adds `value` to the subtotal.
+    Regression sentinel: the fixed-amount surcharge branch in
+    `_recalculate_totals_from_items` used to sit behind `ratio != 1`
+    (dead code), same root cause as the "monto fijo" discount bug."""
+    pm_session.add(PaymentMethod(
+        id=6, name="ENTREGA FIJO", label="Entrega monto fijo",
+        is_active=True, sort_order=6,
+        type="SURCHARGE", value=1500.0, is_percentage=False, applies_to_installments=False,
+    ))
+    pm_session.commit()
+    data = {
+        "fabrication_details": json.dumps(
+            [{"price": 10000, "quantity": 1, "currency": "ARS"}]
+        ),
+        "materials_data": "[]",
+        "pools_data": "[]",
+        "additional_works_data": "[]",
+        "usd_rate": 1000,
+        "transport": 0,
+        "discount_percentage": 0,
+        "discount_fixed_amount": 0,
+        "payment_method_id": 6,
+        "payment_method": "ENTREGA FIJO",
+        "installments": 1,
+    }
+    _recalculate_totals_from_items(pm_session, data)
+    assert data["total"] == 11500, f"10000 + 1500 fijo should be 11500, got {data['total']}"
+
+
 def test_case_5_manual_discount_before_catalogue(pm_session):
     """Manual discount_percentage applies first, then the catalogue
     method — same order as the hook."""

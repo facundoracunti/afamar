@@ -399,42 +399,53 @@
 
 {# =========================================================================
    TERMS (budget-specific + OT-specific, both rendered as bulleted lists)
-   Placed above signatures so both are visible together.
+   Placed above signatures so both are visible together. The first term
+   block (Condiciones de entrega / Términos del presupuesto) shares a row
+   with the METODO DE PAGO reference box (side by side), then Garantía
+   renders full-width below. Mirrors the frontend preview layout.
    ========================================================================= #}
-{% if document_type == "budget" %}
-  {% if budget_terms_list %}
-  <div class="terms-box">
-    <div class="terms-title">Términos del presupuesto</div>
-    <ul class="terms-list">
-      {% for t in budget_terms_list %}<li>{{ t }}</li>{% endfor %}
-    </ul>
-  </div>
-  {% endif %}
-  {% if warranty_terms_list %}
-  <div class="terms-box">
-    <div class="terms-title">Garantía</div>
-    <ul class="terms-list">
-      {% for t in warranty_terms_list %}<li>{{ t }}</li>{% endfor %}
-    </ul>
-  </div>
-  {% endif %}
-{% else %}
-  {% if delivery_terms_list %}
-  <div class="terms-box">
-    <div class="terms-title">Condiciones de entrega</div>
-    <ul class="terms-list">
-      {% for t in delivery_terms_list %}<li>{{ t }}</li>{% endfor %}
-    </ul>
-  </div>
-  {% endif %}
-  {% if warranty_terms_list %}
-  <div class="terms-box">
-    <div class="terms-title">Garantía</div>
-    <ul class="terms-list">
-      {% for t in warranty_terms_list %}<li>{{ t }}</li>{% endfor %}
-    </ul>
-  </div>
-  {% endif %}
+<table style="width: 100%; border-collapse: collapse;">
+  <tr>
+    <td style="vertical-align: top;">
+      {% if document_type == "budget" %}
+        {% if budget_terms_list %}
+        <div class="terms-box">
+          <div class="terms-title">Términos del presupuesto</div>
+          <ul class="terms-list">
+            {% for t in budget_terms_list %}<li>{{ t }}</li>{% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+      {% else %}
+        {% if delivery_terms_list %}
+        <div class="terms-box">
+          <div class="terms-title">Condiciones de entrega</div>
+          <ul class="terms-list">
+            {% for t in delivery_terms_list %}<li>{{ t }}</li>{% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+      {% endif %}
+    </td>
+    {% if payment_methods_catalogue %}
+    <td style="vertical-align: top; width: 40%;">
+      <div class="info-box" style="margin-top: 8px;">
+        <div class="terms-title">Metodo de pago</div>
+        <div style="font-size: 8.5pt;">
+          {% for m in payment_methods_catalogue %}{{ m }}{% if not loop.last %}<br>{% endif %}{% endfor %}
+        </div>
+      </div>
+    </td>
+    {% endif %}
+  </tr>
+</table>
+{% if warranty_terms_list %}
+<div class="terms-box">
+  <div class="terms-title">Garantía</div>
+  <ul class="terms-list">
+    {% for t in warranty_terms_list %}<li>{{ t }}</li>{% endfor %}
+  </ul>
+</div>
 {% endif %}
 
 {# =========================================================================

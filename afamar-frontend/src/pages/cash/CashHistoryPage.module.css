@@ -55,6 +55,51 @@
   font-weight: 600;
 }
 
+.cash-history__number {
+  font-family: monospace;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.cash-history__detail-times {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.cash-history__detail-count {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: 2px;
+}
+
+.cash-history__by-payment {
+  margin-top: 14px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cash-history__by-payment-title {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+}
+
+.cash-history__by-payment-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+}
+
+.cash-history__by-payment-row span { color: var(--text-secondary); }
+
 .cash-history__income {
   color: var(--color-success);
   font-weight: 600;

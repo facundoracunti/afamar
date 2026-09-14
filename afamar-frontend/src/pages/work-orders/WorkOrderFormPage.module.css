@@ -104,6 +104,30 @@
   padding: 14px 16px;
 }
 
+.work-order-form__comparison-toggle-header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.work-order-form__comparison-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+.work-order-form__comparison-toggle-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.work-order-form__comparison-toggle-panel {
+  margin-top: 12px;
+}
+
 .work-order-form__pdf-toggle {
   display: flex;
   align-items: center;
@@ -230,7 +254,8 @@
 .work-order-form__btn-measurement,
 .work-order-form__btn-workshop,
 .work-order-form__btn-delivery,
-.work-order-form__btn-save {
+.work-order-form__btn-save,
+.work-order-form__btn-rollback {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -259,10 +284,15 @@
   background: var(--color-danger);
 }
 
+.work-order-form__btn-rollback {
+  background: var(--color-warning);
+}
+
 .work-order-form__btn-measurement:disabled,
 .work-order-form__btn-workshop:disabled,
 .work-order-form__btn-delivery:disabled,
-.work-order-form__btn-save:disabled {
+.work-order-form__btn-save:disabled,
+.work-order-form__btn-rollback:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }

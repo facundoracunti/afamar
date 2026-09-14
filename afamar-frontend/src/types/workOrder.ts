@@ -32,10 +32,13 @@ export interface WorkOrderPayload extends FinancialBase {
   digital_signature: string | null;
   fabrication_details: string | null;
   budgeted_details: string | null;
-  /** JSON-encoded array of sketch elements (matches the wire format the
-   *  budget/measurement use). Populated from the source budget on
-   *  conversion. When the user edits the WO, the editor mutates this list
-   *  and we re-serialise via `flattenSketchElements` in `buildPayload`. */
+  /** JSON-encoded array of sketch PAGES (wire format
+   *  `[{ pagina_id, name, material?, dibujo: [...] }]`) — the page shape is
+   *  what WorkOrders persist so the FICHA DE TALLER can render a per-page
+   *  name/material label. Populated from the source budget on conversion
+   *  (legacy flat lists) or from the editor. When the user edits the WO,
+   *  the editor mutates this list and we re-serialise via
+   *  `serializeSketchPages` in `buildPayload`. */
   sketch_elements: string | null;
   pool_id: number | null;
   pool_price: number;

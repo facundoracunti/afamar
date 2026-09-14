@@ -216,6 +216,11 @@ export interface PdfDocumentData {
   total: number;
   total_usd: number;
   payment_method: string;
+  /** Active payment methods from the catalogue (the `/admin/configuration/
+   *  payment-methods` list), printed as a reference box in the PDF headers
+   *  so the customer sees every accepted payment option. Uppercase `name`s
+   *  (stable snapshot keys), ordered by `sort_order`. */
+  payment_methods_catalogue: string[];
   installments: number;
   notes: string;
   important_observations: string;

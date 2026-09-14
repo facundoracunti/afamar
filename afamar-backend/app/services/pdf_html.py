@@ -367,6 +367,22 @@ def _sketch_to_png_base64_list(croquis_data) -> list:
         draw = ImageDraw.Draw(img)
 
         for el in elementos:
+            if not isinstance(el, dict):
+                continue
+            # The frontend wire format stores the geometry as a JSON string in
+            # `data` (`{type, data, order}`). Merge it back in so the drawing
+            # code below can read `x`/`y`/`r` straight off the element.
+            if isinstance(el.get("data"), (str, dict)):
+                _geo = el.get("data")
+                if isinstance(_geo, str):
+                    try:
+                        _parsed = _json.loads(_geo)
+                    except (ValueError, TypeError):
+                        _parsed = {}
+                else:
+                    _parsed = _geo
+                if isinstance(_parsed, dict):
+                    el = {**_parsed, **el}
             t = el.get("type", "")
             color = _hex_to_rgb(el.get("color", "#1e40af")) or (0, 0, 0)
             fill_c = _hex_to_rgb(el.get("fill", "none"))
@@ -383,9 +399,11 @@ def _sketch_to_png_base64_list(croquis_data) -> list:
                     draw.rectangle([x, y, x + w, y + rh], outline=color, width=lw)
 
             elif t == "circle":
-                cx = float(el.get("x", 0))
-                cy = float(el.get("y", 0))
-                r = float(el.get("r", 10))
+                # Frontend circle uses `cx/cy/radius`; legacy wire uses `x/y/r`
+                # (both center-based).
+                cx = float(el.get("cx", el.get("x", 0)))
+                cy = float(el.get("cy", el.get("y", 0)))
+                r = float(el.get("radius", el.get("r", 10)))
                 bbox = [cx - r, cy - r, cx + r, cy + r]
                 if fill_c:
                     draw.ellipse(bbox, fill=fill_c, outline=color, width=lw)
@@ -631,6 +649,24 @@ def _resolve_catalogue_adjustment(db, data: dict) -> dict:
     }
 
 
+def _payment_methods_catalogue(db) -> list:
+    """Active payment methods from the `payment_methods` catalogue, ordered
+    by `sort_order`, as uppercase `name`s — the same convention the
+    frontend preview uses (`buildPdfData.payment_methods_catalogue`) for
+    the PDF "METODO DE PAGO" reference box. Returns [] when `db` is None
+    (legacy call sites) so the template just skips the box."""
+    if db is None:
+        return []
+    from app.models.reference import PaymentMethod  # local import: avoid cold-start cycle
+    rows = (
+        db.query(PaymentMethod)
+        .filter(PaymentMethod.is_active)
+        .order_by(PaymentMethod.sort_order.asc())
+        .all()
+    )
+    return [row.name for row in rows]
+
+
 def build_budget_pdf_data(budget_data: dict, client_dict: dict, company: dict, terms: dict, db=None) -> dict:
     from app.services.budget_calculator import filter_main_materials, parse_materials_data
 
@@ -693,6 +729,10 @@ def build_budget_pdf_data(budget_data: dict, client_dict: dict, company: dict, t
         "total_usd": total_usd_val,
         "payment_method": budget_data.get("payment_method", ""),
         "installments": budget_data.get("installments", 1),
+
+        # Reference box: active payment methods (see
+        # `_payment_methods_catalogue`). Mirrors the frontend preview.
+        "payment_methods_catalogue": _payment_methods_catalogue(db),
 
         # Catalogue-driven surcharge / discount (see
         # `_resolve_catalogue_adjustment`). Without these the PDF only
@@ -809,6 +849,14 @@ def _build_measurement_comparison(
     additional_items = _parse_raw_list(additional_raw)
 
     rows = []
+    # Dedupe set for catalogue frentes: a single `additional_work_id`
+    # (or `name` fallback) is emitted exactly once across the whole
+    # comparison, even when its `materialName` matches multiple main
+    # materials (e.g. one "Frente Ingletetado 45°" assigned to NEGRO
+    # BRASIL covers two mesadas — we draw it once under whichever
+    # material matches first, not twice). Mirrors the frontend's
+    # `emittedFrenteKeys` in buildSectionData.ts.
+    emitted_frente_keys = set()
     for mat in materiales_raw or []:
         if not isinstance(mat, dict):
             continue
@@ -897,6 +945,14 @@ def _build_measurement_comparison(
 
         # Indented detail rows — frentes/adicionales from the catalogue,
         # assigned to this material (globals are shown separately).
+        #
+        # Dedupe rule: a single `additional_work_id` (or `name` fallback)
+        # is emitted EXACTLY ONCE across the whole comparison, even when
+        # its `materialName` matches multiple main materials (e.g. one
+        # "Frente Ingletetado 45°" assigned to NEGRO BRASIL covers two
+        # mesadas — we draw it once under whichever material matches
+        # first, not twice). This mirrors the business reality that
+        # frentes are billed in TOTAL METROS LINEALES, not per mesada.
         for r in additional_items:
             raw_mat = str(r.get("materialName") or r.get("material_name") or "")
             if not raw_mat or raw_mat == "POOL_MATERIAL_GLOBAL":
@@ -904,6 +960,9 @@ def _build_measurement_comparison(
             if raw_mat.startswith("__ALT__:"):
                 raw_mat = raw_mat[len("__ALT__:"):]
             if raw_mat != name:
+                continue
+            dedupe_key = str(r.get("additional_work_id") or r.get("name") or "")
+            if not dedupe_key or dedupe_key in emitted_frente_keys:
                 continue
             r_currency = "USD" if str(r.get("currency") or "").upper() == "USD" else "ARS"
             price = float(r.get("price") or 0)
@@ -945,6 +1004,7 @@ def _build_measurement_comparison(
                 "subtotal_ars": d_ars,
                 "subtotal_usd": d_usd,
             })
+            emitted_frente_keys.add(dedupe_key)
     return rows
 
 
@@ -982,13 +1042,18 @@ def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict
     important_obs = order_data.get("important_observations") or ""
     status = order_data.get("status", "")
 
-    # COMPARATIVA DE MEDICIÓN — only for work orders, and only when the
-    # per-order flag is true (toggled in the form; defaults to on). Rows
-    # are always computed from `materials_data` so the template can render
-    # them without further parsing. Only main materials participate
+    # COMPARATIVA DE MEDICIÓN — included whenever the per-order flag is
+    # true (toggled in the form; defaults to on). The flag is available for
+    # both work orders converted from a budget and direct work orders:
+    # direct orders simply have no "estimated" snapshot, so the
+    # Presupuestado column renders "—". Rows are always
+    # computed from `materials_data` so the template can render them
+    # without further parsing. Only main materials participate
     # (alternatives are filtered out by `filter_main_materials`), matching
     # the form's table.
-    include_comparison = bool(order_data.get("include_measurement_comparison_in_pdf", True))
+    include_comparison = bool(
+        order_data.get("include_measurement_comparison_in_pdf", False)
+    )
     usd_rate_value = float(order_data.get("usd_rate") or 0) or settings.DEFAULT_USD_RATE
     measurement_comparison = (
         _build_measurement_comparison(
@@ -1056,6 +1121,10 @@ def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict
         "total_usd": total_usd_val,
         "payment_method": order_data.get("payment_method", ""),
         "installments": order_data.get("installments", 1),
+
+        # Reference box: active payment methods (see
+        # `_payment_methods_catalogue`). Mirrors the frontend preview.
+        "payment_methods_catalogue": _payment_methods_catalogue(db),
 
         # Catalogue-driven surcharge / discount (see
         # `_resolve_catalogue_adjustment`). When `db` is None (legacy

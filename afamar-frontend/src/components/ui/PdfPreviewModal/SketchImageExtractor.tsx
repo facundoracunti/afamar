@@ -19,7 +19,7 @@
  * the user can see the boundaries and stay within them.
  */
 import React, { useEffect, useRef } from 'react';
-import { Stage, Layer, Line, Rect, Text } from 'react-konva';
+import { Stage, Layer, Line, Rect, Text, Circle } from 'react-konva';
 import type Konva from 'konva';
 import type { SketchElement, SketchPage } from '../../../types/sketch';
 import { SKETCH_STAGE_WIDTH, SKETCH_STAGE_HEIGHT } from '../../../constants';
@@ -42,7 +42,7 @@ interface SketchImageExtractorProps {
  *  3. Legacy: `{ pages: [{ elements: [...] }] }`
  *
  *  The input is always an **array**. The exporter side of the form
- *  (`flattenSketchElements`) produces a flat list — if you're calling
+ *  (`serializeSketchPages`) preserves the page shape — if you're calling
  *  this with anything else, run the data through `mapApiToForm` first so
  *  the field is in the canonical shape the rest of the form expects. */
 function normalizePages(raw: unknown): SketchPage[] {
@@ -106,6 +106,19 @@ function renderElement(el: SketchElement, key: string): React.ReactNode {
         fontSize={el.fontSize || 16}
         fill={el.fill || '#000'}
         rotation={el.rotation}
+      />
+    );
+  }
+  if (el.type === 'circle') {
+    return (
+      <Circle
+        key={key}
+        x={el.cx}
+        y={el.cy}
+        radius={el.radius || 40}
+        stroke={el.stroke || '#000'}
+        strokeWidth={el.strokeWidth || 2}
+        dash={el.dash}
       />
     );
   }

@@ -20,6 +20,7 @@ interface PoolSectionProps {
   addPileta: (id: string) => void;
   updatePileta: (idx: number, field: string, value: unknown) => void;
   removePileta: (idx: number) => void;
+  setPoolFields: (idx: number, fields: Record<string, unknown>) => void;
   num: (v: unknown) => number;
 }
 
@@ -31,6 +32,7 @@ export default function PoolSection({
   addPileta,
   updatePileta,
   removePileta,
+  setPoolFields,
   num,
 }: PoolSectionProps) {
   const [poolTypeFilter, setPoolTypeFilter] = useState<number | 'all'>('all');
@@ -96,6 +98,7 @@ export default function PoolSection({
           formMaterials={formMaterials}
           readOnly={readOnly}
           updatePileta={updatePileta}
+          setPoolFields={setPoolFields}
           removePileta={removePileta}
           num={num}
         />

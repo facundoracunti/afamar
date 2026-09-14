@@ -7,6 +7,7 @@ import { buildDocumentShareMessage, buildWhatsAppUrl } from '../../utils/whatsap
 import { orderStatuses } from '../../utils/formatters';
 import { useSettingsWithTerms } from '../../hooks/useSettingsWithTerms';
 import { usePdfPreviewController } from '../../hooks/usePdfPreviewController';
+import { useWorkshopPdfController } from '../../hooks/useWorkshopPdfController';
 import { PAYMENT_METHODS_KEY } from '../../hooks/useFormReferences';
 import { useQuery } from '@tanstack/react-query';
 import { getActivePaymentMethods } from '../../api/resources/paymentMethods';
@@ -51,6 +52,13 @@ export default function WorkOrdersList({ initialStatus }: { initialStatus?: stri
     company,
     globalTerms,
     paymentMethods: paymentMethodsQuery.data ?? [],
+    notify,
+  });
+
+  const ficha = useWorkshopPdfController({
+    fetchEntity: async (id) => getWorkOrder(id as number) as unknown as { data: Record<string, unknown> },
+    defaultStatus: 'MEASUREMENT',
+    company,
     notify,
   });
 
@@ -100,6 +108,8 @@ export default function WorkOrdersList({ initialStatus }: { initialStatus?: stri
   };
 
   const handleOpenPdf = (o: WorkOrderListItem) => pdf.handleOpenPdf(o);
+
+  const handleOpenFicha = (o: WorkOrderListItem) => ficha.handleOpenWorkshopSheet(o);
 
   const handleEnviarWhatsApp = (o: WorkOrderListItem): void => {
     const mensaje = buildDocumentShareMessage({
@@ -154,6 +164,7 @@ export default function WorkOrdersList({ initialStatus }: { initialStatus?: stri
           onView={handleView}
           onStatusAdvance={handleStatusAdvance}
           onOpenPdf={handleOpenPdf}
+          onOpenFicha={handleOpenFicha}
           onWhatsApp={handleEnviarWhatsApp}
           onDelete={requestDelete}
         />
@@ -170,6 +181,8 @@ export default function WorkOrdersList({ initialStatus }: { initialStatus?: stri
       />
 
       {pdf.UI}
+
+      {ficha.UI}
 
       <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} label="ordenes" />
     </div>

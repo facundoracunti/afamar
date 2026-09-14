@@ -195,10 +195,21 @@ const styles = StyleSheet.create({
   // muted to make it clear it's a follow-up detail, not a new section.
   bankRow: { fontSize: 6.5, marginLeft: 8, marginTop: 0, marginBottom: 4, color: SLATE_700 },
   // ===== TERMS =====
+  // The first term block (Condiciones de entrega / Términos del
+  // presupuesto) shares a row with the METODO DE PAGO reference box so
+  // both sit side by side, then Garantía appears full-width below.
+  termsRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  termsRowCol: { flex: 1, marginRight: 8 },
   termsBox: { marginTop: 6 },
   termsTitle: { fontSize: 6.5, fontWeight: 'bold', color: BLUE_700, textTransform: 'uppercase', lineHeight: 1.1 },
   termsText: { fontSize: 6, lineHeight: 1.05 },
   termsListItem: { fontSize: 6, lineHeight: 1.05 },
+  // ===== PAYMENT METHODS CATALOGUE (reference box) =====
+  // Lists the active payment methods from /admin/configuration/payment-methods
+  // so the customer sees every way they can pay. Renders next to the
+  // delivery-conditions column in `termsRow` (right side, same row).
+  paymentMethodsBox: { flex: 1, marginTop: 6, backgroundColor: SLATE_50, border: `1px solid ${SLATE_200}`, borderRadius: 4, paddingVertical: 4, paddingHorizontal: 6 },
+  paymentMethodsItem: { fontSize: 6.5, lineHeight: 1.3 },
   // ===== SIGNATURES =====
   signatures: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 30 },
   signatureCell: { width: '25%', textAlign: 'center' },
@@ -644,15 +655,36 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
   // own rows from `data.sections[*]`.
 
   // Per-page terms (rendered on every page so each option quote is
-  // self-contained with its own header/terms/footer).
-  const termsBlock = data.document_type === 'budget' ? (
+  // self-contained with its own header/terms/footer). The first term block
+  // (Condiciones de entrega on OTs / Términos del presupuesto on budgets)
+  // is rendered side by side with the METODO DE PAGO reference box, then
+  // Garantía goes full-width below.
+  const termsBlock = (
     <>
-      <TermsList title="Términos del presupuesto" items={data.budget_terms_list} />
-      <TermsList title="Garantía" items={data.warranty_terms_list} />
-    </>
-  ) : (
-    <>
-      <TermsList title="Condiciones de entrega" items={data.delivery_terms_list} />
+      <View style={styles.termsRow}>
+        {(data.document_type === 'budget'
+          ? data.budget_terms_list
+          : data.delivery_terms_list
+        ).length > 0 ? (
+          <View style={styles.termsRowCol}>
+            {data.document_type === 'budget' ? (
+              <TermsList title="Términos del presupuesto" items={data.budget_terms_list} />
+            ) : (
+              <TermsList title="Condiciones de entrega" items={data.delivery_terms_list} />
+            )}
+          </View>
+        ) : null}
+        {data.payment_methods_catalogue.length > 0 ? (
+          <View style={styles.paymentMethodsBox}>
+            <Text style={styles.termsTitle}>Metodo de pago</Text>
+            {data.payment_methods_catalogue.map((name) => (
+              <Text key={name} style={styles.paymentMethodsItem}>
+                {name}
+              </Text>
+            ))}
+          </View>
+        ) : null}
+      </View>
       <TermsList title="Garantía" items={data.warranty_terms_list} />
     </>
   );
@@ -666,7 +698,7 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
   // there are.
   const renderExtras = (section?: Partial<MaterialSection> | null) => (
     <>
-{/* COMPARATIVA DE MEDICIÓN — work orders only, per-order flag; the
+      {/* COMPARATIVA DE MEDICIÓN — work orders only, per-order flag; the
           `measurement_comparison` array is empty when disabled */}
       {data.document_type === 'work_order' && data.measurement_comparison.length > 0 ? (
         <View style={{ marginTop: 4 }}>

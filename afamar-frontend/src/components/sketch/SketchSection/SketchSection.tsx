@@ -14,6 +14,8 @@ interface SketchSectionProps {
   hiddenHint?: string;
   /** Override the toggle label (defaults to "Diseño / Croquis"). */
   toggleLabel?: string;
+  /** Unique material names available to label each page of the sketch. */
+  materials?: string[];
 }
 
 export default function SketchSection({
@@ -21,6 +23,7 @@ export default function SketchSection({
   sketchElements, onChange, readOnly,
   hiddenHint = 'Plano oculto.',
   toggleLabel = 'Diseño / Plano',
+  materials = [],
 }: SketchSectionProps) {
   return (
     <div className={s['sketch-section']}>
@@ -36,7 +39,7 @@ export default function SketchSection({
       </div>
       {showCroquis && (
         <div className={s['sketch-section__editor']}>
-          <SketchEditor sketch={sketchElements as never} onChange={onChange} readOnly={readOnly} />
+          <SketchEditor sketch={sketchElements as never} onChange={onChange} readOnly={readOnly} materials={materials} />
         </div>
       )}
     </div>

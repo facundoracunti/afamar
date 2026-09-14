@@ -605,6 +605,114 @@ describe('buildPdfData — grouped alternative sections', () => {
       expect(traforo!.subtotal_ars).toBe(60000);
     }
   });
+
+  it('revalues a GLOBAL frente AND zócalo in PRINCIPAL and every ALTERNATIVA when a main material exists', () => {
+    // Budget-80 report: a budget with a principal material + alternatives and
+    // a GLOBAL frente (selected via the additional-work card → "global") must
+    // show the frente revalued with EACH section's material — PRINCIPAL vs the
+    // main material, each ALTERNATIVA vs its own — exactly like a flat GLOBAL
+    // additional work. Pre-fix this only happened for alternatives-only budgets
+    // (`revalueForOptions` gate), so with a principal present the stored $0
+    // subtotal made the frente invisible in the PDF.
+    const mainAndAltMaterials = [
+      { id: 1, name: 'Negro Brasil', price_m2: 330000, price_m2_usd: 330, currency: 'USD', quantity: 1, m2_used: 0, m2_budgeted: 0, length: 1, width: 1, is_alternative: false },
+      { id: 27, name: 'ZIRCONIUM', price_m2: 750000, price_m2_usd: 750, currency: 'USD', quantity: 1, m2_used: 0, m2_budgeted: 0, length: 1, width: 1, is_alternative: true },
+    ] satisfies MaterialInForm[];
+    const fabrication_details = JSON.stringify([
+      { concept: 'BASEBOARD', detail: '', material: '', material_price_m2: 0, length: 3.3, width: 0.1, m2: 0.33, quantity: 1, currency: 'ARS', price: 0 },
+    ]);
+    const adicionales = JSON.stringify([
+      { additional_work_id: 6, name: 'Frente Ingletetado 45', detail: 'Frente 45', price: 0, currency: 'USD', quantity: 1, total: 0, materialName: '__GLOBAL__', type: 'frente', linear_meters: 3, assigned_material_id: null, formula_values: null },
+    ]);
+
+    const data = buildPdfData({
+      form: makeForm({ materials_data: mainAndAltMaterials, fabrication_details, additional_works_data: adicionales, usd_rate: 1000 }),
+      document_type: 'budget',
+      company: {
+        company_name: 'AFAMAR',
+        company_tagline: '',
+        company_address: '',
+        company_phone: '',
+        company_email: '',
+        company_logo: '',
+        pdf_footer: '',
+      },
+      globalTerms: { budget_terms: [], delivery_terms: [], warranty_text: [] },
+      overrides: {},
+      sketchImages: [],
+    });
+
+    const main = data.sections.find((s) => s.is_main);
+    const alt = data.sections.find((s) => s.material_name === 'ZIRCONIUM');
+    expect(main).toBeDefined();
+    expect(alt).toBeDefined();
+    expect(data.sections).toHaveLength(2);
+
+    // PRINCIPAL — revalued vs the main material (NEGRO BRASIL, USD 330/m²).
+    // Zócalo: 0.33 m² × 330 → 108.90 USD. Frente: 330 × 0.13 × 1.15 × 3 → 148.01 USD.
+    const mainZocalo = main!.fabrication_details.find((f) => f.m2 === 0.33);
+    const mainFrente = main!.additional_works.find((a) => a.type === 'frente');
+    expect(mainZocalo).toBeDefined();
+    expect(mainFrente).toBeDefined();
+    expect(mainZocalo!.subtotal_usd).toBeCloseTo(108.9);
+    expect(mainZocalo!.subtotal_ars).toBeCloseTo(108900);
+    expect(mainFrente!.subtotal_usd).toBeCloseTo(148.01);
+    expect(mainFrente!.subtotal_ars).toBeCloseTo(148010);
+
+    // ALTERNATIVA — revalued vs that option's material (ZIRCONIUM, USD 750/m²).
+    // Zócalo: 0.33 × 750 → 247.50 USD. Frente: 750 × 0.13 × 1.15 × 3 → 336.37 USD.
+    const altZocalo = alt!.fabrication_details.find((f) => f.m2 === 0.33);
+    const altFrente = alt!.additional_works.find((a) => a.type === 'frente');
+    expect(altZocalo).toBeDefined();
+    expect(altFrente).toBeDefined();
+    expect(altZocalo!.subtotal_usd).toBeCloseTo(247.5);
+    expect(altZocalo!.subtotal_ars).toBeCloseTo(247500);
+    expect(altFrente!.subtotal_usd).toBeCloseTo(336.37);
+    expect(altFrente!.subtotal_ars).toBeCloseTo(336370);
+
+    // The document-level subtotal is the PRINCIPAL section: 330.000 (material)
+    // + 108.900 (zócalo) + 148.010 (frente) = 586.910 — the frente now counts.
+    expect(main!.subtotal_ars).toBe(586910);
+    expect(data.subtotal).toBe(586910);
+  });
+
+  it('revalues a GLOBAL frente against the single main material (main-only budget)', () => {
+    const onlyMainMaterials = [
+      { id: 1, name: 'Negro Brasil', price_m2: 330000, price_m2_usd: 330, currency: 'USD', quantity: 1, m2_used: 0, m2_budgeted: 0, length: 1, width: 1, is_alternative: false },
+    ] satisfies MaterialInForm[];
+    const adicionales = JSON.stringify([
+      { additional_work_id: 6, name: 'Frente Ingletetado 45', detail: 'Frente 45', price: 0, currency: 'USD', quantity: 1, total: 0, materialName: '__GLOBAL__', type: 'frente', linear_meters: 3, assigned_material_id: null, formula_values: null },
+    ]);
+
+    const data = buildPdfData({
+      form: makeForm({ materials_data: onlyMainMaterials, additional_works_data: adicionales, usd_rate: 1000 }),
+      document_type: 'budget',
+      company: {
+        company_name: 'AFAMAR',
+        company_tagline: '',
+        company_address: '',
+        company_phone: '',
+        company_email: '',
+        company_logo: '',
+        pdf_footer: '',
+      },
+      globalTerms: { budget_terms: [], delivery_terms: [], warranty_text: [] },
+      overrides: {},
+      sketchImages: [],
+    });
+
+    const main = data.sections.find((s) => s.is_main);
+    expect(main).toBeDefined();
+    expect(data.sections).toHaveLength(1);
+    const frente = main!.additional_works.find((a) => a.type === 'frente');
+    expect(frente).toBeDefined();
+    // NEGRO BRASIL (USD 330/m²): total = 330 × 0.13 × 1.15 × 3 = 148.01 USD.
+    expect(frente!.subtotal_usd).toBeCloseTo(148.01);
+    expect(frente!.subtotal_ars).toBeCloseTo(148010);
+    // 330.000 (material) + 148.010 (frente) = 478.010.
+    expect(main!.subtotal_ars).toBe(478010);
+    expect(data.subtotal).toBe(478010);
+  });
 });
 
 describe('buildPdfData — measurement precision', () => {
@@ -892,6 +1000,38 @@ describe('buildPdfData — discount and surcharge', () => {
     expect(data2.total).toBe(9500);
   });
 
+  it('surfaces a FIXED-AMOUNT catalogue DISCOUNT so the PDF total drops by `value`', () => {
+    // Regression sentinel for the "monto fijo" bug: a DISCOUNT configured
+    // with `is_percentage=false` (e.g. EFECTIVO → $600.000) used to be dead
+    // code behind the `ratio !== 1` gate in buildPdfData — the discount line
+    // and the reduction never appeared. The fixed-amount branch must run
+    // whenever the opt-in flag is on, regardless of the ratio.
+    const fabrication_details = [
+      { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 10000 },
+    ];
+    const transferWithFixedDiscount = PAYMENT_METHODS.map((pm) =>
+      pm.name === 'TRANSFERENCIA BANCARIA'
+        ? { ...pm, type: 'DISCOUNT' as const, value: 3000, is_percentage: false }
+        : pm
+    );
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({
+        fabrication_details,
+        payment_method: 'TRANSFERENCIA BANCARIA',
+        payment_method_id: 2,
+        installments: 1,
+        apply_cash_discount: true,
+      }),
+      paymentMethods: transferWithFixedDiscount,
+      overrides: {},
+    });
+    expect(data.catalogue_discount_percentage).toBe(0);
+    expect(data.catalogue_discount_amount).toBe(3000);
+    expect(data.catalogue_method_label).toBe('Transferencia bancaria');
+    expect(data.total).toBe(7000);
+  });
+
   it('skips catalogue DISCOUNT when apply_cash_discount is false', () => {
     // Regression sentinel: selecting a DISCOUNT payment method must NOT
     // automatically reduce the total. The operator must opt in
@@ -1087,10 +1227,15 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
     },
   ] satisfies MaterialInForm[];
 
-  it('renders comparison rows for work orders when the flag is on (default)', () => {
+  it('renders comparison rows for work orders when the flag is explicitly on', () => {
     const data = buildPdfData({
       ...baseParams,
-      form: makeForm({ materials_data: measuredMaterials, status: 'MEASUREMENT' }),
+      form: makeForm({
+        materials_data: measuredMaterials,
+        status: 'MEASUREMENT',
+        budget_id: 1,
+        include_measurement_comparison_in_pdf: true,
+      }),
       overrides: {},
     });
     expect(data.measurement_comparison).toHaveLength(1);
@@ -1115,6 +1260,7 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
       form: makeForm({
         materials_data: measuredMaterials,
         status: 'MEASUREMENT',
+        budget_id: 1,
         include_measurement_comparison_in_pdf: false,
       }),
       overrides: {},
@@ -1130,6 +1276,124 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
       overrides: {},
     });
     expect(data.measurement_comparison).toEqual([]);
+  });
+
+  it('deduplicates a single catalogue frente assigned to multiple materials (billed in total ML)', () => {
+    // Regression for the case in the screenshot: two NEGRO BRASIL mesadas +
+    // ONE "Frente Ingletetado 45°" assigned to NEGRO BRASIL. The frente is
+    // billed in TOTAL METROS LINEALES (not per mesada), so the comparison
+    // must render it exactly ONCE, not twice.
+    const twoMesadas = [
+      {
+        id: 1,
+        name: 'NEGRO BRASIL',
+        price_m2: 0,
+        price_m2_usd: 330,
+        currency: 'USD' as const,
+        quantity: 1,
+        m2_used: 0,
+        m2_budgeted: 1.728,
+        length: 2.75,
+        width: 0.64,
+        is_alternative: false,
+      },
+      {
+        id: 2,
+        name: 'NEGRO BRASIL',
+        price_m2: 0,
+        price_m2_usd: 330,
+        currency: 'USD' as const,
+        quantity: 1,
+        m2_used: 0,
+        m2_budgeted: 0.384,
+        length: 0.68,
+        width: 0.64,
+        is_alternative: false,
+      },
+    ] satisfies MaterialInForm[];
+    const additional_works_data = JSON.stringify([
+      {
+        additional_work_id: 88,
+        name: 'Frente Ingletetado 45°',
+        currency: 'USD',
+        price: 49.33,
+        quantity: 1,
+        total: 169.20, // 49.33 × 3.43 ml (single item covering both mesadas)
+        materialName: 'NEGRO BRASIL',
+        type: 'frente',
+        linear_meters: 3.43,
+        linear_meters_budgeted: 3.3, // snapshot at budget creation
+        total_ars_budgeted: 5068.0,
+        total_usd_budgeted: 163.49,
+      },
+    ]);
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({
+        materials_data: twoMesadas,
+        additional_works_data,
+        status: 'MEASUREMENT',
+        budget_id: 999,
+        include_measurement_comparison_in_pdf: true,
+      }),
+      overrides: {},
+    });
+    // 2 NEGRO BRASIL rows + exactly 1 frente detail row (deduped).
+    expect(data.measurement_comparison).toHaveLength(3);
+    const detailRows = data.measurement_comparison.filter((r) => r.is_detail);
+    expect(detailRows).toHaveLength(1);
+    expect(detailRows[0].concepto).toBe('Frente Ingletetado 45°');
+    expect(detailRows[0].measure_real).toBe(3.43);
+    expect(detailRows[0].measure_budgeted).toBe(3.3);
+    expect(detailRows[0].measure_delta).toBeCloseTo(0.13);
+    // Subtotal = real_total − budgeted_total in USD: 169.20 − 163.49 = 5.71.
+    expect(detailRows[0].subtotal_usd).toBeCloseTo(5.71);
+  });
+
+  it('keeps the comparison for direct work orders (no budget_id) — the toggle is always available', () => {
+    // Business rule changed: the COMPARATIVA DE MEDICIÓN toggle is now
+    // always visible/usable, including direct work orders. A direct order
+    // has no "estimated" snapshot, so the Presupuestado column renders
+    // "—", but the table is still built (real measures shown).
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({
+        materials_data: measuredMaterials,
+        status: 'MEASUREMENT',
+        budget_id: null, // direct work order, no budget origin
+        include_measurement_comparison_in_pdf: true, // opt-in, as in the form
+      }),
+      overrides: {},
+    });
+    expect(data.measurement_comparison).toHaveLength(1);
+  });
+
+  it('hides the comparison for direct work orders when the explicit flag is off', () => {
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({
+        materials_data: measuredMaterials,
+        status: 'MEASUREMENT',
+        budget_id: null, // direct work order, no budget origin
+        include_measurement_comparison_in_pdf: false,
+      }),
+      overrides: {},
+    });
+    expect(data.measurement_comparison).toEqual([]);
+  });
+
+  it('keeps the comparison when budget_id is present (work order converted from budget)', () => {
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({
+        materials_data: measuredMaterials,
+        status: 'MEASUREMENT',
+        budget_id: 42, // converted from budget
+        include_measurement_comparison_in_pdf: true,
+      }),
+      overrides: {},
+    });
+    expect(data.measurement_comparison).toHaveLength(1);
   });
 
   it('shows a positive ARS subtotal even when measured below budget', () => {
@@ -1150,7 +1414,12 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
     ] satisfies MaterialInForm[];
     const data = buildPdfData({
       ...baseParams,
-      form: makeForm({ materials_data: lessMaterial, status: 'MEASUREMENT' }),
+      form: makeForm({
+        materials_data: lessMaterial,
+        status: 'MEASUREMENT',
+        budget_id: 1,
+        include_measurement_comparison_in_pdf: true,
+      }),
       overrides: {},
     });
     const row = data.measurement_comparison[0];
@@ -1206,6 +1475,8 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
         fabrication_details,
         additional_works_data: adicionales,
         status: 'MEASUREMENT',
+        budget_id: 1,
+        include_measurement_comparison_in_pdf: true,
       }),
       overrides: {},
     });
@@ -1298,6 +1569,8 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
         fabrication_details,
         additional_works_data: adicionales,
         status: 'MEASUREMENT',
+        budget_id: 1,
+        include_measurement_comparison_in_pdf: true,
       }),
       overrides: {},
     });
@@ -1392,6 +1665,8 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
           },
         ],
         status: 'MEASUREMENT',
+        budget_id: 1,
+        include_measurement_comparison_in_pdf: true,
       }),
       overrides: {},
     });
@@ -1408,5 +1683,41 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
     const totalUsd = data.measurement_comparison.reduce((s, r) => s + r.subtotal_usd, 0);
     expect(totalArs).toBe(0);
     expect(totalUsd).toBe(0);
+  });
+
+  it('exposes the active payment-methods catalogue for the PDF reference box', () => {
+    // The "METODO DE PAGO" box in the PDF must consume the catalogue from
+    // /admin/configuration/payment-methods: active rows only, uppercase
+    // `name`s ordered by `sort_order` (the same convention as the "Forma
+    // de pago:" row).
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({ payment_method: 'EFECTIVO', payment_method_id: 1, installments: 1 }),
+      paymentMethods: PAYMENT_METHODS,
+      overrides: {},
+    });
+    expect(data.payment_methods_catalogue).toEqual([
+      'EFECTIVO',
+      'TRANSFERENCIA BANCARIA',
+      'TARJETA DE DÉBITO',
+      'TARJETA DE CRÉDITO',
+    ]);
+  });
+
+  it('excludes inactive payment methods from the catalogue reference box', () => {
+    const withHidden = PAYMENT_METHODS.map((p, i) =>
+      i === 2 ? { ...p, is_active: false } : p,
+    );
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({ payment_method: 'EFECTIVO', payment_method_id: 1, installments: 1 }),
+      paymentMethods: withHidden,
+      overrides: {},
+    });
+    expect(data.payment_methods_catalogue).toEqual([
+      'EFECTIVO',
+      'TRANSFERENCIA BANCARIA',
+      'TARJETA DE CRÉDITO',
+    ]);
   });
 });

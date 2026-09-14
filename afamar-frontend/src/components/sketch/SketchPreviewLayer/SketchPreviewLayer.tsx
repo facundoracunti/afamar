@@ -1,9 +1,9 @@
 import React from 'react';
-import { Line, Rect } from 'react-konva';
+import { Line, Rect, Circle } from 'react-konva';
 import type { Point } from '@/types/sketch';
 
 interface SketchPreviewLayerProps {
-  tool: 'line' | 'rect' | 'cutout' | 'select' | 'text';
+  tool: 'line' | 'rect' | 'cutout' | 'circle' | 'select' | 'text';
   isDrawing: boolean;
   drawStart: Point | null;
   drawEnd: Point | null;
@@ -16,6 +16,21 @@ export function SketchPreviewLayer({ tool, isDrawing, drawStart, drawEnd }: Sket
     return (
       <Line
         points={[drawStart.x, drawStart.y, drawEnd.x, drawEnd.y]}
+        stroke="#3b82f6"
+        strokeWidth={1.5}
+        dash={[6, 4]}
+        listening={false}
+      />
+    );
+  }
+
+  if (tool === 'circle') {
+    const r = Math.hypot(drawEnd.x - drawStart.x, drawEnd.y - drawStart.y);
+    return (
+      <Circle
+        x={drawStart.x}
+        y={drawStart.y}
+        radius={r}
         stroke="#3b82f6"
         strokeWidth={1.5}
         dash={[6, 4]}

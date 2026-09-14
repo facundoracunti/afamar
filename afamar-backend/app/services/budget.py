@@ -19,8 +19,42 @@ from app.services.budget_calculator import (
     parse_materials_data,
 )
 from app.services.frente_pricing import apply_frente_rows
+from app.core.settings import settings
 from app.utils.client_helpers import resolve_client_id
 from app.utils.numbering import generate_budget_number, generate_work_order_number
+
+
+def _flatten_sketch_pages(sketch_data: list) -> list:
+    """Normalise the frontend wire format for `sketch_elements` into the
+    flat list of `{type, data, order}` rows the `BudgetSketchElement` 1-N
+    table expects.
+
+    Two shapes arrive:
+      1. New page shape (WorkOrders persist it): `[{ pagina_id, name,
+         material?, dibujo: [{type, data, order}] }, ...]`. Budget has no
+         per-page column, so we flatten `dibujo` rows back into elements.
+      2. Legacy flat element list `[{type, data, order}]` — returned as-is.
+    """
+    out = []
+    for item in sketch_data:
+        if not isinstance(item, dict):
+            continue
+        dibujo = item.get("dibujo")
+        if isinstance(dibujo, list) and dibujo:
+            for el in dibujo:
+                if isinstance(el, dict) and el.get("type"):
+                    out.append({
+                        "type": el.get("type"),
+                        "data": el.get("data"),
+                        "order": el.get("order"),
+                    })
+        elif item.get("type"):
+            out.append({
+                "type": item.get("type"),
+                "data": item.get("data"),
+                "order": item.get("order"),
+            })
+    return out
 
 
 def _sync_children(budget: Budget, repo: BudgetRepository, attr: str, model_class, data_list: Optional[List[Dict]]):
@@ -45,6 +79,7 @@ def _sync_children(budget: Budget, repo: BudgetRepository, attr: str, model_clas
 def _process_additional_works_snapshot(
     db: Session,
     raw_json: Optional[str],
+    usd_rate: Optional[float] = None,
 ) -> Optional[str]:
     """Take the JSON snapshot from the form, resolve any `frente`
     rows against their linked Material row, and return the serialised
@@ -54,6 +89,15 @@ def _process_additional_works_snapshot(
     Rows that aren't `frente` pass through unchanged. Rows whose linked
     catalogue item or material can't be found are kept verbatim so the
     budget doesn't lose data when an item is deleted after the fact.
+
+    After applying the catalogue pricing we ALSO snapshot the dimensional
+    budgeted measure (`linear_meters_budgeted`) and the budgeted monetary
+    totals (`total_ars_budgeted` / `total_usd_budgeted`) for each frente.
+    These snapshots are what the COMPARATIVA DE MEDICIÓN of the resulting
+    work order needs to render the "Presupuestado" column and the delta
+    vs the Real measurement. Without them the comparison would show "—"
+    in Presupuestado for every frente and the deltas would be wrong the
+    moment the operator edits the measure in MEASUREMENT.
     """
     if not raw_json:
         return raw_json
@@ -88,11 +132,48 @@ def _process_additional_works_snapshot(
             m.id: m for m in db.query(Material).filter(Material.id.in_(material_ids)).all()
         }
 
-    processed = apply_frente_rows(
-        rows,
-        catalogue_by_id=catalogue_by_id,
-        materials_by_id=materials_by_id,
+    try:
+        processed = apply_frente_rows(
+            rows,
+            catalogue_by_id=catalogue_by_id,
+            materials_by_id=materials_by_id,
+        )
+    except Exception as e:
+        return json.dumps(rows, ensure_ascii=False)
+
+    # Snapshot the dimensional budgeted measure and the budgeted monetary
+    # totals for every `frente` row, so the COMPARATIVA DE MEDICIÓN of the
+    # converted work order can render the Presupuestado column and the
+    # delta vs Real. We freeze the snapshot at the moment the BUDGET is
+    # saved (the conversion path reuses the same JSON, so the snapshot
+    # survives the budget → work order handoff). See WorkOrderService.
+    # create_from_budget for the matching read-side snapshot logic on
+    # work-order creation.
+    effective_usd_rate = float(
+        usd_rate if usd_rate not in (None, 0) else settings.DEFAULT_USD_RATE
     )
+    snapped: List[Dict] = []
+    for r in processed:
+        if not isinstance(r, dict) or str(r.get("type") or "").lower() != "frente":
+            snapped.append(r)
+            continue
+        row_currency = "USD" if str(r.get("currency") or "").upper() == "USD" else "ARS"
+        price = float(r.get("price") or 0)
+        quantity = float(r.get("quantity") or 1)
+        total_src = float(r.get("total") or price * quantity)
+        if row_currency == "ARS":
+            snap_ars = total_src
+            snap_usd = total_src / effective_usd_rate if effective_usd_rate > 0 else 0
+        else:
+            snap_usd = total_src
+            snap_ars = total_src * effective_usd_rate if effective_usd_rate > 0 else 0
+        r["total_ars_budgeted"] = snap_ars
+        r["total_usd_budgeted"] = snap_usd
+        if "linear_meters" in r and r.get("linear_meters") is not None:
+            r["linear_meters_budgeted"] = float(r.get("linear_meters") or 0)
+        snapped.append(r)
+    processed = snapped
+
     return json.dumps(processed, ensure_ascii=False)
 
 
@@ -159,6 +240,7 @@ class BudgetService:
                 sketch_data = []
         elif isinstance(raw_sketch, list):
             sketch_data = raw_sketch
+        sketch_data = _flatten_sketch_pages(sketch_data)
         last_number = self.repo.get_last_number()
         data["number"] = generate_budget_number(last_number)
         data["client_id"] = resolve_client_id(
@@ -171,7 +253,9 @@ class BudgetService:
         # kept for historical rows and could be migrated in a follow-up).
         if raw_additional_works_data is not None:
             budget.additional_works_data = _process_additional_works_snapshot(
-                self.repo.db, raw_additional_works_data
+                self.repo.db,
+                raw_additional_works_data,
+                usd_rate=data.get("usd_rate"),
             )
         for item_data in items_data:
             item = BudgetItem(budget_id=budget.id, **item_data)
@@ -209,10 +293,13 @@ class BudgetService:
                 sketch_data = []
         elif isinstance(raw_sketch, list):
             sketch_data = raw_sketch
+        sketch_data = _flatten_sketch_pages(sketch_data or [])
         budget = self.repo.update(budget, data)
         if raw_additional_works_data is not None:
             budget.additional_works_data = _process_additional_works_snapshot(
-                self.repo.db, raw_additional_works_data
+                self.repo.db,
+                raw_additional_works_data,
+                usd_rate=data.get("usd_rate") or budget.usd_rate,
             )
         _sync_children(budget, self.repo, "sketch_elements", BudgetSketchElement, sketch_data)
         self.repo.db.commit()

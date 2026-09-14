@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Printer, Lock, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
-import { getDailyCash, createCashMovement, deleteCashMovement, setPreviousBalance, closeDailyCash } from '@/api/resources/cash';
+import { getCurrentCash, createCashMovement, deleteCashMovement, setPreviousBalance, closeCash } from '@/api/resources/cash';
+import type { CashMovePayload } from '@/api/resources/cash';
+import type { CashRegister, CashMovement } from '../../types/cash';
 import { useGet } from '../../api/hooks';
-import { formatCurrency, todayLocalISO } from '../../utils/formatters';
+import { formatCurrency } from '../../utils/formatters';
 import { folderStatusClass } from '../../constants';
+import { t } from '../../utils/translate';
 import { parseApiError } from '../../utils/error';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
@@ -18,11 +21,14 @@ import styles from './CashDailyPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
 
+function formatDateTime(iso?: string | null): string {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  return `${d.toLocaleDateString('es-AR')} ${d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}`;
+}
+
 export default function CashDailyPage() {
-  const today = todayLocalISO();
-  const [date, setDate] = useState<string>(today);
   const [previousBalance, setPreviousBalanceState] = useState<number>(0);
-  const [movements, setMovements] = useState<Record<string, unknown>[]>([]);
   const [previousBalanceEdit, setPreviousBalanceEdit] = useState<boolean>(false);
 
   const [showIncome, setShowIncome] = useState<boolean>(false);
@@ -30,29 +36,29 @@ export default function CashDailyPage() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
   const [showClose, setShowClose] = useState<boolean>(false);
-  const [closed, setClosed] = useState<boolean>(false);
 
   const notify = useNotify();
 
-  const { data: cashData, loading, load: loadCaja } = useGet<Record<string, unknown>>(
-    ['cash', 'daily', date],
+  const { data: cashData, loading, load: loadCaja } = useGet<CashRegister | undefined>(
+    ['cash', 'current'],
     async () => {
-      const res = await getDailyCash(date);
-      return (res.data as Record<string, unknown>) || {};
-    }
+      const res = await getCurrentCash();
+      return (res.data as CashRegister) || undefined;
+    },
+    true,
+    5000,
+    0,
   );
 
-  useEffect(() => {
-    if (!cashData) return;
-    const movs = (cashData.movements as Record<string, unknown>[]) || [];
-    setPreviousBalanceState((cashData.previous_balance as number) ?? 0);
-    setMovements(movs);
-    setClosed((cashData.is_closed as boolean) || false);
-  }, [cashData]);
+  const movements = (cashData?.movements as CashMovement[] | undefined) || [];
+  const isClosed = !!cashData?.is_closed;
+  const boxNumber = cashData?.number;
+  const openedAt = cashData?.opened_at;
+  const closedAt = cashData?.closed_at;
 
   const handleSavePreviousBalance = async () => {
     try {
-      await setPreviousBalance(date, previousBalance);
+      await setPreviousBalance(previousBalance);
       setPreviousBalanceEdit(false);
       loadCaja();
     } catch (err: unknown) {
@@ -62,7 +68,7 @@ export default function CashDailyPage() {
 
   const handleAddIncome = async (data: Record<string, unknown>) => {
     try {
-      await createCashMovement({ ...data, date: date });
+      await createCashMovement(data as CashMovePayload);
       setShowIncome(false);
       await loadCaja();
     } catch (err: unknown) {
@@ -72,7 +78,7 @@ export default function CashDailyPage() {
 
   const handleAddExpense = async (data: Record<string, unknown>) => {
     try {
-      await createCashMovement({ ...data, date: date });
+      await createCashMovement(data as CashMovePayload);
       setShowExpense(false);
       await loadCaja();
     } catch (err: unknown) {
@@ -93,9 +99,11 @@ export default function CashDailyPage() {
 
   const handleCloseCash = async (notes: string) => {
     try {
-      await closeDailyCash(date, notes || undefined);
+      const res = await closeCash(notes || undefined);
+      const next = res.data?.next_cash;
       setShowClose(false);
       await loadCaja();
+      notify(next?.number ? `Caja #${next.number} abierta` : 'Caja cerrada', 'success');
     } catch (err: unknown) {
       notify(parseApiError(err, 'Error al cerrar la caja'), 'error');
     }
@@ -103,23 +111,22 @@ export default function CashDailyPage() {
 
   const handlePrint = () => window.print();
 
-  const incomes = movements.filter((m: Record<string, unknown>) => m.type === 'INCOME');
-  const expenses = movements.filter((m: Record<string, unknown>) => m.type === 'EXPENSE');
+  const incomes = movements.filter((m) => m.type === 'INCOME');
+  const expenses = movements.filter((m) => m.type === 'EXPENSE');
 
-  const totalIngresos = incomes.reduce((s: number, m: Record<string, unknown>) => s + ((m.amount as number) || 0), 0);
-  const totalSalidas = expenses.reduce((s: number, m: Record<string, unknown>) => s + ((m.amount as number) || 0), 0);
-  const suma = (previousBalance || 0) + totalIngresos;
-  const currentBalance = suma - totalSalidas;
+  const currentBalance = cashData?.current_balance ?? 0;
+  const realCash = cashData?.real_cash ?? 0;
 
-  const cashIncome = incomes
-    .filter((m: Record<string, unknown>) => ((m.payment_method as string) || '').toUpperCase() === 'CASH')
-    .reduce((s: number, m: Record<string, unknown>) => s + ((m.amount as number) || 0), 0);
-  const totalBankTransfers = expenses
-    .filter((m: Record<string, unknown>) => (m.expense_type as string) === 'BANK_TRANSFER')
-    .reduce((s: number, m: Record<string, unknown>) => s + ((m.amount as number) || 0), 0);
-  const efectivoReal = (previousBalance || 0) + cashIncome - (totalSalidas - totalBankTransfers);
-
-  const isToday = date === today;
+  // Mantiene el input del saldo anterior en sync con el valor persistido de
+  // la caja, PERO solo cuando NO estamos editando (si el operador está
+  // tipeando, no pisan lo que escribe). Sin esto, el input controla por
+  // `cashData?.previous_balance` (que no cambia hasta guardar) y lo que se
+  // escribe no aparece.
+  useEffect(() => {
+    if (!previousBalanceEdit) {
+      setPreviousBalanceState(cashData?.previous_balance ?? 0);
+    }
+  }, [cashData?.previous_balance, previousBalanceEdit]);
 
   return (
     <div className={s['cash']}>
@@ -136,31 +143,29 @@ export default function CashDailyPage() {
       <div id="print-area">
         <div className={`print-only ${s['cash__print-header']}`}>
           <h1 className={s['cash__print-title']}>CIERRE DE CAJA</h1>
-          <p className={s['cash__print-date']}>Fecha: {date}</p>
+          {boxNumber !== undefined && boxNumber !== null && (
+            <p className={s['cash__print-date']}>Caja #{boxNumber}</p>
+          )}
+          <p className={s['cash__print-date']}>
+            Apertura: {formatDateTime(openedAt)}
+            {closedAt ? ` — Cierre: ${formatDateTime(closedAt)}` : ''}
+          </p>
           <hr className={s['cash__print-hr']} />
         </div>
 
         {/* Header */}
         <div className={s['cash__page-header']}>
-          <h1 className={`no-print ${s['cash__page-header-title']}`}>Caja Diaria</h1>
+          <h1 className={`no-print ${s['cash__page-header-title']}`}>
+            Caja {boxNumber !== undefined && boxNumber !== null ? `#${boxNumber}` : ''}
+            {isClosed ? <span className={`badge badge-finished ${s['cash__badge']}`}>Cerrada</span>
+              : <span className={`badge badge-approved ${s['cash__badge']}`}>Abierta</span>}
+          </h1>
           <div className={`no-print ${s['cash__controls']}`}>
-            <input
-              type="date"
-              className={`input ${s['cash__date-input']}`}
-              value={date}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDate(e.target.value)}
-            />
-            {!isToday && (
-              <button className="btn btn-outline" onClick={() => setDate(today)}>Hoy</button>
-            )}
-            {isToday && !closed && (
+            {!isClosed && (
               <button className={`btn btn-danger ${s['cash__controls-btn']}`}
                 onClick={() => setShowClose(true)}>
-                <Lock size={14} className={s['cash__icon-inline']} /> Cerrar Caja del Día
+                <Lock size={14} className={s['cash__icon-inline']} /> Cerrar Caja
               </button>
-            )}
-            {closed && (
-              <span className={`badge badge-finished ${s['cash__badge']}`}>Cerrada</span>
             )}
             <button className={`btn btn-outline no-print-keep ${s['cash__controls-btn']}`}
               onClick={handlePrint}>
@@ -169,9 +174,14 @@ export default function CashDailyPage() {
           </div>
         </div>
 
+        <div className={s['cash__meta']}>
+          <span>Apertura: <strong>{formatDateTime(openedAt)}</strong></span>
+          {closedAt && <span>Cierre: <strong>{formatDateTime(closedAt)}</strong></span>}
+        </div>
+
         <PreviousBalanceCard
           previousBalance={previousBalance}
-          cerrada={closed}
+          cerrada={isClosed}
           editMode={previousBalanceEdit}
           onEdit={() => setPreviousBalanceEdit(true)}
           onCancel={() => { setPreviousBalanceEdit(false); loadCaja(); }}
@@ -190,29 +200,28 @@ export default function CashDailyPage() {
                 emptyMessage="Sin ingresos registrados"
                 movements={incomes}
                 columns={[
-                  { key: 'order_number', label: 'N° Orden', width: 90, render: (m) => <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{(m as Record<string, unknown>).order_number as string || '-'}</span> },
-                  { key: 'client_name', label: 'Cliente', render: (m) => ((m as Record<string, unknown>).client_name as string) || '-' },
-                  { key: 'amount', label: 'Monto', width: 110, render: (m) => <span className={s['cash__amount--income']}>{formatCurrency((m as Record<string, unknown>).amount as number)}</span> },
+                  { key: 'order_number', label: 'N° Orden', width: 90, render: (m) => <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{m.order_number || '-'}</span> },
+                  { key: 'client_name', label: 'Cliente', render: (m) => m.client_name || '-' },
+                  { key: 'amount', label: 'Monto', width: 110, render: (m) => <span className={s['cash__amount--income']}>{formatCurrency(m.amount)}</span> },
                   { key: 'remaining_balance', label: 'Saldo Restante', width: 110, render: (m) => {
-                      const v = (m as Record<string, unknown>).remaining_balance as number | null | undefined;
+                      const v = m.remaining_balance as number | null | undefined;
                       return v !== null && v !== undefined
                         ? <span className={v > 0 ? s['cash__amount--expense'] : s['cash__balance--positive']}>{formatCurrency(v)}</span>
                         : '-';
                     }
                   },
-                  { key: 'payment_method', label: 'Pago', width: 100, render: (m) => {
-                      const pm = (m as Record<string, unknown>).payment_method as string;
-                      const cls = pm === 'CASH' ? 'badge-approved' : pm === 'TRANSFER' ? 'badge-production' : 'badge-pending';
-                      return <span className={`badge ${cls}`}>{pm || '-'}</span>;
+                  { key: 'payment_method', label: 'Pago', width: 140, render: (m) => {
+                      const pm = m.payment_method as string;
+                      return <span className="badge badge-pending">{pm || '-'}</span>;
                     }
                   },
-                  { key: 'folder_status', label: 'Carpeta', width: 90, render: (m) => {
-                      const fs = (m as Record<string, unknown>).folder_status as string | undefined;
-                      return fs ? <span className={`badge ${folderStatusClass(fs)}`}>{fs}</span> : '-';
+                  { key: 'folder_status', label: 'Estado', width: 110, render: (m) => {
+                      const fs = m.folder_status as string | undefined;
+                      return fs ? <span className={`badge ${folderStatusClass(fs)}`}>{t(fs)}</span> : '-';
                     }
                   },
                 ]}
-                closed={closed}
+                closed={isClosed}
                 onAdd={() => setShowIncome(true)}
                 onDelete={(id: number) => setDeleteId(id)}
               />
@@ -224,22 +233,27 @@ export default function CashDailyPage() {
                 emptyMessage="Sin egresos registrados"
                 movements={expenses}
                 columns={[
-                  { key: 'description', label: 'Concepto', render: (m) => ((m as Record<string, unknown>).description as string) || '-' },
-                  { key: 'amount', label: 'Monto', width: 110, render: (m) => <span className={s['cash__amount--expense']}>{formatCurrency((m as Record<string, unknown>).amount as number)}</span> },
+                  { key: 'description', label: 'Concepto', render: (m) => m.description || '-' },
+                  { key: 'amount', label: 'Monto', width: 110, render: (m) => <span className={s['cash__amount--expense']}>{formatCurrency(m.amount)}</span> },
                   { key: 'expense_type', label: 'Tipo', width: 90, render: (m) => {
-                      const et = (m as Record<string, unknown>).expense_type as string;
+                      const et = m.expense_type as string;
                       const cls = et === 'GENERAL' ? 'badge-rejected' : 'badge-production';
                       return <span className={`badge ${cls}`}>{et || 'GENERAL'}</span>;
                     }
                   },
                 ]}
-                closed={closed}
+                closed={isClosed}
                 onAdd={() => setShowExpense(true)}
                 onDelete={(id: number) => setDeleteId(id)}
               />
             </div>
 
-            <CashTotalCards suma={suma} totalSalidas={totalSalidas} currentBalance={currentBalance} efectivoReal={efectivoReal} />
+            <CashTotalCards
+              suma={cashData?.total_sum ?? 0}
+              totalSalidas={cashData?.total_expenses ?? 0}
+              currentBalance={currentBalance}
+              efectivoReal={realCash}
+            />
           </>
         )}
 
@@ -258,7 +272,7 @@ export default function CashDailyPage() {
         confirmLabel="Eliminar"
         danger />
 
-      <CloseCashModal isOpen={showClose} onClose={() => setShowClose(false)} onConfirm={handleCloseCash} fecha={date} />
+      <CloseCashModal isOpen={showClose} onClose={() => setShowClose(false)} onConfirm={handleCloseCash} numero={boxNumber} totales={cashData} />
     </div>
   );
 }

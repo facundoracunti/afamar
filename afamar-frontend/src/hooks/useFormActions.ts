@@ -1,8 +1,18 @@
 import { parseApiError } from '../utils/error';
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { EntityFormState, EntityServices } from '../types';
 import { todayLocalISO } from './entityFormHelpers';
 import { applyCreditCardAutoFill } from '../utils/creditCardAutoFill';
+
+/** Describes what a save/delete did, so `onAfterAction` callers can
+ *  branch (e.g. the work-order form navigates to the freshly-created
+ *  record's edit page after a create and stays put after an update). */
+export interface AfterActionInfo {
+  created?: boolean;
+  deleted?: boolean;
+  id?: number | string | null;
+}
 
 interface UseFormActionsParams {
   form: EntityFormState;
@@ -23,8 +33,9 @@ interface UseFormActionsParams {
   onError?: (message: string) => void;
   /** If provided, replaces the `navigate(services.listPath)` call after
    *  submit and delete with this callback. The page-mode default keeps
-   *  the original behaviour; modal mode wires this to close the modal. */
-  onAfterAction?: () => void;
+   *  the original behaviour; modal mode wires this to close the modal.
+   *  `info` tells the caller what happened so it can decide. */
+  onAfterAction?: (info?: AfterActionInfo) => void;
 }
 
 /**
@@ -49,9 +60,32 @@ export function useFormActions({
   onError,
   onAfterAction,
 }: UseFormActionsParams) {
+  const queryClient = useQueryClient();
+  // Guards against double-submission while a save is in flight. Some forms
+  // render the GUARDAR button as type="submit" inside a <form> that also
+  // wires onSubmit, so a single click can fire two handleSubmit calls;
+  // without this ref the duplicate POST creates two identical documents
+  // (and two seña movements in the cash box).
+  const submittingRef = useRef(false);
+  // Once a CREATE succeeds on this mount, block ANY further submit on it.
+  // Even with the in-flight guard, the `finally` block re-enables the
+  // button before the post-create navigation unmounts the form, leaving a
+  // few-ms window where a second click would POST a duplicate order. This
+  // ref closes that window permanently (a create that already happened can
+  // never happen again on the same mount).
+  const createdRef = useRef(false);
+  // After any WO/Budget save that may have created/repaid a seña in the
+  // open cash box, mark the cash query stale so the next visit to
+  // /admin/cash always refetches (the page itself also polls every 5s).
+  const invalidateCash = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['cash', 'current'] });
+  }, [queryClient]);
+
   const handleSubmit = useCallback(
     async (e?: React.FormEvent): Promise<boolean> => {
+      if (submittingRef.current || createdRef.current) return false;
       if (e) e.preventDefault();
+      submittingRef.current = true;
       setSaving(true);
       try {
         const payload = { ...buildPayload(), ...(extraPayloadFields?.() ?? {}) };
@@ -71,29 +105,39 @@ export function useFormActions({
         );
         if (isEdit) {
           await services.update(id as string, payload);
+          if (onAfterAction) onAfterAction({ created: false });
+          else navigate(services.listPath);
         } else {
-          await services.create(payload);
+          // Se captura la entidad recién creada para que el caller pueda
+          // navegar a su página de edición. `createdRef` se setea ANTES de
+          // navegar: aunque `finally` re-habilite el botón en la micro-ventana
+          // previa al desmonte, ya no se puede re-POSTear otra orden.
+          const created = await services.create(payload);
+          createdRef.current = true;
+          const createdId = (created?.data?.id ?? created?.id ?? null) as number | string | null;
+          if (onAfterAction) onAfterAction({ created: true, id: createdId });
+          else navigate(services.listPath);
         }
         if (wasRejected) {
           setForm((prev) => ({ ...prev, status: 'PENDING' }));
         }
-        if (onAfterAction) onAfterAction();
-        else navigate(services.listPath);
+        invalidateCash();
         return true;
       } catch (err: unknown) {
         onError?.(parseApiError(err, 'Error al guardar'));
         return false;
       } finally {
+        submittingRef.current = false;
         setSaving(false);
       }
     },
-    [isEdit, id, services, navigate, form.status, form.payment_method, form.total, form.total_usd, buildPayload, extraPayloadFields, setSaving, setForm, onError]
+    [isEdit, id, services, navigate, form.status, form.payment_method, form.total, form.total_usd, buildPayload, extraPayloadFields, invalidateCash, setSaving, setForm, onError]
   );
 
   const handleDelete = useCallback(async () => {
     if (!id) return;
     await services.delete(id);
-    if (onAfterAction) onAfterAction();
+    if (onAfterAction) onAfterAction({ deleted: true });
     else navigate(services.listPath);
   }, [id, services, onAfterAction]);
 
@@ -122,13 +166,14 @@ export function useFormActions({
         }
         await services.update(id as string, payload);
         setForm((prev) => ({ ...prev, ...payload, status: newStatus }));
+        invalidateCash();
       } catch (err: unknown) {
         onError?.(parseApiError(err, 'Error al cambiar estado'));
       } finally {
         setSaving(false);
       }
     },
-    [id, form.total, form.total_usd, form.payment_method, services, setForm, setSaving, onError]
+    [id, form.total, form.total_usd, form.payment_method, services, invalidateCash, setForm, setSaving, onError]
   );
 
   const handlePrint = useCallback(() => {

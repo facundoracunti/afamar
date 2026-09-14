@@ -31,6 +31,15 @@ class WorkOrder(Base):
     finish: Mapped[str] = mapped_column(String(100), nullable=True)
     bacha: Mapped[str] = mapped_column(String(100), nullable=True)
     anafe: Mapped[str] = mapped_column(String(100), nullable=True)
+    # Workshop sheet fields. Printed BLANK on the "FICHA DE TALLER" PDF so the
+    # shop-floor workers fill them by hand (they don't work on computers).
+    # Technical spec grid: Corte, Faja, Perf, Tras/PEG, Terminación, Sopapas.
+    workshop_corte: Mapped[str] = mapped_column(String(100), nullable=True)
+    workshop_faja: Mapped[str] = mapped_column(String(100), nullable=True)
+    workshop_perf: Mapped[str] = mapped_column(String(100), nullable=True)
+    workshop_tras_peg: Mapped[str] = mapped_column(String(100), nullable=True)
+    workshop_term: Mapped[str] = mapped_column(String(100), nullable=True)
+    workshop_sopapas: Mapped[str] = mapped_column(String(100), nullable=True)
 
     currency: Mapped[str] = mapped_column(String(5), default="ARS")
     usd_rate: Mapped[float] = mapped_column(Float, default=1000.0)
@@ -51,6 +60,16 @@ class WorkOrder(Base):
     balance_due_usd: Mapped[float] = mapped_column(Float, default=0.0)
     balance_paid: Mapped[bool] = mapped_column(Boolean, default=False)
     balance_paid_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    # Idempotency flags for the cash box (so a WO's money enters EXACTLY once,
+    # regardless of double-POSTs or re-saves):
+    # - `sena_registered`: the initial seña (deposit) has already been booked
+    #   as a cash INCOME at create()/create_from_budget().
+    # - `saldo_registered`: the remaining balance (balance_due) has already
+    #   been booked as a cash INCOME when the WO transitioned to DELIVERED.
+    # Both are set server-side in the same transaction that books the movement;
+    # once set they make any further booking a no-op.
+    sena_registered: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    saldo_registered: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     payment_method: Mapped[str] = mapped_column(String(50), nullable=True)
     installments: Mapped[int] = mapped_column(Integer, default=1)
     # JSON-encoded list[dict] (cuota, interes, monto) for the per-cuota
@@ -97,9 +116,10 @@ class WorkOrder(Base):
     warranty_override: Mapped[str] = mapped_column(Text, nullable=True)
     # Whether the "COMPARATIVA DE MEDICIÓN" table (Concepto | M² Real |
     # M² Presupuestado | Diferencia) is printed in this order's PDF.
-    # Defaults to `True`; the operator can toggle it per order in the form.
+    # Defaults to `False` (opt-in); the operator toggles it per order in
+    # the form.
     include_measurement_comparison_in_pdf: Mapped[bool] = mapped_column(
-        Boolean, default=True, server_default="1"
+        Boolean, default=False, server_default="0"
     )
     # Per-order opt-in for the promotional discount configured on the
     # selected payment method (e.g. "Efectivo — descuento 7%"). Off by

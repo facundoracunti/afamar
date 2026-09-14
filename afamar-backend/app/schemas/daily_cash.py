@@ -1,4 +1,4 @@
-from datetime import date, datetime
+import datetime
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
@@ -19,7 +19,8 @@ class CashMovementBase(BaseModel):
 
 
 class CashMovementCreate(CashMovementBase):
-    date: date
+    # No `date`: the movement always lands on the single currently-open box.
+    pass
 
 
 class CashMovementUpdate(BaseModel):
@@ -33,39 +34,59 @@ class CashMovementUpdate(BaseModel):
 class CashMovementResponse(CashMovementBase):
     id: int
     daily_cash_id: int
-    created_at: Optional[datetime] = None
+    created_at: Optional[datetime.datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
-class DailyCashBase(BaseModel):
-    date: date
-    previous_balance: float = 0
-
-
 class DailyCashResponse(BaseModel):
     id: int
-    date: date
-    previous_balance: float
-    total_income: float
-    total_expenses: float
-    total_sum: float
-    current_balance: float
-    real_cash: float
+    number: Optional[int] = None
+    opened_at: Optional[datetime.datetime] = None
+    closed_at: Optional[datetime.datetime] = None
+    previous_balance: float = 0
+    total_income: float = 0
+    total_expenses: float = 0
+    total_sum: float = 0
+    current_balance: float = 0
+    real_cash: float = 0
     is_closed: bool = False
     notes: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: Optional[datetime.datetime] = None
+    updated_at: Optional[datetime.datetime] = None
     movements: list[CashMovementResponse] = []
 
     model_config = ConfigDict(from_attributes=True)
 
 
+class OpenCashRequest(BaseModel):
+    previous_balance: float = 0
+
+
 class UpdatePreviousBalance(BaseModel):
-    date: date
-    previous_balance: float
+    previous_balance: float = 0
 
 
 class CloseCashRequest(BaseModel):
-    date: date
     notes: Optional[str] = None
+
+
+class CashSummary(BaseModel):
+    number: Optional[int] = None
+    opened_at: Optional[datetime.datetime] = None
+    closed_at: Optional[datetime.datetime] = None
+    duration_seconds: int = 0
+    total_by_payment: dict[str, float] = {}
+    ingreso_count: int = 0
+    egreso_count: int = 0
+    previous_balance: float = 0
+    total_income: float = 0
+    total_expenses: float = 0
+    current_balance: float = 0
+    real_cash: float = 0
+
+
+class CloseCashResponse(BaseModel):
+    closed_cash: DailyCashResponse
+    summary: CashSummary
+    next_cash: DailyCashResponse

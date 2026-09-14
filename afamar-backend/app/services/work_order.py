@@ -58,27 +58,50 @@ def _stash_sketch_into_budgeted_details(data: dict) -> None:
 
 def _create_cash_movement_on_deposit(
     db: Session,
-    order_number: str,
-    client_name: str,
-    deposit: float,
+    order: "WorkOrder",
+    amount: float,
     deposit_currency: str | None,
     payment_method: str | None,
-):
-    if not deposit or deposit <= 0:
-        return
+) -> bool:
+    """Book a cash INCOME for a work order exactly once.
+
+    Idempotency guard: a WO's money must enter the cash box only ONCE, no
+    matter how many times create()/create_from_budget()/update() run (double
+    POSTs, re-saves). The caller passes the specific flag that gates this
+    booking (e.g. `sena_registered` for the initial seña) via the
+    `register_key` attribute set on `order`, and the helper sets it to True
+    in the same transaction that books the movement.
+
+    Returns True if a movement was booked, False if it was skipped (already
+    registered or amount <= 0).
+    """
+    if not amount or amount <= 0:
+        return False
+    flag = getattr(order, "register_flag", "sena_registered")
+    if getattr(order, flag, False):
+        return False
+
+    client_name = ""
+    if order.client:
+        client_name = order.client.name or ""
     cash_service = DailyCashService(db)
-    today = date.today()
     movement_data = {
-        "date": today,
         "type": "INCOME",
-        "amount": deposit,
-        "description": f"Seña {order_number} - {client_name}",
+        "amount": amount,
+        "description": f"Seña {order.number} - {client_name}",
         "payment_method": payment_method or "EFECTIVO",
-        "order_number": order_number,
-        "order_total": deposit,
+        "order_number": order.number,
+        "order_id": order.id,
+        "order_total": order.total or amount,
         "client_name": client_name,
+        "folder_status": order.status,
+        "remaining_balance": max(0.0, (order.balance_due or 0.0)),
     }
+    # Mark the flag BEFORE the commit inside create_movement so both the
+    # movement and the flag persist together (atomic window).
+    setattr(order, flag, True)
     cash_service.create_movement(movement_data)
+    return True
 
 
 def _update_client_total_purchased(db: Session, client_id: int):
@@ -326,7 +349,18 @@ def _recalculate_totals_from_items(db: Session, data: dict) -> None:
             ratio = 1 + n * (value / 100)
         elif pm.is_percentage:
             ratio = 1 + value / 100
-        if ratio != 1:
+        if not pm.is_percentage and not pm.applies_to_installments:
+            # Fixed-amount surcharge: `value` is treated as ARS. Convert
+            # the USD side via `usd_rate`. Same "no ratio gate" rule as
+            # the DISCOUNT fixed branch above — a fixed amount leaves
+            # `ratio` at 1 and must still apply.
+            total_ars = round(total_ars + value)
+            total_usd = (
+                round((total_usd + value / usd_rate) * 100) / 100
+                if usd_rate > 0
+                else total_usd
+            )
+        elif ratio != 1:
             if pm.is_percentage:
                 total_ars = round(total_ars * ratio)
                 total_usd = round((total_usd * ratio) * 100) / 100
@@ -588,6 +622,30 @@ class WorkOrderService:
             order.stock_deducted = True
             self.repo.db.commit()
             self.repo.db.refresh(order)
+        # A direct WO is a confirmed sale — record the seña in the open
+        # cash box, same as create_from_budget() does on conversion. The
+        # `sena_registered` idempotency flag guarantees it lands EXACTLY
+        # once even if this create path is re-entered (duplicate POST).
+        order.register_flag = "sena_registered"
+        _create_cash_movement_on_deposit(
+            self.repo.db,
+            order,
+            order.deposit_received,
+            order.deposit_currency,
+            order.payment_method,
+        )
+        self.repo.db.commit()
+        # Drop the transient Python attribute we used to signal which
+        # idempotency flag to set inside the helper — it's not a real
+        # SQLAlchemy column and would otherwise leak into the JSON
+        # response (replacing the whole WorkOrder payload with just the
+        # flag name). Then refresh so the response carries the post-commit
+        # column values (SQLAlchemy expires instance state on commit).
+        try:
+            delattr(order, "register_flag")
+        except AttributeError:
+            pass
+        self.repo.db.refresh(order)
         return order
 
     def create_from_budget(self, budget) -> WorkOrder:
@@ -784,6 +842,14 @@ class WorkOrderService:
             "finish": budget.finish,
             "bacha": budget.bacha,
             "anafe": budget.anafe,
+            # Workshop sheet fields (OT-only; budgets have no columns yet, so
+            # getattr carries over the value if/when they land on Budget).
+            "workshop_corte": getattr(budget, "workshop_corte", None) or "",
+            "workshop_faja": getattr(budget, "workshop_faja", None) or "",
+            "workshop_perf": getattr(budget, "workshop_perf", None) or "",
+            "workshop_tras_peg": getattr(budget, "workshop_tras_peg", None) or "",
+            "workshop_term": getattr(budget, "workshop_term", None) or "",
+            "workshop_sopapas": getattr(budget, "workshop_sopapas", None) or "",
             "currency": budget.currency,
             "usd_rate": budget.usd_rate or settings.DEFAULT_USD_RATE,
             "subtotal": float(budget.subtotal or 0),
@@ -834,18 +900,23 @@ class WorkOrderService:
 
         if budget.client_id:
             _update_client_total_purchased(self.repo.db, budget.client_id)
-        if budget.deposit_received:
-            client_name = ""
-            if budget.client:
-                client_name = budget.client.name or ""
-            _create_cash_movement_on_deposit(
-                self.repo.db, order.number,
-                client_name,
-                budget.deposit_received,
-                budget.deposit_currency,
-                budget.payment_method,
-            )
+        # Book the seña from the source budget (the order carries it via the
+        # deposit_* fields set above). The `sena_registered` idempotency flag
+        # guarantees it lands EXACTLY once even on duplicate conversions.
+        order.register_flag = "sena_registered"
+        _create_cash_movement_on_deposit(
+            self.repo.db,
+            order,
+            order.deposit_received,
+            order.deposit_currency,
+            order.payment_method,
+        )
         self.repo.db.commit()
+        # Drop the transient Python attribute (see create() for context).
+        try:
+            delattr(order, "register_flag")
+        except AttributeError:
+            pass
         self.repo.db.refresh(order)
         return order
 
@@ -932,19 +1003,66 @@ class WorkOrderService:
 
         result = self.repo.update(order, data)
 
-        new_deposit = data.get("deposit_received")
-        if new_deposit and new_deposit > (order.deposit_received or 0):
-            additional = new_deposit - (order.deposit_received or 0)
-            client_name = ""
-            if order.client:
-                client_name = order.client.name or ""
+        # Late seña booking: the operator often converts a budget to a WO
+        # without a seña (the client gave estimated measures), then opens
+        # the WO during MEASUREMENT, edits the real measures, and finally
+        # sets the seña (deposit_received) the client paid on confirmation.
+        # At that point `create_from_budget()` already ran without booking
+        # anything (amount was 0). We book it now on the first UPDATE that
+        # carries a positive deposit_received while `sena_registered` is
+        # still false. Idempotent via the flag, so re-saves are no-ops.
+        # Skipped for fully-paid orders (tarjeta débito / crédito autofill)
+        # — the full amount was booked at create() time.
+        if (
+            "deposit_received" in data
+            and not order.sena_registered
+            and not order.balance_paid
+            and (data.get("deposit_received") or 0) > 0
+        ):
+            result.register_flag = "sena_registered"
             _create_cash_movement_on_deposit(
-                self.repo.db, order.number,
-                client_name,
-                additional,
-                data.get("deposit_currency") or order.deposit_currency,
-                data.get("payment_method") or order.payment_method,
+                self.repo.db,
+                result,
+                result.deposit_received,
+                result.deposit_currency,
+                result.payment_method,
             )
+
+        # Automatic collection of the remaining balance when the WO reaches
+        # DELIVERED. Deliveries are the "money done" point: the client owes
+        # nothing more (the seña was booked at create/conversion; here we book
+        # the rest). Idempotent via `saldo_registered` so re-saves / re-sends
+        # of status DELIVERED never book the saldo twice.
+        transitioned_to_delivered = (
+            old_status != "DELIVERED"
+            and new_status == "DELIVERED"
+        )
+        if transitioned_to_delivered:
+            result.register_flag = "saldo_registered"
+            _create_cash_movement_on_deposit(
+                self.repo.db,
+                result,
+                result.balance_due,
+                result.deposit_currency,
+                result.payment_method,
+            )
+            # After booking the saldo on delivery, no money is left to
+            # collect. The helper computes `remaining_balance` from the
+            # order's current `balance_due`, but for a DELIVERED collection
+            # the row MUST read `remaining_balance=0` on the cash grid —
+            # the saldo IS the last payment and nothing else is owed.
+            from app.models.daily_cash import DailyCash, CashMovement
+            latest_mov = (
+                self.repo.db.query(CashMovement)
+                .filter(
+                    CashMovement.order_id == result.id,
+                    CashMovement.type == "INCOME",
+                )
+                .order_by(CashMovement.id.desc())
+                .first()
+            )
+            if latest_mov is not None:
+                latest_mov.remaining_balance = 0.0
 
         self.repo.db.commit()
         self.repo.db.refresh(result)
