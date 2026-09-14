@@ -17,11 +17,10 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
-    "baseUrl": ".",
     "typeRoots": ["./node_modules/@types"],
     "paths": {
-      "@/*": ["src/*"],
-      "@assets/*": ["src/assets/*"]
+      "@/*": ["./src/*"],
+      "@assets/*": ["./src/assets/*"]
     }
   },
   "include": ["src", "src/css-modules.d.ts"],
