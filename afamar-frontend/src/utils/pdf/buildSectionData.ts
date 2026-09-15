@@ -172,7 +172,16 @@ export function buildMeasurementComparison(
   fabricationRaw?: unknown,
   additionalRaw?: unknown,
 ): MeasurementComparisonRow[] {
-  const mainMaterials = (materials || []).filter((m) => !m.is_alternative);
+  // Group pieces by material name so the comparison table renders
+  // contiguously: all CARRARA rows (and their indented zócalos) together,
+  // then all CARAVELLAS WHITE rows — even when the operator entered them
+  // interleaved (CARAVELLAS WHITE, CARRARA, CARAVELLAS WHITE). Chosen over
+  // section-header rows: the material row already acts as its group title.
+  // Stable sort preserves the input order inside each group, and linked
+  // zócalos/frentes still emit indented directly under their own piece.
+  const mainMaterials = (materials || [])
+    .filter((m) => !m.is_alternative)
+    .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' }));
   if (mainMaterials.length === 0) return [];
 
   const budgetedDelta = (current: number, budgeted: number | undefined | null): number =>
@@ -185,6 +194,7 @@ export function buildMeasurementComparison(
     concept?: string;
     concepto?: string;
     custom_concept?: string;
+    detail?: string;
     currency?: string;
     price?: number;
     quantity?: number;
@@ -204,6 +214,15 @@ export function buildMeasurementComparison(
   // multiple materials (e.g. one frente assigned to NEGRO BRASIL covering
   // two mesadas) is rendered exactly once. See the dedupe comment above.
   const emittedFrenteKeys = new Set<string>();
+  // Same dedupe for fabrication rows (zócalos): a single row is emitted
+  // EXACTLY ONCE across the comparison. When several pieces share the same
+  // material name (e.g. four NEGRO BRASIL mesadas) and the operator
+  // assigned ONE zócalo to that material, the name-based match below would
+  // otherwise paint the row under EVERY piece (`d.material === name` holds
+  // for each one). The key identifies the work item — concept + material +
+  // detail + measures — so distinct strips stay visible while one row no
+  // longer repeats.
+  const emittedZocaloKeys = new Set<string>();
 
   for (const m of mainMaterials) {
     const length = Number(m.length || 0);
@@ -284,6 +303,13 @@ export function buildMeasurementComparison(
       const fdLength = Number(d.length || 0);
       const fdWidth = Number(d.width || 0);
       const fdQty = Number(d.quantity || 1);
+      // Dedupe the zócalo like frentes: ONE fabrication row emitted once
+      // across the whole comparison, keyed by the work item itself
+      // (concept + material + detail + measures). Without this, a single
+      // "Zócalo NEGRO BRASIL" matches every main material named NEGRO
+      // BRASIL and gets painted under each piece.
+      const zocaloKey = `${conceptCode}|${mat}|${String(d.custom_concept || d.detail || '').trim()}|${fdLength}|${fdWidth}|${fdQty}`;
+      if (emittedZocaloKeys.has(zocaloKey)) continue;
       let fdMeasureUnit: 'm2' | 'ml' | null = null;
       let fdMeasureReal: number | null = null;
       let fdMeasureBudgeted: number | null = null;
@@ -300,6 +326,7 @@ export function buildMeasurementComparison(
         fdMeasureUnit && fdMeasureReal != null && fdMeasureBudgeted != null
           ? fdMeasureReal - fdMeasureBudgeted
           : null;
+      emittedZocaloKeys.add(zocaloKey);
       result.push(
         detailRow(label, deltaArs, deltaUsd, signedMoney, {
           unit: fdMeasureUnit,

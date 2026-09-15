@@ -1,6 +1,8 @@
 .card {
   padding: 0;
-  overflow: hidden;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overflow-y: hidden;
   background: var(--surface-bg);
   border: 1px solid var(--border-color);
   border-radius: 12px;

@@ -1,0 +1,85 @@
+/* FormHeader — BEM */
+
+.form-header {
+  position: relative;
+  overflow: hidden;
+}
+
+.form-header__logo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0.1;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.form-header__logo img {
+  height: 90px;
+  width: auto;
+  object-fit: contain;
+}
+
+.form-header__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  z-index: 1;
+  width: 100%;
+}
+
+.form-header__title {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.form-header__title-text {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.form-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Móvil: apilar el título y la barra de botones verticalmente para que los
+ * botones de acción no se salgan por el borde derecho de la pantalla. */
+@media (max-width: 768px) {
+  .form-header__row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .form-header__title {
+    flex-wrap: wrap;
+  }
+
+  .form-header__title-text {
+    font-size: 18px;
+  }
+
+  .form-header__actions {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .form-header__actions button {
+    flex: 1 1 120px;
+    min-width: 110px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+    font-size: 0.85rem;
+    text-align: center;
+  }
+}

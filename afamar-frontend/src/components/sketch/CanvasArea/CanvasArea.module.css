@@ -6,4 +6,8 @@
   border-radius: 4px;
   background: var(--surface-alt-bg);
   max-width: 100%;
+  /* Let Konva capture pointer/touch drags without the page scrolling. The
+   * stage is scaled down on small screens to fit the container, so this
+   * does not hide any scrollable content. */
+  touch-action: none;
 }

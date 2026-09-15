@@ -108,14 +108,23 @@ interface SidebarProps {
   onCollapse: (c: boolean) => void;
   expanded: string;
   onExpand: (s: string) => void;
+  isMobile?: boolean;
+  isMobileOpen?: boolean;
+  onMobileToggle?: () => void;
+  onMobileClose?: () => void;
 }
 
-export function Sidebar({ isCollapsed, onCollapse, expanded, onExpand }: SidebarProps) {
+export function Sidebar({ isCollapsed, onCollapse, expanded, onExpand, isMobile = false, isMobileOpen = false, onMobileToggle, onMobileClose }: SidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const sidebarWidth = isCollapsed ? SIDEBAR_COLLAPSED : SIDEBAR_WIDTH;
-  const sidebarClass = `${s['main-layout__sidebar']}${isCollapsed ? ' ' + s['main-layout__sidebar--collapsed'] : ''}`;
+  const sidebarWidth = isMobile ? SIDEBAR_WIDTH : isCollapsed ? SIDEBAR_COLLAPSED : SIDEBAR_WIDTH;
+  const sidebarClass = [
+    s['main-layout__sidebar'],
+    isCollapsed && !isMobile ? s['main-layout__sidebar--collapsed'] : '',
+    isMobile ? s['main-layout__sidebar--mobile'] : '',
+    isMobile && isMobileOpen ? s['main-layout__sidebar--mobile-open'] : '',
+  ].filter(Boolean).join(' ');
 
   const isGroupActive = (group: AccordionGroup): boolean => {
     if (group.path) return location.pathname === group.path;
@@ -129,20 +138,27 @@ export function Sidebar({ isCollapsed, onCollapse, expanded, onExpand }: Sidebar
 
   const handleNavigate = (path: string): void => {
     navigate(path);
-    if (isCollapsed) onExpand('');
+    if (isMobile) {
+      onMobileClose?.();
+    } else if (isCollapsed) {
+      onExpand('');
+    }
   };
 
   return (
-    <aside className={sidebarClass} style={{ width: sidebarWidth }}>
+    <aside className={sidebarClass} style={isMobile ? undefined : { width: sidebarWidth }}>
       <div className={s['main-layout__menu-header']}>
         {!isCollapsed && <span>MENÚ</span>}
         <button
-          onClick={() => onCollapse(!isCollapsed)}
+          onClick={() => {
+            if (isMobile) onMobileToggle?.();
+            else onCollapse(!isCollapsed);
+          }}
           className={s['main-layout__collapse-btn']}
-          title={isCollapsed ? 'Expandir menú' : 'Colapsar menú'}
+          title={isMobile ? (isMobileOpen ? 'Cerrar menú' : 'Abrir menú') : isCollapsed ? 'Expandir menú' : 'Colapsar menú'}
           aria-label="Toggle menu"
         >
-          {isCollapsed ? <Menu size={20} /> : <X size={20} />}
+          {isMobile ? <X size={20} /> : isCollapsed ? <Menu size={20} /> : <X size={20} />}
         </button>
       </div>
 

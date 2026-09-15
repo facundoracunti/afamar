@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import { Stage, Layer, Line, Rect, Transformer } from 'react-konva';
 import type Konva from 'konva';
 import type { SketchToolType, SketchElement, SketchPage, Point } from '@/types/sketch';
@@ -75,6 +75,26 @@ export default function CanvasArea({
 }: CanvasAreaProps) {
   const stageRef = useRef<Konva.Stage>(null);
   const trRef = useRef<Konva.Transformer>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [stageScale, setStageScale] = useState(1);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const compute = () => {
+      const w = el.clientWidth;
+      if (w <= 0) return;
+      // Scale the stage down to fit its container (never up beyond 1:1).
+      // The logical 0..STAGE_W coordinate space is preserved: Konva
+      // multiplies pointer positions by the stage scale, so drawing,
+      // dragging and the Transformer all keep working with stage coords.
+      setStageScale(Math.min(1, w / STAGE_W));
+    };
+    compute();
+    const ro = new ResizeObserver(compute);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     if (tool !== 'select') {
@@ -243,19 +263,33 @@ export default function CanvasArea({
   const handleDragEnd = (e: Konva.KonvaEventObject<DragEvent>, id: string) => {
     if (tool !== 'select' || readOnly) return;
     const node = e.target;
+    const el = currentShapes.find((s) => s.id === id);
+
+    if (el?.type === 'line') {
+      // Lines store points in absolute stage coords while the Konva node
+      // sits at (0,0). After drag, node.x()/node.y() is the SIGNED DELTA
+      // from the original position — it can be NEGATIVE (dragging left/up).
+      // We cannot clamp the delta itself (clampCoord(-50) → 0.5 would
+      // force the line back to the right). Instead, clamp each resulting
+      // ABSOLUTE point to [0.5, max-0.5] so the line stays on canvas while
+      // remaining freely movable in both directions.
+      const dx = node.x();
+      const dy = node.y();
+      const newPoints = el.points.map((p, idx) => {
+        const max = idx % 2 === 0 ? STAGE_W : STAGE_H;
+        return clampCoord(p + (idx % 2 === 0 ? dx : dy), max);
+      });
+      node.x(0);
+      node.y(0);
+      updateElementTransform(id, { ...el, points: newPoints, x: 0, y: 0 });
+      return;
+    }
+
+    // For rects/circles/text the Konva node position IS the absolute
+    // top-left/center, so clamping the value directly is correct.
     const newX = clampCoord(node.x(), STAGE_W);
     const newY = clampCoord(node.y(), STAGE_H);
-
     updateElementPosition(id, newX, newY);
-
-    // Do NOT reset node.x/y or call batchDraw() here. The state update from
-    // updateElementPosition is queued but not yet committed by React. Resetting
-    // the node and repainting would show the OLD points at (0,0) — the
-    // original position — causing a visible snap-back. Instead, leave the
-    // Konva drag offset in place: the old points plus the offset equal the
-    // correct new position. When React commits and React-Konva reconciles,
-    // it sets points=NEW and x=0,y=0 atomically, producing the same visual
-    // result with no flicker.
   };
 
   const handleTransformEnd = (e: Konva.KonvaEventObject<Event>) => {
@@ -340,11 +374,13 @@ export default function CanvasArea({
   }
 
   return (
-    <div className={s['canvas-area']}>
+    <div ref={containerRef} className={s['canvas-area']}>
       <Stage
         ref={stageRef}
         width={STAGE_W}
         height={STAGE_H}
+        scaleX={stageScale}
+        scaleY={stageScale}
         onClick={handleStageClick}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}

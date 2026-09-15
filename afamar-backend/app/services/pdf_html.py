@@ -857,7 +857,25 @@ def _build_measurement_comparison(
     # material matches first, not twice). Mirrors the frontend's
     # `emittedFrenteKeys` in buildSectionData.ts.
     emitted_frente_keys = set()
-    for mat in materiales_raw or []:
+    # Same dedupe for fabrication rows (zócalos): mirrors the frontend's
+    # `emittedZocaloKeys` in buildSectionData.ts. A single row (keyed by
+    # concept + material + detail + measures) is emitted exactly once,
+    # avoiding a "Zócalo NEGRO BRASIL" under every equally-named piece.
+    emitted_zocalo_keys = set()
+    # Group pieces by material name so the comparison table renders
+    # contiguously — all CARRARA rows (and their indented zócalos) together,
+    # then all CARAVELLAS WHITE rows, even when entered interleaved.
+    # Mirrors the frontend `buildMeasurementComparison` sort in
+    # buildSectionData.ts. Stable sort preserves input order within a group.
+    materials_sorted = sorted(
+        (materiales_raw or []),
+        key=lambda m: str(
+            (m.get("name") or m.get("nombre") or "").strip().lower()
+            if isinstance(m, dict)
+            else ""
+        ),
+    )
+    for mat in materials_sorted:
         if not isinstance(mat, dict):
             continue
         length = float(mat.get("length") or mat.get("largo") or 0)
@@ -909,6 +927,13 @@ def _build_measurement_comparison(
             fd_length = float(d.get("length") or d.get("largo") or 0)
             fd_width = float(d.get("width") or d.get("ancho") or 0)
             fd_qty = float(d.get("quantity") or d.get("cantidad") or 1)
+            zocalo_key = (
+                f"{concept_code}|{mat_name}|"
+                f"{str(d.get('custom_concept') or d.get('detail') or '').strip()}|"
+                f"{fd_length}|{fd_width}|{fd_qty}"
+            )
+            if zocalo_key in emitted_zocalo_keys:
+                continue
             if concept_code in _FAB_M2_CONCEPTS:
                 unit = "m²"
                 real = fd_length * fd_width * fd_qty
@@ -924,6 +949,7 @@ def _build_measurement_comparison(
                 real = None
                 budgeted = None
             d_delta = None if (budgeted is None or real is None) else real - budgeted
+            emitted_zocalo_keys.add(zocalo_key)
             rows.append({
                 "name": label,
                 "is_detail": True,

@@ -509,7 +509,7 @@
   gap: 6px;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 1024px) {
   .work-order-form__layout,
   .work-order-form__layout--no-sketch {
     grid-template-columns: 1fr;

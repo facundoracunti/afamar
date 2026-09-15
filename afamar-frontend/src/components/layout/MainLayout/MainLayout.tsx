@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar, SIDEBAR_WIDTH } from './Sidebar';
 import { Topbar } from './Topbar';
@@ -55,10 +55,28 @@ function getPageTitle(pathname: string): string {
 export default function MainLayout() {
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const [expanded, setExpanded] = useState<string>('');
+  const [isMobile, setIsMobile] = useState<boolean>(false);
+  const [mobileOpen, setMobileOpen] = useState<boolean>(false);
   const location = useLocation();
 
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)');
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile) setMobileOpen(false);
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (isMobile) setMobileOpen(false);
+  }, [location.pathname, isMobile]);
+
   const pageTitle = getPageTitle(location.pathname);
-  const sidebarWidth = isCollapsed ? 64 : SIDEBAR_WIDTH;
+  const contentMargin = isMobile ? 0 : isCollapsed ? 64 : SIDEBAR_WIDTH;
 
   return (
     <div className={s['main-layout']}>
@@ -67,12 +85,19 @@ export default function MainLayout() {
         onCollapse={setIsCollapsed}
         expanded={expanded}
         onExpand={setExpanded}
+        isMobile={isMobile}
+        isMobileOpen={mobileOpen}
+        onMobileToggle={() => setMobileOpen((v) => !v)}
+        onMobileClose={() => setMobileOpen(false)}
       />
+      {isMobile && mobileOpen && (
+        <div className={s['main-layout__backdrop']} onClick={() => setMobileOpen(false)} />
+      )}
       <div
         className={s['main-layout__content']}
-        style={{ marginLeft: sidebarWidth }}
+        style={{ marginLeft: contentMargin }}
       >
-        <Topbar pageTitle={pageTitle} />
+        <Topbar pageTitle={pageTitle} onMenuClick={() => setMobileOpen((v) => !v)} />
         <div className={s['main-layout__page-content']}>
           <Outlet />
         </div>

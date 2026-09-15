@@ -1,4 +1,7 @@
 ﻿import React from 'react';
+import styles from './FormHeader.module.css';
+
+const s = styles as unknown as Record<string, string>;
 
 interface FormHeaderProps {
   title: string;
@@ -12,23 +15,18 @@ export default function FormHeader({
   title, badge, logoUrl, children, className,
 }: FormHeaderProps) {
   return (
-    <div className={className} style={{ position: 'relative', overflow: 'hidden' }}>
+    <div className={`${s['form-header']}${className ? ` ${className}` : ''}`}>
       {logoUrl && (
-        <div style={{
-          position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
-          opacity: 0.10, pointerEvents: 'none', zIndex: 0,
-        }}>
-          <img src={logoUrl} alt="Logo AFAMAR" style={{ height: 90, width: 'auto', objectFit: 'contain' }} />
+        <div className={s['form-header__logo']}>
+          <img src={logoUrl} alt="Logo AFAMAR" />
         </div>
       )}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', zIndex: 1, width: '100%' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <span style={{ fontSize: 22, fontWeight: 700 }}>{title}</span>
+      <div className={s['form-header__row']}>
+        <div className={s['form-header__title']}>
+          <span className={s['form-header__title-text']}>{title}</span>
           {badge}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {children}
-        </div>
+        <div className={s['form-header__actions']}>{children}</div>
       </div>
     </div>
   );

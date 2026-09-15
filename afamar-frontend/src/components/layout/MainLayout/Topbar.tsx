@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { User, Moon, Sun, LogOut } from 'lucide-react';
+import { User, Moon, Sun, LogOut, Menu } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
@@ -9,9 +9,10 @@ const s = styles as unknown as Record<string, string>;
 
 interface TopbarProps {
   pageTitle: string;
+  onMenuClick?: () => void;
 }
 
-export function Topbar({ pageTitle }: TopbarProps) {
+export function Topbar({ pageTitle, onMenuClick }: TopbarProps) {
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -30,7 +31,19 @@ export function Topbar({ pageTitle }: TopbarProps) {
 
   return (
     <div className={s['main-layout__topbar']}>
-      <div className={s['main-layout__page-title']}>{pageTitle}</div>
+      <div className={s['main-layout__topbar-left']}>
+        {onMenuClick && (
+          <button
+            className={s['main-layout__hamburger']}
+            onClick={onMenuClick}
+            title="Abrir menú"
+            aria-label="Abrir menú"
+          >
+            <Menu size={20} />
+          </button>
+        )}
+        <div className={s['main-layout__page-title']}>{pageTitle}</div>
+      </div>
       <div className={s['main-layout__topbar-right']}>
         <div className={s['main-layout__date']}>
           {new Date().toLocaleDateString('es-AR', {

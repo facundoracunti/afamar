@@ -71,12 +71,20 @@
   background: var(--surface-bg);
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  overflow: hidden;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overflow-y: hidden;
 }
 
 .categories__table table {
   width: 100%;
   border-collapse: collapse;
+}
+
+@media (max-width: 768px) {
+  .categories__table table {
+    min-width: 480px;
+  }
 }
 
 .categories__th {

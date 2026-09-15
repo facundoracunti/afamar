@@ -1350,6 +1350,158 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
     expect(detailRows[0].subtotal_usd).toBeCloseTo(5.71);
   });
 
+  it('deduplicates a single zócalo fabrication row assigned to multiple same-name pieces', () => {
+    // Regression for the reported bug: two NEGRO BRASIL mesadas + ONE zócalo
+    // fabrication row assigned to NEGRO BRASIL. The zócalo must render
+    // EXACTLY ONCE (under the first matching piece), not under every piece.
+    const twoMesadas = [
+      {
+        id: 1,
+        name: 'NEGRO BRASIL',
+        price_m2: 0,
+        price_m2_usd: 330,
+        currency: 'USD' as const,
+        quantity: 1,
+        m2_used: 0,
+        m2_budgeted: 1.728,
+        length: 2.75,
+        width: 0.64,
+        is_alternative: false,
+      },
+      {
+        id: 2,
+        name: 'NEGRO BRASIL',
+        price_m2: 0,
+        price_m2_usd: 330,
+        currency: 'USD' as const,
+        quantity: 1,
+        m2_used: 0,
+        m2_budgeted: 0.384,
+        length: 0.68,
+        width: 0.64,
+        is_alternative: false,
+      },
+    ] satisfies MaterialInForm[];
+    const fabrication_details = [
+      {
+        concept: 'BASEBOARD',
+        detail: 'Zócalo',
+        length: 4,
+        width: 0.105,
+        quantity: 1,
+        m2_budgeted: 0.34,
+        price: 50,
+        currency: 'USD',
+        material: 'NEGRO BRASIL',
+        total_usd_budgeted: 30,
+        total_ars_budgeted: 30000,
+      },
+    ];
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({
+        materials_data: twoMesadas,
+        fabrication_details,
+        status: 'MEASUREMENT',
+        budget_id: 999,
+        include_measurement_comparison_in_pdf: true,
+      }),
+      overrides: {},
+    });
+    // 2 NEGRO BRASIL rows + exactly 1 zócalo detail row (deduped).
+    expect(data.measurement_comparison).toHaveLength(3);
+    const detailRows = data.measurement_comparison.filter((r) => r.is_detail);
+    expect(detailRows).toHaveLength(1);
+    expect(detailRows[0].concepto).toBe('Zócalo NEGRO BRASIL');
+    expect(detailRows[0].measure_unit).toBe('m2');
+    expect(detailRows[0].measure_real).toBeCloseTo(0.42);
+    expect(detailRows[0].measure_budgeted).toBe(0.34);
+    expect(detailRows[0].measure_delta).toBeCloseTo(0.08);
+    // Subtotal = real_total − budgeted_total in USD: 50 − 30 = 20.
+    expect(detailRows[0].subtotal_usd).toBeCloseTo(20);
+  });
+
+  it('groups comparison rows contiguously by material, not input order', () => {
+    // Pieces entered interleaved (CARAVELLAS WHITE, CARRARA, CARAVELLAS WHITE)
+    // must render grouped: all CARAVELLAS WHITE rows together, zócalos
+    // indented under their own piece, no interleaving.
+    const interleaved = [
+      {
+        id: 1,
+        name: 'CARAVELLAS WHITE',
+        price_m2: 0,
+        price_m2_usd: 330,
+        currency: 'USD' as const,
+        quantity: 1,
+        m2_used: 0,
+        m2_budgeted: 1.0,
+        length: 1,
+        width: 1,
+        is_alternative: false,
+      },
+      {
+        id: 2,
+        name: 'CARRARA',
+        price_m2: 0,
+        price_m2_usd: 310,
+        currency: 'USD' as const,
+        quantity: 1,
+        m2_used: 0,
+        m2_budgeted: 1.0,
+        length: 1.5,
+        width: 1,
+        is_alternative: false,
+      },
+      {
+        id: 3,
+        name: 'CARAVELLAS WHITE',
+        price_m2: 0,
+        price_m2_usd: 330,
+        currency: 'USD' as const,
+        quantity: 1,
+        m2_used: 0,
+        m2_budgeted: 1.0,
+        length: 2,
+        width: 1,
+        is_alternative: false,
+      },
+    ] satisfies MaterialInForm[];
+    const fabrication_details = [
+      {
+        concept: 'BASEBOARD',
+        detail: 'Zócalo',
+        length: 4,
+        width: 0.105,
+        quantity: 1,
+        m2_budgeted: 0.34,
+        price: 50,
+        currency: 'USD',
+        material: 'CARRARA',
+      },
+    ];
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({
+        materials_data: interleaved,
+        fabrication_details,
+        status: 'MEASUREMENT',
+        budget_id: 999,
+        include_measurement_comparison_in_pdf: true,
+      }),
+      overrides: {},
+    });
+    const concepts = data.measurement_comparison.map((r) => r.concepto);
+    // Material rows sorted by name (CARAVELLAS WHITE < CARRARA), both
+    // CARAVELLAS WHITE pieces contiguous, zócalo indented under CARRARA.
+    expect(concepts).toEqual([
+      'CARAVELLAS WHITE',
+      'CARAVELLAS WHITE',
+      'CARRARA',
+      'Zócalo CARRARA',
+    ]);
+    expect(data.measurement_comparison.filter((r) => r.is_detail)).toHaveLength(1);
+  });
+
   it('keeps the comparison for direct work orders (no budget_id) — the toggle is always available', () => {
     // Business rule changed: the COMPARATIVA DE MEDICIÓN toggle is now
     // always visible/usable, including direct work orders. A direct order

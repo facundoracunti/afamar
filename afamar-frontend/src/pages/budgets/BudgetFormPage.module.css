@@ -192,7 +192,7 @@
   cursor: not-allowed;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 1024px) {
   .budget-form__layout,
   .budget-form__layout--no-sketch {
     grid-template-columns: 1fr;

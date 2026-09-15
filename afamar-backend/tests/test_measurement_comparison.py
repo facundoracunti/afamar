@@ -251,6 +251,87 @@ def test_single_frente_assigned_to_multiple_mesadas_is_deduplicated():
     assert abs(frente["subtotal_usd"] - 5.71) < 0.01
 
 
+def test_single_zocalo_fabrication_row_assigned_to_multiple_same_name_pieces_is_deduplicated():
+    """Regression: ONE zócalo fabrication row assigned to NEGRO BRASIL covers
+    two equally-named mesadas. It must render exactly once (under the first
+    matching piece), not under every piece.
+    """
+    fabrication = json.dumps([
+        {
+            "concept": "BASEBOARD",
+            "detail": "Zócalo",
+            "length": 4,
+            "width": 0.105,
+            "quantity": 1,
+            "m2_budgeted": 0.34,
+            "price": 50,
+            "currency": "USD",
+            "material": "NEGRO BRASIL",
+            "total_ars_budgeted": 30000.0,
+            "total_usd_budgeted": 30.0,
+        },
+    ])
+    rows = _build_measurement_comparison(
+        _two_mesadas_negro_brasil(), usd_rate=1000, fabrication_raw=fabrication
+    )
+    # 2 NEGRO BRASIL rows + exactly 1 zócalo detail row (deduped).
+    assert len(rows) == 3
+    detail_rows = [r for r in rows if r["is_detail"]]
+    assert len(detail_rows) == 1
+    zocalo = detail_rows[0]
+    assert zocalo["name"] == "Zócalo NEGRO BRASIL"
+    assert zocalo["measure_unit"] == "m²"
+    assert zocalo["measure_real_str"] == "0.42 m²"  # 4 × 0.105 × 1
+    assert zocalo["measure_budgeted_str"] == "0.34 m²"
+    assert zocalo["measure_delta_str"] == "+0.08 m²"
+    # Subtotal = real_total − budgeted_total in USD: 50 − 30 = 20.
+    assert abs(zocalo["subtotal_usd"] - 20.0) < 0.01
+
+
+def test_rows_grouped_contiguously_by_material_not_input_order():
+    """Regression: pieces entered interleaved (CARAVELLAS WHITE, CARRARA,
+    CARAVELLAS WHITE) must render grouped by material name — all the same-name
+    rows contiguous, zócalos indented under their own piece, no interleaving.
+    """
+    interleaved = [
+        {"id": 1, "name": "CARAVELLAS WHITE", "currency": "USD", "price_m2_usd": 330.0,
+         "price_m2": 0, "quantity": 1, "length": 1, "width": 1,
+         "m2_budgeted": 1.0, "is_alternative": False},
+        {"id": 2, "name": "CARRARA", "currency": "USD", "price_m2_usd": 310.0,
+         "price_m2": 0, "quantity": 1, "length": 1.5, "width": 1,
+         "m2_budgeted": 1.0, "is_alternative": False},
+        {"id": 3, "name": "CARAVELLAS WHITE", "currency": "USD", "price_m2_usd": 330.0,
+         "price_m2": 0, "quantity": 1, "length": 2, "width": 1,
+         "m2_budgeted": 1.0, "is_alternative": False},
+    ]
+    fabrication = json.dumps([
+        {
+            "concept": "BASEBOARD",
+            "detail": "Zócalo",
+            "length": 4,
+            "width": 0.105,
+            "quantity": 1,
+            "price": 50,
+            "currency": "USD",
+            "material": "CARRARA",
+        },
+    ])
+    rows = _build_measurement_comparison(
+        interleaved, usd_rate=1000, fabrication_raw=fabrication
+    )
+    names = [r["name"] for r in rows]
+    # Material rows sorted by name (CARAVELLAS WHITE < CARRARA), both
+    # CARAVELLAS WHITE pieces contiguous, zócalo indented under CARRARA.
+    assert names == [
+        "CARAVELLAS WHITE",
+        "CARAVELLAS WHITE",
+        "CARRARA",
+        "Zócalo CARRARA",
+    ]
+    detail_rows = [r for r in rows if r["is_detail"]]
+    assert len(detail_rows) == 1
+
+
 def test_frente_without_id_dedupes_by_name_fallback():
     """When the adicional has no `additional_work_id`, dedupe by `name`
     so a single "Frente Ingletetado 45°" still renders only once even if
