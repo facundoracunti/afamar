@@ -8,6 +8,8 @@
    .material-card__price                displayed price (ARS)
    .material-card__price--usd           displayed price (USD)
    .material-card__price-usd            USD approximation under ARS price
+    .material-card__price-input          editable price input (per m²)
+    .material-card__price-input--usd     editable price input (USD)
    .material-card__actions              alt checkbox + add/remove buttons
    .material-card__alt-label            "Alternativa" checkbox wrapper
    .material-card__alt-checkbox         the checkbox itself
@@ -83,6 +85,19 @@
   font-size: 13px;
   font-weight: 700;
   color: var(--text-primary);
+}
+
+.material-card__price-input {
+  width: 110px;
+  padding: 4px 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-align: right;
+}
+
+.material-card__price-input--usd {
+  color: var(--color-success);
 }
 
 .material-card__price--usd {

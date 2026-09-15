@@ -127,6 +127,43 @@ it('switching pages keeps existing materials (no re-init on setPageIdx)', () => 
     }
   });
 
+  it('updateElementPosition shifts line points and persists without snap-back', () => {
+    // Regression: after dragging a line, the re-init guard in useEffect([sketch])
+    // must NOT fire and reset pageIdx/sid/history. The guard compares
+    // normPages(savePayload(prev)) with normPages(sketch); both must round-trip
+    // identically so the state is preserved.
+    const onChange = vi.fn();
+    const initial = makeWireSketch();
+
+    const { result, rerender } = renderHook(
+      ({ sketch }) => useSketchState(sketch, onChange, false),
+      { initialProps: { sketch: initial as unknown } },
+    );
+
+    act(() => result.current.setPageIdx(1));
+
+    const line = result.current.pages[1].elements[0] as SketchLine;
+    expect(line.points).toEqual([0, 0, 80, 80]);
+
+    // Simulate drag: offset (50, 30)
+    act(() => result.current.updateElementPosition(line.id, 50, 30));
+
+    const moved = result.current.pages[1].elements[0] as SketchLine;
+    expect(moved.points).toEqual([50, 30, 130, 110]);
+    expect(moved.x).toBe(0);
+    expect(moved.y).toBe(0);
+
+    // Simulate parent round-trip: onChange → savePayload → back into sketch
+    const wire = onChange.mock.calls[onChange.mock.calls.length - 1]?.[0];
+    act(() => rerender({ sketch: wire }));
+
+    // After re-init guard: points survive, page stays at index 1
+    const afterRoundTrip = result.current.pages[1].elements[0] as SketchLine;
+    expect(afterRoundTrip.points).toEqual([50, 30, 130, 110]);
+    expect(result.current.pageIdx).toBe(1);
+    expect(result.current.canUndo).toBe(true);
+  });
+
   it('updateElementTransform replaces the element with the baked geometry (lines keep new points)', () => {
     // Regression: the old implementation discarded the scale for lines
     // (`return { ...el }`), so the Transformer could never actually resize a

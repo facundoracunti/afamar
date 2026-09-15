@@ -1,10 +1,12 @@
 /**
  * Photo management grid for MeasurementFormPage.
  * Renders a hidden file input trigger + photo thumbnail grid with remove buttons.
+ * Clicking a thumbnail opens a lightbox with the full-size image.
  */
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
+import { Modal } from '../../ui/Modal/Modal';
 import styles from './MeasurementPhotoGrid.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -17,6 +19,7 @@ interface MeasurementPhotoGridProps {
 
 export function MeasurementPhotoGrid({ fotos, onAddFotos, onRemoveFoto }: MeasurementPhotoGridProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [lightboxFoto, setLightboxFoto] = useState<string | null>(null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const files = Array.from(e.target.files as FileList);
@@ -48,7 +51,12 @@ export function MeasurementPhotoGrid({ fotos, onAddFotos, onRemoveFoto }: Measur
         <div className={s['photo-grid__photos']}>
           {fotos.map((foto: string, idx: number) => (
             <div key={idx} className={s['photo-grid__photo']}>
-              <img src={foto} alt={`Foto ${idx + 1}`} className={s['photo-grid__photo-img']} />
+              <img
+                src={foto}
+                alt={`Foto ${idx + 1}`}
+                className={s['photo-grid__photo-img']}
+                onClick={() => setLightboxFoto(foto)}
+              />
               <button
                 type="button"
                 className={s['photo-grid__photo-remove']}
@@ -60,6 +68,24 @@ export function MeasurementPhotoGrid({ fotos, onAddFotos, onRemoveFoto }: Measur
           ))}
         </div>
       )}
+
+      <Modal isOpen={lightboxFoto !== null} onClose={() => setLightboxFoto(null)} width="900px">
+        {lightboxFoto && (
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <img
+              src={lightboxFoto}
+              alt="Foto de la medición"
+              style={{
+                maxWidth: '100%',
+                maxHeight: '70vh',
+                objectFit: 'contain',
+                borderRadius: 8,
+                border: '1px solid var(--border-color)',
+              }}
+            />
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

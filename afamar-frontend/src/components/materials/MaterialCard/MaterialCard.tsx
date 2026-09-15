@@ -76,11 +76,27 @@ function MaterialCardInner({
           )}
         </div>
         <div className={s['material-card__price-block']}>
-          <span
-            className={`${s['material-card__price']}${currency === 'USD' ? ` ${s['material-card__price--usd']}` : ''}`}
-          >
-            {formatPrice(price, currency)}
-          </span>
+          {readOnly ? (
+            <span
+              className={`${s['material-card__price']}${currency === 'USD' ? ` ${s['material-card__price--usd']}` : ''}`}
+            >
+              {formatPrice(price, currency)}
+            </span>
+          ) : (
+            <input
+              className={`${s['material-card__price-input']}${currency === 'USD' ? ` ${s['material-card__price-input--usd']}` : ''}`}
+              type="number"
+              step="0.01"
+              min="0"
+              value={price || ''}
+              onChange={(e) => {
+                const field = currency === 'USD' ? 'price_m2_usd' : 'price_m2';
+                updateMaterialGroup(indices, field, num(e.target.value));
+              }}
+              title={`Precio por m² (${currency})`}
+              aria-label={`Precio por m² ${currency}`}
+            />
+          )}
           {currency === 'ARS' && usdRate > 0 && (
             <span className={s['material-card__price-usd']}>
               ≈ <CurrencyDisplay value={price / usdRate} currency="USD" />

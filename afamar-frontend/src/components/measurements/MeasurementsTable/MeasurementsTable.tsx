@@ -88,14 +88,18 @@ function MeasurementsTableInner({
         </thead>
         <tbody>
           {visibleRows.map((m: Measurement) => (
-            <tr key={m.id}>
+            <tr
+              key={m.id}
+              className={s['m-table__row']}
+              onClick={() => onView(m.id)}
+            >
               <td style={{ fontWeight: 600 }}>{m.client_name}</td>
               <td>{m.client_phone || '-'}</td>
               <td>{m.client_address || '-'}</td>
               <td>{formatDate(m.scheduled_date)}</td>
               <td>{m.scheduled_time || '-'}</td>
               <td><StatusBadge status={m.status || ''} /></td>
-              <td>
+              <td onClick={(e) => e.stopPropagation()}>
                 <div className={s['m-table__cell-actions']}>
                   {m.status === 'PENDING' && (
                     <button
@@ -106,10 +110,10 @@ function MeasurementsTableInner({
                       <Check size={14} /> Realizar
                     </button>
                   )}
-                  <button className="btn btn-outline" onClick={() => onView(m.id)}>
+                  <button className="btn btn-outline" onClick={() => onView(m.id)} aria-label="Ver medición">
                     <Eye size={14} />
                   </button>
-                  <button className="btn btn-danger" onClick={() => onDelete(m.id)}>
+                  <button className="btn btn-danger" onClick={() => onDelete(m.id)} aria-label="Eliminar medición">
                     <Trash2 size={14} />
                   </button>
                 </div>

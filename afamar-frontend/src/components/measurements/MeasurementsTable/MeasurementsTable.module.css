@@ -68,6 +68,10 @@
   background: var(--surface-alt-bg);
 }
 
+.m-table__row {
+  cursor: pointer;
+}
+
 .m-table tr:last-child td {
   border-bottom: none;
 }

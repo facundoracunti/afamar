@@ -20,6 +20,11 @@
   object-fit: cover;
 }
 
+.photo-grid__photo-img:hover {
+  cursor: pointer;
+  opacity: 0.85;
+}
+
 .photo-grid__photo-remove {
   position: absolute;
   top: 2px;

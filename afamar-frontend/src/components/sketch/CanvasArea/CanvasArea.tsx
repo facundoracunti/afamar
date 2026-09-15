@@ -248,9 +248,14 @@ export default function CanvasArea({
 
     updateElementPosition(id, newX, newY);
 
-    node.x(0);
-    node.y(0);
-    node.getLayer()?.batchDraw();
+    // Do NOT reset node.x/y or call batchDraw() here. The state update from
+    // updateElementPosition is queued but not yet committed by React. Resetting
+    // the node and repainting would show the OLD points at (0,0) — the
+    // original position — causing a visible snap-back. Instead, leave the
+    // Konva drag offset in place: the old points plus the offset equal the
+    // correct new position. When React commits and React-Konva reconciles,
+    // it sets points=NEW and x=0,y=0 atomically, producing the same visual
+    // result with no flicker.
   };
 
   const handleTransformEnd = (e: Konva.KonvaEventObject<Event>) => {
