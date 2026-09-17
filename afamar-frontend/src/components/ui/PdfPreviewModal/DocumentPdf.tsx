@@ -20,7 +20,7 @@ import {
   Image,
   StyleSheet,
 } from '@react-pdf/renderer';
-import type { PdfDocumentData, MaterialSection } from '../../../utils/pdf/buildPdfData';
+import type { PdfDocumentData, MaterialSection, PiecesPdfPiece } from '../../../utils/pdf/buildPdfData';
 import { API_URL } from '../../../api/http';
 import { BANK_INFO, PAYMENT_METHOD_TRANSFER, SKETCH_STAGE_WIDTH, SKETCH_STAGE_HEIGHT } from '../../../constants';
 
@@ -79,7 +79,18 @@ const styles = StyleSheet.create({
     paddingBottom: 16 * 2.83,
     paddingHorizontal: 12 * 2.83,
   },
-  // ===== HEADER =====
+  // ===== HEADER (fixed — repeats on every page automatically) =====
+  // The membrete (logo, datos de la empresa, N° de presupuesto, subtítulo)
+  // sits at the very top of every page via the `fixed` prop. Position
+  // absolute + top/left/right pinned to the page padding so it lines up
+  // with the rest of the content. The page keeps its `paddingTop` so the
+  // first body row starts below the header.
+  headerFixed: {
+    position: 'absolute',
+    top: 8 * 2.83,
+    left: 12 * 2.83,
+    right: 12 * 2.83,
+  },
   headerRow: { flexDirection: 'row', marginBottom: 4 },
   headerLeft: { width: '65%', flexDirection: 'row', alignItems: 'flex-start' },
   headerLeftLogo: { width: '28%' },
@@ -597,39 +608,187 @@ function OptionSectionBlock({ section }: { section: MaterialSection }) {
   );
 }
 
-export default function DocumentPdf({ data }: DocumentPdfProps) {
+// ===== Multi-piece layout =====
+//
+// A multi-piece budget stores each mesada in `data.pieces`. Page 1 prints
+// one self-contained block per piece (materials + zócalo/frente + additional
+// works + pools + subtotal). Page 2 prints the "hoja de alternativas",
+// grouped by piece, with one full option block per alternative (the piece's
+// pools, fabrication and additional works are inherited verbatim so the
+// customer sees the complete price of swapping the material).
+
+/**
+ * Membrete (logo + datos de la empresa + N° de presupuesto + subtítulo).
+ * Renders IN-FLOW at the top of each `<Page>` so the rest of the page
+ * content (client grid, piece blocks, totals) flows naturally below it
+ * with no overlap. Using `position: absolute` + `fixed` here caused the
+ * client info to paint on top of the logo because the logo is much taller
+ * than the page's `paddingTop` reserves.
+ */
+function DocumentHeader({ data }: { data: PdfDocumentData }) {
   const logo = logoUrl(data.company);
-  const headerLeftRight = (
-    <View style={styles.headerRow}>
-      <View style={styles.headerLeft}>
-        {logo ? (
-          <View style={styles.headerLeftLogo}>
-            <Image style={styles.logo} src={logo} />
+  return (
+    <View>
+      <View style={styles.headerRow}>
+        <View style={styles.headerLeft}>
+          {logo ? (
+            <View style={styles.headerLeftLogo}>
+              <Image style={styles.logo} src={logo} />
+            </View>
+          ) : null}
+          <View style={styles.headerLeftInfo}>
+            {data.company.company_tagline ? (
+              <Text style={styles.tagline}>{data.company.company_tagline}</Text>
+            ) : null}
+            {data.company.company_address ? (
+              <Text style={styles.contactLine}>{data.company.company_address}</Text>
+            ) : null}
+            {data.company.company_phone ? (
+              <Text style={styles.contactLine}>{`Tel: ${data.company.company_phone}`}</Text>
+            ) : null}
+            {data.company.company_email ? (
+              <Text style={styles.contactLine}>{data.company.company_email}</Text>
+            ) : null}
           </View>
-        ) : null}
-        <View style={styles.headerLeftInfo}>
-          {data.company.company_tagline ? (
-            <Text style={styles.tagline}>{data.company.company_tagline}</Text>
-          ) : null}
-          {data.company.company_address ? (
-            <Text style={styles.contactLine}>{data.company.company_address}</Text>
-          ) : null}
-          {data.company.company_phone ? (
-            <Text style={styles.contactLine}>{`Tel: ${data.company.company_phone}`}</Text>
-          ) : null}
-          {data.company.company_email ? (
-            <Text style={styles.contactLine}>{data.company.company_email}</Text>
-          ) : null}
+        </View>
+        <View style={styles.headerRight}>
+          <Text style={styles.docTitle}>{data.title}</Text>
+          <Text style={styles.docNumber}>{data.number || '—'}</Text>
+          {data.doc_sub ? <Text style={styles.docSub}>{data.doc_sub}</Text> : null}
         </View>
       </View>
-      <View style={styles.headerRight}>
-        <Text style={styles.docTitle}>{data.title}</Text>
-        <Text style={styles.docNumber}>{data.number || '—'}</Text>
-        {data.doc_sub ? <Text style={styles.docSub}>{data.doc_sub}</Text> : null}
+      <View style={styles.divider} />
+    </View>
+  );
+}
+
+function PieceBlock({ piece }: { piece: PiecesPdfPiece }) {
+  const matRows = piece.materials.map(matRowCells);
+  const fabRows = piece.fabrication_details.map(fabRowCells);
+  const adicRows = piece.additional_works.map(adicRowCells);
+  const poolRows = piece.pools.map(poolRowCells);
+  const hasContent =
+    matRows.length > 0 || fabRows.length > 0 || adicRows.length > 0 || poolRows.length > 0;
+  if (!hasContent) return null;
+
+  return (
+    // `wrap={false}` keeps the whole piece card together — if it doesn't fit
+    // on the remaining page, react-pdf moves the entire block to the next
+    // page instead of splitting the tables across the page break. The card
+    // chrome (border + title) travels with it so the customer still reads
+    // it as a single block.
+    <View style={{ ...styles.optSectionBlock, ...styles.optSectionBlockMain }} wrap={false}>
+      <Text style={styles.optSectionTitle}>{`Pieza: ${piece.name}`}</Text>
+
+      {matRows.length > 0 ? (
+        <DataTable headers={MAT_HEADERS} rows={matRows} flexes={MAT_FLEXES} />
+      ) : null}
+
+      {fabRows.length > 0 ? (
+        <View style={{ marginTop: 4 }}>
+          <DataTable headers={FAB_HEADERS} rows={fabRows} flexes={FAB_FLEXES} />
+        </View>
+      ) : null}
+
+      {adicRows.length > 0 ? (
+        <View style={{ marginTop: 4 }}>
+          <DataTable headers={ADDITIONAL_WORKS_HEADERS} rows={adicRows} flexes={ADDITIONAL_WORKS_FLEXES} />
+        </View>
+      ) : null}
+
+      {poolRows.length > 0 ? (
+        <View style={{ marginTop: 4 }}>
+          <Text style={styles.optAdicionalBreakdown}>Piletas</Text>
+          <DataTable headers={POOL_HEADERS} rows={poolRows} flexes={POOL_FLEXES} />
+        </View>
+      ) : null}
+
+      <View style={styles.optSectionSubtotal}>
+        <Text style={styles.optSectionSubtotalLbl}>Subtotal Pieza</Text>
+        <Text style={styles.optSectionSubtotalVal}>{`$ ${fmt(piece.subtotal_ars)}`}</Text>
+        {piece.subtotal_usd > 0 ? (
+          <Text style={styles.optSectionSubtotalUsd}>{`(USD ${fmt(piece.subtotal_usd)})`}</Text>
+        ) : null}
       </View>
     </View>
   );
+}
 
+/**
+ * HOJA DE ALTERNATIVAS — Page 2 in pieces mode. For each piece that has
+ * alternatives, renders one self-contained block per alternative with the
+ * swapped material + the piece's inherited zócalos, adicionales and
+ * piletas + the option subtotal. `wrap={false}` keeps each alternative
+ * block on a single page.
+ */
+function AlternativesSheet({ pieces }: { pieces: PiecesPdfPiece[] }) {
+  const withAlternatives = pieces.filter((p) => p.alternatives.length > 0);
+  if (withAlternatives.length === 0) return null;
+
+  return (
+    <>
+      {withAlternatives.map((piece) => (
+        <View key={piece.id || piece.name} wrap={false}>
+          <Text style={styles.optSectionTitle}>{`${piece.name} — Alternativas de material`}</Text>
+
+          {piece.alternatives.map((alt, i) => {
+            const matRows = alt.materials.map(matRowCells);
+            const fabRows = alt.fabrication_details.map(fabRowCells);
+            const adicRows = alt.additional_works.map(adicRowCells);
+            const poolRows = alt.pools.map(poolRowCells);
+            const altLabel = alt.material_name || alt.title || `Alternativa ${i + 1}`;
+            return (
+              <View
+                key={`${piece.id}-alt-${i}`}
+                style={{ ...styles.optSectionBlock, ...styles.optSectionBlockAlt, marginTop: 4 }}
+                wrap={false}
+              >
+                <Text style={[styles.optSectionTitle, styles.optSectionTitleAlt]}>
+                  {`Alternativa ${i + 1}: ${altLabel}`}
+                </Text>
+
+                {matRows.length > 0 ? (
+                  <DataTable headers={MAT_HEADERS} rows={matRows} flexes={MAT_FLEXES} />
+                ) : null}
+
+                {fabRows.length > 0 ? (
+                  <View style={{ marginTop: 4 }}>
+                    <DataTable headers={FAB_HEADERS} rows={fabRows} flexes={FAB_FLEXES} />
+                  </View>
+                ) : null}
+
+                {adicRows.length > 0 ? (
+                  <View style={{ marginTop: 4 }}>
+                    <DataTable headers={ADDITIONAL_WORKS_HEADERS} rows={adicRows} flexes={ADDITIONAL_WORKS_FLEXES} />
+                  </View>
+                ) : null}
+
+                {poolRows.length > 0 ? (
+                  <View style={{ marginTop: 4 }}>
+                    <Text style={styles.optAdicionalBreakdown}>Piletas (heredadas)</Text>
+                    <DataTable headers={POOL_HEADERS} rows={poolRows} flexes={POOL_FLEXES} />
+                  </View>
+                ) : null}
+
+                <View style={styles.optSectionSubtotal}>
+                  <Text style={styles.optSectionSubtotalLbl}>Subtotal Opción Alternativa</Text>
+                  <Text style={styles.optSectionSubtotalVal}>{`$ ${fmt(alt.subtotal_ars)}`}</Text>
+                  {alt.subtotal_usd > 0 ? (
+                    <Text style={styles.optSectionSubtotalUsd}>
+                      {`(USD ${fmt(alt.subtotal_usd)})`}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      ))}
+    </>
+  );
+}
+
+export default function DocumentPdf({ data }: DocumentPdfProps) {
   const clientGrid = (
     <View style={styles.infoGrid}>
       <InfoCell label="Cliente" value={data.client_name} />
@@ -834,13 +993,11 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
           <Text>
             <Text style={styles.label}>Forma de pago: </Text>
             <Text>{data.payment_method}</Text>
-            {data.installments && data.installments > 1 ? (
+            {(section?.catalogue_installment_detail ?? data.catalogue_installment_detail)?.length > 0 ? (
               <Text>
-                {` (${data.installments} cuotas`}
-                {(section?.catalogue_installment_detail ?? data.catalogue_installment_detail) && (section?.catalogue_installment_detail ?? data.catalogue_installment_detail).length > 0
-                  ? ` con ${(section?.catalogue_installment_detail ?? data.catalogue_installment_detail)[0].interes}% de interés por cuota`
-                  : ''}
-                {')'}
+                {data.installments > 1
+                  ? ` (${data.installments} cuotas con ${(section?.catalogue_installment_detail ?? data.catalogue_installment_detail)[0].interes}% de interés por cuota)`
+                  : ` (con ${(section?.catalogue_installment_detail ?? data.catalogue_installment_detail)[0].interes}% de interés)`}
               </Text>
             ) : null}
           </Text>
@@ -890,21 +1047,73 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
   // visible even though every option is an alternative.
   const hasMainSection = (data.sections || []).some((s) => s.is_main);
 
+  // Multi-piece budgets (budgets only) render the two-page pieces layout
+  // instead of the legacy per-option sections.
+  const pieces = data.pieces || [];
+  const hasPieces = pieces.length > 0;
+  const hasPieceAlternatives = pieces.some((p) => p.alternatives.length > 0);
+
   return (
     <Document title={`${data.title} ${data.number}`} author={data.company.company_name}>
-      {data.sections && data.sections.length > 0 ? (
-        // ONE PAGE PER OPTION — each section (Principal + each Alternative)
-        // gets its own A4 page with header / terms / footer so the customer
-        // can extract any option and have a complete self-contained quote.
-        // If the principal has a croquis, we also emit a dedicated page
-        // (same header + client + footer) so the drawing has room to
-        // breathe — otherwise it gets squeezed below the totals block.
+      {hasPieces ? (
+        <Fragment>
+          {/* PAGE 1 — PRESUPUESTO PRINCIPAL: one block per piece */}
+          <Page size="A4" style={styles.page} wrap>
+            <DocumentHeader data={data} />
+            {clientGrid}
+            {specsGrid}
+
+            {pieces.map((piece) => (
+              <PieceBlock key={piece.id || piece.name} piece={piece} />
+            ))}
+
+            {/* In pieces mode pools live INSIDE each PieceBlock — no global
+                Piletas block here (otherwise the same pileta would be
+                printed twice: once per piece and once at document level). */}
+
+            {termsBlock}
+            {renderExtras(undefined)}
+            {footer}
+          </Page>
+
+          {/* PAGE 2 — HOJA DE ALTERNATIVAS, grouped by piece. No `break`
+              prop here (it was forcing a blank page between the main
+              budget and the alternatives when page 1 still had room).
+              Each alternative block is `wrap={false}` inside
+              `AlternativesSheet`, so the flow is continuous and atomic:
+              alternatives either fit at the bottom of page 1 or move
+              cleanly to page 2 without intermediate blank pages. */}
+          {hasPieceAlternatives ? (
+            <Page size="A4" style={styles.page} wrap>
+              <DocumentHeader data={data} />
+              {clientGrid}
+              <Text style={styles.sectionTitle}>Hoja de alternativas</Text>
+              <AlternativesSheet pieces={pieces} />
+              {footer}
+            </Page>
+          ) : null}
+
+          {/* Dedicated croquis page (landscape), same treatment as the
+              legacy layout so the drawing has room to breathe */}
+          {data.sketch_images.length > 0 ? (
+            <Page size="A4" orientation="landscape" style={styles.page} wrap={false}>
+              {clientGrid}
+              <View style={styles.sketchBox}>
+                <Text style={styles.sketchTitle}>Plano</Text>
+                {data.sketch_images.map((img, i) => (
+                  <Image key={img.slice(0, 32) || `sketch-${i}`} style={styles.sketchImgLarge} src={img} />
+                ))}
+              </View>
+              {footer}
+            </Page>
+          ) : null}
+        </Fragment>
+      ) : data.sections && data.sections.length > 0 ? (
         data.sections.map((section, index) => (
           <Fragment key={section.title}>
             <Page size="A4" style={styles.page} wrap>
-              {/* HEADER */}
-              {headerLeftRight}
-              <View style={styles.divider} />
+              {/* HEADER — repeated on every page via the fixed component. */}
+              <DocumentHeader data={data} />
 
               {/* CLIENT — shown on every page so each quote is self-contained */}
               {clientGrid}
@@ -929,17 +1138,13 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
             </Page>
 
             {/* Dedicated croquis page — only on the principal section, only
-                if there's actually a croquis to show. Same header, client
-                grid and footer so the page stands on its own. `wrap={false}`
-                keeps the image intact (no risk of being split across pages).
-                The page is rotated to landscape so the wide editor
-                rectángulo has room to breathe — A4 portrait leaves ~630pt
-                of blank space below a 210pt-tall croquis, which is
-                wasteful when the drawing IS the content. */}
+                if there's actually a croquis to show. Same header (fixed),
+                client grid and footer so the page stands on its own.
+                `wrap={false}` keeps the image intact (no risk of being
+                split across pages). */}
             {section.is_main && data.sketch_images.length > 0 ? (
               <Page size="A4" orientation="landscape" style={styles.page} wrap={false}>
-                {headerLeftRight}
-                <View style={styles.divider} />
+                <DocumentHeader data={data} />
                 {clientGrid}
                 <View style={styles.dividerLight} />
                 <View style={styles.sketchBox}>
@@ -960,8 +1165,7 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
         // adds it on its own A4 page.
         <Fragment>
           <Page size="A4" style={styles.page} wrap>
-            {headerLeftRight}
-            <View style={styles.divider} />
+            <DocumentHeader data={data} />
             {clientGrid}
             {specsGrid}
             {data.materials.length > 0 ? (
@@ -998,15 +1202,13 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
           </Page>
 
           {/* Dedicated croquis page — only when there's something to show.
-              Same header + client + footer as the main page so the customer
-              can extract just the croquis and still see who it's for. The
-              page is rotated to landscape so the wide editor rectángulo
-              has room to breathe (see the equivalent in the sectioned
-              flow above for the rationale). */}
+              Same fixed header + client + footer as the main page so the
+              customer can extract just the croquis and still see who it's
+              for. The page is rotated to landscape so the wide editor
+              rectángulo has room to breathe. */}
           {data.sketch_images.length > 0 ? (
             <Page size="A4" orientation="landscape" style={styles.page} wrap={false}>
-              {headerLeftRight}
-              <View style={styles.divider} />
+              <DocumentHeader data={data} />
               {clientGrid}
               <View style={styles.sketchBox}>
                 <Text style={styles.sketchTitle}>Plano</Text>

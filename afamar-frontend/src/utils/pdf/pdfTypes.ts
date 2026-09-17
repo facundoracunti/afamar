@@ -151,6 +151,43 @@ export interface MaterialSection {
   catalogue_installment_detail?: Array<{ cuota: number; interes: number; monto: number }>;
 }
 
+/**
+ * One alternative of a piece, as it appears on the multi-piece PDF's
+ * "HOJA DE ALTERNATIVAS" (page 2). Its `subtotal_*` already includes the
+ * piece's zócalo/frente + additional works revalued against this
+ * alternative's material (same rule as `buildSections`).
+ */
+export interface PiecesPdfAlternative {
+  title: string;
+  material_name: string;
+  materials: MaterialPdfRow[];
+  fabrication_details: PdfDataRow[];
+  additional_works: AdditionalWorkPdfRow[];
+  /** Pools inherited from the piece (piletas travel with the piece). */
+  pools: PoolPdfRow[];
+  subtotal_ars: number;
+  subtotal_usd: number;
+}
+
+/**
+ * A single piece (mesada) of a multi-piece budget — its principal
+ * breakdown (main material + zócalo/frente + additional works + its own
+ * piletas + subtotal) plus every alternative quoted for it. Pools moved
+ * out of the document globals and live inside the piece; the alternative
+ * subtotals inherit them so swapping materials doesn't lose the sink.
+ */
+export interface PiecesPdfPiece {
+  id: string;
+  name: string;
+  materials: MaterialPdfRow[];
+  fabrication_details: PdfDataRow[];
+  additional_works: AdditionalWorkPdfRow[];
+  pools: PoolPdfRow[];
+  subtotal_ars: number;
+  subtotal_usd: number;
+  alternatives: PiecesPdfAlternative[];
+}
+
 export interface PdfDocumentData {
   document_type: DocumentType;
   title: string;
@@ -237,6 +274,13 @@ export interface PdfDocumentData {
    *  rate so the operator / customer can see how stale the quote is. */
   usd_rate_fetched_at: string | null;
   company: CompanyInfo;
+  /**
+   * Multi-piece budgets only. When present (non-empty) the PDF renders the
+   * two-page pieces layout (principal + alternatives sheet) instead of the
+   * legacy "one page per option" sections. Absent for every legacy budget
+   * and for work orders.
+   */
+  pieces?: PiecesPdfPiece[];
 }
 
 export interface BuildPdfDataParams {

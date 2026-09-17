@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -55,6 +55,11 @@ class Material(Base):
     )
     supplier: Mapped[str] = mapped_column(String(200), nullable=True)
     stock_available: Mapped[int] = mapped_column(Integer, default=0)
+    # Whether the "BACHA INTEGRADA" additional work may be chosen for this
+    # material in the budget pieces flow. Some porous granites (e.g.
+    # DALLAS) can't carry an integrated sink — the per-piece additional
+    # selector disables/hides the option for them.
+    allows_integrated_sink: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
     notes: Mapped[str] = mapped_column(Text, nullable=True)
     photo: Mapped[str] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

@@ -130,6 +130,17 @@
   margin-bottom: 12px;
 }
 
+@media (max-width: 640px) {
+  .client-form__form-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .client-form__stats {
+    grid-template-columns: 1fr;
+  }
+}
+
 .client-form__label {
   font-size: 13px;
   font-weight: 600;

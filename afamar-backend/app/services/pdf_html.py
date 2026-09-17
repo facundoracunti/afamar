@@ -653,8 +653,11 @@ def _payment_methods_catalogue(db) -> list:
     """Active payment methods from the `payment_methods` catalogue, ordered
     by `sort_order`, as uppercase `name`s — the same convention the
     frontend preview uses (`buildPdfData.payment_methods_catalogue`) for
-    the PDF "METODO DE PAGO" reference box. Returns [] when `db` is None
-    (legacy call sites) so the template just skips the box."""
+    the PDF "METODO DE PAGO" reference box. Percentage surcharges (credit
+    card) append their per-installment rate (e.g. "TARJETA DE CRÉDITO - 9%
+    P/ CUOTA") so the customer knows the surcharge before paying. Returns []
+    when `db` is None (legacy call sites) so the template just skips the
+    box."""
     if db is None:
         return []
     from app.models.reference import PaymentMethod  # local import: avoid cold-start cycle
@@ -664,7 +667,15 @@ def _payment_methods_catalogue(db) -> list:
         .order_by(PaymentMethod.sort_order.asc())
         .all()
     )
-    return [row.name for row in rows]
+    return [
+        f"{row.name} - {int(row.value)}% P/ CUOTA"
+        if row.type == "SURCHARGE"
+        and row.is_percentage
+        and row.applies_to_installments
+        and row.value
+        else row.name
+        for row in rows
+    ]
 
 
 def build_budget_pdf_data(budget_data: dict, client_dict: dict, company: dict, terms: dict, db=None) -> dict:

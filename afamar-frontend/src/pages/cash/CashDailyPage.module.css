@@ -150,3 +150,24 @@
   margin-bottom: 16px;
 }
 .cash__meta strong { color: var(--text-primary); font-weight: 600; }
+
+@media (max-width: 900px) {
+  .cash__movements-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cash__page-header {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .cash__movements {
+    overflow-x: auto;
+  }
+
+  .cash__movements table {
+    min-width: 720px;
+  }
+}

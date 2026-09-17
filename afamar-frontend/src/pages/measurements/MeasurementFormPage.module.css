@@ -109,3 +109,15 @@
     grid-template-columns: 1fr;
   }
 }
+
+@media (max-width: 640px) {
+  .measurement-form__header {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .measurement-form__row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}

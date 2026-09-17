@@ -46,3 +46,14 @@
   padding: 4px 10px;
   font-size: 12px;
 }
+
+@media (max-width: 640px) {
+  .previous-balance {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .previous-balance__edit-row {
+    flex-wrap: wrap;
+  }
+}

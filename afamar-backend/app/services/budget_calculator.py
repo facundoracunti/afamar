@@ -34,6 +34,86 @@ def has_alternative_materials(materials: list) -> bool:
     return any(m.get("is_alternative") or m.get("es_alternativa") for m in materials)
 
 
+def flatten_pieces(data: dict, only_if_missing: bool = False) -> None:
+    """When `data` carries `pieces_data` (multi-piece flow), derive the legacy
+    document-level arrays from it and write them into `data`.
+
+    `pieces_data` is the source of truth: each piece owns its materials,
+    zócalo/frente rows and additional works. Downstream code (the totals
+    recalc, the PDF, the cash formulas) still reads the flat
+    `materials_data` / `fabrication_details` / `additional_works_data`
+    arrays, so we rebuild them by concatenating every piece's sub-arrays in
+    piece order. This is the server-side twin of the frontend
+    `flattenPieces()` helper — keep the two in sync.
+
+    With `only_if_missing=True` (used by both the budget path and the
+    work-order recalc) the derived arrays fill only the keys the caller did
+    NOT already provide: the client's flat arrays are the editable snapshot
+    and must win when present. `pieces_data` only fills the gap for an
+    API-only payload that carries the pieces alone.
+
+    No-op when `pieces_data` is absent/empty, so legacy budgets/work orders
+    keep their existing arrays untouched.
+    """
+    raw = data.get("pieces_data")
+    if not raw:
+        return
+    try:
+        pieces = raw if not isinstance(raw, str) else json.loads(raw)
+    except (ValueError, TypeError):
+        return
+    if not isinstance(pieces, list) or not pieces:
+        return
+
+    materials: list = []
+    fabrication: list = []
+    additional: list = []
+    pools: list = []
+    for piece in pieces:
+        if not isinstance(piece, dict):
+            continue
+        # Pieces v2: the piece may carry its materials under
+        # `mainMaterial` + `alternativeMaterials` (singular model) instead
+        # of the legacy `materials` array. Support both shapes.
+        if isinstance(piece.get("mainMaterial"), dict):
+            materials.append({**piece["mainMaterial"], "is_alternative": False})
+        elif isinstance(piece.get("materials"), list):
+            materials.extend(piece["materials"])
+        if isinstance(piece.get("alternativeMaterials"), list):
+            for alt in piece["alternativeMaterials"]:
+                materials.append({**alt, "is_alternative": True})
+        piece_fab = piece.get("fabrication_details")
+        if isinstance(piece_fab, list):
+            fabrication.extend(piece_fab)
+        piece_add = piece.get("additional_works_data")
+        if isinstance(piece_add, str) and piece_add:
+            try:
+                parsed = json.loads(piece_add)
+                if isinstance(parsed, list):
+                    additional.extend(parsed)
+            except (ValueError, TypeError):
+                pass
+        elif isinstance(piece_add, list):
+            additional.extend(piece_add)
+        # Pieces v2: piletas moved into the piece. Concatenate them so the
+        # document-level `pools_data` (still read by the recalc + the legacy
+        # xhtml2pdf PDF) carries the union.
+        piece_pools = piece.get("pools")
+        if isinstance(piece_pools, list):
+            pools.extend(piece_pools)
+
+    derived = {
+        "materials_data": json.dumps(materials, ensure_ascii=False),
+        "fabrication_details": json.dumps(fabrication, ensure_ascii=False),
+        "additional_works_data": json.dumps(additional, ensure_ascii=False),
+        "pools_data": json.dumps(pools, ensure_ascii=False),
+    }
+    for key, value in derived.items():
+        if only_if_missing and data.get(key) not in (None, "", "[]"):
+            continue
+        data[key] = value
+
+
 def calculate_material_totals(materials: list, usd_rate: float) -> dict:
     ars = 0.0
     usd = 0.0

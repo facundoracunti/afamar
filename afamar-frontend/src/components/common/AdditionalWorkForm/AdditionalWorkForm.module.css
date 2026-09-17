@@ -17,3 +17,10 @@
   gap: 8px;
   margin-top: 16px;
 }
+
+@media (max-width: 640px) {
+  .aw-form__row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}

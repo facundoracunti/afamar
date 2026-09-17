@@ -176,3 +176,26 @@
   margin-top: 4px;
   display: block;
 }
+
+.material-form__hint-text {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-top: 4px;
+  display: block;
+}
+
+@media (max-width: 640px) {
+  .material-form__card {
+    padding: 16px;
+  }
+
+  .material-form__row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .material-form__photo-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

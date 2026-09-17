@@ -83,18 +83,38 @@ export function usePdfPreviewController(params: UsePdfPreviewControllerParams): 
 
   const handleSketchImagesReady = (images: string[]): void => {
     if (!pendingFormData) { setPdfPreviewLoading(false); return; }
-    const data = buildPdfData({
-      form: pendingFormData,
-      document_type: documentType,
-      company,
-      globalTerms,
-      sketchImages: images,
-      // Pass the catalogue so the helper can resolve the active
-      // payment method to its rule and surface the per-cuota table
-      // (and the catalogue-driven recargo / discount lines) even
-      // when the form hook didn't run for this render path.
-      paymentMethods,
-    });
+    let data: PdfDocumentData;
+    try {
+      data = buildPdfData({
+        form: pendingFormData,
+        document_type: documentType,
+        company,
+        globalTerms,
+        sketchImages: images,
+        // Pass the catalogue so the helper can resolve the active
+        // payment method to its rule and surface the per-cuota table
+        // (and the catalogue-driven recargo / discount lines) even
+        // when the form hook didn't run for this render path.
+        paymentMethods,
+      });
+    } catch (err: unknown) {
+      // `buildPdfData` can throw on malformed legacy data (e.g. a budget
+      // saved before the pieces v3 migration produced fields that don't
+      // round-trip through the new builder). Without this catch the
+      // loading spinner stays forever and the user has no feedback.
+      // eslint-disable-next-line no-console
+      console.error('[usePdfPreviewController] buildPdfData failed', err);
+      notify?.(
+        `No se pudo generar la vista previa del ${label.toLowerCase()}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+        'error',
+      );
+      setPdfPreviewLoading(false);
+      setSketchExtractorActive(false);
+      setPendingFormData(null);
+      return;
+    }
     setPdfData(data);
     setPdfPreviewLoading(false);
     setSketchExtractorActive(false);

@@ -72,6 +72,10 @@ class WorkOrderBase(BaseModel):
     pool_image: str | None = None
     pools_data: str | None = None
     additional_works_data: str | None = None
+    # JSON snapshot of the multi-piece budget model (`BudgetPiece[]`),
+    # copied from the source budget on conversion. Additive: NULL/empty →
+    # legacy work order as today.
+    pieces_data: str | None = None
     design_observations: str | None = None
     important_observations: str | None = None
     notes: str | None = None
@@ -147,6 +151,7 @@ class WorkOrderUpdate(BaseModel):
     stock_deducted: bool | None = None
     pools_data: str | None = None
     additional_works_data: str | None = None
+    pieces_data: str | None = None
     design_observations: str | None = None
     important_observations: str | None = None
     notes: str | None = None

@@ -67,6 +67,11 @@ class MaterialBase(BaseModel):
     currency: str = "ARS"
     supplier: str | None = None
     stock_available: int = 0
+    # Whether the "BACHA INTEGRADA" additional work may be chosen for this
+    # material in the budget pieces flow. Default true; materials that
+    # can't carry an integrated sink (e.g. DALLAS) are pinned false by
+    # the seeder / operator.
+    allows_integrated_sink: bool = True
     notes: str | None = None
     photo: str | None = None
 
@@ -85,6 +90,7 @@ class MaterialUpdate(CapitalizeNameMixin):
     currency: str | None = None
     supplier: str | None = None
     stock_available: int | None = None
+    allows_integrated_sink: bool | None = None
     notes: str | None = None
 
 

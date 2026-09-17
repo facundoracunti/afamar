@@ -145,6 +145,109 @@ export function buildPoolRows(pools: PoolInForm[], usdRate: number): PoolPdfRow[
   return result;
 }
 
+/**
+ * Build the `AdditionalWorkPdfRow[]` from a form slice's
+ * `additional_works_data` (JSON string or already-parsed array). Shared by
+ * the legacy flat document builder and the multi-piece builder so both
+ * price the frente formula identically.
+ */
+export function buildAdditionalWorksRows(
+  form: Record<string, unknown>,
+  usdRate: number,
+): AdditionalWorkPdfRow[] {
+  const additionalWorksRaw = (form as { additional_works_data?: unknown }).additional_works_data;
+  let additionalWorksParsed: Array<Record<string, unknown>> = [];
+  if (typeof additionalWorksRaw === 'string' && additionalWorksRaw) {
+    try {
+      const parsed = JSON.parse(additionalWorksRaw);
+      if (Array.isArray(parsed)) {
+        additionalWorksParsed = parsed as Array<Record<string, unknown>>;
+      }
+    } catch {
+      // Malformed JSON → render as empty.
+    }
+  } else if (Array.isArray(additionalWorksRaw)) {
+    additionalWorksParsed = additionalWorksRaw as Array<Record<string, unknown>>;
+  }
+
+  return additionalWorksParsed.map((row) => {
+    const name = String(row['name'] ?? '');
+    const detail = (row['detail'] as string | null | undefined) ?? null;
+    const currency = (row['currency'] === 'USD' ? 'USD' : 'ARS') as 'ARS' | 'USD';
+    const price = Number(row['price']) || 0;
+    const quantity = Number(row['quantity']) || 1;
+    const totalInSourceCurrency = Number(row['total']) || (price * quantity);
+    const rowType: 'flat' | 'frente' = row['type'] === 'frente' ? 'frente' : 'flat';
+    const formulaValues = (row['formula_values'] as Record<string, unknown> | null | undefined) ?? null;
+    const rawMaterialName = (row['materialName'] ?? row['material_name'] ?? '') as string;
+    const material_name = rawMaterialName && rawMaterialName !== POOL_MATERIAL_GLOBAL
+      ? rawMaterialName
+      : POOL_MATERIAL_GLOBAL;
+    const rawAssignedId = row['assigned_material_id'];
+    const assigned_material_id = rawAssignedId === null || rawAssignedId === undefined
+      ? null
+      : (Number.isFinite(Number(rawAssignedId)) ? Number(rawAssignedId) : null);
+
+    const base: AdditionalWorkPdfRow = {
+      name,
+      detail,
+      currency,
+      price_str: fmtMoney(price),
+      quantity,
+      subtotal_ars: currency === 'ARS' ? totalInSourceCurrency : (usdRate > 0 ? totalInSourceCurrency * usdRate : 0),
+      subtotal_usd: currency === 'USD' ? totalInSourceCurrency : (usdRate > 0 ? totalInSourceCurrency / usdRate : 0),
+      material_name,
+      assigned_material_id,
+    };
+
+    if (rowType !== 'frente') return base;
+
+    const linearMeters = Number(row['linear_meters']) || 0;
+    const m2AtSelection = Number(formulaValues?.['material_price_m2_at_selection']) || 0;
+    const multiplier = Number(formulaValues?.['multiplier'] ?? formulaValues?.['constant']);
+
+    return {
+      ...base,
+      type: 'frente',
+      quantity: linearMeters,
+      linear_meters_str: linearMeters > 0
+        ? fmtMeasureUnit(linearMeters, 'ml')
+        : null,
+      linear_meters: linearMeters,
+      multiplier: Number.isFinite(multiplier) ? multiplier : FRENTE_FORMULA_MULTIPLIER_DEFAULT,
+      material_price_per_m2_str: m2AtSelection > 0 ? fmtMoney(m2AtSelection) : null,
+      formula_constant_str: Number.isFinite(multiplier) ? fmtMoney(multiplier) : null,
+    };
+  });
+}
+
+/**
+ * Bucket additional works into per-material and "common" (GLOBAL) groups.
+ * An unassigned frente (no catalogue material id) is GLOBAL even when a
+ * legacy `material_name` still carries a name, so it shows in every option.
+ */
+export function bucketAdditionalWorks(additional_works: AdditionalWorkPdfRow[]): {
+  additionalByMaterial: Record<string, AdditionalWorkPdfRow[]>;
+  additionalCommon: AdditionalWorkPdfRow[];
+} {
+  const adtByMaterial: Record<string, AdditionalWorkPdfRow[]> = {};
+  const adtCommon: AdditionalWorkPdfRow[] = [];
+  for (const row of additional_works) {
+    const key = row.material_name ?? POOL_MATERIAL_GLOBAL;
+    const isAlt = typeof key === 'string' && key.startsWith('__ALT__:');
+    const bucketKey = isAlt ? key.slice('__ALT__:'.length) : key;
+    const isUnassignedFrente =
+      row.type === 'frente' && (row.assigned_material_id == null || row.assigned_material_id === '');
+    if (isUnassignedFrente || !bucketKey || bucketKey === POOL_MATERIAL_GLOBAL) {
+      adtCommon.push(row);
+    } else {
+      if (!adtByMaterial[bucketKey]) adtByMaterial[bucketKey] = [];
+      adtByMaterial[bucketKey].push(row);
+    }
+  }
+  return { additionalByMaterial: adtByMaterial, additionalCommon: adtCommon };
+}
+
 export function asMaterials(raw: unknown): MaterialInForm[] {
   return (parseJsonList(raw) as MaterialInForm[]).filter(Boolean);
 }
@@ -456,7 +559,7 @@ function priceM2ForMaterial(alt: MaterialInForm): number {
  * section's material price per m². Non-m² rows and already-valued rows
  * pass through unchanged.
  */
-function revalueGlobalFabricationForMaterial(
+export function revalueGlobalFabricationForMaterial(
   row: PdfDataRow,
   alt: MaterialInForm,
   usdRate: number,
@@ -486,7 +589,7 @@ function revalueGlobalFabricationForMaterial(
  * ALTERNATIVA), mirroring the ZÓCALO behaviour. Linked frontes that already
  * carry a value (or aren't frontes / have no linear meters) pass through.
  */
-function revalueGlobalFrenteForMaterial(
+export function revalueGlobalFrenteForMaterial(
   row: AdditionalWorkPdfRow,
   alt: MaterialInForm,
   usdRate: number,

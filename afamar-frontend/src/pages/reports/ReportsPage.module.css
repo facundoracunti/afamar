@@ -140,3 +140,13 @@
 .reports__material-name {
   font-weight: 600;
 }
+
+@media (max-width: 768px) {
+  .reports__table {
+    overflow-x: auto;
+  }
+
+  .reports__table table {
+    min-width: 720px;
+  }
+}

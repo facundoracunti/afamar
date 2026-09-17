@@ -111,6 +111,12 @@ class Budget(Base):
     # and could be migrated in a follow-up.
     additional_works_data: Mapped[str] = mapped_column(Text, nullable=True)
 
+    # JSON snapshot of the multi-piece budget model (`BudgetPiece[]`, the
+    # "modo piezas" flow). Additive: NULL/empty → legacy budget as today.
+    # Each piece carries its own mesada dimensions, main material,
+    # alternative materials and their own additional works.
+    pieces_data: Mapped[str] = mapped_column(Text, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 

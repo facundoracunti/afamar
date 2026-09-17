@@ -35,3 +35,18 @@
   padding-top: 12px;
   border-top: 1px solid var(--color-border, #e2e8f0);
 }
+
+@media (max-width: 640px) {
+  .pm-form__row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .pm-form__actions {
+    flex-direction: column-reverse;
+  }
+
+  .pm-form__actions button {
+    width: 100%;
+  }
+}

@@ -389,3 +389,19 @@
 .calculator__progressFill--mid-bg {
   background: var(--color-warning);
 }
+
+@media (max-width: 768px) {
+  .calculator__formGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .calculator__formGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .calculator__plateRow {
+    flex-wrap: wrap;
+  }
+}

@@ -12,6 +12,13 @@ export interface Material {
   currency: 'ARS' | 'USD';
   supplier?: string;
   stock_available?: number;
+  /**
+   * Whether this material can carry an integrated sink ("BACHA INTEGRADA"
+   * additional work). Some porous granites (e.g. DALLAS) can't. Defaults to
+   * true on the backend; the materials form + additional-works picker use
+   * this to hide/flag the bacha option for incompatible materials.
+   */
+  allows_integrated_sink?: boolean;
   photo?: string;
   notes?: string;
   created_at?: string;
@@ -33,5 +40,6 @@ export interface MaterialFormData {
   currency: 'ARS' | 'USD';
   supplier: string;
   stock_available: number;
+  allows_integrated_sink: boolean;
   notes: string;
 }

@@ -393,7 +393,7 @@
 
 {% if payment_method %}
 <div style="font-size: 8.5pt; margin-bottom: 6px;">
-  <span class="label">Forma de pago:</span> {{ payment_method }}{% if installments %} ({{ installments }} cuota{{ "" if installments == 1 else "s" }}){% endif %}
+  <span class="label">Forma de pago:</span> {{ payment_method }}{% if catalogue_installment_detail %}{% set _interes = catalogue_installment_detail[0].interes %}{% if installments > 1 %} ({{ installments }} cuotas con {{ _interes }}% de interés por cuota){% else %} (con {{ _interes }}% de interés){% endif %}{% elif installments %} ({{ installments }} cuota{{ "" if installments == 1 else "s" }}){% endif %}
 </div>
 {% endif %}
 

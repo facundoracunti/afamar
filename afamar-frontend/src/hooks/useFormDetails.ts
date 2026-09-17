@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react';
 import type { Material } from '../types/material';
 import type { EntityFormState, FabricationDetail, MaterialInForm, FormField } from '../types';
-import { M2_CONCEPTS, CUTOUT_DETAILS } from './entityFormHelpers';
+import { recomputeFabricationRow } from '../utils/fabricationDetails';
 
 interface UseFormDetailsParams {
   form: EntityFormState;
@@ -36,61 +36,15 @@ export function useFormDetails({
 
   const handleDetailChange = useCallback(
     (idx: number, field: string, value: unknown) => {
-      setForm((prev) => {
-        const list = [...(prev.fabrication_details || [])];
-        list[idx] = { ...list[idx], [field]: value } as FabricationDetail;
-        if (field === 'concept' && value !== 'OTHER') {
-          list[idx].custom_concept = '';
-        }
-        if (field === 'concept' && CUTOUT_DETAILS[value as string]) {
-          list[idx].detail = CUTOUT_DETAILS[value as string];
-        }
-        const d = list[idx];
-
-        if (field === 'material') {
-          const mat = materials.find((m) => m.name === value);
-          if (mat) {
-            list[idx].material = value as string;
-            list[idx].currency = mat.currency || 'ARS';
-            list[idx].material_price_m2 = mat.currency === 'USD' ? (mat.price_usd || 0) : (mat.base_price || 0);
-            if (M2_CONCEPTS.includes(d.concept) && d.m2 > 0) {
-              list[idx].price = Math.round(d.m2 * (list[idx].material_price_m2 || 0) * 100) / 100;
-            }
-          } else {
-            list[idx].material = '';
-            list[idx].material_price_m2 = 0;
-          }
-        }
-
-        if (d.concept === 'OTHER' && (field === 'length' || field === 'labor')) {
-          const length = Number(d.length) || 0;
-          const mo = Number(d.labor) || 0;
-          list[idx].price = Math.round(length * mo * 100) / 100;
-        } else if (
-          M2_CONCEPTS.includes(d.concept) &&
-          (field === 'concept' || field === 'length' || field === 'width' || field === 'currency' || field === 'material')
-        ) {
-          const length = Number(d.length) || 0;
-          const width = Number(d.width) || 0;
-          const m2 = Math.round(length * width * 100000) / 100000;
-          list[idx].m2 = m2;
-          const currency = d.currency || 'ARS';
-          let pm2 = 0;
-          if (d.material) {
-            const mat = materials.find((m) => m.name === d.material);
-            if (mat) {
-              pm2 = currency === 'USD' ? (mat.price_usd || 0) : (mat.base_price || 0);
-            }
-          } else {
-            pm2 =
-              currency === 'USD'
-                ? (materialUsdRef.current || 0)
-                : (Number(materialPrecioRef.current) || Number(prev.material_price_m2) || 0);
-          }
-          list[idx].price = Math.round(m2 * pm2 * 100) / 100;
-        }
-        return { ...prev, fabrication_details: list };
-      });
+      setForm((prev) => ({
+        ...prev,
+        fabrication_details: recomputeFabricationRow(prev.fabrication_details, idx, field, value, {
+          materials,
+          materialPrecio: materialPrecioRef.current || 0,
+          materialUsd: materialUsdRef.current || 0,
+          fallbackMaterialPriceM2: Number(prev.material_price_m2) || 0,
+        }),
+      }));
     },
     [materials]
   );

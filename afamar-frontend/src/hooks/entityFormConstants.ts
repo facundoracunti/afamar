@@ -5,6 +5,7 @@
 import type { EntityFormState } from '../types';
 import type { FinancialBase } from '../types/shared';
 import { fabricationConcepts } from '../utils/formatters';
+import { createEmptyPiece } from '../utils/pieces';
 
 export const M2_CONCEPTS: string[] = fabricationConcepts.filter((c) =>
   c === 'BASEBOARD' || c === 'FRONT'
@@ -68,6 +69,10 @@ export const INITIAL_FORM: EntityFormState = {
   design_observations: '',
   important_observations: '',
   fabrication_details: [],
+  // Pieces v3: the form always opens in pieces-only mode, so the initial
+  // state already carries one empty piece waiting for the operator's main
+  // material pick.
+  pieces: [createEmptyPiece(0)],
   materials_data: [],
   pools_data: [],
   sketch_elements: [],

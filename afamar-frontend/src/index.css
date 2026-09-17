@@ -378,6 +378,19 @@ select.input {
   border: 1px solid var(--surface-border);
 }
 
+@media (max-width: 768px) {
+  .table-container table {
+    min-width: 640px;
+  }
+}
+
+@media (max-width: 640px) {
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
