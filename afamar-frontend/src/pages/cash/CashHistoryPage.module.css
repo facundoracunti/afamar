@@ -2,7 +2,9 @@
 .cash-history__icon-inline { margin-right: 4px; vertical-align: middle; }
 .cash-history {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
+  min-width: 0;
 }
 
 .cash-history__title {
@@ -197,4 +199,28 @@
 
 .cash-history__movement-amount--expense {
   color: var(--color-danger);
+}
+
+@media (max-width: 1000px) {
+  .cash-history__grid--split {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .cash-history__list-card,
+  .cash-history__movements-card {
+    overflow: visible;
+  }
+
+  .cash-history :global(.table-container) {
+    overflow-x: visible;
+    min-width: 640px;
+  }
+}
+
+@media (max-width: 640px) {
+  .cash-history__detail-grid {
+    grid-template-columns: 1fr;
+  }
 }

@@ -131,6 +131,9 @@ class BudgetBase(BaseModel):
     pool_image: str | None = None
     stock_deducted: bool = False
     pools_data: str | None = None
+    # JSON snapshot of the multi-piece budget model (`BudgetPiece[]`).
+    # Additive: NULL/empty → legacy budget as today.
+    pieces_data: str | None = None
 
 
 class BudgetCreate(BudgetBase):
@@ -212,6 +215,7 @@ class BudgetUpdate(BaseModel):
     pool_image: str | None = None
     stock_deducted: bool | None = None
     pools_data: str | None = None
+    pieces_data: str | None = None
     items: list[BudgetItemCreate] | None = None
     # See `BudgetCreate.additional_works` — legacy input still accepted
     # for backwards compat. Service treats it as a no-op (the new path

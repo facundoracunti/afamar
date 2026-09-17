@@ -152,3 +152,9 @@
   display: block;
   border-radius: 12px;
 }
+
+@media (max-width: 640px) {
+  .product-photos {
+    padding: 1rem;
+  }
+}

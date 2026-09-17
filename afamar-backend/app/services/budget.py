@@ -16,6 +16,7 @@ from app.services.budget_calculator import (
     compute_alternative_totals,
     compute_detail_totals,
     compute_pool_totals,
+    flatten_pieces,
     parse_materials_data,
 )
 from app.services.frente_pricing import apply_frente_rows
@@ -241,6 +242,10 @@ class BudgetService:
         elif isinstance(raw_sketch, list):
             sketch_data = raw_sketch
         sketch_data = _flatten_sketch_pages(sketch_data)
+        # Multi-piece flow: if the payload only carries `pieces_data`, derive
+        # the legacy flat arrays from it. Client-provided arrays win here
+        # (`only_if_missing=True`) — the budget path trusts the form totals.
+        flatten_pieces(data, only_if_missing=True)
         last_number = self.repo.get_last_number()
         data["number"] = generate_budget_number(last_number)
         data["client_id"] = resolve_client_id(
@@ -294,6 +299,9 @@ class BudgetService:
         elif isinstance(raw_sketch, list):
             sketch_data = raw_sketch
         sketch_data = _flatten_sketch_pages(sketch_data or [])
+        # Same derivation as create(): fill missing flat arrays from
+        # `pieces_data` without clobbering client-provided ones.
+        flatten_pieces(data, only_if_missing=True)
         budget = self.repo.update(budget, data)
         if raw_additional_works_data is not None:
             budget.additional_works_data = _process_additional_works_snapshot(
@@ -379,6 +387,7 @@ class BudgetService:
             "material_price_m2": alt_precio_m2,
             "materials_data": json.dumps(materials),
             "additional_works_data": None,
+            "pieces_data": budget.pieces_data,
             "color": alt_color or budget.color,
             "thickness": alt_espesor or budget.thickness,
             "finish": alt.get("finish") or budget.finish,

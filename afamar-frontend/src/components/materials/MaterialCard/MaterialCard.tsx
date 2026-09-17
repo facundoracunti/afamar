@@ -37,6 +37,23 @@ interface MaterialCardProps {
   /** Current USD sell rate (peso → dollar). Used to show the dollar equivalent
    *  next to the native ARS price. Defaults to 0 = no conversion shown. */
   usdRate?: number;
+  /** Hide the "+" pane button + the per-row remove. Pieces (singular
+   *  model) render each material as a single row with `quantity` for
+   *  panes — no multi-row UI. Defaults to false (legacy panes mode). */
+  hideAddRow?: boolean;
+  /** Hide the "Alternativa" checkbox entirely. Pieces v3 uses a unified
+   *  "+ AGREGAR ALTERNATIVA" dropdown at the piece level instead of a
+   *  per-row toggle, so the individual checkbox is suppressed. */
+  hideAlternativeCheckbox?: boolean;
+  /** Override the "Alternativa" checkbox behaviour. Pieces use this to
+   *  promote the row between the main and alternatives arrays instead of
+   *  toggling the legacy `is_alternative` flag in place. When provided,
+   *  the checkbox calls `onToggleAlternative(checked)` and `checked`
+   *  reflects the current state (true when this row IS an alternative). */
+  onToggleAlternative?: (checked: boolean) => void;
+  /** Current "is alternative" state when `onToggleAlternative` is in play
+   *  (otherwise the checkbox derives from `anyAlt = rows.some(is_alternative)`). */
+  isAlternative?: boolean;
 }
 
 function rowM2(mat: MaterialInForm): number {
@@ -50,6 +67,10 @@ function rowSubtotal(mat: MaterialInForm): number {
 
 function MaterialCardInner({
   rows, readOnly, materials, categorias, updateMaterial, updateMaterialGroup, removeMaterial, removeGroup, addRow, onChangeMaterial, num, usdRate = 0,
+  hideAddRow = false,
+  hideAlternativeCheckbox = false,
+  onToggleAlternative,
+  isAlternative,
 }: MaterialCardProps) {
   const head = rows[0]?.mat;
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -58,7 +79,9 @@ function MaterialCardInner({
   const currency: 'ARS' | 'USD' = head.currency === 'USD' ? 'USD' : 'ARS';
   const price = currency === 'USD' ? head.price_m2_usd || 0 : head.price_m2 || 0;
   const indices = rows.map((r) => r.idx);
-  const anyAlt = rows.some((r) => r.mat.is_alternative);
+  const anyAlt = onToggleAlternative
+    ? Boolean(isAlternative)
+    : rows.some((r) => r.mat.is_alternative);
   const totalM2 = rows.reduce((acc, r) => acc + rowM2(r.mat), 0);
   const totalSubtotal = Math.round(rows.reduce((acc, r) => acc + rowSubtotal(r.mat), 0) * 100) / 100;
   const totalSubtotalUsd = currency === 'ARS' && usdRate > 0 ? Math.round((totalSubtotal / usdRate) * 100) / 100 : null;
@@ -104,16 +127,21 @@ function MaterialCardInner({
           )}
         </div>
         <div className={s['material-card__actions']}>
-          <label className={s['material-card__alt-label']}>
-            <input
-              type="checkbox"
-              className={s['material-card__alt-checkbox']}
-              checked={anyAlt}
-              onChange={(e) => updateMaterialGroup(indices, 'is_alternative', e.target.checked)}
-              disabled={readOnly}
-            />
-            <span>Alternativa</span>
-          </label>
+          {!hideAlternativeCheckbox ? (
+            <label className={s['material-card__alt-label']}>
+              <input
+                type="checkbox"
+                className={s['material-card__alt-checkbox']}
+                checked={anyAlt}
+                onChange={(e) => {
+                  if (onToggleAlternative) onToggleAlternative(e.target.checked);
+                  else updateMaterialGroup(indices, 'is_alternative', e.target.checked);
+                }}
+                disabled={readOnly}
+              />
+              <span>Alternativa</span>
+            </label>
+          ) : null}
           <button
             type="button"
             className={`${s['material-card__swap']}${pickerOpen ? ` ${s['material-card__swap--active']}` : ''}`}
@@ -124,16 +152,18 @@ function MaterialCardInner({
           >
             Cambiar
           </button>
-          <button
-            type="button"
-            className={s['material-card__add']}
-            onClick={() => addRow(head)}
-            disabled={readOnly}
-            aria-label="Agregar otra medida de este material"
-            title="Agregar otra medida de este material"
-          >
-            +
-          </button>
+          {!hideAddRow && (
+            <button
+              type="button"
+              className={s['material-card__add']}
+              onClick={() => addRow(head)}
+              disabled={readOnly}
+              aria-label="Agregar otra medida de este material"
+              title="Agregar otra medida de este material"
+            >
+              +
+            </button>
+          )}
           <button
             type="button"
             className={s['material-card__remove']}
@@ -206,7 +236,7 @@ function MaterialCardInner({
                   {m2.toFixed(3)} m² · {formatPrice(subtotal, currency)}
                 </span>
               </div>
-              {rows.length > 1 && (
+              {rows.length > 1 && !hideAddRow && (
                 <button
                   type="button"
                   className={`${s['material-card__remove']} ${s['material-card__row-remove']}`}

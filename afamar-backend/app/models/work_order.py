@@ -106,6 +106,10 @@ class WorkOrder(Base):
     stock_deducted: Mapped[bool] = mapped_column(Boolean, default=False)
     pools_data: Mapped[str] = mapped_column(Text, nullable=True)
     additional_works_data: Mapped[str] = mapped_column(Text, nullable=True)
+    # JSON snapshot of the multi-piece budget model (`BudgetPiece[]`), copied
+    # verbatim from the source budget on conversion. Additive: NULL/empty →
+    # legacy work order as today.
+    pieces_data: Mapped[str] = mapped_column(Text, nullable=True)
 
     design_observations: Mapped[str] = mapped_column(Text, nullable=True)
     important_observations: Mapped[str] = mapped_column(Text, nullable=True)

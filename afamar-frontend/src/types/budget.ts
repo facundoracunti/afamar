@@ -58,6 +58,11 @@ export interface MaterialInForm {
   length: number;
   width: number;
   is_alternative: boolean;
+  /** Whether the catalogue row allows an integrated sink ("BACHA
+   *  INTEGRADA"). Copied from the catalogue so the additional-works picker
+   *  can block incompatible materials even when the full `Material[]`
+   *  catalogue isn't in scope. */
+  allows_integrated_sink?: boolean;
 }
 
 /**
@@ -149,4 +154,51 @@ export interface UnifiedBudget {
   designObservations?: string;
   total: number;
   status: string;
+}
+
+/** Exactly one principal material for a piece. `null` until the
+ *  operator picks one from the catalogue. Type alias for readability —
+ *  keeps the singular intent explicit at every callsite instead of
+ *  repeating `MaterialInForm | null`. */
+export type PieceMainMaterial = MaterialInForm | null;
+/** A single alternative material row. Alternatives are kept as a flat
+ *  array on the piece; the singular model means each piece carries at
+ *  most one main + N alternatives. */
+export type PieceAlternativeMaterial = MaterialInForm;
+/**
+ * A single countertop ("mesada") in the multi-piece budget flow.
+ *
+ * Pieces v3 (pieces-only mode): each piece owns exactly one main
+ * material, a list of alternative materials, its own zócalo/frente rows,
+ * its own additional works AND its own piletas. The piletas used to be a
+ * document-global section but moved into the piece they belong to so a
+ * "Mesada Cocina" and a "Mesada Baño" can each carry their own sink
+ * without cross-contamination. A piece's piletas are inherited by every
+ * alternative of that piece in the PDF, so swapping "Blanco Polar" for
+ * "Blanco Suggar" still adds the same sink cost to the alternative's
+ * subtotal.
+ */
+export interface BudgetPiece {
+  id: string;
+  /** Operator-facing label, e.g. "Mesada 1" / "Isla" / "Mueble cocina". */
+  name: string;
+  /** Exactly one principal material for this piece. `null` until the
+   *  operator picks one ("AGREGAR MATERIAL" with no main yet sets it).
+   *  Panes of the same material are encoded via `quantity` on this row,
+   *  not as additional rows. */
+  mainMaterial: PieceMainMaterial;
+  /** Alternative material options for this piece. Each carries
+   *  `is_alternative: true` so the flat wire stays compatible with the
+   *  legacy `materials_data` readers. */
+  alternativeMaterials: PieceAlternativeMaterial[];
+  /** Zócalo/frente rows for this piece, same shape as the global
+   *  `fabrication_details`. */
+  fabrication_details: FabricationDetail[];
+  /** Additional-works snapshot for this piece, JSON-encoded exactly like
+   *  the global `additional_works_data` (`AdditionalWorkSelection[]`). */
+  additional_works_data: string;
+  /** Pools (piletas) assigned to THIS piece. Moved out of the document
+   *  globals so each piece can carry its own sink; the PDF inherits them
+   *  into every alternative of the piece. */
+  pools: PoolInForm[];
 }

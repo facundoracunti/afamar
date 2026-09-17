@@ -3,9 +3,11 @@
  */
 
 import type { EntityFormState } from '../types';
+import type { BudgetPiece, PoolInForm } from '../types/budget';
 import { todayLocalISO } from '../utils/formatters';
 import { INITIAL_FORM } from './entityFormConstants';
 import { buildFinancialPayload, mapFinancialToForm } from './entityFormFinancial';
+import { flattenPieces, normalisePieces } from '../utils/pieces';
 
 export { todayLocalISO };
 
@@ -185,6 +187,63 @@ function jsonParseList(raw: unknown): unknown[] {
   return [];
 }
 
+/** A legacy material row carries either `is_alternative` (English, used
+ *  by the current form) or `es_alternativa` (Spanish, persisted by old
+ *  builds). Treat both as the alternative flag so the v3 migration can
+ *  split legacy `materials_data` into `mainMaterial` / `alternativeMaterials`. */
+function _isLegacyAlternative(m: Record<string, unknown>): boolean {
+  return Boolean((m as { is_alternative?: unknown }).is_alternative)
+    || Boolean((m as { es_alternativa?: unknown }).es_alternativa);
+}
+
+/** Single source of truth for the pieces + their derived flat columns.
+ *
+ *  Pieces v3 guarantees the form always has ≥ 1 piece. When the backend
+ *  returns no `pieces_data` (legacy budget), we fold the legacy flat
+ *  arrays (`materials_data`, `fabrication_details`, `additional_works_data`,
+ *  `pools_data`) into the auto-created first piece so nothing is lost on
+ *  the first save. The `pools_data` returned to the form is then derived
+ *  from the resulting pieces via `flattenPieces`, guaranteeing the flat
+ *  column and the per-piece pools never drift. */
+function _loadPieces(
+  d: Record<string, unknown>,
+): { pieces: BudgetPiece[]; pools_data: PoolInForm[] } {
+  const pieces = normalisePieces(d.pieces_data);
+  const hadPiecesData =
+    (typeof d.pieces_data === 'string' && d.pieces_data.length > 0) ||
+    (Array.isArray(d.pieces_data) && (d.pieces_data as unknown[]).length > 0);
+
+  if (!hadPiecesData) {
+    const legacyMats = jsonParseList(d.materials_data) as Array<Record<string, unknown>>;
+    if (legacyMats.length > 0 && pieces.length === 1 && pieces[0].mainMaterial === null) {
+      const firstMain = legacyMats.find((m) => !_isLegacyAlternative(m)) || null;
+      const alts = legacyMats
+        .filter(_isLegacyAlternative)
+        .map((m) => ({ ...m, is_alternative: true })) as BudgetPiece['alternativeMaterials'];
+      const legacyFab = jsonParseList(d.fabrication_details) as BudgetPiece['fabrication_details'];
+      const legacyAdd = (typeof d.additional_works_data === 'string' && d.additional_works_data)
+        ? d.additional_works_data
+        : '[]';
+      const legacyPools = jsonParseList(d.pools_data) as BudgetPiece['pools'];
+      pieces[0] = {
+        ...pieces[0],
+        mainMaterial: firstMain
+          ? ({ ...firstMain, is_alternative: false } as BudgetPiece['mainMaterial'])
+          : null,
+        alternativeMaterials: alts,
+        fabrication_details: legacyFab,
+        additional_works_data: legacyAdd,
+        pools: legacyPools,
+      };
+    }
+  }
+
+  return {
+    pieces,
+    pools_data: flattenPieces(pieces).pools_data,
+  };
+}
+
 function toIsoFromDate(dateStr: string): string | null {
   if (!dateStr) return null;
   return dateStr;
@@ -227,6 +286,7 @@ export function buildPayload(form: EntityFormState): Record<string, unknown> {
     important_observations: form.important_observations,
     include_measurement_comparison_in_pdf: form.include_measurement_comparison_in_pdf === true,
     fabrication_details: jsonStringify(form.fabrication_details),
+    pieces_data: jsonStringify(form.pieces),
     materials_data: jsonStringify(form.materials_data),
     pools_data: jsonStringify(form.pools_data),
     sketch_elements: jsonStringify(serializeSketchPages(form.sketch_elements)),
@@ -283,8 +343,13 @@ export function mapApiToForm(d: Record<string, unknown>, defaultStatus: string):
     important_observations: (d.important_observations as string) || '',
     include_measurement_comparison_in_pdf: (d.include_measurement_comparison_in_pdf as boolean) ?? false,
     fabrication_details: jsonParseList(d.fabrication_details) as EntityFormState['fabrication_details'],
+    // Pieces v3: pieces-only mode is the ONLY mode. The pieces + their
+    // derived flat columns are computed ONCE (see `_loadPieces` below) so
+    // the legacy migration runs once and the flat arrays are guaranteed
+    // to match the pieces (no drift between `pools_data` and `piece.pools`,
+    // which was a bug in the previous duplicated-IIFE implementation).
+    ..._loadPieces(d),
     materials_data: jsonParseList(d.materials_data) as EntityFormState['materials_data'],
-    pools_data: jsonParseList(d.pools_data) as EntityFormState['pools_data'],
     sketch_elements: unflattenSketchElements(d.sketch_elements) as unknown[],
     additional_works_data: (d.additional_works_data as string | null) ?? null,
     // Per-cuota breakdown persisted by the backend. Empty list when

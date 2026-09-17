@@ -61,6 +61,7 @@ export default function MaterialForm({ materialId, onSaved, onCancel }: Material
     currency: 'ARS',
     supplier: '',
     stock_available: 0,
+    allows_integrated_sink: true,
     notes: '',
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -117,6 +118,7 @@ export default function MaterialForm({ materialId, onSaved, onCancel }: Material
       currency: materialData.currency || 'ARS',
       supplier: materialData.supplier || '',
       stock_available: materialData.stock_available || 0,
+      allows_integrated_sink: materialData.allows_integrated_sink ?? true,
       notes: materialData.notes || '',
     });
     if (materialData.photo) setExistingFoto(materialData.photo);
@@ -321,6 +323,19 @@ export default function MaterialForm({ materialId, onSaved, onCancel }: Material
             <label className={s['material-form__label']}>Stock disponible</label>
             <input className="input" type="number" min="0" value={form.stock_available} onChange={(e) => setForm({ ...form, stock_available: Number(e.target.value) })} />
           </div>
+        </div>
+        <div className={s['material-form__group']}>
+          <label className={s['material-form__label']}>
+            <input
+              type="checkbox"
+              checked={form.allows_integrated_sink}
+              onChange={(e) => setForm({ ...form, allows_integrated_sink: e.target.checked })}
+            />{' '}
+            Admite bacha integrada
+          </label>
+          <small className={s['material-form__hint-text']}>
+            Desmarcá si este material no se puede cortar con bacha integrada (ej. granitos porosos).
+          </small>
         </div>
         <div className={s['material-form__group']}>
           <label className={s['material-form__label']}>Observaciones</label>

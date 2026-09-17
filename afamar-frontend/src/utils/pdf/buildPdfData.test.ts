@@ -1852,7 +1852,7 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
       'EFECTIVO',
       'TRANSFERENCIA BANCARIA',
       'TARJETA DE DÉBITO',
-      'TARJETA DE CRÉDITO',
+      'TARJETA DE CRÉDITO - 9% P/ CUOTA',
     ]);
   });
 
@@ -1869,7 +1869,7 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
     expect(data.payment_methods_catalogue).toEqual([
       'EFECTIVO',
       'TRANSFERENCIA BANCARIA',
-      'TARJETA DE CRÉDITO',
+      'TARJETA DE CRÉDITO - 9% P/ CUOTA',
     ]);
   });
 });

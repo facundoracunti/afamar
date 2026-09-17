@@ -180,7 +180,7 @@ def test_payment_methods_catalogue_orders_active_by_sort_order(pm_session):
         "EFECTIVO_5_OFF",   # sort_order 5
         "EFECTIVO",         # sort_order 10
         "TRANSFER",         # sort_order 20
-        "TARJETA DE CRÉDITO",  # sort_order 40
+        "TARJETA DE CRÉDITO - 9% P/ CUOTA",  # sort_order 40
     ]
 
 
@@ -197,7 +197,7 @@ def test_payment_methods_catalogue_excludes_inactive(pm_session):
         "EFECTIVO_5_OFF",
         "EFECTIVO",
         "TRANSFER",
-        "TARJETA DE CRÉDITO",
+        "TARJETA DE CRÉDITO - 9% P/ CUOTA",
     ]
 
 

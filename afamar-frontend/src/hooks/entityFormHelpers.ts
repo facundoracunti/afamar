@@ -57,6 +57,7 @@ export function addMaterialToList(
       length: 0,
       width: 0,
       is_alternative: false,
+      allows_integrated_sink: mat.allows_integrated_sink ?? true,
     },
   ];
 }
@@ -109,6 +110,7 @@ export function swapMaterialGroupToList(
       price_m2: mat.base_price || 0,
       price_m2_usd: mat.price_usd || 0,
       currency: mat.currency || 'ARS',
+      allows_integrated_sink: mat.allows_integrated_sink ?? true,
     };
   });
 }

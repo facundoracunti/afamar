@@ -6,6 +6,7 @@ import { useBudgetCalculations } from './useBudgetCalculations';
 import { useFormReferences } from './useFormReferences';
 import { useFormDetails } from './useFormDetails';
 import { useFormMaterials } from './useFormMaterials';
+import { useBudgetPieces } from './useBudgetPieces';
 import { useFormPools } from './useFormPools';
 import { useFormClient } from './useFormClient';
 import { useFormCalculationsInput } from './useFormCalculationsInput';
@@ -127,6 +128,9 @@ export default function useEntityForm({
     materialUsdRef,
   });
 
+  // ----- Multi-piece flow (opt-in; flattens into the legacy arrays)
+  const piecesFlow = useBudgetPieces({ form, setForm, materials });
+
   // ----- Pools CRUD
   const { handlePoolImage, addPileta, removePileta, updatePileta, setPoolFields } = useFormPools({
     form,
@@ -230,6 +234,7 @@ export default function useEntityForm({
     removeMaterialGroup,
     updateMaterialGroup,
     swapMaterialGroup,
+    piecesFlow,
     addPileta,
     removePileta,
     updatePileta,

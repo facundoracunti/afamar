@@ -122,6 +122,14 @@ MATERIALS: Final[tuple[tuple, ...]] = (
 )
 
 
+# Materials that CANNOT carry an integrated sink (the "BACHA INTEGRADA"
+# additional work). The rest of the catalogue defaults to True. Keyed by the
+# canonical material `name` (matching `MATERIALS` above).
+NO_INTEGRATED_SINK: Final[tuple[str, ...]] = (
+    "DALLAS",
+)
+
+
 def seed_materials() -> SeedResult:
     """Insert any missing materials (idempotent — matched by name).
 
@@ -164,6 +172,23 @@ def seed_materials() -> SeedResult:
             existing_names.add(name)
             result.inserted += 1
             logger.info("Added material: %s", name)
+
+        # Pin `allows_integrated_sink` on the canonical rows. Idempotent and
+        # additive-only: never touches prices/stock, only the bacha flag.
+        # Existing prod rows get the correct value even though the snapshot
+        # inserts new rows with the column default.
+        for name in NO_INTEGRATED_SINK:
+            material = db.query(Material).filter(Material.name == name).first()
+            if material is None:
+                msg = f"material '{name}' (bacha pin) not found, skipping"
+                logger.warning(msg)
+                result.errors.append(msg)
+                continue
+            if material.allows_integrated_sink:
+                material.allows_integrated_sink = False
+                db.add(material)
+                result.inserted += 1
+                logger.info("Pinned allows_integrated_sink=False for: %s", name)
 
     logger.info(
         "Materials seed done — %d inserted, %d already present",

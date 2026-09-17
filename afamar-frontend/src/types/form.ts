@@ -1,4 +1,4 @@
-import type { FabricationDetail, MaterialInForm, PoolInForm } from './budget';
+import type { FabricationDetail, BudgetPiece, MaterialInForm, PoolInForm } from './budget';
 import type { Client } from './client';
 import type { Material } from './material';
 import type { Pool } from './poolStock';
@@ -93,6 +93,14 @@ export interface EntityFormState extends FinancialBase {
   // Fabrication
   fabrication_details: FabricationDetail[];
 
+  // Multi-piece budget flow ("modo piezas"). Each piece carries its own
+  // dimensions, main material, alternative materials and additional works.
+  // Serialised as a JSON snapshot into `pieces_data` (TEXT, NULL/empty =
+  // legacy budget). Only consumed by the budget form + budget PDF; work
+  // orders flatten it back to `materials_data`/`additional_works_data`
+  // when converting (see backend `_flatten_pieces`).
+  pieces: BudgetPiece[];
+
   // Arrays (sent as *_data JSON to API)
   materials_data: MaterialInForm[];
   pools_data: PoolInForm[];
@@ -147,6 +155,14 @@ export interface UseEntityFormReturn {
   materials: Material[];
   pools: Pool[];
   clientes: Client[];
+  /**
+   * Multi-piece (`pieces_data`) budget flow: piece CRUD + per-piece
+   * material/fabrication/additional-work handlers. Every mutation
+   * re-flattens the pieces into `materials_data` / `fabrication_details`
+   * / `additional_works_data` so the rest of the form keeps working.
+   * Opt-in: `usePieces` is false while `pieces` is empty (legacy path).
+   */
+  piecesFlow: import('../hooks/useBudgetPieces').UseBudgetPiecesReturn;
   /**
    * Active payment methods for the "Forma de pago" `<select>`. Loaded
    * from the `payment_methods` catalogue via TanStack Query (5 min

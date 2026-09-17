@@ -134,8 +134,17 @@ def _recalculate_totals_from_items(db: Session, data: dict) -> None:
     from app.services.budget_calculator import (
         compute_pool_totals,
         filter_main_materials,
+        flatten_pieces,
         parse_materials_data,
     )
+
+    # Multi-piece flow: fill any MISSING flat arrays from `pieces_data` first
+    # so every read below (and the persisted row) sees the piece-derived
+    # items. `only_if_missing=True` is deliberate: a work order's flat arrays
+    # are editable in MEDICIÓN, so an explicit `materials_data` must win over
+    # the (frozen) budget pieces snapshot; pieces only fill the gap for an
+    # API-only payload that carries `pieces_data` alone.
+    flatten_pieces(data, only_if_missing=True)
 
     usd_rate = float(data.get("usd_rate") or settings.DEFAULT_USD_RATE)
     if usd_rate <= 0:
@@ -835,6 +844,7 @@ class WorkOrderService:
             "material_price_m2": material_precio_m2,
             "materials_data": materiales_json,
             "additional_works_data": json.dumps(additional_works_list) if additional_works_list else None,
+            "pieces_data": budget.pieces_data,
             "budgeted_details": json.dumps(sketch_list) if sketch_list else None,
             "sketch_elements": sketch_json,
             "color": budget.color,
@@ -944,13 +954,19 @@ class WorkOrderService:
         if any(
             key in data
             for key in (
-                "fabrication_details", "materials_data", "pools_data",
+                "fabrication_details", "materials_data", "pieces_data", "pools_data",
                 "usd_rate", "transport", "transport_usd", "discount_percentage",
                 "discount_fixed_amount", "payment_method", "installments",
                 "apply_cash_discount",
                 "deposit_received", "deposit_usd", "deposit_currency",
             )
         ):
+            # Derive missing flat arrays from an incoming `pieces_data` BEFORE
+            # seeding `merged` from the persisted row — otherwise the
+            # persisted arrays would mask the pieces and the derivation would
+            # never run. Explicit arrays in the patch still win.
+            from app.services.budget_calculator import flatten_pieces
+            flatten_pieces(data, only_if_missing=True)
             # Merge persisted values with the incoming patch so the helper
             # can recalculate from a complete picture.
             merged = {
@@ -982,6 +998,9 @@ class WorkOrderService:
                 "subtotal", "subtotal_usd", "total", "total_usd",
                 "balance_due", "balance_due_usd", "deposit_received", "deposit_usd",
                 "installment_detail_ars", "installment_detail_usd",
+                # Derived from `pieces_data` by the recalc — persist them so
+                # an API-only PATCH (pieces, no flat arrays) stays consistent.
+                "materials_data", "fabrication_details", "additional_works_data",
                 # The recalc may rewrite this when `payment_method_id`
                 # resolves to a catalogue row whose name differs from the
                 # stale legacy string — propagate it so the repo writes it.
