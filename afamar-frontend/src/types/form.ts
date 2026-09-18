@@ -162,7 +162,7 @@ export interface UseEntityFormReturn {
    * / `additional_works_data` so the rest of the form keeps working.
    * Opt-in: `usePieces` is false while `pieces` is empty (legacy path).
    */
-  piecesFlow: import('../hooks/useBudgetPieces').UseBudgetPiecesReturn;
+  piecesFlow: import('@features/budgets/hooks/useBudgetPieces').UseBudgetPiecesReturn;
   /**
    * Active payment methods for the "Forma de pago" `<select>`. Loaded
    * from the `payment_methods` catalogue via TanStack Query (5 min

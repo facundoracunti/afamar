@@ -1,22 +1,22 @@
 import React, { useMemo } from 'react';
-import type { Material } from '../../../types/material';
-import type { EntityFormState, PoolInForm } from '../../../types';
+import type { Material } from '@/types/material';
+import type { EntityFormState, PoolInForm } from '@/types';
 import type {
   BudgetPiece,
   MaterialInForm,
-} from '../../../types/budget';
-import type { MaterialCategory } from '../../../api/resources/materials';
-import type { Pool } from '../../../types/poolStock';
-import { useList } from '../../../api/hooks';
-import { getMaterialCategories } from '../../../api/resources/materials';
-import { parseNumber } from '../../../utils/formatters';
-import { M2_CONCEPTS } from '../../../hooks/entityFormHelpers';
-import type { UseBudgetPiecesReturn } from '../../../hooks/useBudgetPieces';
-import MaterialCard from '../../materials/MaterialCard/MaterialCard';
-import MaterialPickerControls from '../../materials/MaterialPickerControls/MaterialPickerControls';
-import FabricationSection from '../FabricationSection/FabricationSection';
-import AdditionalWorkSection from '../AdditionalWorkSection/AdditionalWorkSection';
-import PoolCard from '../../materials/PoolCard/PoolCard';
+} from '@/types/budget';
+import type { MaterialCategory } from '@/api/resources/materials';
+import type { Pool } from '@/types/poolStock';
+import { useList } from '@/api/hooks';
+import { getMaterialCategories } from '@/api/resources/materials';
+import { parseNumber } from '@/utils/formatters';
+import { M2_CONCEPTS } from '@/hooks/entityFormHelpers';
+import type { UseBudgetPiecesReturn } from '@features/budgets/hooks/useBudgetPieces';
+import MaterialCard from '@/components/materials/MaterialCard/MaterialCard';
+import MaterialPickerControls from '@/components/materials/MaterialPickerControls/MaterialPickerControls';
+import FabricationSection from '@/components/budget/FabricationSection/FabricationSection';
+import AdditionalWorkSection from '@/components/budget/AdditionalWorkSection/AdditionalWorkSection';
+import PoolCard from '@/components/materials/PoolCard/PoolCard';
 import styles from './PiecesSection.module.css';
 
 const s = styles as unknown as Record<string, string>;

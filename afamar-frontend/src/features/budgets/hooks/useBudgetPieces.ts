@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { Material } from '../types/material';
-import type { EntityFormState } from '../types';
+import type { Material } from '@/types/material';
+import type { EntityFormState } from '@/types';
 import type {
   BudgetPiece,
   FabricationDetail,
   MaterialInForm,
   PoolInForm,
-} from '../types/budget';
-import { getAdditionalWorks } from '../api/resources/additionalWorks';
-import type { AdditionalWork } from '../types/additionalWork';
-import { addMaterialToList, repointSwapReferences } from './entityFormHelpers';
-import { recomputeFabricationRow } from '../utils/fabricationDetails';
-import { createEmptyPiece, flattenPieces } from '../utils/pieces';
+} from '@/types/budget';
+import { getAdditionalWorks } from '@/api/resources/additionalWorks';
+import type { AdditionalWork } from '@/types/additionalWork';
+import { addMaterialToList, repointSwapReferences } from '@/hooks/entityFormHelpers';
+import { recomputeFabricationRow } from '@features/budgets/utils/fabricationDetails';
+import { createEmptyPiece, flattenPieces } from '@features/budgets/utils/pieces';
 
 interface UseBudgetPiecesParams {
   form: EntityFormState;

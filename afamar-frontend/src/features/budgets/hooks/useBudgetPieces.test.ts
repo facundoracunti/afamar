@@ -15,7 +15,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import { useState } from 'react';
 
-vi.mock('../api/resources/additionalWorks', () => ({
+vi.mock('@/api/resources/additionalWorks', () => ({
   // Pending forever so the hook's async `useEffect` never calls
   // `setFrenteCatalogue` — keeps these unit tests free of post-render
   // updates that would trigger React's "not wrapped in act" warning.
@@ -23,8 +23,8 @@ vi.mock('../api/resources/additionalWorks', () => ({
 }));
 
 import { useBudgetPieces } from './useBudgetPieces';
-import type { EntityFormState, MaterialInForm } from '../types';
-import type { Material } from '../types/material';
+import type { EntityFormState, MaterialInForm } from '@/types';
+import type { Material } from '@/types/material';
 
 const NEGRO_MAT: Material = {
   id: 10,
@@ -44,7 +44,7 @@ const BLANCO_MAT: Material = {
 };
 const DEFAULT_CATALOG: Material[] = [BLANCO_MAT, NEGRO_MAT];
 
-function blankPiece(): import('../types/budget').BudgetPiece {
+function blankPiece(): import('@/types/budget').BudgetPiece {
   return {
     id: 'p-blank',
     name: 'Mesada 1',

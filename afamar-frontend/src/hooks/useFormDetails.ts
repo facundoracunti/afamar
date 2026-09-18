@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react';
 import type { Material } from '../types/material';
 import type { EntityFormState, FabricationDetail, MaterialInForm, FormField } from '../types';
-import { recomputeFabricationRow } from '../utils/fabricationDetails';
+import { recomputeFabricationRow } from '@features/budgets/utils/fabricationDetails';
 
 interface UseFormDetailsParams {
   form: EntityFormState;

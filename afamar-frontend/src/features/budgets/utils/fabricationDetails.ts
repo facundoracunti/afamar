@@ -7,7 +7,7 @@
  * can re-price it when an alternative swaps the material.
  */
 
-import type { FabricationDetail, Material } from '../types';
+import type { FabricationDetail, Material } from '@/types';
 
 /** Compute the m² label shown in fabrication tables. */
 function detailM2Label(d: FabricationDetail): string {

@@ -7,7 +7,7 @@ import EntityFormFinancial from './EntityFormFinancial';
 import BudgetFormAdicionales from '../../pages/budgets/BudgetFormAdicionales';
 import FabricationSection from '../budget/FabricationSection/FabricationSection';
 import AdditionalWorkSection from '../budget/AdditionalWorkSection/AdditionalWorkSection';
-import PiecesSection from '../budget/PiecesSection/PiecesSection';
+import PiecesSection from '@features/budgets/components/PiecesSection';
 import SketchSection from '../sketch/SketchSection/SketchSection';
 import PorcelainCalculatorSection from '../calculator/PorcelainCalculatorSection/PorcelainCalculatorSection';
 import TermsEditor from '../ui/TermsEditor/TermsEditor';
@@ -22,7 +22,7 @@ import {
   useEntityFormState,
   useEntityFormStyle,
 } from './EntityFormContexts';
-import type { UseBudgetPiecesReturn } from '../../hooks/useBudgetPieces';
+import type { UseBudgetPiecesReturn } from '@features/budgets/hooks/useBudgetPieces';
 
 const PdfPreviewModal = React.lazy(() => import('../ui/PdfPreviewModal/PdfPreviewModal'));
 const SketchImageExtractor = React.lazy(() => import('../ui/PdfPreviewModal/SketchImageExtractor'));

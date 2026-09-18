@@ -22,7 +22,7 @@ import type {
   FabricationDetail,
   MaterialInForm,
   PoolInForm,
-} from '../types/budget';
+} from '@/types/budget';
 
 /** Stable-enough unique id for a piece (no crypto dependency). */
 function pieceId(): string {
