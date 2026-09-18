@@ -1,8 +1,8 @@
 # AGENTS.md
 
-> **Estado:** Rama `development`. Sesión **2026-09-10** — nueva feature **FICHA DE TALLER**: documento PDF técnico separado del presupuesto/cliente (SIN precios) para la orden de trabajo, con N° de orden, material, pileta, croquis grande y la grilla de especificaciones de taller (CORTE / FAJA / PERF / TRAS-PEG / TERM / SOPAPAS) impresa **siempre en blanco** debajo del croquis para que los trabajadores la completen **a mano con lapicera sobre el papel** (NO por la web — *corrección 2026-09-10: el bloque de 6 inputs del form fue ELIMINADO*, ver "Ficha de Taller 2026-09-10" abajo). Botón "Ficha" en el listado de OTs **y** en el form de OT (modo edición). 6 columnas nuevas en `work_orders` + migración `c5d6e7f8a9b1`, PDF react-pdf dedicado (`WorkshopSheet`). *(Última sesión anterior: 2026-09-07 — fixes comparativa de medición, backfill de snapshots, cobro de seña en update().)*
+> **Estado:** Rama `development`. Sesión **2026-09-18** — **refactor a feature-based de presupuestos**: el módulo de presupuestos (feature **PIEZAS / MESADAS**, *multi-piece*) se movió a `src/features/budgets/` con el alias **`@features/*` (re-introducido)** y se **renombraron a inglés los identificadores internos** (tipos/hooks/funciones/variables — FASE 3), manteniendo la **UI/PDF/placeholders 100% en español**. Además `main` quedó **sincronizada** con `development` (merge `17f48322 "Merge branch 'development'"`, `origin/main` incluido). Ver "Refactor feature-based de presupuestos 2026-09-18" abajo. *(Sesión anterior: 2026-09-10 — FICHA DE TALLER, ver esa sección.)*
 
-> `tsc --noEmit` 0 errores · vitest **234/234** (22 files) · pytest **83/83** · `npm run build` OK · ESLint 0 errores nuevos (2 preexistentes: `EntityFormLayout.tsx:3` 'PdfDocumentData' unused, `entityFormSerialization.ts:99` 'rest' unused). *(Nota 2026-09-01 noche: vitest **222/222**, pytest **72/72** — ver "Navegación tras guardar + tarjeta cobra 100%" y "Señas fantasma + duplicado real" abajo.)* *(Nota 2026-09-02: pytest **77/77** — +5 tests de idempotencia de caja.)* *(Nota 2026-09-03: vitest **223/223** — +1 test del fix "Deshacer" en modo crear; ver "Fix botón Deshacer en modo crear 2026-09-03" abajo.)* *(Nota 2026-09-03 (tarde): + botón de retroceso de estado en OT — ver "Botón de retroceso de estado 2026-09-03" abajo.)*
+> `tsc --noEmit` 0 errores · vitest **312/312** (30 files) · pytest **99/99** · `npm run build` OK · ESLint 0 errores nuevos (preexistentes: `EntityFormLayout.tsx:3` 'PdfDocumentData' unused, `entityFormSerialization.ts:99` 'rest' unused, `useFormDetails.ts:49/53` warnings). *(Nota 2026-09-01 noche: vitest **222/222**, pytest **72/72** — ver "Navegación tras guardar + tarjeta cobra 100%" y "Señas fantasma + duplicado real" abajo.)* *(Nota 2026-09-02: pytest **77/77** — +5 tests de idempotencia de caja.)* *(Nota 2026-09-03: vitest **223/223** — +1 test del fix "Deshacer" en modo crear; ver "Fix botón Deshacer en modo crear 2026-09-03" abajo.)* *(Nota 2026-09-03 (tarde): + botón de retroceso de estado en OT — ver "Botón de retroceso de estado 2026-09-03" abajo.)*
 >
 > **Índice del conocimiento (codebase-memory):** **reindexado** el 2026-08-27 junto con el commit de esa sesión. ADR de arquitectura persistido en el índice (`manage_adr`) + ADR de decisión commiteado en `docs/adr/0008-database-migrations-and-seeder-sync.md`. El ADR de Fase 7 sigue en `docs/adr/0007-payment-methods-catalogue.md`.
 
@@ -15,6 +15,56 @@
 - **Hotspots confirmados (reindex 2026-08-27):** backend `BaseRepository.add` (32 callers, #2) / `save` (25); frontend `createResource.get` (74, #1 global), `parseApiError` (29), `LoadingSpinner` (25), `loginViaApi` (21), `createResource.update` (19), `useNotify` (19). Tras Fase 7, sumar `useBudgetCalculations.applyPaymentMethodToTotals` (4 callsites nuevos) y `paymentMethodRepository.get_by_name` (CRUD del catálogo).
 - **Complejidad alta:** `usePlateCalculator` (bin-packing, loop_depth 4, cyclomatic 13), `pdf_html._sketch_to_png_base64_list` (loop_depth 3, cyclomatic 25), `WorkOrderService.update` (cyclomatic 12), `_recalculate_totals_from_items` (cyclomatic ~12 con alternativa + catálogo).
 - **Clusters de-facto:** frontend core UI (102, cohesión 0.79), forms orchestration (74, 0.81), `parseApiError`+`useBudgetActions`+`buildPayload`+`useFormActions` (65, 0.81), budget/quote/fabrication/sketch (54, 0.88). Sin dependencia circular entre `app/` y `src/`.
+
+## Refactor a feature-based de presupuestos (2026-09-18)
+
+El módulo de presupuestos (feature **PIEZAS / MESADAS**, *multi-piece*) se reorganizó a una **estructura feature-based** (`src/features/budgets/`) y se **tradujeron a inglés los identificadores internos**. La **UI, el PDF, los placeholders y los mensajes siguen 100% en español**. Contexto de la feature subyacente: los presupuestos son *multi-piece* — cada **pieza/mesada** tiene su material principal, sus materiales alternativos, sus zócalos/frentes, sus trabajos adicionales y sus piletas; las OT siguen con el layout legacy.
+
+### Estructura feature-based + alias `@features/*` (FASE 2)
+
+```
+afamar-frontend/src/features/budgets/
+├── components/PiecesSection.tsx (+ PiecesSection.module.css)
+├── hooks/useBudgetPieces.ts (+ useBudgetPieces.test.ts)
+├── utils/pieces.ts
+├── utils/fabricationDetails.ts
+├── types/       (vacío, reservado)
+└── constants/   (vacío, reservado)
+```
+
+- **Alias `@features/*` re-introducido** (la nota vieja "eliminados en 6.3" quedó obsoleta): registrado en `tsconfig.json` (`paths`), `vite.config.ts` (`resolve.alias`) y `vitest.config.ts` (`resolve.alias`) → `@features` = `./src/features`.
+- Los archivos se **movieron físicamente** (no son shims/re-exports). Todos los consumidores importan vía `@features/budgets/...` o `@/...`: `components/entity/EntityFormLayout.tsx`, `hooks/useEntityForm.ts`, `hooks/entityFormSerialization.ts`, `hooks/entityFormConstants.ts`, `hooks/useFormDetails.ts`, `types/form.ts`, `utils/pdf/buildPiecesPdfData.test.ts`.
+- **Tip para git en este entorno:** `git mv` falla (el repo git está en el **padre** de `afamar-frontend/`; `--show-toplevel` = `proyectos/afamar`, `--show-prefix` = `afamar-frontend/`). Workaround: `Move-Item` + `git add <nuevo>` + `git rm <viejo>`. Correr git desde `proyectos/afamar` con paths `afamar-frontend/...`.
+
+### Modelo de piezas (pieces v3)
+
+- `BudgetPiece` (`src/types/budget.ts:181`): `{ id, name, mainMaterial: PieceMainMaterial, alternativeMaterials: PieceAlternativeMaterial[], fabrication_details: FabricationDetail[], additional_works_data: string, pools: PoolInForm[] }`. Aliases: `PieceMainMaterial = MaterialInForm | null`, `PieceAlternativeMaterial = MaterialInForm`.
+- Serializado a JSON en la columna **`pieces_data` (TEXT)**; migración Alembic **`f8e7d6c5b4a3`** (agrega `pieces_data` en `budgets` + `allows_integrated_sink` en `materials`). `allows_integrated_sink` = si el material permite bacha integrada (validación en `src/utils/integratedSink.ts`).
+- **Modo pieces-only:** los **presupuestos siempre renderizan `PiecesSection`** (sin toggle `usePieces`/`enablePieces`/`clearPieces`); `form.pieces` garantizado ≥ 1 por el init + el serializer. Las **OT usan el layout legacy** (`EntityFormLayout` con `showPieces={false}`).
+- **Piletas por pieza** (`piece.pools`): `flattenPieces` (front, `utils/pieces.ts`) y `flatten_pieces` (backend, `app/services/budget_calculator.py:37`) concatenan a `pools_data` flat. En el PDF las alternativas **heredan** las piletas de la pieza.
+- Las alternativas heredan `length`/`width`/`quantity` del `mainMaterial` (helper `pieceDims`).
+- `flatten_pieces(data, only_if_missing)` se llama en `app/services/budget.py:248/304` (create/update) y `app/services/work_order.py:147/969` (recalc/update).
+- **Migración legacy import-safe:** `mapApiToForm` migra budgets sin `pieces_data` (helper `_loadPieces(d)`); acepta `is_alternative` y `es_alternativa`.
+- **PDF de piezas:** `src/utils/pdf/buildPiecesPdfData.ts` (+ `.test.ts`) — mergea las filas doc-level de `fabrication_details` en la **pieza 0** con dedup por `(concept, detail)`.
+- **UI/cableado:** `useBudgetPieces` (CRUD de piezas, expuesto como `useEntityForm().piecesFlow`); `EntityFormLayout` (`showPieces`/`piecesFlow`, branch single-column + `renderBottom()`); wizard step "Materiales" = `PiecesSection`; editor `PiecesSection` (grid 2 col; inputs Cant/Largo/Ancho; **sin** checkbox "Alternativa" por fila — las alternativas se agregan con el dropdown unificado).
+
+### FASE 3 — Español → Inglés (solo identificadores internos)
+
+**Regla:** código interno en inglés; **textos de UI/PDF/placeholders/mensajes SIEMPRE en español**. Renombres aplicados (tipos/interfaces/hooks/funciones/variables) dentro de `src/features/budgets/` + el consumidor mínimo:
+
+- `utils/fabricationDetails.ts`: campo del `ctx` de `recomputeFabricationRow` `materialPrecio` → `materialPriceArs`.
+- `hooks/useBudgetPieces.ts` (interface `UseBudgetPiecesReturn` + impl.): `addPieceDetalle`/`updatePieceDetalle`/`removePieceDetalle` → `addPieceFabrication`/`updatePieceFabrication`/`removePieceFabrication`; `frenteCatalogue`/`setFrenteCatalogue` → `frontCatalogue`/`setFrontCatalogue`; ctx `materialPriceArs`.
+- `components/PiecesSection.tsx`: `categorias` (prop de `SingularMaterialCard`/`PieceCard` + variable local) → `categories`; calls a `handlers.*PieceDetalle` → `*PieceFabrication`.
+- `hooks/useBudgetPieces.test.ts`: comentario `setFrenteCatalogue` → `setFrontCatalogue`.
+- `src/hooks/useFormDetails.ts` (fuera del feature, solo para compilar): clave de ctx `materialPrecio` → `materialPriceArs` (el `ref` `materialPrecioRef` se mantiene).
+
+**NO renombrado (a propósito):** claves de contrato/wire snake_case que matchean backend/`EntityFormState` (`fabrication_details`, `additional_works_data`, `materials_data`, `pools_data`, `is_alternative`, `mesada_length`/`mesada_width`, `material_price_m2`, etc.); props de componentes compartidos fuera del feature (`detalles`/`handleDetailChange`/`addDetalle`/`removeDetalle` de `FabricationSection`, `updatePileta`/`removePileta` de `PoolCard`, `categorias` de `MaterialCard`/`MaterialPickerControls`); y `frenteCatalogue` en `src/hooks/useFormMaterials.ts` + `frenteCatalogues` en `AdditionalWorkSection.tsx`.
+
+### Verificación y ramas
+
+- `npx tsc --noEmit` **0** · `npx vitest run` **312/312** (30 files) · `npm run build` OK · ESLint del feature **0 errores** (2 warnings preexistentes en `useFormDetails.ts`).
+- Backend: pytest **99/99** (incluye `tests/test_flatten_pieces.py`, 9 tests).
+- **Ramas:** `main` mergeado con `development` y pusheado — commit `17f48322 "Merge branch 'development'"`; `origin/main` == `main` y `git diff main development` = vacío. `development` es la rama de trabajo.
 
 ## Auto-consume de material en "Asignar a opción" (2026-09-12)
 
@@ -201,8 +251,8 @@ Para el árbol completo usar `Get-ChildItem -Recurse`. Lo crítico:
 
 - **BEM + CSS Modules:** cada page tiene `X.module.css` co-localizado. `import styles from './X.module.css'; const s = styles as unknown as Record<string, string>; // <div className={s['x__title']}>`.
 - **CSS tokens:** `src/index.css` define design tokens como custom properties (`--color-danger`, `--tw-green-600`, etc.). Usar `var(--token)` en lugar de hex hardcoded. Tabla column widths con `nth-child` rules en el CSS module del componente, no inline `style={{ width: N }}`.
-- **Path aliases:** `@/` y `@assets/`. (Los aliases `@features/*` y `@shared/*` fueron eliminados en 6.3.)
-- **English naming** (carpetas/componentes/hooks/funciones/constantes/CSS classes): todo renombrado. Excepción: `EntityFormState` campos snake_case English matcheando backend.
+- **Path aliases:** `@/` → `src/`, `@assets/` → `src/assets/`, **`@features/` → `src/features/`** (re-introducido 2026-09-18 para el módulo feature-based de presupuestos; registrado en `tsconfig.json`, `vite.config.ts` y `vitest.config.ts`). `@shared/*` sigue eliminado.
+- **English naming** (carpetas/componentes/hooks/funciones/constantes/CSS classes): todo renombrado. Excepción: `EntityFormState` campos snake_case English matcheando backend. **Los textos visibles (UI/PDF/placeholders/mensajes de error) SIEMPRE en español** — los identificadores internos van en inglés, pero nunca se traduce lo que ve el operador/cliente.
 - **TypeScript strict** + `tsc --noEmit` antes de `vite build`. Naming: PascalCase componentes, camelCase hooks/utils, UPPER_SNAKE_CASE constantes.
 - **Repository pattern** (backend): SQLAlchemy puro. Transacciones en services. **Service layer**: lógica en `services/*.py`, routers ≤ 5 líneas.
 - **Pydantic v2:** schemas Base/Create/Update/Response separados. `ConfigDict(from_attributes=True)`. `CurrencyCodeMixin` para resolver código de moneda.
