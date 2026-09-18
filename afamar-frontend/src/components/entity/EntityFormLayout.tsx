@@ -162,6 +162,67 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
   const addPorcelainDetail = (detail: FabricationDetail) =>
     update('fabrication_details', [...(form.fabrication_details || []), detail]);
 
+  // Bottom stack — shared between the pieces-only branch (budgets) and
+  // the legacy 2-column branch (work orders). These modules are
+  // document-global, not piece-scoped, so they must always render below
+  // the materials/pieces card regardless of layout mode.
+  const renderBottom = () => (
+    <>
+      <div className={s[`${prefix}bottom`]}>
+        {porcelainCalculatorCollapsed}
+
+        <SketchSection
+          showCroquis={showCroquis}
+          setShowCroquis={setShowCroquis}
+          sketchElements={form.sketch_elements}
+          onChange={(v) => update('sketch_elements', v)}
+          readOnly={readOnly}
+          toggleLabel="Diseño / Plano"
+          materials={sketchMaterials}
+        />
+
+        <EntityFormFinancial
+          form={form}
+          modoUSD={modoUSD}
+          toggleModoUSD={toggleModoUSD}
+          hayUSD={hayUSD}
+          hayAlternativas={hayAlternativas}
+          readOnly={readOnly}
+          saving={saving}
+          handleTransportChange={handleTransportChange}
+          handleDepositCurrencyChange={handleDepositCurrencyChange}
+          handleDepositAmountChange={handleDepositAmountChange}
+          handleUsdRateChange={handleUsdRateChange}
+          onUsdRateRefresh={onUsdRateRefresh}
+          setForm={setForm}
+          update={update}
+          num={parseNumber}
+          alternativasGrid={alternativasGrid}
+          actionBlock={actionBlock}
+          onConfirmarPago={onConfirmarPago}
+          paymentMethods={paymentMethods}
+        />
+      </div>
+
+      {observations}
+
+      {terms.map((t) => (
+        <div key={t.title} className={s[`${prefix}card`]} style={{ marginTop: 16 }}>
+          <h3 className={s[`${prefix}card-title`]}>{t.title}</h3>
+          <TermsEditor
+            items={t.items}
+            onChange={t.onChange}
+            placeholder={t.placeholder || ''}
+            hint={t.hint}
+            disabled={t.disabled}
+          />
+        </div>
+      ))}
+
+      <FormFooter saving={saving} onCancel={onCancel} />
+    </>
+  );
+
   // Unique material names from the form so each sketch page can be labeled
   // with the countertop material it draws (printed on the taller sheet).
   // Trimmed: catalog names may carry a trailing space (e.g. "ROSA DE SALTO "),
@@ -395,6 +456,8 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
             <div className={layoutClassPieces}>
               {piecesSection}
             </div>
+
+            {renderBottom()}
           </>
         ) : (
           <>
@@ -460,58 +523,7 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
           </div>
         </div>
 
-        <div className={s[`${prefix}bottom`]}>
-          {porcelainCalculatorCollapsed}
-
-          <SketchSection
-            showCroquis={showCroquis}
-            setShowCroquis={setShowCroquis}
-            sketchElements={form.sketch_elements}
-            onChange={(v) => update('sketch_elements', v)}
-            readOnly={readOnly}
-            toggleLabel="Diseño / Plano"
-            materials={sketchMaterials}
-          />
-
-          <EntityFormFinancial
-            form={form}
-            modoUSD={modoUSD}
-            toggleModoUSD={toggleModoUSD}
-            hayUSD={hayUSD}
-            hayAlternativas={hayAlternativas}
-            readOnly={readOnly}
-            saving={saving}
-            handleTransportChange={handleTransportChange}
-            handleDepositCurrencyChange={handleDepositCurrencyChange}
-            handleDepositAmountChange={handleDepositAmountChange}
-            handleUsdRateChange={handleUsdRateChange}
-            onUsdRateRefresh={onUsdRateRefresh}
-            setForm={setForm}
-            update={update}
-            num={parseNumber}
-            alternativasGrid={alternativasGrid}
-            actionBlock={actionBlock}
-            onConfirmarPago={onConfirmarPago}
-            paymentMethods={paymentMethods}
-          />
-        </div>
-
-        {observations}
-
-        {terms.map((t) => (
-          <div key={t.title} className={s[`${prefix}card`]} style={{ marginTop: 16 }}>
-            <h3 className={s[`${prefix}card-title`]}>{t.title}</h3>
-            <TermsEditor
-              items={t.items}
-              onChange={t.onChange}
-              placeholder={t.placeholder || ''}
-              hint={t.hint}
-              disabled={t.disabled}
-            />
-          </div>
-        ))}
-
-        <FormFooter saving={saving} onCancel={onCancel} />
+        {renderBottom()}
           </>
         )}
       </form>

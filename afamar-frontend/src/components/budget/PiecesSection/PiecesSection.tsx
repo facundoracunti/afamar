@@ -67,9 +67,7 @@ function SingularMaterialCard({
       usdRate={usdRate}
       hideAddRow
       hideAlternativeCheckbox
-      updateMaterial={() => {
-        /* idx unused in singular mode */
-      }}
+      updateMaterial={(_idx, field, value) => onUpdateField(field, value)}
       updateMaterialGroup={(_idxs, field, value) => onUpdateField(field, value)}
       removeMaterial={() => {
         /* not used (removeGroup handles it) */
