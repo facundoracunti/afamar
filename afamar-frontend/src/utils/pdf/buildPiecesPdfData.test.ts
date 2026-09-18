@@ -256,4 +256,52 @@ describe('buildPdfData — pieces branch', () => {
     expect(data.pieces).toBeUndefined();
     expect(data.sections.length).toBeGreaterThan(0);
   });
+
+  it('merges document-level fabrication_details (Porcelain Calculator) into every piece block', () => {
+    // The Calculator de Porcelanato writes zócalos to `form.fabrication_details`
+    // (it has no piece context), while pieces v3 stores fabrication per-piece.
+    // The builder must merge the document-level column into every piece's
+    // fabrication rows so the calculator's items render in each piece's
+    // PDF breakdown (matches the legacy "common fabrication folds into
+    // every option" semantic).
+    const zocalo7 = {
+      concept: 'BASEBOARD',
+      detail: 'Zócalo de 7cm',
+      material: '',
+      material_price_m2: 0,
+      length: 2.1,
+      width: 0.07,
+      m2: 0.147,
+      labor: null,
+      currency: 'ARS' as const,
+      quantity: 1,
+      price: 0,
+    };
+    const zocalo10 = {
+      concept: 'BASEBOARD',
+      detail: 'Zócalo de 10cm',
+      material: '',
+      material_price_m2: 0,
+      length: 2.1,
+      width: 0.1,
+      m2: 0.21,
+      labor: null,
+      currency: 'ARS' as const,
+      quantity: 1,
+      price: 0,
+    };
+    const formWithCalculator = {
+      ...makeForm([piece1]),
+      fabrication_details: [zocalo7, zocalo10],
+    } as unknown as Record<string, unknown>;
+
+    const pieces = buildPieces(formWithCalculator, 1000);
+    // Every piece block renders the calculator zócalos alongside its own.
+    expect(pieces.length).toBeGreaterThan(0);
+    for (const p of pieces) {
+      const zocaloLabels = p.fabrication_details.map((r) => r.detail);
+      expect(zocaloLabels).toContain('Zócalo de 7cm');
+      expect(zocaloLabels).toContain('Zócalo de 10cm');
+    }
+  });
 });

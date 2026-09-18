@@ -7,6 +7,7 @@ import EntityFormFinancial from './EntityFormFinancial';
 import BudgetFormAdicionales from '../../pages/budgets/BudgetFormAdicionales';
 import FabricationSection from '../budget/FabricationSection/FabricationSection';
 import AdditionalWorkSection from '../budget/AdditionalWorkSection/AdditionalWorkSection';
+import PiecesSection from '../budget/PiecesSection/PiecesSection';
 import SketchSection from '../sketch/SketchSection/SketchSection';
 import PorcelainCalculatorSection from '../calculator/PorcelainCalculatorSection/PorcelainCalculatorSection';
 import TermsEditor from '../ui/TermsEditor/TermsEditor';
@@ -21,6 +22,7 @@ import {
   useEntityFormState,
   useEntityFormStyle,
 } from './EntityFormContexts';
+import type { UseBudgetPiecesReturn } from '../../hooks/useBudgetPieces';
 
 const PdfPreviewModal = React.lazy(() => import('../ui/PdfPreviewModal/PdfPreviewModal'));
 const SketchImageExtractor = React.lazy(() => import('../ui/PdfPreviewModal/SketchImageExtractor'));
@@ -60,6 +62,15 @@ export interface EntityFormLayoutProps {
   fabricationShowMeasurementComparison?: boolean;
   fabricationMaterialsData?: MaterialInForm[];
   mode?: 'full' | 'wizard';
+  /**
+   * Pieces v3: budget forms render in pieces-only mode by default. The
+   * legacy single-mesada layout (MATERIALES + PILETAS globals + global
+   * fabricación) is still used for Work Orders (`showPieces` is false
+   * there) so the OT form keeps the classic 2-column layout.
+   */
+  showPieces?: boolean;
+  /** Required when `showPieces` is true. Comes from `useEntityForm().piecesFlow`. */
+  piecesFlow?: UseBudgetPiecesReturn;
 }
 
 // Helper: ts-friendly accessor — the lazy providers below accept the
@@ -104,7 +115,29 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
     alternativasGrid, actionBlock, extraDialogs,
     specsCardClassName, fabricationShowMeasurementComparison, fabricationMaterialsData,
     mode = 'full',
+    showPieces = true,
+    piecesFlow,
   } = props;
+
+  // Pieces v3: pieces-only mode is the default for budgets. The OT form
+  // passes `showPieces={false}` to opt back into the legacy layout.
+  const piecesOn = Boolean(showPieces && piecesFlow);
+
+  // Single-column cascade: each piece card spans the full width and
+  // stacks downward as the operator adds more mesadas. Pools sit below
+  // as a compact document-global section.
+  const layoutClassPieces = s[`${prefix}layout--pieces`];
+
+  const piecesSection = piecesOn && piecesFlow ? (
+    <PiecesSection
+      form={form}
+      readOnly={readOnly}
+      materials={materiales}
+      pools={pools}
+      pieces={piecesFlow.pieces}
+      handlers={piecesFlow}
+    />
+  ) : null;
   const [wizardStep, setWizardStep] = useState(0);
 
   const layoutClass = showCroquis ? `${prefix}layout` : `${prefix}layout ${prefix}layout--no-sketch`;
@@ -128,6 +161,67 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
 
   const addPorcelainDetail = (detail: FabricationDetail) =>
     update('fabrication_details', [...(form.fabrication_details || []), detail]);
+
+  // Bottom stack — shared between the pieces-only branch (budgets) and
+  // the legacy 2-column branch (work orders). These modules are
+  // document-global, not piece-scoped, so they must always render below
+  // the materials/pieces card regardless of layout mode.
+  const renderBottom = () => (
+    <>
+      <div className={s[`${prefix}bottom`]}>
+        {porcelainCalculatorCollapsed}
+
+        <SketchSection
+          showCroquis={showCroquis}
+          setShowCroquis={setShowCroquis}
+          sketchElements={form.sketch_elements}
+          onChange={(v) => update('sketch_elements', v)}
+          readOnly={readOnly}
+          toggleLabel="Diseño / Plano"
+          materials={sketchMaterials}
+        />
+
+        <EntityFormFinancial
+          form={form}
+          modoUSD={modoUSD}
+          toggleModoUSD={toggleModoUSD}
+          hayUSD={hayUSD}
+          hayAlternativas={hayAlternativas}
+          readOnly={readOnly}
+          saving={saving}
+          handleTransportChange={handleTransportChange}
+          handleDepositCurrencyChange={handleDepositCurrencyChange}
+          handleDepositAmountChange={handleDepositAmountChange}
+          handleUsdRateChange={handleUsdRateChange}
+          onUsdRateRefresh={onUsdRateRefresh}
+          setForm={setForm}
+          update={update}
+          num={parseNumber}
+          alternativasGrid={alternativasGrid}
+          actionBlock={actionBlock}
+          onConfirmarPago={onConfirmarPago}
+          paymentMethods={paymentMethods}
+        />
+      </div>
+
+      {observations}
+
+      {terms.map((t) => (
+        <div key={t.title} className={s[`${prefix}card`]} style={{ marginTop: 16 }}>
+          <h3 className={s[`${prefix}card-title`]}>{t.title}</h3>
+          <TermsEditor
+            items={t.items}
+            onChange={t.onChange}
+            placeholder={t.placeholder || ''}
+            hint={t.hint}
+            disabled={t.disabled}
+          />
+        </div>
+      ))}
+
+      <FormFooter saving={saving} onCancel={onCancel} />
+    </>
+  );
 
   // Unique material names from the form so each sketch page can be labeled
   // with the countertop material it draws (printed on the taller sheet).
@@ -179,7 +273,16 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
       id: 'materials',
       label: 'Materiales',
       description: 'Materiales principales y alternativas.',
-      content: (
+      content: piecesOn && piecesFlow ? (
+        <PiecesSection
+          form={form}
+          readOnly={readOnly}
+          materials={materiales}
+          pools={pools}
+          pieces={piecesFlow.pieces}
+          handlers={piecesFlow}
+        />
+      ) : (
         <EntityFormSpecs
           form={form}
           readOnly={readOnly}
@@ -308,7 +411,14 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
         </div>
       ),
     },
-  ];
+  ].filter(
+    // Pieces v3: with the multi-piece editor active, the legacy
+    // Piletas / Fabricación / Trabajos adicionales steps collapse into
+    // the single "Materiales" step (each piece carries its own pools +
+    // zócalos + adicionales). Hide them in the wizard so the operator
+    // doesn't see duplicate controls.
+    (step) => !piecesOn || !['pools', 'fabrication', 'additional-works'].includes(step.id),
+  );
 
   return (
     <>
@@ -326,6 +436,29 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
             onCancel={onCancel}
             saving={saving}
           />
+        ) : piecesOn ? (
+          // Pieces-only mode (budgets): single-column cascade. The pieces
+          // card already embeds its own pools + zócalo/frente + adicionales
+          // sections, so the legacy globals (MATERIALES / PILETAS /
+          // FABRICACIÓN / ADICIONALES) collapse into it.
+          <>
+            <EntityFormClient
+              form={form}
+              readOnly={readOnly}
+              update={update}
+              clientes={clientes}
+              onClientCreated={addOrRefreshClientes}
+              onAddressAdded={onAddressAdded}
+            />
+
+            {beforeLayout}
+
+            <div className={layoutClassPieces}>
+              {piecesSection}
+            </div>
+
+            {renderBottom()}
+          </>
         ) : (
           <>
             <EntityFormClient
@@ -390,58 +523,7 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
           </div>
         </div>
 
-        <div className={s[`${prefix}bottom`]}>
-          {porcelainCalculatorCollapsed}
-
-          <SketchSection
-            showCroquis={showCroquis}
-            setShowCroquis={setShowCroquis}
-            sketchElements={form.sketch_elements}
-            onChange={(v) => update('sketch_elements', v)}
-            readOnly={readOnly}
-            toggleLabel="Diseño / Plano"
-            materials={sketchMaterials}
-          />
-
-          <EntityFormFinancial
-            form={form}
-            modoUSD={modoUSD}
-            toggleModoUSD={toggleModoUSD}
-            hayUSD={hayUSD}
-            hayAlternativas={hayAlternativas}
-            readOnly={readOnly}
-            saving={saving}
-            handleTransportChange={handleTransportChange}
-            handleDepositCurrencyChange={handleDepositCurrencyChange}
-            handleDepositAmountChange={handleDepositAmountChange}
-            handleUsdRateChange={handleUsdRateChange}
-            onUsdRateRefresh={onUsdRateRefresh}
-            setForm={setForm}
-            update={update}
-            num={parseNumber}
-            alternativasGrid={alternativasGrid}
-            actionBlock={actionBlock}
-            onConfirmarPago={onConfirmarPago}
-            paymentMethods={paymentMethods}
-          />
-        </div>
-
-        {observations}
-
-        {terms.map((t) => (
-          <div key={t.title} className={s[`${prefix}card`]} style={{ marginTop: 16 }}>
-            <h3 className={s[`${prefix}card-title`]}>{t.title}</h3>
-            <TermsEditor
-              items={t.items}
-              onChange={t.onChange}
-              placeholder={t.placeholder || ''}
-              hint={t.hint}
-              disabled={t.disabled}
-            />
-          </div>
-        ))}
-
-        <FormFooter saving={saving} onCancel={onCancel} />
+        {renderBottom()}
           </>
         )}
       </form>

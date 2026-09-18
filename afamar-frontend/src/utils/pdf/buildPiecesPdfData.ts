@@ -24,7 +24,7 @@
  * (none in pieces mode)` = the document subtotal, with no double counting.
  */
 
-import type { BudgetPiece, MaterialInForm } from '../../types/budget';
+import type { BudgetPiece, FabricationDetail, MaterialInForm } from '../../types/budget';
 import type { PiecesPdfPiece } from './pdfTypes';
 import { materialGroupKey } from '../materialGroups';
 import {
@@ -61,8 +61,27 @@ export function buildPieces(
   const raw = (form as { pieces?: unknown }).pieces;
   if (!Array.isArray(raw) || raw.length === 0) return [];
 
+  // Document-level fabrication rows (Calculator de Zócalos, etc.). The
+  // calculator writes to `form.fabrication_details` (it has no piece
+  // context), while pieces v3 stores fabrication per-piece. Pieces v3 has
+  // no "active piece" concept, so we attach the calculator's items to
+  // the FIRST piece (the primary mesada) and dedup by (concept, detail)
+  // against its own fabrication rows — a piece's own fabrication row that
+  // was flattened into the form column by `flattenPieces` is recognised
+  // and skipped to avoid double-billing. Other pieces keep their own
+  // fabrication untouched (no cross-piece leak).
+  const rawDocFab = ((form as { fabrication_details?: FabricationDetail[] | undefined }).fabrication_details) || [];
+  const docFabRows: PdfDataRow[] = buildFabricationRows(rawDocFab, usdRate);
+  const docFabKey = (r: PdfDataRow) => `${r.concept}__${r.detail ?? ''}`;
+  const docFabByKey = new Map<string, PdfDataRow>();
+  for (const r of docFabRows) {
+    const k = docFabKey(r);
+    if (!docFabByKey.has(k)) docFabByKey.set(k, r);
+  }
+
   const result: PiecesPdfPiece[] = [];
-  for (const piece of raw as BudgetPiece[]) {
+  for (let pieceIndex = 0; pieceIndex < (raw as BudgetPiece[]).length; pieceIndex++) {
+    const piece = (raw as BudgetPiece[])[pieceIndex];
     if (!piece) continue;
 
     const mainList: MaterialInForm[] = piece.mainMaterial ? [piece.mainMaterial] : [];
@@ -72,7 +91,24 @@ export function buildPieces(
     const piecePools = Array.isArray(piece.pools) ? piece.pools : [];
 
     const mainRows = buildMaterialRows(mainList, usdRate);
-    const fabRows = buildFabricationRows(piece.fabrication_details, usdRate);
+    const pieceFabRows = buildFabricationRows(piece.fabrication_details, usdRate);
+    // Only the primary piece inherits the calculator's docFab rows. Other
+    // pieces keep their own fabrication (no cross-piece leak). Within the
+    // primary piece, dedup by (concept, detail) so a row that was
+    // flattened into the form column by `flattenPieces` doesn't render
+    // twice.
+    let fabRows: PdfDataRow[] = pieceFabRows;
+    if (pieceIndex === 0) {
+      const seen = new Set(pieceFabRows.map(docFabKey));
+      const merged = pieceFabRows.slice();
+      for (const r of docFabRows) {
+        if (!seen.has(docFabKey(r))) {
+          merged.push(r);
+          seen.add(docFabKey(r));
+        }
+      }
+      fabRows = merged;
+    }
     const adicRows = buildAdditionalWorksRows(
       { ...form, additional_works_data: piece.additional_works_data },
       usdRate,

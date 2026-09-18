@@ -87,6 +87,7 @@ export default function BudgetForm(props: BudgetFormProps = {}) {
     handleDelete,
     paymentMethods,
     M2_CONCEPTS,
+    piecesFlow,
   } = useEntityForm({
     services: budgetServices,
     defaultStatus: 'PENDING',
@@ -318,6 +319,8 @@ export default function BudgetForm(props: BudgetFormProps = {}) {
             >
               <EntityFormLayout
                 mode={props.layoutMode || 'full'}
+                showPieces
+                piecesFlow={piecesFlow}
                 alternativasGrid={alternativasGrid}
                 actionBlock={convertAction}
                 observations={
