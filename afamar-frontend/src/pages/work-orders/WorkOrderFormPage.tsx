@@ -122,6 +122,7 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
     buildPayload,
     paymentMethods,
     M2_CONCEPTS,
+    piecesFlow,
   } = useEntityForm({
     services: workOrderServices,
     defaultStatus: 'MEASUREMENT',
@@ -337,6 +338,8 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
             >
               <EntityFormLayout
                 mode={props.layoutMode || 'full'}
+                  showPieces
+                  piecesFlow={piecesFlow}
                   alternativasGrid={alternativasGrid}
                   beforeLayout={
                   <>
