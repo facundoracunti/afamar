@@ -31,6 +31,12 @@ interface PiecesSectionProps {
   pools: Pool[];
   pieces: BudgetPiece[];
   handlers: PieceHandlers;
+  /**
+   * OT-specific: shows the inline COMPARATIVA DE MEDICIÓN (M² Real vs
+   * Presupuestado) inside each piece's fabrication section when the work
+   * order is in MEASUREMENT. Budgets never pass this.
+   */
+  showMeasurementComparison?: boolean;
 }
 
 /**
@@ -168,6 +174,7 @@ function PieceCard({
   pools,
   categories,
   handlers,
+  showMeasurementComparison,
 }: {
   piece: BudgetPiece;
   index: number;
@@ -177,6 +184,7 @@ function PieceCard({
   pools: Pool[];
   categories: MaterialCategory[];
   handlers: PieceHandlers;
+  showMeasurementComparison?: boolean;
 }) {
   const usdRate = Number(form.usd_rate) || 0;
   const pieceMaterials = [piece.mainMaterial, ...(piece.alternativeMaterials)].filter(
@@ -283,6 +291,8 @@ function PieceCard({
         }
         addDetalle={() => handlers.addPieceFabrication(piece.id)}
         removeDetalle={(idx) => handlers.removePieceFabrication(piece.id, idx)}
+        showMeasurementComparison={showMeasurementComparison}
+        materialsData={showMeasurementComparison ? pieceMaterials : undefined}
       />
 
       <AdditionalWorkSection
@@ -326,6 +336,7 @@ export default function PiecesSection({
   pools,
   pieces,
   handlers,
+  showMeasurementComparison,
 }: PiecesSectionProps) {
   const { items: categories } = useList<MaterialCategory>(
     ['material-categories', 'all'],
@@ -353,6 +364,7 @@ export default function PiecesSection({
             pools={pools}
             categories={categories}
             handlers={handlers}
+            showMeasurementComparison={showMeasurementComparison}
           />
         ))}
       </div>

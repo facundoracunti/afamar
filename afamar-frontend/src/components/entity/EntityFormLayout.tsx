@@ -63,10 +63,9 @@ export interface EntityFormLayoutProps {
   fabricationMaterialsData?: MaterialInForm[];
   mode?: 'full' | 'wizard';
   /**
-   * Pieces v3: budget forms render in pieces-only mode by default. The
-   * legacy single-mesada layout (MATERIALES + PILETAS globals + global
-   * fabricación) is still used for Work Orders (`showPieces` is false
-   * there) so the OT form keeps the classic 2-column layout.
+   * Pieces v3: budgets AND work orders render in pieces-only mode. This
+   * flag exists so a legacy consumer could still opt into the flat
+   * single-mesada layout — currently nothing sets it to false.
    */
   showPieces?: boolean;
   /** Required when `showPieces` is true. Comes from `useEntityForm().piecesFlow`. */
@@ -119,8 +118,9 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
     piecesFlow,
   } = props;
 
-  // Pieces v3: pieces-only mode is the default for budgets. The OT form
-  // passes `showPieces={false}` to opt back into the legacy layout.
+  // Pieces v3: both budgets AND work orders render in pieces-only mode.
+  // A legacy consumer could still pass `showPieces={false}` to opt back
+  // into the flat layout, but nothing does today.
   const piecesOn = Boolean(showPieces && piecesFlow);
 
   // Single-column cascade: each piece card spans the full width and
@@ -136,6 +136,7 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
       pools={pools}
       pieces={piecesFlow.pieces}
       handlers={piecesFlow}
+      showMeasurementComparison={fabricationShowMeasurementComparison}
     />
   ) : null;
   const [wizardStep, setWizardStep] = useState(0);
@@ -281,6 +282,7 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
           pools={pools}
           pieces={piecesFlow.pieces}
           handlers={piecesFlow}
+          showMeasurementComparison={fabricationShowMeasurementComparison}
         />
       ) : (
         <EntityFormSpecs
