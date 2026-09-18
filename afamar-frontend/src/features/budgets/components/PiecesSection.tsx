@@ -43,7 +43,7 @@ function SingularMaterialCard({
   mat,
   readOnly,
   materials,
-  categorias,
+  categories,
   usdRate,
   onUpdateField,
   onSwap,
@@ -52,7 +52,7 @@ function SingularMaterialCard({
   mat: MaterialInForm;
   readOnly: boolean;
   materials: Material[];
-  categorias: MaterialCategory[];
+  categories: MaterialCategory[];
   usdRate: number;
   onUpdateField: (field: string, value: unknown) => void;
   onSwap: (mat: Material) => void;
@@ -63,7 +63,7 @@ function SingularMaterialCard({
       rows={[{ mat, idx: 0 }]}
       readOnly={readOnly}
       materials={materials}
-      categorias={categorias}
+      categorias={categories}
       usdRate={usdRate}
       hideAddRow
       hideAlternativeCheckbox
@@ -166,7 +166,7 @@ function PieceCard({
   readOnly,
   materials,
   pools,
-  categorias,
+  categories,
   handlers,
 }: {
   piece: BudgetPiece;
@@ -175,7 +175,7 @@ function PieceCard({
   readOnly: boolean;
   materials: Material[];
   pools: Pool[];
-  categorias: MaterialCategory[];
+  categories: MaterialCategory[];
   handlers: PieceHandlers;
 }) {
   const usdRate = Number(form.usd_rate) || 0;
@@ -231,7 +231,7 @@ function PieceCard({
         <div className={s['pieces__material-controls']}>
           <MaterialPickerControls
             materials={materials}
-            categorias={categorias}
+            categorias={categories}
             readOnly={readOnly}
             onPick={(mat) => handlePickMaterial(mat.name)}
             placeholder={pickerPlaceholder}
@@ -245,7 +245,7 @@ function PieceCard({
             mat={piece.mainMaterial}
             readOnly={readOnly}
             materials={materials}
-            categorias={categorias}
+            categories={categories}
             usdRate={usdRate}
             onUpdateField={(field, value) => handlers.updatePieceMain(piece.id, field, value)}
             onSwap={(mat) => handlers.swapPieceMain(piece.id, mat)}
@@ -258,7 +258,7 @@ function PieceCard({
             mat={alt}
             readOnly={readOnly}
             materials={materials}
-            categorias={categorias}
+            categories={categories}
             usdRate={usdRate}
             onUpdateField={(field, value) => handlers.updatePieceAlternative(piece.id, idx, field, value)}
             onSwap={(mat) => handlers.swapPieceAlternative(piece.id, idx, mat)}
@@ -279,10 +279,10 @@ function PieceCard({
         M2_CONCEPTS={M2_CONCEPTS}
         num={parseNumber as (v: unknown) => number}
         handleDetailChange={(idx, field, value) =>
-          handlers.updatePieceDetalle(piece.id, idx, field, value)
+          handlers.updatePieceFabrication(piece.id, idx, field, value)
         }
-        addDetalle={() => handlers.addPieceDetalle(piece.id)}
-        removeDetalle={(idx) => handlers.removePieceDetalle(piece.id, idx)}
+        addDetalle={() => handlers.addPieceFabrication(piece.id)}
+        removeDetalle={(idx) => handlers.removePieceFabrication(piece.id, idx)}
       />
 
       <AdditionalWorkSection
@@ -327,7 +327,7 @@ export default function PiecesSection({
   pieces,
   handlers,
 }: PiecesSectionProps) {
-  const { items: categorias } = useList<MaterialCategory>(
+  const { items: categories } = useList<MaterialCategory>(
     ['material-categories', 'all'],
     async () => {
       const res = await getMaterialCategories();
@@ -351,7 +351,7 @@ export default function PiecesSection({
             readOnly={readOnly}
             materials={materials}
             pools={pools}
-            categorias={categorias}
+            categories={categories}
             handlers={handlers}
           />
         ))}

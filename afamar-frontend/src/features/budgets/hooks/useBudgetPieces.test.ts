@@ -17,7 +17,7 @@ import { useState } from 'react';
 
 vi.mock('@/api/resources/additionalWorks', () => ({
   // Pending forever so the hook's async `useEffect` never calls
-  // `setFrenteCatalogue` — keeps these unit tests free of post-render
+  // `setFrontCatalogue` — keeps these unit tests free of post-render
   // updates that would trigger React's "not wrapped in act" warning.
   getAdditionalWorks: vi.fn(() => new Promise<never>(() => {})),
 }));
