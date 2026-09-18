@@ -40,7 +40,7 @@ export function recomputeFabricationRow(
   ctx: {
     materials: Material[];
     /** Per-m² price of the principal material of THIS piece (ARS). */
-    materialPrecio: number;
+    materialPriceArs: number;
     /** Per-m² price of the principal material of THIS piece (USD). */
     materialUsd: number;
     /** Fallback when no material link is found. */

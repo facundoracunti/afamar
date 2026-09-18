@@ -41,9 +41,9 @@ export interface UseBudgetPiecesReturn {
   togglePieceAlternative: (id: string, idx: number) => void;
 
   // ----- Piece fabrication (zócalo/frente) rows
-  addPieceDetalle: (id: string) => void;
-  updatePieceDetalle: (id: string, idx: number, field: string, value: unknown) => void;
-  removePieceDetalle: (id: string, idx: number) => void;
+  addPieceFabrication: (id: string) => void;
+  updatePieceFabrication: (id: string, idx: number, field: string, value: unknown) => void;
+  removePieceFabrication: (id: string, idx: number) => void;
 
   // ----- Piece additional works (JSON snapshot)
   setPieceAdditionalWorks: (id: string, json: string) => void;
@@ -102,15 +102,15 @@ export function useBudgetPieces({
   setForm,
   materials,
 }: UseBudgetPiecesParams): UseBudgetPiecesReturn {
-  const [frenteCatalogue, setFrenteCatalogue] = useState<AdditionalWork[]>([]);
+  const [frontCatalogue, setFrontCatalogue] = useState<AdditionalWork[]>([]);
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const data = await getAdditionalWorks();
-        if (!cancelled) setFrenteCatalogue(data as AdditionalWork[]);
+        if (!cancelled) setFrontCatalogue(data as AdditionalWork[]);
       } catch {
-        if (!cancelled) setFrenteCatalogue([]);
+        if (!cancelled) setFrontCatalogue([]);
       }
     })();
     return () => {
@@ -118,8 +118,8 @@ export function useBudgetPieces({
     };
   }, []);
   const catalogueById = useMemo(
-    () => new Map(frenteCatalogue.map((c) => [c.id, c])),
-    [frenteCatalogue],
+    () => new Map(frontCatalogue.map((c) => [c.id, c])),
+    [frontCatalogue],
   );
 
   const commit = useCallback(
@@ -409,7 +409,7 @@ export function useBudgetPieces({
   );
 
   // ---------- Piece fabrication rows ----------
-  const addPieceDetalle = useCallback(
+  const addPieceFabrication = useCallback(
     (id: string) => {
       commit((p) =>
         p.map((piece) => {
@@ -439,7 +439,7 @@ export function useBudgetPieces({
     [commit],
   );
 
-  const updatePieceDetalle = useCallback(
+  const updatePieceFabrication = useCallback(
     (id: string, idx: number, field: string, value: unknown) => {
       commit((p) =>
         p.map((piece) => {
@@ -452,7 +452,7 @@ export function useBudgetPieces({
               idx,
               field,
               value,
-              { materials, materialPrecio: ars, materialUsd: usd, fallbackMaterialPriceM2: ars },
+              { materials, materialPriceArs: ars, materialUsd: usd, fallbackMaterialPriceM2: ars },
             ),
           };
         }),
@@ -461,7 +461,7 @@ export function useBudgetPieces({
     [commit, materials],
   );
 
-  const removePieceDetalle = useCallback(
+  const removePieceFabrication = useCallback(
     (id: string, idx: number) => {
       commit((p) =>
         p.map((piece) => {
@@ -556,9 +556,9 @@ export function useBudgetPieces({
     swapPieceAlternative,
     removePieceAlternative,
     togglePieceAlternative,
-    addPieceDetalle,
-    updatePieceDetalle,
-    removePieceDetalle,
+    addPieceFabrication,
+    updatePieceFabrication,
+    removePieceFabrication,
     setPieceAdditionalWorks,
     addPiecePool,
     updatePiecePool,

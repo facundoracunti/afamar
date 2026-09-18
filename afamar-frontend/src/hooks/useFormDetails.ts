@@ -40,7 +40,7 @@ export function useFormDetails({
         ...prev,
         fabrication_details: recomputeFabricationRow(prev.fabrication_details, idx, field, value, {
           materials,
-          materialPrecio: materialPrecioRef.current || 0,
+          materialPriceArs: materialPrecioRef.current || 0,
           materialUsd: materialUsdRef.current || 0,
           fallbackMaterialPriceM2: Number(prev.material_price_m2) || 0,
         }),
