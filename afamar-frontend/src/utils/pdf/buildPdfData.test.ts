@@ -51,6 +51,9 @@ const formBase = {
   discount: 0,
   discount_percentage: 0,
   discount_fixed_amount: 0,
+  discount_enabled: false,
+  discount_target: 'total',
+  discount_amount: 0,
   subtotal: 0,
   total: 0,
   subtotal_usd: 0,
@@ -776,7 +779,7 @@ describe('buildPdfData — discount and surcharge', () => {
     ];
     const data = buildPdfData({
       ...baseParams,
-      form: makeForm({ fabrication_details, transport: 1000, discount_percentage: 10 }),
+      form: makeForm({ fabrication_details, transport: 1000, discount_percentage: 10, discount_enabled: true }),
       overrides: {},
     });
     // subtotal=10000, transport=1000 → base=11000, discount=1100
@@ -797,6 +800,67 @@ describe('buildPdfData — discount and surcharge', () => {
     // fixed 2500 wins over 50% (5_000)
     expect(data.discount_fixed_amount).toBe(2500);
     expect(data.total).toBe(7500); // 10000 - 2500
+  });
+
+  it('does NOT apply the percentage discount when discount_enabled is off', () => {
+    const fabrication_details = [
+      { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 10000 },
+    ];
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({ fabrication_details, transport: 1000, discount_percentage: 10 }),
+      overrides: {},
+    });
+    // Fase 3 gating: discount_enabled defaults to false → the 10% is ignored,
+    // so the total equals the base (fixed-amount discounts stay ungated).
+    expect(data.discount_fixed_amount).toBe(0);
+    expect(data.total).toBe(11000);
+  });
+
+  it('applies the percentage over the WHOLE document with discount_target "total"', () => {
+    const mats = [
+      { id: 1, name: 'ZIRCONIUM', currency: 'ARS', price_m2: 100000, price_m2_usd: 0, quantity: 1, length: 1, width: 1, m2_used: 0, m2_budgeted: 0, is_alternative: false },
+    ];
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({
+        materials_data: mats,
+        transport: 2000,
+        discount_percentage: 10,
+        discount_enabled: true,
+        discount_target: 'total',
+      }),
+      overrides: {},
+    });
+    // base = materials(100000) + transport(2000) = 102000 → 10% = 10200
+    expect(data.discount_fixed_amount).toBe(10200);
+    expect(data.total).toBe(91800);
+  });
+
+  it('applies the percentage over the MAIN MATERIALS only with discount_target "materials"', () => {
+    const mats = [
+      { id: 1, name: 'ZIRCONIUM', currency: 'ARS', price_m2: 100000, price_m2_usd: 0, quantity: 1, length: 1, width: 1, m2_used: 0, m2_budgeted: 0, is_alternative: false },
+      { id: 2, name: 'GRIS MARA', currency: 'ARS', price_m2: 20000, price_m2_usd: 0, quantity: 1, length: 1, width: 1, m2_used: 0, m2_budgeted: 0, is_alternative: true },
+    ];
+    const fabrication_details = [
+      { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 5000 },
+    ];
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({
+        materials_data: mats,
+        fabrication_details,
+        transport: 2000,
+        discount_percentage: 10,
+        discount_enabled: true,
+        discount_target: 'materials',
+      }),
+      overrides: {},
+    });
+    // base = main materials only (100000; alternatives excluded) → 10% = 10000.
+    // total = (100000 + 5000 + 2000) − 10000 = 97000
+    expect(data.discount_fixed_amount).toBe(10000);
+    expect(data.total).toBe(97000);
   });
 
   it('1 cuota adds 9% (base × 1.09)', () => {
@@ -948,17 +1012,19 @@ describe('buildPdfData — discount and surcharge', () => {
     expect(data.deposit_ars_equivalent).toBeCloseTo(997750, 2);
   });
 
-  it('surfaces catalogue DISCOUNT as a separate line so the PDF can render it', () => {
-    // The operator selects the "TRANSFER" method, which the catalogue
-    // marks as DISCOUNT 5%. The PDF should show:
-    //   - subtotal            = 10000
-    //   - "Descuento (5%) Transferencia bancaria" = 500
-    //   - total               = 9500
-    // Both `catalogue_discount_*` AND the legacy `discount_*` fields
-    // remain so the template can choose which to render.
+  it('keeps the total unchanged for a catalogue DISCOUNT method (informational)', () => {
+    // The legacy promotional discount by payment method was removed: every
+    // discount now flows through the commercial discount (Fase 3). Selecting
+    // a method the catalogue marks as DISCOUNT must NOT reduce the totals —
+    // the payment method stays a record of how the payment was collected.
     const fabrication_details = [
       { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 10000 },
     ];
+    const transferWithDiscount = PAYMENT_METHODS.map((pm) =>
+      pm.name === 'TRANSFERENCIA BANCARIA'
+        ? { ...pm, type: 'DISCOUNT' as const, value: 5, is_percentage: true }
+        : pm
+    );
     const data = buildPdfData({
       ...baseParams,
       form: makeForm({
@@ -966,46 +1032,18 @@ describe('buildPdfData — discount and surcharge', () => {
         payment_method: 'TRANSFERENCIA BANCARIA',
         payment_method_id: 2,
         installments: 1,
-        // DISCOUNT is opt-in via the per-order `apply_cash_discount` flag.
-        apply_cash_discount: true,
-      }),
-      paymentMethods: PAYMENT_METHODS,
-      overrides: {},
-    });
-    expect(data.catalogue_discount_percentage).toBe(0); // TRANSFER row has type=NONE in the default seed
-    expect(data.catalogue_discount_amount).toBe(0);
-    expect(data.total).toBe(10000);
-    // The previous test made TRANSFER a DISCOUNT 5% — switch the
-    // catalogue in-place to verify the rendering surface lights up.
-    const transferWithDiscount = PAYMENT_METHODS.map((pm) =>
-      pm.name === 'TRANSFERENCIA BANCARIA'
-        ? { ...pm, type: 'DISCOUNT' as const, value: 5, is_percentage: true }
-        : pm
-    );
-    const data2 = buildPdfData({
-      ...baseParams,
-      form: makeForm({
-        fabrication_details,
-        payment_method: 'TRANSFERENCIA BANCARIA',
-        payment_method_id: 2,
-        installments: 1,
-        apply_cash_discount: true,
       }),
       paymentMethods: transferWithDiscount,
       overrides: {},
     });
-    expect(data2.catalogue_discount_percentage).toBe(5);
-    expect(data2.catalogue_discount_amount).toBe(500);
-    expect(data2.catalogue_method_label).toBe('Transferencia bancaria');
-    expect(data2.total).toBe(9500);
+    expect(data.catalogue_discount_percentage).toBe(0);
+    expect(data.catalogue_discount_amount).toBe(0);
+    expect(data.total).toBe(10000);
   });
 
-  it('surfaces a FIXED-AMOUNT catalogue DISCOUNT so the PDF total drops by `value`', () => {
-    // Regression sentinel for the "monto fijo" bug: a DISCOUNT configured
-    // with `is_percentage=false` (e.g. EFECTIVO → $600.000) used to be dead
-    // code behind the `ratio !== 1` gate in buildPdfData — the discount line
-    // and the reduction never appeared. The fixed-amount branch must run
-    // whenever the opt-in flag is on, regardless of the ratio.
+  it('ignores a FIXED-AMOUNT catalogue DISCOUNT method too', () => {
+    // Even a DISCOUNT row with a fixed `value` (e.g. $3000) must not move
+    // the total — catalogue DISCOUNT behaves exactly like NONE now.
     const fabrication_details = [
       { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 10000 },
     ];
@@ -1021,39 +1059,8 @@ describe('buildPdfData — discount and surcharge', () => {
         payment_method: 'TRANSFERENCIA BANCARIA',
         payment_method_id: 2,
         installments: 1,
-        apply_cash_discount: true,
       }),
       paymentMethods: transferWithFixedDiscount,
-      overrides: {},
-    });
-    expect(data.catalogue_discount_percentage).toBe(0);
-    expect(data.catalogue_discount_amount).toBe(3000);
-    expect(data.catalogue_method_label).toBe('Transferencia bancaria');
-    expect(data.total).toBe(7000);
-  });
-
-  it('skips catalogue DISCOUNT when apply_cash_discount is false', () => {
-    // Regression sentinel: selecting a DISCOUNT payment method must NOT
-    // automatically reduce the total. The operator must opt in
-    // client-by-client via the per-order `apply_cash_discount` flag.
-    const fabrication_details = [
-      { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 10000 },
-    ];
-    const transferWithDiscount = PAYMENT_METHODS.map((pm) =>
-      pm.name === 'TRANSFERENCIA BANCARIA'
-        ? { ...pm, type: 'DISCOUNT' as const, value: 5, is_percentage: true }
-        : pm
-    );
-    const data = buildPdfData({
-      ...baseParams,
-      form: makeForm({
-        fabrication_details,
-        payment_method: 'TRANSFERENCIA BANCARIA',
-        payment_method_id: 2,
-        installments: 1,
-        apply_cash_discount: false,
-      }),
-      paymentMethods: transferWithDiscount,
       overrides: {},
     });
     expect(data.catalogue_discount_percentage).toBe(0);

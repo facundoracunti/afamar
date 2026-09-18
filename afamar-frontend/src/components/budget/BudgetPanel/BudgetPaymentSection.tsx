@@ -18,13 +18,15 @@ interface BudgetPaymentSectionProps {
   onConfirmarPago?: () => Promise<void>;
 }
 
-/** Human-readable label for the catalogue's `type` column. */
+/** Human-readable label for the catalogue's `type` column. NONE and
+ *  DISCOUNT are informational only (the legacy promotional discount by
+ *  payment method was removed — see useBudgetCalculations); only
+ *  SURCHARGE methods carry an adjustment label. */
 function describeMethod(pm: PaymentMethod): string {
-  if (pm.type === 'NONE' || !pm.value) return pm.label;
-  const verb = pm.type === 'DISCOUNT' ? 'descuento' : 'recargo';
+  if (pm.type !== 'SURCHARGE' || !pm.value) return pm.label;
   const amount = pm.is_percentage ? `${pm.value}%` : `$${pm.value}`;
   const suffix = pm.applies_to_installments ? ' por cuota' : '';
-  return `${pm.label} — ${verb} ${amount}${suffix}`;
+  return `${pm.label} — recargo ${amount}${suffix}`;
 }
 
 /** Find the catalogue row that matches the form's current snapshot.
@@ -216,36 +218,11 @@ export function BudgetPaymentSection({
         </div>
       </div>
 
-      {/* Per-order opt-in for the promotional discount configured on the
-          selected payment method (e.g. "Efectivo — descuento 7%"). Only
-          renders when the active method is a DISCOUNT; SURCHARGE and
-          NONE methods ignore the flag. The form re-sends this boolean
-          on every change so the server-side recalc gates the DISCOUNT
-          branch accordingly. */}
-      {currentMethod?.type === 'DISCOUNT' ? (
-        <div className="form-group">
-          <label
-            className={s['budget-panel__cash-discount-toggle']}
-            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-          >
-            <input
-              type="checkbox"
-              checked={!!form.apply_cash_discount}
-              disabled={readOnly}
-              onChange={(e) =>
-                update('apply_cash_discount', e.target.checked)
-              }
-              aria-label="Aplicar descuento promocional por efectivo"
-            />
-            <span>
-              Aplicar descuento promocional ({currentMethod.value}
-              {currentMethod.is_percentage ? '%' : ''}) por
-              {' '}
-              {currentMethod.label}
-            </span>
-          </label>
-        </div>
-      ) : null}
+      {/* La forma de pago es un dato informativo de cobro: EFECTIVO /
+          TRANSFERENCIA / CHEQUE no alteran el total. El único ajuste que
+          aplica el catálogo es el recargo de tarjeta (SURCHARGE, ver
+          `applyPaymentMethodToTotals`); los descuentos viven únicamente en
+          el `DiscountSelector` (Descuento Comercial, Fase 3). */}
 
       {showInstallments && form.installment_detail_ars && form.installment_detail_ars.length > 1 ? (
         <div

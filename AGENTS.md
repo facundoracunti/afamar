@@ -1,8 +1,8 @@
 # AGENTS.md
 
-> **Estado:** Rama `development`. Sesión **2026-09-18** — **refactor a feature-based de presupuestos**: el módulo de presupuestos (feature **PIEZAS / MESADAS**, *multi-piece*) se movió a `src/features/budgets/` con el alias **`@features/*` (re-introducido)** y se **renombraron a inglés los identificadores internos** (tipos/hooks/funciones/variables — FASE 3), manteniendo la **UI/PDF/placeholders 100% en español**. Además `main` quedó **sincronizada** con `development` (merge `17f48322 "Merge branch 'development'"`, `origin/main` incluido). Ver "Refactor feature-based de presupuestos 2026-09-18" abajo. *(Sesión anterior: 2026-09-10 — FICHA DE TALLER, ver esa sección.)*
+> **Estado:** Rama `development`. Sesión **2026-09-18** — **DESCUENTOS UNIFICADOS**: la gestión de descuentos quedó **centralizada exclusivamente en el Descuento Comercial de presupuestos** (`DiscountSelector` → `useCommercialDiscount`, Fase 3). Se **eliminó el descuento promocional por método de pago legacy** (`apply_cash_discount`): checkbox "Aplicar descuento promocional por Efectivo" removido, flag quitado del form/payload/cálculo, y los métodos `DISCOUNT` del catálogo pasan a ser **puramente informativos** (se comportan como `NONE`; solo `SURCHARGE` ajusta el total). La "Forma de pago" queda como dato de cobro. Ver "Unificación de descuentos 2026-09-18" abajo. *(Sesión anterior: Descuento Comercial Fase 3 + selector en todas las vistas (presupuestos y OTs) 2026-09-18 — ver esa sección; más abajo refactor feature-based y Ficha de Taller.)*
 
-> `tsc --noEmit` 0 errores · vitest **312/312** (30 files) · pytest **99/99** · `npm run build` OK · ESLint 0 errores nuevos (preexistentes: `EntityFormLayout.tsx:3` 'PdfDocumentData' unused, `entityFormSerialization.ts:99` 'rest' unused, `useFormDetails.ts:49/53` warnings). *(Nota 2026-09-01 noche: vitest **222/222**, pytest **72/72** — ver "Navegación tras guardar + tarjeta cobra 100%" y "Señas fantasma + duplicado real" abajo.)* *(Nota 2026-09-02: pytest **77/77** — +5 tests de idempotencia de caja.)* *(Nota 2026-09-03: vitest **223/223** — +1 test del fix "Deshacer" en modo crear; ver "Fix botón Deshacer en modo crear 2026-09-03" abajo.)* *(Nota 2026-09-03 (tarde): + botón de retroceso de estado en OT — ver "Botón de retroceso de estado 2026-09-03" abajo.)*
+> `tsc --noEmit` 0 errores · vitest **321/321** (31 files · −2 netos por tests DISCOUNT reemplazados con la unificación) · pytest **99/99** · `npm run build` OK · ESLint 0 errores nuevos (preexistentes: `EntityFormLayout.tsx:3` 'PdfDocumentData' unused, `entityFormSerialization.ts:99` 'rest' unused, `useFormDetails.ts:49/53` warnings, `buildPdfData.ts` imports sin usar, `BudgetPanel.tsx:29` 'financial', `useBudgetCalculations.test.tsx:20` 'React', `WorkOrderFormPage.tsx` varios unused preexistentes). *(Nota 2026-09-18 temprano: vitest **312/312** — ver "Refactor a feature-based de presupuestos" abajo.)* *(Nota 2026-09-01 noche: vitest **222/222**, pytest **72/72** — ver "Navegación tras guardar + tarjeta cobra 100%" y "Señas fantasma + duplicado real" abajo.)* *(Nota 2026-09-02: pytest **77/77** — +5 tests de idempotencia de caja.)* *(Nota 2026-09-03: vitest **223/223** — +1 test del fix "Deshacer" en modo crear; ver "Fix botón Deshacer en modo crear 2026-09-03" abajo.)* *(Nota 2026-09-03 (tarde): + botón de retroceso de estado en OT — ver "Botón de retroceso de estado 2026-09-03" abajo.)*
 >
 > **Índice del conocimiento (codebase-memory):** **reindexado** el 2026-08-27 junto con el commit de esa sesión. ADR de arquitectura persistido en el índice (`manage_adr`) + ADR de decisión commiteado en `docs/adr/0008-database-migrations-and-seeder-sync.md`. El ADR de Fase 7 sigue en `docs/adr/0007-payment-methods-catalogue.md`.
 
@@ -65,6 +65,59 @@ afamar-frontend/src/features/budgets/
 - `npx tsc --noEmit` **0** · `npx vitest run` **312/312** (30 files) · `npm run build` OK · ESLint del feature **0 errores** (2 warnings preexistentes en `useFormDetails.ts`).
 - Backend: pytest **99/99** (incluye `tests/test_flatten_pieces.py`, 9 tests).
 - **Ramas:** `main` mergeado con `development` y pusheado — commit `17f48322 "Merge branch 'development'"`; `origin/main` == `main` y `git diff main development` = vacío. `development` es la rama de trabajo.
+
+## Descuento Comercial (Fase 3) 2026-09-18
+
+Descuento comercial **frontend-only para presupuestos**, **gated por un toggle**: el porcentaje solo aplica con `discount_enabled` encendido, y corre contra una base elegida por el operador — **"Total General"** (todo el documento: subtotal + traslado) o **"Solo Materiales"** (solo los materiales principales mármol/granito/cuarzo; mano de obra, trasforos, piletas e ingletados NO se descuentan). Decisiones del usuario (vía questions): **solo frontend** (el backend ignora los campos nuevos; el `%` reutiliza la columna persistida `discount_percentage`) y **gated por toggle** (`discount_fixed_amount` queda legacy sin UI). El gate aplica también a OTs por el `useBudgetCalculations` compartido, y el selector se renderiza **tanto en presupuestos como en OTs** (corrección de esta sesión: se eliminó el gate por tipo de documento — ver "UI: selector en todas las vistas" abajo).
+
+**Campos nuevos (form-local + payload, ignorados por backend):** `discount_enabled: boolean`, `discount_target: 'total' | 'materials'`, `discount_amount: number` (snapshot ARS del descuento, sync vía `setForm`). Agregados a `FinancialBase` (`src/types/shared.ts`) → solo 3 sitios construyen literales `FinancialBase` (`DEFAULT_FINANCIALS`, `buildFinancialPayload`, `mapFinancialToForm`) — los tres actualizados.
+
+**Estructura (feature):**
+```
+src/features/budgets/
+├── types/discount.ts                         DiscountTarget / CommercialDiscountState / DISCOUNT_TARGET_LABELS
+├── utils/commercialDiscount.ts (+ .test.ts)  computeMaterialsSubtotal + computeCommercialDiscount (5 tests)
+├── hooks/useCommercialDiscount.ts            puente form ↔ selector (update('discount_*', ...))
+└── components/DiscountSelector/              TSX + module.css (UI en español)
+```
+
+- **`computeMaterialsSubtotal`** es la única fuente de verdad de la base "Solo Materiales" (matchea `matArs`/`matUsd` de `useBudgetCalculations`; suma `length×width×quantity×price_m2` de los materiales `!is_alternative`, convierte a ARS/USD con `usd_rate`).
+- **Totales en vivo (`useBudgetCalculations.ts`):** bloque ARS (~líneas 308-328), espejo USD (~365-374) y bloque alternativa ARS/USD (~399-441) gateados por `descEnabled`/`descTarget`; `discount_amount: discountAmount` emitido en el `setForm`; deps actualizadas con `form.discount_enabled, form.discount_target`.
+- **PDF (`buildPdfData.ts::computeTotals`):** mismos gates como params opcionales (`discountEnabled?: boolean | null` — `null`/omisión preserva el comportamiento legacy `discountPct > 0`) + `discountTarget` + bases `materialsSubtotalArs/Usd`; precedencia **fixed-wins** intacta (el fixed queda sin gate y sin UI). El call site computa las materias con `computeMaterialsSubtotal` y las pasa a los 2 `computeTotals` (document-level y por-sección de alternativas).
+- **Serialización:** `entityFormConstants` (DEFAULT_FINANCIALS), `entityFormFinancial` (`buildFinancialPayload` emite los 3; `mapFinancialToForm` los restaura con `discount_target` → `'materials'` solo si llega exactamente eso). Pydantic v2 descarta los extras del payload → sin migración backend.
+- **UI: selector en todas las vistas** `DiscountSelector` se renderiza **incondicionalmente** en `BudgetPanel` (debajo de las columnas ARS/USD), para **presupuestos Y órdenes de trabajo**. El chain `showDiscount` que lo gateaba por tipo de documento (`EntityFormLayout` → `EntityFormFinancial` → `BudgetPanel`, derivado de `Boolean(piecesFlow)`) se **eliminó por completo** en esta sesión — el componente, la prop y la condición ya no existen. La fórmula corre idéntica en ambos (mismo `useBudgetCalculations` + `buildPdfData`, agnósticos al tipo de documento).
+
+**Regla de sync:** la fórmula vive en 3 lugares que deben mantenerse en sync — `computeCommercialDiscount` (feature), el bloque inline de `useBudgetCalculations` y `computeTotals` de `buildPdfData.ts`. Cualquier cambio de base/porcentaje/devengado toca los 3 + sus tests.
+
+**Tests:** +11 → vitest **323/323** (31 files): `commercialDiscount.test.ts` (5 — subtotal mixto ARS/USD excluye alternativas, inactive si disabled o 0%, base total, base materials); `useBudgetCalculations.test.tsx` (gating off → 0/kgate, base total 107000→10%=10700, base materials 97000, fixed sin gate); `buildPdfData.test.ts` (gating off → 10% ignorado/total=base, target total 91800, target materials 97000). Los tests viejos de % ahora setean `discount_enabled: true` explícito (sin el flag el gate anula la herencia legacy).
+
+**Verificación:** `tsc --noEmit` **0** · vitest **323/323** (31 files) · `npm run build` OK · ESLint feature **0 errores/warnings** (los errors restantes de `buildPdfData.ts` imports sin usar, `BudgetPanel.tsx:29 'financial'` y `useBudgetCalculations.test.tsx:20 'React'` son preexistentes en HEAD).
+
+## Unificación de descuentos 2026-09-18 — se elimina el descuento promocional por efectivo legacy
+
+La gestión de descuentos quedó **centralizada exclusivamente en el Descuento Comercial** (Fase 3, `DiscountSelector` → `useCommercialDiscount`). Se **eliminó el descuento promocional por método de pago legacy** (`apply_cash_discount`), junto con su checkbox "Aplicar descuento promocional por Efectivo". Regla de negocio vigente: **la "Forma de pago" es un dato de cobro** — un método del catálogo solo ajusta el total si es `SURCHARGE` (recargo de tarjeta); los métodos `DISCOUNT` quedan **puramente informativos** (se comportan como `NONE`).
+
+**Qué se quitó (frontend, sin migración ni backend):**
+- **Cambios:**
+  - `types/shared.ts` — `FinancialBase.apply_cash_discount` eliminado (campo + doc-comment).
+  - `hooks/entityFormConstants.ts` — default `apply_cash_discount: false` eliminado.
+  - `hooks/entityFormFinancial.ts` — eliminado de `buildFinancialPayload` y `mapFinancialToForm` (los 3 sitios que construyen literales `FinancialBase` quedaron sync).
+  - `hooks/useBudgetCalculations.ts` — `applyPaymentMethodToTotals` reescrito **solo-`SURCHARGE`**: param `applyCashDiscount` y las ramas DISCOUNT (% y monto fijo con `1 − value/100`) eliminadas; flag quitado de los 2 call sites de alternativas y de las `deps` del effect.
+  - `utils/pdf/buildPdfData.ts` — `computeTotals` (bloques ARS y USD + alternativas) reescrito solo-`SURCHARGE`; `applyCashDiscount` eliminado de `ComputeTotalsParams`, destructure, `const` local y los 2 call sites. Imports puros de `types/pdfTypes`: `DocumentType`, `PdfDataRow`, `MaterialPdfRow`, `PoolPdfRow`, `AdditionalWorkPdfRow` — **preexistentes sin uso**.
+  - `pages/work-orders/WorkOrderFormPage.tsx` — comentario del `buildPdfData` inline ("SURCHARGE / DISCOUNT" → "SURCHARGE").
+  - **UI:** `components/budget/BudgetPanel/BudgetPaymentSection.tsx` — bloque completo del checkbox "Aplicar descuento promocional por Efectivo" (era `currentMethod?.type === 'DISCOUNT'`) eliminado; el sufijo del label del método ahora solo se agrega para `SURCHARGE` (ej. "… (recargo X%)"). `currentMethod` se conserva para el selector y las cuotas de tarjeta.
+- **Comportamiento del catálogo:** `PaymentMethodsTable`/`PaymentMethodForm` **siguen ofreciendo el tipo `DISCOUNT`** (configurable) — decisión intencional: la UI de catálogo no cambió, el tipo solo dejó de afectar totales.
+
+**PDF note:** `computeTotals` aún retorna `catalogue_discount_percentage`/`catalogue_discount_amount` (ahora **constantes = 0**) para que las templates no se rompan; el backend legacy y el ORM conservan la columna `apply_cash_discount` (el frontend ya no la envía → el recalc server-side la trata como off, consistente con DISCOUNT inerte).
+
+**Tests (vitest 323 → 321, 31 files):**
+- `hooks/useBudgetCalculations.test.tsx` — el describe "apply_cash_discount opt-in (catalogue DISCOUNT)" (3 tests) se reemplazó por **"catalogue DISCOUNT is informational"** (2 tests): método DISCOUNT 5% deja `total === subtotal`; método DISCOUNT fijo $3000 también se ignora.
+- `utils/pdf/buildPdfData.test.ts` — los 3 tests de catálogo DISCOUNT ("surfaces…", "FIXED-AMOUNT…", "skips when flag false") se reemplazaron por 2 tests de DISCOUNT inerte (percentage y fixed): `catalogue_discount_* === 0`, `total === subtotal`.
+- `hooks/entityFormHelpers.test.ts` — `apply_cash_discount` quitado de `FINANCIAL_FIELDS` y del `toEqual`; "22 expected keys" → "21 expected keys".
+
+**Documentos pendientes de limpieza (no tocados, inofensivos):** comentarios en `useBudgetCalculations.ts:101` y `buildPdfData.ts:166` que describen la remoción del flag — se conservan como documentación.
+
+**Verificación:** `tsc --noEmit` **0** · vitest **321/321** (31 files) · ESLint 0 errores nuevos (quedan solo los preexistentes del baseline: imports sin usar en `buildPdfData.ts:17-21`, `BudgetPanel.tsx:26 'financial'`, `useBudgetCalculations.test.tsx:20 'React'`, `EntityFormLayout.tsx:3 'PdfDocumentData'`, `WorkOrderFormPage.tsx` unused variados).
 
 ## Auto-consume de material en "Asignar a opción" (2026-09-12)
 

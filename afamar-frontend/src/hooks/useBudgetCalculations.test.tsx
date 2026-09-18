@@ -50,6 +50,9 @@ function makeForm(overrides: Partial<EntityFormState> = {}): EntityFormState {
     installments: 1,
     discount_percentage: 0,
     discount_fixed_amount: 0,
+    discount_enabled: false,
+    discount_target: 'total',
+    discount_amount: 0,
     deposit_received: 0,
     deposit_usd: 0,
     deposit_currency: 'ARS',
@@ -93,11 +96,12 @@ describe('useBudgetCalculations — basic totals', () => {
   });
 });
 
-describe('useBudgetCalculations — apply_cash_discount opt-in (catalogue DISCOUNT)', () => {
-  // TRANSFER is configured as DISCOUNT 5% (percentage). The total must
-  // equal the subtotal when the flag is off and drop to subtotal × 0.95
-  // when the flag is on — and the hook must react to the toggle without
-  // requiring any other field change.
+describe('useBudgetCalculations — catalogue DISCOUNT is informational', () => {
+  // The legacy promotional discount by payment method (`apply_cash_discount`)
+  // was removed: every discount now flows through the commercial discount
+  // (DiscountSelector / useCommercialDiscount, Fase 3). A catalogue DISCOUNT
+  // method must therefore behave exactly like NONE — never adjusting totals,
+  // in %, fixed amount or via installments.
   const TRANSFER_DISCOUNT = PAYMENT_METHODS.map((pm) =>
     pm.name === 'TRANSFERENCIA BANCARIA'
       ? { ...pm, type: 'DISCOUNT' as const, value: 5, is_percentage: true }
@@ -107,14 +111,13 @@ describe('useBudgetCalculations — apply_cash_discount opt-in (catalogue DISCOU
     { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 10000 },
   ];
 
-  it('leaves the total = subtotal when apply_cash_discount is off', () => {
+  it('leaves the total = subtotal for a DISCOUNT percentage method', () => {
     const { result } = renderCalc(
       makeForm({
         fabrication_details,
         payment_method: 'TRANSFERENCIA BANCARIA',
         payment_method_id: 2,
         installments: 1,
-        apply_cash_discount: false,
       }),
       TRANSFER_DISCOUNT
     );
@@ -122,74 +125,94 @@ describe('useBudgetCalculations — apply_cash_discount opt-in (catalogue DISCOU
     expect(result.current.form.total).toBe(10000);
   });
 
-  it('recalculates the total live when the flag toggles to true (regression sentinel for the useEffect dep)', () => {
-    const initial = makeForm({
-      fabrication_details,
-      payment_method: 'TRANSFERENCIA BANCARIA',
-      payment_method_id: 2,
-      installments: 1,
-      apply_cash_discount: false,
-    });
-    const { result } = renderCalc(initial, TRANSFER_DISCOUNT);
-    expect(result.current.form.total).toBe(10000);
-
-    // Toggle the flag without touching anything else. The hook's deps
-    // must include `apply_cash_discount` so this single change triggers
-    // the recalc and the total drops to 9500.
-    act(() => {
-      result.current.setForm({ ...initial, apply_cash_discount: true });
-    });
-    expect(result.current.form.total).toBe(9500);
-
-    // Toggling back to false restores the subtotal.
-    act(() => {
-      result.current.setForm({ ...initial, apply_cash_discount: false });
-    });
-    expect(result.current.form.total).toBe(10000);
-  });
-
-  it('applies a FIXED-AMOUNT DISCOUNT (is_percentage=false) when the flag toggles on', () => {
-    // Regression sentinel for the "monto fijo" bug: EFECTIVO configured as
-    // DISCOUNT with a fixed `value` (e.g. $600.000) used to short-circuit
-    // at the `ratio === 1` early return of `applyPaymentMethodToTotals` —
-    // the fixed branch was dead code, so the discount never applied. The
-    // fixed-amount branch must run regardless of the ratio.
+  it('ignores a FIXED-AMOUNT DISCOUNT method too', () => {
+    // Regression sentinel for the old "monto fijo" branch: even though the
+    // catalogue row is a DISCOUNT with a value, the total must stay put.
     const TRANSFER_FIXED_DISCOUNT = PAYMENT_METHODS.map((pm) =>
       pm.name === 'TRANSFERENCIA BANCARIA'
         ? { ...pm, type: 'DISCOUNT' as const, value: 3000, is_percentage: false }
         : pm
     );
-    const fabrication_details: FabricationDetail[] = [
-      { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 10000 },
-    ];
-    const initial = makeForm({
-      fabrication_details,
-      payment_method: 'TRANSFERENCIA BANCARIA',
-      payment_method_id: 2,
-      installments: 1,
-      apply_cash_discount: true,
-    });
-    const { result } = renderCalc(initial, TRANSFER_FIXED_DISCOUNT);
-    expect(result.current.form.total).toBe(7000); // 10000 - 3000
-
-    // Toggling off restores the subtotal (DISCOUNT is opt-in).
-    act(() => {
-      result.current.setForm({ ...initial, apply_cash_discount: false });
-    });
+    const { result } = renderCalc(
+      makeForm({
+        fabrication_details,
+        payment_method: 'TRANSFERENCIA BANCARIA',
+        payment_method_id: 2,
+        installments: 1,
+      }),
+      TRANSFER_FIXED_DISCOUNT
+    );
     expect(result.current.form.total).toBe(10000);
   });
 });
 
 describe('useBudgetCalculations — discounts', () => {
-  it('applies discount_percentage', () => {
+  it('applies discount_percentage when discount_enabled is on', () => {
     const fabrication_details: FabricationDetail[] = [
       { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 10000 },
     ];
     const { result } = renderCalc(makeForm({
       fabrication_details,
       discount_percentage: 10,
+      discount_enabled: true,
     }));
     expect(result.current.form.total).toBe(9000); // 10000 * 0.9
+    expect(result.current.form.discount_amount).toBe(1000);
+  });
+
+  it('does NOT apply discount_percentage when discount_enabled is off', () => {
+    const fabrication_details: FabricationDetail[] = [
+      { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 10000 },
+    ];
+    const { result } = renderCalc(makeForm({
+      fabrication_details,
+      discount_percentage: 10, // gated: discount_enabled defaults to false
+    }));
+    expect(result.current.form.total).toBe(10000);
+    expect(result.current.form.discount_amount).toBe(0);
+  });
+
+  it('discounts only the main materials when discount_target is "materials"', () => {
+    // Main material ARS 100.000 → 10% = 10.000 discount; traslado & mano de
+    // obra stay protected in the base, so total = totalBase - 10.000.
+    const mats: MaterialInForm[] = [
+      { id: 1, name: 'ZIRCONIUM', currency: 'ARS', price_m2: 100000, price_m2_usd: 0, quantity: 1, m2_used: 0, m2_budgeted: 0, length: 1, width: 1, is_alternative: false },
+    ];
+    const fabrication_details: FabricationDetail[] = [
+      { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 5000 },
+    ];
+    const { result } = renderCalc(makeForm({
+      materials_data: mats,
+      fabrication_details,
+      transport: 2000,
+      discount_percentage: 10,
+      discount_enabled: true,
+      discount_target: 'materials',
+    }));
+    // totalBase = 100000 (mat) + 5000 (fabricación) + 2000 (traslado) = 107000
+    // discount = 10% of materials-only 100000 = 10000 → total = 97000
+    expect(result.current.form.total).toBe(97000);
+    expect(result.current.form.discount_amount).toBe(10000);
+  });
+
+  it('applies the percentage over the WHOLE document with discount_target "total"', () => {
+    const mats: MaterialInForm[] = [
+      { id: 1, name: 'ZIRCONIUM', currency: 'ARS', price_m2: 100000, price_m2_usd: 0, quantity: 1, m2_used: 0, m2_budgeted: 0, length: 1, width: 1, is_alternative: false },
+    ];
+    const fabrication_details: FabricationDetail[] = [
+      { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 5000 },
+    ];
+    const { result } = renderCalc(makeForm({
+      materials_data: mats,
+      fabrication_details,
+      transport: 2000,
+      discount_percentage: 10,
+      discount_enabled: true,
+      discount_target: 'total',
+    }));
+    // totalBase = 107000 → 10% = 10700 → total = 96300
+    expect(result.current.form.total).toBe(96300);
+    expect(result.current.form.discount_amount).toBe(10700);
   });
 
   it('applies discount_fixed_amount when set', () => {
@@ -407,6 +430,7 @@ describe('useBudgetCalculations — USD handling', () => {
       fabrication_details,
       usd_rate: 1000,
       discount_percentage: 15,
+      discount_enabled: true,
     }));
     // subtotal_usd = 200, discount 15% → total = 200 * 0.85 = 170.00
     expect(result.current.form.total_usd).toBe(170);

@@ -27,7 +27,7 @@ import { POOL_MATERIAL_GLOBAL } from '../types/budget';
 import type { AdditionalWork } from '../types/additionalWork';
 import { FRENTE_FORMULA_MULTIPLIER_DEFAULT, computeFrenteTotal } from '../utils/frentePricing';
 
-// All 18 FinancialBase field names. Single source of truth for the tests below.
+// All FinancialBase field names. Single source of truth for the tests below.
 const FINANCIAL_FIELDS = [
   'currency',
   'usd_rate',
@@ -45,19 +45,21 @@ const FINANCIAL_FIELDS = [
   'payment_method',
   'payment_method_id',
   'installments',
-  'apply_cash_discount',
   'discount_percentage',
   'discount_fixed_amount',
+  'discount_enabled',
+  'discount_target',
+  'discount_amount',
 ] as const;
 
 describe('FinancialBase — shared types', () => {
-  it('EntityFormState contains all 19 FinancialBase fields', () => {
+  it('EntityFormState contains all FinancialBase fields', () => {
     for (const f of FINANCIAL_FIELDS) {
       expect(f in INITIAL_FORM, `missing field "${f}"`).toBe(true);
     }
   });
 
-  it('DEFAULT_FINANCIALS has exactly the 19 expected keys', () => {
+  it('DEFAULT_FINANCIALS has exactly the 21 expected keys', () => {
     expect(Object.keys(DEFAULT_FINANCIALS).sort()).toEqual(
       [...FINANCIAL_FIELDS].sort()
     );
@@ -81,9 +83,11 @@ describe('FinancialBase — shared types', () => {
       payment_method: '',
       payment_method_id: null,
       installments: 1,
-      apply_cash_discount: false,
       discount_percentage: 0,
       discount_fixed_amount: 0,
+      discount_enabled: false,
+      discount_target: 'total',
+      discount_amount: 0,
     });
   });
 
@@ -233,6 +237,9 @@ describe('round-trip — buildFinancialPayload ∘ mapFinancialToForm', () => {
       installments: 6,
       discount_percentage: 5,
       discount_fixed_amount: 0,
+      discount_enabled: true,
+      discount_target: 'materials',
+      discount_amount: 2500,
     };
     const apiPayload = buildFinancialPayload(original);
     // Simulate API: JSON-encode, send, JSON-decode → values come back as number/undefined.
@@ -256,6 +263,9 @@ describe('round-trip — buildFinancialPayload ∘ mapFinancialToForm', () => {
     expect(parsed.installments).toBe(original.installments);
     expect(parsed.discount_percentage).toBe(original.discount_percentage);
     expect(parsed.discount_fixed_amount).toBe(original.discount_fixed_amount);
+    expect(parsed.discount_enabled).toBe(original.discount_enabled);
+    expect(parsed.discount_target).toBe(original.discount_target);
+    expect(parsed.discount_amount).toBe(original.discount_amount);
   });
 });
 

@@ -41,16 +41,20 @@ export interface FinancialBase {
    */
   payment_method_id: number | null;
   installments: number;
-  /**
-   * Per-order opt-in for the promotional DISCOUNT configured on the
-   * selected payment method (e.g. "Efectivo — descuento 7%"). Off by
-   * default so the operator decides client-by-client whether the
-   * discount applies; mirrors the same-name boolean column on
-   * `work_orders` / `budgets`.
-   */
-  apply_cash_discount: boolean;
 
   // Commercial discount (mutually exclusive: percentage OR fixed amount).
   discount_percentage: number;
   discount_fixed_amount: number;
+
+  // Commercial discount (Fase 3 — frontend-only, UI lives in the budgets
+  // feature). `discount_enabled` gates the percentage: off (default) = the
+  // percentage is never applied, regardless of `discount_percentage`.
+  // `discount_target` picks the base the % runs against — 'total' = the whole
+  // document (subtotal + transport), 'materials' = only the main materials
+  // (mármol/granito/cuarzo), protecting mano de obra, trasforos, piletas e
+  // ingletados. `discount_amount` is the computed ARS discount set by
+  // `useBudgetCalculations` (mirrors the backend's read-only output field).
+  discount_enabled: boolean;
+  discount_target: 'total' | 'materials';
+  discount_amount: number;
 }

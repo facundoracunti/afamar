@@ -25,9 +25,13 @@ export function buildFinancialPayload(form: EntityFormState): FinancialBase {
     payment_method: form.payment_method || null,
     payment_method_id: form.payment_method_id ?? null,
     installments: Number(form.installments) || 1,
-    apply_cash_discount: form.apply_cash_discount === true,
     discount_percentage: Number(form.discount_percentage) || 0,
     discount_fixed_amount: Number(form.discount_fixed_amount) || 0,
+    // Fase 3 — the backend ignores the three new fields for now; the percentage
+    // reuses the pre-existing `discount_percentage` column which persists.
+    discount_enabled: form.discount_enabled === true,
+    discount_target: form.discount_target === 'materials' ? 'materials' : 'total',
+    discount_amount: Number(form.discount_amount) || 0,
   };
 }
 
@@ -49,8 +53,10 @@ export function mapFinancialToForm(d: Record<string, unknown>): FinancialBase {
     payment_method: (d.payment_method as string) || '',
     payment_method_id: (d.payment_method_id as number | null) ?? null,
     installments: (d.installments as number) || 1,
-    apply_cash_discount: (d.apply_cash_discount as boolean) === true,
     discount_percentage: (d.discount_percentage as number) ?? 0,
     discount_fixed_amount: (d.discount_fixed_amount as number) ?? 0,
+    discount_enabled: (d.discount_enabled as boolean) === true,
+    discount_target: d.discount_target === 'materials' ? 'materials' : 'total',
+    discount_amount: (d.discount_amount as number) ?? 0,
   };
 }

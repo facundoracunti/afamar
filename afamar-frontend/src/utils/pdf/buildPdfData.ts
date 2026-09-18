@@ -40,6 +40,7 @@ import {
   buildMeasurementComparison,
 } from './buildSectionData';
 import { buildPieces, piecesSubtotal } from './buildPiecesPdfData';
+import { computeMaterialsSubtotal } from '@features/budgets/utils/commercialDiscount';
 
 /**
  * Build the per-option `MaterialSection[]` for a budget's ALTERNATIVES,
@@ -85,10 +86,16 @@ interface ComputeTotalsParams {
   pm: PaymentMethod | null;
   installments: number;
   deposit: number;
-  /** Per-order opt-in flag mirroring `work_orders.apply_cash_discount`.
-   *  When false the DISCOUNT branch is skipped entirely so the total
-   *  equals the subtotal regardless of the selected method's discount %. */
-  applyCashDiscount: boolean;
+  /** Fase 3 — Descuento Comercial. `null` keeps the legacy behavior (a
+   *  percentage applies whenever `discountPct > 0`); a boolean gates it, so
+   *  the toggle OFF means the % never applies. */
+  discountEnabled?: boolean | null;
+  /** Base for the commercial percentage discount: 'total' = whole document
+   *  (materials + fabrication + alternatives + pools + additional), or
+   *  'materials' = only the main materials' subtotal. */
+  discountTarget?: 'total' | 'materials';
+  materialsSubtotalArs?: number;
+  materialsSubtotalUsd?: number;
 }
 
 /**
@@ -112,7 +119,10 @@ export function computeTotals({
   pm,
   installments,
   deposit,
-  applyCashDiscount,
+  discountEnabled,
+  discountTarget,
+  materialsSubtotalArs,
+  materialsSubtotalUsd,
 }: ComputeTotalsParams): {
   subtotal: number;
   discount_fixed_amount: number;
@@ -128,10 +138,16 @@ export function computeTotals({
   total_usd: number;
   balance_due: number;
 } {
-  const discountBase = subtotalArs + transport;
+  const discountOn = discountEnabled === undefined || discountEnabled === null
+    ? discountPct > 0
+    : discountEnabled;
+  const totalBase = subtotalArs + transport;
+  const discountBase = discountTarget === 'materials'
+    ? (materialsSubtotalArs ?? totalBase)
+    : totalBase;
   const discountFixed = discountFixedRaw > 0
     ? discountFixedRaw
-    : discountPct > 0
+    : (discountOn && discountPct > 0)
       ? Math.round(discountBase * discountPct) / 100
       : 0;
 
@@ -142,31 +158,31 @@ export function computeTotals({
   let surchargeAmount = 0;
   let catalogueSurchargePct = 0;
   let catalogueSurchargeAmount = 0;
-  let catalogueDiscountPct = 0;
-  let catalogueDiscountAmount = 0;
+  const catalogueDiscountPct = 0;
+  const catalogueDiscountAmount = 0;
   let catalogueMethodLabel = '';
+  // Only SURCHARGE methods adjust the totals (credit-card recargo, etc.).
+  // NONE and DISCOUNT are purely informational — the legacy promotional
+  // cash discount (`apply_cash_discount`) was removed; every discount now
+  // flows through the commercial discount (Fase 3) only. The
+  // `catalogue_discount_*` fields below stay (always 0) so the template
+  // can keep rendering them.
   if (
     pm
-    && pm.type !== 'NONE'
+    && pm.type === 'SURCHARGE'
     && Number(pm.value) > 0
-    && (pm.type !== 'DISCOUNT' || applyCashDiscount)
   ) {
     const value = Number(pm.value);
-    // Fixed-amount methods apply directly (no ratio) — mirror of
+    // Fixed-amount surcharges apply directly (no ratio) — mirror of
     // `applyPaymentMethodToTotals` in useBudgetCalculations.ts. A fixed
-    // DISCOUNT/SURCHARGE (`is_percentage=false`,
-    // `applies_to_installments=false`) leaves `ratio` at 1, so it must
-    // NOT share the `ratio !== 1` gate below or it would never surface.
+    // SURCHARGE (`is_percentage=false`, `applies_to_installments=false`)
+    // leaves `ratio` at 1, so it must NOT share the `ratio !== 1` gate
+    // below or it would never surface.
     const isFixedAmount = !pm.is_percentage && !pm.applies_to_installments;
     if (isFixedAmount) {
-      if (pm.type === 'SURCHARGE') {
-        catalogueSurchargeAmount = value;
-        surchargeAmount = value;
-        totalArs = Math.round(surchargeBase + value);
-      } else if (pm.type === 'DISCOUNT') {
-        catalogueDiscountAmount = value;
-        totalArs = Math.max(0, surchargeBase - value);
-      }
+      catalogueSurchargeAmount = value;
+      surchargeAmount = value;
+      totalArs = Math.round(surchargeBase + value);
       catalogueMethodLabel = pm.label || pm.name;
     } else {
       let ratio = 1;
@@ -174,31 +190,20 @@ export function computeTotals({
         const n = Math.max(1, installments);
         ratio = 1 + n * (value / 100);
       } else if (pm.is_percentage) {
-        ratio = pm.type === 'DISCOUNT' ? 1 - value / 100 : 1 + value / 100;
+        ratio = 1 + value / 100;
       }
       if (ratio !== 1) {
-        if (pm.type === 'SURCHARGE') {
-          if (pm.is_percentage) {
-            const headlinePct = round2((ratio - 1) * 100);
-            catalogueSurchargePct = headlinePct;
-            surchargePct = headlinePct;
-            catalogueSurchargeAmount = Math.round(surchargeBase * (ratio - 1));
-            surchargeAmount = catalogueSurchargeAmount;
-          } else {
-            catalogueSurchargeAmount = value;
-            surchargeAmount = value;
-          }
-          totalArs = Math.round(surchargeBase * ratio);
-        } else if (pm.type === 'DISCOUNT') {
-          if (pm.is_percentage) {
-            catalogueDiscountPct = round2((1 - ratio) * 100);
-            catalogueDiscountAmount = Math.round(surchargeBase * (1 - ratio));
-            totalArs = Math.max(0, Math.round(surchargeBase * ratio));
-          } else {
-            catalogueDiscountAmount = value;
-            totalArs = Math.max(0, surchargeBase - value);
-          }
+        if (pm.is_percentage) {
+          const headlinePct = round2((ratio - 1) * 100);
+          catalogueSurchargePct = headlinePct;
+          surchargePct = headlinePct;
+          catalogueSurchargeAmount = Math.round(surchargeBase * (ratio - 1));
+          surchargeAmount = catalogueSurchargeAmount;
+        } else {
+          catalogueSurchargeAmount = value;
+          surchargeAmount = value;
         }
+        totalArs = Math.round(surchargeBase * ratio);
         catalogueMethodLabel = pm.label || pm.name;
       }
     }
@@ -209,7 +214,7 @@ export function computeTotals({
 
   // Per-cuota breakdown (3-column table), only for credit-card %
   // surcharges with installments — same rule as the ARS total above.
-  let catalogueInstallmentDetail: Array<{ cuota: number; interes: number; monto: number }> = [];
+  const catalogueInstallmentDetail: Array<{ cuota: number; interes: number; monto: number }> = [];
   if (
     pm
     && pm.type === 'SURCHARGE'
@@ -226,9 +231,12 @@ export function computeTotals({
     }
   }
 
-  // USD side (mirrors the ARS block above).
-  const discountBaseUsd = subtotalUsd + transportUsd;
-  const discountFixedUsd = discountPct > 0
+    // USD side (mirrors the ARS block above).
+  const totalBaseUsd = subtotalUsd + transportUsd;
+  const discountBaseUsd = discountTarget === 'materials'
+    ? (materialsSubtotalUsd ?? totalBaseUsd)
+    : totalBaseUsd;
+  const discountFixedUsd = (discountOn && discountPct > 0)
     ? Math.round(discountBaseUsd * discountPct) / 100
     : discountFixedRaw > 0 && usdRate > 0
       ? Math.round((discountFixedRaw / usdRate) * 100) / 100
@@ -237,42 +245,28 @@ export function computeTotals({
   let totalUsd = surchargeBaseUsd;
   if (
     pm
-    && pm.type !== 'NONE'
+    && pm.type === 'SURCHARGE'
     && Number(pm.value) > 0
-    && (pm.type !== 'DISCOUNT' || applyCashDiscount)
   ) {
     const value = Number(pm.value);
-    // Fixed-amount methods apply directly (no ratio) — mirror of the ARS
-    // block above. A fixed DISCOUNT/SURCHARGE leaves `ratio` at 1, so it
-    // must NOT share the `ratio !== 1` gate.
+    // Fixed-amount surcharges apply directly (no ratio) — mirror of the
+    // ARS block above. Must NOT share the `ratio !== 1` gate.
     const isFixedAmountUsd = !pm.is_percentage && !pm.applies_to_installments;
     if (isFixedAmountUsd) {
-      if (pm.type === 'SURCHARGE') {
-        totalUsd = usdRate > 0 ? round2(surchargeBaseUsd + value / usdRate) : surchargeBaseUsd;
-      } else if (pm.type === 'DISCOUNT') {
-        totalUsd = usdRate > 0 ? round2(Math.max(0, surchargeBaseUsd - value / usdRate)) : surchargeBaseUsd;
-      }
+      totalUsd = usdRate > 0 ? round2(surchargeBaseUsd + value / usdRate) : surchargeBaseUsd;
     } else {
       let ratio = 1;
       if (pm.applies_to_installments) {
         const n = Math.max(1, installments);
         ratio = 1 + n * (value / 100);
       } else if (pm.is_percentage) {
-        ratio = pm.type === 'DISCOUNT' ? 1 - value / 100 : 1 + value / 100;
+        ratio = 1 + value / 100;
       }
       if (ratio !== 1) {
-        if (pm.type === 'SURCHARGE') {
-          if (pm.is_percentage) {
-            totalUsd = round2(surchargeBaseUsd * ratio);
-          } else if (usdRate > 0) {
-            totalUsd = round2(surchargeBaseUsd + value / usdRate);
-          }
-        } else if (pm.type === 'DISCOUNT') {
-          if (pm.is_percentage) {
-            totalUsd = round2(Math.max(0, surchargeBaseUsd * ratio));
-          } else if (usdRate > 0) {
-            totalUsd = round2(Math.max(0, surchargeBaseUsd - value / usdRate));
-          }
+        if (pm.is_percentage) {
+          totalUsd = round2(surchargeBaseUsd * ratio);
+        } else if (usdRate > 0) {
+          totalUsd = round2(surchargeBaseUsd + value / usdRate);
         }
       }
     }
@@ -383,11 +377,16 @@ export function buildPdfData({
   const paymentMethodRaw = str('payment_method');
   const paymentMethodIdNum = num('payment_method_id') || null;
   const installmentsNum = num('installments') || 1;
-  // Per-order opt-in flag for the DISCOUNT branch. Mirrors the
-  // backend `apply_cash_discount` column. When false (default) the
-  // DISCOUNT path is skipped entirely so the PDF total equals the
-  // subtotal regardless of the selected payment method's discount %.
-  const applyCashDiscount = form.apply_cash_discount === true;
+
+  // Fase 3 — Descuento Comercial (frontend, budgets). `discount_enabled`
+  // gates the percentage discount; `discount_target` picks the base the %
+  // runs against (whole document or main materials only). The materials
+  // base comes from `computeMaterialsSubtotal`, the single source shared
+  // with `useBudgetCalculations` (mirrors its `matArs` / `matUsd`).
+  const discountEnabled = form.discount_enabled === true;
+  const discountTarget: 'total' | 'materials' =
+    form.discount_target === 'materials' ? 'materials' : 'total';
+  const materialsTotals = computeMaterialsSubtotal(allMaterials, usdRate);
 
   // Resolve the catalogue row for the current method (same lookup as
   // `useBudgetCalculations.resolvePaymentMethod`).
@@ -423,7 +422,10 @@ export function buildPdfData({
     pm,
     installments: installmentsNum,
     deposit: depositArsEquivalent,
-    applyCashDiscount,
+    discountEnabled,
+    discountTarget,
+    materialsSubtotalArs: materialsTotals.materialsSubtotalArs,
+    materialsSubtotalUsd: materialsTotals.materialsSubtotalUsd,
   });
   const {
     discount_fixed_amount: discountFixed,
@@ -456,7 +458,10 @@ export function buildPdfData({
         pm,
         installments: installmentsNum,
         deposit: depositArsEquivalent,
-        applyCashDiscount,
+        discountEnabled,
+        discountTarget,
+        materialsSubtotalArs: materialsTotals.materialsSubtotalArs,
+        materialsSubtotalUsd: materialsTotals.materialsSubtotalUsd,
       });
       section.total_ars = st.total;
       section.total_usd = st.total_usd;
