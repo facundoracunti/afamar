@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildPieces, piecesSubtotal } from './buildPiecesPdfData';
 import { buildPdfData } from './buildPdfData';
-import { flattenPieces } from '../pieces';
+import { flattenPieces } from '@features/budgets/utils/pieces';
 import type { BudgetPiece, MaterialInForm, PoolInForm } from '../../types/budget';
 
 function mat(extra: Partial<MaterialInForm> & Pick<MaterialInForm, 'name'>): MaterialInForm {

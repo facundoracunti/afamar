@@ -5,7 +5,7 @@
 import type { EntityFormState } from '../types';
 import type { FinancialBase } from '../types/shared';
 import { fabricationConcepts } from '../utils/formatters';
-import { createEmptyPiece } from '../utils/pieces';
+import { createEmptyPiece } from '@features/budgets/utils/pieces';
 
 export const M2_CONCEPTS: string[] = fabricationConcepts.filter((c) =>
   c === 'BASEBOARD' || c === 'FRONT'

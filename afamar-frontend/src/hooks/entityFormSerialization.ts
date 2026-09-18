@@ -7,7 +7,7 @@ import type { BudgetPiece, PoolInForm } from '../types/budget';
 import { todayLocalISO } from '../utils/formatters';
 import { INITIAL_FORM } from './entityFormConstants';
 import { buildFinancialPayload, mapFinancialToForm } from './entityFormFinancial';
-import { flattenPieces, normalisePieces } from '../utils/pieces';
+import { flattenPieces, normalisePieces } from '@features/budgets/utils/pieces';
 
 export { todayLocalISO };
 

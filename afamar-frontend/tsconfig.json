@@ -20,7 +20,8 @@
     "typeRoots": ["./node_modules/@types"],
     "paths": {
       "@/*": ["./src/*"],
-      "@assets/*": ["./src/assets/*"]
+      "@assets/*": ["./src/assets/*"],
+      "@features/*": ["./src/features/*"]
     }
   },
   "include": ["src", "src/css-modules.d.ts"],
