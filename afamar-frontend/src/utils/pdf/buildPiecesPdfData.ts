@@ -84,7 +84,9 @@ export function buildPieces(
     const piece = (raw as BudgetPiece[])[pieceIndex];
     if (!piece) continue;
 
-    const mainList: MaterialInForm[] = piece.mainMaterial ? [piece.mainMaterial] : [];
+    const mainList: MaterialInForm[] = piece.mainMaterial
+      ? [piece.mainMaterial, ...(piece.mainMaterialRows || [])]
+      : [];
     const altList: MaterialInForm[] = Array.isArray(piece.alternativeMaterials)
       ? piece.alternativeMaterials
       : [];

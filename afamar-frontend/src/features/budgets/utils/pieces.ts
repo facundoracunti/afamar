@@ -35,6 +35,7 @@ export function createEmptyPiece(existingCount: number): BudgetPiece {
     id: pieceId(),
     name: `Mesada ${existingCount + 1}`,
     mainMaterial: null,
+    mainMaterialRows: [],
     alternativeMaterials: [],
     fabrication_details: [],
     additional_works_data: '[]',
@@ -62,13 +63,13 @@ function parseAdditionalWorks(json: string | null | undefined): unknown[] {
 
 /**
  * Normalise a single persisted piece into the current `BudgetPiece` shape.
- * Handles BOTH the new `{mainMaterial, alternativeMaterials, pools, …}`
- * shape AND the legacy `{materials[]}` shape persisted by older sessions
- * (where alternatives were encoded with `is_alternative: true` on each
- * material row). Legacy pieces are migrated in-place: the first
- * non-alternative row becomes `mainMaterial`, the rest become
- * `alternativeMaterials`, the rows keep their dims (multiple mains
- * collapse into the first main's row with summed `quantity`).
+ * Handles BOTH the new `{mainMaterial, mainMaterialRows, alternativeMaterials,
+ * pools, …}` shape AND the legacy `{materials[]}` shape persisted by older
+ * sessions (where alternatives were encoded with `is_alternative: true` on
+ * each material row). Legacy pieces are migrated in-place: the first
+ * non-alternative row becomes `mainMaterial`, every OTHER non-alternative
+ * row becomes a `mainMaterialRows` tramo (they keep their own dims), and
+ * the rest become `alternativeMaterials`.
  */
 export function normalisePiece(raw: unknown, index = 0): BudgetPiece {
   if (!raw || typeof raw !== 'object') return createEmptyPiece(index);
@@ -76,6 +77,7 @@ export function normalisePiece(raw: unknown, index = 0): BudgetPiece {
     id?: string;
     name?: string;
     mainMaterial?: MaterialInForm | null;
+    mainMaterialRows?: MaterialInForm[];
     alternativeMaterials?: MaterialInForm[];
     materials?: MaterialInForm[];
     fabrication_details?: FabricationDetail[];
@@ -91,10 +93,14 @@ export function normalisePiece(raw: unknown, index = 0): BudgetPiece {
     const alts = Array.isArray(r.alternativeMaterials)
       ? r.alternativeMaterials.map((m) => ({ ...m, is_alternative: true }))
       : [];
+    const mainRows = Array.isArray(r.mainMaterialRows)
+      ? r.mainMaterialRows.map((m) => ({ ...m, is_alternative: false }))
+      : [];
     return {
       id: r.id || pieceId(),
       name: r.name || `Mesada ${index + 1}`,
       mainMaterial: main,
+      mainMaterialRows: mainRows,
       alternativeMaterials: alts,
       fabrication_details: Array.isArray(r.fabrication_details) ? r.fabrication_details : [],
       additional_works_data:
@@ -112,28 +118,21 @@ export function normalisePiece(raw: unknown, index = 0): BudgetPiece {
   let main: MaterialInForm | null = firstMain
     ? { ...firstMain, is_alternative: false }
     : null;
-  // Fold additional "panes" of the principal material into the main row's
-  // `quantity` so the singular model still represents them. The extra
-  // panes' dimensions are dropped — the operator can re-split later if
-  // they need differently-sized panes.
-  const otherMains = allMats.filter((m) => !m.is_alternative).slice(1);
-  if (main && otherMains.length > 0) {
-    let totalQty = Number(main.quantity || 1);
-    let totalArea =
-      Number(main.length || 0) * Number(main.width || 0) * totalQty;
-    for (const extra of otherMains) {
-      const q = Number(extra.quantity || 1);
-      totalQty += q;
-      totalArea += Number(extra.length || 0) * Number(extra.width || 0) * q;
-    }
-    main = { ...main, quantity: totalQty };
-    void totalArea;
-  }
+  // Additional "panes" of the principal material become extra measurement
+  // rows (`mainMaterialRows`) instead of being folded into the main row's
+  // `quantity` — they keep their own dims so the re-split UI can show each
+  // tramo (Cantidad/Largo/Ancho) separately again after loading a legacy
+  // piece.
+  const otherMains = allMats
+    .filter((m) => !m.is_alternative)
+    .slice(1)
+    .map((m) => ({ ...m, is_alternative: false }));
 
   return {
     id: r.id || pieceId(),
     name: r.name || `Mesada ${index + 1}`,
     mainMaterial: main,
+    mainMaterialRows: otherMains,
     alternativeMaterials: alts,
     fabrication_details: Array.isArray(r.fabrication_details) ? r.fabrication_details : [],
     additional_works_data:
@@ -181,6 +180,11 @@ export function flattenPieces(
     if (piece.mainMaterial) {
       materials_data.push({ ...piece.mainMaterial, is_alternative: false });
     }
+    if (Array.isArray(piece.mainMaterialRows)) {
+      for (const tramo of piece.mainMaterialRows) {
+        materials_data.push({ ...tramo, is_alternative: false });
+      }
+    }
     if (Array.isArray(piece.alternativeMaterials)) {
       for (const alt of piece.alternativeMaterials) {
         materials_data.push({ ...alt, is_alternative: true });
@@ -208,9 +212,11 @@ export function piecesTotalM2(pieces: BudgetPiece[] | null | undefined): number 
   let total = 0;
   for (const piece of pieces || []) {
     if (!piece) continue;
-    const all = [piece.mainMaterial, ...(piece.alternativeMaterials || [])].filter(
-      Boolean,
-    ) as MaterialInForm[];
+    const all = [
+      piece.mainMaterial,
+      ...(piece.mainMaterialRows || []),
+      ...(piece.alternativeMaterials || []),
+    ].filter(Boolean) as MaterialInForm[];
     for (const m of all) {
       total +=
         Number(m.length || 0) *

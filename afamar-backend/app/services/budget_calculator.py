@@ -77,6 +77,14 @@ def flatten_pieces(data: dict, only_if_missing: bool = False) -> None:
         # of the legacy `materials` array. Support both shapes.
         if isinstance(piece.get("mainMaterial"), dict):
             materials.append({**piece["mainMaterial"], "is_alternative": False})
+            # Pieces v3+: extra measurement rows ("tramos") of the same
+            # principal material. They all count as non-alternative rows so
+            # the recalc sums every pane of the piece's principal.
+            tramos = piece.get("mainMaterialRows")
+            if isinstance(tramos, list):
+                for tramo in tramos:
+                    if isinstance(tramo, dict):
+                        materials.append({**tramo, "is_alternative": False})
         elif isinstance(piece.get("materials"), list):
             materials.extend(piece["materials"])
         if isinstance(piece.get("alternativeMaterials"), list):

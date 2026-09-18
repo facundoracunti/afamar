@@ -26,11 +26,25 @@ export interface UseBudgetPiecesReturn {
   removePiece: (id: string) => void;
   renamePiece: (id: string, name: string) => void;
 
-  // ----- Main material (singular per piece)
+  // ----- Main material (singular anchor + extra measurement rows)
   setPieceMain: (id: string, name: string) => void;
   updatePieceMain: (id: string, field: string, value: unknown) => void;
   swapPieceMain: (id: string, mat: Material) => void;
   removePieceMain: (id: string) => void;
+  /** Add another measurement row ("tramo") of the same principal material.
+   *  The passed row is used as the identity seed (name/prices/currency);
+   *  the new row starts with blank dims, like the legacy addRow. */
+  addPieceMainRow: (id: string, mat: MaterialInForm) => void;
+  /** Update ONE main row by its position inside `[main, ...mainMaterialRows]`
+   *  (idx 0 = the anchor, idx ≥ 1 = a tramo). */
+  updatePieceMainRow: (id: string, idx: number, field: string, value: unknown) => void;
+  /** Remove ONE main row by its position inside `[main, ...mainMaterialRows]`.
+   *  Removing idx 0 (the anchor) when tramos exist promotes the first tramo
+   *  to anchor so the piece never ends up with rows but no main. */
+  removePieceMainRow: (id: string, idx: number) => void;
+  /** Apply `field` to EVERY main row (anchor + tramos) — used by the card's
+   *  shared price input so one edit prices the whole physical material. */
+  updatePieceMainGroup: (id: string, field: string, value: unknown) => void;
 
   // ----- Alternative materials
   addPieceAlternative: (id: string, name: string) => void;
@@ -218,15 +232,30 @@ export function useBudgetPieces({
             currency: (mat.currency === 'USD' ? 'USD' : 'ARS') as 'ARS' | 'USD',
             is_alternative: false,
           };
+          // Tramos are panes of the same physical material — re-identify
+          // them too (name/color/prices/currency) but keep each row's dims.
+          const mainMaterialRows = (piece.mainMaterialRows || []).map((row) => ({
+            ...row,
+            id: mat.id ?? null,
+            name: mat.name,
+            category: '',
+            color: mat.color || '',
+            price_m2: Number(mat.base_price) || 0,
+            price_m2_usd: Number(mat.price_usd) || 0,
+            currency: (mat.currency === 'USD' ? 'USD' : 'ARS') as 'ARS' | 'USD',
+            is_alternative: false,
+          }));
           const dims = pieceDims(piece);
           const alternativeMaterials = piece.alternativeMaterials.map((a) => ({
             ...a,
             ...dims,
           }));
-          if (oldName === mat.name) return { ...piece, mainMaterial: newMain, alternativeMaterials };
+          if (oldName === mat.name) {
+            return { ...piece, mainMaterial: newMain, mainMaterialRows, alternativeMaterials };
+          }
           const synth: EntityFormState = {
             ...form,
-            materials_data: [piece.mainMaterial],
+            materials_data: [piece.mainMaterial, ...mainMaterialRows],
             fabrication_details: piece.fabrication_details,
             additional_works_data: piece.additional_works_data,
             pools_data: [],
@@ -240,6 +269,7 @@ export function useBudgetPieces({
           return {
             ...piece,
             mainMaterial: newMain,
+            mainMaterialRows,
             alternativeMaterials,
             fabrication_details: refs.fabrication_details,
             additional_works_data: refs.additional_works_data ?? '[]',
@@ -252,7 +282,105 @@ export function useBudgetPieces({
 
   const removePieceMain = useCallback(
     (id: string) => {
-      commit((p) => p.map((piece) => (piece.id === id ? { ...piece, mainMaterial: null } : piece)));
+      commit((p) =>
+        p.map((piece) =>
+          piece.id === id
+            ? { ...piece, mainMaterial: null, mainMaterialRows: [] }
+            : piece,
+        ),
+      );
+    },
+    [commit],
+  );
+
+  const addPieceMainRow = useCallback(
+    (id: string, mat: MaterialInForm) => {
+      commit((p) =>
+        p.map((piece) => {
+          if (piece.id !== id || !piece.mainMaterial) return piece;
+          const seed = piece.mainMaterial;
+          const tramo: MaterialInForm = {
+            ...(mat && mat.name ? mat : seed),
+            quantity: 1,
+            m2_used: 0,
+            m2_budgeted: 0,
+            length: 0,
+            width: 0,
+            is_alternative: false,
+          };
+          return {
+            ...piece,
+            mainMaterialRows: [...(piece.mainMaterialRows || []), tramo],
+          };
+        }),
+      );
+    },
+    [commit],
+  );
+
+  const updatePieceMainRow = useCallback(
+    (id: string, idx: number, field: string, value: unknown) => {
+      commit((p) =>
+        p.map((piece) => {
+          if (piece.id !== id) return piece;
+          const rows = piece.mainMaterialRows || [];
+          // idx 0 = the anchor (`mainMaterial`), idx ≥ 1 = a tramo.
+          if (idx === 0) {
+            if (!piece.mainMaterial) return piece;
+            return {
+              ...piece,
+              mainMaterial: { ...piece.mainMaterial, [field]: value } as MaterialInForm,
+            };
+          }
+          const list = [...rows];
+          if (idx - 1 < 0 || idx - 1 >= list.length) return piece;
+          list[idx - 1] = { ...list[idx - 1], [field]: value } as MaterialInForm;
+          return { ...piece, mainMaterialRows: list };
+        }),
+      );
+    },
+    [commit],
+  );
+
+  const removePieceMainRow = useCallback(
+    (id: string, idx: number) => {
+      commit((p) =>
+        p.map((piece) => {
+          if (piece.id !== id) return piece;
+          const rows = piece.mainMaterialRows || [];
+          if (idx === 0) {
+            // Removing the anchor: promote the first tramo so the piece
+            // never ends with rows but no main.
+            if (rows.length === 0) return { ...piece, mainMaterial: null };
+            return {
+              ...piece,
+              mainMaterial: { ...rows[0], is_alternative: false },
+              mainMaterialRows: rows.slice(1),
+            };
+          }
+          const list = rows.filter((_, i) => i !== idx - 1);
+          return { ...piece, mainMaterialRows: list };
+        }),
+      );
+    },
+    [commit],
+  );
+
+  const updatePieceMainGroup = useCallback(
+    (id: string, field: string, value: unknown) => {
+      commit((p) =>
+        p.map((piece) => {
+          if (piece.id !== id || !piece.mainMaterial) return piece;
+          return {
+            ...piece,
+            mainMaterial: { ...piece.mainMaterial, [field]: value } as MaterialInForm,
+            mainMaterialRows: (piece.mainMaterialRows || []).map((row) => ({
+              ...row,
+              [field]: value,
+            })),
+          };
+        }),
+      );
     },
     [commit],
   );
@@ -393,13 +521,21 @@ export function useBudgetPieces({
           const newMain: MaterialInForm = { ...alt, is_alternative: false };
           const remainingAlts = piece.alternativeMaterials.filter((_, i) => i !== idx);
           const newAlts = previousMain
-            ? [{ ...previousMain, is_alternative: true }, ...remainingAlts]
+            ? [
+                { ...previousMain, is_alternative: true },
+                ...(piece.mainMaterialRows || []).map((r) => ({
+                  ...r,
+                  is_alternative: true,
+                })),
+                ...remainingAlts,
+              ]
             : remainingAlts;
           const dims = pieceDims({ ...piece, mainMaterial: newMain });
           const syncedAlts = newAlts.map((a) => ({ ...a, ...dims }));
           return {
             ...piece,
             mainMaterial: newMain,
+            mainMaterialRows: [],
             alternativeMaterials: syncedAlts,
           };
         }),
@@ -550,6 +686,10 @@ export function useBudgetPieces({
     updatePieceMain,
     swapPieceMain,
     removePieceMain,
+    addPieceMainRow,
+    updatePieceMainRow,
+    removePieceMainRow,
+    updatePieceMainGroup,
     addPieceAlternative,
     addPieceAlternativeRow,
     updatePieceAlternative,

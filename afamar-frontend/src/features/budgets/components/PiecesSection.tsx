@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { Material } from '@/types/material';
 import type { EntityFormState, PoolInForm } from '@/types';
 import type {
@@ -40,48 +40,61 @@ interface PiecesSectionProps {
 }
 
 /**
- * Render a single material as a singular MaterialCard. Pieces v3 uses
- * the singular model (one main OR one alternative row per card) and
- * hides the per-row "Alternativa" checkbox — alternatives are added via
- * the unified dropdown at the piece header and removed with the ✕.
+ * Render a material as a MaterialCard. Each piece's principal material may
+ * carry EXTRA measurement rows ("tramos") — the anchor (`idx 0`) plus its
+ * `mainMaterialRows` — so the operator can quote several differently-sized
+ * panes of the same material in one card. Alternatives stay singular
+ * (one row, no "+"). The per-row "Alternativa" checkbox is hidden
+ * everywhere: alternatives are added via the unified dropdown and removed
+ * with the ✕.
  */
 function SingularMaterialCard({
-  mat,
+  rows,
   readOnly,
   materials,
   categories,
   usdRate,
   onUpdateField,
-  onSwap,
+  onUpdateGroup,
+  onRemoveRow,
+  onAddRow,
   onRemove,
+  onSwap,
+  canAddRow = false,
 }: {
-  mat: MaterialInForm;
+  rows: MaterialInForm[];
   readOnly: boolean;
   materials: Material[];
   categories: MaterialCategory[];
   usdRate: number;
-  onUpdateField: (field: string, value: unknown) => void;
-  onSwap: (mat: Material) => void;
+  /** Field edit for ONE row (idx within `rows`). Map it to the anchor or a
+   *  tramo, or in the alternatives case to `updatePieceAlternative`. */
+  onUpdateField: (idx: number, field: string, value: unknown) => void;
+  /** Apply `field` to EVERY row of the card (shared price input). */
+  onUpdateGroup: (field: string, value: unknown) => void;
+  /** Remove ONE row (per-row ✕, only shown when rows.length > 1). */
+  onRemoveRow: (idx: number) => void;
+  /** Add another measurement row of the same material. */
+  onAddRow: (mat: MaterialInForm) => void;
+  /** Remove the whole card. */
   onRemove: () => void;
+  onSwap: (mat: Material) => void;
+  canAddRow?: boolean;
 }) {
   return (
     <MaterialCard
-      rows={[{ mat, idx: 0 }]}
+      rows={rows.map((mat, idx) => ({ mat, idx }))}
       readOnly={readOnly}
       materials={materials}
       categorias={categories}
       usdRate={usdRate}
-      hideAddRow
+      hideAddRow={!canAddRow}
       hideAlternativeCheckbox
-      updateMaterial={(_idx, field, value) => onUpdateField(field, value)}
-      updateMaterialGroup={(_idxs, field, value) => onUpdateField(field, value)}
-      removeMaterial={() => {
-        /* not used (removeGroup handles it) */
-      }}
+      updateMaterial={(idx, field, value) => onUpdateField(idx, field, value)}
+      updateMaterialGroup={(_idxs, field, value) => onUpdateGroup(field, value)}
+      removeMaterial={(idx) => onRemoveRow(idx)}
       removeGroup={() => onRemove()}
-      addRow={() => {
-        /* not used (hideAddRow) */
-      }}
+      addRow={(mat) => onAddRow(mat)}
       onChangeMaterial={onSwap}
       num={(v) => parseNumber(v as string) ?? 0}
     />
@@ -104,10 +117,12 @@ function PiecePools({
 }) {
   const pieceMaterials = useMemo(
     () =>
-      [piece.mainMaterial, ...(piece.alternativeMaterials || [])].filter(
-        Boolean,
-      ) as MaterialInForm[],
-    [piece.mainMaterial, piece.alternativeMaterials],
+      [
+        piece.mainMaterial,
+        ...(piece.mainMaterialRows || []),
+        ...(piece.alternativeMaterials || []),
+      ].filter(Boolean) as MaterialInForm[],
+    [piece.mainMaterial, piece.mainMaterialRows, piece.alternativeMaterials],
   );
 
   const handleAdd = (poolId: string) => {
@@ -125,27 +140,76 @@ function PiecePools({
     });
   };
 
+  // Filter the pool catalogue by pool type (SIMPLE / DOBLE) so the
+  // operator can narrow the picker before adding a pileta to the piece.
+  // The types are derived from the pools themselves (backend attaches
+  // `pool_type_id` + `pool_type_name` to each row), so no extra fetch is
+  // needed. Mirrors the legacy PoolSection's type filter behaviour.
+  const [poolTypeFilter, setPoolTypeFilter] = useState<number | 'all'>('all');
+
+  const poolTypes = useMemo(() => {
+    const byType = new Map<number, string>();
+    for (const p of pools) {
+      const id = Number(p.pool_type_id);
+      if (id > 0) byType.set(id, p.pool_type_name || `Tipo ${id}`);
+    }
+    return [...byType.entries()].sort(([a], [b]) => a - b);
+  }, [pools]);
+
+  const filteredPools = useMemo(() => {
+    const base =
+      poolTypeFilter === 'all'
+        ? pools
+        : pools.filter((p) => Number(p.pool_type_id) === poolTypeFilter);
+    // Stable ordering (brand, then model) so the picker reads predictably
+    // regardless of stock insertion order.
+    return [...base].sort((a, b) => {
+      const ab = `${a.brand ?? ''}`.toLowerCase();
+      const bb = `${b.brand ?? ''}`.toLowerCase();
+      if (ab < bb) return -1;
+      if (ab > bb) return 1;
+      return `${a.model ?? ''}`.toLowerCase().localeCompare(`${b.model ?? ''}`.toLowerCase());
+    });
+  }, [pools, poolTypeFilter]);
+
   return (
     <div className={s['piece-pools']}>
       <div className={s['piece-pools__header']}>
         <h4 className={s['piece-pools__title']}>PILETAS DE ESTA PIEZA</h4>
         {!readOnly && (
-          <select
-            className={`input ${s['piece-pools__add']}`}
-            value=""
-            onChange={(e) => {
-              if (e.target.value) handleAdd(e.target.value);
-              e.target.value = '';
-            }}
-            disabled={readOnly}
-          >
-            <option value="">+ AGREGAR PILETA</option>
-            {pools.map((p) => (
-              <option key={p.id as number} value={p.id as number}>
-                {p.brand as string} - {p.model as string}
-              </option>
-            ))}
-          </select>
+          <div className={s['piece-pools__filters']}>
+            <select
+              className={`input ${s['piece-pools__type-filter']}`}
+              value={poolTypeFilter}
+              onChange={(e) =>
+                setPoolTypeFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))
+              }
+              disabled={readOnly}
+              aria-label="Filtrar piletas por tipo"
+            >
+              <option value="all">Todas</option>
+              {poolTypes.map(([id, label]) => (
+                <option key={id} value={id}>{label}</option>
+              ))}
+            </select>
+            <select
+              className={`input ${s['piece-pools__add']}`}
+              value=""
+              onChange={(e) => {
+                if (e.target.value) handleAdd(e.target.value);
+                e.target.value = '';
+              }}
+              disabled={readOnly}
+            >
+              <option value="">+ AGREGAR PILETA</option>
+              {filteredPools.map((p) => (
+                <option key={p.id as number} value={p.id as number}>
+                  {p.brand as string} - {p.model as string}
+                  {p.pool_type_name ? ` (${p.pool_type_name})` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
         )}
       </div>
       {(piece.pools || []).map((pt, idx) => (
@@ -187,9 +251,11 @@ function PieceCard({
   showMeasurementComparison?: boolean;
 }) {
   const usdRate = Number(form.usd_rate) || 0;
-  const pieceMaterials = [piece.mainMaterial, ...(piece.alternativeMaterials)].filter(
-    Boolean,
-  ) as MaterialInForm[];
+  const mainRowsAll = [
+    piece.mainMaterial,
+    ...(piece.mainMaterialRows || []),
+  ].filter(Boolean) as MaterialInForm[];
+  const pieceMaterials = [...mainRowsAll, ...(piece.alternativeMaterials || [])] as MaterialInForm[];
   const totalM2 = pieceMaterials.reduce(
     (acc, m) => acc + Number(m.length || 0) * Number(m.width || 0) * Number(m.quantity || 1),
     0,
@@ -250,27 +316,46 @@ function PieceCard({
       <div className={s['pieces__materials-grid']}>
         {piece.mainMaterial && (
           <SingularMaterialCard
-            mat={piece.mainMaterial}
+            rows={mainRowsAll}
             readOnly={readOnly}
             materials={materials}
             categories={categories}
             usdRate={usdRate}
-            onUpdateField={(field, value) => handlers.updatePieceMain(piece.id, field, value)}
-            onSwap={(mat) => handlers.swapPieceMain(piece.id, mat)}
+            canAddRow
+            onUpdateField={(idx, field, value) =>
+              idx === 0
+                ? handlers.updatePieceMain(piece.id, field, value)
+                : handlers.updatePieceMainRow(piece.id, idx, field, value)
+            }
+            onUpdateGroup={(field, value) =>
+              handlers.updatePieceMainGroup(piece.id, field, value)
+            }
+            onRemoveRow={(idx) => handlers.removePieceMainRow(piece.id, idx)}
+            onAddRow={(mat) => handlers.addPieceMainRow(piece.id, mat)}
             onRemove={() => handlers.removePieceMain(piece.id)}
+            onSwap={(mat) => handlers.swapPieceMain(piece.id, mat)}
           />
         )}
         {piece.alternativeMaterials.map((alt, idx) => (
           <SingularMaterialCard
             key={`${piece.id}-alt-${idx}`}
-            mat={alt}
+            rows={[alt]}
             readOnly={readOnly}
             materials={materials}
             categories={categories}
             usdRate={usdRate}
-            onUpdateField={(field, value) => handlers.updatePieceAlternative(piece.id, idx, field, value)}
-            onSwap={(mat) => handlers.swapPieceAlternative(piece.id, idx, mat)}
+            onUpdateField={(_rowIdx, field, value) =>
+              handlers.updatePieceAlternative(piece.id, idx, field, value)
+            }
+            onUpdateGroup={(field, value) =>
+              handlers.updatePieceAlternative(piece.id, idx, field, value)
+            }
+            onRemoveRow={() => handlers.removePieceAlternative(piece.id, idx)}
+            onAddRow={() => {
+              /* singular alternative — no extra rows */
+            }}
             onRemove={() => handlers.removePieceAlternative(piece.id, idx)}
+            onSwap={(mat) => handlers.swapPieceAlternative(piece.id, idx, mat)}
           />
         ))}
         {!piece.mainMaterial && piece.alternativeMaterials.length === 0 && (

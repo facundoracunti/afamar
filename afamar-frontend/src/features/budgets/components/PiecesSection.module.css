@@ -148,6 +148,19 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  flex-wrap: wrap;
+}
+
+.piece-pools__filters {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  max-width: 480px;
+}
+
+.piece-pools__type-filter {
+  width: 110px;
+  font-size: 12px;
 }
 
 .piece-pools__title {
@@ -160,6 +173,5 @@
 
 .piece-pools__add {
   flex: 1;
-  max-width: 320px;
   font-size: 13px;
 }

@@ -196,6 +196,37 @@ describe('buildPieces', () => {
     expect(pieces[0].alternatives[0].subtotal_usd).toBe(600);
   });
 
+  it('sums the principal material AND its mainMaterialRows tramos into the piece', () => {
+    const tramo = mat({
+      name: 'Negro',
+      price_m2: 100000,
+      length: 3,
+      width: 1,
+      is_alternative: false,
+    });
+    const multiTramo: BudgetPiece = {
+      id: 'p-tramos',
+      name: 'Mesada con tramos',
+      mainMaterial: materialC, // 2 m² × 100.000 ARS
+      mainMaterialRows: [tramo], // 3 m² × 100.000 ARS
+      alternativeMaterials: [],
+      fabrication_details: [],
+      additional_works_data: '[]',
+      pools: [],
+    };
+    const pieces = buildPieces(makeForm([multiTramo]), 1000);
+
+    expect(pieces).toHaveLength(1);
+    // Both rows render as separate material lines (+2 m² and +3 m²).
+    expect(pieces[0].materials).toHaveLength(2);
+    const matt = pieces[0].materials.map((m) => m.subtotal_ars);
+    expect(matt[0]).toBe(200000);
+    expect(matt[1]).toBe(300000);
+    // 5 m² total → subtotal = 5 × 100.000 ARS = 500.000.
+    expect(pieces[0].subtotal_ars).toBe(500000);
+    expect(pieces[0].subtotal_usd).toBe(500);
+  });
+
   it('sum of piece principals equals the document subtotal (pools included per piece)', () => {
     const pieces = buildPieces(makeForm([piece1, piece2]), 1000);
     const sum = piecesSubtotal(pieces);

@@ -90,7 +90,10 @@ export function useFormReferences({
   const poolsQuery = useQuery<Pool[]>({
     queryKey: [...POOLS_KEY],
     queryFn: async () => {
-      const res = await services.getPools();
+      // Big limit so no pools are truncated (the backend list endpoint
+      // defaults to a 100-row page, which would silently drop DOBLE pools
+      // when the catalogue grows past that).
+      const res = await services.getPools({ limit: 500 });
       return (res.data as unknown as Pool[]) || [];
     },
     staleTime: REFERENCE_STALE_TIME,
