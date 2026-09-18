@@ -3,15 +3,16 @@ import type { FabricationDetail } from '../../../types/budget';
 import { BudgetCurrencyColumn } from './BudgetCurrencyColumn';
 import { BudgetLineItems } from './BudgetLineItems';
 import { BudgetPaymentSection } from './BudgetPaymentSection';
+import DiscountSelector from '../../../features/budgets/components/DiscountSelector/DiscountSelector';
 import { useBudgetPanel } from './BudgetPanelContext';
 import styles from './BudgetPanel.module.css';
 
 const s = styles as unknown as Record<string, string>;
 
-  interface BudgetPanelProps {
+interface BudgetPanelProps {
     alternativasGrid?: React.ReactNode;
     sectionTitle?: string;
-    /** Slot renderizado debajo de Traslado/Se��a (ej: "CONVERTIR A ORDEN"). */
+    /** Slot renderizado debajo de Traslado/Seña (ej: "CONVERTIR A ORDEN"). */
     actionBlock?: React.ReactNode;
   onUsdRateRefresh?: () => void;
 }
@@ -21,7 +22,7 @@ const s = styles as unknown as Record<string, string>;
     sectionTitle = 'PRESUPUESTO',
     actionBlock,
     onUsdRateRefresh,
-}: BudgetPanelProps) {
+  }: BudgetPanelProps) {
   const { form, ui, financial, num, update, setForm, onConfirmarPago } = useBudgetPanel();
   const { hayAlternativas, readOnly, saving } = ui;
 
@@ -78,6 +79,7 @@ const s = styles as unknown as Record<string, string>;
               <BudgetCurrencyColumn currency="ARS" form={form} readOnly={readOnly} />
               <BudgetCurrencyColumn currency="USD" form={form} readOnly={readOnly} />
             </div>
+            <DiscountSelector form={form} readOnly={readOnly} update={update} />
           </div>
 
           {actionBlock && (

@@ -96,16 +96,16 @@ function linearInstallmentRatio(
  * stay in sync) and in `work_order._recalculate_totals_from_items`
  * (server-side safety net). Touch the three together.
  *
- * DISCOUNT is opt-in via the per-order `apply_cash_discount` flag so the
- * operator decides client-by-client whether the promotional discount
- * applies. SURCHARGE (e.g. credit-card recargo) and the credit-card
- * installment multiplier always apply when selected.
+ * Only **SURCHARGE** methods adjust the totals (e.g. credit-card recargo).
+ * NONE and DISCOUNT are purely **informational** — the legacy promotional
+ * discount by payment method (`apply_cash_discount`) was removed: every
+ * discount now goes through `DiscountSelector` / `useCommercialDiscount`
+ * (Fase 3). A DISCOUNT method therefore behaves exactly like NONE.
  *
  * Credit-card rule (current spec): recargo lineal por cuota — `value`
  * se aplica N veces al total, dividido en N cuotas iguales (ver
  * `linearInstallmentRatio` arriba). Para métodos sin installments
- * (`applies_to_installments=false`) el recargo/descuento es un `value%`
- * flat del total.
+ * (`applies_to_installments=false`) el recargo es un `value%` flat.
  */
 function applyPaymentMethodToTotals(
   pm: PaymentMethod | null,
@@ -113,42 +113,23 @@ function applyPaymentMethodToTotals(
   totalArs: number,
   totalUsd: number,
   usdRate: number,
-  applyCashDiscount: boolean,
 ): { totalArs: number; totalUsd: number } {
-  if (!pm || pm.type === 'NONE' || !pm.value) {
+  if (!pm || pm.type !== 'SURCHARGE' || !pm.value) {
     return { totalArs, totalUsd };
   }
   const value = Number(pm.value) || 0;
   if (value <= 0) return { totalArs, totalUsd };
-  // Gate the DISCOUNT branch on the per-order flag. SURCHARGE and
-  // installment recargo always apply.
-  if (pm.type === 'DISCOUNT' && !applyCashDiscount) {
-    return { totalArs, totalUsd };
-  }
 
   // Fixed-amount methods are applied directly (no ratio): a fixed
-  // SURCHARGE adds `value` (ARS), a fixed DISCOUNT subtracts it; the
-  // USD mirror converts via `usdRate`. These must NOT share the
-  // `ratio === 1` early return below — a fixed amount would never
-  // apply because `ratio` stays 1 when neither `is_percentage` nor
-  // `applies_to_installments` is set.
+  // SURCHARGE adds `value` (ARS); the USD mirror converts via `usdRate`.
+  // These must NOT share the `ratio === 1` early return below — a fixed
+  // amount would never apply because `ratio` stays 1 when neither
+  // `is_percentage` nor `applies_to_installments` is set.
   if (!pm.is_percentage && !pm.applies_to_installments) {
-    if (pm.type === 'SURCHARGE') {
-      return {
-        totalArs: totalArs + value,
-        totalUsd: usdRate > 0 ? totalUsd + value / usdRate : totalUsd,
-      };
-    }
-    if (pm.type === 'DISCOUNT') {
-      return {
-        totalArs: Math.max(0, totalArs - value),
-        totalUsd:
-          usdRate > 0
-            ? round2(Math.max(0, totalUsd - value / usdRate))
-            : totalUsd,
-      };
-    }
-    return { totalArs, totalUsd };
+    return {
+      totalArs: totalArs + value,
+      totalUsd: usdRate > 0 ? totalUsd + value / usdRate : totalUsd,
+    };
   }
 
   // Effective ratio applied to the total (1 = no change).
@@ -156,38 +137,20 @@ function applyPaymentMethodToTotals(
   if (pm.applies_to_installments) {
     ratio = linearInstallmentRatio(value, installments);
   } else if (pm.is_percentage) {
-    ratio = pm.type === 'DISCOUNT' ? 1 - value / 100 : 1 + value / 100;
+    ratio = 1 + value / 100;
   }
   if (ratio === 1) return { totalArs, totalUsd };
 
-  if (pm.type === 'SURCHARGE') {
-    if (pm.is_percentage) {
-      return {
-        totalArs: Math.round(totalArs * ratio),
-        totalUsd: round2(totalUsd * ratio),
-      };
-    }
+  if (pm.is_percentage) {
     return {
-      totalArs: totalArs + value,
-      totalUsd: usdRate > 0 ? totalUsd + value / usdRate : totalUsd,
+      totalArs: Math.round(totalArs * ratio),
+      totalUsd: round2(totalUsd * ratio),
     };
   }
-  if (pm.type === 'DISCOUNT') {
-    if (pm.is_percentage) {
-      return {
-        totalArs: Math.max(0, Math.round(totalArs * ratio)),
-        totalUsd: round2(Math.max(0, totalUsd * ratio)),
-      };
-    }
-    return {
-      totalArs: Math.max(0, totalArs - value),
-      totalUsd:
-        usdRate > 0
-          ? round2(Math.max(0, totalUsd - value / usdRate))
-          : totalUsd,
-    };
-  }
-  return { totalArs, totalUsd };
+  return {
+    totalArs: totalArs + value,
+    totalUsd: usdRate > 0 ? totalUsd + value / usdRate : totalUsd,
+  };
 }
 
 /**
@@ -305,12 +268,24 @@ export function useBudgetCalculations(
     const tr = Number(form.transport) || 0;
     const totalBase = Math.max(0, subtotal + tr);
 
-    // Manual discount (operator-typed on the form).
+    // Commercial discount (Fase 3 — budgets feature). Gated by
+    // `discount_enabled`: when off (default) the percentage never applies.
+    // `discount_target` picks the base — 'total' = the whole document,
+    // 'materials' = only the main materials (mármol/granito/cuarzo),
+    // protecting mano de obra, trasforos, piletas e ingletados. The fixed
+    // amount stays legacy (no gate, no UI).
+    const descEnabled = form.discount_enabled === true;
+    const descTarget: 'total' | 'materials' =
+      form.discount_target === 'materials' ? 'materials' : 'total';
     const descPct = Number(form.discount_percentage) || 0;
     const descFijo = Number(form.discount_fixed_amount) || 0;
+    const materialsBaseArs = matArs + (dd > 0 ? Math.round(matUsd * dd * 100) / 100 : 0);
+    let discountAmount = 0;
     let totalConDescuento = totalBase;
-    if (descPct > 0) {
-      totalConDescuento = Math.round(totalBase * (1 - descPct / 100));
+    if (descEnabled && descPct > 0) {
+      const base = descTarget === 'materials' ? materialsBaseArs : totalBase;
+      discountAmount = Math.round(base * descPct) / 100;
+      totalConDescuento = Math.max(0, Math.round((totalBase - discountAmount) * 100) / 100);
     } else if (descFijo > 0) {
       totalConDescuento = Math.max(0, totalBase - descFijo);
     }
@@ -319,14 +294,12 @@ export function useBudgetCalculations(
     // hardcoded "TARJETA DE CRÉDITO + N*5%" rule).
     const pm = resolvePaymentMethod(form, paymentMethods);
     const installmentsCount = Math.max(1, Number(form.installments) || 1);
-    const applyCashDiscount = !!form.apply_cash_discount;
     const { totalArs: totalWithMethod } = applyPaymentMethodToTotals(
       pm,
       installmentsCount,
       totalConDescuento,
       0, // ARS-only path; USD mirror computed below
       dd,
-      applyCashDiscount,
     );
     const total = totalWithMethod;
 
@@ -350,9 +323,13 @@ export function useBudgetCalculations(
     const tr_usd = Number(form.transport_usd) || 0;
     const subtotal_usd = round2(usdTotal + matUsd + ppUsd + additionalUsd + (dd > 0 ? (arsTotal + matArs + ppArs + additionalArs) / dd : 0));
     const totalBaseUsd = Math.max(0, subtotal_usd + tr_usd);
+    const materialsBaseUsd = matUsd + (dd > 0 ? matArs / dd : 0);
+    let discountAmountUsd = 0;
     let totalConDescuentoUsd = totalBaseUsd;
-    if (descPct > 0) {
-      totalConDescuentoUsd = round2(totalBaseUsd * (1 - descPct / 100));
+    if (descEnabled && descPct > 0) {
+      const baseUsd = descTarget === 'materials' ? materialsBaseUsd : totalBaseUsd;
+      discountAmountUsd = round2((baseUsd * descPct) / 100);
+      totalConDescuentoUsd = round2(Math.max(0, totalBaseUsd - discountAmountUsd));
     } else if (descFijo > 0 && dd > 0) {
       totalConDescuentoUsd = round2(Math.max(0, totalBaseUsd - descFijo / dd));
     }
@@ -362,7 +339,6 @@ export function useBudgetCalculations(
       totalConDescuentoUsd,
       totalConDescuentoUsd,
       dd,
-      applyCashDiscount,
     );
     const total_usd = totalUsdWithMethod;
     const balance_due_usd = Math.max(0, total_usd - depositTotalUsd);
@@ -389,27 +365,32 @@ export function useBudgetCalculations(
         const costoMatArs = primeraAlt.currency === 'USD' ? m2 * precioMat * dd2 : m2 * precioMat;
         const fijosArs = arsTotal + (dd2 > 0 ? usdTotal * dd2 : 0) + ppArs + (dd2 > 0 ? ppUsd * dd2 : 0) + additionalArs + (dd2 > 0 ? additionalUsd * dd2 : 0) + tr;
         const totalAlt = Math.round(costoMatArs + fijosArs);
-        totalAltConDesc = descPct > 0 ? Math.round(totalAlt * (1 - descPct / 100)) : (descFijo > 0 ? Math.max(0, totalAlt - descFijo) : totalAlt);
+        totalAltConDesc = descEnabled && descPct > 0
+          ? Math.max(0, Math.round(totalAlt - (descTarget === 'materials' ? costoMatArs : totalAlt) * descPct / 100))
+          : (descFijo > 0 ? Math.max(0, totalAlt - descFijo) : totalAlt);
+        if (descEnabled && descPct > 0) {
+          discountAmount = Math.max(0, Math.round((descTarget === 'materials' ? costoMatArs : totalAlt) * descPct) / 100);
+        }
         const { totalArs: totalAltConMethod } = applyPaymentMethodToTotals(
           pm,
           installmentsCount,
           totalAltConDesc,
           0,
           dd2,
-          applyCashDiscount,
         );
         totalFinal = totalAltConMethod;
         const costoMatUsd = primeraAlt.currency === 'USD' ? m2 * precioMat : m2 * precioMat / dd2;
         const fijosUsd = usdTotal + (dd2 > 0 ? arsTotal / dd2 : 0) + ppUsd + (dd2 > 0 ? ppArs / dd2 : 0) + additionalUsd + (dd2 > 0 ? additionalArs / dd2 : 0) + (dd2 > 0 ? tr / dd2 : 0);
         const totalAltUsd = Math.round((costoMatUsd + fijosUsd) * 100) / 100;
-        totalAltConDescUsd = descPct > 0 ? totalAltUsd * (1 - descPct / 100) : (descFijo > 0 && dd2 > 0 ? Math.max(0, totalAltUsd - descFijo / dd2) : totalAltUsd);
+        totalAltConDescUsd = descEnabled && descPct > 0
+          ? round2(Math.max(0, totalAltUsd - (descTarget === 'materials' ? costoMatUsd : totalAltUsd) * descPct / 100))
+          : (descFijo > 0 && dd2 > 0 ? Math.max(0, totalAltUsd - descFijo / dd2) : totalAltUsd);
         const { totalUsd: totalAltUsdWithMethod } = applyPaymentMethodToTotals(
           pm,
           installmentsCount,
           totalAltConDescUsd,
           totalAltConDescUsd,
           dd2,
-          applyCashDiscount,
         );
         totalUsdFinal = totalAltUsdWithMethod;
         balanceDueFinal = Math.max(0, totalFinal - depositTotalArs);
@@ -441,6 +422,7 @@ export function useBudgetCalculations(
       total_usd: totalUsdFinal,
       balance_due: balanceDueFinal,
       balance_due_usd: balanceDueUsdFinal,
+      discount_amount: discountAmount,
       installment_detail_ars: installmentDetail.ars,
       installment_detail_usd: installmentDetail.usd,
     }));
@@ -453,9 +435,7 @@ export function useBudgetCalculations(
     form.transport, form.transport_usd, form.usd_rate,
     form.payment_method, form.payment_method_id, form.installments,
     form.discount_percentage, form.discount_fixed_amount,
-    // Per-order opt-in for the catalogue DISCOUNT branch — must be in
-    // deps so toggling the checkbox re-runs the recalc immediately.
-    form.apply_cash_discount,
+    form.discount_enabled, form.discount_target,
     form.deposit_received, form.deposit_usd, form.deposit_currency,
   ]);
 }

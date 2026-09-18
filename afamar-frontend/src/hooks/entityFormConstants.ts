@@ -34,9 +34,13 @@ export const DEFAULT_FINANCIALS: FinancialBase = {
   payment_method: '',
   payment_method_id: null,
   installments: 1,
-  apply_cash_discount: false,
   discount_percentage: 0,
   discount_fixed_amount: 0,
+  // Fase 3 — Descuento Comercial (presupuestos, frontend-only). Apagado por
+  // defecto: el % solo aplica con `discount_enabled` encendido.
+  discount_enabled: false,
+  discount_target: 'total',
+  discount_amount: 0,
 };
 
 export const INITIAL_FORM: EntityFormState = {

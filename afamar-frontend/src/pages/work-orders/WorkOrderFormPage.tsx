@@ -198,7 +198,7 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
       globalTerms,
       sketchImages: images,
       // Pasar el catálogo para que el PDF pueda aplicar la regla del
-      // método (SURCHARGE / DISCOUNT) y emitir la tabla 3-columnas
+      // método (SURCHARGE) y emitir la tabla 3-columnas
       // de cuotas cuando hay tarjeta de crédito.
       paymentMethods,
     });
