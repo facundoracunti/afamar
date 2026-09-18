@@ -1,0 +1,165 @@
+/* PiecesSection — BEM (multi-piece / mesadas editor) */
+.pieces {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pieces__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pieces__header .section-title {
+  margin: 0;
+}
+
+.pieces__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .pieces__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.piece-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--surface-alt-bg);
+  min-width: 0;
+}
+
+.piece-card__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.piece-card__index {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.piece-card__name {
+  flex: 1;
+  min-width: 0;
+}
+
+.piece-card__m2 {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.piece-card__remove {
+  border: none;
+  background: transparent;
+  color: var(--color-danger);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.piece-card__remove:hover:not(:disabled) {
+  background: var(--surface-bg);
+}
+
+.piece-card__remove:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pieces__material-controls {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.7fr) minmax(120px, 0.7fr) minmax(200px, 1.6fr);
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.pieces__material-controls :global(.input) {
+  min-width: 0;
+}
+
+.pieces__materials-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.pieces__empty {
+  padding: 10px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+  background: var(--surface-bg);
+  border-radius: 6px;
+}
+
+.pieces__add {
+  align-self: flex-start;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px dashed var(--border-color);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pieces__add:hover:not(:disabled) {
+  background: var(--surface-alt-bg);
+}
+
+.pieces__add:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Per-piece piletas — moved out of the document-global PILETAS section so
+   each mesada can carry its own sink and its alternatives inherit it. */
+.piece-pools {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border-color);
+  margin-top: 6px;
+}
+
+.piece-pools__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.piece-pools__title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.piece-pools__add {
+  flex: 1;
+  max-width: 320px;
+  font-size: 13px;
+}
