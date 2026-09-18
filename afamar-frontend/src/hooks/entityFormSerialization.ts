@@ -216,7 +216,14 @@ function _loadPieces(
   if (!hadPiecesData) {
     const legacyMats = jsonParseList(d.materials_data) as Array<Record<string, unknown>>;
     if (legacyMats.length > 0 && pieces.length === 1 && pieces[0].mainMaterial === null) {
-      const firstMain = legacyMats.find((m) => !_isLegacyAlternative(m)) || null;
+      const legacyMains = legacyMats.filter((m) => !_isLegacyAlternative(m));
+      const firstMain = legacyMains[0] || null;
+      // Extra non-alternative rows (legacy "panes" of the principal) become
+      // `mainMaterialRows` tramos — each keeps its own dims so the re-split
+      // UI can show/editar every tramo after loading a legacy budget.
+      const mainRows = legacyMains
+        .slice(1)
+        .map((m) => ({ ...m, is_alternative: false })) as BudgetPiece['mainMaterialRows'];
       const alts = legacyMats
         .filter(_isLegacyAlternative)
         .map((m) => ({ ...m, is_alternative: true })) as BudgetPiece['alternativeMaterials'];
@@ -230,6 +237,7 @@ function _loadPieces(
         mainMaterial: firstMain
           ? ({ ...firstMain, is_alternative: false } as BudgetPiece['mainMaterial'])
           : null,
+        mainMaterialRows: mainRows,
         alternativeMaterials: alts,
         fabrication_details: legacyFab,
         additional_works_data: legacyAdd,

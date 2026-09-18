@@ -185,8 +185,17 @@ export interface BudgetPiece {
   /** Exactly one principal material for this piece. `null` until the
    *  operator picks one ("AGREGAR MATERIAL" with no main yet sets it).
    *  Panes of the same material are encoded via `quantity` on this row,
-   *  not as additional rows. */
+   *  NOT as additional rows — this is the anchor row whose dims every
+   *  alternative mirrors. */
   mainMaterial: PieceMainMaterial;
+  /** Extra measurement rows ("tramos") of the SAME principal material.
+   *  The primary `mainMaterial` is the anchor (prices/identity, dims
+   *  mirrored by alternatives); each `mainMaterialRows` entry is an
+   *  additional pane of the same physical material with its own
+   *  Cantidad/Largo/Ancho. `flattenPieces` emits them all into
+   *  `materials_data` (each flagged `is_alternative: false`), so totals /
+   *  PDF / backend recalc sum every tramo of the piece's principal. */
+  mainMaterialRows?: PieceAlternativeMaterial[];
   /** Alternative material options for this piece. Each carries
    *  `is_alternative: true` so the flat wire stays compatible with the
    *  legacy `materials_data` readers. */
