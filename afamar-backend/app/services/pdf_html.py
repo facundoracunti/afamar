@@ -696,7 +696,30 @@ def build_budget_pdf_data(budget_data: dict, client_dict: dict, company: dict, t
     total_ars = float(budget_data.get("total") or 0)
     total_usd_val = float(budget_data.get("total_usd") or 0)
     sena = float(budget_data.get("deposit_received") or 0)
-    saldo = max(0, float(budget_data.get("balance_due") or (total_ars - sena)))
+    deposit_usd = float(budget_data.get("deposit_usd") or 0)
+    deposit_currency = (budget_data.get("deposit_currency") or "ARS").upper()
+    # Mirror of `build_work_order_pdf_data`: the Seña row always shows the
+    # native amount (USD when `deposit_currency == 'USD'`, ARS otherwise)
+    # alongside its converted equivalent — and the saldo is DERIVED from
+    # that same equivalent (`total − deposit_ars_equivalent`), never from
+    # the stored `balance_due` snapshot, so Seña + Saldo = TOTAL exactly
+    # (a stale snapshot computed under a different usd_rate used to leave
+    # $1.00-ish drifts). The legacy xhtml2pdf template can't compute, so
+    # all of it is pre-computed here.
+    usd_rate_for_pdf = float(budget_data.get("usd_rate") or settings.DEFAULT_USD_RATE)
+    deposit_ars_equivalent = round(
+        deposit_usd * usd_rate_for_pdf
+        if deposit_currency == "USD" and usd_rate_for_pdf > 0
+        else sena,
+        2,
+    )
+    deposit_usd_equivalent = round(
+        sena / usd_rate_for_pdf
+        if deposit_currency != "USD" and usd_rate_for_pdf > 0
+        else deposit_usd,
+        2,
+    )
+    saldo = max(0, round(total_ars - deposit_ars_equivalent, 2))
 
     important_obs = budget_data.get("important_observations") or ""
     status = budget_data.get("status", "")
@@ -735,6 +758,10 @@ def build_budget_pdf_data(budget_data: dict, client_dict: dict, company: dict, t
         "discount_percentage": desc_pct,
         "discount_fixed_amount": desc_fijo,
         "deposit_received": sena,
+        "deposit_usd": deposit_usd,
+        "deposit_currency": deposit_currency,
+        "deposit_ars_equivalent": deposit_ars_equivalent,
+        "deposit_usd_equivalent": deposit_usd_equivalent,
         "balance_due": saldo,
         "total": total_ars,
         "total_usd": total_usd_val,
@@ -924,12 +951,6 @@ def _build_measurement_comparison(
             mat_name = (d.get("material") or d.get("material_name") or "").strip()
             if not mat_name or mat_name != name:
                 continue
-            d_currency = "USD" if str(d.get("currency") or "").upper() == "USD" else "ARS"
-            line_total = float(d.get("price") or d.get("precio") or 0) * float(d.get("quantity") or d.get("cantidad") or 1)
-            line_ars = line_total if d_currency == "ARS" else (line_total * usd_rate if usd_rate > 0 else 0)
-            line_usd = line_total if d_currency == "USD" else (line_total / usd_rate if usd_rate > 0 else 0)
-            d_ars = _delta(line_ars, d.get("total_ars_budgeted"))
-            d_usd = _delta(line_usd, d.get("total_usd_budgeted"))
             concept_code = str(d.get("concept") or d.get("concepto") or "").strip().upper()
             label = f"{_FAB_LABELS.get(concept_code, concept_code or 'Trabajo de fabricación')} {name}".strip()
             # Measure unit follows the concept: m² for zócalos/frentes, ml for
@@ -960,6 +981,24 @@ def _build_measurement_comparison(
                 real = None
                 budgeted = None
             d_delta = None if (budgeted is None or real is None) else real - budgeted
+            # Monetary delta of the zócalo. Default: current total minus the
+            # `total_*_budgeted` snapshot. Zócalos carried at `price: 0` (billed
+            # through the base material's m²) fall back to valuing their M²
+            # delta at the linked material's `price_m2` — price × qty would
+            # otherwise always delta to 0 and hide the financial impact of a
+            # real-vs-budgeted m² drift. Mirrors the frontend fallback in
+            # buildSectionData.ts::buildMeasurementComparison.
+            d_currency = "USD" if str(d.get("currency") or d.get("moneda") or "").upper() == "USD" else "ARS"
+            line_total = float(d.get("price") or d.get("precio") or 0) * float(d.get("quantity") or d.get("cantidad") or 1)
+            if line_total == 0 and unit == "m²" and d_delta is not None and price_m2 > 0:
+                delta_native = d_delta * price_m2
+                d_ars = delta_native if currency == "ARS" else (delta_native * usd_rate if usd_rate > 0 else 0)
+                d_usd = delta_native if currency == "USD" else (delta_native / usd_rate if usd_rate > 0 else 0)
+            else:
+                line_ars = line_total if d_currency == "ARS" else (line_total * usd_rate if usd_rate > 0 else 0)
+                line_usd = line_total if d_currency == "USD" else (line_total / usd_rate if usd_rate > 0 else 0)
+                d_ars = _delta(line_ars, d.get("total_ars_budgeted"))
+                d_usd = _delta(line_usd, d.get("total_usd_budgeted"))
             emitted_zocalo_keys.add(zocalo_key)
             rows.append({
                 "name": label,
@@ -1066,15 +1105,24 @@ def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict
     # paper. Derived server-side because the legacy xhtml2pdf template
     # can't compute.
     usd_rate_for_pdf = float(order_data.get("usd_rate") or settings.DEFAULT_USD_RATE)
-    deposit_ars_equivalent = (
-        deposit_usd * usd_rate_for_pdf if deposit_currency == "USD" and usd_rate_for_pdf > 0
-        else sena
+    deposit_ars_equivalent = round(
+        deposit_usd * usd_rate_for_pdf
+        if deposit_currency == "USD" and usd_rate_for_pdf > 0
+        else sena,
+        2,
     )
-    deposit_usd_equivalent = (
-        sena / usd_rate_for_pdf if deposit_currency != "USD" and usd_rate_for_pdf > 0
-        else deposit_usd
+    deposit_usd_equivalent = round(
+        sena / usd_rate_for_pdf
+        if deposit_currency != "USD" and usd_rate_for_pdf > 0
+        else deposit_usd,
+        2,
     )
-    saldo = max(0, float(order_data.get("balance_due") or (total_ars - sena)))
+    # Seña + Saldo must always add up to TOTAL exactly. The stored
+    # `balance_due` snapshot can diverge from the deposit actually
+    # displayed in the Seña row (round-trips computed under a different
+    # usd_rate leave $1.00-ish drifts), so the saldo is DERIVED from the
+    # same equivalent shown above.
+    saldo = max(0, round(total_ars - deposit_ars_equivalent, 2))
 
     important_obs = order_data.get("important_observations") or ""
     status = order_data.get("status", "")

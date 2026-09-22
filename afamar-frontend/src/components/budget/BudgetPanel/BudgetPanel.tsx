@@ -14,6 +14,12 @@ interface BudgetPanelProps {
     sectionTitle?: string;
     /** Slot renderizado debajo de Traslado/Seña (ej: "CONVERTIR A ORDEN"). */
     actionBlock?: React.ReactNode;
+    /** Slot que REEMPLAZA la sección de cobros legacy
+     *  (`BudgetPaymentSection`). Usado por WorkOrderFormPage para enchufar
+     *  la nueva arquitectura `WorkOrderPaymentSection` sin tocar el flujo
+     *  de presupuestos. Cuando NO se pasa, se renderiza el bloque legacy
+     *  para mantener compatibilidad con tests / Budget. */
+    paymentSection?: React.ReactNode;
   onUsdRateRefresh?: () => void;
 }
 
@@ -21,6 +27,7 @@ interface BudgetPanelProps {
     alternativasGrid,
     sectionTitle = 'PRESUPUESTO',
     actionBlock,
+    paymentSection,
     onUsdRateRefresh,
   }: BudgetPanelProps) {
   const { form, ui, financial, num, update, setForm, onConfirmarPago } = useBudgetPanel();
@@ -86,15 +93,19 @@ interface BudgetPanelProps {
             <div className={s['budget-panel__action-block']}>{actionBlock}</div>
           )}
 
-          <BudgetPaymentSection
-            form={form}
-            readOnly={readOnly}
-            saving={saving}
-            update={update}
-              setForm={setForm}
-              num={num}
-              onConfirmarPago={onConfirmarPago}
-            />
+          {paymentSection ? (
+            <div className={s['budget-panel__payment-section']}>{paymentSection}</div>
+          ) : (
+            <BudgetPaymentSection
+              form={form}
+              readOnly={readOnly}
+              saving={saving}
+              update={update}
+                setForm={setForm}
+                num={num}
+                onConfirmarPago={onConfirmarPago}
+              />
+          )}
         </div>
       </div>
 

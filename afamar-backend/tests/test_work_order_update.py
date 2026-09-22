@@ -170,6 +170,10 @@ def test_update_with_materials_data_and_discount_percentage(fresh_db):
     }])
     result = svc.update(1, {
         "materials_data": new_materials,
+        # `discount_enabled` is now the gate that decides whether the
+        # configured % / fixed amount actually applies to the total.
+        "discount_enabled": True,
+        "discount_target": "total",
         "discount_percentage": 10,
         "discount_fixed_amount": 0,
     })

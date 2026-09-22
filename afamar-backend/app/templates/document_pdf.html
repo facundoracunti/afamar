@@ -92,7 +92,7 @@
    ========================================================================= #}
 <table class="header-table"><tr>
   <td style="width:60%;">
-    {% if logo_base64 %}<img src="data:image/png;base64,{{ logo_base64 }}" width="180" height="90">{% endif %}
+    {% if logo_base64 %}<img src="data:image/png;base64,{{ logo_base64 }}" width="180" height="90" style="margin-bottom:8px;">{% endif %}
     {% if company_tagline %}<div class="header-tagline">{{ company_tagline }}</div>{% endif %}
     {% if company_address %}<div class="header-contact">{{ company_address }}</div>{% endif %}
     {% if company_phone %}<div class="header-contact">Tel: {{ company_phone }}</div>{% endif %}
@@ -114,27 +114,36 @@
   <tr>
     <td style="width:50%;"><span class="label">Cliente:</span> {{ client_name }}</td>
     <td><span class="label">Teléfono:</span> {{ client_phone }}</td>
+    <td><span class="label">Fecha:</span> {{ date }}</td>
   </tr>
+  {# Skip the second row entirely when every optional cell would be empty —
+     xhtml2pdf cannot render a <tr> with zero <td> cells. #}
+  {% if client_address or client_email or delivery_date %}
   <tr>
     {% if client_address %}<td><span class="label">Domicilio:</span> {{ client_address }}</td>{% endif %}
     {% if client_email %}<td><span class="label">Email:</span> {{ client_email }}</td>{% endif %}
-    <td><span class="label">Fecha:</span> {{ date }}</td>
+    {% if delivery_date %}<td><span class="label">Fecha de Entrega:</span> {{ delivery_date }}</td>{% endif %}
   </tr>
+  {% endif %}
 </table>
 
 <hr class="divider">
 
 {# =========================================================================
-   INFO BOX (material specs, delivery date, etc.)
+   INFO BOX (material specs)
    ========================================================================= #}
+{# Guard the whole table: xhtml2pdf crashes with "PmlTable must have at
+   least a row and column" when every <td> is conditionally skipped and the
+   <tr> ends up empty (a WO without color/espesor/acabado loaded → 500). #}
+{% if material_color or material_thickness or material_finish %}
 <table class="info-grid">
   <tr>
     {% if material_color %}<td><span class="label">Color:</span> <span class="value">{{ material_color or "—" }}</span></td>{% endif %}
     {% if material_thickness %}<td><span class="label">Espesor:</span> <span class="value">{{ material_thickness or "—" }}</span></td>{% endif %}
     {% if material_finish %}<td><span class="label">Acabado:</span> <span class="value">{{ material_finish or "—" }}</span></td>{% endif %}
-    {% if delivery_date %}<td><span class="label">Entrega:</span> <span class="value">{{ delivery_date or "—" }}</span></td>{% endif %}
   </tr>
 </table>
+{% endif %}
 
 {% if croquis_images %}
 <div class="info-box">
@@ -318,27 +327,32 @@
     <td class="val">$ {{ "{:,.2f}"|format(transport or 0) }}</td>
   </tr>
   {% endif %}
-  {% if discount_percentage %}
+  {# Manual (operator-typed) discount. Only rendered when it has a real
+     ARS amount — a `discount_percentage` without a computed
+     `discount_fixed_amount` used to leak a "-$0.00" clutter row. #}
+  {% if (discount_fixed_amount or 0) > 0 %}
   <tr>
-    <td class="lbl">Descuento ({{ discount_percentage }}%)</td>
-    <td class="val">-$ {{ "{:,.2f}"|format(discount_fixed_amount or 0) }}</td>
+    <td class="lbl">Descuento{% if (discount_percentage or 0) > 0 %} ({{ "{:g}".format(discount_percentage) }}%){% endif %}</td>
+    <td class="val">-$ {{ "{:,.2f}"|format(discount_fixed_amount) }}</td>
   </tr>
   {% endif %}
   {# Catalogue-driven discount (from the `payment_methods` table).
      Renders BEFORE any surcharge so the customer sees the breakdown
      in the same order the form does. #}
-  {% if catalogue_discount_amount %}
+  {% if (catalogue_discount_amount or 0) > 0 %}
   <tr>
-    <td class="lbl">Descuento ({{ catalogue_discount_percentage }}%) {{ catalogue_method_label or '' }}</td>
+    <td class="lbl">Descuento ({{ "{:g}".format(catalogue_discount_percentage) }}%) {{ catalogue_method_label or '' }}</td>
     <td class="val">-$ {{ "{:,.2f}"|format(catalogue_discount_amount) }}</td>
   </tr>
   {% endif %}
   {# Catalogue-driven surcharge (matches the form's `applies_to_installments`
-     rule on Tarjeta de crédito: `value`% × N cuotas). #}
-  {% if catalogue_surcharge_amount %}
+     rule on Tarjeta de crédito: `value`% × N cuotas). Labeled "Interés" —
+     same wording as the frontend preview (Fase 7, DocumentPdf.tsx): the
+     exact per-cuota % lives in the breakdown table + Forma de pago line. #}
+  {% if (catalogue_surcharge_amount or 0) > 0 %}
   <tr>
-    <td class="lbl">Recargo ({{ catalogue_surcharge_percentage }}%) {{ catalogue_method_label or '' }}</td>
-    <td class="val">+$ {{ "{:,.2f}"|format(catalogue_surcharge_amount) }}</td>
+    <td class="lbl">Interés</td>
+    <td class="val">$ {{ "{:,.2f}"|format(catalogue_surcharge_amount) }}</td>
   </tr>
   {% endif %}
   {# Per-cuota breakdown for credit-card surcharges. Shows the customer
@@ -393,7 +407,7 @@
 
 {% if payment_method %}
 <div style="font-size: 8.5pt; margin-bottom: 6px;">
-  <span class="label">Forma de pago:</span> {{ payment_method }}{% if catalogue_installment_detail %}{% set _interes = catalogue_installment_detail[0].interes %}{% if installments > 1 %} ({{ installments }} cuotas con {{ _interes }}% de interés por cuota){% else %} (con {{ _interes }}% de interés){% endif %}{% elif installments %} ({{ installments }} cuota{{ "" if installments == 1 else "s" }}){% endif %}
+  <span class="label">Forma de pago:</span> {{ payment_method }}{% if catalogue_installment_detail %}{% set _interes = catalogue_installment_detail[0].interes %}{% if installments > 1 %} ({{ installments }} cuotas con {{ "{:g}".format(_interes) }}% de interés por cuota){% else %} (con {{ "{:g}".format(_interes) }}% de interés){% endif %}{% elif installments %} ({{ installments }} cuota{{ "" if installments == 1 else "s" }}){% endif %}
 </div>
 {% endif %}
 

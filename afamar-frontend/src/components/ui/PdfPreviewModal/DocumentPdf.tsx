@@ -20,7 +20,7 @@ import {
   Image,
   StyleSheet,
 } from '@react-pdf/renderer';
-import type { PdfDocumentData, MaterialSection, PiecesPdfPiece } from '../../../utils/pdf/buildPdfData';
+import type { PdfDocumentData, MaterialSection, PiecesPdfPiece, PieceAlternativeTotal } from '../../../utils/pdf/buildPdfData';
 import { API_URL } from '../../../api/http';
 import { BANK_INFO, PAYMENT_METHOD_TRANSFER, SKETCH_STAGE_WIDTH, SKETCH_STAGE_HEIGHT } from '../../../constants';
 
@@ -128,6 +128,18 @@ const styles = StyleSheet.create({
   optSectionSubtotalLbl: { fontSize: 8, fontWeight: 'bold', color: SLATE_700, marginRight: 8 },
   optSectionSubtotalVal: { fontSize: 9, fontWeight: 'bold', color: HEADER_RED },
   optSectionSubtotalUsd: { fontSize: 8, color: BLUE_700, marginLeft: 6 },
+  // Consolidated TOTAL GENERAL ALTERNATIVO block (end of the HOJA DE
+  // ALTERNATIVAS) — highlighted summary per alternative material.
+  altTotalsBlock: {
+    marginTop: 6,
+    marginBottom: 4,
+    padding: 6,
+    border: `1px solid ${AMBER_200}`,
+    borderLeft: `4px solid ${AMBER_700}`,
+    backgroundColor: AMBER_50,
+    borderRadius: 4,
+  },
+  altTotalsPieces: { fontSize: 7.5, color: SLATE_500, marginBottom: 2 },
   optAdicionalBreakdown: { fontSize: 7, color: SLATE_500, fontStyle: 'italic', marginTop: 1 },
   // ===== SECTION TITLE =====
   // ===== CROQUIS =====
@@ -788,6 +800,66 @@ function AlternativesSheet({ pieces }: { pieces: PiecesPdfPiece[] }) {
   );
 }
 
+/**
+ * TOTAL GENERAL ALTERNATIVO — highlighted summary blocks shown at the end of
+ * the HOJA DE ALTERNATIVAS, ONE per alternative material CONSOLIDATED across
+ * every piece that quotes it. Each block re-runs the document total rule set
+ * (traslado + descuento comercial + recargo + seña) over the aggregated
+ * alternative subtotals, so the customer sees the real final price of
+ * choosing that material for the whole job, in both currencies.
+ */
+function AlternativeTotalsSummary({ totals }: { totals: PieceAlternativeTotal[] }) {
+  if (!totals || totals.length === 0) return null;
+  return (
+    <>
+      {totals.map((t) => (
+        <View key={t.material_name} style={styles.altTotalsBlock} wrap={false}>
+          <Text style={styles.optSectionTitle}>
+            {`TOTAL GENERAL ALTERNATIVO (${t.material_name})`}
+          </Text>
+          <Text style={styles.altTotalsPieces}>
+            {`Piezas: ${t.pieces.join(', ')}`}
+          </Text>
+
+          <View style={styles.totalsRow}>
+            <Text style={styles.totalsLbl}>Subtotal</Text>
+            <Text style={styles.totalsVal}>{`$ ${fmt(t.subtotal_ars)}`}</Text>
+          </View>
+          {t.discount_fixed_amount > 0 ? (
+            <View style={styles.totalsRow}>
+              <Text style={styles.totalsLbl}>Descuento</Text>
+              <Text style={styles.totalsVal}>{`-$ ${fmt(t.discount_fixed_amount)}`}</Text>
+            </View>
+          ) : null}
+          {t.surcharge_amount > 0 ? (
+            <View style={styles.totalsRow}>
+              <Text style={styles.totalsLbl}>Interés</Text>
+              <Text style={styles.totalsVal}>{`$ ${fmt(t.surcharge_amount)}`}</Text>
+            </View>
+          ) : null}
+
+          <View style={styles.grand}>
+            <Text style={styles.grandLbl}>TOTAL GRAL ALTERNATIVO</Text>
+            <Text style={styles.grandVal}>
+              {`$ ${fmt(t.total_ars)}`}
+              {t.total_usd > 0 ? (
+                <Text style={styles.grandUsdSub}>{`  (USD $${fmt(t.total_usd)})`}</Text>
+              ) : null}
+            </Text>
+          </View>
+
+          {t.balance_due > 0 ? (
+            <View style={styles.totalsRow}>
+              <Text style={styles.totalsLbl}>Saldo pendiente</Text>
+              <Text style={styles.totalsVal}>{`$ ${fmt(t.balance_due)}`}</Text>
+            </View>
+          ) : null}
+        </View>
+      ))}
+    </>
+  );
+}
+
 export default function DocumentPdf({ data }: DocumentPdfProps) {
   const clientGrid = (
     <View style={styles.infoGrid}>
@@ -796,7 +868,7 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
       <InfoCell label="Domicilio" value={data.client_address} />
       <InfoCell label="Correo" value={data.client_email} />
       <InfoCell label="Fecha" value={data.date} />
-      <InfoCell label="Entrega" value={data.delivery_date} />
+      <InfoCell label="Fecha de Entrega" value={data.delivery_date} />
     </View>
   );
 
@@ -913,12 +985,12 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
             <Text style={styles.totalsVal}>{`$ ${fmt(data.transport)}`}</Text>
           </View>
         ) : null}
-        {data.discount_percentage > 0 || data.discount_fixed_amount > 0 ? (
+        {data.discount_fixed_amount > 0 ? (
           <View style={styles.totalsRow}>
             <Text style={styles.totalsLbl}>
               {data.discount_percentage > 0
                 ? `Descuento (${data.discount_percentage}%)`
-                : 'Descuento (monto fijo)'}
+                : 'Descuento'}
             </Text>
             <Text style={styles.totalsVal}>{`-$ ${fmt(section?.discount_fixed_amount ?? data.discount_fixed_amount)}`}</Text>
           </View>
@@ -1089,6 +1161,7 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
               {clientGrid}
               <Text style={styles.sectionTitle}>Hoja de alternativas</Text>
               <AlternativesSheet pieces={pieces} />
+              <AlternativeTotalsSummary totals={data.alternative_totals || []} />
               {footer}
             </Page>
           ) : null}

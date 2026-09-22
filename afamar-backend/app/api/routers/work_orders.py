@@ -1,6 +1,5 @@
-﻿import json
-import logging
-from datetime import date
+﻿import logging
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query
@@ -10,12 +9,14 @@ from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
 from app.api.dependencies import get_current_user, get_db
 from app.core.exceptions import NotFoundError
+from app.core.settings import settings
 from app.models.client import Client
 from app.schemas.work_order import WorkOrderCreate, WorkOrderResponse, WorkOrderUpdate
 from app.services.budget import BudgetService
 from app.services.email import send_work_order_email
-from app.services.pdf_helpers import build_company_and_terms, has_terms, load_settings
+from app.services.pdf_helpers import prepare_work_order_payload
 from app.services.pdf_html import build_work_order_pdf_data, generate_work_order_pdf
+from app.services.public_pdf_tokens import create_public_pdf_token
 from app.services.work_order import WorkOrderService
 from app.utils.responses import created, error, success
 
@@ -30,7 +31,7 @@ def _email_work_order_background(order_id: int) -> None:
         if not order or not order.client or not order.client.email:
             logger.warning("Order %s or client email not found for background email", order_id)
             return
-        order_data, client_dict, company, terms = _prepare_work_order_payload(order, db)
+        order_data, client_dict, company, terms = prepare_work_order_payload(order, db)
         pdf_data = build_work_order_pdf_data(order_data, client_dict, company, terms, db=db)
         pdf_bytes = generate_work_order_pdf(pdf_data, logo_path=company.get("company_logo")).read()
         company_name = company.get("company_name") or "AFAMAR"
@@ -93,6 +94,23 @@ def get_work_order(order_id: int, db: Session = Depends(get_db)):
     return success(WorkOrderResponse.from_orm_with_client(order).model_dump(mode="json"))
 
 
+@router.get("/{order_id}/payments")
+def list_order_payments(order_id: int, db: Session = Depends(get_db)):
+    """Return the cash INCOME movements for a work order, newest first, so
+    the frontend WhatsApp / payment views can surface the active Payway
+    checkout URL (persisted on the movement)."""
+    from app.models.daily_cash import CashMovement
+    from app.schemas.daily_cash import CashMovementResponse
+
+    movements = (
+        db.query(CashMovement)
+        .filter(CashMovement.order_id == order_id, CashMovement.type == "INCOME")
+        .order_by(CashMovement.id.desc())
+        .all()
+    )
+    return success([CashMovementResponse.model_validate(m).model_dump(mode="json") for m in movements])
+
+
 @router.post("", status_code=201)
 def create_work_order(data: WorkOrderCreate, db: Session = Depends(get_db)):
     service = WorkOrderService(db)
@@ -136,34 +154,6 @@ def _build_client_dict_from_form(db: Session, data: dict) -> dict:
     return {"name": name, "phone": phone, "email": email_val, "address": address}
 
 
-def _prepare_work_order_payload(order, db: Session) -> tuple[dict, dict, dict, dict]:
-    order_data = WorkOrderResponse.from_orm_with_client(order).model_dump(mode="json")
-    items = []
-    if order.materials_data:
-        try:
-            parsed = json.loads(order.materials_data) if isinstance(order.materials_data, str) else order.materials_data
-            if isinstance(parsed, list):
-                items = parsed
-            elif isinstance(parsed, dict):
-                items = parsed.get("items", [])
-        except (json.JSONDecodeError, TypeError):
-            pass
-    order_data["items"] = items
-    client_dict = {"name": "", "phone": "", "email": "", "address": ""}
-    if order.client:
-        client_dict["name"] = order.client.name or ""
-        client_dict["phone"] = order.client.phone or ""
-        client_dict["email"] = order.client.email or ""
-        client_dict["address"] = order.client.address or ""
-    settings_data = load_settings(db)
-    overrides = {
-        "delivery_terms_override": getattr(order, "delivery_terms_override", None),
-        "warranty_override": getattr(order, "warranty_override", None),
-    }
-    company, terms = build_company_and_terms(settings_data, "budget_terms_override", overrides)
-    return order_data, client_dict, company, terms
-
-
 @router.get("/{order_id}/pdf")
 def download_work_order_pdf(order_id: int, db: Session = Depends(get_db)):
     service = WorkOrderService(db)
@@ -171,7 +161,7 @@ def download_work_order_pdf(order_id: int, db: Session = Depends(get_db)):
     if not order:
         raise NotFoundError("Work order")
 
-    order_data, client_dict, company, terms = _prepare_work_order_payload(order, db)
+    order_data, client_dict, company, terms = prepare_work_order_payload(order, db)
     pdf_data = build_work_order_pdf_data(order_data, client_dict, company, terms, db=db)
     pdf_bytes = generate_work_order_pdf(pdf_data, logo_path=company.get("company_logo")).read()
 
@@ -202,4 +192,23 @@ def delete_work_order(order_id: int, db: Session = Depends(get_db)):
     service = WorkOrderService(db)
     if not service.delete(order_id):
         raise NotFoundError("Work order")
+
+
+@router.get("/{order_id}/public-token")
+def mint_work_order_public_token(order_id: int, db: Session = Depends(get_db)):
+    """Mint the signed token that lets a client open this order's PDF WITHOUT
+    an admin login (`GET /api/v1/public/work-orders/pdf?token=…`). Expires
+    after `PUBLIC_PDF_TOKEN_EXPIRE_DAYS` (default 30)."""
+    service = WorkOrderService(db)
+    order = service.get_by_id(order_id)
+    if not order:
+        raise NotFoundError("Work order")
+    expires_days = settings.PUBLIC_PDF_TOKEN_EXPIRE_DAYS
+    return success(
+        {
+            "token": create_public_pdf_token("work_order", order_id),
+            "expires_in_days": expires_days,
+            "expires_at": (datetime.now(timezone.utc) + timedelta(days=expires_days)).isoformat(),
+        }
+    )
 

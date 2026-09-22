@@ -60,7 +60,10 @@ export function CashMovementTable({
             {movements.length === 0 ? (
               <tr>
                 <td colSpan={columns.length + 1}>
-                  <EmptyState message={emptyMessage} />
+                  <div className={styles['cash-movement__empty-screen']}>
+                    <EmptyState message={emptyMessage} />
+                  </div>
+                  <div className={styles['cash-movement__empty-print']}>{emptyMessage}</div>
                 </td>
               </tr>
             ) : (

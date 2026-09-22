@@ -12,8 +12,10 @@ from app.api.routers import (
     measurements,
     options,
     payment_methods,
+    payway,
     pool_stock,
     product_photos,
+    public,
     references,
     reports,
     search,
@@ -42,5 +44,7 @@ router.include_router(whatsapp.router, prefix="/whatsapp", tags=["WhatsApp"])
 router.include_router(search.router, prefix="/search", tags=["Search"])
 router.include_router(product_photos.router, prefix="/product-photos", tags=["Product Photos"])
 router.include_router(daily_cash.router)
+router.include_router(payway.router)
+router.include_router(public.router)
 router.include_router(references.router, prefix="/references", tags=["References"])
 router.include_router(references.auth_router, prefix="/references", tags=["References"])

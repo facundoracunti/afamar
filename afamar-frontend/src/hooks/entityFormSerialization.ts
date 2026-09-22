@@ -4,6 +4,7 @@
 
 import type { EntityFormState } from '../types';
 import type { BudgetPiece, PoolInForm } from '../types/budget';
+import type { FabricationDetail, MaterialInForm } from '../types/budget';
 import { todayLocalISO } from '../utils/formatters';
 import { INITIAL_FORM } from './entityFormConstants';
 import { buildFinancialPayload, mapFinancialToForm } from './entityFormFinancial';
@@ -196,6 +197,129 @@ function _isLegacyAlternative(m: Record<string, unknown>): boolean {
     || Boolean((m as { es_alternativa?: unknown }).es_alternativa);
 }
 
+/** Snapshot keys the COMPARATIVA DE MEDICIÓN reads. The backend writes
+ *  them onto the FLAT arrays (`materials_data` / `fabrication_details` /
+ *  `additional_works_data`) at budget→WO conversion time
+ *  (`work_order.create_from_budget`), but the pieces themselves never
+ *  carried them. `useBudgetPieces.commit` re-derives the flat arrays from
+ *  the pieces on EVERY commit (`flattenPieces`), which wiped the snapshot
+ *  at the first measurement edit → the "Presupuestado" column died in the
+ *  PDF. We hydrate the snapshot keys from the flat arrays onto each
+ *  piece's rows so the budgeted values survive any round-trip. Must be
+ *  kept in sync with `pdf_html._build_measurement_comparison` + the
+ *  frontend `buildSectionData.buildMeasurementComparison`. */
+const SNAPSHOT_MATERIAL_KEYS = ['m2_budgeted'] as const;
+const SNAPSHOT_FABRICATION_KEYS = [
+  'm2_budgeted', 'linear_meters_budgeted', 'total_ars_budgeted', 'total_usd_budgeted',
+] as const;
+const SNAPSHOT_ADDITIONAL_KEYS = [
+  'total_ars_budgeted', 'total_usd_budgeted', 'linear_meters_budgeted',
+] as const;
+
+/** Copy a subset of snapshot keys from a flat source row onto a piece row
+ *  (returns the same row reference when nothing carries a snapshot). */
+function hydrateSnapshotKeys<Row>(
+  row: Row,
+  source: Record<string, unknown> | null | undefined,
+  keys: readonly string[],
+): Row {
+  if (!row || !source || typeof row !== 'object') return row;
+  let changed = false;
+  const next = { ...(row as Record<string, unknown>) };
+  for (const key of keys) {
+    const value = source[key];
+    if (value !== undefined && value !== null) {
+      next[key] = value;
+      changed = true;
+    }
+  }
+  return changed ? (next as Row) : row;
+}
+
+/** Copy the budgeted-measurement snapshots from the API's flat arrays
+ *  onto the loaded pieces so the JSON persisted on the next save keeps
+ *  them (the bug described above: without this, `m2_budgeted` etc. lived
+ *  only in the flat arrays and died on the first piece edit). */
+export function hydratePiecesSnapshots(
+  d: Record<string, unknown>,
+  pieces: BudgetPiece[],
+): BudgetPiece[] {
+  const flatMats = jsonParseList(d.materials_data) as Array<Record<string, unknown>>;
+  const flatFab = jsonParseList(d.fabrication_details) as Array<Record<string, unknown>>;
+  const flatAdd = jsonParseList(d.additional_works_data) as Array<Record<string, unknown>>;
+
+  const hasAnySnapshot = [...flatMats, ...flatFab, ...flatAdd].some((row) =>
+    SNAPSHOT_MATERIAL_KEYS.some((k) => row[k] !== undefined && row[k] !== null)
+      || SNAPSHOT_FABRICATION_KEYS.some((k) => row[k] !== undefined && row[k] !== null)
+      || SNAPSHOT_ADDITIONAL_KEYS.some((k) => row[k] !== undefined && row[k] !== null),
+  );
+  if (!hasAnySnapshot) return pieces;
+
+  // Materials: the flat array keeps every non-alternative row (main +
+  // tramos) then the alternatives — the same order `flattenPieces` emits,
+  // which is the order the backend wrote them. Zip by class so a piece's
+  // mainMaterial / mainMaterialRows line up with the flat non-alternative
+  // rows and alternatives with the flat alternative rows.
+  const mainFlat = flatMats.filter((row) => !_isLegacyAlternative(row));
+  const altFlat = flatMats.filter((row) => _isLegacyAlternative(row));
+  let mainIdx = 0;
+  let altIdx = 0;
+  let fabIdx = 0;
+  let addIdx = 0;
+
+  return pieces.map((piece) => {
+    const next: BudgetPiece = { ...piece };
+
+    if (piece.mainMaterial) {
+      next.mainMaterial = hydrateSnapshotKeys<MaterialInForm>(
+        piece.mainMaterial, mainFlat[mainIdx], SNAPSHOT_MATERIAL_KEYS,
+      );
+      mainIdx += 1;
+    }
+    next.mainMaterialRows = (piece.mainMaterialRows || []).map((row) => {
+      const hydrated = hydrateSnapshotKeys<MaterialInForm>(
+        row, mainFlat[mainIdx], SNAPSHOT_MATERIAL_KEYS,
+      );
+      mainIdx += 1;
+      return hydrated;
+    });
+    next.alternativeMaterials = (piece.alternativeMaterials || []).map((row) => {
+      const hydrated = hydrateSnapshotKeys<MaterialInForm>(
+        row, altFlat[altIdx], SNAPSHOT_MATERIAL_KEYS,
+      );
+      altIdx += 1;
+      return hydrated;
+    });
+    next.fabrication_details = (piece.fabrication_details || []).map((row) => {
+      const hydrated = hydrateSnapshotKeys<FabricationDetail>(
+        row, flatFab[fabIdx], SNAPSHOT_FABRICATION_KEYS,
+      );
+      fabIdx += 1;
+      return hydrated;
+    });
+    // The piece's additional works are per-piece JSON; the flat array is
+    // the concatenation of every piece's rows in piece order. Re-serialize
+    // this piece's rows with the snapshots attached.
+    const rawAdd = ((): Array<Record<string, unknown>> => {
+      try {
+        const parsed = JSON.parse(piece.additional_works_data || '[]');
+        return Array.isArray(parsed) ? (parsed as Array<Record<string, unknown>>) : [];
+      } catch {
+        return [];
+      }
+    })();
+    const hydratedAdd = rawAdd.map((row) => {
+      const hydrated = hydrateSnapshotKeys<Record<string, unknown>>(
+        row, flatAdd[addIdx], SNAPSHOT_ADDITIONAL_KEYS,
+      );
+      addIdx += 1;
+      return hydrated;
+    });
+    next.additional_works_data = jsonStringify(hydratedAdd) || '[]';
+    return next;
+  });
+}
+
 /** Single source of truth for the pieces + their derived flat columns.
  *
  *  Pieces v3 guarantees the form always has ≥ 1 piece. When the backend
@@ -246,9 +370,18 @@ function _loadPieces(
     }
   }
 
+  // Copy the budgeted-measurement snapshots (m²/ml + ARS/USD at
+  // conversion) from the API's flat arrays onto the pieces so they
+  // survive the pieces→flat re-derivation on every edit (see
+  // `hydratePiecesSnapshots`). Without this the COMPARATIVA DE
+  // MEDICIÓN loses the "Presupuestado" column at the first measurement
+  // change and the flat `flattenPieces` output below would diverge from
+  // the API's snapshot-carrying flat arrays.
+  const hydrated = hydratePiecesSnapshots(d, pieces);
+
   return {
-    pieces,
-    pools_data: flattenPieces(pieces).pools_data,
+    pieces: hydrated,
+    pools_data: flattenPieces(hydrated).pools_data,
   };
 }
 

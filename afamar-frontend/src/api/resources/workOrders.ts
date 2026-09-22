@@ -5,8 +5,12 @@ export { mapWorkOrderStatusToApi } from '../statusMap';
 
 export const getWorkOrders = (params?: Record<string, unknown>) => http.get('/work-orders', { params });
 export const getWorkOrder = (id: number | string) => http.get(`/work-orders/${id}`);
+export const getWorkOrderPayments = (id: number | string) => http.get(`/work-orders/${id}/payments`);
 export const createWorkOrder = (data: Record<string, unknown>) => http.post('/work-orders', data);
 export const updateWorkOrder = (id: number | string, data: Record<string, unknown>) => http.put(`/work-orders/${id}`, data);
 export const deleteWorkOrder = (id: number | string) => http.delete(`/work-orders/${id}`);
 export const getNextWorkOrderNumber = () => http.get('/work-orders/next-number');
 export const getWorkOrderPdf = (id: number | string) => `${http.defaults.baseURL}/work-orders/${id}/pdf`;
+export const getWorkOrderPdfBlob = (id: number | string) =>
+  http.get(`/work-orders/${id}/pdf`, { responseType: 'blob' });
+export const getWorkOrderPublicPdfToken = (id: number | string) => http.get(`/work-orders/${id}/public-token`);

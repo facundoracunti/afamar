@@ -509,6 +509,30 @@
   gap: 6px;
 }
 
+.work-order-form__btn-whatsapp {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  color: #fff;
+  background: var(--color-success);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.work-order-form__btn-whatsapp:hover {
+  background: var(--color-success-dark, #1f9d50);
+}
+
+.work-order-form__btn-whatsapp:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 @media (max-width: 1024px) {
   .work-order-form__layout,
   .work-order-form__layout--no-sketch {

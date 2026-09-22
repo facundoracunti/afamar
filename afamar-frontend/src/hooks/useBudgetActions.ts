@@ -2,7 +2,7 @@ import { parseApiError } from '../utils/error';
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { getBudgetPdf, convertBudgetToWorkOrder, convertAlternativeToWorkOrder, updateBudget, createBudget } from '@/api/resources/budgets';
+import { getBudgetPublicPdfToken, convertBudgetToWorkOrder, convertAlternativeToWorkOrder, updateBudget, createBudget } from '@/api/resources/budgets';
 import { todayLocalISO } from '../utils/formatters';
 import { buildPdfData } from '../utils/pdf/buildPdfData';
 import type { PdfDocumentData } from '../utils/pdf/buildPdfData';
@@ -10,7 +10,7 @@ import { useNotify } from '../context/NotificationContext';
 import { useSettingsWithTerms } from './useSettingsWithTerms';
 import type { BudgetPayload, EntityFormState } from '../types';
 import { applyCreditCardAutoFill } from '../utils/creditCardAutoFill';
-import { buildDocumentShareMessage, buildWhatsAppUrl } from '../utils/whatsapp';
+import { buildDocumentShareMessage, buildWhatsAppUrl, resolvePublicDocumentPdfUrl } from '../utils/whatsapp';
 import type { PaymentMethod } from '../types/paymentMethod';
 
 interface BudgetFormActionsParams {
@@ -45,7 +45,7 @@ interface BudgetFormActions {
   handleAprobar: () => Promise<void>;
   handleConvertirGuardar: () => Promise<void>;
   handleConvertirAlternativa: (idx: number) => Promise<void>;
-  handleEnviarWhatsApp: () => void;
+  handleEnviarWhatsApp: () => Promise<void>;
   handlePreviewPdf: () => void;
   handleSketchImagesReady: (images: string[]) => void;
   handleClosePdfPreview: () => void;
@@ -184,12 +184,13 @@ export function useBudgetActions({
     }
   }, [id, queryClient, notify, setSaving, navigate]);
 
-  const handleEnviarWhatsApp = useCallback(() => {
-    const pdfUrl = getBudgetPdf(id as string);
+  const handleEnviarWhatsApp = useCallback(async () => {
+    const pdfUrl = await resolvePublicDocumentPdfUrl('budget', () => getBudgetPublicPdfToken(id as string));
     const mensaje = buildDocumentShareMessage({
       clientName: form.client_name,
-      documentLabel: 'el presupuesto formal de AFAMAR Mármoles & Granitos',
+      documentLabel: 'el presupuesto',
       pdfUrl,
+      pdfLabel: 'PDF del Presupuesto',
     });
     const whatsappUrl = buildWhatsAppUrl(form.client_phone, mensaje);
     window.open(whatsappUrl, '_blank');

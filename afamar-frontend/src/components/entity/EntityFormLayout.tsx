@@ -70,6 +70,13 @@ export interface EntityFormLayoutProps {
   showPieces?: boolean;
   /** Required when `showPieces` is true. Comes from `useEntityForm().piecesFlow`. */
   piecesFlow?: UseBudgetPiecesReturn;
+  /** Slot que REEMPLAZA la sección de cobros legacy. Cuando se pasa,
+   *  `BudgetPaymentSection` no se renderiza y, en su lugar, aparece este
+   *  nodo (típicamente `WorkOrderPaymentSection`). Usado por
+   *  `WorkOrderFormPage` para desacoplar la selección del método de la
+   *  liquidación. La página de presupuestos NO lo pasa → mantiene la
+   *  sección legacy intacta. */
+  paymentSection?: ReactNode;
 }
 
 // Helper: ts-friendly accessor — the lazy providers below accept the
@@ -116,6 +123,7 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
     mode = 'full',
     showPieces = true,
     piecesFlow,
+    paymentSection,
   } = props;
 
   // Pieces v3: both budgets AND work orders render in pieces-only mode.
@@ -200,6 +208,7 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
           num={parseNumber}
           alternativasGrid={alternativasGrid}
           actionBlock={actionBlock}
+          paymentSection={paymentSection}
           onConfirmarPago={onConfirmarPago}
           paymentMethods={paymentMethods}
         />
@@ -397,6 +406,7 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
           num={parseNumber}
           alternativasGrid={alternativasGrid}
           actionBlock={actionBlock}
+          paymentSection={paymentSection}
           onConfirmarPago={onConfirmarPago}
           paymentMethods={paymentMethods}
         />

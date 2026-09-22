@@ -241,6 +241,16 @@
   border-top: 1px solid var(--border-color);
 }
 
+/* Slot que aloja la sección de cobros enchufable (ej: WorkOrderPaymentSection).
+   Rompe el grid de 2 columnas para que el nuevo flujo de pagos ocupe todo
+   el ancho del panel financiero en lugar de quedar apretado en los 300px
+   de la columna derecha. */
+.budget-panel__payment-section {
+  grid-column: 1 / -1;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
 @media (max-width: 960px) {
   .budget-panel__main {
     grid-template-columns: 1fr;

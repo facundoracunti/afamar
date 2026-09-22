@@ -37,5 +37,5 @@ HEALTHCHECK --interval=60s --timeout=30s --start-period=60s --retries=3 \
 # Expose port
 EXPOSE 80
 
-# Inject API_URL at runtime via envsubst, then start nginx
-CMD ["/bin/sh", "-c", "envsubst '$API_URL' < /usr/share/nginx/html/config.template.js > /usr/share/nginx/html/config.js && nginx -g 'daemon off;'"]
+# Inject API_URL + PUBLIC_URL at runtime via envsubst, then start nginx
+CMD ["/bin/sh", "-c", "envsubst '$API_URL $PUBLIC_URL' < /usr/share/nginx/html/config.template.js > /usr/share/nginx/html/config.js && nginx -g 'daemon off;'"]

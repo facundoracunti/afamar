@@ -251,15 +251,52 @@ function PieceCard({
   showMeasurementComparison?: boolean;
 }) {
   const usdRate = Number(form.usd_rate) || 0;
-  const mainRowsAll = [
-    piece.mainMaterial,
-    ...(piece.mainMaterialRows || []),
-  ].filter(Boolean) as MaterialInForm[];
-  const pieceMaterials = [...mainRowsAll, ...(piece.alternativeMaterials || [])] as MaterialInForm[];
+  // Reactivo: la lista de materiales de la pieza (ancla + tramos del
+  // principal + TODAS las alternativas activas) se recalcula
+  // automáticamente cuando el operador agrega/quita/modifica cualquier
+  // fila, porque las deps incluyen las 3 fuentes de verdad del modelo
+  // de piezas. Cualquier fila eliminada por `removePieceAlternativeRow`
+  // / `removePieceAlternative` desaparece de este array en el siguiente
+  // render → la "COMPARATIVA DE MEDICIÓN" (que consume este array vía
+  // `materialsData` prop) deja de mostrarla automáticamente.
+  const pieceMaterials = useMemo<MaterialInForm[]>(() => {
+    const rows: MaterialInForm[] = [];
+    if (piece.mainMaterial) rows.push(piece.mainMaterial);
+    if (Array.isArray(piece.mainMaterialRows)) {
+      rows.push(...piece.mainMaterialRows);
+    }
+    if (Array.isArray(piece.alternativeMaterials)) {
+      rows.push(...piece.alternativeMaterials);
+    }
+    return rows.filter(Boolean);
+  }, [piece.mainMaterial, piece.mainMaterialRows, piece.alternativeMaterials]);
   const totalM2 = pieceMaterials.reduce(
     (acc, m) => acc + Number(m.length || 0) * Number(m.width || 0) * Number(m.quantity || 1),
     0,
   );
+
+  // Agrupar las filas alternativas por material para que CADA material
+  // alternativo renderice como UNA SOLA tarjeta con N panes dentro
+  // (en vez de N tarjetas apiladas, una por fila). La clave de grupo
+  // es el `id` del catálogo cuando existe, si no el `name` (fallback
+  // para filas legacy con `id: null`). Las tarjetas son independientes:
+  // el operador edita cada material por separado.
+  const alternativeGroups = useMemo(() => {
+    const map = new Map<
+      string,
+      { key: string; name: string; rows: MaterialInForm[] }
+    >();
+    for (const alt of piece.alternativeMaterials || []) {
+      const k = String(alt.id ?? alt.name);
+      const existing = map.get(k);
+      if (existing) {
+        existing.rows.push(alt);
+      } else {
+        map.set(k, { key: k, name: alt.name, rows: [alt] });
+      }
+    }
+    return Array.from(map.values());
+  }, [piece.alternativeMaterials]);
 
   // Unified material picker: if the piece has no main material yet, the
   // pick becomes the principal material; otherwise it's appended to the
@@ -316,7 +353,7 @@ function PieceCard({
       <div className={s['pieces__materials-grid']}>
         {piece.mainMaterial && (
           <SingularMaterialCard
-            rows={mainRowsAll}
+            rows={pieceMaterials.filter((m) => !m.is_alternative)}
             readOnly={readOnly}
             materials={materials}
             categories={categories}
@@ -336,26 +373,29 @@ function PieceCard({
             onSwap={(mat) => handlers.swapPieceMain(piece.id, mat)}
           />
         )}
-        {piece.alternativeMaterials.map((alt, idx) => (
+        {alternativeGroups.map((group) => (
           <SingularMaterialCard
-            key={`${piece.id}-alt-${idx}`}
-            rows={[alt]}
+            key={`${piece.id}-alt-${group.key}`}
+            rows={group.rows}
             readOnly={readOnly}
             materials={materials}
             categories={categories}
             usdRate={usdRate}
-            onUpdateField={(_rowIdx, field, value) =>
-              handlers.updatePieceAlternative(piece.id, idx, field, value)
+            onUpdateField={(rowIdx, field, value) =>
+              handlers.updatePieceAlternative(piece.id, group.key, rowIdx, field, value)
             }
             onUpdateGroup={(field, value) =>
-              handlers.updatePieceAlternative(piece.id, idx, field, value)
+              handlers.updatePieceAlternativeGroup(piece.id, group.key, field, value)
             }
-            onRemoveRow={() => handlers.removePieceAlternative(piece.id, idx)}
-            onAddRow={() => {
-              /* singular alternative — no extra rows */
-            }}
-            onRemove={() => handlers.removePieceAlternative(piece.id, idx)}
-            onSwap={(mat) => handlers.swapPieceAlternative(piece.id, idx, mat)}
+            onRemoveRow={(rowIdx) =>
+              handlers.removePieceAlternativeRow(piece.id, group.key, rowIdx)
+            }
+            canAddRow
+            onAddRow={(mat) =>
+              handlers.addPieceAlternativeRow(piece.id, group.key, mat)
+            }
+            onRemove={() => handlers.removePieceAlternative(piece.id, group.key)}
+            onSwap={(mat) => handlers.swapPieceAlternative(piece.id, group.key, mat)}
           />
         ))}
         {!piece.mainMaterial && piece.alternativeMaterials.length === 0 && (

@@ -47,6 +47,20 @@ class WorkOrder(Base):
     transport: Mapped[float] = mapped_column(Float, default=0.0)
     installation: Mapped[float] = mapped_column(Float, default=0.0)
     discount: Mapped[float] = mapped_column(Float, default=0.0)
+    # Comercial discount (frontend "Aplicar descuento" +7%). Two flags + two
+    # amounts: the gate (`discount_enabled`) decides whether the percentage /
+    # fixed amount actually applies to the total; `discount_target` picks the
+    # base the % runs against (whole document vs materials only). Previously
+    # only the legacy `discount_percentage` / `discount_fixed_amount` columns
+    # existed; the gate + target were frontend-only, which meant the GET
+    # endpoint always returned `discount_enabled=false` regardless of what
+    # the operator had configured. This migration persists all four.
+    discount_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0"
+    )
+    discount_target: Mapped[str] = mapped_column(
+        String(20), default="materials", server_default="materials"
+    )
     discount_percentage: Mapped[float] = mapped_column(Float, default=0.0)
     discount_fixed_amount: Mapped[float] = mapped_column(Float, default=0.0)
     total: Mapped[float] = mapped_column(Float, default=0.0)

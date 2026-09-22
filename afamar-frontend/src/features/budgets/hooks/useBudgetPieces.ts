@@ -46,13 +46,23 @@ export interface UseBudgetPiecesReturn {
    *  shared price input so one edit prices the whole physical material. */
   updatePieceMainGroup: (id: string, field: string, value: unknown) => void;
 
-  // ----- Alternative materials
+  // ----- Alternative materials (grouped by material identity; one card
+  // per material, with N panes/tramos inside).
   addPieceAlternative: (id: string, name: string) => void;
-  addPieceAlternativeRow: (id: string, mat: MaterialInForm) => void;
-  updatePieceAlternative: (id: string, idx: number, field: string, value: unknown) => void;
-  swapPieceAlternative: (id: string, idx: number, mat: Material) => void;
-  removePieceAlternative: (id: string, idx: number) => void;
-  togglePieceAlternative: (id: string, idx: number) => void;
+  /** Append a NEW pane (length/width/quantity blank) to the group with
+   *  `groupKey` (= the alternative's id or name). Strictly LOCAL — does
+   *  NOT touch the principal nor the other alternatives. */
+  addPieceAlternativeRow: (id: string, groupKey: string, mat: MaterialInForm) => void;
+  updatePieceAlternative: (id: string, groupKey: string, rowIdx: number, field: string, value: unknown) => void;
+  /** Apply `field` to EVERY pane inside the same alternative card
+   *  (shared price input). */
+  updatePieceAlternativeGroup: (id: string, groupKey: string, field: string, value: unknown) => void;
+  swapPieceAlternative: (id: string, groupKey: string, mat: Material) => void;
+  /** Remove the WHOLE alternative card (all panes with the same
+   *  groupKey). Use `removePieceAlternativeRow` for a single pane. */
+  removePieceAlternative: (id: string, groupKey: string) => void;
+  removePieceAlternativeRow: (id: string, groupKey: string, rowIdx: number) => void;
+  togglePieceAlternative: (id: string, groupKey: string) => void;
 
   // ----- Piece fabrication (zócalo/frente) rows
   addPieceFabrication: (id: string) => void;
@@ -69,6 +79,14 @@ export interface UseBudgetPiecesReturn {
   setPiecePoolFields: (id: string, idx: number, fields: Record<string, unknown>) => void;
 }
 
+/** Stable key that groups rows of the same alternative card together.
+ *  Prefers the catalog `id` (numeric, unique) and falls back to `name`
+ *  for legacy rows where `id` is null. Two rows that share this key
+ *  belong to the same alternative material. */
+function groupKeyOf(alt: MaterialInForm): string {
+  return String(alt.id ?? alt.name);
+}
+
 function pieceMainPrices(piece: BudgetPiece): { ars: number; usd: number } {
   const main = piece.mainMaterial;
   if (!main) return { ars: 0, usd: 0 };
@@ -80,17 +98,21 @@ function pieceMainPrices(piece: BudgetPiece): { ars: number; usd: number } {
  * onto a freshly-picked main AND every alternative. This is the
  * "same mesada, different material" invariant — alternatives mirror
  * the principal's length/width/quantity.
+ *
+ * Length/width default to 0 (not 1): a material added without real
+ * measurements must NOT count as 1 m² against the subtotal — the
+ * operator types the real dims. Only `quantity` keeps a neutral 1.
  */
 function pieceDims(piece: BudgetPiece): { length: number; width: number; quantity: number } {
   const m = piece.mainMaterial;
   if (m) {
     return {
-      length: Number(m.length) || 1,
-      width: Number(m.width) || 1,
+      length: Number(m.length) || 0,
+      width: Number(m.width) || 0,
       quantity: Number(m.quantity) || 1,
     };
   }
-  return { length: 1, width: 1, quantity: 1 };
+  return { length: 0, width: 0, quantity: 1 };
 }
 
 /**
@@ -308,6 +330,8 @@ export function useBudgetPieces({
             width: 0,
             is_alternative: false,
           };
+          // Strictly LOCAL — does NOT mirror the new pane into the
+          // alternatives. Each alternative owns its own rows.
           return {
             ...piece,
             mainMaterialRows: [...(piece.mainMaterialRows || []), tramo],
@@ -348,18 +372,27 @@ export function useBudgetPieces({
         p.map((piece) => {
           if (piece.id !== id) return piece;
           const rows = piece.mainMaterialRows || [];
+          let nextMain: MaterialInForm | null = piece.mainMaterial;
+          let nextRows: MaterialInForm[] = rows;
           if (idx === 0) {
             // Removing the anchor: promote the first tramo so the piece
             // never ends with rows but no main.
-            if (rows.length === 0) return { ...piece, mainMaterial: null };
-            return {
-              ...piece,
-              mainMaterial: { ...rows[0], is_alternative: false },
-              mainMaterialRows: rows.slice(1),
-            };
+            if (rows.length === 0) {
+              nextMain = null;
+            } else {
+              nextMain = { ...rows[0], is_alternative: false };
+              nextRows = rows.slice(1);
+            }
+          } else {
+            nextRows = rows.filter((_, i) => i !== idx - 1);
           }
-          const list = rows.filter((_, i) => i !== idx - 1);
-          return { ...piece, mainMaterialRows: list };
+          // Strictly LOCAL — alternatives keep their own rows even
+          // when the principal loses a pane.
+          return {
+            ...piece,
+            mainMaterial: nextMain,
+            mainMaterialRows: nextRows,
+          };
         }),
       );
     },
@@ -391,25 +424,46 @@ export function useBudgetPieces({
       commit((p) =>
         p.map((piece) => {
           if (piece.id !== id) return piece;
-          const dims = pieceDims(piece);
           if (!piece.mainMaterial) {
+            // Legacy path: no main material yet → treat the pick as the main.
             const list = addMaterialToList(
               { ...form, materials_data: [] },
               materials,
               name,
             );
             return list && list.length > 0
-              ? { ...piece, mainMaterial: { ...list[0], ...dims, is_alternative: false } }
+              ? { ...piece, mainMaterial: { ...list[0], ...pieceDims(piece), is_alternative: false } }
               : piece;
           }
-          const list = addMaterialToList(
-            { ...form, materials_data: piece.alternativeMaterials },
+          // Catalog lookup for the picked material — gives us the
+          // identity (name, price, currency, color, category) that
+          // the new alternative row needs.
+          const catalogEntry = addMaterialToList(
+            { ...form, materials_data: [] },
             materials,
             name,
           );
-          const next = (list || []).map((m) => ({
-            ...m,
-            ...dims,
+          if (!catalogEntry || catalogEntry.length === 0) return piece;
+          const catalogRow = catalogEntry[0];
+          // The "same mesada, different material" invariant: the
+          // alternative carries the principal's PANES, not just one.
+          // We materialise ONE alternative row per main row (anchor +
+          // every `mainMaterialRows` tramo), each with the catalog
+          // material's identity/prices but the principal row's dims.
+          // Previously the helper returned a single row using only
+          // `pieceDims(piece)` (the anchor), silently dropping every
+          // additional pane — that was the bug.
+          const mainRows = [
+            piece.mainMaterial,
+            ...(piece.mainMaterialRows || []),
+          ].filter(Boolean) as MaterialInForm[];
+          const next: MaterialInForm[] = mainRows.map((row) => ({
+            ...catalogRow,
+            length: Number(row.length) || 0,
+            width: Number(row.width) || 0,
+            quantity: Number(row.quantity) || 1,
+            m2_used: 0,
+            m2_budgeted: 0,
             is_alternative: true,
           }));
           return { ...piece, alternativeMaterials: next };
@@ -420,12 +474,33 @@ export function useBudgetPieces({
   );
 
   const addPieceAlternativeRow = useCallback(
-    (id: string, mat: MaterialInForm) => {
+    (id: string, groupKey: string, mat: MaterialInForm) => {
       commit((p) =>
         p.map((piece) => {
           if (piece.id !== id) return piece;
-          const next = [...piece.alternativeMaterials, { ...mat, is_alternative: true }];
-          return { ...piece, alternativeMaterials: next };
+          // Strictly LOCAL: append the new pane to the alternative's
+          // own rows. Do NOT touch the principal or other alternatives.
+          const alts = piece.alternativeMaterials || [];
+          const firstInGroup = alts.find((a) => groupKeyOf(a) === groupKey);
+          // The new pane keeps the card's existing identity (price,
+          // currency, color) — `mat` is the card's anchor row, so just
+          // blank the dims and increment quantity is NOT needed (always
+          // 1 by default). If `mat` lacks a name we fall back to the
+          // first row of the group to keep the card coherent.
+          const identity = mat && mat.name ? mat : (firstInGroup ?? mat);
+          const newRow: MaterialInForm = {
+            ...identity,
+            quantity: 1,
+            m2_used: 0,
+            m2_budgeted: 0,
+            length: 0,
+            width: 0,
+            is_alternative: true,
+          };
+          return {
+            ...piece,
+            alternativeMaterials: [...alts, newRow],
+          };
         }),
       );
     },
@@ -433,14 +508,48 @@ export function useBudgetPieces({
   );
 
   const updatePieceAlternative = useCallback(
-    (id: string, idx: number, field: string, value: unknown) => {
+    (id: string, groupKey: string, rowIdx: number, field: string, value: unknown) => {
       commit((p) =>
         p.map((piece) => {
           if (piece.id !== id) return piece;
-          const list = [...piece.alternativeMaterials];
-          if (idx < 0 || idx >= list.length) return piece;
-          list[idx] = { ...list[idx], [field]: value } as MaterialInForm;
-          return { ...piece, alternativeMaterials: list };
+          const alts = piece.alternativeMaterials || [];
+          // Find the rowIdx-th row of the matching group and update only it.
+          const newAlts: MaterialInForm[] = [];
+          let seenInGroup = -1;
+          let updated = false;
+          for (const alt of alts) {
+            if (groupKeyOf(alt) === groupKey) {
+              seenInGroup++;
+              if (seenInGroup === rowIdx && !updated) {
+                newAlts.push({ ...alt, [field]: value } as MaterialInForm);
+                updated = true;
+                continue;
+              }
+            }
+            newAlts.push(alt);
+          }
+          return { ...piece, alternativeMaterials: newAlts };
+        }),
+      );
+    },
+    [commit],
+  );
+
+  const updatePieceAlternativeGroup = useCallback(
+    (id: string, groupKey: string, field: string, value: unknown) => {
+      commit((p) =>
+        p.map((piece) => {
+          if (piece.id !== id) return piece;
+          // Apply to EVERY pane inside the same alternative card. The
+          // card-level shared price input (in SingularMaterialCard's
+          // `onUpdateGroup`) routes here so the operator only has to type
+          // the price once per material.
+          const newAlts = (piece.alternativeMaterials || []).map((a) =>
+            groupKeyOf(a) === groupKey
+              ? ({ ...a, [field]: value } as MaterialInForm)
+              : a,
+          );
+          return { ...piece, alternativeMaterials: newAlts };
         }),
       );
     },
@@ -448,15 +557,14 @@ export function useBudgetPieces({
   );
 
   const swapPieceAlternative = useCallback(
-    (id: string, idx: number, mat: Material) => {
+    (id: string, groupKey: string, mat: Material) => {
       commit((p) =>
         p.map((piece) => {
           if (piece.id !== id) return piece;
-          const list = [...piece.alternativeMaterials];
-          if (idx < 0 || idx >= list.length) return piece;
-          const old = list[idx];
+          // Swap the material identity (name, price, color, currency)
+          // for EVERY pane of the group. Pane dims survive.
+          const alts = piece.alternativeMaterials || [];
           const swapped: MaterialInForm = {
-            ...old,
             id: mat.id ?? null,
             name: mat.name,
             category: '',
@@ -464,46 +572,81 @@ export function useBudgetPieces({
             price_m2: Number(mat.base_price) || 0,
             price_m2_usd: Number(mat.price_usd) || 0,
             currency: (mat.currency === 'USD' ? 'USD' : 'ARS') as 'ARS' | 'USD',
+            quantity: 1,
+            m2_used: 0,
+            m2_budgeted: 0,
+            length: 0,
+            width: 0,
             is_alternative: true,
           };
-          list[idx] = swapped;
-          if (old.name !== mat.name) {
+          const newAlts = alts.map((a) =>
+            groupKeyOf(a) === groupKey ? { ...a, ...swapped, length: a.length, width: a.width } : a,
+          );
+          // Re-point fabrication / additional-works references if the
+          // name changed (mirrors `swapPieceMain`).
+          const oldName = alts.find((a) => groupKeyOf(a) === groupKey)?.name;
+          if (oldName && oldName !== mat.name) {
+            const oldRows = alts.filter((a) => groupKeyOf(a) === groupKey);
             const synth: EntityFormState = {
               ...form,
-              materials_data: [old],
+              materials_data: oldRows,
               fabrication_details: piece.fabrication_details,
               additional_works_data: piece.additional_works_data,
               pools_data: [],
             };
             const refs = repointSwapReferences(
               synth,
-              new Set([old.name].filter(Boolean) as string[]),
+              new Set([oldName].filter(Boolean) as string[]),
               mat.name,
               { mat, catalogueById },
             );
             return {
               ...piece,
-              alternativeMaterials: list,
+              alternativeMaterials: newAlts,
               fabrication_details: refs.fabrication_details,
               additional_works_data: refs.additional_works_data ?? '[]',
             };
           }
-          return { ...piece, alternativeMaterials: list };
+          return { ...piece, alternativeMaterials: newAlts };
         }),
       );
     },
     [commit, form, catalogueById],
   );
 
-  const removePieceAlternative = useCallback(
-    (id: string, idx: number) => {
+  const removePieceAlternativeRow = useCallback(
+    (id: string, groupKey: string, rowIdx: number) => {
       commit((p) =>
         p.map((piece) => {
           if (piece.id !== id) return piece;
-          return {
-            ...piece,
-            alternativeMaterials: piece.alternativeMaterials.filter((_, i) => i !== idx),
-          };
+          const alts = piece.alternativeMaterials || [];
+          // Drop the rowIdx-th row of the group; keep everything else.
+          const newAlts: MaterialInForm[] = [];
+          let seenInGroup = -1;
+          for (const alt of alts) {
+            if (groupKeyOf(alt) === groupKey) {
+              seenInGroup++;
+              if (seenInGroup === rowIdx) continue;
+            }
+            newAlts.push(alt);
+          }
+          return { ...piece, alternativeMaterials: newAlts };
+        }),
+      );
+    },
+    [commit],
+  );
+
+  const removePieceAlternative = useCallback(
+    (id: string, groupKey: string) => {
+      commit((p) =>
+        p.map((piece) => {
+          if (piece.id !== id) return piece;
+          // Drop EVERY pane of the group (whole card).
+          const newAlts = (piece.alternativeMaterials || []).filter(
+            (a) => groupKeyOf(a) !== groupKey,
+          );
+          return { ...piece, alternativeMaterials: newAlts };
         }),
       );
     },
@@ -511,15 +654,26 @@ export function useBudgetPieces({
   );
 
   const togglePieceAlternative = useCallback(
-    (id: string, idx: number) => {
+    (id: string, groupKey: string) => {
       commit((p) =>
         p.map((piece) => {
           if (piece.id !== id) return piece;
-          const alt = piece.alternativeMaterials[idx];
-          if (!alt) return piece;
+          const alts = piece.alternativeMaterials || [];
+          const groupRows = alts.filter((a) => groupKeyOf(a) === groupKey);
+          if (groupRows.length === 0) return piece;
+          const remainingAlts = alts.filter((a) => groupKeyOf(a) !== groupKey);
           const previousMain = piece.mainMaterial;
-          const newMain: MaterialInForm = { ...alt, is_alternative: false };
-          const remainingAlts = piece.alternativeMaterials.filter((_, i) => i !== idx);
+          // Promote the FIRST pane of the group to the principal anchor;
+          // the rest of the group's panes become `mainMaterialRows` so
+          // the operator's measurements carry over without retyping.
+          const newMain: MaterialInForm = { ...groupRows[0], is_alternative: false };
+          const newMainRows: MaterialInForm[] = groupRows.slice(1).map((r) => ({
+            ...r,
+            is_alternative: false,
+          }));
+          // The previous main (if any) is demoted to an alternative with
+          // its panes so the swap keeps every measurement the operator
+          // had entered.
           const newAlts = previousMain
             ? [
                 { ...previousMain, is_alternative: true },
@@ -530,13 +684,11 @@ export function useBudgetPieces({
                 ...remainingAlts,
               ]
             : remainingAlts;
-          const dims = pieceDims({ ...piece, mainMaterial: newMain });
-          const syncedAlts = newAlts.map((a) => ({ ...a, ...dims }));
           return {
             ...piece,
             mainMaterial: newMain,
-            mainMaterialRows: [],
-            alternativeMaterials: syncedAlts,
+            mainMaterialRows: newMainRows,
+            alternativeMaterials: newAlts,
           };
         }),
       );
@@ -693,7 +845,9 @@ export function useBudgetPieces({
     addPieceAlternative,
     addPieceAlternativeRow,
     updatePieceAlternative,
+    updatePieceAlternativeGroup,
     swapPieceAlternative,
+    removePieceAlternativeRow,
     removePieceAlternative,
     togglePieceAlternative,
     addPieceFabrication,

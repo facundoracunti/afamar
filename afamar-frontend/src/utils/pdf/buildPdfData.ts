@@ -41,6 +41,7 @@ import {
 } from './buildSectionData';
 import { buildPieces, piecesSubtotal } from './buildPiecesPdfData';
 import { computeMaterialsSubtotal } from '@features/budgets/utils/commercialDiscount';
+import type { PieceAlternativeTotal, PiecesPdfPiece } from './pdfTypes';
 
 /**
  * Build the per-option `MaterialSection[]` for a budget's ALTERNATIVES,
@@ -288,6 +289,78 @@ export function computeTotals({
     total_usd: totalUsd,
     balance_due: balanceDue,
   };
+}
+
+interface BuildAlternativeTotalsParams {
+  transport: number;
+  transportUsd: number;
+  discountPct: number;
+  discountFixedRaw: number;
+  usdRate: number;
+  pm: PaymentMethod | null;
+  installments: number;
+  deposit: number;
+  discountEnabled?: boolean | null;
+  discountTarget?: 'total' | 'materials';
+}
+
+/**
+ * Consolidate every piece's quoted alternatives into ONE TOTAL GENERAL
+ * ALTERNATIVO per material, aggregated across the pieces that quote it.
+ * Each piece's contribution is that piece's alternative subtotal (materials
+ * + zócalo/frente + additional works + inherited piletas); the whole block
+ * re-runs the document's total rule set via `computeTotals` so the customer
+ * sees the real final price (traslado + descuento comercial + recargo +
+ * seña → saldo) of choosing that material for the whole job.
+ *
+ * Shown as highlighted summary blocks at the end of the HOJA DE
+ * ALTERNATIVAS. Only meaningful on multi-piece budgets (`pieces` non-empty).
+ */
+export function buildAlternativeTotals(
+  pieces: PiecesPdfPiece[],
+  params: BuildAlternativeTotalsParams,
+): PieceAlternativeTotal[] {
+  const byMaterial = new Map<string, { pieces: string[]; subtotalArs: number; subtotalUsd: number }>();
+  for (const piece of pieces) {
+    for (const alt of piece.alternatives) {
+      const key = alt.material_name || alt.title || 'Alternativa';
+      const entry = byMaterial.get(key) || { pieces: [], subtotalArs: 0, subtotalUsd: 0 };
+      if (!entry.pieces.includes(piece.name || 'Pieza')) entry.pieces.push(piece.name || 'Pieza');
+      entry.subtotalArs += alt.subtotal_ars;
+      entry.subtotalUsd += alt.subtotal_usd;
+      byMaterial.set(key, entry);
+    }
+  }
+
+  return [...byMaterial.entries()].map(([name, entry]) => {
+    const totals = computeTotals({
+      subtotalArs: entry.subtotalArs,
+      subtotalUsd: entry.subtotalUsd,
+      transport: params.transport,
+      transportUsd: params.transportUsd,
+      discountPct: params.discountPct,
+      discountFixedRaw: params.discountFixedRaw,
+      usdRate: params.usdRate,
+      pm: params.pm,
+      installments: params.installments,
+      deposit: params.deposit,
+      discountEnabled: params.discountEnabled,
+      discountTarget: params.discountTarget,
+    });
+    return {
+      material_name: name,
+      pieces: entry.pieces,
+      subtotal_ars: entry.subtotalArs,
+      subtotal_usd: entry.subtotalUsd,
+      discount_fixed_amount: totals.discount_fixed_amount,
+      surcharge_percentage: totals.surcharge_percentage,
+      surcharge_amount: totals.surcharge_amount,
+      catalogue_installment_detail: totals.catalogue_installment_detail,
+      total_ars: totals.total,
+      total_usd: totals.total_usd,
+      balance_due: totals.balance_due,
+    };
+  });
 }
 
 /**
@@ -580,7 +653,26 @@ export function buildPdfData({
     // sections. `sections` is still populated so the totals above stay
     // valid and a caller could fall back to the legacy layout.
     const pieces = buildPieces(form, usdRate);
-    if (pieces.length > 0) base.pieces = pieces;
+    if (pieces.length > 0) {
+      base.pieces = pieces;
+      // Consolidated TOTAL GENERAL ALTERNATIVO per material — the same
+      // document rule set re-run on the aggregated alternative subtotals
+      // (traslado + descuento comercial + recargo + seña) so the HOJA DE
+      // ALTERNATIVAS can print the real final price of each alternative
+      // material across every piece that quotes it.
+      base.alternative_totals = buildAlternativeTotals(pieces, {
+        transport,
+        transportUsd,
+        discountPct,
+        discountFixedRaw,
+        usdRate,
+        pm,
+        installments: installmentsNum,
+        deposit: depositArsEquivalent,
+        discountEnabled,
+        discountTarget,
+      });
+    }
   }
 
   return base;
@@ -600,5 +692,6 @@ export type {
   MaterialSection,
   PiecesPdfAlternative,
   PiecesPdfPiece,
+  PieceAlternativeTotal,
   BuildPdfDataParams,
 } from './pdfTypes';

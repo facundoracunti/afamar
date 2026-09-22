@@ -1687,6 +1687,55 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
     expect(totalArs).toBe(1030000);
   });
 
+  it('values a price-0 zócalo at the linked material price/m² so the m² drift shows in the money columns', () => {
+    // Real-world case: the zócalo strip is billed through the base material's
+    // m² (`price: 0` on the fabrication row). With only the price × qty formula
+    // the monetary delta would always be $0; the +0,08 m² real-vs-budgeted
+    // drift must instead be valued at the linked material's price_m2
+    // (Negro Brasil, USD 330/m²) → +26,40 USD / +26.400 ARS (rate 1000).
+    const fabrication_details = [
+      {
+        concept: 'BASEBOARD',
+        detail: 'Zócalo',
+        length: 4, // real 4 × 0,105 × 1 = 0,42 m²
+        width: 0.105,
+        quantity: 1,
+        m2_budgeted: 0.34, // snapshot → delta +0,08 m²
+        price: 0,
+        currency: 'USD',
+        material: 'Negro Brasil',
+      },
+    ];
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({
+        materials_data: measuredMaterials,
+        fabrication_details,
+        status: 'MEASUREMENT',
+        budget_id: 1,
+        include_measurement_comparison_in_pdf: true,
+      }),
+      overrides: {},
+    });
+    expect(data.measurement_comparison).toHaveLength(2);
+
+    // Row 0 — the material: unchanged (+990 USD, its own m² delta only).
+    expect(data.measurement_comparison[0].subtotal_usd).toBe(990);
+
+    // Row 1 — the zócalo (price 0): measure delta +0,08 m² valued at 330 USD/m².
+    const zocalo = data.measurement_comparison[1];
+    expect(zocalo.is_detail).toBe(true);
+    expect(zocalo.concepto).toBe('Zócalo Negro Brasil');
+    expect(zocalo.measure_unit).toBe('m2');
+    expect(zocalo.measure_budgeted_str).toBe('0,34 m²');
+    expect(zocalo.measure_real_str).toBe('0,42 m²');
+    expect(zocalo.measure_delta_str).toBe('+0,08 m²');
+    expect(zocalo.subtotal_usd).toBeCloseTo(26.4, 5);
+    expect(zocalo.subtotal_ars).toBeCloseTo(26400, 5);
+    expect(zocalo.subtotal_usd_str).toBe('+26,40');
+    expect(zocalo.subtotal_ars_str).toBe('+26.400,00');
+  });
+
   it('always emits linked detail rows even when the delta is zero (no snapshot / unchanged)', () => {
     // Real-world case (A-000003): a frente assigned to a material but with no
     // `total_*_budgeted` snapshot → delta 0. It must STILL appear as a detail

@@ -28,6 +28,31 @@ export const formatDate = (date: string | undefined | null): string => {
   return new Date(date).toLocaleDateString('es-AR');
 };
 
+/**
+ * Strict DD/MM/YYYY formatter with zero-padded day and month. Independent
+ * of the host ICU/locale (always produces `01/09/2026`, not `1/9/2026`),
+ * so the work-orders table renders the same on every machine. Accepts:
+ *   - ISO date-only (`"2026-09-01"`)
+ *   - ISO date-time (`"2026-09-01T00:00:00"` or `"2026-09-01T12:34:56Z"`)
+ * Returns `'—'` for missing / unparseable inputs.
+ */
+export function formatDateDdMmYyyy(
+  date: string | number | Date | null | undefined,
+): string {
+  if (date === null || date === undefined || date === '') return '—';
+  const raw = typeof date === 'string' ? date.split('T')[0] : date;
+  if (typeof raw === 'string') {
+    const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+  }
+  const d = raw instanceof Date ? raw : new Date(date as string | number);
+  if (Number.isNaN(d.getTime())) return '—';
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
 export const formatInputDate = (date: string | undefined | null): string => {
   if (!date) return '';
   const d = new Date(date);

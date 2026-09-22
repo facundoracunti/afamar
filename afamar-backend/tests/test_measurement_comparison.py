@@ -100,6 +100,38 @@ def test_zocalo_detail_row_without_snapshot_shows_real_only():
     assert zocalo["subtotal_usd_str"] == "0.00"
 
 
+def test_price_zero_zocalo_is_valued_at_linked_material_price_m2():
+    """A zócalo carried at `price: 0` (billed through the base material's m²)
+    must express its M² drift in money using the linked material's price/m² —
+    the price × qty formula would otherwise always delta to $0 and hide the
+    financial impact. Mirrors the frontend fallback in buildSectionData.ts.
+    """
+    fabrication = json.dumps([
+        {
+            "concept": "BASEBOARD",
+            "material": "NEGRO BRASIL",
+            "length": 4,
+            "width": 0.105,
+            "quantity": 1,
+            "price": 0,
+            "currency": "USD",
+            "m2_budgeted": 0.34,
+        }
+    ])
+    rows = _build_measurement_comparison(
+        _materials(), usd_rate=1000, fabrication_raw=fabrication
+    )
+    zocalo = rows[1]
+    assert zocalo["is_detail"] is True
+    assert zocalo["measure_unit"] == "m²"
+    assert zocalo["measure_real_str"] == "0.42 m²"  # 4 × 0.105 × 1
+    assert zocalo["measure_budgeted_str"] == "0.34 m²"
+    assert zocalo["measure_delta_str"] == "+0.08 m²"
+    # Money delta = +0,08 m² × 330 USD/m² = 26,40 USD (26.400 ARS at rate 1000).
+    assert abs(zocalo["subtotal_usd"] - 26.40) < 0.01
+    assert abs(zocalo["subtotal_ars"] - 26400.0) < 0.01
+
+
 def test_frente_detail_row_measured_in_ml():
     additional = json.dumps([
         {

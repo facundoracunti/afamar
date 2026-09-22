@@ -266,6 +266,10 @@ export function asMaterials(raw: unknown): MaterialInForm[] {
  * material's name. The per-row delta of a linked row is
  * `subtotal_actual − total_*_budgeted` (snapshot taken at conversion),
  * so it also captures measure (M²/ML) and material re-assignment changes.
+ * Zócalos carried at `price: 0` (billed through the base material's m²)
+ * fall back to valuing their M² delta at the linked material's `price_m2`
+ * — the price × qty formula would otherwise always delta to $0 and hide
+ * the financial impact of a measured drift.
  * Global / unmatched zócalo-frente rows are ignored. Uses the same
  * conversion convention as `buildMaterialRows`.
  */
@@ -387,12 +391,6 @@ export function buildMeasurementComparison(
       if (typeof d !== 'object' || d == null) continue;
       const mat = (d.material || '').trim();
       if (!mat || mat !== name) continue;
-      const fdCurrency: 'ARS' | 'USD' = d.currency === 'USD' ? 'USD' : 'ARS';
-      const lineTotal = Number(d.price || 0) * Number(d.quantity || 1);
-      const lineArs = fdCurrency === 'ARS' ? lineTotal : usdRate > 0 ? lineTotal * usdRate : 0;
-      const lineUsd = fdCurrency === 'USD' ? lineTotal : usdRate > 0 ? lineTotal / usdRate : 0;
-      const deltaArs = budgetedDelta(lineArs, d.total_ars_budgeted);
-      const deltaUsd = budgetedDelta(lineUsd, d.total_usd_budgeted);
       const conceptCode = String(d.concept || d.concepto || '').trim().toUpperCase();
       const custom = String(d.custom_concept || '').trim();
       const baseLabel = conceptCode
@@ -429,6 +427,33 @@ export function buildMeasurementComparison(
         fdMeasureUnit && fdMeasureReal != null && fdMeasureBudgeted != null
           ? fdMeasureReal - fdMeasureBudgeted
           : null;
+      // Monetary delta of the zócalo/frente. Default: current total minus the
+      // `total_*_budgeted` snapshot taken at conversion. Fallback reserved for
+      // zócalos carried at `price: 0` (billed through the base material's m²):
+      // the price × qty formula would always delta to $0, hiding the financial
+      // impact of a real-vs-budgeted m² drift. When the row has no unit price
+      // but the measure delta exists, value it at the linked material's
+      // `price_m2` (native currency, converted with `usdRate` — same
+      // convention as the material row above).
+      const fdCurrency: 'ARS' | 'USD' = d.currency === 'USD' ? 'USD' : 'ARS';
+      const lineTotal = Number(d.price || 0) * Number(d.quantity || 1);
+      let deltaArs: number;
+      let deltaUsd: number;
+      if (
+        lineTotal === 0 &&
+        fdMeasureUnit === 'm2' &&
+        fdMeasureDelta != null &&
+        priceM2 > 0
+      ) {
+        const deltaNative = fdMeasureDelta * priceM2;
+        deltaArs = currency === 'ARS' ? deltaNative : usdRate > 0 ? deltaNative * usdRate : 0;
+        deltaUsd = currency === 'USD' ? deltaNative : usdRate > 0 ? deltaNative / usdRate : 0;
+      } else {
+        const lineArs = fdCurrency === 'ARS' ? lineTotal : usdRate > 0 ? lineTotal * usdRate : 0;
+        const lineUsd = fdCurrency === 'USD' ? lineTotal : usdRate > 0 ? lineTotal / usdRate : 0;
+        deltaArs = budgetedDelta(lineArs, d.total_ars_budgeted);
+        deltaUsd = budgetedDelta(lineUsd, d.total_usd_budgeted);
+      }
       emittedZocaloKeys.add(zocaloKey);
       result.push(
         detailRow(label, deltaArs, deltaUsd, signedMoney, {
