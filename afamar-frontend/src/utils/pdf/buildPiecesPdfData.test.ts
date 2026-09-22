@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildPieces, piecesSubtotal } from './buildPiecesPdfData';
-import { buildPdfData } from './buildPdfData';
+import { buildPdfData, buildAlternativeTotals } from './buildPdfData';
 import { flattenPieces } from '@features/budgets/utils/pieces';
 import type { BudgetPiece, MaterialInForm, PoolInForm } from '../../types/budget';
 
@@ -236,6 +236,96 @@ describe('buildPieces', () => {
   });
 });
 
+describe('buildAlternativeTotals', () => {
+  const altParams = {
+    transport: 0,
+    transportUsd: 0,
+    discountPct: 0,
+    discountFixedRaw: 0,
+    usdRate: 1000,
+    pm: null,
+    installments: 1,
+    deposit: 0,
+  };
+
+  it('consolidates the same alternative material across pieces into ONE block', () => {
+    // Second piece also quotes MARMOL as an alternative (same material),
+    // with its own additional works + pileta.
+    const piece2WithMarmol: BudgetPiece = {
+      ...piece2,
+      alternativeMaterials: [materialB],
+      additional_works_data: JSON.stringify([
+        {
+          name: 'Traforo 2',
+          detail: '',
+          currency: 'USD',
+          price: 30,
+          quantity: 1,
+          total: 30,
+          type: 'flat',
+          materialName: '',
+        },
+      ]),
+    };
+    const pieces = buildPieces(makeForm([piece1, piece2WithMarmol]), 1000);
+
+    const totals = buildAlternativeTotals(pieces, altParams);
+    // One consolidated block per material, not one per piece.
+    expect(totals).toHaveLength(1);
+    expect(totals[0].material_name).toBe('Marmol');
+
+    // Piece 1 alt = material B (400.000) + zócalo (20.000) + traforo
+    // (50.000) + pileta (936.000) = 1.406.000. Piece 2 alt = material B
+    // (400.000) + traforo USD 30 (30.000) + pileta (612.000) = 1.042.000.
+    expect(totals[0].subtotal_ars).toBe(1406000 + 1042000);
+    expect(totals[0].subtotal_usd).toBe(1406 + 1042);
+    // Both pieces are listed so the operator knows the scope.
+    expect(totals[0].pieces).toEqual(['Mesada 1', 'Mesada 2']);
+  });
+
+  it('keeps different alternative materials in separate blocks', () => {
+    const extraAlt = mat({
+      name: 'Negro Absoluto',
+      currency: 'ARS',
+      price_m2: 150000,
+      is_alternative: true,
+    });
+    const piece1TwoAlts: BudgetPiece = {
+      ...piece1,
+      alternativeMaterials: [materialB, extraAlt],
+    };
+    const pieces = buildPieces(makeForm([piece1TwoAlts]), 1000);
+    const totals = buildAlternativeTotals(pieces, altParams);
+    expect(totals.map((t) => t.material_name)).toEqual(['Marmol', 'Negro Absoluto']);
+  });
+
+  it('applies the document total rule set (discount + deposit) to the consolidated subtotal', () => {
+    const pieces = buildPieces(makeForm([piece1]), 1000);
+    // 10% commercial discount over the whole doc base + $500.000 seña.
+    const totals = buildAlternativeTotals(pieces, {
+      ...altParams,
+      discountPct: 10,
+      discountEnabled: true,
+      deposit: 500000,
+    });
+    expect(totals).toHaveLength(1);
+    expect(totals[0].subtotal_ars).toBe(1406000);
+    // discount = 10% over subtotal (transport 0) = 140.600
+    expect(totals[0].discount_fixed_amount).toBe(140600);
+    // total = 1.406.000 - 140.600 = 1.265.400
+    expect(totals[0].total_ars).toBe(1265400);
+    // saldo = 1.265.400 - 500.000 = 765.400
+    expect(totals[0].balance_due).toBe(765400);
+    // USD side: 1406 - 140.6 = 1265.4
+    expect(totals[0].total_usd).toBe(1265.4);
+  });
+
+  it('returns an empty list for pieces without alternatives', () => {
+    const pieces = buildPieces(makeForm([piece2]), 1000);
+    expect(buildAlternativeTotals(pieces, altParams)).toEqual([]);
+  });
+});
+
 describe('buildPdfData — pieces branch', () => {
   it('attaches the pieces layout to a budget and keeps the document subtotal consistent', () => {
     const data = buildPdfData({
@@ -263,6 +353,30 @@ describe('buildPdfData — pieces branch', () => {
       globalTerms,
     });
     expect(data.pieces).toBeUndefined();
+    expect(data.alternative_totals).toBeUndefined();
+  });
+
+  it('attaches the consolidated alternative totals to a multi-piece budget', () => {
+    const data = buildPdfData({
+      form: makeForm([piece1, piece2]),
+      document_type: 'budget',
+      company,
+      globalTerms,
+    });
+
+    expect(data.pieces).toBeDefined();
+    // Only piece1 quotes an alternative — one consolidated block.
+    expect(data.alternative_totals).toEqual([
+      expect.objectContaining({
+        material_name: 'Marmol',
+        pieces: ['Mesada 1'],
+        subtotal_ars: 1406000,
+        subtotal_usd: 1406,
+        total_ars: 1406000,
+        total_usd: 1406,
+        balance_due: 1406000,
+      }),
+    ]);
   });
 
   it('leaves a legacy budget without a pieces array', () => {

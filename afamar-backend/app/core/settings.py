@@ -54,6 +54,11 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_HOURS: int = 8
     CORS_ALLOW_ORIGINS: str = "*"
 
+    # Public signed PDF tokens (no-auth WhatsApp / client links).
+    # How long a minted `GET /api/v1/public/{budgets,work-orders}/pdf?token=…`
+    # token stays valid before the endpoint answers HTTP 410 Gone.
+    PUBLIC_PDF_TOKEN_EXPIRE_DAYS: int = 30
+
     # Frontend
     FRONTEND_URL: str = "http://localhost:3090"
 

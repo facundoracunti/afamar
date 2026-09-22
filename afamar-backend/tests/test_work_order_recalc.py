@@ -293,6 +293,8 @@ def test_case_5_manual_discount_before_catalogue(pm_session):
         "additional_works_data": "[]",
         "usd_rate": 1000,
         "transport": 0,
+        "discount_enabled": True,
+        "discount_target": "total",
         "discount_percentage": 10,
         "discount_fixed_amount": 0,
         "payment_method": "EFECTIVO",

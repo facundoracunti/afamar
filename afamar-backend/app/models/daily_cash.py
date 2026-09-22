@@ -51,5 +51,10 @@ class CashMovement(Base):
     remaining_balance: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     expense_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # Checkout URL generated for Payway / Mercado Pago / etc. (text column
+    # so it accommodates any gateway's URL length). Populated by
+    # POST /payments/payway/checkout when the operator generates a link;
+    # the operator may also paste a real gateway URL manually.
+    payway_checkout_url: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     daily_cash: Mapped["DailyCash"] = relationship(back_populates="movements")

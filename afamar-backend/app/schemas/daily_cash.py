@@ -16,6 +16,10 @@ class CashMovementBase(BaseModel):
     client_name: Optional[str] = None
     expense_type: Optional[str] = None
     remaining_balance: Optional[float] = None
+    # Optional checkout URL (Payway / Mercado Pago / etc.) attached to the
+    # movement. Persists across reloads so the operator can re-share the
+    # link with the client via WhatsApp.
+    payway_checkout_url: Optional[str] = None
 
 
 class CashMovementCreate(CashMovementBase):

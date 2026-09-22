@@ -117,7 +117,7 @@ const QuoteOptionsGrid = ({
           <div className={s['quote-options__card-head']}>
             <span className={badgeClass}>{badgeLabel}</span>
             <span className={s['quote-options__qty']}>
-              {mat.quantity || 1} pza. ({Number(mat.totalM2 ?? (mat.length * mat.width || 1.216)).toFixed(2)} m²)
+              {mat.quantity || 1} pza. ({Number(mat.totalM2 ?? (mat.length * mat.width || 0)).toFixed(2)} m²)
             </span>
           </div>
 

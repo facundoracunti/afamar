@@ -132,6 +132,125 @@ describe('useBudgetPieces (pieces-only mode)', () => {
     expect(result.current.pieces[0].alternativeMaterials[0].name).toBe('Negro');
   });
 
+  it('setPieceMain on an empty piece starts Largo/Ancho at 0 (not 1) — no phantom m²', () => {
+    const { result, getForm } = setup();
+    act(() => result.current.setPieceMain('p-blank', 'Blanco'));
+    expect(result.current.pieces[0].mainMaterial?.name).toBe('Blanco');
+    // The operator typed NO measurements yet: the material must not count
+    // as 1 m² against the subtotal. Only quantity stays at 1.
+    expect(result.current.pieces[0].mainMaterial?.length).toBe(0);
+    expect(result.current.pieces[0].mainMaterial?.width).toBe(0);
+    expect(result.current.pieces[0].mainMaterial?.quantity).toBe(1);
+    // flat materials_data mirrors the same empty dims (totals → 0 m²)
+    expect(getForm().materials_data[0]).toMatchObject({ length: 0, width: 0, quantity: 1 });
+  });
+
+  it('addPieceAlternative mirrors empty principal dims as 0 (not 1)', () => {
+    const mat: MaterialInForm = {
+      id: BLANCO_MAT.id, name: 'Blanco', category: '', color: '',
+      price_m2: BLANCO_MAT.base_price, price_m2_usd: 0, currency: 'ARS',
+      quantity: 1, m2_used: 0, m2_budgeted: 0,
+      length: 0, width: 0, is_alternative: false,
+    };
+    const { result, getForm } = setupWith(blankForm({
+      pieces: [{
+        id: 'p1', name: 'Mesada 1',
+        mainMaterial: mat, alternativeMaterials: [],
+        fabrication_details: [], additional_works_data: '[]', pools: [],
+      }],
+    }));
+    act(() => result.current.addPieceAlternative('p1', 'Negro'));
+    const alt = result.current.pieces[0].alternativeMaterials[0];
+    expect(alt.name).toBe('Negro');
+    // Same empty-dims contract as the principal: 0, not 1 m².
+    expect(alt.length).toBe(0);
+    expect(alt.width).toBe(0);
+    expect(alt.quantity).toBe(1);
+    expect(getForm().materials_data.find((m) => m.is_alternative)).toMatchObject({
+      length: 0,
+      width: 0,
+      quantity: 1,
+    });
+  });
+
+  it('addPieceAlternative still mirrors REAL principal dims (same mesada invariant)', () => {
+    const mat: MaterialInForm = {
+      id: BLANCO_MAT.id, name: 'Blanco', category: '', color: '',
+      price_m2: BLANCO_MAT.base_price, price_m2_usd: 0, currency: 'ARS',
+      quantity: 1, m2_used: 0, m2_budgeted: 0,
+      length: 2, width: 0.5, is_alternative: false,
+    };
+    const { result } = setupWith(blankForm({
+      pieces: [{
+        id: 'p1', name: 'Mesada 1',
+        mainMaterial: mat, alternativeMaterials: [],
+        fabrication_details: [], additional_works_data: '[]', pools: [],
+      }],
+    }));
+    act(() => result.current.addPieceAlternative('p1', 'Negro'));
+    const alt = result.current.pieces[0].alternativeMaterials[0];
+    expect(alt.length).toBe(2);
+    expect(alt.width).toBe(0.5);
+    expect(alt.quantity).toBe(1);
+  });
+
+  it('MEDITOR flow: snapshots (m2_budgeted etc.) survive updatePieceMain + commit (COMPARATIVA)', () => {
+    // A work order converted from a budget carries the budgeted-measurement
+    // snapshots on its rows (hydrated by `mapApiToForm` from the flat
+    // arrays — see entityFormHelpers.test.ts "COMPARATIVA snapshot
+    // hydration"). The operator then corrects the REAL measurement in
+    // MEDICIÓN and hits Guardar: `commit` re-derives the flat arrays from
+    // the pieces (`flattenPieces`), which MUST keep the budgeted values or
+    // the "Presupuestado" column of the agency comparison dies in the PDF.
+    const snapshotPiece = {
+      id: 'p1', name: 'Mesada 1',
+      mainMaterial: {
+        id: 10, name: 'Negro', category: '', color: '',
+        price_m2: 0, price_m2_usd: 330, currency: 'USD' as const,
+        quantity: 1, m2_used: 0, m2_budgeted: 1.76, // budgeted at conversion
+        length: 2.75, width: 0.64, is_alternative: false,
+      },
+      alternativeMaterials: [],
+      fabrication_details: [{
+        concept: 'Zócalo', detail: 'BASEBOARD', material: 'Negro',
+        length: 4, width: 0.105, m2: 0.42, labor: null, currency: 'USD' as const,
+        quantity: 1, price: 50,
+        m2_budgeted: 0.42, total_ars_budgeted: 50000, total_usd_budgeted: 50,
+      }],
+      additional_works_data: JSON.stringify([{
+        additional_work_id: 88, name: 'Frente Ingletetado 45°',
+        currency: 'USD', price: 49.33, quantity: 1, total: 162.79,
+        materialName: 'Negro', type: 'frente', linear_meters: 3.3,
+        linear_meters_budgeted: 3.3, total_ars_budgeted: 162790, total_usd_budgeted: 162.79,
+      }]),
+      pools: [],
+    };
+    const { result, getForm } = setupWith(blankForm({
+      pieces: [snapshotPiece],
+      materials_data: [{ ...snapshotPiece.mainMaterial, is_alternative: false }],
+      fabrication_details: snapshotPiece.fabrication_details,
+      additional_works_data: snapshotPiece.additional_works_data,
+      currency: 'USD',
+    }));
+
+    act(() => result.current.updatePieceMain('p1', 'length', 3));
+    expect(result.current.pieces[0].mainMaterial?.length).toBe(3);
+
+    const form = getForm();
+    // Real measurement moved (2.75 → 3.0 m)...
+    expect(form.materials_data[0].length).toBe(3);
+    // ...but the budgeted snapshot survives the commit untouched.
+    expect(form.materials_data[0].m2_budgeted).toBe(1.76);
+    expect(form.pieces[0].mainMaterial?.m2_budgeted).toBe(1.76);
+    expect(form.fabrication_details[0]).toMatchObject({
+      m2_budgeted: 0.42, total_ars_budgeted: 50000, total_usd_budgeted: 50,
+    });
+    const add = JSON.parse(form.additional_works_data || '[]') as Array<Record<string, unknown>>;
+    expect(add[0]).toMatchObject({
+      linear_meters_budgeted: 3.3, total_ars_budgeted: 162790, total_usd_budgeted: 162.79,
+    });
+  });
+
   it('togglePieceAlternative promotes the alternative to main (swap)', () => {
     const mat: MaterialInForm = {
       id: null, name: 'X', category: '', color: '',
@@ -147,7 +266,7 @@ describe('useBudgetPieces (pieces-only mode)', () => {
         fabrication_details: [], additional_works_data: '[]', pools: [],
       }],
     }));
-    act(() => result.current.togglePieceAlternative('p1', 0));
+    act(() => result.current.togglePieceAlternative('p1', 'Negro'));
     expect(result.current.pieces[0].mainMaterial?.name).toBe('Negro');
     expect(result.current.pieces[0].alternativeMaterials[0].name).toBe('Blanco');
   });

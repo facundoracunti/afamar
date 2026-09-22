@@ -18,6 +18,13 @@ export interface AdditionalWorkSelection {
   materialName?: string;
   type: AdditionalWorkType;
   linear_meters?: number;
+  /** Snapshot keys the COMPARATIVA DE MEDICIÓN reads (written by the
+   *  backend at budget save and budget→WO conversion). They MUST survive
+   *  the picker round-trip or the frente loses its presupuestado measure /
+   *  monetary delta the moment the operator edits it in the form. */
+  linear_meters_budgeted?: number | null;
+  total_ars_budgeted?: number | null;
+  total_usd_budgeted?: number | null;
   assigned_material_id?: number | null;
   formula_values?: {
     material_price_m2_at_selection: number;
@@ -33,6 +40,15 @@ export interface AdditionalWorkSelection {
 function pickNumeric(value: unknown, fallback: number): number {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
+}
+
+/** Keeps a COMPARATIVA snapshot value across the picker round-trip.
+ *  Absent / non-numeric values collapse to `null` (the builders treat
+ *  `null` as "sin snapshot" and render "—"). */
+function pickNullableNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
 }
 
 export function parseAdditionalWorksData(json: string | null | undefined): AdditionalWorkSelection[] {
@@ -56,6 +72,9 @@ export function parseAdditionalWorksData(json: string | null | undefined): Addit
             materialName:
               typeof row.materialName === 'string' ? row.materialName : POOL_MATERIAL_GLOBAL,
             type,
+            linear_meters_budgeted: pickNullableNumber(row.linear_meters_budgeted),
+            total_ars_budgeted: pickNullableNumber(row.total_ars_budgeted),
+            total_usd_budgeted: pickNullableNumber(row.total_usd_budgeted),
           };
           if (type === 'frente') {
             const fv = row.formula_values as

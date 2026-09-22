@@ -188,6 +188,36 @@ export interface PiecesPdfPiece {
   alternatives: PiecesPdfAlternative[];
 }
 
+/**
+ * Consolidated TOTAL GENERAL ALTERNATIVO for ONE alternative material,
+ * aggregated across every piece that quotes it (e.g. "BLANCO NORTE"
+ * appearing as Alternativa 1 in Mesada 1 AND Mesada 2 → a single block
+ * that covers both). Each piece's contribution is that piece's alternative
+ * `subtotal_*` (materials + zócalo/frente + additional works + inherited
+ * piletas); the whole block re-runs the document's total rule set
+ * (`computeTotals`: traslado + descuento comercial + recargo + seña) so the
+ * customer sees the real final price of choosing that material everywhere.
+ */
+export interface PieceAlternativeTotal {
+  /** Material name (the alternative grouped by physical material). */
+  material_name: string;
+  /** Names of the pieces that quote this material as an alternative. */
+  pieces: string[];
+  /** Currency-agnostic consolidated subtotal (materials + adicionales +
+   *  piletas of every piece). */
+  subtotal_ars: number;
+  subtotal_usd: number;
+  /** Same rule set as the document-level totals applied to the
+   *  consolidated subtotal. */
+  discount_fixed_amount: number;
+  surcharge_percentage: number;
+  surcharge_amount: number;
+  catalogue_installment_detail: Array<{ cuota: number; interes: number; monto: number }>;
+  total_ars: number;
+  total_usd: number;
+  balance_due: number;
+}
+
 export interface PdfDocumentData {
   document_type: DocumentType;
   title: string;
@@ -281,6 +311,15 @@ export interface PdfDocumentData {
    * and for work orders.
    */
   pieces?: PiecesPdfPiece[];
+  /**
+   * Multi-piece budgets only. One consolidated TOTAL GENERAL ALTERNATIVO
+   * per alternative material, aggregated across every piece that quotes it
+   * (see `PieceAlternativeTotal`). Rendered as highlighted summary blocks
+   * at the end of the HOJA DE ALTERNATIVAS so the customer can compare the
+   * real final price of choosing a material for the whole job. Absent for
+   * budgets without pieces (legacy layout).
+   */
+  alternative_totals?: PieceAlternativeTotal[];
 }
 
 export interface BuildPdfDataParams {

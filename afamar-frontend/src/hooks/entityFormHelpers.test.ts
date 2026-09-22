@@ -26,6 +26,7 @@ import {
 import { POOL_MATERIAL_GLOBAL } from '../types/budget';
 import type { AdditionalWork } from '../types/additionalWork';
 import { FRENTE_FORMULA_MULTIPLIER_DEFAULT, computeFrenteTotal } from '../utils/frentePricing';
+import { flattenPieces } from '@features/budgets/utils/pieces';
 
 // All FinancialBase field names. Single source of truth for the tests below.
 const FINANCIAL_FIELDS = [
@@ -327,6 +328,98 @@ describe('mapApiToForm — integrates FinancialBase', () => {
     for (const f of FINANCIAL_FIELDS) {
       expect(form[f]).toBe(DEFAULT_FINANCIALS[f]);
     }
+  });
+});
+
+describe('mapApiToForm — COMPARATIVA snapshot hydration', () => {
+  // Regression for the "Presupuestado vacío en el PDF" bug: the backend
+  // writes the budgeted-measurement snapshots (m²/ml + ARS/USD at
+  // conversion) ONLY onto the flat arrays. `useBudgetPieces.commit` re-derives
+  // the flat arrays from the pieces on every edit, so unless `_loadPieces`
+  // copies the snapshots onto each piece's rows, the first Medición change
+  // wipes the "Presupuestado" column from the COMPARATIVA DE MEDICIÓN.
+  it('hydrates m2/total/linear-meter snapshots from the flat arrays onto the pieces', () => {
+    const apiRow = {
+      pieces_data: JSON.stringify([
+        {
+          id: 'p1',
+          name: 'Mesada 1',
+          mainMaterial: {
+            id: 10, name: 'NEGRO BRASIL', category: '', color: '',
+            price_m2: 0, price_m2_usd: 330, currency: 'USD',
+            quantity: 1, m2_used: 0, m2_budgeted: 0, // snapshot missing on the piece
+            length: 2.75, width: 0.64, is_alternative: false,
+          },
+          alternativeMaterials: [],
+          fabrication_details: [
+            { concept: 'Zócalo', detail: 'BASEBOARD', material: 'NEGRO BRASIL', caras: 2, length: 4, width: 0.105, m2: 0.42, labor: null, currency: 'USD', quantity: 1, price: 50, m2_budgeted: 0 },
+          ],
+          additional_works_data: JSON.stringify([
+            { additional_work_id: 88, name: 'Frente Ingletetado 45°', currency: 'USD', price: 49.33, quantity: 1, total: 162.79, materialName: 'NEGRO BRASIL', type: 'frente', linear_meters: 3.3, linear_meters_budgeted: 0 },
+          ]),
+          pools: [],
+        },
+      ]),
+      materials_data: JSON.stringify([
+        { id: 10, name: 'NEGRO BRASIL', category: '', color: '', price_m2: 0, price_m2_usd: 330, currency: 'USD', quantity: 1, m2_used: 0, m2_budgeted: 1.76, length: 2.75, width: 0.64, is_alternative: false },
+      ]),
+      fabrication_details: JSON.stringify([
+        { concept: 'Zócalo', detail: 'BASEBOARD', material: 'NEGRO BRASIL', caras: 2, length: 4, width: 0.105, m2: 0.42, labor: null, currency: 'USD', quantity: 1, price: 50, m2_budgeted: 0.42, total_ars_budgeted: 50000, total_usd_budgeted: 50 },
+      ]),
+      additional_works_data: JSON.stringify([
+        { additional_work_id: 88, name: 'Frente Ingletetado 45°', currency: 'USD', price: 49.33, quantity: 1, total: 162.79, materialName: 'NEGRO BRASIL', type: 'frente', linear_meters: 3.3, linear_meters_budgeted: 3.3, total_ars_budgeted: 162790, total_usd_budgeted: 162.79 },
+      ]),
+    };
+    const form = mapApiToForm(apiRow, 'MEASUREMENT');
+
+    // Material snapshot lands on the piece's main row.
+    expect(form.pieces[0].mainMaterial?.m2_budgeted).toBe(1.76);
+    // Fabrication snapshot lands on the piece's zócalo row.
+    expect(form.pieces[0].fabrication_details[0]).toMatchObject({
+      m2_budgeted: 0.42, total_ars_budgeted: 50000, total_usd_budgeted: 50,
+    });
+    // Additional-works snapshot lands on the piece's frente row.
+    const add = JSON.parse(form.pieces[0].additional_works_data) as Array<Record<string, unknown>>;
+    expect(add[0]).toMatchObject({
+      linear_meters_budgeted: 3.3, total_ars_budgeted: 162790, total_usd_budgeted: 162.79,
+    });
+
+    // The piece→flat re-derivation (`flattenPieces`, what the pieces hook
+    // runs on every commit) must now KEEP the snapshots — this is the
+    // actual regression fix: without hydration the budgeted values died here.
+    const flat = flattenPieces(form.pieces);
+    expect(flat.materials_data[0].m2_budgeted).toBe(1.76);
+    expect(flat.fabrication_details[0]).toMatchObject({
+      m2_budgeted: 0.42, total_ars_budgeted: 50000, total_usd_budgeted: 50,
+    });
+    const flatAdd = JSON.parse(flat.additional_works_data) as Array<Record<string, unknown>>;
+    expect(flatAdd[0]).toMatchObject({
+      linear_meters_budgeted: 3.3, total_ars_budgeted: 162790, total_usd_budgeted: 162.79,
+    });
+  });
+
+  it('returns the pieces untouched when no snapshot exists in the flat arrays', () => {
+    const pieces = [
+      {
+        id: 'p1',
+        name: 'Mesada 1',
+        mainMaterial: {
+          id: 10, name: 'Negro Brasil', category: '', color: '',
+          price_m2: 200000, price_m2_usd: 0, currency: 'ARS',
+          quantity: 1, m2_used: 0, m2_budgeted: 0,
+          length: 2, width: 1, is_alternative: false,
+        },
+        alternativeMaterials: [],
+        fabrication_details: [],
+        additional_works_data: '[]',
+        pools: [],
+      },
+    ];
+    const form = mapApiToForm({ pieces_data: JSON.stringify(pieces) }, 'MEASUREMENT');
+    // Direct work orders (no budget origin) carry no snapshots — hydration
+    // must be a no-op so the comparison beyond "Real" stays blank/legacy.
+    expect(form.pieces[0].mainMaterial?.m2_budgeted).toBe(0);
+    expect(form.pieces[0].mainMaterial?.length).toBe(2);
   });
 });
 

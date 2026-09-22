@@ -37,6 +37,11 @@ class WorkOrderBase(BaseModel):
     transport: float = 0.0
     installation: float = 0.0
     discount: float = 0.0
+    # Comercial discount (frontend "Aplicar descuento" +%). Persisted to
+    # the DB so the GET endpoint returns the operator's choice and the UI
+    # re-hydrates the checkbox without any client-side trickery.
+    discount_enabled: bool = False
+    discount_target: str = "materials"  # 'materials' | 'total'
     discount_percentage: float = 0.0
     discount_fixed_amount: float = 0.0
     total: float = 0.0
@@ -119,6 +124,8 @@ class WorkOrderUpdate(BaseModel):
     transport: float | None = None
     installation: float | None = None
     discount: float | None = None
+    discount_enabled: bool | None = None
+    discount_target: str | None = None
     discount_percentage: float | None = None
     discount_fixed_amount: float | None = None
     total: float | None = None

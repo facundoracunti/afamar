@@ -1,10 +1,12 @@
 import React, { useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Eye, Save } from 'lucide-react';
+import { Eye, MessageCircle, Save } from 'lucide-react';
 import { useNotify } from '../../context/NotificationContext';
 import { useUsdRate } from '../../hooks/useUsdRate';
-import { getWorkOrder, createWorkOrder, updateWorkOrder, deleteWorkOrder, getNextWorkOrderNumber, getWorkOrderPdf } from '@/api/resources/workOrders';
+import { getWorkOrder, createWorkOrder, updateWorkOrder, deleteWorkOrder, getNextWorkOrderNumber, getWorkOrderPdf, getWorkOrderPayments, getWorkOrderPublicPdfToken } from '@/api/resources/workOrders';
+import type { CashMovement } from '../../types/cash';
+import { buildOrderShareMessage, buildWhatsAppUrl, resolvePublicDocumentPdfUrl } from '../../utils/whatsapp';
 import { getMaterials } from '@/api/resources/materials';
 import { getPoolStock } from '@/api/resources/poolStock';
 import { getClients } from '@/api/resources/clients';
@@ -31,6 +33,8 @@ import WorkOrderFormStatus from './WorkOrderFormStatus';
 import WorkOrderFormSnapshot from './WorkOrderFormSnapshot';
 import WorkOrderFormObservations from './WorkOrderFormObservations';
 import { AlternativeBudgetGrid } from './AlternativeBudgetGrid';
+import WorkOrderPaymentSection, { backendMethodFor } from '../../features/orders/components/WorkOrderPaymentSection';
+import type { PaymentMethod } from '../../features/payments/types/payment.types';
 import type { EntityFormState, EntityServices, MaterialInForm } from '../../types';
 import styles from './WorkOrderFormPage.module.css';
 
@@ -96,6 +100,11 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
   // mode" re-submittable, preventing duplicates). Update → stay put.
   // Delete in page mode → back to the list.
   const handleSuccessCallback = (info?: AfterActionInfo) => {
+    // El backend ahora persiste `discount_enabled`, `discount_target`,
+    // `discount_percentage`, `discount_fixed_amount` (migración Alembic
+    // g9h0i1j2k3l4) y los devuelve en el GET /work-orders/{id}. El
+    // refetch que se dispara a continuación pinta la UI con el valor
+    // canónico del servidor — no hace falta espejo client-side.
     queryClient.invalidateQueries({ queryKey: ['work-orders'], refetchType: 'all' });
     if (props.onSuccess) props.onSuccess();
     else if (info?.created && info.id != null) navigate(`/admin/work-orders/${info.id}`);
@@ -144,6 +153,12 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
   // the list showing the previous totals until they manually refreshed.
   // `refetchType: 'all'` forces the refetch right here (the list page
   // will pick up the fresh data when it mounts).
+  //
+  // El descuento comercial viaja en el payload a través de
+  // `buildFinancialPayload` (entityFormFinancial.ts:28-34) y el
+  // backend lo persiste en `work_orders.discount_*` (migración Alembic
+  // g9h0i1j2k3l4). NO guardamos nada en `localStorage` — la API es
+  // la única fuente de verdad.
   const handleSubmit = async (e?: React.FormEvent) => {
     await legacyHandleSubmit(e);
   };
@@ -158,6 +173,58 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
       { id, number: form.number, status: form.status },
       { liveForm: form as unknown as Record<string, unknown> }
     );
+  };
+
+  // Enviar el resumen completo de la OT por WhatsApp: número, cliente,
+  // materiales principales, Total, Seña/Saldo pendiente, el link del PDF
+  // público firmado (sin login) y el link de pago seguro Payway (si la OT
+  // tiene un checkout activo). NO descarga nada local en la PC del operador:
+  // solo obtiene el token público, arma el mensaje y abre WhatsApp.
+  const [whatsappSending, setWhatsappSending] = useState(false);
+  const handleEnviarWhatsApp = async () => {
+    if (!form.client_phone) {
+      notify('El cliente no tiene teléfono cargado, no se puede enviar el WhatsApp.', 'error');
+      return;
+    }
+    setWhatsappSending(true);
+    let paywayLink: string | null = null;
+    if (id) {
+      try {
+        const res = await getWorkOrderPayments(id);
+        const payments = (res.data as CashMovement[]) ?? [];
+        const latest = [...payments]
+          .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
+          .find((m) => !!m.payway_checkout_url);
+        paywayLink = latest?.payway_checkout_url ?? null;
+      } catch {
+        // Sin movimientos / offline → el mensaje sale igual, el link es opcional.
+      }
+    }
+    const mensaje = buildOrderShareMessage({
+      clientName: form.client_name || null,
+      documentLabel: 'la Orden de Trabajo',
+      documentNumber: form.number || null,
+      // Link público firmado (sin login) para que el cliente pueda abrir el
+      // PDF desde el chat; '' si la OT no existe / offline → mensaje sin link.
+      pdfUrl: id
+        ? await resolvePublicDocumentPdfUrl('work_order', () => getWorkOrderPublicPdfToken(id))
+        : '',
+      paywayLink,
+      currency: form.currency,
+      total: form.total,
+      depositReceived: form.deposit_received,
+      balanceDue: form.balance_due,
+      materials: (form.materials_data || []).map((m) => ({
+        name: m.name,
+        quantity: m.quantity,
+        length: m.length,
+        width: m.width,
+        is_alternative: m.is_alternative,
+      })),
+    });
+    const whatsappUrl = buildWhatsAppUrl(form.client_phone, mensaje);
+    window.open(whatsappUrl, '_blank');
+    setWhatsappSending(false);
   };
 
   const handleAddressAdded = useCallback(createAddressAddedHandler(clientes, updateClientAddresses), [clientes, updateClientAddresses]);
@@ -257,6 +324,9 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
         <button type="button" className={`btn btn-outline ${s['work-order-form__preview-btn']}`} onClick={() => handlePrintFicha()} disabled={!id || pdfPreviewLoading}>
           🖨️ Ficha de Taller
         </button>
+        <button type="button" className={`btn ${s['work-order-form__btn-whatsapp']}`} onClick={handleEnviarWhatsApp} disabled={saving || whatsappSending}>
+          <MessageCircle size={16} /> {whatsappSending ? 'ABRIENDO...' : 'ENVIAR POR WHATSAPP'}
+        </button>
         <button type="button" className={`btn btn-outline ${s['work-order-form__preview-btn']}`} onClick={handlePreviewPdf} disabled={pdfPreviewLoading}>
           <Eye size={16} /> {pdfPreviewLoading ? 'GENERANDO...' : 'VISTA PREVIA PDF'}
         </button>
@@ -340,6 +410,37 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
                 mode={props.layoutMode || 'full'}
                   showPieces
                   piecesFlow={piecesFlow}
+                  paymentSection={
+                    <WorkOrderPaymentSection
+                      orderId={id ? Number(id) : null}
+                      orderNumber={form.number ?? null}
+                      clientName={form.client_name ?? null}
+                      clientPhone={form.client_phone ?? null}
+                      montoTotal={form.total}
+                      montoSeniaRequerida={(() => {
+                        const seniaGuardada = form.deposit_received ?? 0;
+                        const totalPositivo = form.total > 0;
+                        // Umbral 95%: si `deposit_received` está al 95% o más del
+                        // total, lo tratamos como "se guardó el total" (típico
+                        // de OTs legacy donde `deposit_received` se usaba como
+                        // pago total, o de operadores que copiaron el total
+                        // por error) y recalculamos al 50%.
+                        const seniaEsCustom =
+                          totalPositivo &&
+                          seniaGuardada > 0 &&
+                          seniaGuardada < form.total * 0.95;
+                        return seniaEsCustom
+                          ? seniaGuardada
+                          : Math.round(form.total * 50) / 100;
+                      })()}
+                      montoPagadoAcumulado={0}
+                      preferredMethodBackend={form.payment_method ?? null}
+                      currency={form.currency === 'USD' ? 'USD' : 'ARS'}
+                      onPreferredMethodChange={(method: PaymentMethod | null) =>
+                        update('payment_method', backendMethodFor(method))
+                      }
+                    />
+                  }
                   alternativasGrid={alternativasGrid}
                   beforeLayout={
                   <>
@@ -434,6 +535,7 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
                 fabricationMaterialsData={form.materials_data}
               />
             </EntityFormActionsProvider>
+
           </EntityFormDomainProvider>
         </EntityFormStateProvider>
       </EntityFormStyleProvider>

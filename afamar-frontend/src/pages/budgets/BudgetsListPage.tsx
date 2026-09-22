@@ -8,12 +8,12 @@ import {
   deleteBudget,
   updateBudget,
   convertBudgetToWorkOrder,
-  getBudgetPdf,
+  getBudgetPublicPdfToken,
   sendBudgetEmail,
   mapBudgetStatusToApi,
   mapUnifiedBudget,
 } from '@/api/resources/budgets';
-import { buildDocumentShareMessage, buildWhatsAppUrl } from '../../utils/whatsapp';
+import { buildDocumentShareMessage, buildWhatsAppUrl, resolvePublicDocumentPdfUrl } from '../../utils/whatsapp';
 import type { AxiosResponse } from 'axios';
 import { useSettingsWithTerms } from '../../hooks/useSettingsWithTerms';
 import { usePdfPreviewController } from '../../hooks/usePdfPreviewController';
@@ -137,12 +137,13 @@ export default function BudgetsList() {
     setPendingConvert({ id });
   };
 
-  const handleEnviarWhatsApp = (presupuesto: UnifiedBudget) => {
-    const pdfUrl = getBudgetPdf(presupuesto.id as unknown as string);
+  const handleEnviarWhatsApp = async (presupuesto: UnifiedBudget) => {
+    const pdfUrl = await resolvePublicDocumentPdfUrl('budget', () => getBudgetPublicPdfToken(presupuesto.id));
     const mensaje = buildDocumentShareMessage({
       clientName: presupuesto.clientName,
-      documentLabel: 'el presupuesto formal de AFAMAR Mármoles & Granitos',
+      documentLabel: 'el presupuesto',
       pdfUrl,
+      pdfLabel: 'PDF del Presupuesto',
     });
     const whatsappUrl = buildWhatsAppUrl(presupuesto.clientPhone, mensaje);
     window.open(whatsappUrl, '_blank');

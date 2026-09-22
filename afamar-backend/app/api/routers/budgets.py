@@ -1,5 +1,5 @@
 import logging
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query
@@ -9,14 +9,14 @@ from sqlalchemy.orm import Session
 from app.db.database import SessionLocal
 from app.api.dependencies import get_current_user, get_db
 from app.core.exceptions import NotFoundError
+from app.core.settings import settings
 from app.utils.responses import PaginationInfo, created, success
-from app.models.client import Client
-from app.models.setting import Setting
 from app.schemas.budget import BudgetCreate, BudgetResponse, BudgetUpdate
 from app.services.budget import BudgetService
 from app.services.email import send_budget_email
-from app.services.pdf_helpers import COMPANY_KEYS, TERMS_KEYS, build_company_and_terms, has_terms, load_settings, split_or_default
+from app.services.pdf_helpers import prepare_budget_payload
 from app.services.pdf_html import build_budget_pdf_data, generate_budget_pdf
+from app.services.public_pdf_tokens import create_public_pdf_token
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ def _email_budget_background(budget_id: int) -> None:
         if not budget or not budget.client or not budget.client.email:
             logger.warning("Budget %s or client email not found for background email", budget_id)
             return
-        budget_data, client_dict, company, terms = _prepare_budget_payload(budget, db)
+        budget_data, client_dict, company, terms = prepare_budget_payload(budget, db)
         pdf_data = build_budget_pdf_data(budget_data, client_dict, company, terms, db=db)
         pdf_bytes = generate_budget_pdf(pdf_data, logo_path=company.get("company_logo")).read()
         company_name = company.get("company_name") or "AFAMAR"
@@ -172,24 +172,6 @@ def delete_budget(budget_id: int, db: Session = Depends(get_db)):
         raise NotFoundError("Budget")
 
 
-def _prepare_budget_payload(budget, db: Session) -> tuple[dict, dict, dict, dict]:
-    budget_data = BudgetResponse.from_orm_with_client(budget).model_dump(mode="json")
-    client = budget.client
-    client_dict = {
-        "name": client.name,
-        "phone": client.phone,
-        "email": client.email,
-        "address": client.address,
-    }
-    settings_data = load_settings(db)
-    overrides = {
-        "budget_terms_override": getattr(budget, "budget_terms_override", None),
-        "warranty_override": getattr(budget, "warranty_override", None),
-    }
-    company, terms = build_company_and_terms(settings_data, "budget_terms_override", overrides)
-    return budget_data, client_dict, company, terms
-
-
 @router.post("/{budget_id}/alternatives/{idx}/convert-to-work-order", status_code=201)
 def convert_alternative_to_work_order(budget_id: int, idx: int, db: Session = Depends(get_db)):
     service = BudgetService(db)
@@ -204,7 +186,7 @@ def download_budget_pdf(budget_id: int, db: Session = Depends(get_db)):
     if not budget:
         raise NotFoundError("Budget")
 
-    budget_data, client_dict, company, terms = _prepare_budget_payload(budget, db)
+    budget_data, client_dict, company, terms = prepare_budget_payload(budget, db)
     pdf_data = build_budget_pdf_data(budget_data, client_dict, company, terms, db=db)
     pdf_bytes = generate_budget_pdf(pdf_data, logo_path=company.get("company_logo")).read()
 
@@ -228,4 +210,23 @@ def email_budget(budget_id: int, background_tasks: BackgroundTasks, db: Session 
 
     background_tasks.add_task(_email_budget_background, budget_id)
     return success({"message": "Enviando email en segundo plano"})
+
+
+@router.get("/{budget_id}/public-token")
+def mint_budget_public_token(budget_id: int, db: Session = Depends(get_db)):
+    """Mint the signed token that lets a client open this budget's PDF WITHOUT
+    an admin login (`GET /api/v1/public/budgets/pdf?token=…`). Expires after
+    `PUBLIC_PDF_TOKEN_EXPIRE_DAYS` (default 30)."""
+    service = BudgetService(db)
+    budget = service.get_by_id(budget_id)
+    if not budget:
+        raise NotFoundError("Budget")
+    expires_days = settings.PUBLIC_PDF_TOKEN_EXPIRE_DAYS
+    return success(
+        {
+            "token": create_public_pdf_token("budget", budget_id),
+            "expires_in_days": expires_days,
+            "expires_at": (datetime.now(timezone.utc) + timedelta(days=expires_days)).isoformat(),
+        }
+    )
 

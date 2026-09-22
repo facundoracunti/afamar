@@ -86,9 +86,11 @@ describe('WorkOrdersTable', () => {
   it('shows "—" (no advance) when status is not in orderStatuses', () => {
     // The component shows a dash when both canBack and canForward are
     // false. This happens when the status is not in `orderStatuses`
-    // (statusIdx = -1 → canBack=false, canForward=false).
+    // (statusIdx = -1 → canBack=false, canForward=false). Use a
+    // function matcher so RTL reads textContent (the dash is wrapped
+    // inside a <span> with sibling text nodes).
     renderTable([makeWO({ status: 'UNKNOWN' })]);
-    expect(screen.getByText('—')).toBeDefined();
+    expect(screen.getAllByText((_, el) => el?.textContent === '—').length).toBeGreaterThan(0);
     expect(screen.queryByTitle('Avanzar estado')).toBeNull();
     expect(screen.queryByTitle('Retroceder estado')).toBeNull();
   });
@@ -195,5 +197,170 @@ describe('WorkOrdersTable', () => {
     );
     fireEvent.click(screen.getByTitle('Vista previa del PDF'));
     expect(onOpenPdf).toHaveBeenCalled();
+  });
+});
+
+describe('WorkOrdersTable — MATERIAL column', () => {
+  it('uses `o.material` when it has a value', () => {
+    renderTable([makeWO({ material: 'Negro Brasil' })]);
+    expect(screen.getByText('Negro Brasil')).toBeDefined();
+  });
+
+  it('falls back to the principal of the first piece when `material` is empty', () => {
+    renderTable([
+      makeWO({
+        material: null,
+        pieces: [
+          { mainMaterial: { name: 'Blanco Turco' } },
+        ],
+      }),
+    ]);
+    expect(screen.getByText('Blanco Turco')).toBeDefined();
+  });
+
+  it('falls back to the first alternative of the first piece when no principal', () => {
+    renderTable([
+      makeWO({
+        material: null,
+        pieces: [
+          {
+            mainMaterial: null,
+            alternativeMaterials: [{ name: 'Gris Mara' }],
+          },
+        ],
+      }),
+    ]);
+    expect(screen.getByText('Gris Mara')).toBeDefined();
+  });
+
+  it('parses `materials_data` (JSON string) when `material` + `pieces` are empty', () => {
+    renderTable([
+      makeWO({
+        material: null,
+        pieces: [],
+        materials_data: JSON.stringify([{ name: 'Negro Brasil' }, { name: 'Respaldo' }]),
+      }),
+    ]);
+    expect(screen.getByText('Negro Brasil')).toBeDefined();
+  });
+
+  it('falls back to `items[]` when nothing else has a name', () => {
+    renderTable([
+      makeWO({
+        material: null,
+        pieces: [],
+        materials_data: '[]',
+        items: [{ name: 'Item Legacy' }],
+      }),
+    ]);
+    expect(screen.getByText('Item Legacy')).toBeDefined();
+  });
+
+  it('shows "-" when no source has a name', () => {
+    renderTable([
+      makeWO({
+        material: null,
+        pieces: [],
+        materials_data: '',
+        items: [],
+      }),
+    ]);
+    // The Material cell renders '-' (alongside other empty cells). Use
+    // a function matcher so RTL reads textContent.
+    const dashes = screen.getAllByText((_, el) => el?.textContent === '-');
+    expect(dashes.length).toBeGreaterThan(0);
+  });
+});
+
+describe('WorkOrdersTable — ENTREGA date format', () => {
+  it('renders DD/MM/YYYY with zero-padding for ISO date strings', () => {
+    renderTable([makeWO({ delivery_date: '2026-09-01' })]);
+    expect(screen.getByText('01/09/2026')).toBeDefined();
+  });
+
+  it('renders DD/MM/YYYY for ISO date-time strings', () => {
+    renderTable([makeWO({ delivery_date: '2026-09-01T15:30:00Z' })]);
+    expect(screen.getByText('01/09/2026')).toBeDefined();
+  });
+
+  it('renders DD/MM/YYYY for the legacy `estimated_delivery_date` fallback', () => {
+    renderTable([
+      makeWO({ delivery_date: null, estimated_delivery_date: '2026-12-25' }),
+    ]);
+    expect(screen.getByText('25/12/2026')).toBeDefined();
+  });
+
+  it('renders "—" when no delivery date is present', () => {
+    renderTable([
+      makeWO({ delivery_date: null, estimated_delivery_date: null }),
+    ]);
+    // The dash renders inside a <td>; multiple dashes can exist on the
+    // row (Teléfono, Material, etc.). Use a function matcher so RTL
+    // reads textContent (which can span text nodes) instead of `innerText`.
+    const dashes = screen.getAllByText(
+      (_, el) => el?.textContent === '—',
+    );
+    expect(dashes.length).toBeGreaterThan(0);
+    expect(screen.queryByText(/\d{2}\/\d{2}\/\d{4}/)).toBeNull();
+  });
+});
+
+/** Helper: find any element whose textContent (joined across text nodes)
+ *  contains `needle`. The `<CurrencyDisplay>` renders `$ ` and the number
+ *  as separate text nodes inside a `<span>`, so RTL's default
+ *  `getByText('$ 100.000')` would split-match and fail. */
+function findByTextContent(needle: string): HTMLElement[] {
+  return screen.getAllByText((_, el) =>
+    (el as HTMLElement | null)?.textContent?.includes(needle) ?? false,
+  );
+}
+
+describe('WorkOrdersTable — TOTAL / SEÑA / SALDO math invariant', () => {
+  it('TOTAL − SEÑA = SALDO for a standard 100,000 / 30,000 / 70,000 OT', () => {
+    renderTable([makeWO()]);
+    expect(findByTextContent('$ 100.000,00').length).toBeGreaterThan(0);
+    expect(findByTextContent('$ 30.000,00').length).toBeGreaterThan(0);
+    expect(findByTextContent('$ 70.000,00').length).toBeGreaterThan(0);
+  });
+
+  it('TOTAL − SEÑA = SALDO holds when SEÑA = 0 (no deposit)', () => {
+    renderTable([makeWO({ deposit_received: 0 })]);
+    expect(findByTextContent('$ 100.000,00').length).toBeGreaterThan(0);
+    expect(findByTextContent('$ 0,00').length).toBeGreaterThan(0);
+    // SALDO equals TOTAL when no deposit was made.
+    const totalMatches = findByTextContent('$ 100.000,00');
+    expect(totalMatches.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('TOTAL − SEÑA = SALDO holds when SALDO = 0 (fully paid)', () => {
+    renderTable([
+      makeWO({ total: 100000, deposit_received: 100000, balance_due: 0 }),
+    ]);
+    expect(findByTextContent('$ 100.000,00').length).toBeGreaterThanOrEqual(2);
+    expect(findByTextContent('$ 0,00').length).toBeGreaterThan(0);
+  });
+
+  it('TOTAL − SEÑA = SALDO holds for a discounted OT (total reflects the discount)', () => {
+    // OT with 7% commercial discount on a $1,915,831.99 total → TOTAL stays
+    // at the persisted (already-discounted) value, SEÑA is the contractual
+    // 50% = $957,916, SALDO = TOTAL - SEÑA.
+    renderTable([
+      makeWO({
+        total: 1915831.99,
+        deposit_received: 957916,
+        balance_due: 957915.99,
+      }),
+    ]);
+    expect(findByTextContent('$ 1.915.831,99').length).toBeGreaterThan(0);
+    expect(findByTextContent('$ 957.916,00').length).toBeGreaterThan(0);
+    expect(findByTextContent('$ 957.915,99').length).toBeGreaterThan(0);
+  });
+
+  it('TOTAL − SEÑA = SALDO holds for an OT with tarjeta (seña = TOTAL)', () => {
+    renderTable([
+      makeWO({ total: 250000, deposit_received: 250000, balance_due: 0 }),
+    ]);
+    expect(findByTextContent('$ 250.000,00').length).toBeGreaterThanOrEqual(2);
+    expect(findByTextContent('$ 0,00').length).toBeGreaterThan(0);
   });
 });

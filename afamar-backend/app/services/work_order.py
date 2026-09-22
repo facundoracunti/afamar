@@ -278,13 +278,19 @@ def _recalculate_totals_from_items(db: Session, data: dict) -> None:
     total_base_ars = max(0.0, subtotal_ars + transport)
     total_base_usd = max(0.0, subtotal_usd + transport_usd)
 
-    # Discount + surcharge (matches the frontend hook's logic).
+    # Discount + surcharge (matches the frontend hook's logic). The
+    # gate (`discount_enabled`) decides whether the configured %
+    # / fixed amount actually applies — matches the frontend
+    # `useBudgetCalculations` semantics. Without the gate the user
+    # could not turn the discount off without zeroing the percentages.
+    discount_enabled = bool(data.get("discount_enabled"))
+    discount_target = data.get("discount_target") or "materials"
     discount_pct = float(data.get("discount_percentage") or 0)
     discount_fijo = float(data.get("discount_fixed_amount") or 0)
-    if discount_pct > 0:
+    if discount_enabled and discount_pct > 0:
         total_ars = round(total_base_ars * (1 - discount_pct / 100))
         total_usd = round(total_base_usd * (1 - discount_pct / 100) * 100) / 100
-    elif discount_fijo > 0:
+    elif discount_enabled and discount_fijo > 0:
         total_ars = max(0.0, total_base_ars - discount_fijo)
         total_usd = max(0.0, round((total_base_usd - discount_fijo / usd_rate) * 100) / 100)
     else:
@@ -579,6 +585,120 @@ def _recalculate_totals_from_items(db: Session, data: dict) -> None:
         data["deposit_usd"] = deposit_usd
 
 
+_FAB_M2_CONCEPTS = {"LENGTH", "BASEBOARD", "FRONT", "LARGO", "ZOCALOS", "FRENTE"}
+_FAB_LINEAR_CONCEPTS = {"TERMINACION"}
+
+
+def _bake_snapshot_into_pieces(pieces_raw, wo_usd_rate: float) -> str | None:
+    """Bake the budgeted-measurement snapshots INTO each piece so the
+    COMPARATIVA DE MEDICIÓN survives ANY round-trip.
+
+    `create_from_budget` writes `m2_budgeted` / `linear_meters_budgeted` /
+    `total_ars_budgeted` / `total_usd_budgeted` onto the FLAT arrays, but
+    the frontend re-derives those arrays from `pieces_data` on every edit
+    (`flattenPieces` inside `useBudgetPieces.commit` — pieces are the source
+    of truth). Without this baking, the snapshot died at the first
+    measurement change. We splice the same snapshot values (same formulas,
+    same conversion rate) into the piece rows so the frontend's flatten
+    keeps them forever.
+
+    Materials → `m2_budgeted` (length × width × quantity, meters).
+    Fabrication rows → `total_ars/usd_budgeted` + `m2_budgeted` /
+    `linear_meters_budgeted` by concept (mirrors the flat snapshot block).
+    Additional works → `total_ars/usd_budgeted` (+ `linear_meters_budgeted`
+    for frentes), re-serialising each piece's per-piece JSON.
+
+    Returns the re-serialised JSON string (same string when the payload is
+    absent or malformed).
+    """
+    if not pieces_raw:
+        return pieces_raw if isinstance(pieces_raw, str) else None
+    try:
+        pieces = json.loads(pieces_raw) if isinstance(pieces_raw, str) else pieces_raw
+    except (ValueError, TypeError):
+        return pieces_raw
+    if not isinstance(pieces, list):
+        return pieces_raw
+
+    def _m2_snapshot(row: dict) -> dict:
+        length_m = float(row.get("length") or row.get("largo") or 0)
+        width_m = float(row.get("width") or row.get("ancho") or 0)
+        quantity = float(row.get("quantity") or row.get("cantidad") or 1)
+        return {**row, "m2_budgeted": length_m * width_m * quantity}
+
+    def _fab_snapshot(row: dict) -> dict:
+        fd_currency = "USD" if str(row.get("currency") or "").upper() == "USD" else "ARS"
+        fd_total = float((row.get("price") or 0) * (row.get("quantity") or 1))
+        fd_ars = fd_total if fd_currency == "ARS" else (fd_total * wo_usd_rate if wo_usd_rate > 0 else 0)
+        fd_usd = fd_total if fd_currency == "USD" else (fd_total / wo_usd_rate if wo_usd_rate > 0 else 0)
+        fd_length = float(row.get("length") or row.get("largo") or 0)
+        fd_width = float(row.get("width") or row.get("ancho") or 0)
+        fd_qty = float(row.get("quantity") or row.get("cantidad") or 1)
+        fd_concept = str(row.get("concept") or row.get("concepto") or "").strip().upper()
+        snapshot = {"total_ars_budgeted": fd_ars, "total_usd_budgeted": fd_usd}
+        if fd_concept in _FAB_M2_CONCEPTS:
+            snapshot["m2_budgeted"] = fd_length * fd_width * fd_qty
+        elif fd_concept in _FAB_LINEAR_CONCEPTS:
+            snapshot["linear_meters_budgeted"] = fd_length * fd_qty
+        return {**row, **snapshot}
+
+    def _additional_snapshot(row: dict) -> dict:
+        aw_currency = "USD" if str(row.get("currency") or "").upper() == "USD" else "ARS"
+        aw_total = float(
+            row.get("total")
+            or (row.get("price") or row.get("unit_price") or 0)
+            * (row.get("quantity") or 1)
+        )
+        aw_ars = aw_total if aw_currency == "ARS" else (aw_total * wo_usd_rate if wo_usd_rate > 0 else 0)
+        aw_usd = aw_total if aw_currency == "USD" else (aw_total / wo_usd_rate if wo_usd_rate > 0 else 0)
+        snapshot = {"total_ars_budgeted": aw_ars, "total_usd_budgeted": aw_usd}
+        if str(row.get("type") or "").lower() == "frente" and row.get("linear_meters") is not None:
+            snapshot["linear_meters_budgeted"] = float(row.get("linear_meters") or 0)
+        return {**row, **snapshot}
+
+    baked = []
+    for piece in pieces:
+        if not isinstance(piece, dict):
+            baked.append(piece)
+            continue
+        next_piece = {**piece}
+        if isinstance(piece.get("mainMaterial"), dict):
+            next_piece["mainMaterial"] = _m2_snapshot(piece["mainMaterial"])
+        if isinstance(piece.get("mainMaterialRows"), list):
+            next_piece["mainMaterialRows"] = [
+                _m2_snapshot(m) if isinstance(m, dict) else m
+                for m in piece["mainMaterialRows"]
+            ]
+        if isinstance(piece.get("alternativeMaterials"), list):
+            next_piece["alternativeMaterials"] = [
+                _m2_snapshot(m) if isinstance(m, dict) else m
+                for m in piece["alternativeMaterials"]
+            ]
+        if isinstance(piece.get("materials"), list):
+            next_piece["materials"] = [
+                _m2_snapshot(m) if isinstance(m, dict) else m
+                for m in piece["materials"]
+            ]
+        if isinstance(piece.get("fabrication_details"), list):
+            next_piece["fabrication_details"] = [
+                _fab_snapshot(fd) if isinstance(fd, dict) else fd
+                for fd in piece["fabrication_details"]
+            ]
+        piece_add = piece.get("additional_works_data")
+        if piece_add:
+            try:
+                parsed = json.loads(piece_add) if isinstance(piece_add, str) else piece_add
+                if isinstance(parsed, list):
+                    next_piece["additional_works_data"] = json.dumps(
+                        [_additional_snapshot(aw) if isinstance(aw, dict) else aw for aw in parsed],
+                        ensure_ascii=False,
+                    )
+            except (ValueError, TypeError):
+                pass
+        baked.append(next_piece)
+    return json.dumps(baked, ensure_ascii=False)
+
+
 class WorkOrderService:
     def __init__(self, db: Session):
         self.repo = WorkOrderRepository(db)
@@ -798,8 +918,6 @@ class WorkOrderService:
         # (length × width × quantity), linear work (TERMINACION) in ml
         # (length × quantity). The snapshot feeds the "Presupuestado" column
         # of the COMPARATIVA DE MEDICIÓN detail rows.
-        fab_m2_concepts = {"LENGTH", "BASEBOARD", "FRONT", "LARGO", "ZOCALOS", "FRENTE"}
-        fab_linear_concepts = {"TERMINACION"}
         if fabrication_details:
             try:
                 fab_parsed = (
@@ -824,9 +942,9 @@ class WorkOrderService:
                         fd_qty = float(fd.get("quantity") or fd.get("cantidad") or 1)
                         fd_concept = str(fd.get("concept") or fd.get("concepto") or "").strip().upper()
                         fd_snapshot = {"total_ars_budgeted": fd_ars, "total_usd_budgeted": fd_usd}
-                        if fd_concept in fab_m2_concepts:
+                        if fd_concept in _FAB_M2_CONCEPTS:
                             fd_snapshot["m2_budgeted"] = fd_length * fd_width * fd_qty
-                        elif fd_concept in fab_linear_concepts:
+                        elif fd_concept in _FAB_LINEAR_CONCEPTS:
                             fd_snapshot["linear_meters_budgeted"] = fd_length * fd_qty
                         fab_with_snapshot.append({**fd, **fd_snapshot})
                     fabrication_details = json.dumps(fab_with_snapshot, ensure_ascii=False)
@@ -844,7 +962,13 @@ class WorkOrderService:
             "material_price_m2": material_precio_m2,
             "materials_data": materiales_json,
             "additional_works_data": json.dumps(additional_works_list) if additional_works_list else None,
-            "pieces_data": budget.pieces_data,
+            # Bake the budgeted-measurement snapshots INTO the pieces too
+            # (not just the flat arrays above): the frontend is
+            # pieces-first and re-derives the flat arrays from the pieces
+            # on every edit, so without this the COMPARATIVA DE MEDICIÓN's
+            # "Presupuestado" column would die at the first measurement
+            # change (see `_bake_snapshot_into_pieces`).
+            "pieces_data": _bake_snapshot_into_pieces(budget.pieces_data, wo_usd_rate),
             "budgeted_details": json.dumps(sketch_list) if sketch_list else None,
             "sketch_elements": sketch_json,
             "color": budget.color,
@@ -973,6 +1097,8 @@ class WorkOrderService:
                 "usd_rate": order.usd_rate,
                 "transport": order.transport,
                 "transport_usd": order.transport_usd,
+                "discount_enabled": order.discount_enabled,
+                "discount_target": order.discount_target,
                 "discount_percentage": order.discount_percentage,
                 "discount_fixed_amount": order.discount_fixed_amount,
                 "payment_method": order.payment_method,

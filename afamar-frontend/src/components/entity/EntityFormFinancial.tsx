@@ -26,6 +26,9 @@ interface EntityFormFinancialProps {
     /** Slot para acciones primarias (ej: "CONVERTIR A ORDEN"). Renderizado
    *  debajo de Traslado/Seña. */
   actionBlock?: ReactNode;
+  /** Slot que REEMPLAZA la sección de cobros legacy. Cuando se pasa,
+   *  `BudgetPanel` lo renderiza en lugar del `BudgetPaymentSection`. */
+  paymentSection?: ReactNode;
   onConfirmarPago?: () => Promise<void>;
   sectionTitle?: string;
   /** Active payment-method catalogue rows. Sourced from
@@ -52,6 +55,7 @@ export default function EntityFormFinancial({
     num,
     alternativasGrid,
     actionBlock,
+  paymentSection,
   onConfirmarPago,
   sectionTitle = 'PRESUPUESTO',
   paymentMethods,
@@ -83,6 +87,7 @@ export default function EntityFormFinancial({
           alternativasGrid={alternativasGrid}
           sectionTitle={sectionTitle}
           actionBlock={actionBlock}
+          paymentSection={paymentSection}
         onUsdRateRefresh={onUsdRateRefresh}
       />
     </BudgetPanelProvider>

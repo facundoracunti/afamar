@@ -7,8 +7,7 @@
  * file-level query keys (`CLIENTS_KEY`, `MATERIALS_KEY`, `POOLS_KEY`,
  * `SETTINGS_KEY`, `PAYMENT_METHODS_KEY`). Reference data has a
  * 5-minute `staleTime` so opening a second form (e.g. switching from
- * Budgets to WorkOrders) does not refetch the catalogue. The entity
- * being edited (Budget or WorkOrder) is fetched fresh every time the
+ * Budgets to WorkOrders) does not refetch the catalogue. The entity * being edited (Budget or WorkOrder) is fetched fresh every time the
  * id changes (no staleTime) so the form always reflects the latest
  * snapshot.
  */
@@ -158,6 +157,15 @@ export function useFormReferences({
   });
 
   // Bridge the entity query result into the form state and the loading flag.
+  // La API es la ÚNICA fuente de verdad: `mapApiToForm` (a través de
+  // `mapFinancialToForm`) ya lee `discount_enabled`, `discount_target`,
+  // `discount_percentage` y `discount_fixed_amount` directamente del JSON
+  // del GET. Como el backend ahora persiste esas cuatro columnas
+  // (migración Alembic g9h0i1j2k3l4), basta con asignar lo que viene
+  // en la respuesta. Sin OR-chains con localStorage ni estado previo —
+  // cualquier divergencia entre lo que el operador ve en la UI y lo
+  // que devuelve la API debe resolverse guardando (PUT) y dejando que
+  // el próximo refetch traiga el estado canónico.
   useEffect(() => {
     if (id && entityQuery.data) {
       const d = entityQuery.data;

@@ -87,6 +87,40 @@ describe('parseAdditionalWorksData — frente fields', () => {
     expect(parsed[0].formula_values?.multiplier).toBe(1.15);
   });
 
+  it('preserves the COMPARATIVA snapshot keys on a frente row through parse + serialize', () => {
+    // Regression sentinel for the "Presupuestado: —" frente bug: the picker
+    // whitelist used to DROP `linear_meters_budgeted`/`total_*_budgeted`, so
+    // editing any additional work in the form wiped the snapshot and the PDF
+    // comparison lost the frente's presupuestado measure and its monetary delta.
+    const original = [
+      {
+        additional_work_id: 24,
+        name: 'Frente / Regrueso',
+        detail: 'Frente 45°',
+        price: 49.34,
+        currency: 'USD' as const,
+        quantity: 1,
+        total: 144.57,
+        materialName: '__GLOBAL__',
+        type: 'frente' as const,
+        linear_meters: 3.5,
+        linear_meters_budgeted: 3.0,
+        total_ars_budgeted: 249099.3,
+        total_usd_budgeted: 162.81,
+        assigned_material_id: 42,
+        formula_values: null,
+      },
+    ];
+    const parsed = parseAdditionalWorksData(JSON.stringify(original));
+    expect(parsed[0].linear_meters_budgeted).toBe(3.0);
+    expect(parsed[0].total_ars_budgeted).toBe(249099.3);
+    expect(parsed[0].total_usd_budgeted).toBe(162.81);
+    const reparsed = parseAdditionalWorksData(serializeAdditionalWorksData(parsed));
+    expect(reparsed[0].linear_meters_budgeted).toBe(3.0);
+    expect(reparsed[0].total_ars_budgeted).toBe(249099.3);
+    expect(reparsed[0].total_usd_budgeted).toBe(162.81);
+  });
+
   it('tolerates the legacy `constant` key in formula_values (pre-multiplier builds)', () => {
     const rows = parseAdditionalWorksData(
       JSON.stringify([
@@ -370,6 +404,47 @@ describe('useAdditionalWorkSelection — parent-as-source-of-truth contract', ()
     const parsed = parseAdditionalWorksData(json);
     expect(parsed).toHaveLength(1);
     expect(parsed[0].assigned_material_id).toBe(17);
+  });
+
+  it('keeps the COMPARATIVA snapshot keys when the operator edits a frente in the form', () => {
+    const onChange = vi.fn();
+    const seed = JSON.stringify([
+      {
+        additional_work_id: 24,
+        name: 'Frente Ingletetado 45°',
+        detail: 'Frente 45°',
+        price: 52.33,
+        currency: 'USD' as const,
+        quantity: 1,
+        total: 156.98,
+        materialName: 'NEGRO BRASIL',
+        type: 'frente' as const,
+        linear_meters: 3.0,
+        linear_meters_budgeted: 3.0,
+        total_ars_budgeted: 160283.4,
+        total_usd_budgeted: 104.4,
+        assigned_material_id: 5,
+        formula_values: null,
+      },
+    ]);
+    const { result } = renderHook(() =>
+      useAdditionalWorkSelection(seed, onChange),
+    );
+    // The operator edits the REAL ml during MEDICIÓN (3.0 → 3.5).
+    act(() => {
+      result.current.updateField(0, 'linear_meters', 3.5, {
+        catalogueItem: null,
+        materialOptions: [],
+      });
+    });
+    const json = onChange.mock.calls[0][0] as string;
+    const parsed = parseAdditionalWorksData(json);
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].linear_meters).toBe(3.5);
+    // The snapshot must survive so the comparison still shows Presupuestado.
+    expect(parsed[0].linear_meters_budgeted).toBe(3.0);
+    expect(parsed[0].total_ars_budgeted).toBe(160283.4);
+    expect(parsed[0].total_usd_budgeted).toBe(104.4);
   });
 
   it('re-rendering with an updated `value` reflects the new snapshot', () => {

@@ -56,6 +56,11 @@ export interface WorkOrderPayload extends FinancialBase {
 /**
  * Trimmed shape returned by GET /work-orders (list). The backend populates
  * client_name/phone/email/address from the related Client row.
+ *
+ * Multi-piece v3: the list response carries BOTH the legacy flat
+ * `material` column AND `materials_data` (JSON string) so the table
+ * can render the principal name even when the legacy column was
+ * cleared during piece-driven editing.
  */
 export interface WorkOrderListItem {
   id: number;
@@ -71,8 +76,17 @@ export interface WorkOrderListItem {
   client_email: string | null;
   client_address: string | null;
 
-  // Material
+  // Material — multiple sources, table picks the first non-empty:
   material: string | null;
+  /** Parsed JSON array of multi-piece materials (v3 source of truth).
+   *  Each entry is `{ name, length, width, quantity, price_m2, ... }`. */
+  materials_data?: string | null;
+  /** Parsed JSON array of pieces. Each piece carries
+   *  `mainMaterial: { name, ... }` + `alternativeMaterials[]`. */
+  pieces?: unknown[] | null;
+  /** Legacy field (very old list responses). Treat as `material`. */
+  items?: unknown[] | null;
+  estimated_delivery_date?: string | null;
 
   // Money (FinancialBase sub set)
   currency: string;

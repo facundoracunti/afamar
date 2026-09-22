@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Search } from 'lucide-react';
-import { getWorkOrders, getWorkOrder, deleteWorkOrder, updateWorkOrder, mapWorkOrderStatusToApi } from '@/api/resources/workOrders';
+import { getWorkOrders, getWorkOrder, getWorkOrderPayments, deleteWorkOrder, updateWorkOrder, mapWorkOrderStatusToApi, getWorkOrderPublicPdfToken } from '@/api/resources/workOrders';
 import { parseApiError } from '../../utils/error';
-import { buildDocumentShareMessage, buildWhatsAppUrl } from '../../utils/whatsapp';
+import { buildOrderShareMessage, buildWhatsAppUrl, resolvePublicDocumentPdfUrl } from '../../utils/whatsapp';
+import type { CashMovement } from '../../types/cash';
 import { orderStatuses } from '../../utils/formatters';
 import { useSettingsWithTerms } from '../../hooks/useSettingsWithTerms';
 import { usePdfPreviewController } from '../../hooks/usePdfPreviewController';
@@ -25,6 +26,21 @@ import styles from './WorkOrdersListPage.module.css';
 const s = styles as unknown as Record<string, string>;
 
 const WORK_ORDERS_KEY = ['work-orders'] as const;
+
+/** Parses the `materials_data` JSON string of a list row into the compact
+ *  material snapshot the WhatsApp summary consumes. Returns [] when the row
+ *  has no materials_data (legacy/short listing). */
+function parseMaterials(
+  raw: string | null | undefined,
+): Array<{ name?: string; quantity?: number; length?: number; width?: number; is_alternative?: boolean }> {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 export default function WorkOrdersList({ initialStatus }: { initialStatus?: string } = {}) {
   const [searchParams] = useSearchParams();
@@ -111,11 +127,32 @@ export default function WorkOrdersList({ initialStatus }: { initialStatus?: stri
 
   const handleOpenFicha = (o: WorkOrderListItem) => ficha.handleOpenWorkshopSheet(o);
 
-  const handleEnviarWhatsApp = (o: WorkOrderListItem): void => {
-    const mensaje = buildDocumentShareMessage({
+  const handleEnviarWhatsApp = async (o: WorkOrderListItem): Promise<void> => {
+    // Include the active Payway checkout URL (if this order has a payment
+    // link) so the customer can pay straight from the chat.
+    let paywayLink: string | null = null;
+    try {
+      const res = await getWorkOrderPayments(o.id);
+      const payments = (res.data as CashMovement[]) ?? [];
+      const latest = [...payments]
+        .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
+        .find((m) => !!m.payway_checkout_url);
+      paywayLink = latest?.payway_checkout_url ?? null;
+    } catch {
+      // No payments / offline → send the plain message, the link is optional.
+    }
+    const mensaje = buildOrderShareMessage({
       clientName: o.client_name,
-      documentLabel: 'la información de tu Orden de Trabajo AFAMAR',
-      pdfUrl: '', // WorkOrder list doesn't carry the PDF URL — keep raw greeting.
+      documentLabel: 'la Orden de Trabajo',
+      documentNumber: o.number,
+      // Link público firmado (sin login) para que el cliente abra el PDF.
+      pdfUrl: await resolvePublicDocumentPdfUrl('work_order', () => getWorkOrderPublicPdfToken(o.id)),
+      paywayLink,
+      currency: o.currency,
+      total: o.total,
+      depositReceived: o.deposit_received,
+      balanceDue: o.balance_due,
+      materials: parseMaterials(o.materials_data),
     });
     const whatsappUrl = buildWhatsAppUrl(o.client_phone, mensaje);
     window.open(whatsappUrl, '_blank');

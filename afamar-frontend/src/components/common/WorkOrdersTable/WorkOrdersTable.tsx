@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { ChevronLeft, ChevronRight, ClipboardList, Eye, FileDown, Send, Mail, Trash2 } from 'lucide-react';
-import { orderStatuses, formatDate } from '../../../utils/formatters';
+import { orderStatuses, formatDate, formatDateDdMmYyyy } from '../../../utils/formatters';
 import CurrencyDisplay from '../../ui/CurrencyDisplay';
 import { StatusBadge } from '../../ui/StatusBadge';
 import { EmptyState } from '../../ui/EmptyState/EmptyState';
@@ -31,6 +31,59 @@ const btnCls = (variant?: 'success' | 'info' | 'danger'): string => {
   if (variant === 'danger') return `${base} ${s['wo-table__action-btn--danger']}`;
   return base;
 };
+
+/** Robust material-name resolver. Picks the FIRST non-empty name from
+ *  any of the available sources in priority order:
+ *    1. `o.material`             (legacy column)
+ *    2. `o.pieces[*].mainMaterial.name`   (pieces v3 source of truth)
+ *    3. `o.materials_data` (JSON string) — first row with a name
+ *    4. `o.items[*].name`                  (legacy)
+ *  Returns `'-'` when nothing matches. */
+function resolveMaterialName(o: WorkOrderListItem): string {
+  const fromLegacy = o.material?.trim();
+  if (fromLegacy) return fromLegacy;
+  if (Array.isArray(o.pieces) && o.pieces.length > 0) {
+    for (const piece of o.pieces) {
+      if (!piece || typeof piece !== 'object') continue;
+      const p = piece as Record<string, unknown>;
+      const main = p.mainMaterial as Record<string, unknown> | null | undefined;
+      const mainName = (main?.name ?? p.material_name) as string | undefined;
+      if (typeof mainName === 'string' && mainName.trim()) return mainName.trim();
+      const alts = Array.isArray(p.alternativeMaterials) ? p.alternativeMaterials : [];
+      for (const alt of alts) {
+        if (alt && typeof alt === 'object') {
+          const altName = (alt as Record<string, unknown>).name;
+          if (typeof altName === 'string' && altName.trim()) return altName.trim();
+        }
+      }
+    }
+  }
+  const rawMats = o.materials_data;
+  if (typeof rawMats === 'string' && rawMats.trim()) {
+    try {
+      const parsed = JSON.parse(rawMats);
+      if (Array.isArray(parsed)) {
+        for (const m of parsed) {
+          if (m && typeof m === 'object') {
+            const n = (m as Record<string, unknown>).name;
+            if (typeof n === 'string' && n.trim()) return n.trim();
+          }
+        }
+      }
+    } catch {
+      // malformed JSON — ignore
+    }
+  }
+  if (Array.isArray(o.items)) {
+    for (const item of o.items) {
+      if (item && typeof item === 'object') {
+        const n = (item as Record<string, unknown>).name;
+        if (typeof n === 'string' && n.trim()) return n.trim();
+      }
+    }
+  }
+  return '-';
+}
 
 function WorkOrdersTableInner({
   data,
@@ -83,7 +136,7 @@ function WorkOrdersTableInner({
                 <td className={s['wo-table__td']}>{o.client_name || '-'}</td>
                 <td className={s['wo-table__td']}>{o.client_phone || '-'}</td>
                 <td className={s['wo-table__td'] + ' ' + s['wo-table__material']}>
-                  {o.material || '-'}
+                  {resolveMaterialName(o)}
                 </td>
                 <td className={s['wo-table__td'] + ' ' + s['wo-table__total-cell']}>
                   <CurrencyDisplay value={o.total} />
@@ -95,7 +148,7 @@ function WorkOrdersTableInner({
                   <CurrencyDisplay value={o.balance_due} />
                 </td>
                 <td className={s['wo-table__td']}>
-                  {formatDate(o.delivery_date || '') || '-'}
+                  {formatDateDdMmYyyy(o.delivery_date ?? o.estimated_delivery_date)}
                 </td>
                 <td className={s['wo-table__td']}>
                   <StatusBadge status={o.status} />

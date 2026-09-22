@@ -44,3 +44,57 @@
 .cash-movement__table-wrap th.no-print {
   width: 40px;
 }
+
+/* Print-only compact line replaces the big EmptyState web card */
+.cash-movement__empty-print {
+  display: none;
+}
+
+/* Compact spreadsheet-like report: small rows, tight padding, one A4 sheet */
+@media print {
+  .card {
+    border: 1px solid var(--surface-border);
+    border-radius: 2px;
+    overflow: visible;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .header {
+    padding: 4px 6px 0;
+  }
+
+  .title {
+    font-size: 12px;
+  }
+
+  .cash-movement__btn-add {
+    display: none !important;
+  }
+
+  .cash-movement__table-wrap {
+    margin-top: 2px;
+  }
+
+  .cash-movement__table-wrap table {
+    min-width: 0;
+  }
+
+  .cash-movement__table-wrap table th,
+  .cash-movement__table-wrap table td {
+    padding: 3px 5px;
+    font-size: 10px;
+  }
+
+  .cash-movement__empty-screen {
+    display: none !important;
+  }
+
+  .cash-movement__empty-print {
+    display: block;
+    padding: 6px 8px;
+    font-size: 11px;
+    font-style: italic;
+    color: var(--text-muted);
+  }
+}

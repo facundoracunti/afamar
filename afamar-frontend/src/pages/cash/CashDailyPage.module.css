@@ -171,3 +171,131 @@
     min-width: 720px;
   }
 }
+
+/* ============ Print styles (Cierre de Caja → one A4 page) ============ */
+/* Print-only blocks: hidden on screen, enabled inside `@media print`. */
+.cash__print-totals {
+  display: none;
+}
+
+.cash__print-signatures {
+  display: none;
+}
+
+@media print {
+  .cash {
+    display: block;
+    gap: 0;
+  }
+
+  .cash__page-header,
+  .cash__meta {
+    display: none !important;
+  }
+
+  .cash__print-header {
+    margin-bottom: 8px;
+  }
+
+  .cash__print-title {
+    font-size: 16px;
+  }
+
+  .cash__print-date {
+    font-size: 11px;
+    margin: 2px 0 0;
+  }
+
+  .cash__print-hr {
+    margin: 6px 0;
+    border-top-width: 1px;
+  }
+
+  .cash__movements-grid {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  .cash__print-totals {
+    display: block;
+    margin: 10px 0;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .cash__print-footer {
+    margin-top: 8px;
+    font-size: 10px;
+  }
+
+  .cash__print-footer-block {
+    margin-top: 8px;
+    font-size: 10px;
+  }
+
+  .cash__print-signatures {
+    display: grid;
+    margin-top: 24px;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
+
+/* Print-only compact totals block (horizontal planilla row) */
+.cash__print-totals-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+}
+
+.cash__print-totals-cell {
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 6px 8px;
+  text-align: center;
+}
+
+.cash__print-totals-cell--highlight {
+  border-color: var(--color-success);
+  background: var(--color-success-bg, #f0fdf4);
+}
+
+.cash__print-totals-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+}
+
+.cash__print-totals-value {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Print-only signature block */
+.cash__print-signatures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.cash__print-signature-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.cash__print-signature-line {
+  border-top: 1px solid var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.cash__print-signature-label {
+  font-size: 11px;
+  color: var(--text-primary);
+  text-align: center;
+}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import AdditionalMaterial from '../AdditionalMaterial/AdditionalMaterial';
 import type { FabricationDetail, MaterialInForm } from '../../../types/budget';
 import styles from './FabricationSection.module.css';
@@ -38,6 +38,35 @@ export default function FabricationSection({
   showMeasurementComparison,
   materialsData,
 }: FabricationSectionProps) {
+  // Reactivo: la lista de filas de la COMPARATIVA DE MEDICIÓN se deriva
+  // estrictamente del `materialsData` actual (= lista viva de la pieza
+  // en PiecesSection). El `useMemo` se recalcula cuando el operador
+  // agrega, quita o modifica cualquier fila de la pieza (ancla, tramo
+  // del principal o fila de alternativa). El filtro descarta filas
+  // huérfanas (sin nombre) y filas completamente vacías (sin medición
+  // real ni presupuesto), garantizando que NO queden "filas fantasma"
+  // tras eliminar/modificar alternativas.
+  const comparisonRows = useMemo<MaterialInForm[]>(() => {
+    if (!showMeasurementComparison) return [];
+    return (materialsData || [])
+      .filter((m) => m && m.name && m.name.trim() !== '')
+      .map((m) => ({
+        ...m,
+        // Defensive: filtra filas con `length/width` NaN/null. El form
+        // garantiza tipos correctos pero un snapshot legacy podría
+        // traer `null` en vez de `0`, lo que rompe `computeM2Real`.
+        length: Number(m.length) || 0,
+        width: Number(m.width) || 0,
+        quantity: Number(m.quantity) || 1,
+        m2_budgeted: Number(m.m2_budgeted) || 0,
+      }))
+      .filter((m) => {
+        const m2Real = computeM2Real(m);
+        const m2Budgeted = Number(m.m2_budgeted) || 0;
+        return m2Real > 0 || m2Budgeted > 0;
+      });
+  }, [showMeasurementComparison, materialsData]);
+
   return (
     <div className={`card ${s['fabrication-section']}`}>
       <AdditionalMaterial
@@ -51,7 +80,7 @@ export default function FabricationSection({
         num={num}
       />
 
-      {showMeasurementComparison && (materialsData || []).length > 0 && (
+      {comparisonRows.length > 0 && (
         <div className={s['fabrication-section__comparison']}>
           <h4 className={s['fabrication-section__comparison-title']}>
             <span aria-hidden="true">📐</span> COMPARATIVA DE MEDICIÓN
@@ -66,7 +95,7 @@ export default function FabricationSection({
               </tr>
             </thead>
             <tbody>
-              {(materialsData || []).map((m, i) => {
+              {comparisonRows.map((m, i) => {
                 const m2Real = computeM2Real(m);
                 const m2Budgeted = Number(m.m2_budgeted) || 0;
                 // delta = real - budgeted:
@@ -92,7 +121,7 @@ export default function FabricationSection({
                 const deltaStr = hasBudget
                   ? `${delta > 0 ? '+' : ''}${delta.toFixed(5)} m²`
                   : '—';
-                return m2Real > 0 || hasBudget ? (
+                return (
                   <tr key={m.id ?? `${m.name}-${i}`} className={s['fabrication-section__comparison-row']}>
                     <td className={s['fabrication-section__comparison-name']}>{m.name}</td>
                     <td className={`${s['fabrication-section__comparison-cell-center']} ${m2RealClass}`}>
@@ -105,7 +134,7 @@ export default function FabricationSection({
                       {deltaStr}
                     </td>
                   </tr>
-                ) : null;
+                );
               })}
             </tbody>
           </table>
