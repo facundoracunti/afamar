@@ -239,6 +239,7 @@ function PieceCard({
   categories,
   handlers,
   showMeasurementComparison,
+  canRemove,
 }: {
   piece: BudgetPiece;
   index: number;
@@ -249,6 +250,7 @@ function PieceCard({
   categories: MaterialCategory[];
   handlers: PieceHandlers;
   showMeasurementComparison?: boolean;
+  canRemove?: boolean;
 }) {
   const usdRate = Number(form.usd_rate) || 0;
   // Reactivo: la lista de materiales de la pieza (ancla + tramos del
@@ -331,7 +333,8 @@ function PieceCard({
           type="button"
           className={s['piece-card__remove']}
           onClick={() => handlers.removePiece(piece.id)}
-          disabled={readOnly}
+          disabled={readOnly || canRemove === false}
+          title={canRemove === false ? 'Debe quedar al menos una pieza' : undefined}
           aria-label="Eliminar pieza"
         >
           ✕
@@ -490,6 +493,7 @@ export default function PiecesSection({
             categories={categories}
             handlers={handlers}
             showMeasurementComparison={showMeasurementComparison}
+            canRemove={pieces.length > 1}
           />
         ))}
       </div>

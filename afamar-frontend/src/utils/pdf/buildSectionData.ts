@@ -607,6 +607,38 @@ export function revalueGlobalFabricationForMaterial(
 }
 
 /**
+ * Re-value ANY m² fabrication row against a specific alternative's material
+ * — the HOJA DE ALTERNATIVAS rule. Unlike `revalueGlobalFabricationForMaterial`
+ * (which only rewrites unassigned $0 rows), this re-prices EVERY m² concept
+ * (ZÓCALO / FRENTE / BASEBOARD / FRONT) with the alternative's own material
+ * price per m²: `Precio = m² × precio_m2_del_material_de_la_alternativa`.
+ * Without this, a zócalo/frente authored against the PRINCIPAL (with a
+ * frozen price and material) would render inside each alternative carrying
+ * the principal's price while only its `material` label is swapped. Non-m²
+ * rows (linear work, traforos, etc.) pass through unchanged.
+ */
+export function revalueM2FabricationForMaterial(
+  row: PdfDataRow,
+  alt: MaterialInForm,
+  usdRate: number,
+): PdfDataRow {
+  const m2 = row.m2;
+  if (!row.show_m2 || m2 == null || m2 <= 0) return row;
+  const price = Math.round(m2 * priceM2ForMaterial(alt) * 100) / 100;
+  const currency: 'ARS' | 'USD' = alt.currency === 'USD' ? 'USD' : 'ARS';
+  const subtotalArs = currency === 'USD' ? price * usdRate : price;
+  const subtotalUsd = currency === 'USD' ? price : (usdRate > 0 ? price / usdRate : 0);
+  return {
+    ...row,
+    material: alt.name,
+    currency,
+    price_str: fmtMoney(price),
+    subtotal_ars: subtotalArs,
+    subtotal_usd: subtotalUsd,
+  };
+}
+
+/**
  * Revalue a global FRENTE (additional work row of type `frente`) against a
  * specific section's material. A frente left in "GLOBAL - SUMA AL TOTAL" has
  * no material of its own (`assigned_material_id` null → price/total 0); it

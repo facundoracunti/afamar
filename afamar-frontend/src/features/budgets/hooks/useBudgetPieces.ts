@@ -12,6 +12,14 @@ import type { AdditionalWork } from '@/types/additionalWork';
 import { addMaterialToList, repointSwapReferences } from '@/hooks/entityFormHelpers';
 import { recomputeFabricationRow } from '@features/budgets/utils/fabricationDetails';
 import { createEmptyPiece, flattenPieces } from '@features/budgets/utils/pieces';
+import type { AdditionalWorkSelection } from '@/utils/additionalWorkParse';
+import { parseAdditionalWorksData, serializeAdditionalWorksData } from '@/utils/additionalWorkParse';
+import {
+  buildFrenteMaterialOptions,
+  computeFrenteTotal,
+  resolveFrenteMultiplier,
+} from '@/utils/frentePricing';
+import { POOL_MATERIAL_GLOBAL } from '@/types/budget';
 
 interface UseBudgetPiecesParams {
   form: EntityFormState;
@@ -115,6 +123,106 @@ function pieceDims(piece: BudgetPiece): { length: number; width: number; quantit
   return { length: 0, width: 0, quantity: 1 };
 }
 
+/** Fields on a material whose edit changes the $/m² the frente formula
+ *  derives from. Editing any of these must re-price the piece's `frente`
+ *  additional works (see `refreshPieceFrentes`) or the snapshot stays at
+ *  the previous material's price. */
+const FRENTE_PRICE_FIELDS: ReadonlySet<string> = new Set([
+  'price_m2',
+  'price_m2_usd',
+  'currency',
+]);
+
+/**
+ * Dynamic refresh of a piece's `frente` additional works after a material
+ * identity/price change on the SAME piece (principal pick, price/currency
+ * edit, swap to another material). Every frente row that resolves to a
+ * material is re-priced against that material's CURRENT $/m² and currency.
+ *
+ * Resolution: by `assigned_material_id` first (catalogue id), falling back
+ * to the unprefixed `materialName` for legacy rows whose id was not
+ * captured. Rows that resolve to NO material (GLOBAL, or assigned to a
+ * material that no longer exists on the piece) are left untouched — never
+ * zeroed (unlike `recomputeFrenteRow`, which would null the price when the
+ * id is null). Returns the same piece reference when nothing changed so the
+ * downstream `commit` doesn't write a no-op JSON.
+ */
+function refreshPieceFrentes(
+  piece: BudgetPiece,
+  catalogueById: Map<number, AdditionalWork>,
+): BudgetPiece {
+  const rows = parseAdditionalWorksData(piece.additional_works_data);
+  if (rows.length === 0) return piece;
+
+  const pieceMaterials: MaterialInForm[] = [
+    piece.mainMaterial,
+    ...(piece.mainMaterialRows || []),
+    ...(piece.alternativeMaterials || []),
+  ].filter(Boolean) as MaterialInForm[];
+  const materialOptions = buildFrenteMaterialOptions({ materials: pieceMaterials });
+  if (materialOptions.length === 0) return piece;
+
+  const unprefix = (name: string) =>
+    name.startsWith('__ALT__:') ? name.slice('__ALT__:'.length) : name;
+
+  let changed = false;
+  const nextRows = rows.map((row) => {
+    if (row.type !== 'frente') return row;
+    const isGlobal =
+      row.materialName === POOL_MATERIAL_GLOBAL && row.assigned_material_id == null;
+    if (isGlobal) return row;
+    const byId =
+      row.assigned_material_id != null
+        ? materialOptions.find((m) => m.id === row.assigned_material_id)
+        : undefined;
+    const byName =
+      !byId && row.materialName
+        ? materialOptions.find((m) => m.name === unprefix(row.materialName as string))
+        : undefined;
+    const opt = byId ?? byName;
+    // Unresolvable — keep the row verbatim rather than zeroing it.
+    if (!opt) return row;
+
+    const catalogueItem = catalogueById.get(Number(row.additional_work_id));
+    const multiplier = resolveFrenteMultiplier(catalogueItem);
+    const computed = computeFrenteTotal(
+      opt.price_per_m2,
+      multiplier,
+      Number(row.linear_meters || 0),
+    );
+
+    const updated: AdditionalWorkSelection = {
+      ...row,
+      price: computed.price_per_meter,
+      total: computed.total,
+      currency: opt.currency,
+      materialName: opt.is_alternative ? `__ALT__:${opt.name}` : opt.name,
+      assigned_material_id: opt.id,
+      formula_values: {
+        material_price_m2_at_selection: opt.price_per_m2,
+        multiplier,
+        computed_at: new Date().toISOString(),
+      },
+    };
+    // Only adopt the recomputation when something actually moved — avoid
+    // churning `computed_at` (and the JSON) on every unrelated commit.
+    if (
+      updated.price === row.price &&
+      updated.total === row.total &&
+      updated.currency === row.currency &&
+      updated.assigned_material_id === row.assigned_material_id &&
+      updated.materialName === row.materialName
+    ) {
+      return row;
+    }
+    changed = true;
+    return updated;
+  });
+
+  if (!changed) return piece;
+  return { ...piece, additional_works_data: serializeAdditionalWorksData(nextRows) };
+}
+
 /**
  * Composable: CRUD for the multi-piece (`pieces_data`) budget flow.
  *
@@ -161,7 +269,16 @@ export function useBudgetPieces({
   const commit = useCallback(
     (mutate: (pieces: BudgetPiece[]) => BudgetPiece[]) => {
       setForm((prev) => {
-        const next = mutate(prev.pieces || []);
+        let next = mutate(prev.pieces || []);
+        // Pieces v3 invariant: the form ALWAYS carries ≥ 1 piece. If a
+        // mutation would empty the array (e.g. `removePiece` on the last
+        // one), collapse to a single fresh empty piece PERSISTED in state —
+        // a render-time fallback (`pieces = form.pieces || [createEmptyPiece(0)]`)
+        // would regenerate its id on EVERY render, remount the card (its
+        // `key={piece.id}` changes), and refetch the adicionales catalogue
+        // (the "Cargando catálogo..." flicker) while silently dropping
+        // renames typed into the ghost (they mapped over `[]`).
+        if (next.length === 0) next = [createEmptyPiece(0)];
         return { ...prev, pieces: next, ...flattenPieces(next) };
       });
     },
@@ -230,11 +347,16 @@ export function useBudgetPieces({
           const alternativeMaterials = isDim
             ? piece.alternativeMaterials.map((a) => ({ ...a, [field]: value }))
             : piece.alternativeMaterials;
-          return { ...piece, mainMaterial, alternativeMaterials };
+          const base = { ...piece, mainMaterial, alternativeMaterials };
+          // $/m² or currency edit → re-price the piece's frentes against the
+          // new price (see `refreshPieceFrentes`).
+          return FRENTE_PRICE_FIELDS.has(field)
+            ? refreshPieceFrentes(base, catalogueById)
+            : base;
         }),
       );
     },
-    [commit],
+    [commit, catalogueById],
   );
 
   const swapPieceMain = useCallback(
@@ -288,7 +410,7 @@ export function useBudgetPieces({
             mat.name,
             { mat, catalogueById },
           );
-          return {
+          const base: BudgetPiece = {
             ...piece,
             mainMaterial: newMain,
             mainMaterialRows,
@@ -296,6 +418,10 @@ export function useBudgetPieces({
             fabrication_details: refs.fabrication_details,
             additional_works_data: refs.additional_works_data ?? '[]',
           };
+          // Safety net: re-price frentes that are assigned by catalogue id
+          // (their `materialName` may not equal `oldName`, so the
+          // name-based repoint above left them at the old material price).
+          return refreshPieceFrentes(base, catalogueById);
         }),
       );
     },
@@ -404,7 +530,7 @@ export function useBudgetPieces({
       commit((p) =>
         p.map((piece) => {
           if (piece.id !== id || !piece.mainMaterial) return piece;
-          return {
+          const base = {
             ...piece,
             mainMaterial: { ...piece.mainMaterial, [field]: value } as MaterialInForm,
             mainMaterialRows: (piece.mainMaterialRows || []).map((row) => ({
@@ -412,10 +538,13 @@ export function useBudgetPieces({
               [field]: value,
             })),
           };
+          return FRENTE_PRICE_FIELDS.has(field)
+            ? refreshPieceFrentes(base, catalogueById)
+            : base;
         }),
       );
     },
-    [commit],
+    [commit, catalogueById],
   );
 
   // ---------- Alternative materials ----------
@@ -528,11 +657,14 @@ export function useBudgetPieces({
             }
             newAlts.push(alt);
           }
-          return { ...piece, alternativeMaterials: newAlts };
+          const base = { ...piece, alternativeMaterials: newAlts };
+          return FRENTE_PRICE_FIELDS.has(field)
+            ? refreshPieceFrentes(base, catalogueById)
+            : base;
         }),
       );
     },
-    [commit],
+    [commit, catalogueById],
   );
 
   const updatePieceAlternativeGroup = useCallback(
@@ -549,11 +681,14 @@ export function useBudgetPieces({
               ? ({ ...a, [field]: value } as MaterialInForm)
               : a,
           );
-          return { ...piece, alternativeMaterials: newAlts };
+          const base = { ...piece, alternativeMaterials: newAlts };
+          return FRENTE_PRICE_FIELDS.has(field)
+            ? refreshPieceFrentes(base, catalogueById)
+            : base;
         }),
       );
     },
-    [commit],
+    [commit, catalogueById],
   );
 
   const swapPieceAlternative = useCallback(
@@ -600,14 +735,15 @@ export function useBudgetPieces({
               mat.name,
               { mat, catalogueById },
             );
-            return {
+            const base: BudgetPiece = {
               ...piece,
               alternativeMaterials: newAlts,
               fabrication_details: refs.fabrication_details,
               additional_works_data: refs.additional_works_data ?? '[]',
             };
+            return refreshPieceFrentes(base, catalogueById);
           }
-          return { ...piece, alternativeMaterials: newAlts };
+          return refreshPieceFrentes({ ...piece, alternativeMaterials: newAlts }, catalogueById);
         }),
       );
     },
@@ -684,16 +820,19 @@ export function useBudgetPieces({
                 ...remainingAlts,
               ]
             : remainingAlts;
-          return {
-            ...piece,
-            mainMaterial: newMain,
-            mainMaterialRows: newMainRows,
-            alternativeMaterials: newAlts,
-          };
+          return refreshPieceFrentes(
+            {
+              ...piece,
+              mainMaterial: newMain,
+              mainMaterialRows: newMainRows,
+              alternativeMaterials: newAlts,
+            },
+            catalogueById,
+          );
         }),
       );
     },
-    [commit],
+    [commit, catalogueById],
   );
 
   // ---------- Piece fabrication rows ----------

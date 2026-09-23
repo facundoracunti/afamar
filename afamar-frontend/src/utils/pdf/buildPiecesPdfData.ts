@@ -32,7 +32,7 @@ import {
   buildFabricationRows,
   buildMaterialRows,
   buildPoolRows,
-  revalueGlobalFabricationForMaterial,
+  revalueM2FabricationForMaterial,
   revalueGlobalFrenteForMaterial,
 } from './buildSectionData';
 import type {
@@ -66,10 +66,12 @@ export function buildPieces(
   // context), while pieces v3 stores fabrication per-piece. Pieces v3 has
   // no "active piece" concept, so we attach the calculator's items to
   // the FIRST piece (the primary mesada) and dedup by (concept, detail)
-  // against its own fabrication rows — a piece's own fabrication row that
-  // was flattened into the form column by `flattenPieces` is recognised
-  // and skipped to avoid double-billing. Other pieces keep their own
-  // fabrication untouched (no cross-piece leak).
+  // — a fabrication row is only "document-level" when its key is owned by
+  // NO piece. `form.fabrication_details` is the flattened union of every
+  // piece's own rows (via `flattenPieces`), so a row authored in piece N
+  // (e.g. a "ANTEBAÑO Y TOILETTE" zócalo) must NOT leak into piece 0's
+  // PDF block: we first collect the keys of ALL pieces and skip any row
+  // that belongs to one of them.
   const rawDocFab = ((form as { fabrication_details?: FabricationDetail[] | undefined }).fabrication_details) || [];
   const docFabRows: PdfDataRow[] = buildFabricationRows(rawDocFab, usdRate);
   const docFabKey = (r: PdfDataRow) => `${r.concept}__${r.detail ?? ''}`;
@@ -77,6 +79,19 @@ export function buildPieces(
   for (const r of docFabRows) {
     const k = docFabKey(r);
     if (!docFabByKey.has(k)) docFabByKey.set(k, r);
+  }
+  // Every fabrication key owned by ANY piece. These must be excluded from
+  // the primary-piece merge below, otherwise a row flattened from piece N
+  // renders again inside piece 0 (double-billing + wrong piece attribution).
+  const allPieceFabKeys = new Set<string>();
+  for (const p of raw as BudgetPiece[]) {
+    if (!p) continue;
+    for (const fr of buildFabricationRows(
+      Array.isArray(p.fabrication_details) ? p.fabrication_details : [],
+      usdRate,
+    )) {
+      allPieceFabKeys.add(docFabKey(fr));
+    }
   }
 
   const result: PiecesPdfPiece[] = [];
@@ -98,15 +113,16 @@ export function buildPieces(
     // pieces keep their own fabrication (no cross-piece leak). Within the
     // primary piece, dedup by (concept, detail) so a row that was
     // flattened into the form column by `flattenPieces` doesn't render
-    // twice.
+    // twice, and drop any key that belongs to another piece.
     let fabRows: PdfDataRow[] = pieceFabRows;
     if (pieceIndex === 0) {
       const seen = new Set(pieceFabRows.map(docFabKey));
       const merged = pieceFabRows.slice();
-      for (const r of docFabRows) {
-        if (!seen.has(docFabKey(r))) {
+      for (const r of docFabByKey.values()) {
+        const k = docFabKey(r);
+        if (!seen.has(k) && !allPieceFabKeys.has(k)) {
           merged.push(r);
-          seen.add(docFabKey(r));
+          seen.add(k);
         }
       }
       fabRows = merged;
@@ -134,9 +150,13 @@ export function buildPieces(
       // Replace the `material` field on every zócalo/frente row with the
       // alternative material name — the rows were authored against the
       // principal so the label still reads "ABSOLUTE WHITE" otherwise.
-      // The `$0` revalue (price/area) is preserved alongside.
+      // m² concepts (ZÓCALO / FRENTE / BASEBOARD / FRONT) are ALSO re-priced
+      // against the ALTERNATIVE's material $/m² (`m² × $/m²`), so an
+      // alternative never inherits the principal's frozen price (0.405 m²
+      // at the alternative's 350 USD/m² = USD 141,75, not the principal's
+      // 275,40). Non-m² rows keep their stored price.
       const altFabrication: PdfDataRow[] = fabRows.map((f) => {
-        const r = revalueGlobalFabricationForMaterial(f, representative, usdRate);
+        const r = revalueM2FabricationForMaterial(f, representative, usdRate);
         return { ...r, material: representative.name || '' };
       });
       // Same treatment for additional works (traforos, frentes): the

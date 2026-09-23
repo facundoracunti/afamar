@@ -159,9 +159,9 @@ describe('buildPieces', () => {
     expect(pieces[0].alternatives).toHaveLength(1);
     const alt = pieces[0].alternatives[0];
     expect(alt.material_name).toBe('Marmol');
-    // Alt = material B (400 USD → 400.000 ARS) + piece's own zócalo (20.000,
-    // raw — not revalued because subtotal_ars ≠ 0) + traforo (50.000) +
-    // piece's pileta (936.000, inherited raw). = 1.406.000 ARS.
+    // Alt = material B (400 USD → 400.000 ARS) + piece's own zócalo (0.05 m²
+    // revalued at Marmol's 400 USD/m² → 20 USD = 20.000 ARS) + traforo
+    // (50.000) + piece's pileta (936.000, inherited raw). = 1.406.000 ARS.
     expect(alt.subtotal_ars).toBe(1406000);
     expect(alt.subtotal_usd).toBe(1406);
     // Piece 2 has no alternatives.
@@ -175,6 +175,141 @@ describe('buildPieces', () => {
     expect(alt.pools).toHaveLength(1);
     expect(alt.pools[0].brand).toBe('JOHNSON');
     expect(alt.pools[0].model).toBe('SIGNATURE ENKEL');
+  });
+
+  it('revalues m² zócalos/frentes with the ALTERNATIVE material price (not the principal frozen one)', () => {
+    // Regression: the HOJA DE ALTERNATIVAS used to quote a zócalo/frente
+    // authored against the PRINCIPAL at the principal's frozen price — only
+    // its `material` label was swapped. A 0.405 m² zócalo priced at the
+    // principal's USD 680/m² (275,40) MUST re-quote at the alternative's
+    // own $/m²: 0.405 m² × USD 350 = USD 141,75.
+    const reinforced: BudgetPiece = {
+      id: 'p-revalue',
+      name: 'Mesada revalue',
+      mainMaterial: mat({
+        name: 'Miami',
+        currency: 'USD',
+        price_m2_usd: 680,
+        is_alternative: false,
+      }),
+      alternativeMaterials: [
+        mat({
+          name: 'Blanco Suggar',
+          currency: 'USD',
+          price_m2_usd: 350,
+          is_alternative: true,
+        }),
+      ],
+      fabrication_details: [
+        {
+          concept: 'BASEBOARD',
+          detail: '',
+          material: 'Miami',
+          length: 2.7,
+          width: 0.15,
+          m2: 0.405,
+          labor: null,
+          currency: 'USD',
+          quantity: 1,
+          price: 275.4,
+        },
+        {
+          concept: 'FRONT',
+          detail: 'Frente 45°',
+          material: 'Miami',
+          length: 2.7,
+          width: 0.15,
+          m2: 0.405,
+          labor: null,
+          currency: 'USD',
+          quantity: 1,
+          price: 275.4,
+        },
+      ],
+      additional_works_data: '[]',
+      pools: [],
+    };
+    const pieces = buildPieces(makeForm([reinforced]), 1000);
+
+    // The PRINCIPAL section keeps the stored (frozen) values.
+    expect(pieces[0].fabrication_details.map((r) => r.subtotal_usd)).toEqual([275.4, 275.4]);
+    // The ALTERNATIVE re-prices BOTH m² concepts at Blanco Suggar's $/m².
+    const alt = pieces[0].alternatives[0];
+    expect(alt.material_name).toBe('Blanco Suggar');
+    for (const z of alt.fabrication_details) {
+      expect(z.currency).toBe('USD');
+      expect(z.material).toBe('Blanco Suggar');
+      expect(z.price_str).toBe('141,75');
+      expect(z.subtotal_usd).toBeCloseTo(141.75);
+      expect(z.subtotal_ars).toBeCloseTo(141750);
+    }
+    // Subtotals: alternative material (Blanco Suggar 1 m² = 350 USD) +
+    // revalued zócalo + frente (141,75 each).
+    expect(alt.subtotal_usd).toBeCloseTo(633.5);
+    expect(alt.subtotal_ars).toBeCloseTo(633500);
+  });
+
+  it('revalues each alternative independently with its OWN material $/m² (multi-alt)', () => {
+    const multiAlt: BudgetPiece = {
+      id: 'p-multialt',
+      name: 'Mesada multialt',
+      mainMaterial: mat({
+        name: 'Miami',
+        currency: 'USD',
+        price_m2_usd: 680,
+        is_alternative: false,
+      }),
+      alternativeMaterials: [
+        mat({
+          name: 'Blanco Suggar',
+          currency: 'USD',
+          price_m2_usd: 350,
+          is_alternative: true,
+        }),
+        mat({
+          name: 'Negro Absoluto',
+          currency: 'ARS',
+          price_m2: 100000,
+          is_alternative: true,
+        }),
+      ],
+      fabrication_details: [
+        {
+          concept: 'BASEBOARD',
+          detail: '',
+          material: 'Miami',
+          length: 2.7,
+          width: 0.15,
+          m2: 0.405,
+          labor: null,
+          currency: 'USD',
+          quantity: 1,
+          price: 275.4,
+        },
+      ],
+      additional_works_data: '[]',
+      pools: [],
+    };
+    const pieces = buildPieces(makeForm([multiAlt]), 1000);
+    expect(pieces[0].alternatives).toHaveLength(2);
+
+    const altBlanco = pieces[0].alternatives[0];
+    expect(altBlanco.material_name).toBe('Blanco Suggar');
+    expect(altBlanco.fabrication_details[0].currency).toBe('USD');
+    expect(altBlanco.fabrication_details[0].subtotal_usd).toBeCloseTo(141.75);
+    // Material (1 m² × 350 USD) + zócalo revalued (141,75).
+    expect(altBlanco.subtotal_usd).toBeCloseTo(491.75);
+
+    // Blanco does NOT leak into Negro's pricing: 0.405 m² × 100.000 ARS/m².
+    const altNegro = pieces[0].alternatives[1];
+    expect(altNegro.material_name).toBe('Negro Absoluto');
+    expect(altNegro.fabrication_details[0].currency).toBe('ARS');
+    expect(altNegro.fabrication_details[0].price_str).toBe('40.500,00');
+    expect(altNegro.fabrication_details[0].subtotal_ars).toBeCloseTo(40500);
+    expect(altNegro.fabrication_details[0].subtotal_usd).toBeCloseTo(40.5);
+    // Material (1 m² × 100.000 ARS) + zócalo revalued (40.500).
+    expect(altNegro.subtotal_ars).toBeCloseTo(140500);
+    expect(altNegro.subtotal_usd).toBeCloseTo(140.5);
   });
 
   it('collapses several panes of the same alternative material into one option', () => {
@@ -233,6 +368,69 @@ describe('buildPieces', () => {
     // Pools moved into pieces v2 — no document-global pool to add anymore.
     expect(sum.ars).toBe(1306000 + 812000);
     expect(sum.usd).toBe(1306 + 812);
+  });
+
+  it('does NOT leak another piece fabrication row into the primary piece', () => {
+    // Regression: `form.fabrication_details` is the flattened union of every
+    // piece (via `flattenPieces`), and the docFab merge used to dedup only
+    // against the PRIMARY piece's own keys — a zócalo/frente authored in
+    // piece B (e.g. "ANTEBAÑO Y TOILETTE") leaked into piece A's PDF block
+    // and its alternatives, double-billing the customer. The merge must
+    // exclude any (concept, detail) key owned by ANY piece.
+    const pieceAWithBaseboard: BudgetPiece = {
+      ...piece1,
+      fabrication_details: [
+        {
+          concept: 'BASEBOARD',
+          detail: '',
+          material: '',
+          length: 0.5,
+          width: 0.1,
+          m2: 0.05,
+          labor: null,
+          currency: 'ARS',
+          quantity: 1,
+          price: 20000,
+        },
+      ],
+    };
+    const pieceBWithOwnZocalo: BudgetPiece = {
+      ...piece2,
+      fabrication_details: [
+        {
+          concept: 'BASEBOARD',
+          detail: 'ANTEBAÑO Y TOILETTE',
+          material: '',
+          length: 2.7,
+          width: 0.15,
+          m2: 0.405,
+          labor: null,
+          currency: 'ARS',
+          quantity: 1,
+          price: 50000,
+        },
+      ],
+    };
+    const pieces = buildPieces(makeForm([pieceAWithBaseboard, pieceBWithOwnZocalo]), 1000);
+
+    expect(pieces).toHaveLength(2);
+    // Piece A keeps ONLY its own zócalo — piece B's row must NOT appear.
+    const pieceALabels = pieces[0].fabrication_details.map((r) => r.detail);
+    expect(pieceALabels).toContain('');
+    expect(pieceALabels).not.toContain('ANTEBAÑO Y TOILETTE');
+    // Piece B keeps its own row.
+    const pieceBLabels = pieces[1].fabrication_details.map((r) => r.detail);
+    expect(pieceBLabels).toContain('ANTEBAÑO Y TOILETTE');
+    // No double-billing: the piece A subtotal excludes the leaked row.
+    expect(pieces[0].subtotal_ars).toBe(
+      pieces[0].materials.reduce((s, m) => s + m.subtotal_ars, 0) +
+        20000 + // piece A's own zócalo
+        pieces[0].additional_works.reduce((s, a) => s + a.subtotal_ars, 0) +
+        pieces[0].pools.reduce((s, p) => s + p.subtotal_ars, 0),
+    );
+    // ...and the piece A alternative subtotal has no trace of it either.
+    const altA = pieces[0].alternatives[0];
+    expect(altA.fabrication_details.map((r) => r.detail)).not.toContain('ANTEBAÑO Y TOILETTE');
   });
 });
 
