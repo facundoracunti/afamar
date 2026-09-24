@@ -1084,6 +1084,31 @@ def _build_measurement_comparison(
     return rows
 
 
+def _sum_income_paid(db, order_id) -> float:
+    """Sum of the INCOME cash movements booked for a work order — the seña
+    registered at creation (see `WorkOrderService._create_cash_movement_on_
+    deposit`, idempotent via `sena_registered`) plus every payment registered
+    through the payment module (`POST /cash/movements` with `order_id`). This
+    is the authoritative "monto pagado acumulado" the PDF shows in the
+    unified `Seña / Pagos Registrados` row (Paid + Saldo = TOTAL).
+
+    Returns 0 when `db` is None (legacy call sites / pure-data tests) so
+    callers fall back to the deposit equivalent.
+    """
+    if db is None or not order_id:
+        return 0.0
+    from sqlalchemy import func
+
+    from app.models.daily_cash import CashMovement
+
+    total = (
+        db.query(func.coalesce(func.sum(CashMovement.amount), 0.0))
+        .filter(CashMovement.order_id == order_id, CashMovement.type == "INCOME")
+        .scalar()
+    )
+    return round(float(total or 0.0), 2)
+
+
 def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict, terms: dict, db=None) -> dict:
     from app.services.budget_calculator import filter_main_materials, parse_materials_data
 
@@ -1117,12 +1142,21 @@ def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict
         else deposit_usd,
         2,
     )
-    # Seña + Saldo must always add up to TOTAL exactly. The stored
-    # `balance_due` snapshot can diverge from the deposit actually
-    # displayed in the Seña row (round-trips computed under a different
-    # usd_rate leave $1.00-ish drifts), so the saldo is DERIVED from the
-    # same equivalent shown above.
-    saldo = max(0, round(total_ars - deposit_ars_equivalent, 2))
+    # Pagos acumulados (autoritativo): suma de los movimientos INCOME de la
+    # OT (seña bookeada al crear + pagos del módulo de pagos). El PDF muestra
+    # una fila unificada "Seña / Pagos Registrados" con este monto y el saldo
+    # se deriva de él (Paid + Saldo = TOTAL exacto). Fallback al equivalente
+    # de la seña cuando no hay movimientos (OTs legacy sin bookeo / db None).
+    total_paid_ars = _sum_income_paid(db, order_data.get("id"))
+    if total_paid_ars == 0:
+        total_paid_ars = deposit_ars_equivalent
+    total_paid_usd = round(total_paid_ars / usd_rate_for_pdf, 2) if usd_rate_for_pdf > 0 else 0.0
+    # Paid + Saldo must always add up to TOTAL exactly. The stored
+    # `balance_due` snapshot can diverge from the accumulated paid actually
+    # displayed (round-trips computed under a different usd_rate leave
+    # $1.00-ish drifts), so the saldo is DERIVED from the same amount shown
+    # above.
+    saldo = max(0, round(total_ars - total_paid_ars, 2))
 
     important_obs = order_data.get("important_observations") or ""
     status = order_data.get("status", "")
@@ -1201,6 +1235,9 @@ def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict
         "deposit_currency": deposit_currency,
         "deposit_ars_equivalent": deposit_ars_equivalent,
         "deposit_usd_equivalent": deposit_usd_equivalent,
+        "paid_label": "Seña / Pagos Registrados",
+        "total_paid_ars": total_paid_ars,
+        "total_paid_usd": total_paid_usd,
         "balance_due": saldo,
         "total": total_ars,
         "total_usd": total_usd_val,

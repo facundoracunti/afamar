@@ -21,6 +21,12 @@ export interface PdfDataRow {
   readonly quantity: number;
   readonly currency: 'ARS' | 'USD';
   readonly price_str: string;
+  /** Unit price per m² for m² concepts (ZÓCALO / FRENTE / BASEBOARD /
+   *  FRONT). The stored `price` for an m² row is the row's total
+   *  (m² × $/m²), so the renderer shows this unit value in the Precio
+   *  column instead of duplicating the Subtotal (`Subtotal = M² × Precio/m²`).
+   *  `null` for non-m² concepts. */
+  readonly price_per_m2_str: string | null;
   readonly labor_str: string | null;
   readonly subtotal_ars: number;
   readonly subtotal_usd: number;
@@ -279,6 +285,17 @@ export interface PdfDocumentData {
    *  Always expressed in ARS so the totals block can render both
    *  currencies side by side. */
   deposit_ars_equivalent: number;
+  /** Acumulado abonado en ARS (seña + pagos del módulo de pagos). Fuente de
+   *  la fila unificada "Seña / Pagos Registrados" y base del saldo derivado
+   *  (Paid + Saldo = TOTAL). Para budgets coincide con
+   *  `deposit_ars_equivalent`; para work orders refleja los INCOME movements
+   *  del backend (o la seña del form + pagos de la sesión en el preview). */
+  total_paid_ars: number;
+  /** Equivalente USD del acumulado abonado (`total_paid_ars / usd_rate`). */
+  total_paid_usd: number;
+  /** Label de la fila de pago: `"Seña / Pagos Registrados"` para work
+   *  orders, `"Seña"` para budgets. */
+  paid_label: string;
   balance_due: number;
   total: number;
   total_usd: number;
@@ -339,6 +356,12 @@ export interface BuildPdfDataParams {
    *  the live PDF total (mirrors `useBudgetCalculations`). Optional —
    *  the PDF falls back to no surcharge if not provided. */
   paymentMethods?: PaymentMethod[];
+  /** ARS acumulado abonado (seña del form + pagos del módulo de la sesión)
+   *  que WorkOrderFormPage pasa al generar el preview del PDF: la fila
+   *  "Seña / Pagos Registrados" muestra este monto y el saldo se deriva de
+   *  él (Paid + Saldo = TOTAL). Omitido / 0 → usa el equivalente ARS de la
+   *  seña (budgets y previews legacy, comportamiento sin cambio). */
+  totalPaid?: number;
 }
 
 export type { MaterialInForm, PoolInForm };

@@ -381,7 +381,21 @@
     </td>
   </tr>
   {% endif %}
-  {% if deposit_received or deposit_usd %}
+  {# Seña / Pagos Registrados — unified row for WORK ORDERS: the builder
+     (`build_work_order_pdf_data`) sets `paid_label` / `total_paid_ars` /
+     `total_paid_usd` to the accumulated INCOME payments of the order (seña
+     booked at creation + payment-module payments), so the customer sees the
+     whole amount already paid and the saldo derives from it (Paid+Saldo =
+     TOTAL). Budgets don't define these keys and fall through to the classic
+     Seña row below. #}
+  {% if paid_label %}
+  <tr>
+    <td class="lbl">{{ paid_label }}</td>
+    <td class="val">
+      $ {{ "{:,.2f}"|format(total_paid_ars or 0) }}{% if total_paid_usd %} &nbsp; USD {{ "{:,.2f}"|format(total_paid_usd) }}{% endif %}
+    </td>
+  </tr>
+  {% elif deposit_received or deposit_usd %}
   <tr>
     <td class="lbl">Seña</td>
     <td class="val">

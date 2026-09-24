@@ -153,6 +153,24 @@ describe('buildPieces', () => {
     expect(pieces[1].subtotal_usd).toBe(812);
   });
 
+  it('gives the PRINCIPAL m² rows the piece main material name when the row has no material', () => {
+    // Regression: the PDF Material column used to render "—" for a zócalo
+    // authored without a `material` field (e.g. the Porcelain Calculator's
+    // flat `fabrication_details`). A m² concept must inherit the piece's
+    // principal material so the column never shows "—" for a priced row.
+    const pieces = buildPieces(makeForm([piece1, piece2]), 1000);
+    // piece1 has materialA ("Blanco") as main and its BASEBOARD carries material: ''.
+    const zocalo = pieces[0].fabrication_details[0];
+    expect(zocalo.concept).toBe('Zócalo');
+    expect(zocalo.show_m2).toBe(true);
+    expect(zocalo.material).toBe('Blanco');
+    // The Precio column carries the UNIT price per m² (20.000 ARS / 0,05 m²),
+    // not the row total.
+    expect(zocalo.price_per_m2_str).toBe('400.000,00');
+    // Subtotals unchanged: quantity 1 × 20.000.
+    expect(zocalo.subtotal_ars).toBe(20000);
+  });
+
   it('groups each piece alternatives and swaps only that piece material', () => {
     const pieces = buildPieces(makeForm([piece1, piece2]), 1000);
 
@@ -233,6 +251,12 @@ describe('buildPieces', () => {
 
     // The PRINCIPAL section keeps the stored (frozen) values.
     expect(pieces[0].fabrication_details.map((r) => r.subtotal_usd)).toEqual([275.4, 275.4]);
+    // The m² Precio column shows the UNIT price per m² (275,40 / 0,405 m² = 680 USD/m²),
+    // not the row total that would duplicate the Subtotal.
+    expect(pieces[0].fabrication_details.map((r) => r.price_per_m2_str)).toEqual([
+      '680,00',
+      '680,00',
+    ]);
     // The ALTERNATIVE re-prices BOTH m² concepts at Blanco Suggar's $/m².
     const alt = pieces[0].alternatives[0];
     expect(alt.material_name).toBe('Blanco Suggar');
@@ -240,6 +264,7 @@ describe('buildPieces', () => {
       expect(z.currency).toBe('USD');
       expect(z.material).toBe('Blanco Suggar');
       expect(z.price_str).toBe('141,75');
+      expect(z.price_per_m2_str).toBe('350,00');
       expect(z.subtotal_usd).toBeCloseTo(141.75);
       expect(z.subtotal_ars).toBeCloseTo(141750);
     }
@@ -296,6 +321,7 @@ describe('buildPieces', () => {
     const altBlanco = pieces[0].alternatives[0];
     expect(altBlanco.material_name).toBe('Blanco Suggar');
     expect(altBlanco.fabrication_details[0].currency).toBe('USD');
+    expect(altBlanco.fabrication_details[0].price_per_m2_str).toBe('350,00');
     expect(altBlanco.fabrication_details[0].subtotal_usd).toBeCloseTo(141.75);
     // Material (1 m² × 350 USD) + zócalo revalued (141,75).
     expect(altBlanco.subtotal_usd).toBeCloseTo(491.75);
@@ -305,6 +331,7 @@ describe('buildPieces', () => {
     expect(altNegro.material_name).toBe('Negro Absoluto');
     expect(altNegro.fabrication_details[0].currency).toBe('ARS');
     expect(altNegro.fabrication_details[0].price_str).toBe('40.500,00');
+    expect(altNegro.fabrication_details[0].price_per_m2_str).toBe('100.000,00');
     expect(altNegro.fabrication_details[0].subtotal_ars).toBeCloseTo(40500);
     expect(altNegro.fabrication_details[0].subtotal_usd).toBeCloseTo(40.5);
     // Material (1 m² × 100.000 ARS) + zócalo revalued (40.500).

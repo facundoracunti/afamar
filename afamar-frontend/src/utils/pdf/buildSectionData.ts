@@ -79,6 +79,10 @@ export function buildFabricationRows(raw: unknown, usdRate: number): PdfDataRow[
       quantity: Number.isInteger(quantity) ? quantity : quantity,
       currency,
       price_str: fmtMoney(price),
+      price_per_m2_str:
+        isM2 && length > 0 && width > 0
+          ? fmtMoney(Math.round((price / (length * width)) * 100) / 100)
+          : null,
       labor_str: conceptCode === 'OTHER' && labor > 0 ? fmtMoney(labor) : null,
       subtotal_ars: subtotalArs,
       subtotal_usd: subtotalUsd,
@@ -601,6 +605,7 @@ export function revalueGlobalFabricationForMaterial(
     material: alt.name,
     currency,
     price_str: fmtMoney(price),
+    price_per_m2_str: fmtMoney(priceM2ForMaterial(alt)),
     subtotal_ars: subtotalArs,
     subtotal_usd: subtotalUsd,
   };
@@ -633,6 +638,7 @@ export function revalueM2FabricationForMaterial(
     material: alt.name,
     currency,
     price_str: fmtMoney(price),
+    price_per_m2_str: fmtMoney(priceM2ForMaterial(alt)),
     subtotal_ars: subtotalArs,
     subtotal_usd: subtotalUsd,
   };

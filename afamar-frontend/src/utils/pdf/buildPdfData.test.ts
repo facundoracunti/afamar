@@ -1929,3 +1929,98 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
     ]);
   });
 });
+
+describe('buildPdfData — Seña / Pagos Registrados (accumulated paid)', () => {
+  const baseParams = {
+    document_type: 'work_order' as const,
+    company: {
+      company_name: 'AFAMAR',
+      company_tagline: '',
+      company_address: '',
+      company_phone: '',
+      company_email: '',
+      company_logo: '',
+      pdf_footer: '',
+    },
+    globalTerms: { budget_terms: [], delivery_terms: [], warranty_text: [] },
+    sketchImages: [],
+  };
+
+  // Single USD material 330/m², 2 × 1.5 = 3 m², usd_rate 1000 →
+  // subtotal_usd 990 / subtotal_ars 990.000, sin transporte ni recargo.
+  const paidMaterials = [
+    {
+      id: 1,
+      name: 'Negro Brasil',
+      price_m2: 200000,
+      price_m2_usd: 330,
+      currency: 'USD',
+      quantity: 1,
+      m2_used: 0,
+      m2_budgeted: 0,
+      length: 2,
+      width: 1.5,
+      is_alternative: false,
+    },
+  ] satisfies MaterialInForm[];
+
+  it('work_order + totalPaid → unified row and saldo = total − paid', () => {
+    const data = buildPdfData({
+      ...baseParams,
+      // Seña del form 100.000 ARS + pagos del módulo 150.000 ARS.
+      totalPaid: 250000,
+      form: makeForm({
+        materials_data: paidMaterials,
+        deposit_received: 100000,
+        deposit_currency: 'ARS',
+        deposit_usd: 0,
+        usd_rate: 1000,
+        currency: 'USD',
+      }),
+      overrides: {},
+    });
+    expect(data.total).toBe(990000);
+    expect(data.total_paid_ars).toBe(250000);
+    expect(data.total_paid_usd).toBe(250);
+    expect(data.paid_label).toBe('Seña / Pagos Registrados');
+    // Paid + Saldo = TOTAL exacto.
+    expect(data.balance_due).toBe(990000 - 250000);
+  });
+
+  it('work_order without totalPaid falls back to the seña equivalent', () => {
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({
+        materials_data: paidMaterials,
+        deposit_received: 100000,
+        deposit_currency: 'ARS',
+        deposit_usd: 0,
+        usd_rate: 1000,
+        currency: 'USD',
+      }),
+      overrides: {},
+    });
+    expect(data.total_paid_ars).toBe(100000);
+    expect(data.paid_label).toBe('Seña / Pagos Registrados');
+    expect(data.balance_due).toBe(890000);
+  });
+
+  it('budget keeps the classic Seña label and legacy saldo', () => {
+    const data = buildPdfData({
+      ...baseParams,
+      document_type: 'budget',
+      form: makeForm({
+        materials_data: paidMaterials,
+        deposit_received: 100000,
+        deposit_currency: 'ARS',
+        deposit_usd: 0,
+        usd_rate: 1000,
+        currency: 'USD',
+      }),
+      overrides: {},
+    });
+    expect(data.total_paid_ars).toBe(100000);
+    expect(data.paid_label).toBe('Seña');
+    expect(data.balance_due).toBe(890000);
+  });
+});

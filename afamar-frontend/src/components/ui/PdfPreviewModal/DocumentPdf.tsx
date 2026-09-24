@@ -515,7 +515,7 @@ function fabRowCells(d: import('../../../utils/pdf/buildPdfData').PdfDataRow): (
     d.show_length && d.length_str ? d.length_str : null,
     d.show_width && d.width_str ? d.width_str : null,
     d.show_m2 ? d.m2_label : d.show_quantity ? String(d.quantity) : null,
-    `$ ${d.price_str}`,
+    d.show_m2 && d.price_per_m2_str ? `$ ${d.price_per_m2_str}/m²` : `$ ${d.price_str}`,
     d.labor_str ? `$ ${d.labor_str}` : null,
     d.currency,
     d.subtotal_ars > 0 ? `$ ${fmt(d.subtotal_ars)}` : null,
@@ -1025,25 +1025,41 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
             ))}
           </View>
         ) : null}
-        {(data.deposit_received > 0 || data.deposit_usd > 0) ? (
-          <View style={styles.totalsRow}>
-            <Text style={[styles.totalsLbl, styles.totalsLblSeña]}>Seña</Text>
-            <View style={styles.totalsValSeña}>
-              <Text style={styles.totalsValPrimary}>
-                {data.deposit_currency === 'USD'
-                  ? `USD ${fmt(data.deposit_usd)}`
-                  : `$ ${fmt(data.deposit_received)}`}
+        {data.document_type === 'work_order'
+          ? (data.total_paid_ars > 0 || data.total_paid_usd > 0) ? (
+            <View style={styles.totalsRow}>
+              <Text style={[styles.totalsLbl, styles.totalsLblSeña]}>
+                {data.paid_label || 'Seña / Pagos Registrados'}
               </Text>
-              <Text style={styles.totalsValSecondary}>
-                {data.deposit_currency === 'USD'
-                  ? `$ ${fmt(data.deposit_ars_equivalent)}`
-                  : data.usd_rate > 0
-                    ? `USD ${fmt(data.deposit_received / data.usd_rate)}`
-                    : ''}
-              </Text>
+              <View style={styles.totalsValSeña}>
+                <Text style={styles.totalsValPrimary}>
+                  {`$ ${fmt(data.total_paid_ars)}`}
+                </Text>
+                <Text style={styles.totalsValSecondary}>
+                  {data.total_paid_usd > 0 ? `USD ${fmt(data.total_paid_usd)}` : ''}
+                </Text>
+              </View>
             </View>
-          </View>
-        ) : null}
+          ) : null
+          : (data.deposit_received > 0 || data.deposit_usd > 0) ? (
+            <View style={styles.totalsRow}>
+              <Text style={[styles.totalsLbl, styles.totalsLblSeña]}>Seña</Text>
+              <View style={styles.totalsValSeña}>
+                <Text style={styles.totalsValPrimary}>
+                  {data.deposit_currency === 'USD'
+                    ? `USD ${fmt(data.deposit_usd)}`
+                    : `$ ${fmt(data.deposit_received)}`}
+                </Text>
+                <Text style={styles.totalsValSecondary}>
+                  {data.deposit_currency === 'USD'
+                    ? `$ ${fmt(data.deposit_ars_equivalent)}`
+                    : data.usd_rate > 0
+                      ? `USD ${fmt(data.deposit_received / data.usd_rate)}`
+                      : ''}
+                </Text>
+              </View>
+            </View>
+          ) : null}
         {(section?.balance_due ?? data.balance_due) > 0 ? (
           <View style={styles.totalsRow}>
             <Text style={styles.totalsLbl}>Saldo pendiente</Text>

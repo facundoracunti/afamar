@@ -377,6 +377,7 @@ export function buildPdfData({
   globalTerms,
   sketchImages = [],
   paymentMethods = [],
+  totalPaid,
 }: BuildPdfDataParams): PdfDocumentData {
   const str = (k: string): string => (form[k] as string | null | undefined) ?? '';
   const num = (k: string): number => Number(form[k]) || 0;
@@ -447,6 +448,21 @@ export function buildPdfData({
       ? usdRate > 0 ? depositUsd * usdRate : 0
       : deposit;
 
+  // Pagos acumulados (ARS) — fuente de la fila "Seña / Pagos Registrados".
+  // Para work orders WorkOrderFormPage pasa `totalPaid` = seña del form +
+  // pagos del módulo de la sesión, así el preview del PDF actualiza en vivo
+  // al registrar un pago y el saldo se deriva de ahí (Paid + Saldo = TOTAL,
+  // igual que el builder legacy en pdf_html.py). Sin `totalPaid` (budgets /
+  // previews legacy) cae al equivalente ARS de la seña, sin cambio de
+  // comportamiento.
+  const paidArs = totalPaid !== undefined && totalPaid >= 0
+    ? totalPaid
+    : depositArsEquivalent;
+  const paidUsd = usdRate > 0 ? round2(paidArs / usdRate) : 0;
+  const paidLabel = document_type === 'work_order'
+    ? 'Seña / Pagos Registrados'
+    : 'Seña';
+
   const paymentMethodRaw = str('payment_method');
   const paymentMethodIdNum = num('payment_method_id') || null;
   const installmentsNum = num('installments') || 1;
@@ -494,7 +510,7 @@ export function buildPdfData({
     usdRate,
     pm,
     installments: installmentsNum,
-    deposit: depositArsEquivalent,
+    deposit: paidArs,
     discountEnabled,
     discountTarget,
     materialsSubtotalArs: materialsTotals.materialsSubtotalArs,
@@ -530,7 +546,7 @@ export function buildPdfData({
         usdRate,
         pm,
         installments: installmentsNum,
-        deposit: depositArsEquivalent,
+        deposit: paidArs,
         discountEnabled,
         discountTarget,
         materialsSubtotalArs: materialsTotals.materialsSubtotalArs,
@@ -618,6 +634,9 @@ export function buildPdfData({
     deposit_usd: depositUsd,
     deposit_currency: depositCurrency,
     deposit_ars_equivalent: depositArsEquivalent,
+    total_paid_ars: paidArs,
+    total_paid_usd: paidUsd,
+    paid_label: paidLabel,
     balance_due: computedBalanceDue,
     total: computedTotal,
     total_usd: computedTotalUsd,
@@ -668,7 +687,7 @@ export function buildPdfData({
         usdRate,
         pm,
         installments: installmentsNum,
-        deposit: depositArsEquivalent,
+        deposit: paidArs,
         discountEnabled,
         discountTarget,
       });

@@ -80,6 +80,10 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
   const [deliveryTerms, setDeliveryTerms] = useState<string[]>([]);
   const [warrantyTerms, setWarrantyTerms] = useState<string[]>([]);
   const [showComparisonToggle, setShowComparisonToggle] = useState(false);
+  // Pagos registrados en la sesión vía el módulo de pagos (ARS). Se integra
+  // al preview del PDF: fila "Seña / Pagos Registrados" = seña del form +
+  // este acumulado.
+  const [pagoAcumuladoModulo, setPagoAcumuladoModulo] = useState(0);
   const { company, globalTerms } = useSettingsWithTerms();
 
   // Ficha de Taller: documento interno SIN precios para los trabajadores del
@@ -255,6 +259,14 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
   };
 
   const handleSketchImagesReady = (images: string[]) => {
+    // Seña del form en ARS (mismo cálculo que buildPdfData) + pagos del
+    // módulo de la sesión → el preview del PDF muestra el acumulado abonado
+    // en "Seña / Pagos Registrados" y deriva el saldo (Paid + Saldo = TOTAL).
+    const depositEnArs =
+      form.deposit_currency === 'USD' && Number(form.usd_rate) > 0
+        ? (Number(form.deposit_usd) || 0) * Number(form.usd_rate)
+        : (Number(form.deposit_received) || 0);
+    const totalPaidArs = Math.round((depositEnArs + pagoAcumuladoModulo) * 100) / 100;
     const data = buildPdfData({
       form: form as unknown as Record<string, unknown>,
       document_type: 'work_order',
@@ -265,6 +277,7 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
       company,
       globalTerms,
       sketchImages: images,
+      totalPaid: totalPaidArs,
       // Pasar el catálogo para que el PDF pueda aplicar la regla del
       // método (SURCHARGE) y emitir la tabla 3-columnas
       // de cuotas cuando hay tarjeta de crédito.
@@ -439,6 +452,7 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
                       onPreferredMethodChange={(method: PaymentMethod | null) =>
                         update('payment_method', backendMethodFor(method))
                       }
+                      onPaidChange={setPagoAcumuladoModulo}
                     />
                   }
                   alternativasGrid={alternativasGrid}

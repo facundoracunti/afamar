@@ -7,6 +7,11 @@ is pieces-first and re-derives the flat arrays from the pieces on every edit
 (`flattenPieces` in `useBudgetPieces.commit`). Without the bake, the
 comparison's "Presupuestado" column died at the first Medición change.
 
+It also covers the unified "Seña / Pagos Registrados" row: the PDF of a work
+order sums the INCOME `cash_movements` of the order (the backend is the
+source of truth for accumulated paid), derives `saldo = total − paid`, and
+falls back to `deposit_ars_equivalent` when no movements exist.
+
 We cover the real user flow end-to-end against an in-memory SQLite DB:
 
 1. convert an APPROVED budget → the flat arrays AND the pieces both carry
@@ -18,11 +23,13 @@ We cover the real user flow end-to-end against an in-memory SQLite DB:
 3. `_bake_snapshot_into_pieces` is guarded for absent/malformed payloads.
 """
 import json
+from datetime import date
 
 import pytest
 
 from app.models.budget import Budget
 from app.models.client import Client
+from app.models.daily_cash import CashMovement, DailyCash
 from app.services.pdf_helpers import prepare_work_order_payload
 from app.services.pdf_html import build_work_order_pdf_data
 from app.services.work_order import WorkOrderService, _bake_snapshot_into_pieces
@@ -261,3 +268,65 @@ def test_bake_snapshot_into_pieces_is_guarded_for_absent_or_malformed(seeded_bud
         [{"id": "p", "name": "Mesada", "mainMaterial": MAT_1, "pools": []}]
     ), USD_RATE))
     assert baked[0]["mainMaterial"]["m2_budgeted"] == pytest.approx(1.76, abs=1e-6)
+
+
+def test_unified_paid_row_sums_income_movements_and_derives_balance(seeded_budget_db):
+    """Seña / Pagos Registrados: the WO PDF totals the INCOME cash movements
+    of the order (seña + pagos del módulo) and derives saldo = total − paid,
+    so Paid + Saldo = TOTAL. EXPENSE movements and rows of other orders must
+    not count.
+    """
+    db = seeded_budget_db
+    budget = db.query(Budget).first()
+    order = WorkOrderService(db).create_from_budget(budget)
+
+    # Two INCOME payments for THIS order + one EXPENSE (must NOT count) and
+    # one INCOME of another order id (must NOT count either).
+    box = DailyCash(
+        number=1,
+        date=date.today(),
+        is_closed=False,
+        previous_balance=0.0,
+    )
+    db.add(box)
+    db.flush()
+    db.add_all([
+        CashMovement(daily_cash_id=box.id, type="INCOME", amount=500000.0,
+                     order_id=order.id, payment_method="EFECTIVO", description="seña"),
+        CashMovement(daily_cash_id=box.id, type="INCOME", amount=200000.0,
+                     order_id=order.id, payment_method="EFECTIVO", description="pago módulo"),
+        CashMovement(daily_cash_id=box.id, type="EXPENSE", amount=90000.0,
+                     order_id=order.id, payment_method="EFECTIVO", description="no cuenta"),
+        CashMovement(daily_cash_id=box.id, type="INCOME", amount=100000.0,
+                     order_id=order.id + 999, payment_method="EFECTIVO", description="otra OT"),
+    ])
+    db.commit()
+
+    order_data, client_dict, company, terms = prepare_work_order_payload(order, db)
+    pdf = build_work_order_pdf_data(order_data, client_dict, company, terms, db=db)
+
+    assert pdf["paid_label"] == "Seña / Pagos Registrados"
+    assert pdf["total_paid_ars"] == pytest.approx(700000.0, abs=1e-2)
+    assert pdf["total_paid_usd"] == pytest.approx(700.0, abs=1e-2)
+    # Paid + Saldo = TOTAL exacto (saldo siempre derivado, nunca snapshot).
+    assert pdf["balance_due"] == pytest.approx(
+        max(0.0, pdf["total"] - pdf["total_paid_ars"]), abs=1e-2
+    )
+
+
+def test_unified_paid_row_falls_back_to_deposit_when_no_movements(seeded_budget_db):
+    """Without INCOME movements the WO PDF falls back to the deposit
+    equivalent (legacy OTs / builder called without a db session)."""
+    db = seeded_budget_db
+    budget = db.query(Budget).first()
+    order = WorkOrderService(db).create_from_budget(budget)
+
+    order_data, client_dict, company, terms = prepare_work_order_payload(order, db)
+    pdf = build_work_order_pdf_data(order_data, client_dict, company, terms, db=None)
+
+    assert pdf["paid_label"] == "Seña / Pagos Registrados"
+    # La OT fixture nace sin seña y sin movimientos → fallback = equivalente de
+    # la seña = 0 (la fila se renderiza igual; el saldo cubre todo el total).
+    assert pdf["total_paid_ars"] == 0.0
+    assert pdf["total_paid_usd"] == 0.0
+    assert pdf["balance_due"] == pytest.approx(pdf["total"], abs=1e-2)

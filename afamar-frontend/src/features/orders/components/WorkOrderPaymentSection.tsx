@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { PaymentModal } from '../../payments/components/PaymentModal';
 import type { NewPaymentTransaction } from '../../payments/components/PaymentModal';
 import { OrderPaymentSummary } from './OrderPaymentSummary';
@@ -44,6 +44,11 @@ export interface WorkOrderPaymentSectionProps {
   currency: 'ARS' | 'USD';
   /** Persistir la preferencia en el form (no marca la OT como pagada). */
   onPreferredMethodChange: (method: PaymentMethod | null) => void;
+  /** Reporta en vivo el pagado acumulado del módulo (suma de los pagos
+   *  registrados en la sesión, ARS) para que el padre lo integre en el
+   *  preview del PDF (fila "Seña / Pagos Registrados" = seña del form +
+   *  este monto). */
+  onPaidChange?: (paid: number) => void;
   /** Mensajes opcionales que el operador ve tras registrar / fallar. */
   successMessage?: string;
   errorMessage?: string;
@@ -84,6 +89,13 @@ export function WorkOrderPaymentSection(props: WorkOrderPaymentSectionProps) {
     },
     [props],
   );
+
+  // Lift del pagado acumulado del módulo (ARS) al padre para que el preview
+  // del PDF se actualice al registrar cada pago.
+  const { onPaidChange } = props;
+  useEffect(() => {
+    onPaidChange?.(breakdown.monto_pagado_acumulado);
+  }, [breakdown.monto_pagado_acumulado, onPaidChange]);
 
   const isReadOnly = props.orderId === null;
 

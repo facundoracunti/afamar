@@ -133,6 +133,15 @@ export function buildPieces(
     );
     const poolRows: PoolPdfRow[] = buildPoolRows(piecePools, usdRate);
 
+    // Every m² fabrication row authored without a material (typical for
+    // calculator zócalo rows / empty `material` field) inherits the piece's
+    // principal material name so the PDF's Material column never shows "—"
+    // for a m² concept. Alternatives override it with their own name below.
+    const pieceMainName = piece.mainMaterial?.name || '';
+    fabRows = fabRows.map((r) =>
+      r.show_m2 && !r.material && pieceMainName ? { ...r, material: pieceMainName } : r,
+    );
+
     // Group the piece's alternatives by physical material so several panes
     // of the same material collapse into ONE option (same rule as the
     // legacy `buildSections`).
