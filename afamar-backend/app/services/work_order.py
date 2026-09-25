@@ -56,12 +56,27 @@ def _stash_sketch_into_budgeted_details(data: dict) -> None:
     data.setdefault("budgeted_details", encoded)
 
 
+def _deposit_native_amount(order: "WorkOrder") -> float:
+    """Native seña amount in the currency the deposit was registered in.
+
+    The form keeps `deposit_received` (ARS) and `deposit_usd` (USD) as
+    parallel columns and toggles which one carries the native value via
+    `deposit_currency`. For a USD seña `deposit_received` is 0, so booking
+    that as the income would silently skip the movement.
+    """
+    if (order.deposit_currency or "").upper() == "USD":
+        return float(order.deposit_usd or 0)
+    return float(order.deposit_received or 0)
+
+
 def _create_cash_movement_on_deposit(
     db: Session,
     order: "WorkOrder",
     amount: float,
     deposit_currency: str | None,
     payment_method: str | None,
+    *,
+    currency: str | None = None,
 ) -> bool:
     """Book a cash INCOME for a work order exactly once.
 
@@ -72,6 +87,13 @@ def _create_cash_movement_on_deposit(
     `register_key` attribute set on `order`, and the helper sets it to True
     in the same transaction that books the movement.
 
+    Currency handling: when the seña is native USD (`deposit_currency ==
+    "USD"`), `amount` is the USD value and the movement is recorded with
+    `currency='USD'` + `amount_ars` (amount × order.usd_rate) so the box
+    totals stay ARS-consistent. Callers that book an already-ARS value (e.g.
+    the saldo at DELIVERED, which is the ARS `balance_due`) pass
+    `currency='ARS'` explicitly.
+
     Returns True if a movement was booked, False if it was skipped (already
     registered or amount <= 0).
     """
@@ -81,6 +103,15 @@ def _create_cash_movement_on_deposit(
     if getattr(order, flag, False):
         return False
 
+    if currency is None:
+        currency = "USD" if (deposit_currency or "").upper() == "USD" else "ARS"
+    if currency == "USD":
+        usd_rate = float(order.usd_rate or 0)
+        amount_ars = round(float(amount) * usd_rate, 2) if usd_rate > 0 else round(float(amount), 2)
+    else:
+        usd_rate = None
+        amount_ars = round(float(amount), 2)
+
     client_name = ""
     if order.client:
         client_name = order.client.name or ""
@@ -88,6 +119,9 @@ def _create_cash_movement_on_deposit(
     movement_data = {
         "type": "INCOME",
         "amount": amount,
+        "currency": currency,
+        "amount_ars": amount_ars,
+        "usd_rate": usd_rate,
         "description": f"Seña {order.number} - {client_name}",
         "payment_method": payment_method or "EFECTIVO",
         "order_number": order.number,
@@ -759,7 +793,7 @@ class WorkOrderService:
         _create_cash_movement_on_deposit(
             self.repo.db,
             order,
-            order.deposit_received,
+            _deposit_native_amount(order),
             order.deposit_currency,
             order.payment_method,
         )
@@ -1041,7 +1075,7 @@ class WorkOrderService:
         _create_cash_movement_on_deposit(
             self.repo.db,
             order,
-            order.deposit_received,
+            _deposit_native_amount(order),
             order.deposit_currency,
             order.payment_method,
         )
@@ -1168,7 +1202,7 @@ class WorkOrderService:
             _create_cash_movement_on_deposit(
                 self.repo.db,
                 result,
-                result.deposit_received,
+                _deposit_native_amount(result),
                 result.deposit_currency,
                 result.payment_method,
             )
@@ -1190,6 +1224,9 @@ class WorkOrderService:
                 result.balance_due,
                 result.deposit_currency,
                 result.payment_method,
+                # The saldo at DELIVERED is the ARS `balance_due` column —
+                # always booked as ARS regardless of the deposit currency.
+                currency="ARS",
             )
             # After booking the saldo on delivery, no money is left to
             # collect. The helper computes `remaining_balance` from the

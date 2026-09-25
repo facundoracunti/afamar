@@ -5,7 +5,14 @@ import type { CashMovement, CashRegister, CashHistoryItem, CloseCashResult, Cash
 
 export type CashMovePayload = {
   type: 'INCOME' | 'EXPENSE';
+  /** Monto en su moneda NATIVA: USD para pagos "Dólar billete", ARS para el
+   *  resto. `currency`/`amount_ars`/`usd_rate` llevan la conversión. */
   amount: number;
+  currency?: 'ARS' | 'USD';
+  /** Equivalente ARS de un pago en USD (`amount × usd_rate`). El backend
+   *  suma esto (no el `amount` crudo) en los totales de caja. */
+  amount_ars?: number | null;
+  usd_rate?: number | null;
   description?: string;
   payment_method?: string | null;
   folder_status?: string | null;

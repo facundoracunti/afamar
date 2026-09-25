@@ -147,7 +147,7 @@ export default function BudgetForm(props: BudgetFormProps = {}) {
     </button>
   ) : null;
 
-  const { refresh: refreshUsdRate } = useUsdRate({ form, setForm, isEdit });
+  const { refresh: refreshUsdRate } = useUsdRate({ form, setForm, isEdit, source: 'official' });
 
   const handleSubmit = useCallback(async (e?: React.FormEvent) => {
     const ok = await rawHandleSubmit(e);

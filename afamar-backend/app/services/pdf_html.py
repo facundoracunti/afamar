@@ -100,6 +100,16 @@ def _format_date(d):
     return d.strftime("%d/%m/%Y")
 
 
+def _format_date_optional(d):
+    """Formats `d` for display but returns '' instead of "today" when the
+    value is empty — a document without a delivery date must render the
+    field blank (the legacy `_format_date` fallback to today would print a
+    delivery date the customer never agreed to)."""
+    if not d:
+        return ""
+    return _format_date(d)
+
+
 _CONCEPT_DISPLAY = {
     "BASEBOARD": "Zócalo",
     "FRONT": "Frente",
@@ -113,18 +123,14 @@ _CONCEPT_DISPLAY = {
     "OTHER": "Otro",
 }
 
-_STATUS_SUB_MAP = {
-    "PENDING": "Pendiente",
-    "ONLINE": "Online",
-    "APPROVED": "Aprobado",
-    "REJECTED": "Rechazado",
-    "CONVERTED_TO_OT": "Convertido a OT",
-    "MEASUREMENT": "Medición",
-    "WORKSHOP": "En Taller",
-    "FINISHED": "Finalizado",
-    "DELIVERED": "Entregado",
-    "CANCELLED": "Cancelado",
-}
+
+# _STATUS_SUB_MAP (PENDING → "Pendiente", MEASUREMENT → "Medición", etc.)
+# used to feed `doc_sub` in the legacy header. The grey status caption was
+# dropped from the PDF (2026-09-25 mañana): the cash-board / list page
+# already shows the status, so the header was redundant + visually noisy.
+# The dict is intentionally kept as documentation of the historical
+# status → label mapping (used by the WhatsApp message formatter in
+# `app/services/whatsapp.py`); the legacy PDF no longer consumes it.
 
 
 def _concept_to_display(concept_code: str, custom: str = "") -> str:
@@ -151,6 +157,20 @@ def _fmt_num(value, decimals: int = 8) -> str:
 def _fmt_money(value) -> str:
     """Format an ARS/USD amount for the PDF (no currency symbol — the
     template renders `$ ` separately to keep right-aligned numbers tidy)."""
+    try:
+        n = float(value or 0)
+    except (TypeError, ValueError):
+        n = 0.0
+    return f"{n:,.2f}"
+
+
+def _fmt_m2(value) -> str:
+    """Format an area (m²) with EXACTLY 2 decimals for the PDF template.
+
+    Customer-facing M² surfaces must always render `0,42` (never a 3/4-decimal
+    `0.4352` trimmed by `_fmt_num`, and never a bare `0.42`). This mirrors the
+    frontend `fmtNum(v, 2)` used by the `@react-pdf/renderer` preview.
+    """
     try:
         n = float(value or 0)
     except (TypeError, ValueError):
@@ -226,7 +246,7 @@ def _parse_fabrication_details(raw) -> list[dict]:
             "show_quantity": show_quantity,
             "length_str": _fmt_unit(length, suffix="m") if show_length and length else None,
             "width_str": _fmt_unit(width, suffix="m") if show_width and width else None,
-            "m2_label": "U" if is_unit else _fmt_num(m2_value) if is_m2 else None,
+            "m2_label": "U" if is_unit else _fmt_m2(m2_value) if is_m2 else None,
             "quantity": int(quantity) if quantity and float(quantity).is_integer() else quantity,
             "price_str": _fmt_money(price),
         })
@@ -248,7 +268,7 @@ def _build_materials_pdf(main_materials: list, alternatives: list) -> list[dict]
             "length_str": _fmt_unit(length, suffix="m"),
             "width_str": _fmt_unit(width, suffix="m"),
             "quantity": int(quantity) if float(quantity).is_integer() else float(quantity),
-            "m2_str": _fmt_num(m2),
+            "m2_str": _fmt_m2(m2),
             "price_m2_str": _fmt_money(price_m2),
             "subtotal_str": _fmt_money(subtotal),
         })
@@ -722,13 +742,18 @@ def build_budget_pdf_data(budget_data: dict, client_dict: dict, company: dict, t
     saldo = max(0, round(total_ars - deposit_ars_equivalent, 2))
 
     important_obs = budget_data.get("important_observations") or ""
-    status = budget_data.get("status", "")
 
     return {
         # Header
         "title": "PRESUPUESTO",
         "number": budget_data.get("number", ""),
-        "doc_sub": _STATUS_SUB_MAP.get(status, ""),
+        # Status subtitle (e.g. "Pendiente") used to render a grey caption
+        # under the document number. Removed (2026-09-25 mañana) — the
+        # status already lives on the cash-board / list page, and the
+        # PDF header was redundant + visually noisy. The legacy template
+        # wraps the doc-sub div in `{% if doc_sub %}` defensively so the
+        # field is still safe to populate in the future.
+        "doc_sub": "",
         "date": _format_date(budget_data.get("date", "")),
 
         # Client
@@ -741,7 +766,7 @@ def build_budget_pdf_data(budget_data: dict, client_dict: dict, company: dict, t
         "material_color": budget_data.get("color", ""),
         "material_thickness": budget_data.get("thickness", ""),
         "material_finish": budget_data.get("finish", ""),
-        "delivery_date": _format_date(budget_data.get("delivery_date", "")),
+        "delivery_date": _format_date_optional(budget_data.get("delivery_date", "")),
 
         # Fabrication details (English field names)
         "fabrication_details": fabrication_details,
@@ -765,6 +790,9 @@ def build_budget_pdf_data(budget_data: dict, client_dict: dict, company: dict, t
         "balance_due": saldo,
         "total": total_ars,
         "total_usd": total_usd_val,
+        # Dólar del día (2026-09-25 tarde) — surfaced as a render key so the
+        # legacy template can put it in the LEFT column of the totals block.
+        "usd_rate": usd_rate_for_pdf,
         "payment_method": budget_data.get("payment_method", ""),
         "installments": budget_data.get("installments", 1),
 
@@ -805,6 +833,10 @@ def build_budget_pdf_data(budget_data: dict, client_dict: dict, company: dict, t
         # Validity
         "validity_days": budget_data.get("validity_days", 15),
         "estimated_date": _format_date(budget_data.get("estimated_date", "")),
+        # Free-text "válido por X días" line (admin-editable). Budgets only:
+        # the work-order builder deliberately omits this key so the legacy
+        # template never renders the line for OTs.
+        "budget_validity_text": company.get("budget_validity_text", ""),
 
         # Sketch (raw data, converted to PNG by generate_budget_pdf)
         "sketch_elements": budget_data.get("sketch_elements"),
@@ -868,7 +900,12 @@ def _build_measurement_comparison(
     def _measure_str(value, unit, sign=False):
         if value is None or not unit:
             return None
-        body = f"{'+' if sign and value > 0 else ''}{_fmt_num(value)}"
+        # M² must show exactly 2 decimals (customer-facing); ml keeps the
+        # compact measure formatting (`3 ml`, `3.3 ml`). Mirrors the frontend
+        # `detailRow` branch in buildSectionData.ts.
+        body = _fmt_m2(value) if unit == "m²" else _fmt_num(value)
+        if sign and value > 0:
+            body = f"+{body}"
         return f"{body} {unit}"
 
     _FAB_M2_CONCEPTS = {"LENGTH", "BASEBOARD", "FRONT", "LARGO", "ZOCALOS", "FRENTE"}
@@ -937,9 +974,9 @@ def _build_measurement_comparison(
             rows.append({
                 "name": name,
                 "is_detail": False,
-                "m2_budgeted_str": _fmt_num(m2_budgeted) if m2_budgeted else None,
-                "m2_real_str": _fmt_num(m2_real),
-                "delta_str": f"{'+' if delta > 0 else ''}{_fmt_num(delta)}" if m2_budgeted else None,
+                "m2_budgeted_str": _fmt_m2(m2_budgeted) if m2_budgeted else None,
+                "m2_real_str": _fmt_m2(m2_real),
+                "delta_str": f"{'+' if delta > 0 else ''}{_fmt_m2(delta)}" if m2_budgeted else None,
                 "subtotal_ars_str": _signed(subtotal_ars) if m2_budgeted else None,
                 "subtotal_usd_str": _signed(subtotal_usd) if m2_budgeted else None,
                 "subtotal_ars": subtotal_ars,
@@ -1159,7 +1196,6 @@ def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict
     saldo = max(0, round(total_ars - total_paid_ars, 2))
 
     important_obs = order_data.get("important_observations") or ""
-    status = order_data.get("status", "")
 
     # COMPARATIVA DE MEDICIÓN — included whenever the per-order flag is
     # true (toggled in the form; defaults to on). The flag is available for
@@ -1189,7 +1225,9 @@ def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict
         # Header
         "title": "ORDEN DE TRABAJO",
         "number": order_data.get("number", ""),
-        "doc_sub": _STATUS_SUB_MAP.get(status, ""),
+        # Status subtitle dropped (see comment in build_budget_pdf_data,
+        # 2026-09-25 mañana). Kept as an empty string for template symmetry.
+        "doc_sub": "",
         "date": _format_date(order_data.get("date", "")),
 
         # Client
@@ -1202,7 +1240,7 @@ def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict
         "material_color": order_data.get("color", ""),
         "material_thickness": order_data.get("thickness", ""),
         "material_finish": order_data.get("finish", ""),
-        "delivery_date": _format_date(order_data.get("delivery_date", "")),
+        "delivery_date": _format_date_optional(order_data.get("delivery_date", "")),
 
         # Fabrication details (English field names)
         "fabrication_details": fabrication_details,
@@ -1241,6 +1279,8 @@ def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict
         "balance_due": saldo,
         "total": total_ars,
         "total_usd": total_usd_val,
+        # Dólar del día (2026-09-25 tarde) — render key for the LEFT column.
+        "usd_rate": usd_rate_for_pdf,
         "payment_method": order_data.get("payment_method", ""),
         "installments": order_data.get("installments", 1),
 

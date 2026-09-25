@@ -40,9 +40,9 @@ def test_material_row_keeps_measure_columns_and_own_delta():
     assert len(rows) == 1
     row = rows[0]
     assert row["is_detail"] is False
-    assert row["m2_budgeted_str"] == "3"
-    assert row["m2_real_str"] == "6"
-    assert row["delta_str"] == "+3"
+    assert row["m2_budgeted_str"] == "3.00"
+    assert row["m2_real_str"] == "6.00"
+    assert row["delta_str"] == "+3.00"
     assert row["subtotal_usd"] == 990.0  # (6 − 3) × 330 USD/m²
     assert row["subtotal_ars"] == 990000.0
 
@@ -428,3 +428,63 @@ def test_build_work_order_pdf_data_keeps_comparison_for_direct_orders():
     flag_off = {**base_order, "include_measurement_comparison_in_pdf": False}
     data2 = build_work_order_pdf_data(flag_off, {}, {}, {})
     assert data2["measurement_comparison"] == []
+
+
+def test_build_work_order_pdf_data_delivery_date_empty_when_not_set():
+    """A work order without a delivery date must render `delivery_date === ""`
+    so the client-facing PDF hides the "Fecha de Entrega" field — the legacy
+    `_format_date` fell back to "today" and printed a delivery date the
+    customer never agreed to.
+    """
+    from app.services.pdf_html import build_work_order_pdf_data
+
+    order = {
+        "number": "A-NO-ENTREGA-1",
+        "status": "MEASUREMENT",
+        "client_name": "Test",
+        "currency": "ARS",
+        "usd_rate": 1000,
+        "delivery_date": "",
+    }
+    data = build_work_order_pdf_data(order, {}, {}, {})
+    assert data["delivery_date"] == ""
+
+    with_date = {**order, "delivery_date": "2026-09-11"}
+    data2 = build_work_order_pdf_data(with_date, {}, {}, {})
+    assert data2["delivery_date"] == "11/09/2026"
+
+
+def test_build_budget_pdf_data_delivery_date_empty_when_not_set():
+    """Mirror of the work-order regression for budgets: no delivery date set →
+    `delivery_date === ""` (the field disappears from the Cliente block).
+    """
+    from app.services.pdf_html import build_budget_pdf_data
+
+    budget = {
+        "number": "P-NO-ENTREGA-1",
+        "status": "PENDING",
+        "client_name": "Test",
+        "currency": "ARS",
+        "usd_rate": 1000,
+        "delivery_date": None,
+    }
+    data = build_budget_pdf_data(budget, {}, {}, {})
+    assert data["delivery_date"] == ""
+
+
+def test_material_row_m2_strings_always_two_decimals():
+    """Customer-facing M² surfaces must render exactly 2 decimals — even when
+    the snapshot carries more precision (e.g. 0.4356 m² → '0.44', never
+    '0.4356' or '0.4'). The old `_fmt_num` would trim trailing zeros and
+    produce '0.44' but also '0' for exact-zero values; `_fmt_m2` keeps both
+    zeros so the column lines up visually.
+    """
+    rows = _build_measurement_comparison(
+        # Real 0.4356 m², budgeted 0.40 m² — delta 0.0356 m² → "0.04".
+        _materials(m2_budgeted=0.40, length=0.66, width=0.66, quantity=1),
+        usd_rate=1000,
+    )
+    row = rows[0]
+    assert row["m2_real_str"] == "0.44"
+    assert row["m2_budgeted_str"] == "0.40"
+    assert row["delta_str"] == "+0.04"

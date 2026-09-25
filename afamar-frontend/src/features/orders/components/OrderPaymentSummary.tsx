@@ -4,6 +4,7 @@ import { PaywayLinkCard } from '../../payments/components/PaywayLinkCard';
 
 const HISTORY_METHOD_LABELS: Record<PaymentMethod, string> = {
   efectivo: 'Efectivo',
+  efectivo_usd: 'Efectivo (USD)',
   transferencia: 'Transferencia',
   tarjeta: 'Tarjeta',
   payway_link: 'Link de pago',

@@ -67,6 +67,14 @@ const CONFIG_KEYS: ConfigKey[] = [
     help: 'Cada ítem se muestra como un bullet en el PDF generado.',
   },
   { key: 'observaciones_automaticas', label: 'Observaciones automáticas', type: 'textarea' },
+  {
+    key: 'budget_validity_text',
+    label: 'Validez del presupuesto (PDF)',
+    type: 'textarea',
+    rows: 2,
+    placeholder: 'Ej.: Presupuesto válido por 15 días.',
+    help: 'Texto libre que se imprime en la cabecera del PDF del presupuesto. Vacío = no se muestra.',
+  },
 ];
 
 type ConfigValue = string | string[];

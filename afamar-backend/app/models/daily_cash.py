@@ -39,6 +39,13 @@ class CashMovement(Base):
 
     type: Mapped[str] = mapped_column(String(10), nullable=False)
     amount: Mapped[float] = mapped_column(Float, nullable=False)
+    # Native currency of `amount`: 'ARS' (default) or 'USD'. `amount_ars`
+    # carries the ARS equivalent of a USD movement (amount × usd_rate) so
+    # the box totals (income/expenses/balance/real_cash) stay ARS-consistent
+    # even when the operator registers a payment in dólar billete (USD).
+    currency: Mapped[str] = mapped_column(String(10), nullable=False, default="ARS", server_default="ARS")
+    amount_ars: Mapped[float | None] = mapped_column(Float, nullable=True)
+    usd_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
     description: Mapped[str] = mapped_column(String(255), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 

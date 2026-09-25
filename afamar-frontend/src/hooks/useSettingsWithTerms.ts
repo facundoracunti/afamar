@@ -21,6 +21,7 @@ const EMPTY_COMPANY: CompanyInfo = {
   company_email: '',
   company_logo: '/uploads/logo.png',
   pdf_footer: '',
+  budget_validity_text: '',
 };
 
 const EMPTY_TERMS: TermsInfo = {
@@ -37,6 +38,7 @@ interface RawSettings {
   company_email?: string;
   company_logo?: string;
   pdf_footer?: string;
+  budget_validity_text?: string;
   budget_terms?: string[] | string;
   delivery_terms?: string[] | string;
   warranty_text?: string[] | string;
@@ -81,6 +83,7 @@ export function useSettingsWithTerms(): SettingsWithTerms {
     company_email: data?.company_email || EMPTY_COMPANY.company_email,
     company_logo: data?.company_logo || EMPTY_COMPANY.company_logo,
     pdf_footer: data?.pdf_footer || EMPTY_COMPANY.pdf_footer,
+    budget_validity_text: data?.budget_validity_text || EMPTY_COMPANY.budget_validity_text,
   };
 
   const globalTerms: TermsInfo = {

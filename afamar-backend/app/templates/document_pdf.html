@@ -26,6 +26,18 @@
   .doc-sub { font-size: 8pt; color: #64748b; margin-top: 2px; }
   .header-divider { border: none; border-top: 2px solid #c0392b; margin: 0 0 8px 0; }
 
+  /* ===== VALIDITY TEXT ===== */
+  /* Moved from below the header row into the right cell directly under the
+     document number (2026-09-25 mañana). margin-top bumped to 8 so the
+     caption doesn't visually collide with the document number. */
+  .validity-text { font-size: 8.5pt; font-weight: bold; color: #92400e; margin: 8px 0 0 0; }
+
+  /* ===== LOGO ===== */
+  /* Capped at 140px wide (ceiling 150) with height:auto so the AFAMAR mark
+     never stretches beyond ~35% of the left column (2026-09-25 mañana).
+     Mirrors `headerLeftLogo` + `logo` in DocumentPdf.tsx. */
+  .logo-img { width: 140px; max-width: 150px; height: auto; margin-bottom: 6px; display: block; }
+
   /* ===== CLIENT ===== */
   .client-table { width: 100%; margin-bottom: 8px; }
   .client-table td { font-size: 8.5pt; padding: 2px 4px; vertical-align: top; }
@@ -71,9 +83,19 @@
   .totals .val { font-weight: bold; text-align: right; font-variant-numeric: tabular-nums; }
   .totals .grand { font-size: 11pt; background: #1e40af; color: #fff; font-weight: bold; }
   .totals .grand td { padding: 6px 8px; }
+  /* Two-column totals wrapper (2026-09-25 tarde): LEFT = Dólar del día,
+     RIGHT = sequential Subtotal → … → TOTAL → Saldo. The right cell
+     embeds the existing `.totals` table; the layout is a plain 100%-width
+     table with a fixed left percentage so xhtml2pdf renders cleanly. */
+  .totals-layout { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+  .totals-layout td { vertical-align: top; padding: 0; }
+  .totals-layout__left { width: 32%; padding: 4px 8px 4px 0; }
+  .totals-layout__right { width: 68%; }
+  .totals-usd-label { font-size: 8pt; font-weight: bold; color: #475569; margin-bottom: 1px; }
+  .totals-usd-rate { font-size: 13pt; font-weight: bold; color: #1e40af; }
 
   /* ===== TERMS ===== */
-  .terms-box { margin-top: 8px; }
+  .terms-box { margin-top: 8px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 4px 6px; }
   .terms-title { font-size: 9pt; font-weight: bold; color: #1e40af; text-transform: uppercase; margin-bottom: 2px; }
   .terms-list { font-size: 8.5pt; padding-left: 18px; }
   .terms-list li { margin-bottom: 2px; }
@@ -92,7 +114,7 @@
    ========================================================================= #}
 <table class="header-table"><tr>
   <td style="width:60%;">
-    {% if logo_base64 %}<img src="data:image/png;base64,{{ logo_base64 }}" width="180" height="90" style="margin-bottom:8px;">{% endif %}
+    {% if logo_base64 %}<img class="logo-img" src="data:image/png;base64,{{ logo_base64 }}">{% endif %}
     {% if company_tagline %}<div class="header-tagline">{{ company_tagline }}</div>{% endif %}
     {% if company_address %}<div class="header-contact">{{ company_address }}</div>{% endif %}
     {% if company_phone %}<div class="header-contact">Tel: {{ company_phone }}</div>{% endif %}
@@ -101,7 +123,12 @@
   <td style="width:40%; text-align:right; vertical-align:top;">
     <div class="doc-title">{{ title }}</div>
     <div class="doc-number">{{ number }}</div>
-    <div class="doc-sub">{{ doc_sub }}</div>
+    {# Free-text validity line (admin-editable "válido por X días"). Moved
+       here from the bottom of the header row (2026-09-25 mañana) so it
+       doesn't push the logo container down — it now sits discreetly under
+       the document number. Budget-only (the WO builder never emits the
+       key, so this stays blank for OTs). #}
+    {% if budget_validity_text %}<div class="validity-text">{{ budget_validity_text }}</div>{% endif %}
   </td>
 </tr></table>
 
@@ -170,13 +197,13 @@
   <tbody>
     {% for d in fabrication_details %}
     <tr>
-      <td>{{ d.concept or "—" }}</td>
-      <td>{{ d.detail or "—" }}</td>
-      <td>{{ d.material or "—" }}</td>
-      <td class="num">{{ d.length_str or "—" }}</td>
-      <td class="num">{{ d.width_str or "—" }}</td>
-      <td class="num">{{ d.m2_label or "—" }}</td>
-      <td class="num">{{ d.quantity if d.show_quantity else "—" }}</td>
+      <td>{{ d.concept or "" }}</td>
+      <td>{{ d.detail or "" }}</td>
+      <td>{{ d.material or "" }}</td>
+      <td class="num">{{ d.length_str or "" }}</td>
+      <td class="num">{{ d.width_str or "" }}</td>
+      <td class="num">{{ d.m2_label or "" }}</td>
+      <td class="num">{{ d.quantity if d.show_quantity else "" }}</td>
       <td class="num">$ {{ d.price_str or "0.00" }}</td>
     </tr>
     {% endfor %}
@@ -314,108 +341,134 @@
 {% endif %}
 
 {# =========================================================================
-   TOTALS
-   ========================================================================= #}
-<table class="totals">
+   TOTALS — two-column layout (2026-09-25 tarde):
+     LEFT  ~30% → Dólar del día
+     RIGHT ~70% → Subtotal → Traslado → Descuento → Cat. Descuento →
+                   Interés → Tabla de cuotas → TOTAL (barra azul) →
+                   Seña / Pagos Registrados → Saldo pendiente
+   The blue TOTAL row moved from the top (legacy) to the BOTTOM of the
+   right-column stack, preserving the strict hierarchy
+   SUBTOTAL → DESCUENTO → TOTAL → SALDO. #}
+<table class="totals-layout">
   <tr>
-    <td class="lbl" style="width: 70%;">Subtotal</td>
-    <td class="val">$ {{ "{:,.2f}"|format(subtotal or 0) }}</td>
-  </tr>
-  {% if transport %}
-  <tr>
-    <td class="lbl">Traslado</td>
-    <td class="val">$ {{ "{:,.2f}"|format(transport or 0) }}</td>
-  </tr>
-  {% endif %}
-  {# Manual (operator-typed) discount. Only rendered when it has a real
-     ARS amount — a `discount_percentage` without a computed
-     `discount_fixed_amount` used to leak a "-$0.00" clutter row. #}
-  {% if (discount_fixed_amount or 0) > 0 %}
-  <tr>
-    <td class="lbl">Descuento{% if (discount_percentage or 0) > 0 %} ({{ "{:g}".format(discount_percentage) }}%){% endif %}</td>
-    <td class="val">-$ {{ "{:,.2f}"|format(discount_fixed_amount) }}</td>
-  </tr>
-  {% endif %}
-  {# Catalogue-driven discount (from the `payment_methods` table).
-     Renders BEFORE any surcharge so the customer sees the breakdown
-     in the same order the form does. #}
-  {% if (catalogue_discount_amount or 0) > 0 %}
-  <tr>
-    <td class="lbl">Descuento ({{ "{:g}".format(catalogue_discount_percentage) }}%) {{ catalogue_method_label or '' }}</td>
-    <td class="val">-$ {{ "{:,.2f}"|format(catalogue_discount_amount) }}</td>
-  </tr>
-  {% endif %}
-  {# Catalogue-driven surcharge (matches the form's `applies_to_installments`
-     rule on Tarjeta de crédito: `value`% × N cuotas). Labeled "Interés" —
-     same wording as the frontend preview (Fase 7, DocumentPdf.tsx): the
-     exact per-cuota % lives in the breakdown table + Forma de pago line. #}
-  {% if (catalogue_surcharge_amount or 0) > 0 %}
-  <tr>
-    <td class="lbl">Interés</td>
-    <td class="val">$ {{ "{:,.2f}"|format(catalogue_surcharge_amount) }}</td>
-  </tr>
-  {% endif %}
-  {# Per-cuota breakdown for credit-card surcharges. Shows the customer
-     exactly how the recargo is divided across the N cuotas. #}
-  {% if catalogue_installment_detail and catalogue_installment_detail|length > 1 %}
-  <tr>
-    <td colspan="2" style="padding: 6px 0 2px 0;">
-      <table style="width: 100%; font-size: 8pt; border-collapse: collapse;">
-        <thead>
-          <tr style="background: #f1f5f9;">
-            <th style="text-align: left; padding: 4px 6px; border-bottom: 1px solid #cbd5e1; width: 25%;">Cuota #</th>
-            <th style="text-align: right; padding: 4px 6px; border-bottom: 1px solid #cbd5e1; width: 35%;">Interés</th>
-            <th style="text-align: right; padding: 4px 6px; border-bottom: 1px solid #cbd5e1; width: 40%;">Monto</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in catalogue_installment_detail %}
-          <tr>
-            <td style="padding: 3px 6px; border-bottom: 1px solid #e2e8f0;">{{ row.cuota }}</td>
-            <td style="padding: 3px 6px; text-align: right; border-bottom: 1px solid #e2e8f0;">{{ "{:g}".format(row.interes) }}%</td>
-            <td style="padding: 3px 6px; text-align: right; border-bottom: 1px solid #e2e8f0;">$ {{ "{:,.2f}"|format(row.monto) }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </td>
-  </tr>
-  {% endif %}
-  {# Seña / Pagos Registrados — unified row for WORK ORDERS: the builder
-     (`build_work_order_pdf_data`) sets `paid_label` / `total_paid_ars` /
-     `total_paid_usd` to the accumulated INCOME payments of the order (seña
-     booked at creation + payment-module payments), so the customer sees the
-     whole amount already paid and the saldo derives from it (Paid+Saldo =
-     TOTAL). Budgets don't define these keys and fall through to the classic
-     Seña row below. #}
-  {% if paid_label %}
-  <tr>
-    <td class="lbl">{{ paid_label }}</td>
-    <td class="val">
-      $ {{ "{:,.2f}"|format(total_paid_ars or 0) }}{% if total_paid_usd %} &nbsp; USD {{ "{:,.2f}"|format(total_paid_usd) }}{% endif %}
-    </td>
-  </tr>
-  {% elif deposit_received or deposit_usd %}
-  <tr>
-    <td class="lbl">Seña</td>
-    <td class="val">
-      {% if (deposit_currency or 'ARS')|upper == 'USD' %}
-        USD {{ "{:,.2f}"|format(deposit_usd or 0) }} &nbsp; $ {{ "{:,.2f}"|format(deposit_ars_equivalent or 0) }}
+    <td class="totals-layout__left">
+      <div class="totals-usd-label">Dólar del día</div>
+      {% if usd_rate %}
+      <div class="totals-usd-rate">$ {{ "{:,.2f}"|format(usd_rate) }}</div>
       {% else %}
-        $ {{ "{:,.2f}"|format(deposit_received or 0) }}{% if deposit_usd_equivalent %} &nbsp; USD {{ "{:,.2f}"|format(deposit_usd_equivalent) }}{% endif %}
+      <div class="totals-usd-rate">—</div>
       {% endif %}
     </td>
-  </tr>
-  {% endif %}
-  {% if balance_due %}
-  <tr>
-    <td class="lbl">Saldo pendiente</td>
-    <td class="val">$ {{ "{:,.2f}"|format(balance_due or 0) }}</td>
-  </tr>
-  {% endif %}
-  <tr class="grand">
-    <td>TOTAL</td>
-    <td>$ {{ "{:,.2f}"|format(total or 0) }}{% if total_usd %} <span style="font-size:8pt;opacity:0.8;">(USD ${{ "{:,.2f}"|format(total_usd or 0) }})</span>{% endif %}</td>
+    <td class="totals-layout__right">
+      <table class="totals" style="margin-bottom: 0;">
+        <tr>
+          <td class="lbl" style="width: 70%;">Subtotal</td>
+          <td class="val">$ {{ "{:,.2f}"|format(subtotal or 0) }}</td>
+        </tr>
+        {% if transport %}
+        <tr>
+          <td class="lbl">Traslado</td>
+          <td class="val">$ {{ "{:,.2f}"|format(transport or 0) }}</td>
+        </tr>
+        {% endif %}
+        {# Manual (operator-typed) discount. Only rendered when it has a real
+           ARS amount — a `discount_percentage` without a computed
+           `discount_fixed_amount` used to leak a "-$0.00" clutter row. #}
+        {% if (discount_fixed_amount or 0) > 0 %}
+        <tr>
+          <td class="lbl">Descuento{% if (discount_percentage or 0) > 0 %} ({{ "{:g}".format(discount_percentage) }}%){% endif %}</td>
+          <td class="val">-$ {{ "{:,.2f}"|format(discount_fixed_amount) }}</td>
+        </tr>
+        {% endif %}
+        {# Catalogue-driven discount (from the `payment_methods` table).
+           Renders BEFORE any surcharge so the customer sees the breakdown
+           in the same order the form does. #}
+        {% if (catalogue_discount_amount or 0) > 0 %}
+        <tr>
+          <td class="lbl">Descuento ({{ "{:g}".format(catalogue_discount_percentage) }}%) {{ catalogue_method_label or '' }}</td>
+          <td class="val">-$ {{ "{:,.2f}"|format(catalogue_discount_amount) }}</td>
+        </tr>
+        {% endif %}
+        {# Catalogue-driven surcharge (matches the form's `applies_to_installments`
+           rule on Tarjeta de crédito: `value`% × N cuotas). Labeled "Interés" —
+           same wording as the frontend preview (Fase 7, DocumentPdf.tsx): the
+           exact per-cuota % lives in the breakdown table + Forma de pago line. #}
+        {% if (catalogue_surcharge_amount or 0) > 0 %}
+        <tr>
+          <td class="lbl">Interés</td>
+          <td class="val">$ {{ "{:,.2f}"|format(catalogue_surcharge_amount) }}</td>
+        </tr>
+        {% endif %}
+        {# Per-cuota breakdown for credit-card surcharges. Shows the customer
+           exactly how the recargo is divided across the N cuotas. #}
+        {% if catalogue_installment_detail and catalogue_installment_detail|length > 1 %}
+        <tr>
+          <td colspan="2" style="padding: 6px 0 2px 0;">
+            <table style="width: 100%; font-size: 8pt; border-collapse: collapse;">
+              <thead>
+                <tr style="background: #f1f5f9;">
+                  <th style="text-align: left; padding: 4px 6px; border-bottom: 1px solid #cbd5e1; width: 25%;">Cuota #</th>
+                  <th style="text-align: right; padding: 4px 6px; border-bottom: 1px solid #cbd5e1; width: 35%;">Interés</th>
+                  <th style="text-align: right; padding: 4px 6px; border-bottom: 1px solid #cbd5e1; width: 40%;">Monto</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in catalogue_installment_detail %}
+                <tr>
+                  <td style="padding: 3px 6px; border-bottom: 1px solid #e2e8f0;">{{ row.cuota }}</td>
+                  <td style="padding: 3px 6px; text-align: right; border-bottom: 1px solid #e2e8f0;">{{ "{:g}".format(row.interes) }}%</td>
+                  <td style="padding: 3px 6px; text-align: right; border-bottom: 1px solid #e2e8f0;">$ {{ "{:,.2f}"|format(row.monto) }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </td>
+        </tr>
+        {% endif %}
+        {# TOTAL blue bar — sits in the right column AFTER descuento/interés
+           and BEFORE seña/saldo (2026-09-25 tarde). #}
+        <tr class="grand">
+          <td>TOTAL</td>
+          <td>$ {{ "{:,.2f}"|format(total or 0) }}{% if total_usd %} <span style="font-size:8pt;opacity:0.8;">(USD ${{ "{:,.2f}"|format(total_usd or 0) }})</span>{% endif %}</td>
+        </tr>
+        {# Seña / Pagos Registrados — unified row for WORK ORDERS: the builder
+           (`build_work_order_pdf_data`) sets `paid_label` / `total_paid_ars` /
+           `total_paid_usd` to the accumulated INCOME payments of the order (seña
+           booked at creation + payment-module payments), so the customer sees the
+           whole amount already paid and the saldo derives from it (Paid+Saldo =
+           TOTAL). Budgets don't define these keys and fall through to the classic
+           Seña row below. #}
+        {% if paid_label %}
+        <tr>
+          <td class="lbl">{{ paid_label }}</td>
+          <td class="val">
+            $ {{ "{:,.2f}"|format(total_paid_ars or 0) }}{% if total_paid_usd %} &nbsp; USD {{ "{:,.2f}"|format(total_paid_usd) }}{% endif %}
+          </td>
+        </tr>
+        {% elif deposit_received or deposit_usd %}
+        <tr>
+          <td class="lbl">Seña</td>
+          <td class="val">
+            {% if (deposit_currency or 'ARS')|upper == 'USD' %}
+              USD {{ "{:,.2f}"|format(deposit_usd or 0) }} &nbsp; $ {{ "{:,.2f}"|format(deposit_ars_equivalent or 0) }}
+            {% else %}
+              $ {{ "{:,.2f}"|format(deposit_received or 0) }}{% if deposit_usd_equivalent %} &nbsp; USD {{ "{:,.2f}"|format(deposit_usd_equivalent) }}{% endif %}
+            {% endif %}
+          </td>
+        </tr>
+        {% endif %}
+        {# Saldo pendiente — only meaningful when there are REGISTERED payments:
+           a work order (always has `paid_label`) or a budget/order that recorded a
+           deposit. Without payments, "Saldo pendiente" would just repeat the TOTAL
+           (a budget without seña shows no saldo row). #}
+        {% if balance_due and (paid_label or deposit_received or deposit_usd) %}
+        <tr>
+          <td class="lbl">Saldo pendiente</td>
+          <td class="val">$ {{ "{:,.2f}"|format(balance_due or 0) }}</td>
+        </tr>
+        {% endif %}
+      </table>
+    </td>
   </tr>
 </table>
 

@@ -7,6 +7,12 @@ export interface CashMovement {
   id: number;
   type: 'INCOME' | 'EXPENSE';
   amount: number;
+  /** Moneda nativa del `amount`: 'ARS' por defecto, 'USD' para pagos
+   *  "Dólar billete". Los totales de caja siempre suman el equivalente ARS
+   *  (`amount_ars`), nunca el `amount` crudo cuando es USD. */
+  currency?: 'ARS' | 'USD';
+  amount_ars?: number | null;
+  usd_rate?: number | null;
   description?: string | null;
   payment_method?: string | null;
   folder_status?: string | null;

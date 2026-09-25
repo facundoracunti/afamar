@@ -91,17 +91,32 @@ const styles = StyleSheet.create({
     left: 12 * 2.83,
     right: 12 * 2.83,
   },
-  headerRow: { flexDirection: 'row', marginBottom: 4 },
-  headerLeft: { width: '65%', flexDirection: 'row', alignItems: 'flex-start' },
-  headerLeftLogo: { width: '28%' },
-  headerLeftInfo: { width: '72%' },
+  headerRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4 },
+  // Stack the logo ABOVE the identity text (tagline / address / phone /
+  // email). The old side-by-side layout pushed "MÁRMOLES & GRANITOS" to the
+  // right of the logo; the header now reads top-down: LOGO → TAGLINE →
+  // contact lines (2026-09-25 mañana).
+  headerLeft: { width: '65%', flexDirection: 'column', alignItems: 'flex-start' },
+  // Logo container — capped at 140px (ceiling 150) so the AFAMAR mark
+  // never stretches past ~35% of the column even on a wide logo (2026-09-25
+  // mañana). The previous `width: '100%'` made it consume every pixel the
+  // column had, so the tagline underneath looked crammed.
+  headerLeftLogo: { width: 140, maxWidth: 150, alignItems: 'flex-start' },
+  headerLeftInfo: { width: '100%', marginTop: 6 },
   headerRight: { width: '35%', textAlign: 'right' },
-  logo: { width: '100%', maxHeight: 142, marginBottom: 0, objectFit: 'contain' },
+  // Logo image itself: width 140 (matches the container), height auto
+  // preserves the source aspect ratio. `objectFit` is dropped because
+  // the image now has natural dimensions.
+  logo: { width: 140, height: 'auto', maxHeight: 70, marginBottom: 0 },
   tagline: { fontSize: 10, fontWeight: 'bold', color: SLATE_700, lineHeight: 1.2, marginBottom: 2 },
   contactLine: { fontSize: 8, color: SLATE_700, lineHeight: 1.4 },
   docTitle: { fontSize: 13, fontWeight: 'bold', color: HEADER_RED, lineHeight: 1.2, marginTop: 4 },
   docNumber: { fontSize: 18, fontWeight: 'bold', color: HEADER_RED, fontFamily: 'Courier', marginTop: 2 },
   docSub: { fontSize: 8, color: SLATE_500, marginTop: 2 },
+  // Validity line ("Presupuesto válido por X días") — marginTop bumped to
+  // 8 so the line breathes below the document number (the previous 2 made
+  // "P-XXXXXX" and the validity text visually collide).
+  validityText: { fontSize: 8.5, fontWeight: 'bold', color: '#92400e', marginTop: 8, textAlign: 'right' },
   divider: { borderTop: `1px solid ${HEADER_RED}`, marginBottom: 4 },
   dividerLight: { borderTop: `1px solid ${SLATE_200}`, marginVertical: 2 },
   // ===== INFO-GRID =====
@@ -169,6 +184,24 @@ const styles = StyleSheet.create({
   dash: { color: SLATE_500 },
   // ===== TOTALS =====
   totals: { marginTop: 2 },
+  // Two-column totals layout (2026-09-25 tarde):
+  //   LEFT  (~30%) — Dólar del día (date/time/rate)
+  //   RIGHT (~70%) — Subtotal → Traslado → Descuento → Interés → TOTAL
+  //                  (blue) → Seña/Pagos Registrados → Saldo pendiente
+  // The right column hosts the existing vertical `totalsRow` stack; the
+  // layout here only sets the side-by-side arrangement and widths so the
+  // visual flow matches the requirement (no orphan "Dólar" line below the
+  // totals anymore).
+  totalsLayout: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 2,
+  },
+  totalsLayoutLeft: { width: '32%', paddingRight: 6, paddingTop: 4 },
+  totalsLayoutRight: { width: '68%' },
+  totalsUsdLabel: { fontSize: 8, fontWeight: 'bold', color: SLATE_700, marginBottom: 1 },
+  totalsUsdDate: { fontSize: 7, color: SLATE_500, marginBottom: 2 },
+  totalsUsdRate: { fontSize: 11, fontWeight: 'bold', color: BLUE_700 },
   totalsRow: { flexDirection: 'row', paddingVertical: 2 },
   totalsLbl: { width: '70%', textAlign: 'right', color: SLATE_700 },
   totalsVal: { width: '30%', textAlign: 'right', fontWeight: 'bold' },
@@ -223,7 +256,7 @@ const styles = StyleSheet.create({
   // both sit side by side, then Garantía appears full-width below.
   termsRow: { flexDirection: 'row', alignItems: 'flex-start' },
   termsRowCol: { flex: 1, marginRight: 8 },
-  termsBox: { marginTop: 6 },
+  termsBox: { marginTop: 6, backgroundColor: SLATE_50, border: `1px solid ${SLATE_200}`, borderRadius: 4, paddingVertical: 4, paddingHorizontal: 6 },
   termsTitle: { fontSize: 6.5, fontWeight: 'bold', color: BLUE_700, textTransform: 'uppercase', lineHeight: 1.1 },
   termsText: { fontSize: 6, lineHeight: 1.05 },
   termsListItem: { fontSize: 6, lineHeight: 1.05 },
@@ -285,19 +318,40 @@ function DataTable({
   headers,
   rows,
   flexes,
+  clean = false,
 }: {
   headers: { label: string; num?: boolean }[];
   rows: (string | null)[][];
   flexes?: number[];
+  /** "Clean" mode (Conceptos / Adicionales): rows where EVERY cell is
+   *  empty are dropped, columns where EVERY cell is empty are dropped
+   *  (header + flex included), and the remaining empty cells render blank
+   *  instead of the `—` placeholder — no orphan dashes, no empty columns. */
+  clean?: boolean;
 }) {
   if (rows.length === 0) return null;
-  const colFlex = (i: number) => (flexes && flexes[i] != null ? flexes[i] : 1);
+
+  const nonEmpty = (c: string | null) => c != null && c !== '';
+  let keptRows = rows;
+  let keptHeaders = headers;
+  let keptFlexes = flexes;
+  if (clean) {
+    keptRows = rows.filter((row) => row.some(nonEmpty));
+    if (keptRows.length === 0) return null;
+    const keptCols = headers.map((_, ci) => keptRows.some((row) => nonEmpty(row[ci])));
+    if (keptCols.every((k) => !k)) return null;
+    keptHeaders = headers.filter((_, ci) => keptCols[ci]);
+    keptFlexes = flexes ? flexes.filter((_, ci) => keptCols[ci]) : undefined;
+    keptRows = keptRows.map((row) => row.filter((_, ci) => keptCols[ci]));
+  }
+
+  const colFlex = (i: number) => (keptFlexes && keptFlexes[i] != null ? keptFlexes[i] : 1);
 
   return (
     <View>
       <View style={styles.tableHead}>
-        {headers.map((h, i) => {
-          const isLast = i === headers.length - 1;
+        {keptHeaders.map((h, i) => {
+          const isLast = i === keptHeaders.length - 1;
           return (
             <View key={h.label} style={{ flex: colFlex(i), ...(isLast ? styles.cellLast : styles.cell) }}>
               <Text style={h.num ? styles.thTextNum : styles.thText}>{h.label}</Text>
@@ -305,15 +359,15 @@ function DataTable({
           );
         })}
       </View>
-      {rows.map((row, ri) => (
+      {keptRows.map((row, ri) => (
         <View key={String(row[0] ?? `row-${ri}`)} style={styles.tableRow}>
           {row.map((cell, ci) => {
             const isLast = ci === row.length - 1;
             const isDash = cell == null || cell === '';
-            const value = isDash ? '—' : cell;
+            const value = isDash ? (clean ? '' : '—') : cell;
             return (
-              <View key={headers[ci]?.label ?? `cell-${ci}`} style={{ flex: colFlex(ci), ...(isLast ? styles.cellLast : styles.cell) }}>
-                <Text style={headers[ci]?.num ? styles.tdTextNum : styles.tdText}>
+              <View key={keptHeaders[ci]?.label ?? `cell-${ci}`} style={{ flex: colFlex(ci), ...(isLast ? styles.cellLast : styles.cell) }}>
+                <Text style={keptHeaders[ci]?.num ? styles.tdTextNum : styles.tdText}>
                   {isDash ? <Text style={{ color: SLATE_500 }}>{value}</Text> : value}
                 </Text>
               </View>
@@ -587,7 +641,7 @@ function OptionSectionBlock({ section }: { section: MaterialSection }) {
 
       {fabRows.length > 0 ? (
         <View style={{ marginTop: 4 }}>
-          <DataTable headers={FAB_HEADERS} rows={fabRows} flexes={FAB_FLEXES} />
+          <DataTable headers={FAB_HEADERS} rows={fabRows} flexes={FAB_FLEXES} clean />
         </View>
       ) : null}
 
@@ -599,7 +653,7 @@ function OptionSectionBlock({ section }: { section: MaterialSection }) {
 
       {adicRows.length > 0 ? (
         <View style={{ marginTop: 4 }}>
-          <DataTable headers={ADDITIONAL_WORKS_HEADERS} rows={adicRows} flexes={ADDITIONAL_WORKS_FLEXES} />
+          <DataTable headers={ADDITIONAL_WORKS_HEADERS} rows={adicRows} flexes={ADDITIONAL_WORKS_FLEXES} clean />
         </View>
       ) : null}
 
@@ -666,7 +720,12 @@ function DocumentHeader({ data }: { data: PdfDocumentData }) {
         <View style={styles.headerRight}>
           <Text style={styles.docTitle}>{data.title}</Text>
           <Text style={styles.docNumber}>{data.number || '—'}</Text>
-          {data.doc_sub ? <Text style={styles.docSub}>{data.doc_sub}</Text> : null}
+          {/* Validity line (2026-09-25 mañana) — moved from below the header
+              row to directly under the document number so it doesn't push
+              the logo container down. Budget-only. */}
+          {data.document_type === 'budget' && data.company.budget_validity_text ? (
+            <Text style={styles.validityText}>{data.company.budget_validity_text}</Text>
+          ) : null}
         </View>
       </View>
       <View style={styles.divider} />
@@ -698,13 +757,13 @@ function PieceBlock({ piece }: { piece: PiecesPdfPiece }) {
 
       {fabRows.length > 0 ? (
         <View style={{ marginTop: 4 }}>
-          <DataTable headers={FAB_HEADERS} rows={fabRows} flexes={FAB_FLEXES} />
+          <DataTable headers={FAB_HEADERS} rows={fabRows} flexes={FAB_FLEXES} clean />
         </View>
       ) : null}
 
       {adicRows.length > 0 ? (
         <View style={{ marginTop: 4 }}>
-          <DataTable headers={ADDITIONAL_WORKS_HEADERS} rows={adicRows} flexes={ADDITIONAL_WORKS_FLEXES} />
+          <DataTable headers={ADDITIONAL_WORKS_HEADERS} rows={adicRows} flexes={ADDITIONAL_WORKS_FLEXES} clean />
         </View>
       ) : null}
 
@@ -763,15 +822,15 @@ function AlternativesSheet({ pieces }: { pieces: PiecesPdfPiece[] }) {
                   <DataTable headers={MAT_HEADERS} rows={matRows} flexes={MAT_FLEXES} />
                 ) : null}
 
-                {fabRows.length > 0 ? (
+{fabRows.length > 0 ? (
                   <View style={{ marginTop: 4 }}>
-                    <DataTable headers={FAB_HEADERS} rows={fabRows} flexes={FAB_FLEXES} />
+                    <DataTable headers={FAB_HEADERS} rows={fabRows} flexes={FAB_FLEXES} clean />
                   </View>
                 ) : null}
 
                 {adicRows.length > 0 ? (
                   <View style={{ marginTop: 4 }}>
-                    <DataTable headers={ADDITIONAL_WORKS_HEADERS} rows={adicRows} flexes={ADDITIONAL_WORKS_FLEXES} />
+                    <DataTable headers={ADDITIONAL_WORKS_HEADERS} rows={adicRows} flexes={ADDITIONAL_WORKS_FLEXES} clean />
                   </View>
                 ) : null}
 
@@ -808,8 +867,22 @@ function AlternativesSheet({ pieces }: { pieces: PiecesPdfPiece[] }) {
  * alternative subtotals, so the customer sees the real final price of
  * choosing that material for the whole job, in both currencies.
  */
-function AlternativeTotalsSummary({ totals }: { totals: PieceAlternativeTotal[] }) {
+function AlternativeTotalsSummary({
+  totals,
+  showSaldo,
+  usdRate,
+  usdRateFetchedAt,
+}: {
+  totals: PieceAlternativeTotal[];
+  showSaldo: boolean;
+  /** Optional override for the per-document USD rate (the alternative
+   *  block shares the page with the document-level totals, so we use
+   *  the same number rather than recomputing per-piece). */
+  usdRate?: number;
+  usdRateFetchedAt?: string | null;
+}) {
   if (!totals || totals.length === 0) return null;
+  const formattedUsdRate = usdRate && usdRate > 0 ? fmt(usdRate) : '—';
   return (
     <>
       {totals.map((t) => (
@@ -821,39 +894,56 @@ function AlternativeTotalsSummary({ totals }: { totals: PieceAlternativeTotal[] 
             {`Piezas: ${t.pieces.join(', ')}`}
           </Text>
 
-          <View style={styles.totalsRow}>
-            <Text style={styles.totalsLbl}>Subtotal</Text>
-            <Text style={styles.totalsVal}>{`$ ${fmt(t.subtotal_ars)}`}</Text>
-          </View>
-          {t.discount_fixed_amount > 0 ? (
-            <View style={styles.totalsRow}>
-              <Text style={styles.totalsLbl}>Descuento</Text>
-              <Text style={styles.totalsVal}>{`-$ ${fmt(t.discount_fixed_amount)}`}</Text>
-            </View>
-          ) : null}
-          {t.surcharge_amount > 0 ? (
-            <View style={styles.totalsRow}>
-              <Text style={styles.totalsLbl}>Interés</Text>
-              <Text style={styles.totalsVal}>{`$ ${fmt(t.surcharge_amount)}`}</Text>
-            </View>
-          ) : null}
-
-          <View style={styles.grand}>
-            <Text style={styles.grandLbl}>TOTAL GRAL ALTERNATIVO</Text>
-            <Text style={styles.grandVal}>
-              {`$ ${fmt(t.total_ars)}`}
-              {t.total_usd > 0 ? (
-                <Text style={styles.grandUsdSub}>{`  (USD $${fmt(t.total_usd)})`}</Text>
+          {/* Two-column totals layout (2026-09-25 tarde): LEFT = Dólar del
+              día, RIGHT = Subtotal → Descuento → TOTAL → Saldo (in strict
+              order). The alt block has no traslado/cuotas/observaciones. */}
+          <View style={styles.totalsLayout}>
+            <View style={styles.totalsLayoutLeft}>
+              <Text style={styles.totalsUsdLabel}>Dólar del día</Text>
+              {usdRateFetchedAt ? (
+                <Text style={styles.totalsUsdDate}>
+                  {formatUsdFetchedAt(usdRateFetchedAt)}
+                </Text>
               ) : null}
-            </Text>
-          </View>
-
-          {t.balance_due > 0 ? (
-            <View style={styles.totalsRow}>
-              <Text style={styles.totalsLbl}>Saldo pendiente</Text>
-              <Text style={styles.totalsVal}>{`$ ${fmt(t.balance_due)}`}</Text>
+              <Text style={styles.totalsUsdRate}>{`$ ${formattedUsdRate}`}</Text>
             </View>
-          ) : null}
+
+            <View style={styles.totalsLayoutRight}>
+              <View style={styles.totalsRow}>
+                <Text style={styles.totalsLbl}>Subtotal</Text>
+                <Text style={styles.totalsVal}>{`$ ${fmt(t.subtotal_ars)}`}</Text>
+              </View>
+              {t.discount_fixed_amount > 0 ? (
+                <View style={styles.totalsRow}>
+                  <Text style={styles.totalsLbl}>Descuento</Text>
+                  <Text style={styles.totalsVal}>{`-$ ${fmt(t.discount_fixed_amount)}`}</Text>
+                </View>
+              ) : null}
+              {t.surcharge_amount > 0 ? (
+                <View style={styles.totalsRow}>
+                  <Text style={styles.totalsLbl}>Interés</Text>
+                  <Text style={styles.totalsVal}>{`$ ${fmt(t.surcharge_amount)}`}</Text>
+                </View>
+              ) : null}
+
+              <View style={[styles.grand, { marginTop: 4 }]}>
+                <Text style={styles.grandLbl}>TOTAL GRAL ALTERNATIVO</Text>
+                <Text style={styles.grandVal}>
+                  {`$ ${fmt(t.total_ars)}`}
+                  {t.total_usd > 0 ? (
+                    <Text style={styles.grandUsdSub}>{`  (USD $${fmt(t.total_usd)})`}</Text>
+                  ) : null}
+                </Text>
+              </View>
+
+              {showSaldo && t.balance_due > 0 ? (
+                <View style={styles.totalsRow}>
+                  <Text style={styles.totalsLbl}>Saldo pendiente</Text>
+                  <Text style={styles.totalsVal}>{`$ ${fmt(t.balance_due)}`}</Text>
+                </View>
+              ) : null}
+            </View>
+          </View>
         </View>
       ))}
     </>
@@ -861,6 +951,14 @@ function AlternativeTotalsSummary({ totals }: { totals: PieceAlternativeTotal[] 
 }
 
 export default function DocumentPdf({ data }: DocumentPdfProps) {
+  // "Saldo pendiente" only makes sense when payments were actually
+  // registered against this document: a work order always tracks payments,
+  // a budget only when a seña was received. Without that, the row would just
+  // repeat the TOTAL and mislead the customer.
+  const showSaldo =
+    data.document_type === 'work_order' ||
+    data.deposit_received > 0 ||
+    data.deposit_usd > 0;
   const clientGrid = (
     <View style={styles.infoGrid}>
       <InfoCell label="Cliente" value={data.client_name} />
@@ -942,19 +1040,6 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
         </View>
       ) : null}
 
-      {/* TOTAL blue bar — always rendered right after the (possibly
-          empty) comparison block, so it sits at the top of the financial
-          summary regardless of document type. For work orders with a
-          comparison it appears right after the table; for budgets
-          (no comparison) it sits above the Subtotal/Traslado/etc. rows. */}
-      <View style={[styles.grand, { marginTop: 2 }]}>
-        <Text style={styles.grandLbl}>TOTAL</Text>
-        <Text style={styles.grandVal}>
-          {`$ ${fmt(section?.total_ars ?? data.total)}`}
-          {(section?.total_usd ?? data.total_usd) > 0 ? <Text style={styles.grandUsdSub}>{`  (USD $${fmt(section?.total_usd ?? data.total_usd)})`}</Text> : null}
-        </Text>
-      </View>
-
       {/* OBSERVATIONS — only on principal page */}
       {data.notes ? (
         <ObsBox title="Observaciones">
@@ -973,107 +1058,135 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
         </ObsBox>
       ) : null}
 
-      {/* TOTALS */}
-      <View style={styles.totals}>
-        <View style={styles.totalsRow}>
-          <Text style={styles.totalsLbl}>Subtotal</Text>
-          <Text style={styles.totalsVal}>{`$ ${fmt(section?.subtotal_ars ?? data.subtotal)}`}</Text>
+      {/* TOTALS — two-column layout (2026-09-25 tarde):
+          LEFT  ~32% → Dólar del día (label / fecha+hora / cotización)
+          RIGHT ~68% → Subtotal → Traslado → Descuento → Cat. Descuento
+                       → Interés → Tabla de cuotas → TOTAL (barra azul)
+                       → Seña / Pagos Registrados → Saldo pendiente
+          The strict sequence SUBTOTAL → DESCUENTO → TOTAL → SALDO is
+          preserved (Interés/Traslado/Cat-Desc/Cuotas are intermediate
+          rows that don't break the user-facing hierarchy). */}
+      <View style={styles.totalsLayout}>
+        <View style={styles.totalsLayoutLeft}>
+          <Text style={styles.totalsUsdLabel}>Dólar del día</Text>
+          {data.usd_rate_fetched_at ? (
+            <Text style={styles.totalsUsdDate}>
+              {formatUsdFetchedAt(data.usd_rate_fetched_at)}
+            </Text>
+          ) : null}
+          <Text style={styles.totalsUsdRate}>
+            {`$ ${data.usd_rate > 0 ? fmt(data.usd_rate) : '—'}`}
+          </Text>
         </View>
-        {data.transport > 0 ? (
+
+        <View style={styles.totalsLayoutRight}>
           <View style={styles.totalsRow}>
-            <Text style={styles.totalsLbl}>Traslado</Text>
-            <Text style={styles.totalsVal}>{`$ ${fmt(data.transport)}`}</Text>
+            <Text style={styles.totalsLbl}>Subtotal</Text>
+            <Text style={styles.totalsVal}>{`$ ${fmt(section?.subtotal_ars ?? data.subtotal)}`}</Text>
           </View>
-        ) : null}
-        {data.discount_fixed_amount > 0 ? (
-          <View style={styles.totalsRow}>
-            <Text style={styles.totalsLbl}>
-              {data.discount_percentage > 0
-                ? `Descuento (${data.discount_percentage}%)`
-                : 'Descuento'}
-            </Text>
-            <Text style={styles.totalsVal}>{`-$ ${fmt(section?.discount_fixed_amount ?? data.discount_fixed_amount)}`}</Text>
-          </View>
-        ) : null}
-        {data.catalogue_discount_amount > 0 ? (
-          <View style={styles.totalsRow}>
-            <Text style={styles.totalsLbl}>
-              {`Descuento (${data.catalogue_discount_percentage}%) ${data.catalogue_method_label}`.trim()}
-            </Text>
-            <Text style={styles.totalsVal}>{`-$ ${fmt(data.catalogue_discount_amount)}`}</Text>
-          </View>
-        ) : null}
-        {(section?.surcharge_percentage ?? data.surcharge_percentage) > 0 ? (
-          <View style={styles.totalsRow}>
-            <Text style={styles.totalsLbl}>Interés:</Text>
-            <Text style={styles.totalsVal}>{`$ ${fmt(section?.surcharge_amount ?? data.surcharge_amount)}`}</Text>
-          </View>
-        ) : null}
-        {(section?.catalogue_installment_detail ?? data.catalogue_installment_detail) && (section?.catalogue_installment_detail ?? data.catalogue_installment_detail).length > 1 ? (
-          <View style={styles.installmentTable}>
-            <View style={styles.installmentHeader}>
-              <Text style={[styles.installmentHeaderCell, styles.installmentHeaderN]}>Cuota #</Text>
-              <Text style={[styles.installmentHeaderCell, styles.installmentHeaderPct]}>Interés</Text>
-              <Text style={[styles.installmentHeaderCell, styles.installmentHeaderAmount]}>Monto</Text>
-            </View>
-            {(section?.catalogue_installment_detail ?? data.catalogue_installment_detail).map((row) => (
-              <View key={row.cuota} style={styles.installmentRow}>
-                <Text style={[styles.installmentCell, styles.installmentHeaderN]}>{row.cuota}</Text>
-                <Text style={[styles.installmentCell, styles.installmentHeaderPct]}>{`${row.interes}%`}</Text>
-                <Text style={[styles.installmentCell, styles.installmentHeaderAmount]}>{`$ ${fmt(row.monto)}`}</Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
-        {data.document_type === 'work_order'
-          ? (data.total_paid_ars > 0 || data.total_paid_usd > 0) ? (
+          {data.transport > 0 ? (
             <View style={styles.totalsRow}>
-              <Text style={[styles.totalsLbl, styles.totalsLblSeña]}>
-                {data.paid_label || 'Seña / Pagos Registrados'}
-              </Text>
-              <View style={styles.totalsValSeña}>
-                <Text style={styles.totalsValPrimary}>
-                  {`$ ${fmt(data.total_paid_ars)}`}
-                </Text>
-                <Text style={styles.totalsValSecondary}>
-                  {data.total_paid_usd > 0 ? `USD ${fmt(data.total_paid_usd)}` : ''}
-                </Text>
-              </View>
-            </View>
-          ) : null
-          : (data.deposit_received > 0 || data.deposit_usd > 0) ? (
-            <View style={styles.totalsRow}>
-              <Text style={[styles.totalsLbl, styles.totalsLblSeña]}>Seña</Text>
-              <View style={styles.totalsValSeña}>
-                <Text style={styles.totalsValPrimary}>
-                  {data.deposit_currency === 'USD'
-                    ? `USD ${fmt(data.deposit_usd)}`
-                    : `$ ${fmt(data.deposit_received)}`}
-                </Text>
-                <Text style={styles.totalsValSecondary}>
-                  {data.deposit_currency === 'USD'
-                    ? `$ ${fmt(data.deposit_ars_equivalent)}`
-                    : data.usd_rate > 0
-                      ? `USD ${fmt(data.deposit_received / data.usd_rate)}`
-                      : ''}
-                </Text>
-              </View>
+              <Text style={styles.totalsLbl}>Traslado</Text>
+              <Text style={styles.totalsVal}>{`$ ${fmt(data.transport)}`}</Text>
             </View>
           ) : null}
-        {(section?.balance_due ?? data.balance_due) > 0 ? (
-          <View style={styles.totalsRow}>
-            <Text style={styles.totalsLbl}>Saldo pendiente</Text>
-            <Text style={styles.totalsVal}>{`$ ${fmt(section?.balance_due ?? data.balance_due)}`}</Text>
-          </View>
-        ) : null}
-        {data.usd_rate > 0 ? (
-          <View style={styles.totalsRow}>
-            <Text style={styles.totalsLbl}>
-              {`Dólar del día${data.usd_rate_fetched_at ? ` (${formatUsdFetchedAt(data.usd_rate_fetched_at)})` : ''}`}
+          {data.discount_fixed_amount > 0 ? (
+            <View style={styles.totalsRow}>
+              <Text style={styles.totalsLbl}>
+                {data.discount_percentage > 0
+                  ? `Descuento (${data.discount_percentage}%)`
+                  : 'Descuento'}
+              </Text>
+              <Text style={styles.totalsVal}>{`-$ ${fmt(section?.discount_fixed_amount ?? data.discount_fixed_amount)}`}</Text>
+            </View>
+          ) : null}
+          {data.catalogue_discount_amount > 0 ? (
+            <View style={styles.totalsRow}>
+              <Text style={styles.totalsLbl}>
+                {`Descuento (${data.catalogue_discount_percentage}%) ${data.catalogue_method_label}`.trim()}
+              </Text>
+              <Text style={styles.totalsVal}>{`-$ ${fmt(data.catalogue_discount_amount)}`}</Text>
+            </View>
+          ) : null}
+          {(section?.surcharge_percentage ?? data.surcharge_percentage) > 0 ? (
+            <View style={styles.totalsRow}>
+              <Text style={styles.totalsLbl}>Interés:</Text>
+              <Text style={styles.totalsVal}>{`$ ${fmt(section?.surcharge_amount ?? data.surcharge_amount)}`}</Text>
+            </View>
+          ) : null}
+          {(section?.catalogue_installment_detail ?? data.catalogue_installment_detail) && (section?.catalogue_installment_detail ?? data.catalogue_installment_detail).length > 1 ? (
+            <View style={styles.installmentTable}>
+              <View style={styles.installmentHeader}>
+                <Text style={[styles.installmentHeaderCell, styles.installmentHeaderN]}>Cuota #</Text>
+                <Text style={[styles.installmentHeaderCell, styles.installmentHeaderPct]}>Interés</Text>
+                <Text style={[styles.installmentHeaderCell, styles.installmentHeaderAmount]}>Monto</Text>
+              </View>
+              {(section?.catalogue_installment_detail ?? data.catalogue_installment_detail).map((row) => (
+                <View key={row.cuota} style={styles.installmentRow}>
+                  <Text style={[styles.installmentCell, styles.installmentHeaderN]}>{row.cuota}</Text>
+                  <Text style={[styles.installmentCell, styles.installmentHeaderPct]}>{`${row.interes}%`}</Text>
+                  <Text style={[styles.installmentCell, styles.installmentHeaderAmount]}>{`$ ${fmt(row.monto)}`}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          {/* TOTAL blue bar — sits at the bottom of the right column AFTER
+              the descuentos/interés rows and BEFORE the seña/saldo, so the
+              strict hierarchy SUBTOTAL → DESCUENTO → TOTAL → SALDO holds. */}
+          <View style={[styles.grand, { marginTop: 4 }]}>
+            <Text style={styles.grandLbl}>TOTAL</Text>
+            <Text style={styles.grandVal}>
+              {`$ ${fmt(section?.total_ars ?? data.total)}`}
+              {(section?.total_usd ?? data.total_usd) > 0 ? <Text style={styles.grandUsdSub}>{`  (USD $${fmt(section?.total_usd ?? data.total_usd)})`}</Text> : null}
             </Text>
-            <Text style={styles.totalsVal}>{`$ ${fmt(data.usd_rate)}`}</Text>
           </View>
-        ) : null}
+
+          {data.document_type === 'work_order'
+            ? (data.total_paid_ars > 0 || data.total_paid_usd > 0) ? (
+              <View style={styles.totalsRow}>
+                <Text style={[styles.totalsLbl, styles.totalsLblSeña]}>
+                  {data.paid_label || 'Seña / Pagos Registrados'}
+                </Text>
+                <View style={styles.totalsValSeña}>
+                  <Text style={styles.totalsValPrimary}>
+                    {`$ ${fmt(data.total_paid_ars)}`}
+                  </Text>
+                  <Text style={styles.totalsValSecondary}>
+                    {data.total_paid_usd > 0 ? `USD ${fmt(data.total_paid_usd)}` : ''}
+                  </Text>
+                </View>
+              </View>
+            ) : null
+            : (data.deposit_received > 0 || data.deposit_usd > 0) ? (
+              <View style={styles.totalsRow}>
+                <Text style={[styles.totalsLbl, styles.totalsLblSeña]}>Seña</Text>
+                <View style={styles.totalsValSeña}>
+                  <Text style={styles.totalsValPrimary}>
+                    {data.deposit_currency === 'USD'
+                      ? `USD ${fmt(data.deposit_usd)}`
+                      : `$ ${fmt(data.deposit_received)}`}
+                  </Text>
+                  <Text style={styles.totalsValSecondary}>
+                    {data.deposit_currency === 'USD'
+                      ? `$ ${fmt(data.deposit_ars_equivalent)}`
+                      : data.usd_rate > 0
+                        ? `USD ${fmt(data.deposit_received / data.usd_rate)}`
+                        : ''}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+          {(section?.balance_due ?? data.balance_due) > 0 &&
+          (data.document_type === 'work_order' ||
+            data.deposit_received > 0 ||
+            data.deposit_usd > 0) ? (
+            <View style={styles.totalsRow}>
+              <Text style={styles.totalsLbl}>Saldo pendiente</Text>
+              <Text style={styles.totalsVal}>{`$ ${fmt(section?.balance_due ?? data.balance_due)}`}</Text>
+            </View>
+          ) : null}
+        </View>
       </View>
 
       {data.payment_method ? (
@@ -1177,7 +1290,12 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
               {clientGrid}
               <Text style={styles.sectionTitle}>Hoja de alternativas</Text>
               <AlternativesSheet pieces={pieces} />
-              <AlternativeTotalsSummary totals={data.alternative_totals || []} />
+              <AlternativeTotalsSummary
+                totals={data.alternative_totals || []}
+                showSaldo={showSaldo}
+                usdRate={data.usd_rate}
+                usdRateFetchedAt={data.usd_rate_fetched_at}
+              />
               {footer}
             </Page>
           ) : null}
@@ -1266,7 +1384,7 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
             {data.fabrication_details.length > 0 ? (
               <View style={{ marginTop: 4 }}>
                 <Text style={styles.sectionTitle}>Detalles de fabricación</Text>
-                <DataTable headers={FAB_HEADERS} rows={data.fabrication_details.map(fabRowCells)} flexes={FAB_FLEXES} />
+                <DataTable headers={FAB_HEADERS} rows={data.fabrication_details.map(fabRowCells)} flexes={FAB_FLEXES} clean />
               </View>
             ) : null}
             {data.pools.length > 0 ? (
@@ -1282,6 +1400,7 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
                   headers={ADDITIONAL_WORKS_HEADERS}
                   rows={data.additional_works.map(adicRowCells)}
                   flexes={ADDITIONAL_WORKS_FLEXES}
+                  clean
                 />
               </View>
             ) : null}

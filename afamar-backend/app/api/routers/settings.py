@@ -37,6 +37,7 @@ DEFAULT_KEYS = {
     "delivery_terms": [],
     "warranty_text": [],
     "observaciones_automaticas": "",
+    "budget_validity_text": "",
 }
 
 

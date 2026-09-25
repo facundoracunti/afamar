@@ -14,6 +14,11 @@ export interface NewPaymentTransaction {
   /** Monto base antes del recargo (para mostrar en el historial). */
   baseAmount?: number;
   currency: 'ARS' | 'USD';
+  /** Equivalente ARS del pago. Obligatorio para `currency === 'USD'`:
+   *  el acumulado / saldo pendiente del módulo siempre suma en ARS. */
+  amount_ars?: number;
+  /** Cotización USD → ARS usada para `amount_ars` (Dólar Blue Intermedio). */
+  usd_rate?: number;
   lote_cupon: string | null;
   payway_link_url: string | null;
   /** Recargo tarjeta en % (0 si no aplica). El modal aplica
@@ -30,6 +35,11 @@ export interface PaymentModalProps {
   montoPagadoAcumulado: number;
   saldoPendiente: number;
   currency?: 'ARS' | 'USD';
+  /** Cotización Dólar Blue Intermedio (ARS por USD) para el modo
+   *  "Dólar billete" (`method === 'efectivo_usd'`). Convierte el monto en
+   *  USD a su equivalente ARS (`amount × usdRate`) que impacta en el saldo
+   *  pendiente y el PDF. Si no se provee (0), el modo USD no es válido. */
+  usdRate?: number;
   /** Método por defecto del formulario. La modal NO renderiza un selector;
    *  el operador cambia la preferencia desde la tarjeta de resumen. Si el
    *  modal se abre con `null`, se muestra el aviso "Seleccioná un método
@@ -59,6 +69,16 @@ const CURRENCY_FORMATTERS: Record<'ARS' | 'USD', Intl.NumberFormat> = {
 
 function formatCurrency(value: number, currency: 'ARS' | 'USD'): string {
   return CURRENCY_FORMATTERS[currency].format(value);
+}
+
+/** Redondeo a 2 decimales (AR$ y USD$ se cobran con centavos). */
+function round2(n: number): number {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+/** Convierte un importe ARS a su equivalente en dólar billete. */
+function usdFromArs(ars: number, usdRate: number): number {
+  return usdRate > 0 ? round2(ars / usdRate) : 0;
 }
 
 // Estilos del overlay y del card del modal — escritos con `style` inline
@@ -123,6 +143,7 @@ export function PaymentModal({
   montoPagadoAcumulado,
   saldoPendiente,
   currency = 'ARS',
+  usdRate = 0,
   defaultMethod = null,
   loading = false,
   hasPaymentsInSession = false,
@@ -171,22 +192,37 @@ export function PaymentModal({
   // propio selector — el operador lo define en la tarjeta de resumen.
   const method: PaymentMethod | null = defaultMethod;
 
-  const remainingSenia = Math.max(montoSeniaRequerida - montoPagadoAcumulado, 0);
+  // "Dólar billete": el pago se registra en USD nativos y se convierte a
+  // ARS con la cotización Dólar Blue Intermedio para impacto en el saldo.
+  const isUsdMethod = method === 'efectivo_usd';
+  const displayCurrency: 'ARS' | 'USD' = isUsdMethod ? 'USD' : currency;
+
+  const remainingSeniaArs = Math.max(montoSeniaRequerida - montoPagadoAcumulado, 0);
   // Solo consideramos la seña "cumplida" cuando hay un importe sugerido
-  // (>0) Y ya se pagó al menos eso. Si el operador aún no cargó una seña
-  // contractual, dejamos la opción habilitada para que pueda cobrar un
-  // pago parcial o personalizado.
+  // (>0) Y ya se pagó al menos eso (el comparativo se hace en ARS, la
+  // moneda del módulo). Si el operador aún no cargó una seña contractual,
+  // dejamos la opción habilitada para que pueda cobrar un pago parcial o
+  // personalizado.
   const seniaCumplida =
     montoSeniaRequerida > 0 && montoPagadoAcumulado >= montoSeniaRequerida;
 
   const amount = useMemo<number>(() => {
-    if (preset === 'suggested_seña') return remainingSenia;
-    if (preset === 'remaining_balance') return saldoPendiente;
+    if (preset === 'suggested_seña') {
+      return isUsdMethod ? usdFromArs(remainingSeniaArs, usdRate) : remainingSeniaArs;
+    }
+    if (preset === 'remaining_balance') {
+      return isUsdMethod ? usdFromArs(saldoPendiente, usdRate) : saldoPendiente;
+    }
     const parsed = Number(customAmount);
     return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-  }, [preset, remainingSenia, saldoPendiente, customAmount]);
+  }, [preset, remainingSeniaArs, saldoPendiente, customAmount, isUsdMethod, usdRate]);
 
-  const canSubmit = method !== null && amount > 0 && !loading;
+  const amountArs = isUsdMethod && usdRate > 0 ? round2(amount * usdRate) : amount;
+
+  // En "Dólar billete" se necesita una cotización válida para traducir el
+  // pago a ARS (sin eso el saldo pendiente / PDF no pueden sumarlo).
+  const canSubmit =
+    method !== null && amount > 0 && !loading && (!isUsdMethod || usdRate > 0);
 
   // Recargo tarjeta: solo aplica cuando method === 'tarjeta'. El monto
   // final = base * (1 + recargo / 100). El recargo es opcional — vacío
@@ -207,7 +243,9 @@ export function PaymentModal({
       method,
       amount: amountFinal,
       baseAmount: amount,
-      currency,
+      currency: isUsdMethod ? 'USD' : currency,
+      amount_ars: isUsdMethod ? amountArs : undefined,
+      usd_rate: isUsdMethod ? (usdRate > 0 ? usdRate : undefined) : undefined,
       lote_cupon: method === 'tarjeta' && loteCupon.trim() !== '' ? loteCupon.trim() : null,
       payway_link_url: method === 'payway_link' ? paywayLinkUrl : null,
       tarjeta_surcharge_percent: surchargePercent,
@@ -269,7 +307,10 @@ export function PaymentModal({
         <p style={{ margin: '4px 0 16px', fontSize: '14px', color: 'rgb(100, 116, 139)' }}>
           Saldo pendiente:{' '}
           <span style={{ fontWeight: 500, color: 'rgb(51, 65, 85)' }}>
-            {formatCurrency(saldoPendiente, currency)}
+            {formatCurrency(
+              isUsdMethod ? usdFromArs(saldoPendiente, usdRate) : saldoPendiente,
+              displayCurrency,
+            )}
           </span>
         </p>
 
@@ -301,7 +342,12 @@ export function PaymentModal({
                 <span>
                   Seña sugerida{' '}
                   <span style={{ color: 'rgb(100, 116, 139)' }}>
-                    ({seniaCumplida ? 'ya completada' : formatCurrency(remainingSenia, currency)})
+                    ({seniaCumplida
+                      ? 'ya completada'
+                      : formatCurrency(
+                          isUsdMethod ? usdFromArs(remainingSeniaArs, usdRate) : remainingSeniaArs,
+                          displayCurrency,
+                        )})
                   </span>
                 </span>
               </label>
@@ -317,7 +363,10 @@ export function PaymentModal({
                 <span>
                   Saldo restante{' '}
                   <span style={{ color: 'rgb(100, 116, 139)' }}>
-                    ({formatCurrency(saldoPendiente, currency)})
+                    ({formatCurrency(
+                      isUsdMethod ? usdFromArs(saldoPendiente, usdRate) : saldoPendiente,
+                      displayCurrency,
+                    )})
                   </span>
                 </span>
               </label>
@@ -496,6 +545,28 @@ export function PaymentModal({
             </div>
           )}
 
+          {isUsdMethod && (
+            <div
+              style={{
+                padding: '8px 12px',
+                backgroundColor: 'rgb(239, 246, 255)',
+                border: '1px solid rgb(191, 219, 254)',
+                borderRadius: '6px',
+                fontSize: '13px',
+                color: 'rgb(30, 64, 175)',
+              }}
+            >
+              <p style={{ margin: 0, fontWeight: 500 }}>
+                Dólar billete — cotización Dólar Blue Intermedio:{' '}
+                {formatCurrency(usdRate, 'ARS')} / USD
+              </p>
+              <p style={{ margin: '4px 0 0' }}>
+                Equivalente en ARS:{' '}
+                <strong>{formatCurrency(usdRate > 0 ? amount * usdRate : 0, 'ARS')}</strong>
+              </p>
+            </div>
+          )}
+
           <div
             style={{
               padding: '8px 12px',
@@ -508,11 +579,11 @@ export function PaymentModal({
               {surchargePercent > 0 ? 'Total a cobrar (con recargo): ' : 'Monto a registrar: '}
             </span>
             <span style={{ fontWeight: 600, color: 'rgb(15, 23, 42)' }}>
-              {formatCurrency(amountFinal, currency)}
+              {formatCurrency(amountFinal, displayCurrency)}
             </span>
             {surchargePercent > 0 && (
               <span style={{ marginLeft: '8px', color: 'rgb(100, 116, 139)', fontSize: '12px' }}>
-                (base {formatCurrency(amount, currency)} + {surchargePercent}%)
+                (base {formatCurrency(amount, displayCurrency)} + {surchargePercent}%)
               </span>
             )}
           </div>

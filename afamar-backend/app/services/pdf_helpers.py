@@ -7,7 +7,7 @@ from app.models.setting import Setting
 from app.schemas.budget import BudgetResponse
 from app.schemas.work_order import WorkOrderResponse
 
-COMPANY_KEYS = ["company_name", "company_tagline", "company_address", "company_phone", "company_email", "company_logo", "pdf_footer"]
+COMPANY_KEYS = ["company_name", "company_tagline", "company_address", "company_phone", "company_email", "company_logo", "pdf_footer", "budget_validity_text"]
 TERMS_KEYS = ["budget_terms", "delivery_terms", "warranty_text", "observaciones_automaticas"]
 
 

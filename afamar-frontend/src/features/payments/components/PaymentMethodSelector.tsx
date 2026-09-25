@@ -2,6 +2,7 @@ import type { PaymentMethod } from '../types/payment.types';
 
 const METHOD_OPTIONS: ReadonlyArray<{ value: PaymentMethod; label: string }> = [
   { value: 'efectivo', label: 'Efectivo' },
+  { value: 'efectivo_usd', label: 'Efectivo (USD) · Dólar billete' },
   { value: 'transferencia', label: 'Transferencia bancaria' },
   { value: 'tarjeta', label: 'Tarjeta' },
   { value: 'payway_link', label: 'Link de pago (Payway)' },

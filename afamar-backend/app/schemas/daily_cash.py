@@ -7,6 +7,11 @@ from pydantic import BaseModel, ConfigDict
 class CashMovementBase(BaseModel):
     type: str
     amount: float
+    # Native currency of `amount` ('ARS' or 'USD'). For USD movements
+    # `amount_ars`/`usd_rate` carry the conversion so box totals stay ARS.
+    currency: str = "ARS"
+    amount_ars: Optional[float] = None
+    usd_rate: Optional[float] = None
     description: Optional[str] = ""
     payment_method: Optional[str] = None
     folder_status: Optional[str] = None

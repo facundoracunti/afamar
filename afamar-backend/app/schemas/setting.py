@@ -16,3 +16,6 @@ class SettingUpdate(BaseModel):
     delivery_terms: list[str] = Field(default_factory=list)
     warranty_text: list[str] = Field(default_factory=list)
     observaciones_automaticas: str = ""
+    # Free-text "válido por X días" line printed in the PDF header (budget only)
+    # when defined; empty → the line is omitted entirely.
+    budget_validity_text: str = ""

@@ -22,6 +22,20 @@ def _is_transfer(payment_method: str | None) -> bool:
     return any(k in pm for k in _TRANSFER_KEYWORDS)
 
 
+def movement_ars(movement: CashMovement) -> float:
+    """ARS equivalent of a movement for the (ARS-denominated) box totals.
+
+    ARS movements (`currency == 'ARS'` or legacy NULL default) are already
+    ARS → `amount`. USD movements carry `amount_ars` (amount × usd_rate
+    computed by the caller); when that conversion is missing for some reason
+    we fall back to the raw `amount` rather than silently zeroing the row.
+    """
+    currency = (movement.currency or "ARS").upper()
+    if currency == "USD" and movement.amount_ars is not None:
+        return float(movement.amount_ars)
+    return float(movement.amount or 0)
+
+
 class DailyCashRepository:
     def __init__(self, db: Session):
         self.db = db
@@ -74,8 +88,8 @@ class DailyCashRepository:
             raise NotFoundError("DailyCash")
 
         movements = cash.movements
-        total_income = sum(m.amount for m in movements if m.type == "INCOME")
-        total_expenses = sum(m.amount for m in movements if m.type == "EXPENSE")
+        total_income = sum(movement_ars(m) for m in movements if m.type == "INCOME")
+        total_expenses = sum(movement_ars(m) for m in movements if m.type == "EXPENSE")
         cash.total_income = total_income
         cash.total_expenses = total_expenses
         cash.total_sum = (cash.previous_balance or 0) + total_income
@@ -85,11 +99,11 @@ class DailyCashRepository:
         # Transfers (income via transfer + expense type BANK_TRANSFER) still
         # count in the register totals but not in `real_cash`.
         transfer_income = sum(
-            m.amount for m in movements
+            movement_ars(m) for m in movements
             if m.type == "INCOME" and _is_transfer(m.payment_method)
         )
         transfer_expenses = sum(
-            m.amount for m in movements
+            movement_ars(m) for m in movements
             if m.type == "EXPENSE" and m.expense_type == "BANK_TRANSFER"
         )
         cash.real_cash = (

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions import NotFoundError, ValidationError
 
-from app.repositories.daily_cash import DailyCashRepository, CashMovementRepository
+from app.repositories.daily_cash import DailyCashRepository, CashMovementRepository, movement_ars
 
 
 class DailyCashService:
@@ -61,6 +61,9 @@ class DailyCashService:
         find itself "without a box".
         """
         movement_data.pop("date", None)
+        # Normalize the native currency so 'usd'/'ARS' from the wire both
+        # land as 'USD'/'ARS' regardless of casing.
+        movement_data["currency"] = (movement_data.get("currency") or "ARS").upper()
         cash = self.cash_repo.get_or_create_current()
         movement = self.movement_repo.create_and_recalculate(cash.id, movement_data)
         self.db.commit()
@@ -101,7 +104,10 @@ class DailyCashService:
         total_by_payment: dict[str, float] = {}
         for m in incomes:
             key = (m.payment_method or "SIN METODO").strip() or "SIN METODO"
-            total_by_payment[key] = total_by_payment.get(key, 0.0) + m.amount
+            # Sum the ARS equivalent so the by-method breakdown stays
+            # consistent with the (ARS) box totals when a movement was
+            # registered in USD (dólar billete).
+            total_by_payment[key] = total_by_payment.get(key, 0.0) + movement_ars(m)
 
         duration_seconds = 0
         if cash.opened_at:

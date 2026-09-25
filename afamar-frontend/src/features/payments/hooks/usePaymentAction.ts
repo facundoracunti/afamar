@@ -11,10 +11,28 @@ export interface RegisteredPayment extends PaymentTransaction {
 
 export const PAYMENT_METHOD_BACKEND_MAP: Record<PaymentMethod, string> = {
   efectivo: 'EFECTIVO',
+  efectivo_usd: 'EFECTIVO (USD)',
   transferencia: 'TRANSFERENCIA BANCARIA',
   tarjeta: 'TARJETA DE DÉBITO',
   payway_link: 'TARJETA DE CRÉDITO',
 };
+
+/** Equivalente ARS de una transacción para el acumulado / saldo del módulo
+ *  (que siempre operan en ARS). Un pago en USD (`currency === 'USD'`) se
+ *  suma por su `amount_ars`; si la conversión no llegó (fallback defensivo,
+ *  p.ej. txs viejas persistidas en localStorage), se usa `amount × usdRate`
+ *  y si tampoco hay cotización se cae al `amount` crudo. */
+function amountArsOf(
+  tx: { amount: number; currency: 'ARS' | 'USD'; amount_ars?: number | null; usd_rate?: number | null },
+  fallbackUsdRate: number,
+): number {
+  if (tx.currency === 'USD') {
+    if (tx.amount_ars != null) return tx.amount_ars;
+    if (fallbackUsdRate > 0) return tx.amount * fallbackUsdRate;
+    return tx.amount;
+  }
+  return tx.amount;
+}
 
 /** Key de `localStorage` donde persistimos el historial de pagos
  *  registrados en la sesión de un OT. Funciona como fallback mientras
@@ -64,6 +82,9 @@ export interface UsePaymentActionParams {
   montoPagadoAcumulado: number;
   montoSeniaRequerida?: number;
   preferredMethod?: PaymentMethod | null;
+  /** Cotización Dólar Blue Intermedio (ARS/USD). Conversión/fallback de
+   *  los pagos en "Dólar billete" (`efectivo_usd`). */
+  usdRate?: number;
 }
 
 export interface UsePaymentActionReturn {
@@ -93,6 +114,7 @@ export function usePaymentAction(params: UsePaymentActionParams): UsePaymentActi
     montoPagadoAcumulado,
     montoSeniaRequerida = 0,
     preferredMethod = null,
+    usdRate = 0,
   } = params;
 
   // Carga inicial desde `localStorage`. Se hace UNA sola vez por mount:
@@ -109,7 +131,9 @@ export function usePaymentAction(params: UsePaymentActionParams): UsePaymentActi
     if (orderId === null) return null;
     const txs = readPersistedPayments(orderId);
     if (txs.length === 0) return null;
-    return txs.reduce((sum, tx) => sum + tx.amount, 0);
+    // Acumulado SIEMPRE en ARS: un pago persistido en USD se suma por su
+    // equivalente para no desincronizar el saldo del módulo con el PDF.
+    return txs.reduce((sum, tx) => sum + amountArsOf(tx, usdRate), 0);
   });
 
   const montoPagadoEffectivo = overridePagado ?? montoPagadoAcumulado;
@@ -150,7 +174,7 @@ export function usePaymentAction(params: UsePaymentActionParams): UsePaymentActi
       if (orderId === null) {
         throw new Error('orderId es requerido para registrar un pago');
       }
-      const newPagado = montoPagadoEffectivo + tx.amount;
+      const newPagado = montoPagadoEffectivo + amountArsOf(tx, usdRate);
       const newSaldo = Math.max(montoTotal - newPagado, 0);
       const description: string | undefined = tx.lote_cupon
         ? `Lote/Cupón: ${tx.lote_cupon}`
@@ -161,6 +185,11 @@ export function usePaymentAction(params: UsePaymentActionParams): UsePaymentActi
       const payload: CashMovePayload = {
         type: 'INCOME',
         amount: tx.amount,
+        // El backend suma `amount_ars` (equivalente ARS) en los totales de
+        // caja: para un pago en USD `amount` va en la moneda nativa.
+        currency: tx.currency,
+        amount_ars: tx.currency === 'USD' ? (tx.amount_ars ?? null) : undefined,
+        usd_rate: tx.currency === 'USD' ? (tx.usd_rate ?? null) : undefined,
         payment_method: PAYMENT_METHOD_BACKEND_MAP[tx.method],
         order_id: orderId,
         order_number: orderNumber,
@@ -179,6 +208,8 @@ export function usePaymentAction(params: UsePaymentActionParams): UsePaymentActi
         method: tx.method,
         amount: tx.amount,
         currency: tx.currency,
+        amount_ars: tx.amount_ars ?? null,
+        usd_rate: tx.usd_rate ?? null,
         status: computePaymentStatus(newPagado, montoSeniaRequerida, newSaldo),
         lote_cupon: tx.lote_cupon,
         payway_link_url: tx.payway_link_url,
@@ -188,7 +219,7 @@ export function usePaymentAction(params: UsePaymentActionParams): UsePaymentActi
       };
     },
     onSuccess: (transaction) => {
-      setOverridePagado((prev) => (prev ?? montoPagadoAcumulado) + transaction.amount);
+      setOverridePagado((prev) => (prev ?? montoPagadoAcumulado) + amountArsOf(transaction, usdRate));
       setRegisteredTransactions((prev) => [
         ...prev,
         { ...transaction, tarjeta_surcharge_percent: transaction.tarjeta_surcharge_percent ?? null },

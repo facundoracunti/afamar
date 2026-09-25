@@ -20,6 +20,7 @@ import {
   UNIT_CONCEPTS,
   LINEAR_CONCEPTS,
   fmtMoney,
+  fmtNum,
   fmtMeasure,
   fmtMeasureUnit,
   conceptToDisplay,
@@ -75,7 +76,7 @@ export function buildFabricationRows(raw: unknown, usdRate: number): PdfDataRow[
       show_quantity: showQuantity,
       length_str: showLength && length ? fmtMeasureUnit(length, 'm') : null,
       width_str: showWidth && width ? fmtMeasureUnit(width, 'm') : null,
-      m2_label: isUnit ? 'U' : isM2 ? fmtMeasure(m2Value) : null,
+      m2_label: isUnit ? 'U' : isM2 ? fmtNum(m2Value, 2) : null,
       quantity: Number.isInteger(quantity) ? quantity : quantity,
       currency,
       price_str: fmtMoney(price),
@@ -114,7 +115,7 @@ export function buildMaterialRows(materials: MaterialInForm[], usdRate: number):
       length_str: fmtMeasureUnit(length, 'm'),
       width_str: fmtMeasureUnit(width, 'm'),
       quantity: Number.isInteger(quantity) ? quantity : quantity,
-      m2_str: fmtMeasure(Math.round(m2 * 100000000) / 100000000),
+      m2_str: fmtNum(Math.round(m2 * 100000000) / 100000000, 2),
       price_m2_str: fmtMoney(priceM2),
       subtotal_str: fmtMoney(subtotalOriginal),
       currency,
@@ -371,10 +372,10 @@ export function buildMeasurementComparison(
         m2_budgeted: hasBudget ? m2Budgeted : null,
         m2_real: m2Real,
         delta: hasBudget ? delta : null,
-        m2_budgeted_str: hasBudget ? fmtMeasure(m2Budgeted) : '',
-        m2_real_str: fmtMeasure(m2Real),
+        m2_budgeted_str: hasBudget ? fmtNum(m2Budgeted, 2) : '',
+        m2_real_str: fmtNum(m2Real, 2),
         delta_str: hasBudget
-          ? `${delta > 0 ? '+' : ''}${fmtMeasure(delta)}`
+          ? `${delta > 0 ? '+' : ''}${fmtNum(delta, 2)}`
           : '',
         subtotal_ars,
         subtotal_usd,
@@ -384,9 +385,9 @@ export function buildMeasurementComparison(
         measure_real: m2Real,
         measure_delta: hasBudget ? delta : null,
         measure_unit: 'm2',
-        measure_budgeted_str: hasBudget ? `${fmtMeasure(m2Budgeted)} m²` : '',
-        measure_real_str: `${fmtMeasure(m2Real)} m²`,
-        measure_delta_str: hasBudget ? `${delta > 0 ? '+' : ''}${fmtMeasure(delta)} m²` : '',
+        measure_budgeted_str: hasBudget ? `${fmtNum(m2Budgeted, 2)} m²` : '',
+        measure_real_str: `${fmtNum(m2Real, 2)} m²`,
+        measure_delta_str: hasBudget ? `${delta > 0 ? '+' : ''}${fmtNum(delta, 2)} m²` : '',
       });
     }
 
@@ -542,8 +543,11 @@ function detailRow(
   const unitLabel = unit ? (unit === 'm2' ? 'm²' : 'ml') : null;
   const measureStr = (v: number | null, sign = false): string => {
     if (v == null || !unitLabel) return '';
-    const body = sign ? `${v > 0 ? '+' : ''}${fmtMeasure(v)}` : fmtMeasure(v);
-    return `${body} ${unitLabel}`;
+    // M² must show exactly 2 decimals (customer-facing); ml keeps the compact
+    // measure formatting (`3 ml`, `3.3 ml`).
+    const body = unit === 'm2' ? fmtNum(v, 2) : fmtMeasure(v);
+    const signedBody = sign ? `${v > 0 ? '+' : ''}${body}` : body;
+    return `${signedBody} ${unitLabel}`;
   };
   return {
     concepto: label,
@@ -677,6 +681,48 @@ export function revalueGlobalFrenteForMaterial(
     ...row,
     currency,
     price_str: fmtMoney(pricePerMeter),
+    subtotal_ars: subtotalArs,
+    subtotal_usd: subtotalUsd,
+  };
+}
+
+/**
+ * Revalue EVERY `frente` additional-work row against a specific
+ * alternative's material — the HOJA DE ALTERNATIVAS rule. Unlike
+ * `revalueGlobalFrenteForMaterial` (which only rewrites the unvalued $0
+ * rows), this re-prices ANY frente with the alternative's own $/m²
+ * (`ml × price_m2 × 0.13 × 1.15`), even when the row carries a frozen
+ * subtotal authored against the PRINCIPAL — a frente shown inside an
+ * ALTERNATIVA must quote the ALTERNATIVE's price, not the frozen one.
+ * The breakdown strings are refreshed so the "Calculado:" line follows.
+ * Non-frente rows pass through unchanged.
+ */
+export function revalueFrenteForMaterial(
+  row: AdditionalWorkPdfRow,
+  alt: MaterialInForm,
+  usdRate: number,
+): AdditionalWorkPdfRow {
+  if (row.type !== 'frente') return row;
+  const ml = Number(row.linear_meters || 0);
+  if (ml <= 0) return row;
+  const multiplier =
+    row.multiplier != null && Number.isFinite(row.multiplier) && Number(row.multiplier) > 0
+      ? Number(row.multiplier)
+      : FRENTE_FORMULA_MULTIPLIER_DEFAULT;
+  const pricePerM2 = priceM2ForMaterial(alt);
+  const total =
+    Math.round(pricePerM2 * FRENTE_LINEAR_COEFFICIENT * multiplier * ml * 100) / 100;
+  const pricePerMeter =
+    Math.round(pricePerM2 * FRENTE_LINEAR_COEFFICIENT * multiplier * 100) / 100;
+  const currency: 'ARS' | 'USD' = alt.currency === 'USD' ? 'USD' : 'ARS';
+  const subtotalArs = currency === 'USD' ? total * usdRate : total;
+  const subtotalUsd = currency === 'USD' ? total : (usdRate > 0 ? total / usdRate : 0);
+  return {
+    ...row,
+    currency,
+    price_str: fmtMoney(pricePerMeter),
+    material_price_per_m2_str: fmtMoney(pricePerM2),
+    formula_constant_str: fmtMoney(multiplier),
     subtotal_ars: subtotalArs,
     subtotal_usd: subtotalUsd,
   };
@@ -823,12 +869,10 @@ export function buildSections(
     ];
     const altAdditional: AdditionalWorkPdfRow[] = [
       ...addicionalBuckets.additionalCommon.map((a) =>
-        revalueGlobalFrenteForMaterial(a, representative, usdRate),
+        revalueFrenteForMaterial(a, representative, usdRate),
       ),
       ...(addicionalBuckets.additionalByMaterial[representative.name] ?? []).map((a) =>
-        a.type === 'frente' && a.subtotal_ars === 0 && a.subtotal_usd === 0
-          ? revalueGlobalFrenteForMaterial(a, representative, usdRate)
-          : a,
+        revalueFrenteForMaterial(a, representative, usdRate),
       ),
     ];
     const altAdditionArs = altAdditional.reduce((s, a) => s + a.subtotal_ars, 0);

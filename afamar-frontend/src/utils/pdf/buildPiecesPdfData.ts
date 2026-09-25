@@ -33,7 +33,7 @@ import {
   buildMaterialRows,
   buildPoolRows,
   revalueM2FabricationForMaterial,
-  revalueGlobalFrenteForMaterial,
+  revalueFrenteForMaterial,
 } from './buildSectionData';
 import type {
   AdditionalWorkPdfRow,
@@ -170,9 +170,12 @@ export function buildPieces(
       });
       // Same treatment for additional works (traforos, frentes): the
       // `materialName` field is overwritten so the customer sees the
-      // alternative material on the row, not the principal.
+      // alternative material on the row, not the principal. Frentes are
+      // re-valued against the ALTERNATIVE's $/m² (even when the row carries
+      // a frozen subtotal authored for the principal — the alternative sheet
+      // must quote its own material, see `revalueFrenteForMaterial`).
       const altAdditional: AdditionalWorkPdfRow[] = adicRows.map((a) => {
-        const r = revalueGlobalFrenteForMaterial(a, representative, usdRate);
+        const r = revalueFrenteForMaterial(a, representative, usdRate);
         return { ...r, materialName: representative.name || '' };
       });
       // Pools travel with the piece (no revaluation — the legacy

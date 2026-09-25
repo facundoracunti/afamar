@@ -24,7 +24,6 @@ import type {
   MaterialSection,
 } from './pdfTypes';
 import {
-  STATUS_SUB_MAP,
   formatDate,
   fmtMoney,
   fmtNum,
@@ -602,7 +601,7 @@ export function buildPdfData({
     document_type,
     title: document_type === 'budget' ? 'PRESUPUESTO' : 'ORDEN DE TRABAJO',
     number: str('number'),
-    doc_sub: STATUS_SUB_MAP[str('status')] || '',
+    doc_sub: '',
     date: formatDate(form.date),
     client_name: str('client_name'),
     client_phone: str('client_phone'),
@@ -611,7 +610,7 @@ export function buildPdfData({
     material_color: str('color'),
     material_thickness: str('thickness'),
     material_finish: str('finish'),
-    delivery_date: formatDate(form.delivery_date),
+    delivery_date: form.delivery_date ? formatDate(form.delivery_date) : '',
     sections,
     fabrication_details: flatFabrication,
     materials: flatMaterials,

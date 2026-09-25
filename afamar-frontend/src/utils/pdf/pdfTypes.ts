@@ -125,6 +125,9 @@ export interface CompanyInfo {
   company_email: string;
   company_logo: string;
   pdf_footer: string;
+  /** Free-text "válido por X días" line. Optional: when undefined/empty the
+   *  PDF header omits the line entirely (budget-only). */
+  budget_validity_text?: string;
 }
 
 export interface TermsInfo {

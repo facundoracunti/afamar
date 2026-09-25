@@ -716,6 +716,53 @@ describe('buildPdfData — grouped alternative sections', () => {
     expect(main!.subtotal_ars).toBe(478010);
     expect(data.subtotal).toBe(478010);
   });
+
+  it('revalues a GLOBAL frente in every ALTERNATIVA even when it carries a frozen subtotal (HOJA DE ALTERNATIVAS)', () => {
+    // User request: a frente that was authored against the PRINCIPAL with a
+    // concrete price (frozen `price`/`total` in the JSON) must still quote
+    // the ALTERNATIVE's own formula inside HOJA DE ALTERNATIVAS — `material ×
+    // 0.13 × 1.15 × ml` of the alternative material — instead of repeating
+    // the principal's frozen price. `revalueGlobalFrenteForMaterial` skips
+    // rows whose subtotal is already set ($0 guard), so the alternative sheet
+    // kept the frozen value; `revalueFrenteForMaterial` re-prices ANY frente.
+    const mainAndAltMaterials = [
+      { id: 1, name: 'Negro Brasil', price_m2: 330000, price_m2_usd: 330, currency: 'USD', quantity: 1, m2_used: 0, m2_budgeted: 0, length: 1, width: 1, is_alternative: false },
+      { id: 27, name: 'ZIRCONIUM', price_m2: 750000, price_m2_usd: 750, currency: 'USD', quantity: 1, m2_used: 0, m2_budgeted: 0, length: 1, width: 1, is_alternative: true },
+    ] satisfies MaterialInForm[];
+    const adicionales = JSON.stringify([
+      { additional_work_id: 6, name: 'Frente Ingletetado 45', detail: 'Frente 45', price: 3000, currency: 'ARS', quantity: 1, total: 3000, materialName: '__GLOBAL__', type: 'frente', linear_meters: 3, assigned_material_id: null, formula_values: null },
+    ]);
+
+    const data = buildPdfData({
+      form: makeForm({ materials_data: mainAndAltMaterials, additional_works_data: adicionales, usd_rate: 1000 }),
+      document_type: 'budget',
+      company: { company_name: 'AFAMAR', company_tagline: '', company_address: '', company_phone: '', company_email: '', company_logo: '', pdf_footer: '' },
+      globalTerms: { budget_terms: [], delivery_terms: [], warranty_text: [] },
+      overrides: {},
+      sketchImages: [],
+    });
+
+    const main = data.sections.find((s) => s.is_main);
+    const alt = data.sections.find((s) => s.material_name === 'ZIRCONIUM');
+    expect(main).toBeDefined();
+    expect(alt).toBeDefined();
+    expect(data.sections).toHaveLength(2);
+
+    // PRINCIPAL — the frente KEEPS its frozen price ($3000 ARS): the operator
+    // authored the real proposal against the principal; only the alternative
+    // sheet re-prices with the alternative formula.
+    const mainFrente = main!.additional_works.find((a) => a.type === 'frente');
+    expect(mainFrente).toBeDefined();
+    expect(mainFrente!.subtotal_ars).toBe(3000);
+    expect(mainFrente!.subtotal_usd).toBe(3);
+
+    // ALTERNATIVA — revalued vs ZIRCONIUM (USD 750/m²):
+    // 750 × 0.13 × 1.15 × 3 = 336.37 USD → ARS 336.370.
+    const altFrente = alt!.additional_works.find((a) => a.type === 'frente');
+    expect(altFrente).toBeDefined();
+    expect(altFrente!.subtotal_usd).toBeCloseTo(336.37);
+    expect(altFrente!.subtotal_ars).toBeCloseTo(336370);
+  });
 });
 
 describe('buildPdfData — measurement precision', () => {
@@ -1167,6 +1214,52 @@ describe('buildPdfData — edge cases', () => {
     expect(data.subtotal).toBe(0);
     expect(data.total).toBe(0);
     expect(data.balance_due).toBe(0);
+  });
+
+  it('emits delivery_date as "" when the estimated delivery date is not set', () => {
+    // Regression sentinel (PDF Fecha de Entrega): `formatDate('')` fell back
+    // to "today", so a document without a delivery date printed a Fecha de
+    // Entrega the customer never agreed to. The builder must emit '' so the
+    // template/preview hides the field instead of showing a bogus date.
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({ delivery_date: null }),
+      overrides: {},
+    });
+    expect(data.delivery_date).toBe('');
+
+    const withDate = buildPdfData({
+      ...baseParams,
+      form: makeForm({ delivery_date: '2026-09-11' }),
+      overrides: {},
+    });
+    expect(withDate.delivery_date).toBe('11/9/2026');
+  });
+
+  it('hides Saldo pendiente in budgets without registered payments but keeps it for budgets with a seña', () => {
+    // BUILD-PDF-DATA gate: the PDF preview only renders the Saldo pendiente
+    // row when payments were actually registered (document_type ===
+    // work_order OR a deposit exists). A plain budget (no seña) must not
+    // repeat the TOTAL as "Saldo pendiente" — misleading for the customer.
+    const fabrication_details = [
+      { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 10000 },
+    ];
+    const noDeposit = buildPdfData({
+      ...baseParams,
+      form: makeForm({ fabrication_details, deposit_received: 0, deposit_usd: 0 }),
+      overrides: {},
+    });
+    expect(noDeposit.balance_due).toBe(10000);
+    expect(noDeposit.deposit_received).toBe(0);
+    expect(noDeposit.deposit_usd).toBe(0);
+
+    const withDeposit = buildPdfData({
+      ...baseParams,
+      form: makeForm({ fabrication_details, deposit_received: 3000, deposit_usd: 0 }),
+      overrides: {},
+    });
+    expect(withDeposit.balance_due).toBe(7000);
+    expect(withDeposit.deposit_received).toBe(3000);
   });
 
   it('does not crash on malformed additional_works_data JSON', () => {
@@ -2022,5 +2115,294 @@ describe('buildPdfData — Seña / Pagos Registrados (accumulated paid)', () => 
     expect(data.total_paid_ars).toBe(100000);
     expect(data.paid_label).toBe('Seña');
     expect(data.balance_due).toBe(890000);
+  });
+});
+
+describe('buildPdfData — budget_validity_text (admin-editable header line)', () => {
+  const baseParams = {
+    document_type: 'budget' as const,
+    form: makeForm({
+      materials_data: [
+        {
+          id: 1,
+          name: 'Negro Brasil',
+          price_m2: 200000,
+          price_m2_usd: 330,
+          currency: 'USD',
+          quantity: 1,
+          m2_used: 0,
+          m2_budgeted: 0,
+          length: 2,
+          width: 1.5,
+          is_alternative: false,
+        },
+      ],
+      deposit_received: 0,
+      deposit_currency: 'ARS',
+      deposit_usd: 0,
+      usd_rate: 1000,
+      currency: 'USD',
+    }),
+    globalTerms: { budget_terms: [], delivery_terms: [], warranty_text: [] },
+    sketchImages: [],
+    overrides: {},
+  };
+
+  it('passes the admin-edited validity text through to data.company', () => {
+    const data = buildPdfData({
+      ...baseParams,
+      company: {
+        company_name: 'AFAMAR',
+        company_tagline: '',
+        company_address: '',
+        company_phone: '',
+        company_email: '',
+        company_logo: '',
+        pdf_footer: '',
+        budget_validity_text: 'Presupuesto válido por 15 días.',
+      },
+    });
+    expect(data.company.budget_validity_text).toBe('Presupuesto válido por 15 días.');
+  });
+
+  it('defaults to empty string when the setting is unset', () => {
+    const data = buildPdfData({
+      ...baseParams,
+      company: {
+        company_name: 'AFAMAR',
+        company_tagline: '',
+        company_address: '',
+        company_phone: '',
+        company_email: '',
+        company_logo: '',
+        pdf_footer: '',
+      },
+    });
+    expect(data.company.budget_validity_text ?? '').toBe('');
+  });
+});
+
+describe('buildPdfData — M² surfaces with exactly 2 decimals', () => {
+  const baseParams = {
+    document_type: 'budget' as const,
+    company: {
+      company_name: 'AFAMAR',
+      company_tagline: '',
+      company_address: '',
+      company_phone: '',
+      company_email: '',
+      company_logo: '',
+      pdf_footer: '',
+    },
+    globalTerms: { budget_terms: [], delivery_terms: [], warranty_text: [] },
+    sketchImages: [],
+    overrides: {},
+  };
+
+  it('formats fabrication_details m² labels with exactly 2 decimals', () => {
+    // 0.66 × 0.66 × 1 = 0.4356 m² — must render as '0,44' (es-AR, 2 decimals).
+    // No `material` → row lands in fabricationCommon → reaches flatFabrication
+    // (a linked material without a matching main would be dropped silently).
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({
+        fabrication_details: [
+          {
+            concept: 'BASEBOARD',
+            detail: '',
+            length: 0.66,
+            width: 0.66,
+            quantity: 1,
+            price: 50000,
+            currency: 'ARS',
+          },
+        ],
+        deposit_received: 0,
+        deposit_currency: 'ARS',
+        deposit_usd: 0,
+        usd_rate: 1000,
+        currency: 'ARS',
+      }),
+    });
+    expect(data.fabrication_details[0].m2_label).toBe('0,44');
+  });
+
+  it('formats m2_label as "0,00" (not "0") when m² is exactly zero', () => {
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({
+        fabrication_details: [
+          {
+            concept: 'BASEBOARD',
+            detail: '',
+            length: 0,
+            width: 0,
+            quantity: 1,
+            price: 50000,
+            currency: 'ARS',
+          },
+        ],
+        deposit_received: 0,
+        deposit_currency: 'ARS',
+        deposit_usd: 0,
+        usd_rate: 1000,
+        currency: 'ARS',
+      }),
+    });
+    expect(data.fabrication_details[0].m2_label).toBe('0,00');
+  });
+});
+
+describe('buildPdfData — totals block layout (Dólar del día LEFT + sequential totals RIGHT)', () => {
+  // The render layer (DocumentPdf.tsx + document_pdf.html) consumes these
+  // fields directly; buildPdfData is the single source of truth for what
+  // reaches the template. These tests lock the contract:
+  //   - The LEFT column needs `usd_rate` (positive) + optional
+  //     `usd_rate_fetched_at` to render "Dólar del día".
+  //   - The RIGHT column needs the gates Subtotal → Descuento (only if
+  //     discount) → Interés (only if surcharge) → Seña/Saldo.
+  //   - TOTAL blue bar sits BELOW Descuento/Interés, ABOVE Seña/Saldo.
+  // The actual visual order is enforced in the components (see
+  // DocumentPdf.tsx :: renderExtras + AlternativeTotalsSummary, and the
+  // legacy `document_pdf.html` TOTALS block); here we just make sure the
+  // data carries everything those components read.
+
+  const baseCompany = {
+    company_name: 'AFAMAR',
+    company_tagline: '',
+    company_address: '',
+    company_phone: '',
+    company_email: '',
+    company_logo: '',
+    pdf_footer: '',
+  };
+  const baseParams = {
+    document_type: 'budget' as const,
+    company: baseCompany,
+    globalTerms: { budget_terms: [], delivery_terms: [], warranty_text: [] },
+    sketchImages: [],
+    overrides: {},
+  };
+
+  it('exposes usd_rate + usd_rate_fetched_at for the LEFT column', () => {
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({
+        usd_rate: 1535,
+        currency: 'USD',
+      }),
+    });
+    expect(data.usd_rate).toBe(1535);
+    expect(data.usd_rate_fetched_at == null || typeof data.usd_rate_fetched_at === 'string').toBe(true);
+  });
+
+  it('exposes the gates needed by the right-column sequence on a discount scenario', () => {
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({
+        materials_data: [
+          {
+            id: 1,
+            name: 'Negro Brasil',
+            price_m2: 200000,
+            price_m2_usd: 330,
+            currency: 'USD',
+            quantity: 1,
+            m2_used: 0,
+            m2_budgeted: 0,
+            length: 2,
+            width: 1.5,
+            is_alternative: false,
+          },
+        ],
+        transport: 5000,
+        discount_enabled: true,
+        discount_percentage: 10,
+        discount_fixed_amount: 50000,
+        discount_target: 'total',
+        discount_amount: 50000,
+        deposit_received: 20000,
+        deposit_currency: 'ARS',
+        deposit_usd: 0,
+        usd_rate: 1000,
+        currency: 'USD',
+      }),
+    });
+    expect(data.subtotal).toBeGreaterThan(0);
+    expect(data.transport).toBe(5000);
+    expect(data.discount_fixed_amount).toBe(50000);
+    expect(data.discount_percentage).toBe(10);
+    expect(data.deposit_received).toBe(20000);
+    expect(data.balance_due).toBeGreaterThan(0);
+  });
+
+  it('keeps saldo gating for work orders (no deposit_required to render the row)', () => {
+    // Even with NO seña, a work_order must render the "Saldo pendiente" row
+    // (it equals TOTAL in that case). This mirrors the existing
+    // showSaldo derivation in DocumentPdf + the legacy `{% if balance_due
+    // and (paid_label or deposit_received or deposit_usd) %}` guard, where
+    // `paid_label` is always set for WO.
+    const data = buildPdfData({
+      ...baseParams,
+      document_type: 'work_order',
+      form: makeForm({
+        materials_data: [
+          {
+            id: 1,
+            name: 'Negro Brasil',
+            price_m2: 200000,
+            price_m2_usd: 330,
+            currency: 'USD',
+            quantity: 1,
+            m2_used: 0,
+            m2_budgeted: 0,
+            length: 2,
+            width: 1.5,
+            is_alternative: false,
+          },
+        ],
+        deposit_received: 0,
+        deposit_usd: 0,
+        usd_rate: 1000,
+        currency: 'USD',
+      }),
+    });
+    expect(data.balance_due).toBeGreaterThan(0);
+    // The "Saldo pendiente" row needs `paid_label` for WO; check the data
+    // signals the components look at:
+    expect(data.document_type).toBe('work_order');
+  });
+
+  it('omits the descuento row from the data when discount_fixed_amount === 0', () => {
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({
+        materials_data: [
+          {
+            id: 1,
+            name: 'Negro Brasil',
+            price_m2: 200000,
+            price_m2_usd: 330,
+            currency: 'USD',
+            quantity: 1,
+            m2_used: 0,
+            m2_budgeted: 0,
+            length: 2,
+            width: 1.5,
+            is_alternative: false,
+          },
+        ],
+        // No discount
+        discount_enabled: false,
+        discount_percentage: 0,
+        discount_fixed_amount: 0,
+        deposit_received: 0,
+        deposit_currency: 'ARS',
+        deposit_usd: 0,
+        usd_rate: 1000,
+        currency: 'USD',
+      }),
+    });
+    expect(data.discount_fixed_amount).toBe(0);
   });
 });

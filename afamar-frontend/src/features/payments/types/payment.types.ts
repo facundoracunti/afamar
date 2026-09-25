@@ -1,4 +1,11 @@
-export type PaymentMethod = 'efectivo' | 'transferencia' | 'tarjeta' | 'payway_link';
+export type PaymentMethod =
+  | 'efectivo'
+  | 'transferencia'
+  | 'tarjeta'
+  | 'payway_link'
+  /** "Dólar billete" — se registra en USD nativos, convertidos a ARS con la
+   *  cotización Dólar Blue Intermedio para impactar en el saldo/PDF. */
+  | 'efectivo_usd';
 
 export type PaymentStatus = 'Pendiente' | 'Señado Parcial' | 'Pagado';
 
@@ -17,6 +24,12 @@ export interface PaymentTransaction {
   /** Recargo % aplicado al cobrar con tarjeta (manual del operador). El
    *  `amount` ya lo incluye. Null si no aplica. */
   tarjeta_surcharge_percent?: number | null;
+  /** Equivalente en ARS del pago (solo para `currency === 'USD'`). El
+   *  saldo pendiente / acumulado del módulo siempre suma en ARS. */
+  amount_ars?: number | null;
+  /** Cotización USD usada para convertir `amount` → `amount_ars` (Dólar
+   *  Blue Intermedio). Solo para `currency === 'USD'`. */
+  usd_rate?: number | null;
 }
 
 export interface PaymentBreakdown {

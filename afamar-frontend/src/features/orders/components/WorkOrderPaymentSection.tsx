@@ -3,12 +3,12 @@ import { PaymentModal } from '../../payments/components/PaymentModal';
 import type { NewPaymentTransaction } from '../../payments/components/PaymentModal';
 import { OrderPaymentSummary } from './OrderPaymentSummary';
 import { usePaymentAction } from '../../payments/hooks/usePaymentAction';
-import type { RegisteredPayment } from '../../payments/hooks/usePaymentAction';
 import type { PaymentMethod } from '../../payments/types/payment.types';
 import { useNotify } from '../../../context/NotificationContext';
 
 const BACKEND_TO_MODULE: Record<string, PaymentMethod> = {
   EFECTIVO: 'efectivo',
+  'EFECTIVO (USD)': 'efectivo_usd',
   'TRANSFERENCIA BANCARIA': 'transferencia',
   'TARJETA DE DÉBITO': 'tarjeta',
   'TARJETA DE CRÉDITO': 'payway_link',
@@ -16,6 +16,7 @@ const BACKEND_TO_MODULE: Record<string, PaymentMethod> = {
 
 const MODULE_TO_BACKEND: Record<PaymentMethod, string> = {
   efectivo: 'EFECTIVO',
+  efectivo_usd: 'EFECTIVO (USD)',
   transferencia: 'TRANSFERENCIA BANCARIA',
   tarjeta: 'TARJETA DE DÉBITO',
   payway_link: 'TARJETA DE CRÉDITO',
@@ -42,6 +43,10 @@ export interface WorkOrderPaymentSectionProps {
   montoPagadoAcumulado: number;
   preferredMethodBackend: string | null;
   currency: 'ARS' | 'USD';
+  /** Cotización Dólar Blue Intermedio (ARS por USD) para convertir los
+   *  pagos en "Dólar billete" (efectivo_usd) a su equivalente ARS. Se
+   *  alimenta con `form.usd_rate` del form de OT (useUsdRate blue_mid). */
+  usdRate?: number;
   /** Persistir la preferencia en el form (no marca la OT como pagada). */
   onPreferredMethodChange: (method: PaymentMethod | null) => void;
   /** Reporta en vivo el pagado acumulado del módulo (suma de los pagos
@@ -68,6 +73,7 @@ export function WorkOrderPaymentSection(props: WorkOrderPaymentSectionProps) {
     montoPagadoAcumulado: props.montoPagadoAcumulado,
     montoSeniaRequerida: props.montoSeniaRequerida,
     preferredMethod,
+    usdRate: props.usdRate,
   });
 
   const handlePaymentSubmit = useCallback(
@@ -125,6 +131,7 @@ export function WorkOrderPaymentSection(props: WorkOrderPaymentSectionProps) {
         saldoPendiente={breakdown.saldo_pendiente}
         currency={props.currency}
         defaultMethod={breakdown.preferred_method}
+        usdRate={props.usdRate}
         loading={isRegistering}
         hasPaymentsInSession={registeredTransactions.length > 0}
         orderId={props.orderId}

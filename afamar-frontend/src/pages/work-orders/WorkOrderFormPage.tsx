@@ -245,7 +245,7 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
     setForm,
   });
 
-  const { refresh: refreshUsdRate } = useUsdRate({ form, setForm, isEdit });
+  const { refresh: refreshUsdRate } = useUsdRate({ form, setForm, isEdit, source: 'blue_mid' });
 
   if (loading) return <LoadingSpinner />;
 
@@ -449,6 +449,7 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
                       montoPagadoAcumulado={0}
                       preferredMethodBackend={form.payment_method ?? null}
                       currency={form.currency === 'USD' ? 'USD' : 'ARS'}
+                      usdRate={Number(form.usd_rate) > 0 ? Number(form.usd_rate) : 0}
                       onPreferredMethodChange={(method: PaymentMethod | null) =>
                         update('payment_method', backendMethodFor(method))
                       }

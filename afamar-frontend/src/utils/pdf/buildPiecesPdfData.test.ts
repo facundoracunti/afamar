@@ -274,6 +274,66 @@ describe('buildPieces', () => {
     expect(alt.subtotal_ars).toBeCloseTo(633500);
   });
 
+  it('revalues a GLOBAL frente in the alternative even when it carries a frozen subtotal (HOJA DE ALTERNATIVAS)', () => {
+    // Regression for the user request: a frente additional-work authored
+    // against the PRINCIPAL with a frozen price (e.g. USD 5.000) must NOT
+    // repeat that price inside HOJA DE ALTERNATIVAS — the alternative quotes
+    // its OWN $/m² via `material × 0.13 × 1.15 × ml`. `revalueFrenteForMaterial`
+    // (used by `buildPieces`) re-prices ANY frente, unlike the old $0-only
+    // `revalueGlobalFrenteForMaterial`.
+    const frozenFrente: BudgetPiece = {
+      id: 'p-frozen-frente',
+      name: 'Mesada frente',
+      mainMaterial: mat({
+        name: 'Miami',
+        currency: 'USD',
+        price_m2_usd: 680,
+        is_alternative: false,
+      }),
+      alternativeMaterials: [
+        mat({
+          name: 'Blanco Norte',
+          currency: 'USD',
+          price_m2_usd: 590,
+          is_alternative: true,
+        }),
+      ],
+      fabrication_details: [],
+      additional_works_data: JSON.stringify([
+        {
+          name: 'Frente Ingletetado 45',
+          detail: '',
+          currency: 'USD',
+          price: 5000,
+          quantity: 3,
+          total: 15000,
+          type: 'frente',
+          linear_meters: 3,
+          materialName: '__GLOBAL__',
+          assigned_material_id: null,
+        },
+      ]),
+      pools: [],
+    };
+    const pieces = buildPieces(makeForm([frozenFrente]), 1000);
+
+    // PRINCIPAL: the frozen frente price stays (author authored it).
+    const principal = pieces[0];
+    expect(principal.additional_works).toHaveLength(1);
+    expect(principal.additional_works[0].subtotal_usd).toBe(15000);
+
+    // ALTERNATIVE (Blanco Norte USD 590/m²): 590 × 0.13 × 1.15 × 3 = 264.62 USD.
+    const alt = pieces[0].alternatives[0];
+    expect(alt.material_name).toBe('Blanco Norte');
+    expect(alt.additional_works).toHaveLength(1);
+    const frente = alt.additional_works[0];
+    expect(frente.type).toBe('frente');
+    expect(frente.currency).toBe('USD');
+    expect(frente.price_str).toBe('88,21');
+    expect(frente.subtotal_usd).toBeCloseTo(264.62);
+    expect(frente.subtotal_ars).toBeCloseTo(264620);
+  });
+
   it('revalues each alternative independently with its OWN material $/m² (multi-alt)', () => {
     const multiAlt: BudgetPiece = {
       id: 'p-multialt',

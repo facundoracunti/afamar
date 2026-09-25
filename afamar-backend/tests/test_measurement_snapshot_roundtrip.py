@@ -235,8 +235,8 @@ def test_full_flow_snapshot_survives_measurement_adjust_and_drives_comparison(se
     assert mesada_1["delta_str"] == "+0.16"
     assert mesada_1["subtotal_usd"] == pytest.approx(52.8, abs=0.01)
     assert mesada_1["subtotal_ars"] == pytest.approx(52800.0, abs=0.01)
-    mesada_2 = next(r for r in primary if r["m2_budgeted_str"] == "0.4352")
-    assert mesada_2["delta_str"] == "0"
+    mesada_2 = next(r for r in primary if r["m2_budgeted_str"] == "0.44")
+    assert mesada_2["delta_str"] == "0.00"
     assert mesada_2["subtotal_usd"] == 0
 
     details = [r for r in cmp if r["is_detail"]]
@@ -245,7 +245,7 @@ def test_full_flow_snapshot_survives_measurement_adjust_and_drives_comparison(se
     assert zocalo["name"] == "Zócalo NEGRO BRASIL"
     assert zocalo["measure_budgeted_str"] == "0.42 m²"
     assert zocalo["measure_real_str"] == "0.42 m²"
-    assert zocalo["measure_delta_str"] == "0 m²"
+    assert zocalo["measure_delta_str"] == "0.00 m²"
     frente = next(r for r in details if r["measure_unit"] == "ml")
     assert frente["name"] == "Frente Ingletetado 45°"
     assert frente["measure_budgeted_str"] == "3.3 ml"
