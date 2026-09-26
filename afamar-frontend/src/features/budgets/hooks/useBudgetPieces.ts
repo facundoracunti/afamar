@@ -586,6 +586,13 @@ export function useBudgetPieces({
             piece.mainMaterial,
             ...(piece.mainMaterialRows || []),
           ].filter(Boolean) as MaterialInForm[];
+          const existing = piece.alternativeMaterials || [];
+          // A material already present as an alternative is a no-op: the
+          // picker does NOT filter already-picked entries, and appending
+          // it would create two cards with the same group key (duplicate
+          // React keys + a duplicated material choice).
+          const pickedKey = String(catalogRow.id ?? catalogRow.name);
+          if (existing.some((a) => groupKeyOf(a) === pickedKey)) return piece;
           const next: MaterialInForm[] = mainRows.map((row) => ({
             ...catalogRow,
             length: Number(row.length) || 0,
@@ -595,7 +602,9 @@ export function useBudgetPieces({
             m2_budgeted: 0,
             is_alternative: true,
           }));
-          return { ...piece, alternativeMaterials: next };
+          // APPEND, never replace: each new pick adds a new alternative
+          // slot, keeping every previously-picked alternative intact.
+          return { ...piece, alternativeMaterials: [...existing, ...next] };
         }),
       );
     },

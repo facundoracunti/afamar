@@ -236,6 +236,105 @@ describe('useBudgetPieces (pieces-only mode)', () => {
     expect(alt.quantity).toBe(1);
   });
 
+  it('addPieceAlternative APPENDS N alternatives sequentially (3+ cards, no overwrite)', () => {
+    // Regression sentinel: the handler previously RETURNED `next` (a
+    // full replace of `alternativeMaterials`), so picking the 2nd
+    // alternative overwrote the 1st and a 3rd pick could never survive.
+    const mat: MaterialInForm = {
+      id: BLANCO_MAT.id, name: 'Blanco', category: '', color: '',
+      price_m2: BLANCO_MAT.base_price, price_m2_usd: 0, currency: 'ARS',
+      quantity: 1, m2_used: 0, m2_budgeted: 0,
+      length: 0, width: 0, is_alternative: false,
+    };
+    const { result, getForm } = setupWith(
+      blankForm({
+        pieces: [{
+          id: 'p1', name: 'Mesada 1',
+          mainMaterial: mat, alternativeMaterials: [],
+          fabrication_details: [], additional_works_data: '[]', pools: [],
+        }],
+      }),
+      [BLANCO_MAT, NEGRO_MAT, MIAMI_MAT],
+    );
+    act(() => result.current.addPieceAlternative('p1', 'Negro'));
+    act(() => result.current.addPieceAlternative('p1', 'Miami'));
+    expect(result.current.pieces[0].alternativeMaterials).toHaveLength(2);
+    expect(result.current.pieces[0].alternativeMaterials[0].name).toBe('Negro');
+    expect(result.current.pieces[0].alternativeMaterials[1].name).toBe('Miami');
+    // The main (and its dims) survive every pick.
+    expect(result.current.pieces[0].mainMaterial?.name).toBe('Blanco');
+    // Flat `materials_data` mirrors ALL alternatives (main + 2 alts).
+    const flatAlts = getForm().materials_data.filter((m) => m.is_alternative);
+    expect(flatAlts.map((m) => m.name)).toEqual(['Negro', 'Miami']);
+  });
+
+  it('addPieceAlternative keeps 3+ alternatives alive together on ONE piece', () => {
+    // Same scenario but with a principal that has 2 panes (anchor + tramo):
+    // each new alternative must carry its own copy of BOTH panes and never
+    // clobber the previous alternative's rows.
+    const mat: MaterialInForm = {
+      id: BLANCO_MAT.id, name: 'Blanco', category: '', color: '',
+      price_m2: BLANCO_MAT.base_price, price_m2_usd: 0, currency: 'ARS',
+      quantity: 1, m2_used: 0, m2_budgeted: 0,
+      length: 2, width: 0.5, is_alternative: false,
+    };
+    const tramo: MaterialInForm = {
+      ...mat, length: 1, width: 0.6, quantity: 1,
+    };
+    const { result } = setupWith(
+      blankForm({
+        pieces: [{
+          id: 'p1', name: 'Mesada 1',
+          mainMaterial: mat,
+          mainMaterialRows: [tramo],
+          alternativeMaterials: [],
+          fabrication_details: [], additional_works_data: '[]', pools: [],
+        }],
+      }),
+      [BLANCO_MAT, NEGRO_MAT, MIAMI_MAT],
+    );
+    act(() => result.current.addPieceAlternative('p1', 'Negro'));
+    act(() => result.current.addPieceAlternative('p1', 'Miami'));
+    act(() => result.current.addPieceAlternative('p1', 'Blanco'));
+    const alts = result.current.pieces[0].alternativeMaterials;
+    expect(alts).toHaveLength(6); // 3 alternatives × 2 panes each
+    expect(alts.filter((a) => a.name === 'Negro')).toHaveLength(2);
+    expect(alts.filter((a) => a.name === 'Miami')).toHaveLength(2);
+    expect(alts.filter((a) => a.name === 'Blanco')).toHaveLength(2);
+    // Each alternative keeps the principal's panes (length/width).
+    expect(alts.map((a) => `${a.name}:${a.length}x${a.width}`)).toEqual([
+      'Negro:2x0.5',
+      'Negro:1x0.6',
+      'Miami:2x0.5',
+      'Miami:1x0.6',
+      'Blanco:2x0.5',
+      'Blanco:1x0.6',
+    ]);
+  });
+
+  it('addPieceAlternative with a material already picked is a NO-OP (no duplicate cards)', () => {
+    // The picker does not filter already-picked entries; the handler must
+    // guard against re-appending the same material (it would produce two
+    // cards with the same group key → duplicate React keys).
+    const mat: MaterialInForm = {
+      id: BLANCO_MAT.id, name: 'Blanco', category: '', color: '',
+      price_m2: BLANCO_MAT.base_price, price_m2_usd: 0, currency: 'ARS',
+      quantity: 1, m2_used: 0, m2_budgeted: 0,
+      length: 0, width: 0, is_alternative: false,
+    };
+    const { result } = setupWith(blankForm({
+      pieces: [{
+        id: 'p1', name: 'Mesada 1',
+        mainMaterial: mat, alternativeMaterials: [],
+        fabrication_details: [], additional_works_data: '[]', pools: [],
+      }],
+    }));
+    act(() => result.current.addPieceAlternative('p1', 'Negro'));
+    act(() => result.current.addPieceAlternative('p1', 'Negro'));
+    expect(result.current.pieces[0].alternativeMaterials).toHaveLength(1);
+    expect(result.current.pieces[0].alternativeMaterials[0].name).toBe('Negro');
+  });
+
   it('MEDITOR flow: snapshots (m2_budgeted etc.) survive updatePieceMain + commit (COMPARATIVA)', () => {
     // A work order converted from a budget carries the budgeted-measurement
     // snapshots on its rows (hydrated by `mapApiToForm` from the flat
