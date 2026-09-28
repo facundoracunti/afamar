@@ -134,8 +134,6 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
   // Single-column cascade: each piece card spans the full width and
   // stacks downward as the operator adds more mesadas. Pools sit below
   // as a compact document-global section.
-  const layoutClassPieces = s[`${prefix}layout--pieces`];
-
   const piecesSection = piecesOn && piecesFlow ? (
     <PiecesSection
       form={form}
@@ -465,9 +463,7 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
 
             {beforeLayout}
 
-            <div className={layoutClassPieces}>
-              {piecesSection}
-            </div>
+            {piecesSection}
 
             {renderBottom()}
           </>

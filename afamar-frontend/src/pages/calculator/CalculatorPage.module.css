@@ -210,6 +210,60 @@
   font-size: 11px;
   color: var(--text-muted);
   margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.calculator__kerfLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.calculator__kerfInput {
+  width: 64px;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  padding: 2px 6px;
+}
+
+.calculator__rotateLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.calculator__rotateLabel input[type='checkbox'] {
+  cursor: pointer;
+}
+
+/* Print: only the cut-sheet area survives; forms/table/inputs disappear. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .calculator__printArea,
+  .calculator__printArea * {
+    visibility: visible;
+  }
+
+  .calculator__printArea {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
 }
 
 /* ------------------------------------------------------------------ */

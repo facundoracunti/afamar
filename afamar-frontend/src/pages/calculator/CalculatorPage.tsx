@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Grid3x3, Trash2, Plus, RotateCcw } from 'lucide-react';
 import { usePlateCalculator, type Pieza } from '../../hooks/usePlateCalculator/usePlateCalculator';
+import PlateResultsPanel from '../../features/plate-calculator/PlateResultsPanel';
 import styles from './CalculatorPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
 
 interface NuevaPiezaState {
+  nombre: string;
   largo: string;
   ancho: string;
   cantidad: string;
@@ -13,11 +15,21 @@ interface NuevaPiezaState {
 
 export default function Calculator() {
   const [piezas, setPiezas] = useState<Pieza[]>([]);
-  const [nuevaPieza, setNuevaPieza] = useState<NuevaPiezaState>({ largo: '', ancho: '', cantidad: '1' });
+  const [nuevaPieza, setNuevaPieza] = useState<NuevaPiezaState>({ nombre: '', largo: '', ancho: '', cantidad: '1' });
   const [plateW, setPlateW] = useState(3.00);
   const [plateH, setPlateH] = useState(1.80);
+  const [kerfMm, setKerfMm] = useState(3);
+  const [allowRotation, setAllowRotation] = useState(true);
 
-  const { placasNecesarias, utilizacion, desperdicio, totalM2, totalM2Bruto: _totalM2Bruto, barModifier } = usePlateCalculator(piezas, plateW, plateH);
+  const { placasNecesarias, utilizacion, desperdicio, totalM2, barModifier, plates, plateW: outPlateW, plateH: outPlateH, kerf, platesM2Bought, unplaced } = usePlateCalculator(
+    piezas,
+    plateW,
+    plateH,
+    {
+      kerf: (kerfMm > 0 ? kerfMm : 3) / 1000,
+      allowRotation,
+    },
+  );
 
   const handleInputChange = (field: string, value: string) => {
     setNuevaPieza((prev) => ({ ...prev, [field]: value }));
@@ -28,8 +40,11 @@ export default function Calculator() {
     const ancho = parseFloat(nuevaPieza.ancho);
     const cantidad = parseInt(nuevaPieza.cantidad, 10) || 1;
     if (!largo || !ancho || largo <= 0 || ancho <= 0) return;
-    setPiezas((prev) => [...prev, { id: Date.now(), largo, ancho, cantidad }]);
-    setNuevaPieza({ largo: '', ancho: '', cantidad: '1' });
+    setPiezas((prev) => [
+      ...prev,
+      { id: Date.now(), nombre: nuevaPieza.nombre.trim() || undefined, largo, ancho, cantidad },
+    ]);
+    setNuevaPieza({ nombre: '', largo: '', ancho: '', cantidad: '1' });
   };
 
   const eliminarPieza = (id: number) => {
@@ -38,7 +53,7 @@ export default function Calculator() {
 
   const limpiarTodo = () => {
     setPiezas([]);
-    setNuevaPieza({ largo: '', ancho: '', cantidad: '1' });
+    setNuevaPieza({ nombre: '', largo: '', ancho: '', cantidad: '1' });
   };
 
   const plateArea = plateW * plateH;
@@ -79,7 +94,25 @@ export default function Calculator() {
               <span className={s['calculator__plateTotal']}>(Total: {plateArea.toFixed(2)} m²)</span>
             </div>
             <div className={s['calculator__plateNote']}>
-              Corte de disco: +3 mm por lado por pieza
+              <label className={s['calculator__kerfLabel']}>
+                Corte de disco (mm):
+                <input
+                  className={`input ${s['calculator__kerfInput']}`}
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={kerfMm}
+                  onChange={(e) => setKerfMm(Number(e.target.value) || 0)}
+                />
+              </label>
+              <label className={s['calculator__rotateLabel']}>
+                <input
+                  type="checkbox"
+                  checked={allowRotation}
+                  onChange={(e) => setAllowRotation(e.target.checked)}
+                />
+                Permitir rotación 90°
+              </label>
             </div>
           </div>
         </div>
@@ -88,6 +121,17 @@ export default function Calculator() {
       <div className={`card ${s['calculator__card']}`}>
         <h2 className={s['calculator__sectionTitleSm']}>Agregar Pieza</h2>
         <div className={s['calculator__formGrid']}>
+          <div className={`form-group ${s['calculator__fieldFlush']}`}>
+            <label>Nombre (opcional)</label>
+            <input
+              className="input"
+              type="text"
+              placeholder="Ej.: Mesa 1, Bajo mesada…"
+              value={nuevaPieza.nombre}
+              onChange={(e) => handleInputChange('nombre', e.target.value)}
+              onKeyDown={handleKeyDown}
+            />
+          </div>
           <div className={`form-group ${s['calculator__fieldFlush']}`}>
             <label>Largo (m)</label>
             <input
@@ -139,6 +183,7 @@ export default function Calculator() {
             <thead>
               <tr>
                 <th>#</th>
+                <th>Nombre</th>
                 <th>Largo</th>
                 <th>Ancho</th>
                 <th>M² c/u</th>
@@ -151,6 +196,7 @@ export default function Calculator() {
               {piezas.map((p, i) => (
                 <tr key={p.id}>
                   <td className={s['calculator__td--bold']}>{i + 1}</td>
+                  <td>{p.nombre || '—'}</td>
                   <td>{p.largo.toFixed(2)} m</td>
                   <td>{p.ancho.toFixed(2)} m</td>
                   <td>{(p.largo * p.ancho).toFixed(5)}</td>
@@ -165,7 +211,7 @@ export default function Calculator() {
               ))}
               {piezas.length === 0 && (
                 <tr>
-                  <td colSpan={7} className={s['calculator__emptyRow']}>
+                  <td colSpan={8} className={s['calculator__emptyRow']}>
                     No hay piezas agregadas. Agregue piezas para comenzar el cálculo.
                   </td>
                 </tr>
@@ -174,7 +220,7 @@ export default function Calculator() {
             {piezas.length > 0 && (
               <tfoot>
                 <tr className={s['calculator__tfootRow']}>
-                  <td colSpan={4}></td>
+                  <td colSpan={5}></td>
                   <td className={s['calculator__tfootCell']}>TOTAL</td>
                   <td className={`${s['calculator__tfootCell']} ${s['calculator__tfootCell--highlight']}`}>
                     {totalM2.toFixed(5)} m²
@@ -228,6 +274,21 @@ export default function Calculator() {
               <span>100%</span>
             </div>
           </div>
+
+          {plates.length > 0 && (
+            <div className={s['calculator__printArea']}>
+              <PlateResultsPanel
+                plates={plates}
+                plateW={outPlateW}
+                plateH={outPlateH}
+                kerf={kerf}
+                platesM2Bought={platesM2Bought}
+                totalM2={totalM2}
+                utilizacion={utilizacion}
+                unplaced={unplaced}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -25,7 +25,7 @@ import {
   EntityFormStateProvider,
   EntityFormStyleProvider,
 } from '../../components/entity/EntityFormContexts';
-import BudgetFormObservations from './BudgetFormObservations';
+import ObservationsSection from '../../components/orders/ObservationsSection/ObservationsSection';
 import type { EntityFormState, MaterialInForm, EntityServices } from '../../types';
 import {
   buildOptionFromMaterial,
@@ -324,10 +324,12 @@ export default function BudgetForm(props: BudgetFormProps = {}) {
                 alternativasGrid={alternativasGrid}
                 actionBlock={convertAction}
                 observations={
-                  <BudgetFormObservations
+                  <ObservationsSection
                     form={form}
                     readOnly={readOnly}
-                    update={update}
+                    update={update as (field: string, value: unknown) => void}
+                    className={s['budget-form__card']}
+                    titleClassName={s['budget-form__card-title']}
                   />
                 }
                 extraDialogs={

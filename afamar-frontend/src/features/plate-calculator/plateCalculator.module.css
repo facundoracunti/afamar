@@ -1,0 +1,203 @@
+.plateCutMapMeta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #cbd5e1);
+}
+
+.plateCutMapMeta strong {
+  color: var(--text-primary, #f1f5f9);
+  font-size: 0.95rem;
+}
+
+.plateCutMapSvg {
+  border: 1px solid var(--border, #334155);
+  background: #e5e7eb;
+}
+
+.plateResults {
+  margin-top: 14px;
+  border-top: 1px solid var(--border, #334155);
+  padding-top: 14px;
+}
+
+.plateResultsSummary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+/* Tarjetas resumen: siempre oscuras (slate/navy) con tipografía blanca para
+ * contraste en ambos temas. Los indicadores de valor llevan color resaltado. */
+.plateResultsSummaryCol {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  color: #f8fafc;
+}
+
+.plateResultsSummaryCol--accent {
+  border-color: #2563eb;
+  background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+}
+
+.plateResultsSummaryLabel {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #94a3b8;
+}
+
+.plateResultsSummaryValue {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.plateResultsSummaryValue--waste {
+  color: #f87171;
+}
+
+.plateResultsSummaryCol--accent .plateResultsSummaryLabel {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.plateResultsSummaryValue--accent {
+  color: #ffffff;
+}
+
+.plateResultsUnplaced {
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--surface-alt-bg, #1e293b);
+  border: 1px solid var(--color-warning, #f59e0b);
+  font-size: 0.85rem;
+  color: var(--color-warning, #f59e0b);
+}
+
+.plateResultsTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.plateResultsTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--border, #334155);
+  border-radius: 999px;
+  background: var(--surface-alt-bg, #1e293b);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary, #cbd5e1);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.plateResultsTab:hover {
+  border-color: var(--color-info, #2980b9);
+  color: var(--color-info, #2980b9);
+}
+
+.plateResultsTab--active {
+  background: var(--color-info, #2980b9);
+  border-color: var(--color-info, #2980b9);
+  color: #fff;
+}
+
+.plateResultsTabPct {
+  font-size: 0.72rem;
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+.plateResultsCanvas {
+  margin-bottom: 14px;
+  overflow-x: auto;
+}
+
+.plateResultsActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Tabla de Despiece / Leyenda de Cortes */
+.plateCutMapLegend {
+  margin-top: 12px;
+}
+
+.plateCutMapLegendTitle {
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: var(--text-primary, #f1f5f9);
+}
+
+.plateCutMapLegendCode {
+  font-weight: 700;
+  color: var(--color-info, #2980b9);
+}
+
+.plateCutMapId {
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ================================================================
+   Impresión / exportación de la hoja de corte
+   - bordes negros bien definidos en cada rectángulo (líneas de corte)
+   - la Tabla de Despiece se imprime junto a la placa
+   - colores exactos (evita que el navegador descarte fills/backgrounds)
+   ================================================================ */
+@media print {
+  .plateResults {
+    border-top: none;
+    padding-top: 0;
+  }
+
+  .plateResultsSummary,
+  .plateResultsTabs,
+  .plateResultsActions {
+    display: none;
+  }
+
+  .plateCutMapMeta {
+    font-size: 12pt;
+  }
+
+  .plateCutMapSvg {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    border: 2px solid #000;
+  }
+
+  /* Los bordes de cada pieza son las líneas de corte de guillotina:
+     negros, gruesos y bien definidos al imprimir. */
+  .plateCutMapSvg rect {
+    stroke: #000 !important;
+    stroke-width: 2px !important;
+  }
+
+  .plateCutMapId {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .plateCutMapLegend {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    break-inside: avoid;
+  }
+}

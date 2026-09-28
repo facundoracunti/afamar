@@ -5,8 +5,6 @@ import { getDashboard } from '@/api/resources/dashboard';
 import { useGet } from '../../api/hooks';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { Modal } from '../../components/ui/Modal/Modal';
-import BudgetForm from '../budgets/BudgetFormPage';
-import WorkOrderForm from '../work-orders/WorkOrderFormPage';
 import { formatCurrencyValue } from '../../utils/formatters';
 import styles from './DashboardPage.module.css';
 
@@ -14,8 +12,10 @@ const s = styles as unknown as Record<string, string>;
 
 type Tone = 'accent' | 'danger' | 'success' | 'warning' | 'info';
 
-/** Each card on the dashboard maps to a `ModalKind` — the dashboard
- *  dispatches on this enum to render the right page in a modal. */
+/** Each card on the dashboard opens its content as a modal embedded in the
+ *  dashboard (`ModalKind` → modal). Create flows ("NUEVO PRESUPUESTO" and
+ *  "NUEVA ORDEN") open the full continuous form inside the modal (no
+ *  wizard/carousel — the form renders vertically with scroll). */
 type ModalKind =
   | 'cash'
   | 'create-budget'
@@ -34,6 +34,8 @@ type ModalKind =
 // `React.lazy`), so opening a modal that lazy-loads the same page won't
 // re-download — it just resolves to the cached chunk.
 const CashDailyPage = React.lazy(() => import('../cash/CashDailyPage'));
+const BudgetFormPage = React.lazy(() => import('../budgets/BudgetFormPage'));
+const WorkOrderFormPage = React.lazy(() => import('../work-orders/WorkOrderFormPage'));
 const WorkOrdersListPage = React.lazy(() => import('../work-orders/WorkOrdersListPage'));
 const PoolStockPage = React.lazy(() => import('../pool-stock/PoolStockPage'));
 const MaterialsListPage = React.lazy(() => import('../materials/MaterialsListPage'));
@@ -50,7 +52,7 @@ interface CardDef {
   path: string;
   description: string;
   tone: Tone;
-  kind: ModalKind;
+  kind?: ModalKind;
 }
 
 export default function Dashboard() {
@@ -100,7 +102,11 @@ export default function Dashboard() {
           <article
             key={card.label}
             className={s['dashboard__card'] + ' ' + (s['dashboard__card--' + card.tone] || '')}
-            onClick={() => setActiveModal(card.kind)}
+            onClick={() => {
+              if (card.kind) {
+                setActiveModal(card.kind);
+              }
+            }}
           >
             <div className={s['dashboard__card-icon']} style={{ backgroundColor: card.color }}>
               <card.icon size={20} color="#fff" />
@@ -134,11 +140,15 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* ── Modals: each renders the actual page inside. The pages own
-              their own state, filters, and navigation. When a list page
-              wants to drill down (e.g. "Nuevo material"), it calls
-              useNavigate which triggers the route change — the dashboard
-              unmounts and the new page renders full-width. ─────────── */}
+      {/* ── Modals: each renders the actual page inside. Cards with
+              `kind` open their modal; the create flows open the FULL
+              budget/work-order form (continuous vertical layout, no
+              wizard/carousel steps) inside the modal, closing it via
+              `onSuccess`/`onCancel`. The modal overlays the dashboard at
+              `/admin` without changing the URL. When a list page wants to
+              drill down (e.g. "Nuevo material"), it calls useNavigate which
+              triggers the route change — the dashboard unmounts and the new
+              page renders full-width. ───────────────────────────────────────────── */}
 
       <Suspense fallback={<LoadingSpinner />}>
         {DASHBOARD_MODALS.map(({ kind, title, width, render }) => (
@@ -171,15 +181,17 @@ const DASHBOARD_MODALS: ReadonlyArray<{
   { kind: 'cash', title: 'Caja', width: '1200px', render: () => <CashDailyPage /> },
   {
     kind: 'create-budget',
-    title: 'Nuevo presupuesto',
-    width: '1280px',
-     render: (close) => <BudgetForm onSuccess={close} onCancel={close} layoutMode="wizard" />,
+    title: 'Nuevo Presupuesto',
+    width: '1400px',
+    // Full continuous form (no wizard). onSuccess/onCancel close the modal.
+    render: (close) => <BudgetFormPage onSuccess={close} onCancel={close} />,
   },
   {
     kind: 'create-work-order',
-    title: 'Nueva orden de trabajo',
-    width: '1280px',
-     render: (close) => <WorkOrderForm onSuccess={close} onCancel={close} layoutMode="wizard" />,
+    title: 'Nueva Orden de Trabajo',
+    width: '1400px',
+    // Full continuous form (no wizard). onSuccess/onCancel close the modal.
+    render: (close) => <WorkOrderFormPage onSuccess={close} onCancel={close} />,
   },
   {
     kind: 'work-orders',

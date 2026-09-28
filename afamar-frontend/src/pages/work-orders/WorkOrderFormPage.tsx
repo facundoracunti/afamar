@@ -31,9 +31,9 @@ import {
 } from '../../components/entity/EntityFormContexts';
 import WorkOrderFormStatus from './WorkOrderFormStatus';
 import WorkOrderFormSnapshot from './WorkOrderFormSnapshot';
-import WorkOrderFormObservations from './WorkOrderFormObservations';
 import { AlternativeBudgetGrid } from './AlternativeBudgetGrid';
 import WorkOrderPaymentSection, { backendMethodFor } from '../../features/orders/components/WorkOrderPaymentSection';
+import ObservationsSection from '../../components/orders/ObservationsSection/ObservationsSection';
 import type { PaymentMethod } from '../../features/payments/types/payment.types';
 import type { EntityFormState, EntityServices, MaterialInForm } from '../../types';
 import styles from './WorkOrderFormPage.module.css';
@@ -521,10 +521,12 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
                   </>
                 }
                 observations={
-                  <WorkOrderFormObservations
+                  <ObservationsSection
                     form={form}
                     readOnly={readOnly}
-                    update={update}
+                    update={update as (field: string, value: unknown) => void}
+                    className={s['work-order-form__card']}
+                    titleClassName={s['work-order-form__card-title']}
                   />
                 }
                 terms={[

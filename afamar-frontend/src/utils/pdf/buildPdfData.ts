@@ -9,26 +9,18 @@
  *
  * The frontend takes ownership of rendering PDFs in the browser today,
  * so these helpers replaced the backend Jinja2 + xhtml2pdf pipeline.
+ *
+ * The heavy rule sets live in sibling submodules so this file stays a thin,
+ * readable orchestrator:
+ *  - `buildPdfData.types.ts`       — shared totals / alternatives types
+ *  - `buildPdfData.totals.ts`      — `computeTotals` + `applyPerSectionTotals`
+ *  - `buildPdfData.helpers.ts`     — paid totals, payment-method resolution,
+ *                                    catalogue box, additional-works sums
+ *  - `buildPdfData.alternatives.ts`— alternative sections/totals + the
+ *                                    budget-only pieces block
  */
 
-import type { PaymentMethod } from '../../types/paymentMethod';
-import { round2 } from '../math';
-import type {
-  DocumentType,
-  PdfDataRow,
-  MaterialPdfRow,
-  PoolPdfRow,
-  AdditionalWorkPdfRow,
-  PdfDocumentData,
-  BuildPdfDataParams,
-  MaterialSection,
-} from './pdfTypes';
-import {
-  formatDate,
-  fmtMoney,
-  fmtNum,
-  splitTerms,
-} from './pdfHelpers';
+import { formatDate, splitTerms } from './pdfHelpers';
 import {
   buildFabricationRows,
   buildAdditionalWorksRows,
@@ -40,327 +32,19 @@ import {
 } from './buildSectionData';
 import { buildPieces, piecesSubtotal } from './buildPiecesPdfData';
 import { computeMaterialsSubtotal } from '@features/budgets/utils/commercialDiscount';
-import type { PieceAlternativeTotal, PiecesPdfPiece } from './pdfTypes';
-
-/**
- * Build the per-option `MaterialSection[]` for a budget's ALTERNATIVES,
- * reusing the exact same orchestration as the PDF. Each option section
- * already carries its OWN fully-revalued subtotal (material base + zócalo /
- * frente revalued with that option's material + traforos + pileta) — the
- * ground truth the alternative cards in the form must mirror so they show
- * the same SUBTOTAL the PDF draws.
- *
- * Intended for the QUOTE OPTIONS GRID (not the PDF renderer). Kept separate
- * from `buildPdfData` so the form cards and the rendered PDF can never drift
- * on the per-option total.
- */
-export function buildAlternativeSections(
-  form: Record<string, unknown>,
-): { sections: MaterialSection[]; usdRate: number } {
-  const allMaterials = asMaterials(form.materials_data);
-  const alternatives = allMaterials.filter((m) => m.is_alternative);
-  const pools = asPools(form.pools_data);
-  const usdRate = Number(form.usd_rate) || 1;
-  const fabricationRows = buildFabricationRows(form.fabrication_details, usdRate);
-  const additional_works = buildAdditionalWorksRows(form, usdRate);
-  const adtBuckets = bucketAdditionalWorks(additional_works);
-  const { sections } = buildSections(
-    allMaterials,
-    alternatives,
-    pools,
-    fabricationRows,
-    usdRate,
-    adtBuckets,
-  );
-  return { sections, usdRate };
-}
-
-interface ComputeTotalsParams {
-  subtotalArs: number;
-  subtotalUsd: number;
-  transport: number;
-  transportUsd: number;
-  discountPct: number;
-  discountFixedRaw: number;
-  usdRate: number;
-  pm: PaymentMethod | null;
-  installments: number;
-  deposit: number;
-  /** Fase 3 — Descuento Comercial. `null` keeps the legacy behavior (a
-   *  percentage applies whenever `discountPct > 0`); a boolean gates it, so
-   *  the toggle OFF means the % never applies. */
-  discountEnabled?: boolean | null;
-  /** Base for the commercial percentage discount: 'total' = whole document
-   *  (materials + fabrication + alternatives + pools + additional), or
-   *  'materials' = only the main materials' subtotal. */
-  discountTarget?: 'total' | 'materials';
-  materialsSubtotalArs?: number;
-  materialsSubtotalUsd?: number;
-}
-
-/**
- * Compute the full totals breakdown (discount + catalogue surcharge /
- * discount + per-cuota table + saldo) starting from a given subtotal.
- *
- * Parametrized on the subtotal so the SAME rule set can value the
- * document-level totals (representative alternative) AND every individual
- * alternative page — this is what lets a no-principal budget show each
- * option's own final price. Mirrors `useBudgetCalculations` and the
- * backend `_recalculate_totals_from_items`.
- */
-export function computeTotals({
-  subtotalArs,
-  subtotalUsd,
-  transport,
-  transportUsd,
-  discountPct,
-  discountFixedRaw,
-  usdRate,
-  pm,
-  installments,
-  deposit,
-  discountEnabled,
-  discountTarget,
-  materialsSubtotalArs,
-  materialsSubtotalUsd,
-}: ComputeTotalsParams): {
-  subtotal: number;
-  discount_fixed_amount: number;
-  surcharge_percentage: number;
-  surcharge_amount: number;
-  catalogue_surcharge_percentage: number;
-  catalogue_surcharge_amount: number;
-  catalogue_discount_percentage: number;
-  catalogue_discount_amount: number;
-  catalogue_method_label: string;
-  catalogue_installment_detail: Array<{ cuota: number; interes: number; monto: number }>;
-  total: number;
-  total_usd: number;
-  balance_due: number;
-} {
-  const discountOn = discountEnabled === undefined || discountEnabled === null
-    ? discountPct > 0
-    : discountEnabled;
-  const totalBase = subtotalArs + transport;
-  const discountBase = discountTarget === 'materials'
-    ? (materialsSubtotalArs ?? totalBase)
-    : totalBase;
-  const discountFixed = discountFixedRaw > 0
-    ? discountFixedRaw
-    : (discountOn && discountPct > 0)
-      ? Math.round(discountBase * discountPct) / 100
-      : 0;
-
-  const surchargeBase = Math.max(0, subtotalArs + transport - discountFixed);
-  let totalArs = surchargeBase;
-
-  let surchargePct = 0;
-  let surchargeAmount = 0;
-  let catalogueSurchargePct = 0;
-  let catalogueSurchargeAmount = 0;
-  const catalogueDiscountPct = 0;
-  const catalogueDiscountAmount = 0;
-  let catalogueMethodLabel = '';
-  // Only SURCHARGE methods adjust the totals (credit-card recargo, etc.).
-  // NONE and DISCOUNT are purely informational — the legacy promotional
-  // cash discount (`apply_cash_discount`) was removed; every discount now
-  // flows through the commercial discount (Fase 3) only. The
-  // `catalogue_discount_*` fields below stay (always 0) so the template
-  // can keep rendering them.
-  if (
-    pm
-    && pm.type === 'SURCHARGE'
-    && Number(pm.value) > 0
-  ) {
-    const value = Number(pm.value);
-    // Fixed-amount surcharges apply directly (no ratio) — mirror of
-    // `applyPaymentMethodToTotals` in useBudgetCalculations.ts. A fixed
-    // SURCHARGE (`is_percentage=false`, `applies_to_installments=false`)
-    // leaves `ratio` at 1, so it must NOT share the `ratio !== 1` gate
-    // below or it would never surface.
-    const isFixedAmount = !pm.is_percentage && !pm.applies_to_installments;
-    if (isFixedAmount) {
-      catalogueSurchargeAmount = value;
-      surchargeAmount = value;
-      totalArs = Math.round(surchargeBase + value);
-      catalogueMethodLabel = pm.label || pm.name;
-    } else {
-      let ratio = 1;
-      if (pm.applies_to_installments) {
-        const n = Math.max(1, installments);
-        ratio = 1 + n * (value / 100);
-      } else if (pm.is_percentage) {
-        ratio = 1 + value / 100;
-      }
-      if (ratio !== 1) {
-        if (pm.is_percentage) {
-          const headlinePct = round2((ratio - 1) * 100);
-          catalogueSurchargePct = headlinePct;
-          surchargePct = headlinePct;
-          catalogueSurchargeAmount = Math.round(surchargeBase * (ratio - 1));
-          surchargeAmount = catalogueSurchargeAmount;
-        } else {
-          catalogueSurchargeAmount = value;
-          surchargeAmount = value;
-        }
-        totalArs = Math.round(surchargeBase * ratio);
-        catalogueMethodLabel = pm.label || pm.name;
-      }
-    }
-  }
-
-  const totalArsFinal = totalArs;
-  const balanceDue = Math.max(0, totalArsFinal - deposit);
-
-  // Per-cuota breakdown (3-column table), only for credit-card %
-  // surcharges with installments — same rule as the ARS total above.
-  const catalogueInstallmentDetail: Array<{ cuota: number; interes: number; monto: number }> = [];
-  if (
-    pm
-    && pm.type === 'SURCHARGE'
-    && pm.is_percentage
-    && pm.applies_to_installments
-    && Number(pm.value) > 0
-    && installments >= 1
-  ) {
-    const value = Number(pm.value);
-    const n = Math.max(1, installments);
-    const perCuota = totalArsFinal > 0 ? round2(totalArsFinal / n) : 0;
-    for (let i = 1; i <= n; i += 1) {
-      catalogueInstallmentDetail.push({ cuota: i, interes: value, monto: perCuota });
-    }
-  }
-
-    // USD side (mirrors the ARS block above).
-  const totalBaseUsd = subtotalUsd + transportUsd;
-  const discountBaseUsd = discountTarget === 'materials'
-    ? (materialsSubtotalUsd ?? totalBaseUsd)
-    : totalBaseUsd;
-  const discountFixedUsd = (discountOn && discountPct > 0)
-    ? Math.round(discountBaseUsd * discountPct) / 100
-    : discountFixedRaw > 0 && usdRate > 0
-      ? Math.round((discountFixedRaw / usdRate) * 100) / 100
-      : 0;
-  const surchargeBaseUsd = Math.max(0, subtotalUsd + transportUsd - discountFixedUsd);
-  let totalUsd = surchargeBaseUsd;
-  if (
-    pm
-    && pm.type === 'SURCHARGE'
-    && Number(pm.value) > 0
-  ) {
-    const value = Number(pm.value);
-    // Fixed-amount surcharges apply directly (no ratio) — mirror of the
-    // ARS block above. Must NOT share the `ratio !== 1` gate.
-    const isFixedAmountUsd = !pm.is_percentage && !pm.applies_to_installments;
-    if (isFixedAmountUsd) {
-      totalUsd = usdRate > 0 ? round2(surchargeBaseUsd + value / usdRate) : surchargeBaseUsd;
-    } else {
-      let ratio = 1;
-      if (pm.applies_to_installments) {
-        const n = Math.max(1, installments);
-        ratio = 1 + n * (value / 100);
-      } else if (pm.is_percentage) {
-        ratio = 1 + value / 100;
-      }
-      if (ratio !== 1) {
-        if (pm.is_percentage) {
-          totalUsd = round2(surchargeBaseUsd * ratio);
-        } else if (usdRate > 0) {
-          totalUsd = round2(surchargeBaseUsd + value / usdRate);
-        }
-      }
-    }
-  }
-  totalUsd = Math.max(0, totalUsd);
-
-  return {
-    subtotal: subtotalArs,
-    discount_fixed_amount: discountFixed,
-    surcharge_percentage: surchargePct,
-    surcharge_amount: surchargeAmount,
-    catalogue_surcharge_percentage: catalogueSurchargePct,
-    catalogue_surcharge_amount: catalogueSurchargeAmount,
-    catalogue_discount_percentage: catalogueDiscountPct,
-    catalogue_discount_amount: catalogueDiscountAmount,
-    catalogue_method_label: catalogueMethodLabel,
-    catalogue_installment_detail: catalogueInstallmentDetail,
-    total: totalArsFinal,
-    total_usd: totalUsd,
-    balance_due: balanceDue,
-  };
-}
-
-interface BuildAlternativeTotalsParams {
-  transport: number;
-  transportUsd: number;
-  discountPct: number;
-  discountFixedRaw: number;
-  usdRate: number;
-  pm: PaymentMethod | null;
-  installments: number;
-  deposit: number;
-  discountEnabled?: boolean | null;
-  discountTarget?: 'total' | 'materials';
-}
-
-/**
- * Consolidate every piece's quoted alternatives into ONE TOTAL GENERAL
- * ALTERNATIVO per material, aggregated across the pieces that quote it.
- * Each piece's contribution is that piece's alternative subtotal (materials
- * + zócalo/frente + additional works + inherited piletas); the whole block
- * re-runs the document's total rule set via `computeTotals` so the customer
- * sees the real final price (traslado + descuento comercial + recargo +
- * seña → saldo) of choosing that material for the whole job.
- *
- * Shown as highlighted summary blocks at the end of the HOJA DE
- * ALTERNATIVAS. Only meaningful on multi-piece budgets (`pieces` non-empty).
- */
-export function buildAlternativeTotals(
-  pieces: PiecesPdfPiece[],
-  params: BuildAlternativeTotalsParams,
-): PieceAlternativeTotal[] {
-  const byMaterial = new Map<string, { pieces: string[]; subtotalArs: number; subtotalUsd: number }>();
-  for (const piece of pieces) {
-    for (const alt of piece.alternatives) {
-      const key = alt.material_name || alt.title || 'Alternativa';
-      const entry = byMaterial.get(key) || { pieces: [], subtotalArs: 0, subtotalUsd: 0 };
-      if (!entry.pieces.includes(piece.name || 'Pieza')) entry.pieces.push(piece.name || 'Pieza');
-      entry.subtotalArs += alt.subtotal_ars;
-      entry.subtotalUsd += alt.subtotal_usd;
-      byMaterial.set(key, entry);
-    }
-  }
-
-  return [...byMaterial.entries()].map(([name, entry]) => {
-    const totals = computeTotals({
-      subtotalArs: entry.subtotalArs,
-      subtotalUsd: entry.subtotalUsd,
-      transport: params.transport,
-      transportUsd: params.transportUsd,
-      discountPct: params.discountPct,
-      discountFixedRaw: params.discountFixedRaw,
-      usdRate: params.usdRate,
-      pm: params.pm,
-      installments: params.installments,
-      deposit: params.deposit,
-      discountEnabled: params.discountEnabled,
-      discountTarget: params.discountTarget,
-    });
-    return {
-      material_name: name,
-      pieces: entry.pieces,
-      subtotal_ars: entry.subtotalArs,
-      subtotal_usd: entry.subtotalUsd,
-      discount_fixed_amount: totals.discount_fixed_amount,
-      surcharge_percentage: totals.surcharge_percentage,
-      surcharge_amount: totals.surcharge_amount,
-      catalogue_installment_detail: totals.catalogue_installment_detail,
-      total_ars: totals.total,
-      total_usd: totals.total_usd,
-      balance_due: totals.balance_due,
-    };
-  });
-}
+import { computeTotals, applyPerSectionTotals } from './buildPdfData.totals';
+import {
+  computeAdditionalWorksSubtotals,
+  computePaidTotals,
+  computePaymentMethodsCatalogue,
+  resolvePaymentMethod,
+} from './buildPdfData.helpers';
+import { attachBudgetPiecesData } from './buildPdfData.alternatives';
+import type {
+  DepositCurrency,
+  TotalsContext,
+} from './buildPdfData.types';
+import type { BuildPdfDataParams, PdfDocumentData } from './pdfTypes';
 
 /**
  * Build the canonical PDF data object from the current `EntityFormState`.
@@ -390,12 +74,10 @@ export function buildPdfData({
   const fabricationRows = buildFabricationRows(form.fabrication_details, usdRate);
 
   const additional_works = buildAdditionalWorksRows(form, usdRate);
-  const additionalWorksSubtotalArs = additional_works
-    .filter((a) => a.currency === 'ARS')
-    .reduce((sum, a) => sum + a.subtotal_ars, 0);
-  const additionalWorksSubtotalUsd = additional_works
-    .filter((a) => a.currency === 'USD')
-    .reduce((sum, a) => sum + a.subtotal_usd, 0);
+  const {
+    ars: additionalWorksSubtotalArs,
+    usd: additionalWorksSubtotalUsd,
+  } = computeAdditionalWorksSubtotals(additional_works);
 
   const adtBuckets = bucketAdditionalWorks(additional_works);
 
@@ -436,31 +118,31 @@ export function buildPdfData({
   const discountPct = num('discount_percentage');
   const deposit = num('deposit_received');
   const depositUsd = num('deposit_usd');
-  const depositCurrency: 'ARS' | 'USD' =
+  const depositCurrency: DepositCurrency =
     (str('deposit_currency') || 'ARS').toUpperCase() === 'USD' ? 'USD' : 'ARS';
-  // Pass the ARS equivalent of the deposit (deposit_usd * usd_rate when the
-  // seña was paid in USD) to computeTotals so balance_due = total - deposit_ars
-  // is correct regardless of the deposit's native currency. Mirrors the
-  // backend fix in WorkOrderService._recalculate_totals_from_items.
-  const depositArsEquivalent =
-    depositCurrency === 'USD'
-      ? usdRate > 0 ? depositUsd * usdRate : 0
-      : deposit;
 
-  // Pagos acumulados (ARS) — fuente de la fila "Seña / Pagos Registrados".
-  // Para work orders WorkOrderFormPage pasa `totalPaid` = seña del form +
-  // pagos del módulo de la sesión, así el preview del PDF actualiza en vivo
-  // al registrar un pago y el saldo se deriva de ahí (Paid + Saldo = TOTAL,
-  // igual que el builder legacy en pdf_html.py). Sin `totalPaid` (budgets /
-  // previews legacy) cae al equivalente ARS de la seña, sin cambio de
-  // comportamiento.
-  const paidArs = totalPaid !== undefined && totalPaid >= 0
-    ? totalPaid
-    : depositArsEquivalent;
-  const paidUsd = usdRate > 0 ? round2(paidArs / usdRate) : 0;
-  const paidLabel = document_type === 'work_order'
-    ? 'Seña / Pagos Registrados'
-    : 'Seña';
+  // Resolve the paid block: passes the ARS equivalent of the deposit
+  // (deposit_usd * usd_rate when the seña was paid in USD) so the totals
+  // rule set can compute balance_due = total - deposit_ars correctly
+  // regardless of the deposit's native currency. For work orders
+  // WorkOrderFormPage passes `totalPaid` = seña del form + pagos del módulo
+  // de la sesión, so the preview updates live when a payment is registered
+  // and the saldo derives from there (Paid + Saldo = TOTAL, igual que el
+  // builder legacy en pdf_html.py). Sin `totalPaid` (budgets / previews
+  // legacy) cae al equivalente ARS de la seña.
+  const {
+    depositArsEquivalent,
+    paidArs,
+    paidUsd,
+    paidLabel,
+  } = computePaidTotals({
+    deposit,
+    depositUsd,
+    depositCurrency,
+    usdRate,
+    document_type,
+    totalPaid,
+  });
 
   const paymentMethodRaw = str('payment_method');
   const paymentMethodIdNum = num('payment_method_id') || null;
@@ -478,17 +160,7 @@ export function buildPdfData({
 
   // Resolve the catalogue row for the current method (same lookup as
   // `useBudgetCalculations.resolvePaymentMethod`).
-  const pm: PaymentMethod | null = (() => {
-    if (paymentMethodIdNum) {
-      const byId = paymentMethods.find((p) => p.id === paymentMethodIdNum);
-      if (byId) return byId;
-    }
-    if (paymentMethodRaw) {
-      const byName = paymentMethods.find((p) => p.name === paymentMethodRaw);
-      if (byName) return byName;
-    }
-    return null;
-  })();
+  const pm = resolvePaymentMethod(paymentMethods, paymentMethodIdNum, paymentMethodRaw);
 
   // Document-level totals — the "representative" total used by the base PDF
   // data (and by a PRINCIPAL page when it exists). Shares the exact same
@@ -499,9 +171,7 @@ export function buildPdfData({
     : globalSection
       ? globalSection.subtotal_usd
       : 0;
-  const totals = computeTotals({
-    subtotalArs: computedSubtotal,
-    subtotalUsd: mainSectionSubtotalUsd,
+  const totalsContext: TotalsContext = {
     transport,
     transportUsd,
     discountPct,
@@ -514,6 +184,11 @@ export function buildPdfData({
     discountTarget,
     materialsSubtotalArs: materialsTotals.materialsSubtotalArs,
     materialsSubtotalUsd: materialsTotals.materialsSubtotalUsd,
+  };
+  const totals = computeTotals({
+    subtotalArs: computedSubtotal,
+    subtotalUsd: mainSectionSubtotalUsd,
+    ...totalsContext,
   });
   const {
     discount_fixed_amount: discountFixed,
@@ -530,35 +205,11 @@ export function buildPdfData({
     balance_due: computedBalanceDue,
   } = totals;
 
-// No main material + at least one alternative: value EVERY alternative's
-    // own final price so each option page shows its correct total (dólar,
-    // recargo, descuento, saldo) — works for any number of alternatives.
+  // No main material + at least one alternative: value EVERY alternative's
+  // own final price so each option page shows its correct total (dólar,
+  // recargo, descuento, saldo) — works for any number of alternatives.
   if (!mainSection && !globalSection) {
-    for (const section of sections) {
-      const st = computeTotals({
-        subtotalArs: section.subtotal_ars,
-        subtotalUsd: section.subtotal_usd,
-        transport,
-        transportUsd,
-        discountPct,
-        discountFixedRaw,
-        usdRate,
-        pm,
-        installments: installmentsNum,
-        deposit: paidArs,
-        discountEnabled,
-        discountTarget,
-        materialsSubtotalArs: materialsTotals.materialsSubtotalArs,
-        materialsSubtotalUsd: materialsTotals.materialsSubtotalUsd,
-      });
-      section.total_ars = st.total;
-      section.total_usd = st.total_usd;
-      section.balance_due = st.balance_due;
-      section.discount_fixed_amount = st.discount_fixed_amount;
-      section.surcharge_percentage = st.surcharge_percentage;
-      section.surcharge_amount = st.surcharge_amount;
-      section.catalogue_installment_detail = st.catalogue_installment_detail;
-    }
+    applyPerSectionTotals(sections, totalsContext);
   }
 
   // COMPARATIVA DE MEDICIÓN (work orders only). Gated ONLY by the per-order
@@ -582,20 +233,9 @@ export function buildPdfData({
 
   // Active payment methods from the catalogue, printed as a reference box in
   // the PDF ("METODO DE PAGO") so the customer sees every option they can
-  // pay with. Uppercase `name`s (stable snapshot keys, same convention as
-  // the "Forma de pago:" row), ordered by the catalogue `sort_order`. For
-  // percentage surcharges (credit card) the surcharge rate is appended
-  // (e.g. "TARJETA DE CRÉDITO - 9% P/ CUOTA") so the customer knows how
-  // much extra each installment costs before choosing.
-  const payment_methods_catalogue = paymentMethods
-    .filter((p) => p.is_active !== false)
-    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-    .map((p) => {
-      if (p.type === 'SURCHARGE' && p.is_percentage && p.applies_to_installments && Number(p.value) > 0) {
-        return `${p.name} - ${Number(p.value)}% P/ CUOTA`;
-      }
-      return p.name;
-    });
+  // pay with (uppercase `name`s, ordered by `sort_order`; percentage
+  // surcharges append their per-cuota rate).
+  const payment_methods_catalogue = computePaymentMethodsCatalogue(paymentMethods);
 
   const base: PdfDocumentData = {
     document_type,
@@ -662,23 +302,12 @@ export function buildPdfData({
   };
 
   if (document_type === 'budget') {
-    base.budget_terms_list = overrides?.budget_terms && overrides.budget_terms.length > 0
-      ? overrides.budget_terms
-      : globalTerms.budget_terms;
-
-    // Multi-piece budgets render a dedicated two-page layout (one block per
-    // piece + an alternatives sheet) instead of the legacy per-option
-    // sections. `sections` is still populated so the totals above stay
-    // valid and a caller could fall back to the legacy layout.
-    const pieces = buildPieces(form, usdRate);
-    if (pieces.length > 0) {
-      base.pieces = pieces;
-      // Consolidated TOTAL GENERAL ALTERNATIVO per material — the same
-      // document rule set re-run on the aggregated alternative subtotals
-      // (traslado + descuento comercial + recargo + seña) so the HOJA DE
-      // ALTERNATIVAS can print the real final price of each alternative
-      // material across every piece that quotes it.
-      base.alternative_totals = buildAlternativeTotals(pieces, {
+    // Budget terms + (multi-piece budgets) the pieces layout with its
+    // consolidated TOTAL GENERAL ALTERNATIVO per material.
+    attachBudgetPiecesData(base, form, usdRate, {
+      budgetTermsOverride: overrides?.budget_terms,
+      globalBudgetTerms: globalTerms.budget_terms,
+      altParams: {
         transport,
         transportUsd,
         discountPct,
@@ -689,14 +318,19 @@ export function buildPdfData({
         deposit: paidArs,
         discountEnabled,
         discountTarget,
-      });
-    }
+      },
+    });
   }
 
   return base;
 }
 
-export { fmtMoney, fmtNum };
+export { fmtMoney, fmtNum } from './pdfHelpers';
+export { computeTotals } from './buildPdfData.totals';
+export {
+  buildAlternativeSections,
+  buildAlternativeTotals,
+} from './buildPdfData.alternatives';
 export type {
   DocumentType,
   PdfDataRow,

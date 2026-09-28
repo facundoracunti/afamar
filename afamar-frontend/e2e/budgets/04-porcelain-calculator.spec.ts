@@ -1,11 +1,9 @@
 /**
  * Porcelain calculator — embedded in the budget form.
  *
- * Two flows:
- *  - `full mode` (form pages): la calculadora vive en la zona inferior
- *    junto al croquis, colapsada por defecto.
- *  - `wizard mode` (dashboard modal "NUEVO PRESUPUESTO"): tiene un paso
- *    dedicado y arranca abierta para que el primer plano sea la calculadora.
+ * The "NUEVO PRESUPUESTO" dashboard card opens a modal with the FULL
+ * continuous budget form (no wizard/carousel), so the calculator always
+ * runs in `full mode` (bottom zone, collapsed by default).
  */
 import { test, expect } from '@playwright/test';
 import { loginViaApi } from '../helpers/login';
@@ -50,27 +48,23 @@ test.describe('Porcelain calculator (budget form)', () => {
     await expect(page.getByText('Subtotal: $ 240.000,00')).toBeVisible();
   });
 
-  test('wizard mode: la calculadora es un paso dedicado, abierto por defecto', async ({ page }) => {
-    // Abrimos el form en modo wizard desde el dashboard (card "NUEVO PRESUPUESTO").
+  test('dashboard "NUEVO PRESUPUESTO" modal renders the full form with the embedded calculator', async ({ page }) => {
+    // The dashboard opens a modal with the FULL budget form (no wizard) on
+    // top of `/admin` — the URL must NOT change. The calculator is the
+    // embedded (full mode) section.
     await page.goto('/admin');
     await page.locator('article').filter({ hasText: /nuevo presupuesto/i }).first().click();
 
-    // El wizard arranca con el paso Cliente. Avanzamos hasta "Calculadora de porcelanato".
-    const calcStep = page.getByRole('button', { name: /calculadora de porcelanato/i });
-    await expect(calcStep).toBeVisible({ timeout: 15_000 });
+    await expect(page).toHaveURL(/\/admin$/);
+    await expect(page.getByRole('heading', { name: 'Nuevo Presupuesto' }).first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('button', { name: /vista previa/i })).toBeVisible({ timeout: 15_000 });
 
-    // El panel está en su propio paso: navegamos con Siguiente y verificamos
-    // que el primer plano ya sea la calculadora operativa (no el toggle).
-    await calcStep.click();
-    await expect(page.getByRole('heading', { name: /calculadora de porcelanato/i })).toBeVisible();
+    // No wizard step navigation inside the modal (full form, not carousel).
+    await expect(page.getByRole('button', { name: 'Siguiente' })).toHaveCount(0);
 
-    // Sin tocar nada: el input de Largo debe estar visible y habilitado.
+    // En full mode la calculadora está colapsada: hay que activarla (toggle),
+    // no es un paso dedicado abierto por defecto.
+    await page.getByRole('button', { name: /activar calculadora de porcelanato/i }).click();
     await expect(page.getByLabel('Largo porcelanato (m)')).toBeVisible();
-
-    // Tampoco se muestra el botón toggle "Activar..." cuando defaultOpen=true.
-    await expect(page.getByRole('button', { name: /activar calculadora de porcelanato/i })).toHaveCount(0);
-
-    // Y el botón Ocultar sí está disponible por si quieren plegarlo.
-    await expect(page.getByRole('button', { name: /ocultar calculadora de porcelanato/i })).toBeVisible();
   });
 });

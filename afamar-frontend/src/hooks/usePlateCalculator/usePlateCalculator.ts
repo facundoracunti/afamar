@@ -1,10 +1,25 @@
 import { useMemo } from 'react';
+import {
+  packGuillotine,
+  type PackPieceInput,
+  type PlacedPiece,
+  type PlateLayout,
+  type PackAction,
+} from '../../features/plate-calculator/guillotinePacker';
 
 export interface Pieza {
   id: number;
+  nombre?: string;
   largo: number;
   ancho: number;
   cantidad: number;
+}
+
+export interface PlateCalculatorOptions {
+  /** Blade width in meters (default 0.003 = 3 mm). Applied per side per piece. */
+  kerf?: number;
+  /** Allow 90° rotation of pieces (default true). */
+  allowRotation?: boolean;
 }
 
 export interface PlateCalculatorResult {
@@ -14,6 +29,17 @@ export interface PlateCalculatorResult {
   totalM2: number;
   totalM2Bruto: number;
   barModifier: 'high' | 'mid' | 'low';
+
+  // Guillotine layout (new)
+  plates: PlateLayout[];
+  pieces: PlacedPiece[];
+  unplaced: PackAction[];
+  plateM2: number;
+  plateW: number;
+  plateH: number;
+  platesM2Bought: number;
+  kerf: number;
+  allowRotation: boolean;
 }
 
 const ANCHO_DISCO = 0.003;
@@ -22,82 +48,51 @@ export function usePlateCalculator(
   piezas: Pieza[],
   plateW: number,
   plateH: number,
+  options?: PlateCalculatorOptions,
 ): PlateCalculatorResult {
+  const kerf = options?.kerf ?? ANCHO_DISCO;
+  const allowRotation = options?.allowRotation ?? true;
+
   return useMemo(() => {
+    const packInput: PackPieceInput[] = piezas.map((p) => ({
+      id: p.id,
+      nombre: p.nombre,
+      largo: p.largo,
+      ancho: p.ancho,
+      cantidad: p.cantidad,
+    }));
+
+    const layout = packGuillotine(packInput, { plateW, plateH, kerf, allowRotation });
+
     const totalM2 = piezas.reduce((sum, p) => sum + p.largo * p.ancho * p.cantidad, 0);
     const totalM2Bruto = piezas.reduce(
-      (sum, p) => sum + (p.largo + ANCHO_DISCO) * (p.ancho + ANCHO_DISCO) * p.cantidad,
+      (sum, p) => sum + (p.largo + kerf) * (p.ancho + kerf) * p.cantidad,
       0,
     );
 
-    const items: { w: number; h: number }[] = [];
-    piezas.forEach((p: Pieza) => {
-      for (let i = 0; i < (p.cantidad || 1); i++) {
-        items.push({ w: p.largo + ANCHO_DISCO * 2, h: p.ancho + ANCHO_DISCO * 2 });
-      }
-    });
-
-    let placasNecesarias = 0;
-    let utilizacion = 0;
-    let desperdicio = 0;
-
-    if (items.length > 0) {
-      items.sort((a, b) => (b.w * b.h) - (a.w * a.h));
-      const bins: { x: number; y: number; w: number; h: number }[][] = [];
-
-      for (const piece of items) {
-        let placed = false;
-        for (let bi = 0; bi < bins.length && !placed; bi++) {
-          const freeRects = bins[bi];
-          let bestIdx = -1;
-          let bestWaste = Infinity;
-          let bestOrient: { w: number; h: number } | null = null;
-
-          for (let ri = 0; ri < freeRects.length; ri++) {
-            const r = freeRects[ri];
-            for (const o of [{ w: piece.w, h: piece.h }, { w: piece.h, h: piece.w }]) {
-              if (o.w <= r.w && o.h <= r.h && (r.w - o.w) * (r.h - o.h) < bestWaste) {
-                bestWaste = (r.w - o.w) * (r.h - o.h);
-                bestIdx = ri;
-                bestOrient = o;
-              }
-            }
-          }
-
-          if (bestIdx >= 0) {
-            const r = freeRects[bestIdx];
-            freeRects.splice(bestIdx, 1);
-            if (r.w - bestOrient!.w > 0)
-              freeRects.push({ x: r.x + bestOrient!.w, y: r.y, w: r.w - bestOrient!.w, h: bestOrient!.h });
-            if (r.h - bestOrient!.h > 0)
-              freeRects.push({ x: r.x, y: r.y + bestOrient!.h, w: r.w, h: r.h - bestOrient!.h });
-            placed = true;
-          }
-        }
-
-        if (!placed) {
-          bins.push([{ x: 0, y: 0, w: plateW, h: plateH }]);
-          const freeRects = bins[bins.length - 1];
-          const r = freeRects[0];
-          const o =
-            piece.w <= r.w && piece.h <= r.h
-              ? { w: piece.w, h: piece.h }
-              : { w: piece.h, h: piece.w };
-          freeRects.splice(0, 1);
-          if (r.w - o.w > 0) freeRects.push({ x: o.w, y: 0, w: r.w - o.w, h: o.h });
-          if (r.h - o.h > 0) freeRects.push({ x: 0, y: o.h, w: r.w, h: r.h - o.h });
-        }
-      }
-
-      placasNecesarias = bins.length;
-      const totalArea = items.reduce((s, p) => s + p.w * p.h, 0);
-      utilizacion = (totalArea / (placasNecesarias * plateW * plateH)) * 100;
-      desperdicio = 100 - utilizacion;
-    }
+    const utilizacion = layout.utilizationPct;
 
     const barModifier: 'high' | 'mid' | 'low' =
       utilizacion >= 80 ? 'high' : utilizacion >= 60 ? 'mid' : 'low';
 
-    return { placasNecesarias, utilizacion, desperdicio, totalM2, totalM2Bruto, barModifier };
-  }, [piezas, plateW, plateH]);
+    const pieces = layout.plates.flatMap((pl) => pl.pieces);
+
+    return {
+      placasNecesarias: layout.platesNeeded,
+      utilizacion,
+      desperdicio: layout.wastePct,
+      totalM2,
+      totalM2Bruto,
+      barModifier,
+      plates: layout.plates,
+      pieces,
+      unplaced: layout.unplaced,
+      plateM2: layout.plates.length > 0 ? layout.plates[0].plateM2 : plateW * plateH,
+      plateW,
+      plateH,
+      platesM2Bought: layout.platesM2Bought,
+      kerf,
+      allowRotation,
+    };
+  }, [piezas, plateW, plateH, kerf, allowRotation]);
 }

@@ -1,7 +1,10 @@
 /**
- * Dashboard modales — each card on the dashboard opens a modal embedding
- * the real page (not a navigation). Verifies:
- *  - Each card opens the expected modal with the expected title.
+ * Dashboard cards — each card opens a modal embedding the real page (no
+ * navigation; the URL stays at `/admin`). Verifies:
+ *  - "NUEVO PRESUPUESTO" / "NUEVA ORDEN" open the full continuous budget /
+ *    work-order form inside the modal (vertical scroll, NO wizard/carousel
+ *    with "Siguiente"/"Anterior" step buttons).
+ *  - Each modal card opens the expected modal with the expected title.
  *  - Modal content matches the embedded page.
  *  - Escape closes the modal.
  *  - Clicking the overlay closes the modal.
@@ -9,35 +12,6 @@
  */
 import { test, expect } from '@playwright/test';
 import { loginViaApi } from '../helpers/login';
-
-const UNIQUE = `E2E-DASH-${Math.random().toString(36).slice(2, 7)}`;
-
-interface AuthEnvelope<T> { success: boolean; data: T; }
-
-async function loginAndGetToken(
-  request: import('@playwright/test').APIRequestContext,
-): Promise<string> {
-  const API_BASE = 'http://localhost:3095/api/v1';
-  const res = await request.post(`${API_BASE}/auth/login`, {
-    data: { username: 'admin', password: 'admin123' },
-  });
-  const body = (await res.json()) as AuthEnvelope<{ access_token: string }>;
-  return body.data.access_token;
-}
-
-async function createClientViaApi(
-  request: import('@playwright/test').APIRequestContext,
-  token: string,
-  name: string,
-): Promise<number> {
-  const API_BASE = 'http://localhost:3095/api/v1';
-  const res = await request.post(`${API_BASE}/clients`, {
-    headers: { Authorization: `Bearer ${token}` },
-    data: { name, phone: '+54 11 0000-0000', address: 'Calle Test 123' },
-  });
-  const body = (await res.json()) as AuthEnvelope<{ id: number }>;
-  return body.data.id;
-}
 
 async function openDashboard(page: import('@playwright/test').Page): Promise<void> {
   await page.goto('/admin');
@@ -90,24 +64,36 @@ test.describe('Dashboard modales', () => {
     await expect(page.getByText(/saldo anterior/i).first()).toBeVisible({ timeout: 10_000 });
   });
 
-  test('NUEVO PRESUPUESTO card opens budget form modal', async ({ page, request }) => {
-    const token = await loginAndGetToken(request);
-    await createClientViaApi(request, token, `Dash Budget ${UNIQUE}`);
-
+  test('NUEVO PRESUPUESTO card opens the FULL budget form modal (no wizard)', async ({ page }) => {
+    // The create card opens a modal on top of the dashboard: the URL must
+    // stay at `/admin`, and the modal must render the full continuous form
+    // (vertical scroll) — NOT the wizard/carousel with step buttons.
     await openDashboard(page);
     await dashboardCard(page, 'NUEVO PRESUPUESTO').click();
-    // The modal title is "Nuevo presupuesto". The form loads the client
-    // typeahead once the data is fetched.
-    await expect(page.getByRole('heading', { name: 'Nuevo presupuesto' }).first()).toBeVisible({ timeout: 10_000 });
+
+    await expect(page).toHaveURL(/\/admin$/);
+    await expect(page.getByRole('heading', { name: 'Nuevo Presupuesto' }).first()).toBeVisible({ timeout: 15_000 });
     await expect(page.getByPlaceholder(/buscar cliente/i)).toBeVisible({ timeout: 15_000 });
+    // Full form has NO wizard step navigation.
+    await expect(page.getByRole('button', { name: 'Siguiente' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Anterior' })).toHaveCount(0);
+    await expect(page.getByText(/paso 1 de/i)).toHaveCount(0);
+    // The submit button is always rendered in full mode.
+    await expect(page.getByRole('button', { name: /guardar/i })).toBeVisible();
   });
 
-  test('NUEVA ORDEN card opens work order form modal', async ({ page }) => {
+  test('NUEVA ORDEN card opens the FULL work order form modal (no wizard)', async ({ page }) => {
     await openDashboard(page);
     await dashboardCard(page, 'NUEVA ORDEN').click();
-    await expect(page.getByRole('heading', { name: /nueva orden de trabajo/i }).first()).toBeVisible({ timeout: 10_000 });
-    // The form has a client typeahead.
+
+    await expect(page).toHaveURL(/\/admin$/);
+    await expect(page.getByRole('heading', { name: 'Nueva Orden de Trabajo' }).first()).toBeVisible({ timeout: 15_000 });
     await expect(page.getByPlaceholder(/buscar cliente/i)).toBeVisible({ timeout: 15_000 });
+    // Full form has NO wizard step navigation.
+    await expect(page.getByRole('button', { name: 'Siguiente' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Anterior' })).toHaveCount(0);
+    await expect(page.getByText(/paso 1 de/i)).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /guardar/i }).first()).toBeVisible();
   });
 
   test('ORDENES EN MEDICION/TALLER card opens work-orders list modal', async ({ page }) => {
