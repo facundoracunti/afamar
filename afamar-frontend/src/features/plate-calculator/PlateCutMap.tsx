@@ -107,6 +107,7 @@ export default function PlateCutMap({
               >
                 <tspan x={rectX + rectW / 2} dy={showDims ? -fontSize * 0.45 : 0}>
                   #{code}
+                  {p.split ? ` · ${p.split.tramo}/${p.split.total}` : ''}
                 </tspan>
                 {showDims && (
                   <tspan
@@ -152,10 +153,14 @@ export default function PlateCutMap({
 }
 
 function LegendRow({ code, p }: { code: number; p: PlacedPiece }) {
+  const baseName = p.nombre || `Pieza ${p.origen ?? code}`;
+  const name = p.split
+    ? `${baseName} (Tramo ${p.split.tramo}/${p.split.total} - ${fmt(p.largo)}×${fmt(p.ancho)})`
+    : baseName;
   return (
     <tr>
       <td className={s['plateCutMapLegendCode']}>#{code}</td>
-      <td>{p.nombre || `Pieza ${code}`}</td>
+      <td>{name}</td>
       <td>
         {fmt(p.largo)} × {fmt(p.ancho)} m
       </td>

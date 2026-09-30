@@ -118,6 +118,29 @@ export default function PlateResultsPanel({
         )}
       </div>
 
+      {/* Sección SOLO-IMPRESIÓN: itera TODAS las placas del resultado, cada una
+          con su hoja de corte SVG + Tabla de Despiece/Leyenda. Invisible en
+          pantalla (display:none); al imprimir reemplaza a la placa activa del
+          canvas interactivo y deja una hoja limpia por placa (break-after:
+          page en el CSS @media print). */}
+      <div className={s['plateResultsPrintAll']} data-testid="plate-results-print-all">
+        {plates.map((pl) => (
+          <section
+            key={pl.index}
+            className={s['plateResultsPrintPlate']}
+            aria-label={`Hoja de corte Placa #${pl.index + 1}`}
+          >
+            <PlateCutMap
+              plate={pl}
+              plateW={plateW}
+              plateH={plateH}
+              kerf={kerf}
+              title={`Placa #${pl.index + 1}`}
+            />
+          </section>
+        ))}
+      </div>
+
       <div className={s['plateResultsActions']}>
         <button className="btn btn-primary" type="button" onClick={handlePrint}>
           <Printer size={16} /> Imprimir / Exportar Hoja de Corte

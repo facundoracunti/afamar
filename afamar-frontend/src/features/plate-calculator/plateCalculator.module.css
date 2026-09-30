@@ -128,6 +128,14 @@
   overflow-x: auto;
 }
 
+/* Sección solo-impresión (ver @media print abajo): iterable de TODAS las
+   placas del resultado. En pantalla no existe (display:none); al imprimir
+   se muestra con una hoja limpia por placa (break-after: page) y reemplaza
+   a la placa activa del canvas interactivo. */
+.plateResultsPrintAll {
+  display: none;
+}
+
 .plateResultsActions {
   display: flex;
   justify-content: flex-end;
@@ -160,6 +168,7 @@
    - bordes negros bien definidos en cada rectángulo (líneas de corte)
    - la Tabla de Despiece se imprime junto a la placa
    - colores exactos (evita que el navegador descarte fills/backgrounds)
+   - TODAS las placas se imprimen (una por hoja) vía .plateResultsPrintAll
    ================================================================ */
 @media print {
   .plateResults {
@@ -171,6 +180,28 @@
   .plateResultsTabs,
   .plateResultsActions {
     display: none;
+  }
+
+  /* La placa activa del canvas interactivo NO se imprime: en su lugar se
+     imprime la sección print-all con TODAS las placas, una por hoja. */
+  .plateResultsCanvas {
+    display: none;
+  }
+
+  .plateResultsPrintAll {
+    display: block;
+  }
+
+  /* Una placa por hoja limpia: salto de página tras cada bloque salvo en el
+     último (evita una hoja final en blanco). */
+  .plateResultsPrintPlate {
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .plateResultsPrintPlate:last-child {
+    page-break-after: auto;
+    break-after: auto;
   }
 
   .plateCutMapMeta {

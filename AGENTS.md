@@ -1,6 +1,10 @@
 # AGENTS.md
 
-> **Estado:** Rama `development` (= `main`, ambos en `c650cec9`). Sesión **2026-09-28** — **PHASE 4: BUILD PDF FRONTEND MODULARIZADO + DEDUP DE OBSERVACIONES Y CÓDIGO MUERTO.** (a) **`buildPdfData.ts` partido en 4 sub-módulos**: el orchestrator queda como lector fino (349 LOC) y las reglas vivieron en `buildPdfData.types.ts` (tipos compartidos `TotalsContext`/`DepositCurrency`/`PdfDataModule`), `buildPdfData.totals.ts` (`computeTotals` + `applyPerSectionTotals`), `buildPdfData.helpers.ts` (`computePaidTotals`/`computePaymentMethodsCatalogue`/`resolvePaymentMethod`/`computeAdditionalWorksSubtotals`) y `buildPdfData.alternatives.ts` (`buildAlternativeSections`/`buildAlternativeTotals`/`attachBudgetPiecesData`). El API público se re-exporta del orchestrator (`computeTotals`, `buildAlternativeSections`, `buildAlternativeTotals`, `fmtMoney`/`fmtNum`) para no romper consumers; `TotalsContext` es el objeto nuevo que comparten el total document-level y el per-section. (b) **Dedup real (Opción 1 elegida por el usuario)**: los wrappers duplicados `BudgetFormObservations.tsx`/`WorkOrderFormObservations.tsx` (27 LOC c/u, idénticos) se ELIMINAN; ambos forms inlean `<ObservationsSection>` (compartido, `src/components/orders/ObservationsSection/`) con sus classNames de página (`budget-form__card*` / `work-order-form__card*`) y el cast del `update` a `(field: string, value: unknown) => void`. NO se duplicaron `EntityFormClient`/`PiecesSection` (ya son compartidos vía `EntityFormLayout`). (c) **Código muerto eliminado**: lookup + wrapper `layout--pieces` (undefined en todos los CSS modules) removidos de `EntityFormLayout.tsx`; directorio huérfano `src/components/ui/EntityFormBase/` (solo `EntityFormBase.module.css`, 0 imports) borrado. **Verificación: `tsc --noEmit` 0 errores · vitest 477/477 (40 files) · ESLint solo baseline preexistente** (los unused de `EntityFormLayout.tsx:3 PdfDocumentData` y `BudgetFormPage.tsx`/`WorkOrderFormPage.tsx` variados ya figuraban en HEAD previo). Sin cambios de backend/pytest. **Git:** working tree limpio; todo el trabajo de la sesión está dentro de `c650cec9` ("fix general achicar bloques de codigo"), que bundlea además el split de `DocumentPdf.tsx` en componentes + `useBudgetPieces.helpers.ts`/`.types.ts` + feature `plate-calculator` (guillotinePacker). Ver "PHASE 4 — buildPdfData modularizado + Dedup de Observaciones 2026-09-28" abajo. *(Sesión previa: ALTERNATIVAS DE MATERIAL N CARDS 2026-09-26.)*
+> **Estado:** Rama `development`. Sesión **2026-09-30 (cont.)** — **CALCULADORA DE PLACA: IMPRIMIR / EXPORTAR HOJA DE CORTE CON TODAS LAS PLACAS (UNA POR HOJA).** En "Imprimir / Exportar Hoja de Corte" de `/admin/plate-calculator` solo se imprimía la placa activa del tab; ahora se imprimen **TODAS las placas**, cada una con su título + métricas + SVG de despiece + Tabla de Despiece/Leyenda, en **hojas separadas**. **Fix (sin tocar `guillotinePacker` ni `CalculatorPage`):** (1) **`PlateResultsPanel.tsx`** — nueva sección solo-impresión `.plateResultsPrintAll` (`data-testid="plate-results-print-all"`) con **un bloque por placa** `.plateResultsPrintPlate` (`aria-label="Hoja de corte Placa #N"`), cada uno reusando `<PlateCutMap plate={pl} title={`Placa #${pl.index + 1}`} />` (el meta del mapa ya muestra título + "{n} piezas · X% aprovechado / Y% desperdicio" + SVG + leyenda — DRY, sin divergencia con la vista interactiva), colocada tras `.plateResultsCanvas` y antes de `.plateResultsActions`. (2) **`plateCalculator.module.css`** — `.plateResultsPrintAll { display: none }` en pantalla; en `@media print`: `.plateResultsCanvas { display: none }` (la placa activa interactiva NO se imprime), `.plateResultsPrintAll { display: block }`, y `.plateResultsPrintPlate { page-break-after: always; break-after: page }` + `:last-child { page-break-after: auto; break-after: auto }` (no deja hoja final en blanco). La isla de impresión de `CalculatorPage.module.css` (`body * { visibility: hidden }` + `.calculator__printArea * { visibility: visible }`) ya oculta sidebar/header global en print; el resto de bloques (summary/tabs/actions) seguían ocultos por el CSS print existente. El banner `.plateResultsUnplaced` (piezas sin colocar) sigue imprimiéndose (informativo, no es navegación). **Tests: vitest +2 → 488/488 (41 files)** — nuevo `PlateResultsPanel.test.tsx` (describe "PlateResultsPanel — impresión de TODAS las placas"): (a) 3 placas sintéticas → `getByTestId('plate-results-print-all')` contiene `Placa #1/#2/#3`, la leyenda "Tabla de Despiece / Leyenda de Cortes" aparece 4 veces en total (1 canvas + 3 print), y piezas 2/3 existen solo en el print-all; (b) placa única → print-all no se rompe (leyenda ×2). **Verificación: `npx tsc --noEmit` 0 errores · `npx vitest run` 488/488 (41 files) · `npx eslint` 0 errores** en los 2 archivos TS (el CSS queda "file ignored" — sin config, normal). Sin cambios de backend/consumidores. **Git:** manual — working tree con `PlateResultsPanel.tsx` + `plateCalculator.module.css` + `PlateResultsPanel.test.tsx` + `guillotinePacker.ts` + `guillotinePacker.test.ts` + `AGENTS.md`, sin commitear. Ver "CALCULADORA DE PLACA: imprimir todas las placas 2026-09-30" abajo. *(Sesión previa del mismo día: BORDES DE FÁBRICA 2026-09-30.)*
+
+> **Estado:** Rama `development`. Sesión **2026-09-30 (cont.)** — **CALCULADORA DE PLACA: BORDES DE FÁBRICA (DIMENSIÓN == PLACA → SIN KERF EN EL BORDE EXTERIOR).** La pieza **3.00×0.90 en placa 3.00×1.40** era rechazada ("No entraron por superar el tamaño de la placa") porque `buildItems` sumaba `kerf*2` a los 3.00m (footprint 3.006 > 3.00). En el taller el 3.00 usa los **bordes de fábrica** de la placa: NO se corta a lo largo (solo a lo ancho para los 0.90m, quedando 0.50m de sobrante). **Fix:** nuevo helper `factoryFootprint(dim, plateDim, kerf)` en `guillotinePacker.ts` — si `|dim − plateDim| < EPS` (la dimensión iguala la placa en ese eje) el footprint es `dim` (sin kerf: la pieza corre de punta a punta usando la arista de fábrica); si no, `dim + kerf*2` como siempre. Aplicado en `buildItems` en AMBOS ejes: `fw = factoryFootprint(p.largo, plateW, kerf)` + `fh = factoryFootprint(p.ancho, plateH, kerf)`. Los tramos del auto-split conservan su clamp `Math.min(tramoLargo + kerf*2, plateW)` (mismo resultado para el tramo a plena longitud). Doc header del módulo actualizado (regla factory-edge). **Tests: vitest +3 → 486/486** (`guillotinePacker.test.ts` 14 → 17, describe nuevo "bordes de fábrica: dimensión == placa (sin kerf en el borde exterior)"): (a) 3.00×0.90 en 3.00×1.40 con kerf 3mm → **1 placa**, `placed.w === 3.0` flush, `h === 0.9 + KERF*2`, sin split, sin rebote; (b) ancho == placa (2.0×1.4 en 3.0×1.4) → `h === 1.4` flush, `w === 2.0 + KERF*2`; (c) calce exacto 3.00×1.40 en 3.00×1.40 → 1 placa, footprint 3.0×1.4. **Verificación: `npx tsc --noEmit` 0 errores · vitest 486/486 (40 files) · ESLint 0 errores** en los 2 archivos. Sin cambios de backend ni consumidores. **Git:** manual — working tree con `guillotinePacker.ts` + `guillotinePacker.test.ts` + `AGENTS.md`, sin commitear. Ver "CALCULADORA DE PLACA: bordes de fábrica 2026-09-30" abajo. *(Sesión previa del mismo día: OPTIMIZACIÓN MULTI-PASADA 2026-09-30.)*
+
+> **Estado:** Rama `development` (= `main`, ambos en `c650cec9`). Sesión **2026-09-30 (cont.)** — **CALCULADORA DE PLACA: OPTIMIZACIÓN MULTI-PASADA (COMPACTACIÓN DE SOBRANTES: FUSIÓN DE RECTS LIBRES + ROTACIÓN INTELIGENTE + 6 HEURÍSTICAS DE ORDEN).** `packGuillotine` (`guillotinePacker.ts`) pasó de single-pass a **multi-pasada**: (1) construye `items` UNA vez (`buildItems`, extraído — el auto-split y `origen`/`split` viven ahí, intactos) y corre una secuencia completa por cada heurística de `HEURISTIC_ORDER` (`area`, `longerSide`, `perimeter`, `width`, `height`, `shortSide` — Array.prototype.sort **estable**, los tramos de una pieza partida conservan su orden); `better()` elige el layout ganador priorizando **menos m² sin colocar** (`unplacedArea`), luego **menos placas** (`platesNeeded`), luego **mayor utilización**; empate total → primera heurística (determinista). (2) **`mergeFreeRects`** fusiona rectos libres adyacentes (misma y/h horizontal + misma x/w vertical, hasta fixpoint) DESPUÉS de CADA colocación — consolida bandas (1×1 + 1×1 → 2×1) para que una pieza chica quepa en el hueco de la placa anterior y NO abra una placa nueva casi vacía (el caso reportado: placa al 8% con otra anterior con hueco). (3) **`betterNewPlateOrientation`** decide en placa nueva la orientación que deja la banda mínima de sobrante estrictamente mayor; ties → sin rotar (`rotated:false` del test 1.2×0.6 en 3.0×1.8 se preserva; la forzada de 0.5×1.9 sigue rotando). `bestFit` gana `+ pi * 1e-6` al score para preferir placas anteriores en empates exactos. `packSequence` = la secuencia guillotine pura (sin sort), con el merge tras cada placement. Consumidores sin cambios (heredan el mejor layout). **Tests: vitest +2 → 483/483** (`guillotinePacker.test.ts` 12 → 14, describe nuevo "multi-pasada: compactación de sobrantes y rotación inteligente"): (a) `[1×1, 1×1, 1.2×1]` en placa 2×2 (kerf 0) → **1 placa** (el orden por área daría 2; width/height/shortSide dan [A,B,C] → bandas inferiores fusionadas → C entra); (b) `[2.9×1, 0.5×2]` en placa 3×2 (kerf 0) → **1 placa** con B **rotada** (`rotated:true`, 2.0×0.5) en la franja inferior. Los 12 tests previos (auto-split incluido) NO se tocaron y pasan. **Verificación: `npx tsc --noEmit` 0 errores · vitest 483/483 (40 files) · ESLint 0 errores** en los 2 archivos tocados. Sin cambios de backend. **Git:** manual — working tree con `guillotinePacker.ts` + `guillotinePacker.test.ts` (continuación del auto-split) + `AGENTS.md` sin commitear. Ver "CALCULADORA DE PLACA: optimización multi-pasada 2026-09-30" abajo. *(Sesión previa del mismo día: AUTO-SPLIT DE PIEZAS QUE SUPERAN EL LARGO 2026-09-30.)*
 
 > **Estado:** Rama `development`. Sesión **2026-09-26** — **ALTERNATIVAS DE MATERIAL: N CARDS (APPEND, NO OVERWRITE).** Bug crítico en el editor de Presupuestos/OT (`/admin/budgets/new` y `/admin/budgets/:id/edit`): al seleccionar la 2ª alternativa desde "+ AGREGAR ALTERNATIVA DE MATERIAL" se **sobrescribía** la 1ª, y una 3ª nunca llegaba a existir (array capado a 1 alternativa). **Causa raíz:** `addPieceAlternative` (`src/features/budgets/hooks/useBudgetPieces.ts:598`) devolvía `{ ...piece, alternativeMaterials: next }` — los `next` eran las filas nuevas (1 por pane del principal, "same mesada" invariant) y el spread **reemplazaba** todo el array en vez de concatenar. **Fix:** `next` se **APPENDEA** (`[...existing, ...next]`) + **guard de dedupe** por `groupKeyOf` (id del catálogo o name): si el material ya está como alternativa, es no-op (el picker `MaterialPickerControls` NO filtra lo ya elegido, y repetir el mismo material crearía 2 cards con el mismo React key `${piece.id}-alt-${group.key}`). El resto del pipeline ya era N-safe (no se tocó): `flattenPieces`/`flatten_pieces` frontend/backend iteran el array completo, y los builders de PDF (`buildAlternativeSections`/`buildOptionFromMaterial`/`QuoteOptionsGrid` y `pdf_html._build_materials_pdf`/`budget_calculator.flatten_pieces`) mapean N alternativas — el límite artificial vivía solo en la mutación de estado. **Tests: vitest +3 en `useBudgetPieces.test.ts`** (25 → 28): (a) append secuencial de 2 alternativas distintas conserva ambas + main + flat `materials_data` con las 2; (b) 3 alternativas vivas en UNA pieza con principal de 2 panes (ancla + tramo) → 6 filas (3×2), cada una con sus dims espejadas (2×0.5 / 1×0.6); (c) re-pick del mismo material = no-op (1 sola card, sin keys duplicadas). **No requiere pytest** (solo mutación de estado frontend). Ver "ALTERNATIVAS DE MATERIAL: N CARDS (APPEND, NO OVERWRITE) 2026-09-26" abajo. *(Sesión previa: PDF HEADER fine-tuning 2026-09-25.)*
 
@@ -33,6 +37,167 @@
 - **Hotspots confirmados (reindex 2026-08-27):** backend `BaseRepository.add` (32 callers, #2) / `save` (25); frontend `createResource.get` (74, #1 global), `parseApiError` (29), `LoadingSpinner` (25), `loginViaApi` (21), `createResource.update` (19), `useNotify` (19). Tras Fase 7, sumar `useBudgetCalculations.applyPaymentMethodToTotals` (4 callsites nuevos) y `paymentMethodRepository.get_by_name` (CRUD del catálogo).
 - **Complejidad alta:** `usePlateCalculator` (bin-packing, loop_depth 4, cyclomatic 13), `pdf_html._sketch_to_png_base64_list` (loop_depth 3, cyclomatic 25), `WorkOrderService.update` (cyclomatic 12), `_recalculate_totals_from_items` (cyclomatic ~12 con alternativa + catálogo).
 - **Clusters de-facto:** frontend core UI (102, cohesión 0.79), forms orchestration (74, 0.81), `parseApiError`+`useBudgetActions`+`buildPayload`+`useFormActions` (65, 0.81), budget/quote/fabrication/sketch (54, 0.88). Sin dependencia circular entre `app/` y `src/`.
+
+## CALCULADORA DE PLACA: imprimir todas las placas (una por hoja) 2026-09-30
+
+Feature de la Calculadora de Placas (`/admin/plate-calculator`, `src/features/plate-calculator/`): **"Imprimir / Exportar Hoja de Corte"** imprimía solo la placa activa del tab (`.plateResultsCanvas`). Ahora se imprimen **TODAS las placas del resultado**, cada una en **su propia hoja**, con la misma composición visual que la vista interactiva: **título** (`Placa #N`) + **métricas** ("{n} piezas · X% aprovechado / Y% desperdicio") + **SVG de despiece** + **Tabla de Despiece / Leyenda de Cortes**.
+
+### Por qué print-only y no tocar los consumidores
+
+La calculadora ya tenía (de sesiones previas) el patrón de **isla de impresión** en `CalculatorPage.module.css`: en `@media print`, `body * { visibility: hidden }` + `.calculator__printArea * { visibility: visible }` + `.calculator__printArea { position: absolute; top: 0; left: 0; width: 100% }`. Eso oculta sidebar/header global de la app automáticamente. El CSS print del panel ya ocultaba `.plateResultsSummary`/`.plateResultsTabs`/`.plateResultsActions`. Lo único que faltaba era una sección print-only con el iterable de TODAS las placas. **No se tocó `guillotinePacker` ni `CalculatorPage`.**
+
+### (1) `PlateResultsPanel.tsx` — sección solo-impresión
+
+- Nueva `<section className={s['plateResultsPrintAll']} data-testid="plate-results-print-all">` **después** de `.plateResultsCanvas` y **antes** de `.plateResultsActions`.
+- Dentro, **un bloque por placa**: `<section className={s['plateResultsPrintPlate']} aria-label={`Hoja de corte Placa #${pl.index + 1}`}>` con **`<PlateCutMap plate={pl} plateW plateH kerf title={`Placa #${pl.index + 1}`} />`**.
+- Reusar `PlateCutMap` (la misma pieza interactiva) es la decisión de DRY: su metadata ya renderiza el `<strong>Placa #N</strong>` + "{n} piezas · X% aprovechado / Y% desperdicio" + `<svg>` del despiece + la leyenda "Tabla de Despiece / Leyenda de Cortes" — título + métricas + SVG + leyenda salen sin duplicar lógica y **sin divergencia** con la vista interactiva.
+
+### (2) `plateCalculator.module.css` — pantalla vs print
+
+- **Pantalla:** `.plateResultsPrintAll { display: none; }` (la sección no existe en la UI).
+- **`@media print`:**
+  - `.plateResultsCanvas { display: none; }` — la placa activa interactiva **NO** se imprime (evita que se duplique con el print-all).
+  - `.plateResultsPrintAll { display: block; }` — ahora el contenido imprimible es el iterable completo.
+  - `.plateResultsPrintPlate { page-break-after: always; break-after: page; }` — **una placa por hoja limpia**.
+  - `.plateResultsPrintPlate:last-child { page-break-after: auto; break-after: auto; }` — sin hoja final en blanco.
+- El banner `.plateResultsUnplaced` (piezas sin colocar) **sigue imprimiéndose** (es informativo, no es navegación).
+
+### Tests (vitest 486 → 488, nuevo `PlateResultsPanel.test.tsx`)
+
+Describe **`'PlateResultsPanel — impresión de TODAS las placas'`** (2 tests, fixtures sintéticos de `PlateLayout`/`PlacedPiece`):
+
+1. **`renderiza la sección print-only con una hoja de corte completa por placa`** — 3 placas (3.0×1.4 / 1.0×1.0 / 0.5×0.5): `getByTestId('plate-results-print-all')` existe, `textContent` contiene `Placa #1`/`#2`/`#3`, `getAllByText('Tabla de Despiece / Leyenda de Cortes')` → **4** (1 del canvas activo + 3 del print-all), `Pieza 1` aparece ≥2 veces (canvas + print), y `Pieza 2`/`Pieza 3` existen SOLO en el print-all (el canvas no las tiene).
+2. **`una única placa también se imprime (print-only no se rompe)`** — placa única → `print-all` contiene `Placa #1` y la leyenda total es **2** (1 canvas + 1 print).
+
+### Verificación
+
+`npx tsc --noEmit` **0** errores · `npx vitest run` **488/488** (41 files) · `npx eslint` en `PlateResultsPanel.tsx` + `PlateResultsPanel.test.tsx` **0 errores** (el CSS queda *file ignored* — sin config de CSS en ESLint, normal). Sin cambios de backend ni de consumidores (`guillotinePacker`/`CalculatorPage`/`usePlateCalculator` heredan intactos). **Git:** manual — working tree con `PlateResultsPanel.tsx` + `plateCalculator.module.css` + `PlateResultsPanel.test.tsx` + `guillotinePacker.ts` + `guillotinePacker.test.ts` (continuación de bordes de fábrica) + `AGENTS.md`, sin commitear. **Regla:** cualquier cambio futuro de qué se imprime en la hoja de corte (contenido por placa, saltos de hoja, ocultar el unplaced) toca `PlateResultsPanel.tsx` + `plateCalculator.module.css` + los tests del panel; la composición visual por placa vive única en `PlateCutMap`.
+
+## CALCULADORA DE PLACA: bordes de fábrica (dimensión == placa → sin kerf en el borde exterior) 2026-09-30
+
+Corrección del motor de la Calculadora de Placas (`src/features/plate-calculator/guillotinePacker.ts`): una pieza cuyo largo **iguala exactamente el largo de la placa** (o cuyo ancho iguala la altura) ya no se rechaza por el kerf. Antes el footprint siempre era `dim + kerf*2`, así que una **mesada 3.00×0.90 en placa 3.00×1.40** producía `3.006 > 3.00` → "No entraron por superar el tamaño de la placa". En el taller, el 3.00m **no se corta a lo largo**: se apoya en los **bordes de fábrica** de la pieza y solo se corta a lo ancho (0.90m), quedando 0.50m de sobrante en la placa.
+
+### La regla (factory edge)
+
+Una dimensión que **iguala la dimensión de la placa en ese eje** (`largo == plateW` o `ancho == plateH`) corre **de punta a punta** apoyándose en las dos aristas de fábrica → **NO consume kerf en ese eje** (no hay corte en esa dirección). El resto de las dimensiones siguen con `kerf*2` (el corte real entre piezas/sobrante).
+
+### (1) Helper `factoryFootprint`
+
+Nuevo en `guillotinePacker.ts` (junto a `roundM`):
+
+```ts
+function factoryFootprint(dim: number, plateDim: number, kerf: number): number {
+  return Math.abs(dim - plateDim) < EPS ? dim : dim + kerf * 2;
+}
+```
+
+- `|dim − plateDim| < EPS` (EPS = 1e-6) → footprint `dim` (flush, usa la arista de fábrica).
+- Si no → `dim + kerf*2` como siempre (semántica global preservada).
+
+### (2) Aplicado en `buildItems` (ambos ejes)
+
+- `fw = factoryFootprint(p.largo, plateW, kerf)` — nueva regla en el eje del largo.
+- `fh = factoryFootprint(p.ancho, plateH, kerf)` — nueva regla en el eje del ancho.
+- Los tramos del **auto-split** NO se tocaron: conservan `fw = Math.min(tramoLargo + kerf*2, plateW)` — el clamp ya produce `.w === plateW` para el tramo a plena longitud (mismo resultado que la regla factory-edge). El `fh` compartido ahora también se beneficia si `ancho == plateH`.
+- El doc header del módulo ahora documenta la excepción factory-edge (el párrafo del footprint).
+
+### Tests (vitest 483 → 486, `guillotinePacker.test.ts` 14 → 17)
+
+Describe nuevo **`'packGuillotine — bordes de fábrica: dimensión == placa (sin kerf en el borde exterior)'`**:
+
+1. **`una pieza de 3.00×0.90 entra de punta a punta en una placa de 3.00×1.40 (ya no la rebota)`** — el caso reportado con `KERF` real (3mm): **1 placa**, `totalPlaced` 1, `unplaced` 0, `placed.split === undefined`, `placed.rotated === false`, **`placed.w === 3.0`** (flush, sin kerf), `placed.h === 0.9 + KERF*2` (el ancho sí se corta), `placed.x === 0`, `verifyNoOverlap` true. Antes iba a `unplaced` con "superar el tamaño".
+2. **`una pieza de ancho igual a la placa también usa el borde de fábrica en ese eje`** — `2.0×1.4` en placa `3.0×1.4` → **1 placa**, `placed.w === 2.0 + KERF*2` (el largo sí se corta), **`placed.h === 1.4`** (flush por ancho), `verifyNoOverlap` true.
+3. **`una pieza que calza exacta a la placa completa (3.00×1.40) entra sin fragmentarse`** — footprint `3.0×1.4`, 1 placa, `rotated:false`, `verifyNoOverlap` true.
+
+**Los 17 tests previos (auto-split, multi-pasada) NO se tocaron y pasan** — la semántica `dim + kerf*2` solo cambia cuando la dimensión iguala la placa (ningún test previo la igualaba).
+
+### Verificación
+
+`npx tsc --noEmit` **0** errores · `npx vitest run` **486/486** (40 files) · `npx eslint` en los 2 archivos **0 errores**. Sin cambios de backend (la calculadora es 100% frontend, motor puro) ni de consumidores (`usePlateCalculator`/`CalculatorPage`/`PlateResultsPanel` heredan el footprint corregido). **Git:** manual — working tree con `guillotinePacker.ts` + `guillotinePacker.test.ts` (continuación de la multi-pasada) + `AGENTS.md`, sin commitear. **Regla:** cualquier regla nueva de footprint/kerf (más márgenes, rebajes, etc.) toca `guillotinePacker.ts` + sus tests; la factory-edge vive SOLO en `factoryFootprint` y el clamp del split queda como estaba.
+
+## CALCULADORA DE PLACA: optimización multi-pasada (compactación de sobrantes) 2026-09-30
+
+Optimización del motor de la Calculadora de Placas (`src/features/plate-calculator/guillotinePacker.ts`) para **aprovechamiento máximo + compactación de sobrantes**. `packGuillotine` pasó de un single-pass (ordenar por área desc → abrir placa nueva cuando una pieza no entraba en las anteriores) a una **multi-pasada con 6 heurísticas de orden + fusión de rects libres + rotación inteligente**. Los consumidores (`usePlateCalculator`, `CalculatorPage`, `PlateResultsPanel`) NO cambiaron — heredan el mejor layout.
+
+### Por qué (caso reportado)
+
+Una placa nueva quedaba al ~8% de aprovechamiento aunque **otra placa anterior tenía un hueco** donde la pieza entraba (ej. tras una 2.9×1 ya se colocaban piezas chicas que abrían placa nueva por no entrar en el rect 1×1 de la derecha). Dos causas combinadas: (1) el single-pass ordenaba por área y abría placa nueva sin intentar reciclar huecos; (2) los rects libres sobrantes de una placa podían estar **fragmentados** (una banda 2×1 dividida en dos 1×1) y ninguna pieza encajaba.
+
+### (1) Multi-pasada por heurísticas + `better()`
+
+- Nueva `export type PackHeuristic = 'area' | 'longerSide' | 'perimeter' | 'width' | 'height' | 'shortSide'` y `export const HEURISTIC_ORDER: PackHeuristic[]` con esos 6 (el **orden de `HEURISTIC_ORDER` define el desempate**: ante empate total gana la primera, determinista).
+- `buildItems(pieces, options): Item[]` extraído del cuerpo viejo: arma los ítems UNA vez con el auto-split y `origen`/`split` intactos (ver sección auto-split) — la optimización NO toca la fragmentación.
+- `sortItems(items, heuristic)`: copia + `Array.prototype.sort` **estable** (ES2019+): los tramos de una pieza partida conservan su orden relativo entre claves de sort iguales → el orden `[3.00, 1.10]` de los tramos nunca se intercambia.
+- `packSequence(sorted, options, plateM2): GuillotineResult` = la secuencia guillotine pura (sin sort): por cada item, `bestFit` recorre TODOS los rects libres de TODAS las placas existentes en ambas orientaciones; solo si NADA entra abre placa nueva. Merge de rects después de cada colocación (ver (2)).
+- `better(prev, candidate)`: el layout ganador prioriza (1) **menos m² sin colocar** (`unplacedArea` = suma `largo×ancho` de los `unplaced`), (2) **menos placas** (`platesNeeded`), (3) **mayor utilización** (`utilizationPct`). Empate total → `prev` (la primera heurística de `HEURISTIC_ORDER`, determinista).
+- `packGuillotine`: `const items = buildItems(...)` → `for (const h of HEURISTIC_ORDER) layout = packSequence(sortItems(items, h), ...)` → `best = better(best, layout)` → `return best as GuillotineResult`. Caso items vacío lo resuelve `packSequence` (devuelve el resultado vacío, mismo que el test "set vacío" de las placas).
+
+### (2) `mergeFreeRects` (fusión de rects libres, hasta fixpoint)
+
+- `mergeFreeRects(rects)` consolida rects libres adyacentes dentro de una placa: **horizontal** cuando `r1.y === r2.y && r1.h === r2.h && r1.x + r1.w === r2.x` → banda única ancha; **vertical** cuando `r1.x === r2.x && r1.w === r2.w && r1.y + r1.h === r2.y` → banda única alta. Loop hasta que una pasada no fusiona nada (fixpoint), con `break outer` al mutar `out.splice(j)`.
+- Se llama **después de CADA colocación** en `packSequence`: `plate.freeRects = mergeFreeRects(plate.freeRects)`. Así dos rects de 1×1 que quedan lado a lado se consolidan en un 2×1 y una pieza chica (ej. 1.2×1.0) entra en el hueco de la placa anterior **en vez de abrir una placa nueva casi vacía**.
+
+### (3) `betterNewPlateOrientation` (rotación inteligente en placa nueva)
+
+- Al abrir una placa nueva, con ambas orientaciones posibles, se elige la que deja la **banda mínima de sobrante estrictamente mayor**: `rotatedMin = min(plateW − fh, plateH − fw)` vs `normalMin = min(plateW − fw, plateH − fh)`; rota SOLO si `rotatedMin > normalMin`. Ties → sin rotar.
+- Compatibilidad con los tests previos: la 1.2×0.6 en 3.0×1.8 sigue `rotated:false` (nMin 1.194 > rMin 0.594); la 0.5×1.9 forzada por "no entra normal" sigue rotando; las 1.0×0.5 no rotan.
+- `bestFit` gana `+ pi * 1e-6` (≈3.14e-6, muy por debajo del guard de 1e-6 del EPS) al score `leftoverSide * 1000 + waste` para preferir placas anteriores ante empates exactos de hueco — las piezas chicas reciclan la placa existente en vez de abrir una igual de conveniente.
+
+### Tests (vitest 481 → 483, `guillotinePacker.test.ts` 12 → 14)
+
+Describe nuevo **`'packGuillotine — multi-pasada: compactación de sobrantes y rotación inteligente'`** (con `kerf: 0` para razonar limpio):
+
+1. **`consolida rects libres y compacta la pieza chica en el hueco de la placa anterior`** — `[1×1, 1×1, 1.2×1]` en placa 2×2 → **1 placa** (`platesNeeded` 1, `totalPlaced` 3, `unplaced` 0, `verifyNoOverlap` true). Mecánica: `area`/`longerSide`/`perimeter` dan [C,A,B] → 2 placas; `width`/`height`/`shortSide` dan [A,B,C] → A en (0,0), B en (1,0) (empate de score gana el primer rect), las bandas inferiores 1×1 + 1×1 se fusionan en {0,1,2,1} y C (1.2×1.0) entra → **1 placa**.
+2. **`rota una pieza pequeña para entrar en el hueco de una placa anterior (no abre placa nueva)`** — `[2.9×1, 0.5×2]` en placa 3×2 → **1 placa** (`platesNeeded` 1, `totalPlaced` 2, `unplaced` 0, `verifyNoOverlap` true) con la 0.5×2 **rotada** (`rotated:true`, footprint 2.0×0.5) en la franja inferior de 3×1 que deja la 2.9×1. Solo el orden por `height` daría 2 placas.
+
+**Los 12 tests previos (auto-split incluido) NO se tocaron y pasan** — las reglas del auto-split, el clamp de kerf, la suma de m² y `verifyNoOverlap` quedaron idénticos porque el split vive intacto en `buildItems`.
+
+### Verificación
+
+`npx tsc --noEmit` **0** errores (una iteración: en `packSequence` faltaba default de `allowRotation = true` al destructurear — `bestFit` y `fitsRotated` esperan boolean) · `npx vitest run` **483/483** (40 files, 16s) · `npx eslint` en los 2 archivos **0 errores** (una iteración: destructure `kerf` sin uso en la entrada multi-pasada). **Git:** manual — working tree con `guillotinePacker.ts` + `guillotinePacker.test.ts` (continuación del auto-split) + `AGENTS.md`, sin commitear. **Regla:** cualquier regla nueva de fragmentación o de heurística toca `guillotinePacker.ts` + sus tests; la multi-pasada es el motor puro — no mover la lógica a los consumidores.
+
+## CALCULADORA DE PLACA: auto-split 2026-09-30
+
+Feature de la Calculadora de Placas (`/admin/plate-calculator`, `src/features/plate-calculator/`): una pieza cuyo **largo nominal supera el largo de la placa** ya NO termina en `unplaced` con el mensaje "No entraron por superar el tamaño de la placa" — se **fragmenta automáticamente a lo largo** y cada tramo se empaqueta como pieza independiente. Ejemplo rector: mesada **4.10×0.62** en placa **3.00×1.40** → Tramo 1 de **3.00×0.62** + Tramo 2 de **1.10×0.62** que **encaja en la franja sobrante (1.40 − 0.62 = 0.78 m) de la misma placa**: 1 placa, sin desperdicio nuevo.
+
+### Dónde vive (todo en el motor, nada en los consumidores)
+
+El split se hace DENTRO de `packGuillotine` (`guillotinePacker.ts`), en el preprocesado que construye el array `items` antes de empaquetar. `usePlateCalculator`, `CalculatorPage` y `PlateResultsPanel` NO cambiaron (heredan los tramos del motor automáticamente).
+
+### Reglas del auto-split
+
+(a) **Disparo condicional**: el split corre SOLO cuando la pieza no entra ni normal ni girada (`!fitsNormal && !fitsRotated`) Y `p.largo > plateW`. Piezas **demasiado anchas** (desborde de ancho sin desborde de largo, ej. `2.8×2.0` en placa `3.0×1.8`) NO se parten y siguen `unplaced` — no tiene sentido cortar a lo largo un bloque que desborda el ancho de fábrica.
+
+(b) **Clamp de kerf en el tramo a plena longitud**: el footprint del tramo largo se clampa a `min(tramoLargo + kerf*2, plateW)` — la arista contra el **borde de fábrica** no consume kerf. Así el Tramo 1 de 3.00 cabe **exacto** en placa de 3.00 (si se usara `largo + kerf*2` daría 3.006 y desbordaría). Este clamp aplica **solo a los tramos del split**: las piezas NO partidas conservan la semántica global `fw = p.largo + kerf*2` (los tests existentes fijan `p.w === 1.2 + KERF*2` y NO se tocaron).
+
+(c) **Sobrante último + remanente insignificante**: `splitAlongLength(total, max)` corta greedy `[max, max, ..., sobrante]` con `roundM` (round a 3 decimales = precisión mm) y descarta el sobrante cuando `< 1e-6`. El tramo corto va último (y con el footprint clampeado también consigue `plateW` si queda justo).
+
+(d) **m² preservado**: cada tramo reporta `area = tramoLargo × ancho`, así la suma de tramos = área original (3.0×0.62 + 1.1×0.62 = 4.1×0.62) y `verifyNoOverlap` sigue validando los rectángulos reales. `placedM2`/`utilizationPct` suman igual.
+
+### Contrato nuevo
+
+- `SplitTramoInfo { tramo: number; total: number }` (ambos 1-based) — nuevo type.
+- `PlacedPiece.origen?: number` — índice 1-based de la pieza en el array de entrada = la columna `#` de `CalculatorPage` (que muestra `index + 1`). Se asigna a TODOS los ítems (`oi + 1`), no solo a los split.
+- `PlacedPiece.split?: SplitTramoInfo`.
+- `PackAction` (el tipo unión de piezas colocadas/unplaced): `PlacedPiece` lleva `origen`/`split`; el `unplaced` también lleva `origen` para trazabilidad.
+
+### Etiquetado (`PlateCutMap.tsx`)
+
+- **SVG**: el texto central de la pieza gana un sufijo ` · {tramo}/{total}` → `#N·1/2` en los tramos de una pieza partida; las piezas normales muestran solo `#N`.
+- **Tabla de Despiece/Leyenda**: base = `p.nombre || 'Pieza ' + (p.origen ?? code)` (el fallback pasa del `code` local-de-placa al `origen` global, coincide con la columna `#`); para piezas split el nombre es `{base} (Tramo {tramo}/{total} - {largo}×{ancho})` → `Pieza 1 (Tramo 1/2 - 3.00×0.62)`. Las claves React siguen únicas (los tramos de una pieza comparten `pieceId`/`pieceIndex` pero difieren en el índice `i` de la iteración).
+
+### Tests (vitest 477 → 481, `guillotinePacker.test.ts` 8 → 12)
+
+- **Test viejo reemplazado** (era el único afectado — todos los demás usan largo ≤ 3.0): `'pieza que no entra ni girada queda sin colocar'` (pieza 3.5×1.6) → `'fragmenta en tramos una pieza que supera el largo (ya no queda sin colocar)'`: `unplaced` 0, **`platesNeeded` 2** (el sobrante 0.5×1.6 NO cabe en la franja de 0.194 de la 1ª placa 3.0×1.8 → abre la 2ª), 2 tramos con `split` = `[{tramo:1,total:2},{tramo:2,total:2}]`, `placedM2` ≈ 3.5×1.6, `verifyNoOverlap` true.
+- **Describe nuevo `'auto-split de piezas que superan el largo'`** (4):
+  1. mesada 4.10×0.62 en 3.0×1.4 → **`platesNeeded` 1**, tramo corto DENTRO de la franja (`b.y >= a.y + a.h - 1e-9`, ambos `x≈0`), `a.split` {1,2}/`b.split` {2,2}, `a.origen` 1, sumas m² ≈ 4.1×0.62, `verifyNoOverlap` true.
+  2. 7.0×0.6 en 3.0×1.8 → 3 tramos, `tramos.map(t => t.split?.tramo)` = [1,2,3], todos `total` 3, suma m² ≈ 7.0×0.6.
+  3. 2.8×2.0 (ancha, largo ≤ plateW) → `platesNeeded` 0, `totalPlaced` 0, `unplaced[0]` = `{action:'unplaced', pieceId: 8, origen: 1}` — **regla (a)**.
+  4. cantidad=2 de 4.10×0.62 en 3.0×1.4 → 4 tramos colocados (2× tramo 1, 2× tramo 2), suma m² ≈ 4.1×0.62×2.
+
+### Verificación
+
+`npx tsc --noEmit` **0** errores · `npx vitest run` **481/481** (40 files) · `npx eslint` en los 3 archivos tocados **0 errores**. Sin cambios de backend (la feature `plate-calculator` es 100% frontend, motor puro). **Git:** manual — working tree con los 3 archivos modificados (`guillotinePacker.ts`, `guillotinePacker.test.ts`, `PlateCutMap.tsx`), sin commitear. Regla: el split vive SOLO en el preprocesado de `packGuillotine`; cualquier regla nueva de fragmentación (partir por ancho, split óptimo por sobrante) toca `guillotinePacker.ts` + sus tests.
 
 ## PHASE 4 — buildPdfData modularizado + Dedup de Observaciones 2026-09-28
 
@@ -1368,7 +1533,10 @@ Consolidación de la garantía "el dinero de cada OT entra a la caja exactamente
 **Cambios (famar-backend):**
 - pp/models/work_order.py — 2 columnas nuevas.
 - lembic/versions/b4c5d6e7f8a0_add_work_order_cash_idempotency_flags.py — nuevo.
-- pp/services/work_order.py — _create_cash_movement_on_deposit(db, order, amount, deposit_currency, payment_method) refactorizado: acepta el order, usa order.register_flag (default sena_registered) como guard atómico, setea el flag ANTES del commit interno de create_movement, y enriquece el movimiento con order_id/order_total/status/emaining_balance; devuelve ool (booked o no). create() y create_from_budget() lo llaman con egister_flag="sena_registered"; el transito a DELIVERED en update() lo llama con egister_flag="saldo_registered" (solo cuando old_status != DELIVERED y 
+- pp/services/work_order.py — _create_cash_movement_on_deposit(db, order, amount, deposit_currency, payment_method) refactorizado: acepta el order, usa order.register_flag (default sena_registered) como guard atómico, setea el flag ANTES del commit interno de create_movement, y enriquece el movimiento con order_id/order_total/status/
+emaining_balance; devuelve ool (booked o no). create() y create_from_budget() lo llaman con 
+egister_flag="sena_registered"; el transito a DELIVERED en update() lo llama con 
+egister_flag="saldo_registered" (solo cuando old_status != DELIVERED y 
 ew_status == DELIVERED). Se eliminó el bloque de top-up por delta de update().
 - pp/schemas/work_order.py — sena_registered/saldo_registered solo en WorkOrderResponse (read-only, server-managed; NO en Create/Update para que el cliente no pueda voltear los flags).
 
@@ -1419,13 +1587,15 @@ Aclaración de negocio del usuario (corrige el diseño previo): **en tarjeta (d�
 
 ## Fix readOnly en modo crear (2026-09-03)
 
-Al CREAR una OT en /admin/work-orders/new, si el operador elegía estado WORKSHOP (TALLER) antes de guardar, el form se **bloqueaba por completo** (todos los campos deshabilitados), impidiendo rellenar la información. **Causa raíz:** en useEntityForm.ts (compartido por presupuestos y OT) el flag eadOnly dependía solo de orm.status:
+Al CREAR una OT en /admin/work-orders/new, si el operador elegía estado WORKSHOP (TALLER) antes de guardar, el form se **bloqueaba por completo** (todos los campos deshabilitados), impidiendo rellenar la información. **Causa raíz:** en useEntityForm.ts (compartido por presupuestos y OT) el flag 
+eadOnly dependía solo de orm.status:
 
 `	s
 const readOnly = ['WORKSHOP', 'FINISHED', 'DELIVERED', 'CONVERTED_TO_OT', 'REJECTED'].includes(form.status);
 `
 
-Así que elegir TALLER (o FINISHED/DELIVERED) en modo crear activaba eadOnly sin importar que se estuviera cargando la info por primera vez.
+Así que elegir TALLER (o FINISHED/DELIVERED) en modo crear activaba 
+eadOnly sin importar que se estuviera cargando la info por primera vez.
 
 **Fix:** agregar isEdit && — el bloqueo read-only aplica SOLO al **editar** una orden ya guardada en un estado avanzado (taller/terminada/entregada: el material ya se cortó y no se modifican las medidas). En **modo crear NUNCA se bloquea**, aunque el estado seleccionado sea WORKSHOP.
 
@@ -1443,7 +1613,8 @@ En /admin/work-orders/new, la tarjeta "Incluir comparativa de medición en el PD
 - Nuevo estado local showComparisonToggle (arranca alse = colapsado).
 - La tarjeta ahora tiene un botón toggle estilo croquis: ⚖️ Activar Comparativa de medición + hint "Comparativa oculta." cuando está plegada; 👁️ Ocultar Comparativa de medición + el checkbox + su hint cuando está desplegada.
 - El checkbox interno sigue siendo orm.include_measurement_comparison_in_pdf (marcado por defecto) — no cambia; solo se oculta/despliega el panel.
-- Deshabilitado con eadOnly (igual que el resto en estados avanzados al editar).
+- Deshabilitado con 
+eadOnly (igual que el resto en estados avanzados al editar).
 - Solo aplica a órdenes de trabajo (los presupuestos no tienen esta tarjeta).
 
 **Verificación:** 	sc --noEmit 0 errores · vitest **223/223**. (Los 8 errores de eslint de WorkOrderFormPage.tsx son preexistentes — no los introduce este cambio.)
@@ -1495,7 +1666,8 @@ El operador report� dos issues en la COMPARATIVA DE MEDICI�N del PDF de OTs:
 El matching dditional_works_data[].materialName == material.name corr�a **dentro del loop de materiales**, as� que un frente asignado a "NEGRO BRASIL" matcheaba con cada mesada de ese material y se emit�a N veces. Soluci�n: un Set<dedupe_key> (clave = dditional_work_id o fallback a 
 ame) se mantiene entre iteraciones de materiales; la primera vez que un frente matchea, se emite su fila detalle y se agrega la key al set. Las siguientes mesadas con el mismo material la skipean. Resultado: 1 sola fila detalle por frente �nico, sin importar cu�ntas mesadas con ese materialName haya.
 
-- Frontend: src/utils/pdf/buildSectionData.ts ? uildMeasurementComparison (emittedFrenteKeys: Set<string> al inicio de la funci�n, agregado al Set justo antes del esult.push(detailRow)).
+- Frontend: src/utils/pdf/buildSectionData.ts ? uildMeasurementComparison (emittedFrenteKeys: Set<string> al inicio de la funci�n, agregado al Set justo antes del 
+esult.push(detailRow)).
 - Backend legacy: pp/services/pdf_html.py ? _build_measurement_comparison (mismo patr�n con emitted_frente_keys).
 
 ### Fix #2 � Ocultar comparativa en OTs directas (frontend + backend legacy + form)
@@ -1510,7 +1682,8 @@ _process_additional_works_snapshot en pp/services/budget.py:45 solo snapshoteab
 
 ### Fix cr�tico (hallado durante el debug E2E) � delattr(order, "register_flag")
 
-Al debuggear con PowerShell + REST API, descubr� que el POST de OT (POST /work-orders y POST /work-orders/from-budget/{id}) **devolv�a {"success":true,"data":{}}** � data VAC�O en vez del objeto WorkOrder. Causa ra�z: la l�nea order.register_flag = "sena_registered" (introducida en la sesi�n 2026-09-02 "Cobro idempotente en caja" para que _create_cash_movement_on_deposit sepa qu� flag setear) dejaba un atributo Python en la instancia del ORM. jsonable_encoder (en pp/utils/responses.py:22) serializa TODOS los atributos del ORM, no solo columnas de la tabla � as� que el data del response quedaba como {register_flag: "sena_registered"} en vez del WorkOrder completo. La OT S� se creaba (el row en la DB estaba bien), pero el frontend/post-clients no recib�an nada �til. Fix: delattr(order, "register_flag") inmediatamente antes del eturn order, con 	ry/except AttributeError por si el set nunca se hizo. Aplicado en WorkOrderService.create() (l�nea ~633) y WorkOrderService.create_from_budget() (l�nea ~897). Adem�s agregu� self.repo.db.refresh(order) post-delattr para forzar el reload de columnas despu�s del commit() (SQLAlchemy expire instance state).
+Al debuggear con PowerShell + REST API, descubr� que el POST de OT (POST /work-orders y POST /work-orders/from-budget/{id}) **devolv�a {"success":true,"data":{}}** � data VAC�O en vez del objeto WorkOrder. Causa ra�z: la l�nea order.register_flag = "sena_registered" (introducida en la sesi�n 2026-09-02 "Cobro idempotente en caja" para que _create_cash_movement_on_deposit sepa qu� flag setear) dejaba un atributo Python en la instancia del ORM. jsonable_encoder (en pp/utils/responses.py:22) serializa TODOS los atributos del ORM, no solo columnas de la tabla � as� que el data del response quedaba como {register_flag: "sena_registered"} en vez del WorkOrder completo. La OT S� se creaba (el row en la DB estaba bien), pero el frontend/post-clients no recib�an nada �til. Fix: delattr(order, "register_flag") inmediatamente antes del 
+eturn order, con 	ry/except AttributeError por si el set nunca se hizo. Aplicado en WorkOrderService.create() (l�nea ~633) y WorkOrderService.create_from_budget() (l�nea ~897). Adem�s agregu� self.repo.db.refresh(order) post-delattr para forzar el reload de columnas despu�s del commit() (SQLAlchemy expire instance state).
 
 
 ## Cobro de seña en update() 2026-09-07 (tarde)
@@ -1557,13 +1730,18 @@ ot order.sena_registered es False → no bookea. Lo mismo para alance_paid=True
 
 **Cambios en useFormActions:** ninguno. El frontend ya invalida la query ['cash', 'current'] después de guardar (línea 124), así que la caja se refresca automáticamente al volver a /admin/cash.
 
-## Fix emaining_balance=0 al cobrar saldo en DELIVERED (2026-09-07)
+## Fix 
+emaining_balance=0 al cobrar saldo en DELIVERED (2026-09-07)
 
-El operador reportó que al pasar una OT a DELIVERED con saldo pendiente, el emaining_balance del cash_movement quedaba con el monto cobrado en vez de 0. Eso dejaba la fila en el grid de /admin/cash mostrando saldo pendiente aunque la OT ya estaba cobrada.
+El operador reportó que al pasar una OT a DELIVERED con saldo pendiente, el 
+emaining_balance del cash_movement quedaba con el monto cobrado en vez de 0. Eso dejaba la fila en el grid de /admin/cash mostrando saldo pendiente aunque la OT ya estaba cobrada.
 
-**Causa:** _create_cash_movement_on_deposit (pp/services/work_order.py:98) calcula emaining_balance = order.balance_due para reflejar lo que falta después del cobro. Esa semántica es correcta para la seña (después de cobrar , falta 	otal - ). Pero para el cobro del saldo al DELIVERED es inversa: el cobro del saldo es el ÚLTIMO pago, así que después de cobrar alance_due, no queda nada pendiente → emaining_balance debe ser 0.
+**Causa:** _create_cash_movement_on_deposit (pp/services/work_order.py:98) calcula 
+emaining_balance = order.balance_due para reflejar lo que falta después del cobro. Esa semántica es correcta para la seña (después de cobrar , falta 	otal - ). Pero para el cobro del saldo al DELIVERED es inversa: el cobro del saldo es el ÚLTIMO pago, así que después de cobrar alance_due, no queda nada pendiente → 
+emaining_balance debe ser 0.
 
-**Fix (WorkOrderService.update(), branch DELIVERED):** después de llamar al helper, se hace un UPDATE directo en el cash_movement más reciente de la OT para forzar emaining_balance=0:
+**Fix (WorkOrderService.update(), branch DELIVERED):** después de llamar al helper, se hace un UPDATE directo en el cash_movement más reciente de la OT para forzar 
+emaining_balance=0:
 
 `python
 latest_mov = (
@@ -1582,7 +1760,8 @@ if latest_mov is not None:
 - tsc --noEmit 0 errores
 - vitest 227/227
 - pytest **82/82**
-- E2E manual: OT directa con seña  → DELIVERED → cash_movement con emaining_balance=0 ✅
+- E2E manual: OT directa con seña  → DELIVERED → cash_movement con 
+emaining_balance=0 ✅
 
 ## Fix mapApiToForm no copiaba udget_id (2026-09-07, tarde)
 
