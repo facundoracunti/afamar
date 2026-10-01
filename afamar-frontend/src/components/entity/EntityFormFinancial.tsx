@@ -24,10 +24,10 @@ interface EntityFormFinancialProps {
   num: (v: string) => number | null;
     alternativasGrid?: ReactNode;
     /** Slot para acciones primarias (ej: "CONVERTIR A ORDEN"). Renderizado
-   *  debajo de Traslado/Seña. */
+   *  debajo de las columnas de totales. */
   actionBlock?: ReactNode;
-  /** Slot que REEMPLAZA la sección de cobros legacy. Cuando se pasa,
-   *  `BudgetPanel` lo renderiza en lugar del `BudgetPaymentSection`. */
+  /** Slot para la sección de cobros. El Presupuesto NO lo pasa (es
+   *  cotización pura); la OT enchufa `<WorkOrderPaymentSection .../>`. */
   paymentSection?: ReactNode;
   onConfirmarPago?: () => Promise<void>;
   sectionTitle?: string;

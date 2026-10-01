@@ -29,3 +29,12 @@ def get_current_user(
     if user is None or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no encontrado o inactivo")
     return user
+
+
+def require_admin(user: User = Depends(get_current_user)) -> User:
+    """Admin-only access guard. Raises 403 for non-admin operators instead of
+    silently degrading — used e.g. by the payment-reversal endpoint so only
+    admins can un-book cash movements of a work order."""
+    if not user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No autorizado")
+    return user

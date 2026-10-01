@@ -2,7 +2,6 @@ import React from 'react';
 import type { FabricationDetail } from '../../../types/budget';
 import { BudgetCurrencyColumn } from './BudgetCurrencyColumn';
 import { BudgetLineItems } from './BudgetLineItems';
-import { BudgetPaymentSection } from './BudgetPaymentSection';
 import DiscountSelector from '../../../features/budgets/components/DiscountSelector/DiscountSelector';
 import { useBudgetPanel } from './BudgetPanelContext';
 import styles from './BudgetPanel.module.css';
@@ -12,13 +11,11 @@ const s = styles as unknown as Record<string, string>;
 interface BudgetPanelProps {
     alternativasGrid?: React.ReactNode;
     sectionTitle?: string;
-    /** Slot renderizado debajo de Traslado/Seña (ej: "CONVERTIR A ORDEN"). */
+    /** Slot renderizado debajo de las columnas de totales (ej: "CONVERTIR A ORDEN"). */
     actionBlock?: React.ReactNode;
-    /** Slot que REEMPLAZA la sección de cobros legacy
-     *  (`BudgetPaymentSection`). Usado por WorkOrderFormPage para enchufar
-     *  la nueva arquitectura `WorkOrderPaymentSection` sin tocar el flujo
-     *  de presupuestos. Cuando NO se pasa, se renderiza el bloque legacy
-     *  para mantener compatibilidad con tests / Budget. */
+    /** Slot para la sección de cobros. El Presupuesto NO lo pasa (es
+     *  cotización pura: sin Traslado/Forma de pago/Fechas); el
+     *  `WorkOrderFormPage` lo usa para enchufar `WorkOrderPaymentSection`. */
     paymentSection?: React.ReactNode;
   onUsdRateRefresh?: () => void;
 }
@@ -30,8 +27,8 @@ interface BudgetPanelProps {
     paymentSection,
     onUsdRateRefresh,
   }: BudgetPanelProps) {
-  const { form, ui, financial, num, update, setForm, onConfirmarPago } = useBudgetPanel();
-  const { hayAlternativas, readOnly, saving } = ui;
+  const { form, ui, update } = useBudgetPanel();
+  const { hayAlternativas, readOnly } = ui;
 
   const fabricationDetails: FabricationDetail[] = form.fabrication_details || [];
   const materialsAll = form.materials_data;
@@ -93,18 +90,8 @@ interface BudgetPanelProps {
             <div className={s['budget-panel__action-block']}>{actionBlock}</div>
           )}
 
-          {paymentSection ? (
+          {paymentSection && (
             <div className={s['budget-panel__payment-section']}>{paymentSection}</div>
-          ) : (
-            <BudgetPaymentSection
-              form={form}
-              readOnly={readOnly}
-              saving={saving}
-              update={update}
-                setForm={setForm}
-                num={num}
-                onConfirmarPago={onConfirmarPago}
-              />
           )}
         </div>
       </div>

@@ -1,9 +1,17 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PaymentModal } from '../../payments/components/PaymentModal';
 import type { NewPaymentTransaction } from '../../payments/components/PaymentModal';
 import { OrderPaymentSummary } from './OrderPaymentSummary';
+import type { PaymentHistoryEntry } from './OrderPaymentSummary';
+import {
+  isModulePayment,
+  mapMovementToPayment,
+} from '../../payments/utils/paymentParsing';
 import { usePaymentAction } from '../../payments/hooks/usePaymentAction';
 import type { PaymentMethod } from '../../payments/types/payment.types';
+import { deleteWorkOrderPayment, getWorkOrderPayments } from '../../../api/resources/workOrders';
+import type { CashMovement } from '../../../types/cash';
 import { useNotify } from '../../../context/NotificationContext';
 
 const BACKEND_TO_MODULE: Record<string, PaymentMethod> = {
@@ -50,10 +58,14 @@ export interface WorkOrderPaymentSectionProps {
   /** Persistir la preferencia en el form (no marca la OT como pagada). */
   onPreferredMethodChange: (method: PaymentMethod | null) => void;
   /** Reporta en vivo el pagado acumulado del módulo (suma de los pagos
-   *  registrados en la sesión, ARS) para que el padre lo integre en el
-   *  preview del PDF (fila "Seña / Pagos Registrados" = seña del form +
-   *  este monto). */
+   *  registrados en la sesión, ARS) para que el padre lo use como EL pago
+   *  real del preview del PDF (fila "Seña / Pagos Registrados"; la seña del
+   *  form solo cae de fallback legacy cuando el módulo no registró nada). */
   onPaidChange?: (paid: number) => void;
+  /** True si el operador logueado es admin: habilita la reversión de pagos
+   *  persistidos (elimina el movimiento de caja y restablece el saldo
+   *  pendiente — ver `WorkOrderService.reverse_payment`). */
+  isAdmin?: boolean;
   /** Mensajes opcionales que el operador ve tras registrar / fallar. */
   successMessage?: string;
   errorMessage?: string;
@@ -61,20 +73,46 @@ export interface WorkOrderPaymentSectionProps {
 
 export function WorkOrderPaymentSection(props: WorkOrderPaymentSectionProps) {
   const notify = useNotify();
+  const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { isAdmin = false } = props;
 
   const preferredMethod = resolvePreferredMethod(props.preferredMethodBackend);
 
-  const { breakdown, isRegistering, registerPayment, registeredTransactions } = usePaymentAction({
-    orderId: props.orderId,
-    orderNumber: props.orderNumber,
-    clientName: props.clientName,
-    montoTotal: props.montoTotal,
-    montoPagadoAcumulado: props.montoPagadoAcumulado,
-    montoSeniaRequerida: props.montoSeniaRequerida,
-    preferredMethod,
-    usdRate: props.usdRate,
+  const { breakdown, isRegistering, registerPayment, registeredTransactions, reconcileFromServer } =
+    usePaymentAction({
+      orderId: props.orderId,
+      orderNumber: props.orderNumber,
+      clientName: props.clientName,
+      montoTotal: props.montoTotal,
+      montoPagadoAcumulado: props.montoPagadoAcumulado,
+      montoSeniaRequerida: props.montoSeniaRequerida,
+      preferredMethod,
+      usdRate: props.usdRate,
+    });
+
+  // Historial persistente: `GET /work-orders/{id}/payments` trae todos los
+  // movimientos INCOME de la orden (incluye los del módulo `Concepto:`).
+  // Se reconcilian UNA vez por mount para no duplicar: la query del backend
+  // es la fuente de verdad y el guard `reconciledRef` evita que un refetch
+  // vuelva a mezclar.
+  const {
+    data: paymentsData,
+    isSuccess: paymentsSuccess,
+  } = useQuery({
+    queryKey: ['work-orders', props.orderId, 'payments'],
+    queryFn: () => getWorkOrderPayments(props.orderId!),
+    enabled: props.orderId !== null,
+    staleTime: 30_000,
   });
+  const payments: CashMovement[] = paymentsData?.data ?? [];
+  const reconciledRef = useRef(false);
+
+  useEffect(() => {
+    if (!paymentsSuccess || reconciledRef.current) return;
+    reconciledRef.current = true;
+    reconcileFromServer(payments.filter(isModulePayment).map((p) => mapMovementToPayment(p)));
+  }, [paymentsSuccess, payments, reconcileFromServer]);
 
   const handlePaymentSubmit = useCallback(
     async (tx: NewPaymentTransaction) => {
@@ -82,11 +120,32 @@ export function WorkOrderPaymentSection(props: WorkOrderPaymentSectionProps) {
         await registerPayment(tx);
         setIsModalOpen(false);
         notify(props.successMessage ?? 'Pago registrado correctamente', 'success');
-      } catch {
+      } catch (err) {
         notify(props.errorMessage ?? 'No se pudo registrar el pago', 'error');
+        // Re-throw para que el PaymentModal (que envuelve `onSubmit` en
+        // try/catch) vuelva a su vista de edición si hubo un error.
+        throw err;
       }
     },
     [registerPayment, notify, props.successMessage, props.errorMessage],
+  );
+
+  const handleReversePayment = useCallback(
+    async (tx: PaymentHistoryEntry) => {
+      if (props.orderId === null || tx.cash_movement_id == null) return;
+      try {
+        await deleteWorkOrderPayment(props.orderId, tx.cash_movement_id);
+        const fresh = await getWorkOrderPayments(props.orderId);
+        const movements = (fresh.data ?? []) as CashMovement[];
+        reconcileFromServer(movements.filter(isModulePayment).map((p) => mapMovementToPayment(p)));
+        queryClient.invalidateQueries({ queryKey: ['work-orders', props.orderId] });
+        queryClient.invalidateQueries({ queryKey: ['cash', 'current'] });
+        notify('Pago reversado correctamente', 'success');
+      } catch {
+        notify('No se pudo reversar el pago', 'error');
+      }
+    },
+    [props.orderId, reconcileFromServer, queryClient, notify],
   );
 
   const handlePreferredMethodChange = useCallback(
@@ -119,6 +178,8 @@ export function WorkOrderPaymentSection(props: WorkOrderPaymentSectionProps) {
         onPreferredMethodChange={handlePreferredMethodChange}
         paymentHistory={registeredTransactions}
         clientPhone={props.clientPhone}
+        isAdmin={isAdmin}
+        onReversePayment={isAdmin ? handleReversePayment : undefined}
       />
 
       <PaymentModal
@@ -133,7 +194,7 @@ export function WorkOrderPaymentSection(props: WorkOrderPaymentSectionProps) {
         defaultMethod={breakdown.preferred_method}
         usdRate={props.usdRate}
         loading={isRegistering}
-        hasPaymentsInSession={registeredTransactions.length > 0}
+        hasPaymentsInSession={registeredTransactions.some((tx) => tx.cash_movement_id == null)}
         orderId={props.orderId}
         orderNumber={props.orderNumber}
         clientName={props.clientName}

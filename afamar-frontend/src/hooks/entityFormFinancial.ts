@@ -27,8 +27,11 @@ export function buildFinancialPayload(form: EntityFormState): FinancialBase {
     installments: Number(form.installments) || 1,
     discount_percentage: Number(form.discount_percentage) || 0,
     discount_fixed_amount: Number(form.discount_fixed_amount) || 0,
-    // Fase 3 — the backend ignores the three new fields for now; the percentage
-    // reuses the pre-existing `discount_percentage` column which persists.
+    // Fase 3 — `discount_enabled`/`discount_target`/`discount_amount` are
+    // persisted on the budget since migration `j0k1l2m3n4o5`. The OT
+    // inherits them via `create_from_budget` (and `convert_alternative_to_
+    // work_order`) so the commercial discount flows into the WO without the
+    // operator re-typing it.
     discount_enabled: form.discount_enabled === true,
     discount_target: form.discount_target === 'materials' ? 'materials' : 'total',
     discount_amount: Number(form.discount_amount) || 0,

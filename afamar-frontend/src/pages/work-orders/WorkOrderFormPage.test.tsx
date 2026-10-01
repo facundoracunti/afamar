@@ -120,6 +120,18 @@ vi.mock('../../context/NotificationContext', () => ({
   useNotify: () => h.notifyMock,
 }));
 
+// WorkOrderFormPage reads useAuth() to gate the payment-reversal UI (admin).
+// The page only needs a plain, non-admin user for these WhatsApp tests.
+vi.mock('../../context/AuthContext', () => ({
+  useAuth: () => ({
+    user: { id: 1, username: 'operator', is_admin: false },
+    loading: false,
+    login: vi.fn(),
+    logout: vi.fn(),
+    isAuthenticated: true,
+  }),
+}));
+
 function makeForm(overrides: Partial<EntityFormState> = {}): EntityFormState {
   return {
     ...INITIAL_FORM,

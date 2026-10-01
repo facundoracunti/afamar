@@ -1,78 +1,20 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createCashMovement, type CashMovePayload } from '../../../api/resources/cash';
-import type { PaymentMethod, PaymentStatus, PaymentTransaction, PaymentBreakdown } from '../types/payment.types';
-import type { NewPaymentTransaction } from '../components/PaymentModal';
-
-export interface RegisteredPayment extends PaymentTransaction {
-  /** Recargo % aplicado (solo para `tarjeta`). Null en el resto. */
-  tarjeta_surcharge_percent?: number | null;
-}
-
-export const PAYMENT_METHOD_BACKEND_MAP: Record<PaymentMethod, string> = {
-  efectivo: 'EFECTIVO',
-  efectivo_usd: 'EFECTIVO (USD)',
-  transferencia: 'TRANSFERENCIA BANCARIA',
-  tarjeta: 'TARJETA DE DÉBITO',
-  payway_link: 'TARJETA DE CRÉDITO',
-};
-
-/** Equivalente ARS de una transacción para el acumulado / saldo del módulo
- *  (que siempre operan en ARS). Un pago en USD (`currency === 'USD'`) se
- *  suma por su `amount_ars`; si la conversión no llegó (fallback defensivo,
- *  p.ej. txs viejas persistidas en localStorage), se usa `amount × usdRate`
- *  y si tampoco hay cotización se cae al `amount` crudo. */
-function amountArsOf(
-  tx: { amount: number; currency: 'ARS' | 'USD'; amount_ars?: number | null; usd_rate?: number | null },
-  fallbackUsdRate: number,
-): number {
-  if (tx.currency === 'USD') {
-    if (tx.amount_ars != null) return tx.amount_ars;
-    if (fallbackUsdRate > 0) return tx.amount * fallbackUsdRate;
-    return tx.amount;
-  }
-  return tx.amount;
-}
-
-/** Key de `localStorage` donde persistimos el historial de pagos
- *  registrados en la sesión de un OT. Funciona como fallback mientras
- *  no exista un endpoint `GET /work-orders/{id}/payments`. */
-function paymentsStorageKey(orderId: number): string {
-  return `afamar.ot.payments.${orderId}`;
-}
-
-function readPersistedPayments(orderId: number): RegisteredPayment[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = window.localStorage.getItem(paymentsStorageKey(orderId));
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed as RegisteredPayment[];
-  } catch {
-    return [];
-  }
-}
-
-function writePersistedPayments(orderId: number, txs: RegisteredPayment[]): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(paymentsStorageKey(orderId), JSON.stringify(txs));
-  } catch {
-    // sin permisos de storage / quota lleno — seguimos con la versión
-    // en memoria para esta sesión.
-  }
-}
-
-export function computePaymentStatus(
-  montoPagadoAcumulado: number,
-  montoSeniaRequerida: number,
-  saldoPendiente: number,
-): PaymentStatus {
-  if (saldoPendiente <= 0) return 'Pagado';
-  if (montoPagadoAcumulado > 0) return 'Señado Parcial';
-  return 'Pendiente';
-}
+import type {
+  NewPaymentTransaction,
+  PaymentBreakdown,
+  PaymentMethod,
+  PaymentStatus,
+  PaymentTransaction,
+  RegisteredPayment,
+} from '../types/payment.types';
+import {
+  amountArsOf,
+  computePaymentStatus,
+  PAYMENT_METHOD_BACKEND_MAP,
+} from '../utils/paymentParsing';
+import { readPersistedPayments, writePersistedPayments } from '../utils/paymentStorage';
 
 export interface UsePaymentActionParams {
   orderId: number | null;
@@ -92,15 +34,22 @@ export interface UsePaymentActionReturn {
   isRegistering: boolean;
   error: Error | null;
   registerPayment: (tx: NewPaymentTransaction) => Promise<PaymentTransaction>;
-  /** Resetea el contador local de pagos. Útil tras un refetch del
-   *  formulario padre. */
+  /** Resetea el historial local de pagos del módulo. Útil si el padre
+   *  quiere volver a empezar la sesión (p.ej. tras reconciliar con el
+   *  backend actualmente no se usa). */
   resetPaidOverride: () => void;
+  /** Fusiona los pagos del módulo confirmados por el backend (GET
+   *  /work-orders/{id}/payments filtrado por `isModulePayment`) con los de
+   *  la sesión. El backend manda (un pago ya reversado desaparece de la
+   *  lista); los pagos locales aún sin `cash_movement_id` se conservan.
+   *  Es la vía de reconciliación post-reversión para que el "Pagado
+   *  acumulado" del módulo refleje la verdad del server. */
+  reconcileFromServer: (serverModuleTxs: RegisteredPayment[]) => void;
   /** Transacciones registradas durante esta sesión + las rehidratadas
-   *  desde `localStorage` al montar. Persiste entre navegaciones y
-   *  reloads. La fuente de verdad sigue siendo el backend (cada
-   *  `registerPayment` hace POST a `/cash/movements`); el localStorage
-   *  es un espejo client-side para que la UI no quede en $0 al
-   *  volver a la OT. */
+   *  desde `localStorage` al montar + las reconciliadas desde el backend.
+   *  Persiste entre navegaciones y reloads. La fuente de verdad sigue
+   *  siendo el backend (cada `registerPayment` hace POST a
+   *  `/cash/movements`); el localStorage es un espejo client-side. */
   registeredTransactions: RegisteredPayment[];
 }
 
@@ -124,19 +73,16 @@ export function usePaymentAction(params: UsePaymentActionParams): UsePaymentActi
     orderId !== null ? readPersistedPayments(orderId) : [],
   );
 
-  // `overridePagado` arranca en la suma de lo persistido: así el
-  // "Pagado acumulado" refleja los cobros que ya estaban hechos al
-  // momento de rehidratar, sin esperar a un nuevo POST.
-  const [overridePagado, setOverridePagado] = useState<number | null>(() => {
-    if (orderId === null) return null;
-    const txs = readPersistedPayments(orderId);
-    if (txs.length === 0) return null;
-    // Acumulado SIEMPRE en ARS: un pago persistido en USD se suma por su
-    // equivalente para no desincronizar el saldo del módulo con el PDF.
-    return txs.reduce((sum, tx) => sum + amountArsOf(tx, usdRate), 0);
-  });
+  // Leave del "Pagado acumulado": si la sesión tiene pagos registrados o
+  // reconciliados, el acumulado del módulo se deriva de ellos (suma del
+  // equivalente ARS). Si no hay ninguno (nunca se registró nada), la
+  // sección refleja el `montoPagadoAcumulado` del form.
+  const txsOverride = useMemo<number | null>(() => {
+    if (registeredTransactions.length === 0) return null;
+    return registeredTransactions.reduce((sum, tx) => sum + amountArsOf(tx, usdRate), 0);
+  }, [registeredTransactions, usdRate]);
 
-  const montoPagadoEffectivo = overridePagado ?? montoPagadoAcumulado;
+  const montoPagadoEffectivo = txsOverride ?? montoPagadoAcumulado;
 
   // Persistencia continua: cada vez que cambia la lista, escribimos en
   // `localStorage`. Si falla (cuota / permisos), la sesión sigue
@@ -176,11 +122,20 @@ export function usePaymentAction(params: UsePaymentActionParams): UsePaymentActi
       }
       const newPagado = montoPagadoEffectivo + amountArsOf(tx, usdRate);
       const newSaldo = Math.max(montoTotal - newPagado, 0);
-      const description: string | undefined = tx.lote_cupon
-        ? `Lote/Cupón: ${tx.lote_cupon}`
-        : tx.payway_link_url
-          ? `Link de pago: ${tx.payway_link_url}`
-          : undefined;
+      // La descripción del movimiento de caja persiste el concepto y la
+      // referencia (lote/cupón o link). El prefijo `Concepto:` es el
+      // marcador que identifica los pagos del módulo (`isModulePayment`)
+      // y del que se re-deriva el concepto en el historial.
+      const concepto = tx.concept ?? null;
+      const lotePart = tx.lote_cupon ? `Lote/Cupón: ${tx.lote_cupon}` : undefined;
+      const paywayPart = tx.payway_link_url ? `Link de pago: ${tx.payway_link_url}` : undefined;
+      const description: string | undefined =
+        [
+          concepto ? `Concepto: ${concepto}` : undefined,
+          lotePart ?? paywayPart ?? undefined,
+        ]
+          .filter((part): part is string => Boolean(part))
+          .join(' — ') || undefined;
 
       const payload: CashMovePayload = {
         type: 'INCOME',
@@ -216,10 +171,10 @@ export function usePaymentAction(params: UsePaymentActionParams): UsePaymentActi
         registered_at: cashMovement.created_at ?? new Date().toISOString(),
         cash_movement_id: cashMovement.id,
         tarjeta_surcharge_percent: tx.tarjeta_surcharge_percent ?? null,
+        concept: concepto,
       };
     },
     onSuccess: (transaction) => {
-      setOverridePagado((prev) => (prev ?? montoPagadoAcumulado) + amountArsOf(transaction, usdRate));
       setRegisteredTransactions((prev) => [
         ...prev,
         { ...transaction, tarjeta_surcharge_percent: transaction.tarjeta_surcharge_percent ?? null },
@@ -239,7 +194,41 @@ export function usePaymentAction(params: UsePaymentActionParams): UsePaymentActi
     [mutation],
   );
 
-  const resetPaidOverride = useCallback(() => setOverridePagado(null), []);
+  const resetPaidOverride = useCallback(() => setRegisteredTransactions([]), []);
+
+  const reconcileFromServer = useCallback(
+    (serverModuleTxs: RegisteredPayment[]) => {
+      if (orderId === null) return;
+      setRegisteredTransactions((prev) => {
+        if (serverModuleTxs.length === 0 && prev.length === 0) return prev;
+        // El server manda: los pagos locales CONFIRMADOS cuya contraparte
+        // ya no existe en el backend (movimiento reversado, ej. el DELETE
+        // de /work-orders/{id}/payments/{movement_id}) desaparecen de la
+        // lista; los pagos locales aún sin `cash_movement_id` (POST
+        // pendiente o historial no confirmado) se conservan. Los ids que
+        // sí viven en el server reemplazan a su espejo local (dedupe).
+        const serverIds = new Set<number>();
+        for (const tx of serverModuleTxs) {
+          if (tx.cash_movement_id != null) serverIds.add(tx.cash_movement_id);
+        }
+        const keptLocal = prev.filter(
+          (tx) => tx.cash_movement_id == null || serverIds.has(tx.cash_movement_id),
+        );
+        const merged = [...serverModuleTxs, ...keptLocal];
+        const seenIds = new Set<number>();
+        const unique: RegisteredPayment[] = [];
+        for (const tx of merged) {
+          if (tx.cash_movement_id != null) {
+            if (seenIds.has(tx.cash_movement_id)) continue;
+            seenIds.add(tx.cash_movement_id);
+          }
+          unique.push(tx);
+        }
+        return unique.sort((a, b) => (b.registered_at || '').localeCompare(a.registered_at || ''));
+      });
+    },
+    [orderId],
+  );
 
   return {
     breakdown,
@@ -247,6 +236,7 @@ export function usePaymentAction(params: UsePaymentActionParams): UsePaymentActi
     error: mutation.error as Error | null,
     registerPayment,
     resetPaidOverride,
+    reconcileFromServer,
     registeredTransactions,
   };
 }

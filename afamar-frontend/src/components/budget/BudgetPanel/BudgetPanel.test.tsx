@@ -78,13 +78,20 @@ describe('BudgetPanel — line items survive when there are alternatives', () =>
     expect(container.querySelector('[data-testid="alternativas-grid"]')).not.toBeNull();
   });
 
-  it('still renders the payment section when hayAlternativas=false', () => {
+  it('does NOT render Traslado/Forma de pago/Fechas — presupuesto es cotización pura', () => {
     const { container } = renderBudgetPanel({
       form: makeForm({ usd_rate: 1000 }),
       hayAlternativas: false,
     });
 
     const text = container.textContent || '';
-    expect(text).toContain('Forma de pago');
+    // El presupuesto ya no captura cobros: el cobro vive exclusivamente
+    // en la OT (módulo de pagos / WorkOrderPaymentSection).
+    expect(text).not.toContain('Traslado');
+    expect(text).not.toContain('Forma de pago');
+    expect(text).not.toContain('Seña recibida');
+    expect(text).not.toContain('Fecha de entrega estimada');
+    expect(text).not.toContain('Fecha de aprobación');
+    expect(text).not.toContain('Detalle de cuotas');
   });
 });

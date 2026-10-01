@@ -37,6 +37,18 @@ class Budget(Base):
     discount: Mapped[float] = mapped_column(Float, default=0.0)
     discount_percentage: Mapped[float] = mapped_column(Float, default=0.0)
     discount_fixed_amount: Mapped[float] = mapped_column(Float, default=0.0)
+    # Comercial discount gate (mirror of `work_order`). `discount_enabled`
+    # decides whether `discount_percentage` / `discount_fixed_amount` actually
+    # apply to the displayed total; `discount_target` picks the base the %
+    # runs against ('total' whole document | 'materials' only the main
+    # marble/granite/quartz). Budget form default is 'total'. Copied verbatim
+    # to the converted work order so the quote's discount carries over.
+    discount_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0"
+    )
+    discount_target: Mapped[str] = mapped_column(
+        String(20), default="total", server_default="total"
+    )
     total: Mapped[float] = mapped_column(Float, default=0.0)
     subtotal_usd: Mapped[float] = mapped_column(Float, default=0.0)
     transport_usd: Mapped[float] = mapped_column(Float, default=0.0)

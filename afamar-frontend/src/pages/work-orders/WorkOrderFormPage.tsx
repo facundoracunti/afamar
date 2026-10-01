@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Eye, MessageCircle, Save } from 'lucide-react';
 import { useNotify } from '../../context/NotificationContext';
+import { useAuth } from '../../context/AuthContext';
 import { useUsdRate } from '../../hooks/useUsdRate';
 import { getWorkOrder, createWorkOrder, updateWorkOrder, deleteWorkOrder, getNextWorkOrderNumber, getWorkOrderPdf, getWorkOrderPayments, getWorkOrderPublicPdfToken } from '@/api/resources/workOrders';
 import type { CashMovement } from '../../types/cash';
@@ -34,6 +35,7 @@ import WorkOrderFormSnapshot from './WorkOrderFormSnapshot';
 import { AlternativeBudgetGrid } from './AlternativeBudgetGrid';
 import WorkOrderPaymentSection, { backendMethodFor } from '../../features/orders/components/WorkOrderPaymentSection';
 import ObservationsSection from '../../components/orders/ObservationsSection/ObservationsSection';
+import { resolveTotalPaidArs } from '../../features/payments/utils/paymentParsing';
 import type { PaymentMethod } from '../../features/payments/types/payment.types';
 import type { EntityFormState, EntityServices, MaterialInForm } from '../../types';
 import styles from './WorkOrderFormPage.module.css';
@@ -74,6 +76,7 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const notify = useNotify();
+  const { user } = useAuth();
   const [pdfData, setPdfData] = useState<PdfDocumentData | null>(null);
   const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
   const [sketchExtractorActive, setSketchExtractorActive] = useState(false);
@@ -81,8 +84,8 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
   const [warrantyTerms, setWarrantyTerms] = useState<string[]>([]);
   const [showComparisonToggle, setShowComparisonToggle] = useState(false);
   // Pagos registrados en la sesión vía el módulo de pagos (ARS). Se integra
-  // al preview del PDF: fila "Seña / Pagos Registrados" = seña del form +
-  // este acumulado.
+  // al preview del PDF: fila "Seña / Pagos Registrados" = este acumulado
+  // (el pago real; la seña del form solo funge de fallback legacy).
   const [pagoAcumuladoModulo, setPagoAcumuladoModulo] = useState(0);
   const { company, globalTerms } = useSettingsWithTerms();
 
@@ -259,14 +262,17 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
   };
 
   const handleSketchImagesReady = (images: string[]) => {
-    // Seña del form en ARS (mismo cálculo que buildPdfData) + pagos del
-    // módulo de la sesión → el preview del PDF muestra el acumulado abonado
-    // en "Seña / Pagos Registrados" y deriva el saldo (Paid + Saldo = TOTAL).
+    // El preview del PDF muestra el pago abonado real en "Seña / Pagos
+    // Registrados" y deriva el saldo (Paid + Saldo = TOTAL). El acumulado
+    // del módulo ya es la verdad (reconcilia los movimientos del backend);
+    // la seña del form en ARS es SOLO fallback legacy para OTs donde nunca
+    // se registró un pago por módulo (nunca se suman, o el PDF duplicaría el
+    // total: el depósito autocompletado ya = total + pagos del módulo).
     const depositEnArs =
       form.deposit_currency === 'USD' && Number(form.usd_rate) > 0
         ? (Number(form.deposit_usd) || 0) * Number(form.usd_rate)
         : (Number(form.deposit_received) || 0);
-    const totalPaidArs = Math.round((depositEnArs + pagoAcumuladoModulo) * 100) / 100;
+    const totalPaidArs = resolveTotalPaidArs(depositEnArs, pagoAcumuladoModulo);
     const data = buildPdfData({
       form: form as unknown as Record<string, unknown>,
       document_type: 'work_order',
@@ -454,6 +460,7 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
                         update('payment_method', backendMethodFor(method))
                       }
                       onPaidChange={setPagoAcumuladoModulo}
+                      isAdmin={user?.is_admin === true}
                     />
                   }
                   alternativasGrid={alternativasGrid}

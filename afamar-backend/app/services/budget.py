@@ -401,15 +401,26 @@ class BudgetService:
             "discount": budget.discount or 0,
             "discount_percentage": budget.discount_percentage or 0,
             "discount_fixed_amount": budget.discount_fixed_amount or 0,
+            # Carry the commercial-discount gate over verbatim (see
+            # `create_from_budget`). `or "materials"` only fires if the budget
+            # row somehow lacks the target — the column is NOT NULL, default
+            # 'total', since the j0k1l2m3n4o5 migration.
+            "discount_enabled": budget.discount_enabled or False,
+            "discount_target": budget.discount_target or "materials",
             "total": total_ars,
             "subtotal_usd": round(subtotal_usd, 2),
             "transport_usd": round(traslado / usd_rate_value, 2) if usd_rate_value > 0 else 0,
             "total_usd": total_usd_val,
-            "deposit_received": budget.deposit_received or 0,
-            "deposit_currency": budget.deposit_currency or "ARS",
-            "deposit_usd": budget.deposit_usd or 0,
-            "balance_due": max(0, total_ars - (budget.deposit_received or 0)),
-            "balance_due_usd": max(0, total_usd_val - (budget.deposit_usd or 0)),
+            # Budgets are pure quote documents — no seña is carried over. The
+            # converted order starts fully unpaid (`balance_due` mirrors the
+            # alternate-total) and the cash box is touched only when the
+            # operator registers the seña in MEDICIÓN.
+            "deposit_received": 0,
+            "deposit_currency": "ARS",
+            "deposit_usd": 0,
+            "balance_due": total_ars,
+            "balance_due_usd": total_usd_val,
+            "balance_paid": False,
             "payment_method": budget.payment_method,
             "installments": budget.installments or 1,
             "priority": budget.priority or "NORMAL",
@@ -435,6 +446,11 @@ class BudgetService:
             ),
             "design_observations": budget.design_observations or "",
             "important_observations": budget.important_observations or "",
+            # Per-document term overrides carry over so the order PDF shows the
+            # same payment / garantía terms the customer signed on the budget
+            # (empty string = fall back to the global /admin/configuration).
+            "delivery_terms_override": budget.budget_terms_override or "",
+            "warranty_override": budget.warranty_override or "",
             "date": budget.date,
         }
 

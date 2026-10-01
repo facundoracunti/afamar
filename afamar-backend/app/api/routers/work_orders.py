@@ -7,10 +7,11 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
-from app.api.dependencies import get_current_user, get_db
+from app.api.dependencies import get_current_user, get_db, require_admin
 from app.core.exceptions import NotFoundError
 from app.core.settings import settings
 from app.models.client import Client
+from app.models.user import User
 from app.schemas.work_order import WorkOrderCreate, WorkOrderResponse, WorkOrderUpdate
 from app.services.budget import BudgetService
 from app.services.email import send_work_order_email
@@ -109,6 +110,30 @@ def list_order_payments(order_id: int, db: Session = Depends(get_db)):
         .all()
     )
     return success([CashMovementResponse.model_validate(m).model_dump(mode="json") for m in movements])
+
+
+@router.delete("/{order_id}/payments/{movement_id}")
+def reverse_order_payment(
+    order_id: int,
+    movement_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Reverse an INCOME payment of a work order. ADMIN ONLY (operator
+    reversals are explicitly out of scope). Hard-deletes the linked cash
+    movement, recomputes the open register totals and re-derives the order's
+    balance_due/balance_paid from the remaining movements — the operational
+    status is never touched by a reversal."""
+    order = WorkOrderService(db).reverse_payment(order_id, movement_id)
+    return success(
+        {
+            "message": "Pago reversado",
+            "order_id": order_id,
+            "balance_due": order.balance_due,
+            "balance_due_usd": order.balance_due_usd,
+            "balance_paid": order.balance_paid,
+        }
+    )
 
 
 @router.post("", status_code=201)

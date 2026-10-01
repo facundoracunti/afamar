@@ -26,9 +26,12 @@ export interface ComputePaidTotalsArgs {
   depositCurrency: DepositCurrency;
   usdRate: number;
   document_type: DocumentType;
-  /** ARS acumulado abonado (seña del form + pagos del módulo de la sesión)
-   *  que WorkOrderFormPage pasa al preview — Paid + Saldo = TOTAL. Cuando no
-   *  llega (budgets / previews legacy) cae al equivalente ARS de la seña. */
+  /** ARS acumulado abonado que WorkOrderFormPage pasa al preview — Paid +
+   *  Saldo = TOTAL. Es el pago real del módulo (reconcilia el backend) o, si
+   *  el módulo nunca registró pagos, el equivalente ARS de la seña del form.
+   *  Nunca es la suma de ambos (el depósito autocompletado al total + pagos
+   *  del módulo duplicaría la casilla). Cuando no llega (budgets / previews
+   *  legacy) cae al equivalente ARS de la seña. */
   totalPaid?: number;
 }
 

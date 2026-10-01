@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import type { PaymentMethod, PaymentStatus, PaymentTransaction } from '../../payments/types/payment.types';
 import { PaymentMethodSelector } from '../../payments/components/PaymentMethodSelector';
 import { PaywayLinkCard } from '../../payments/components/PaywayLinkCard';
+import { ConfirmDialog } from '../../../components/ui/ConfirmDialog/ConfirmDialog';
 
 const HISTORY_METHOD_LABELS: Record<PaymentMethod, string> = {
   efectivo: 'Efectivo',
@@ -24,7 +26,7 @@ function formatHistoryDate(iso: string): string {
   return HISTORY_DATETIME_FORMATTER.format(d);
 }
 
-interface PaymentHistoryEntry extends PaymentTransaction {
+export interface PaymentHistoryEntry extends PaymentTransaction {
   tarjeta_surcharge_percent?: number | null;
 }
 
@@ -69,6 +71,14 @@ export interface OrderPaymentSummaryProps {
    *  se pierde al recargar la página. Para un historial persistente
    *  hace falta un endpoint `GET /work-orders/{id}/payments`. */
   paymentHistory?: PaymentHistoryEntry[];
+  /** Habilitado solo para administradores: muestra el botón "Reversar"
+   *  por pago persistido (con `cash_movement_id`) que elimina el
+   *  movimiento de caja y restablece el saldo pendiente. */
+  isAdmin?: boolean;
+  /** Async handler de reversión. Se dispara tras confirmar en el diálogo
+   *  por fila. La tarjeta no cierra ni notifica por sí sola — el padre lo
+   *  hace (refetch + notify). */
+  onReversePayment?: (tx: PaymentHistoryEntry) => void;
   /** WhatsApp target (sin `+`) — habilita el botón WhatsApp en los
    *  links de Payway mostrados en el historial. */
   clientPhone?: string | null;
@@ -87,10 +97,14 @@ export function OrderPaymentSummary({
   onPreferredMethodChange,
   paymentHistory = [],
   clientPhone = null,
+  isAdmin = false,
+  onReversePayment,
   className,
 }: OrderPaymentSummaryProps) {
   const badge = STATUS_BADGE_STYLES[status];
   const isPagado = saldoPendiente <= 0;
+  const showReversalColumn = isAdmin && typeof onReversePayment === 'function';
+  const [reverseTarget, setReverseTarget] = useState<PaymentHistoryEntry | null>(null);
 
   // Most recent payway_link payment → render the PaywayLinkCard below
   // the history table so the operator can re-copy / re-send it.
@@ -151,7 +165,7 @@ export function OrderPaymentSummary({
       {paymentHistory.length > 0 && (
         <div className="mt-4 border-t border-slate-200 pt-3">
           <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Pagos registrados en esta sesión
+            Pagos registrados
           </h4>
           <div className="overflow-hidden rounded-md border border-slate-200">
             <table className="w-full text-xs">
@@ -159,8 +173,12 @@ export function OrderPaymentSummary({
                 <tr>
                   <th className="px-2 py-2 text-left font-medium">Fecha</th>
                   <th className="px-2 py-2 text-left font-medium">Método</th>
+                  <th className="px-2 py-2 text-left font-medium">Concepto</th>
                   <th className="px-2 py-2 text-right font-medium">Monto</th>
                   <th className="px-2 py-2 text-left font-medium">Lote/Cupón</th>
+                  {showReversalColumn && (
+                    <th className="px-2 py-2 text-right font-medium">Acción</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -173,19 +191,33 @@ export function OrderPaymentSummary({
                         <span className="ml-1 text-slate-400">(+{tx.tarjeta_surcharge_percent}%)</span>
                       )}
                     </td>
+                    <td className="px-2 py-1.5 text-slate-600">{tx.concept ?? '—'}</td>
                     <td className="px-2 py-1.5 text-right font-semibold">
                       {formatCurrency(tx.amount, tx.currency)}
                     </td>
                     <td className="px-2 py-1.5 text-slate-500">{tx.lote_cupon ?? '—'}</td>
+                    {showReversalColumn && (
+                      <td className="px-2 py-1.5 text-right">
+                        {tx.cash_movement_id != null && (
+                          <button
+                            type="button"
+                            onClick={() => setReverseTarget(tx)}
+                            className="rounded border border-rose-200 px-1.5 py-0.5 text-[11px] font-medium text-rose-700 transition hover:bg-rose-50"
+                          >
+                            ↩ Reversar
+                          </button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
           <p className="mt-2 text-[11px] text-slate-400">
-            El historial se conserva solo durante esta sesión. Para verlo
-            tras recargar la página se necesita el endpoint{' '}
-            <code className="rounded bg-slate-100 px-1">GET /work-orders/{'{'}id{'}'}/payments</code>.
+            Historial persistente: los pagos del módulo se registran en la caja y se
+            listan desde <code className="rounded bg-slate-100 px-1">GET /work-orders/{'{'}id{'}'}/payments</code>.
+            Los pagos de esta sesión aún sin confirmar se conservan localmente.
           </p>
 
           {latestPaywayLink && (
@@ -197,6 +229,23 @@ export function OrderPaymentSummary({
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        open={reverseTarget !== null}
+        title="Reversar pago"
+        message={
+          reverseTarget
+            ? `¿Confirmás la reversión del pago de ${formatCurrency(reverseTarget.amount, reverseTarget.currency)} (${HISTORY_METHOD_LABELS[reverseTarget.method]} · ${reverseTarget.concept ?? '—'})? Esta acción elimina el movimiento de la caja y restablece el saldo pendiente de la orden.`
+            : ''
+        }
+        confirmLabel="Sí, reversar"
+        danger
+        onConfirm={() => {
+          if (reverseTarget) onReversePayment?.(reverseTarget);
+          setReverseTarget(null);
+        }}
+        onCancel={() => setReverseTarget(null)}
+      />
     </div>
   );
 }

@@ -1,14 +1,17 @@
 /**
- * Tests for the "Dólar billete" mode of `PaymentModal`.
+ * Tests for `PaymentModal` — "Dólar billete" mode + confirmation step.
  *
- * Covers the USD conversion flow introduced for `efectivo_usd`:
- *  - the ARS→USD conversion of presets and the conversion panel.
+ * Covers:
+ *  - the ARS→USD conversion flow introduced for `efectivo_usd`.
  *  - the submit payload (native USD amount + ARS equivalent + rate).
- *  - the guard that blocks submitting without a valid `usdRate`.
+ *  - the guards that block submitting without a valid `usdRate` or with
+ *    no pending balance.
+ *  - the explicit confirmation step ("¿Confirmás el registro de pago...?")
+ *    that precedes the POST, including the `concept` derived from the.
  *  - the ARS-mode regression (no conversion, no ARS-equivalent fields).
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { PaymentModal } from './PaymentModal';
 
 vi.mock('../../../context/NotificationContext', () => ({
@@ -66,13 +69,19 @@ describe('PaymentModal — "Dólar billete" (efectivo_usd)', () => {
     expect(submit.disabled).toBe(true);
   });
 
-  it('emits the native USD amount with ARS equivalent and rate on submit', async () => {
+  it('emits the native USD amount with ARS equivalent, rate and concept on confirm', async () => {
     const onSubmit = vi.fn();
     render(
       <PaymentModal {...BASE_PROPS} onSubmit={onSubmit} usdRate={2600} defaultMethod="efectivo_usd" />,
     );
 
+    // Paso 1: el botón solo abre la confirmación — el POST NO se dispara aún.
     fireEvent.click(screen.getByRole('button', { name: 'Registrar pago' }));
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByText(/¿Confirmás el registro de pago/i)).toBeTruthy();
+
+    // Paso 2: "Sí, registrar pago" dispara el POST con el concepto del preset.
+    fireEvent.click(screen.getByRole('button', { name: 'Sí, registrar pago' }));
 
     expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(onSubmit).toHaveBeenCalledWith(
@@ -83,6 +92,7 @@ describe('PaymentModal — "Dólar billete" (efectivo_usd)', () => {
         currency: 'USD',
         amount_ars: 260_000,
         usd_rate: 2600,
+        concept: 'Seña',
       }),
     );
   });
@@ -97,6 +107,7 @@ describe('PaymentModal — "Dólar billete" (efectivo_usd)', () => {
     fireEvent.click(radios[2]); // "Monto personalizado"
     fireEvent.change(screen.getByPlaceholderText('0.00'), { target: { value: '60' } });
     fireEvent.click(screen.getByRole('button', { name: 'Registrar pago' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Sí, registrar pago' }));
 
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -106,6 +117,7 @@ describe('PaymentModal — "Dólar billete" (efectivo_usd)', () => {
         currency: 'USD',
         amount_ars: 156_000,
         usd_rate: 2600,
+        concept: 'Monto Personalizado',
       }),
     );
   });
@@ -120,13 +132,75 @@ describe('PaymentModal — "Dólar billete" (efectivo_usd)', () => {
     expect(screen.queryByText(/Dólar billete/i)).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Registrar pago' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Sí, registrar pago' }));
 
     const tx = onSubmit.mock.calls[0][0] as Record<string, unknown>;
     expect(tx.currency).toBe('ARS');
     expect(tx.amount).toBe(260_000);
+    expect(tx.concept).toBe('Seña');
     // Sin modo USD no hay conversión: las claves existen con `undefined`
     // (JSON.stringify las omite), nunca con un número.
     expect(tx.amount_ars).toBeUndefined();
     expect(tx.usd_rate).toBeUndefined();
+  });
+});
+
+describe('PaymentModal — confirmación explícita', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('does not call onSubmit until the second click confirms the concept', () => {
+    const onSubmit = vi.fn();
+    render(<PaymentModal {...BASE_PROPS} onSubmit={onSubmit} defaultMethod="efectivo" />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar pago' }));
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    // El concepto vive dentro de un `<strong>` anidado — el matcher por
+    // defecto de RTL no cruza sub-elementos, así que se usa el textContent
+    // completo del párrafo de confirmación.
+    expect(
+      screen.getByText((content, element) => {
+        const text = element?.textContent ?? '';
+        return element?.tagName === 'P' && text.includes('bajo el concepto de Seña');
+      }),
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Registrar pago' })).toBeNull();
+  });
+
+  it('Cancelar vuelve al formulario sin registrar (el POST nunca corre)', () => {
+    const onSubmit = vi.fn();
+    render(<PaymentModal {...BASE_PROPS} onSubmit={onSubmit} defaultMethod="efectivo" />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar pago' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Registrar pago' })).toBeTruthy();
+  });
+
+  it('blocks registration and warns when there is no pending balance', () => {
+    render(<PaymentModal {...BASE_PROPS} saldoPendiente={0} defaultMethod="efectivo" />);
+
+    const submit = screen.getByRole('button', { name: 'Registrar pago' }) as HTMLButtonElement;
+    expect(submit.disabled).toBe(true);
+    expect(
+      screen.getByText(/No hay saldo pendiente — el cobro de esta orden está completo/i),
+    ).toBeTruthy();
+  });
+
+  it('re-opens the edit view if the POST fails (catches inside the confirm)', async () => {
+    const onSubmit = vi.fn().mockRejectedValue(new Error('boom'));
+    render(<PaymentModal {...BASE_PROPS} onSubmit={onSubmit} defaultMethod="efectivo" />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar pago' }));
+    // El submit rechaza asincrónicamente; hay que dejar correr el microtask
+    // del `catch` (que vuelve a `confirming=false`) antes de assertar.
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Sí, registrar pago' }));
+    });
+
+    expect(screen.getByRole('button', { name: 'Registrar pago' })).toBeTruthy();
   });
 });

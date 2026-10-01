@@ -10,7 +10,6 @@ import { StatusBadge } from '../../components/ui/StatusBadge';
 import useEntityForm from '../../hooks/useEntityForm';
 import { useBudgetQuoteCalculations } from '../../hooks/useBudgetQuoteCalculations';
 import { useBudgetActions } from '../../hooks/useBudgetActions';
-import { useConfirmPayment } from '../../hooks/useConfirmPayment';
 import { createAddressAddedHandler } from '../../hooks/entityFormHelpers';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
@@ -123,18 +122,8 @@ export default function BudgetForm(props: BudgetFormProps = {}) {
     paymentMethods,
   });
 
-  const handleConfirmarPago = useConfirmPayment({
-    id,
-    balance_paid: form.balance_paid,
-    total: form.total,
-    total_usd: form.total_usd,
-    updateFn: updateBudget,
-    queryKey: ['budgets'],
-    setForm,
-  });
-
   // Acción primaria "CONVERTIR A ORDEN" — se renderiza debajo de
-  // Traslado/Seña dentro del Presupuesto card, no en el header.
+  // Traslado dentro del Presupuesto card, no en el header.
   const convertAction = isEdit && !workOrderNumber && form.status === 'APPROVED' ? (
     <button
       type="button"
@@ -298,7 +287,6 @@ export default function BudgetForm(props: BudgetFormProps = {}) {
               value={{
                 handleSubmit,
                 onCancel: handleCancelClick,
-                onConfirmarPago: handleConfirmarPago,
                 deleteConfirm,
                 setDeleteConfirm,
                 handleDelete,

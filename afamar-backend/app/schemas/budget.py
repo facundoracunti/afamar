@@ -89,6 +89,13 @@ class BudgetBase(BaseModel):
     discount: float = 0.0
     discount_percentage: float = 0.0
     discount_fixed_amount: float = 0.0
+    # Gate for the commercial discount: whether the % applies to the displayed
+    # total and the base it runs against ('total' | 'materials'). Files only —
+    # the backend treats these as passthrough; the pricing formula runs in the
+    # frontend (useBudgetCalculations / buildPdfData) and, from the converted
+    # work order, server-side.
+    discount_enabled: bool = False
+    discount_target: str = "total"
     total: float = 0.0
     subtotal_usd: float = 0.0
     transport_usd: float = 0.0
@@ -178,6 +185,8 @@ class BudgetUpdate(BaseModel):
     discount: float | None = None
     discount_percentage: float | None = None
     discount_fixed_amount: float | None = None
+    discount_enabled: bool | None = None
+    discount_target: str | None = None
     total: float | None = None
     subtotal_usd: float | None = None
     transport_usd: float | None = None

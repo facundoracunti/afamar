@@ -70,12 +70,10 @@ export interface EntityFormLayoutProps {
   showPieces?: boolean;
   /** Required when `showPieces` is true. Comes from `useEntityForm().piecesFlow`. */
   piecesFlow?: UseBudgetPiecesReturn;
-  /** Slot que REEMPLAZA la sección de cobros legacy. Cuando se pasa,
-   *  `BudgetPaymentSection` no se renderiza y, en su lugar, aparece este
-   *  nodo (típicamente `WorkOrderPaymentSection`). Usado por
-   *  `WorkOrderFormPage` para desacoplar la selección del método de la
-   *  liquidación. La página de presupuestos NO lo pasa → mantiene la
-   *  sección legacy intacta. */
+  /** Slot para la sección de cobros. La página de presupuestos NO la pasa
+   *  (cotización pura: sin Traslado/Forma de pago/Fechas). `WorkOrderFormPage`
+   *  la enchufa con `<WorkOrderPaymentSection .../>` para desacoplar el
+   *  cobro de la OT del resto del flujo del presupuesto. */
   paymentSection?: ReactNode;
 }
 
