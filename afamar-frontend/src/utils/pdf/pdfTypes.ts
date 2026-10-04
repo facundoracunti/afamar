@@ -88,6 +88,14 @@ export interface MeasurementComparisonRow {
   readonly measure_budgeted_str: string;
   readonly measure_real_str: string;
   readonly measure_delta_str: string;
+  /** Section/group this row belongs to (the operator-facing piece name, e.g.
+   *  "COCINA" or "PARRILLA"). When the comparativa renders, every row with
+   *  the same `piece_name` is grouped under one header. */
+  readonly piece_name?: string;
+  /** Marker row that prints the piece name as a bold section title spanning
+   *  the whole table — emitted once per piece before its material/fabrication/
+   *  additional rows. The renderer should NOT draw numeric cells on these. */
+  readonly is_section_header?: boolean;
 }
 
 export interface AdditionalWorkPdfRow {

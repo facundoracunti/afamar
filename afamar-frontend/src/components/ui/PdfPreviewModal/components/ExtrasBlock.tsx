@@ -9,6 +9,7 @@ import {
   COMPARISON_FLEXES,
   COMPARISON_HEADERS,
   comparisonRowsWithTotal,
+  comparisonSectionHeaderFlags,
 } from './TableRows';
 
 /**
@@ -51,6 +52,7 @@ export function ExtrasBlock({
             headers={COMPARISON_HEADERS}
             rows={comparisonRowsWithTotal(data.measurement_comparison)}
             flexes={COMPARISON_FLEXES}
+            sectionHeaderFlags={comparisonSectionHeaderFlags(data.measurement_comparison)}
           />
         </View>
       ) : null}
@@ -148,13 +150,25 @@ export function ExtrasBlock({
 
           {/* TOTAL blue bar — sits at the bottom of the right column AFTER
               the descuentos/interés rows and BEFORE the seña/saldo, so the
-              strict hierarchy SUBTOTAL → DESCUENTO → TOTAL → SALDO holds. */}
+              strict hierarchy SUBTOTAL → DESCUENTO → TOTAL → SALDO holds.
+              Layout (2026-10-01 cont.4 final): "TOTAL" label on top of the
+              blue bar, then the ARS amount (bold, large) and the USD
+              equivalent (smaller, lighter) STACKED below in a column so
+              both values fit comfortably without overflowing the 30%
+              value cell or splitting the ARS from the USD. `wrap: false`
+              on `grand` keeps the whole blue box on a single page. */}
           <View style={[styles.grand, { marginTop: 4 }]}>
             <Text style={styles.grandLbl}>TOTAL</Text>
-            <Text style={styles.grandVal}>
-              {`$ ${fmt(section?.total_ars ?? data.total)}`}
-              {(section?.total_usd ?? data.total_usd) > 0 ? <Text style={styles.grandUsdSub}>{`  (USD $${fmt(section?.total_usd ?? data.total_usd)})`}</Text> : null}
-            </Text>
+            <View style={styles.grandValWrap}>
+              <Text style={styles.grandValArs}>
+                {`$ ${fmt(section?.total_ars ?? data.total)}`}
+              </Text>
+              {(section?.total_usd ?? data.total_usd) > 0 ? (
+                <Text style={styles.grandValUsd}>
+                  {`(USD $${fmt(section?.total_usd ?? data.total_usd)})`}
+                </Text>
+              ) : null}
+            </View>
           </View>
 
           {data.document_type === 'work_order'
@@ -193,7 +207,7 @@ export function ExtrasBlock({
               </View>
             ) : null}
           {(section?.balance_due ?? data.balance_due) > 0 && showSaldo ? (
-            <View style={styles.totalsRow}>
+            <View style={styles.totalsRow} wrap={false}>
               <Text style={styles.totalsLbl}>Saldo pendiente</Text>
               <Text style={styles.totalsVal}>{`$ ${fmt(section?.balance_due ?? data.balance_due)}`}</Text>
             </View>

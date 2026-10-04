@@ -117,9 +117,30 @@ export function buildAlternativeTotals(
 }
 
 /**
+ * Per-piece block shared by budgets AND work orders: `base.pieces` is the
+ * per-piece PDF layout (one PieceBlock per piece) the renderer prefers
+ * when `form.pieces` is non-empty — the legacy single-section layout
+ * stays in `base.sections` as a fallback for legacy callers / older forms.
+ *
+ * Always called by `buildPdfData` regardless of document type, so the
+ * ORDEN DE TRABAJO gets the same per-piece grouping as the Presupuesto
+ * (COCINA / BAÑO / etc. headers instead of a generic "PRINCIPAL" card).
+ */
+export function attachPiecesBlocks(
+  base: PdfDocumentData,
+  form: Record<string, unknown>,
+  usdRate: number,
+): void {
+  const pieces = buildPieces(form, usdRate);
+  if (pieces.length > 0) {
+    base.pieces = pieces;
+  }
+}
+
+/**
  * Budget-only block of the document payload: resolves the printed budget
  * terms (override wins over the global terms) and, on multi-piece budgets,
- * attaches the pieces + the consolidated alternative totals.
+ * attaches the consolidated alternative totals.
  *
  * `sections` is still populated by `buildPdfData` so the totals stay valid
  * and a caller could fall back to the legacy per-option layout.
@@ -138,17 +159,13 @@ export function attachBudgetPiecesData(
     ? opts.budgetTermsOverride
     : opts.globalBudgetTerms;
 
-  // Multi-piece budgets render a dedicated two-page layout (one block per
-  // piece + an alternatives sheet) instead of the legacy per-option
-  // sections.
-  const pieces = buildPieces(form, usdRate);
-  if (pieces.length > 0) {
-    base.pieces = pieces;
-    // Consolidated TOTAL GENERAL ALTERNATIVO per material — the same
-    // document rule set re-run on the aggregated alternative subtotals
-    // (traslado + descuento comercial + recargo + seña) so the HOJA DE
-    // ALTERNATIVAS can print the real final price of each alternative
-    // material across every piece that quotes it.
-    base.alternative_totals = buildAlternativeTotals(pieces, opts.altParams);
+  // Consolidated TOTAL GENERAL ALTERNATIVO per material — the same
+  // document rule set re-run on the aggregated alternative subtotals
+  // (traslado + descuento comercial + recargo + seña) so the HOJA DE
+  // ALTERNATIVAS can print the real final price of each alternative
+  // material across every piece that quotes it. WO doesn't quote
+  // alternatives, so this block is a no-op there.
+  if (base.pieces && base.pieces.length > 0) {
+    base.alternative_totals = buildAlternativeTotals(base.pieces, opts.altParams);
   }
 }

@@ -86,11 +86,16 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
     </Page>
   );
 
-  return (
+return (
     <Document title={`${data.title} ${data.number}`} author={data.company.company_name}>
       {hasPieces ? (
         <Fragment>
-          {/* PAGE 1 — PRESUPUESTO PRINCIPAL: one block per piece */}
+          {/* PAGE 1 — PRESUPUESTO/OT PRINCIPAL: one block per piece (COCINA,
+              BAÑO, PARRILLA …) instead of the legacy single "PRINCIPAL"
+              section. `wrap={false}` on the bottom block keeps the terms +
+              totals + saldo row atomic — if it overflows page 1 the WHOLE
+              block moves to page 2 as one visual unit (no orphan saldo
+              box stranded alone at the bottom of page 1). */}
           <Page size="A4" style={styles.page} wrap>
             <DocumentHeader data={data} />
             <ClientGrid data={data} />
@@ -104,9 +109,11 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
                 Piletas block here (otherwise the same pileta would be
                 printed twice: once per piece and once at document level). */}
 
-            <TermsBlock data={data} />
-            <ExtrasBlock data={data} />
-            {footer}
+            <View wrap={false}>
+              <TermsBlock data={data} />
+              <ExtrasBlock data={data} />
+              {footer}
+            </View>
           </Page>
 
           {/* PAGE 2 — HOJA DE ALTERNATIVAS, grouped by piece. No `break`
@@ -152,17 +159,15 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
               {/* THE OPTION ITSELF — material + pools + fab + subtotal */}
               <OptionSectionBlock section={section} />
 
-              {/* TERMS — on every page (per user request: each option quote is
-                  self-contained with its own terms block) */}
-              <TermsBlock data={data} />
+              {/* TERMS + TOTALS travel together: if they overflow page 1
+                  the WHOLE atomic block moves to page 2 (no orphan saldo
+                  box stranded alone at the bottom of page 1). */}
+              <View wrap={false}>
+                <TermsBlock data={data} />
 
-              {/* TOTALS / PAYMENT / SIGNATURES — on the principal page, or on
-                  EVERY alternative when the budget has no principal material
-                  (each option is its own self-contained quote with its own total) */}
-              {section.is_main || !hasMainSection ? <ExtrasBlock data={data} section={section} /> : null}
-
-              {/* FOOTER — `fixed` makes it appear on every page automatically */}
-              {footer}
+                {section.is_main || !hasMainSection ? <ExtrasBlock data={data} section={section} /> : null}
+                {footer}
+              </View>
             </Page>
 
             {/* Dedicated croquis page — only on the principal section, only
@@ -212,9 +217,13 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
                 />
               </View>
             ) : null}
-            <ExtrasBlock data={data} />
-            <TermsBlock data={data} />
-            {footer}
+            {/* Final block (totals + saldo) wrapped in `wrap={false}` so it
+                travels atomically to page 2 if needed. */}
+            <View wrap={false}>
+              <ExtrasBlock data={data} />
+              <TermsBlock data={data} />
+              {footer}
+            </View>
           </Page>
 
           {/* Dedicated croquis page — only when there's something to show.

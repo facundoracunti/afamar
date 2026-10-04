@@ -71,18 +71,25 @@ export function AlternativeTotalsSummary({
                 </View>
               ) : null}
 
+              {/* Layout (2026-10-01 cont.4 final): "TOTAL GRAL ALTERNATIVO"
+                  label on top, then ARS bold + USD smaller STACKED below
+                  in a column so the dual-currency value fits comfortably.
+                  `wrap: false` on `grand` keeps the blue bar on a single
+                  page even for very large totals. */}
               <View style={[styles.grand, { marginTop: 4 }]}>
                 <Text style={styles.grandLbl}>TOTAL GRAL ALTERNATIVO</Text>
-                <Text style={styles.grandVal}>
-                  {`$ ${fmt(t.total_ars)}`}
+                <View style={styles.grandValWrap}>
+                  <Text style={styles.grandValArs}>{`$ ${fmt(t.total_ars)}`}</Text>
                   {t.total_usd > 0 ? (
-                    <Text style={styles.grandUsdSub}>{`  (USD $${fmt(t.total_usd)})`}</Text>
+                    <Text style={styles.grandValUsd}>
+                      {`(USD $${fmt(t.total_usd)})`}
+                    </Text>
                   ) : null}
-                </Text>
+                </View>
               </View>
 
               {showSaldo && t.balance_due > 0 ? (
-                <View style={styles.totalsRow}>
+                <View style={styles.totalsRow} wrap={false}>
                   <Text style={styles.totalsLbl}>Saldo pendiente</Text>
                   <Text style={styles.totalsVal}>{`$ ${fmt(t.balance_due)}`}</Text>
                 </View>

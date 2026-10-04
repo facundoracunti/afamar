@@ -73,6 +73,14 @@ export const COMPARISON_HEADERS = [
 export const COMPARISON_FLEXES = [2.4, 1.25, 1.25, 1.3, 1.25, 1.25];
 
 export function comparisonRowCells(c: MeasurementComparisonRow): (string | null)[] {
+  if (c.is_section_header) {
+    // Section header row (one per piece in the comparativa). The renderer
+    // is expected to use the `is_section_header` flag to format this row
+    // as a bold "COCINA" / "PARRILLA" band spanning the table; the string
+    // cells are filled with empty strings so the totals line is the only
+    // place that shows numbers.
+    return [c.concepto, null, null, null, null, null];
+  }
   if (c.is_detail) {
     // Indented detail row (zócalo/frente): indent the label, show the
     // monetary subtotals and — when a measure (m² / ml) exists — the unit-aware
@@ -113,6 +121,27 @@ export function comparisonRowsWithTotal(comparison: MeasurementComparisonRow[]):
     `USD ${signed(totalUsd)}`,
   ]);
   return rowCells;
+}
+
+/** Parallel array to `comparisonRowsWithTotal`. Returns `true` at index
+ *  i when the i-th row is a section header (rendered as a bold band
+ *  spanning every column). Used by `DataTable` to draw the per-piece
+ *  grouping in the comparativa. */
+export function comparisonSectionHeaderFlags(
+  comparison: MeasurementComparisonRow[],
+  rowCells?: (string | null)[][],
+): boolean[] {
+  // When the caller already computed `rowCells`, derive flags from the
+  // `is_section_header` flag on the source row (avoid re-running
+  // `comparisonRowCells`). The TOTAL row appended at the bottom is NOT
+  // a section header.
+  const flags = comparison.map((r) => Boolean(r.is_section_header));
+  if (rowCells) {
+    // rowCells may include a trailing TOTAL row — only mirror flags up
+    // to the comparison's length.
+    return flags;
+  }
+  return flags;
 }
 
 export function adicRowCells(a: AdditionalWorkPdfRow): (string | null)[] {

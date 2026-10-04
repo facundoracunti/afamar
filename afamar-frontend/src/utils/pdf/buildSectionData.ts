@@ -318,3 +318,4 @@ export {
 } from './buildSectionData.revalue';
 
 export { buildMeasurementComparison } from './buildSectionData.measurement';
+export { resolveRenderingPieces } from './buildSectionData.measurement';

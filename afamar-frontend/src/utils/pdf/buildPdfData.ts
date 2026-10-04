@@ -29,6 +29,7 @@ import {
   asPools,
   buildSections,
   buildMeasurementComparison,
+  resolveRenderingPieces,
 } from './buildSectionData';
 import { buildPieces, piecesSubtotal } from './buildPiecesPdfData';
 import { computeMaterialsSubtotal } from '@features/budgets/utils/commercialDiscount';
@@ -39,7 +40,7 @@ import {
   computePaymentMethodsCatalogue,
   resolvePaymentMethod,
 } from './buildPdfData.helpers';
-import { attachBudgetPiecesData } from './buildPdfData.alternatives';
+import { attachBudgetPiecesData, attachPiecesBlocks } from './buildPdfData.alternatives';
 import type {
   DepositCurrency,
   TotalsContext,
@@ -222,13 +223,15 @@ export function buildPdfData({
   // table it without further parsing.
   const includeComparison = document_type === 'work_order'
     && form.include_measurement_comparison_in_pdf === true;
+  // Resolve the "rendering pieces" used by the COMPARATIVA. The form
+  // may carry `form.pieces` already populated (modern WOs), or only the
+  // legacy flat arrays (budget → WO without `pieces_data`, or older
+  // API responses). In the latter case, fold the flat arrays into a
+  // single piece so the per-piece grouping still has something to
+  // render under.
+  const renderingPieces = resolveRenderingPieces(form);
   const measurement_comparison = includeComparison
-    ? buildMeasurementComparison(
-        allMaterials,
-        usdRate,
-        form.fabrication_details,
-        form.additional_works_data,
-      )
+    ? buildMeasurementComparison(renderingPieces, usdRate)
     : [];
 
   // Active payment methods from the catalogue, printed as a reference box in
@@ -301,9 +304,19 @@ export function buildPdfData({
     additional_works_subtotal_usd: additionalWorksSubtotalUsd,
   };
 
+  // Always attach the per-piece blocks (budgets + work orders). When the
+  // form carries `pieces`, the renderer prefers the per-piece layout (one
+  // PieceBlock per piece — "PIEZA: COCINA" / "PIEZA: BAÑO" headers with
+  // their respective materials/fabrications/additional works/pools) over
+  // the legacy single-section "PRINCIPAL" card. This unifies the OT and
+  // Presupuesto layouts so the operator gets the same per-piece grouping
+  // in both document types.
+  attachPiecesBlocks(base, form, usdRate);
+
   if (document_type === 'budget') {
-    // Budget terms + (multi-piece budgets) the pieces layout with its
-    // consolidated TOTAL GENERAL ALTERNATIVO per material.
+    // Budget terms + (multi-piece budgets) the consolidated TOTAL GENERAL
+    // ALTERNATIVO per material. The alternatives block is budget-only
+    // (WO doesn't quote alternatives).
     attachBudgetPiecesData(base, form, usdRate, {
       budgetTermsOverride: overrides?.budget_terms,
       globalBudgetTerms: globalTerms.budget_terms,

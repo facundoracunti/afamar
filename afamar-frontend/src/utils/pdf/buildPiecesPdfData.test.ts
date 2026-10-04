@@ -630,14 +630,24 @@ describe('buildPdfData — pieces branch', () => {
     expect(data.subtotal).toBe(piecesSum);
   });
 
-  it('does not attach the pieces layout to a work order', () => {
+  it('attaches the pieces layout to a work order (per-piece grouping instead of PRINCIPAL card)', () => {
+    // Regression (2026-10-01 cont.5 final): the OT used to render a single
+    // generic "PRINCIPAL" section that lumped every piece's materials,
+    // fabrication rows and pools into one card. The fix unifies the OT
+    // layout with the Presupuesto: when the form carries `pieces` (modern
+    // WO path), `attachPiecesBlocks` populates `base.pieces` so
+    // `DocumentPdf` renders one PieceBlock per piece ("PIEZA: COCINA",
+    // "PIEZA: BAÑO", …) just like multi-piece budgets do. WOs don't quote
+    // alternatives so `alternative_totals` stays undefined (the HOJA DE
+    // ALTERNATIVAS page + AlternativeTotalsSummary block are budget-only).
     const data = buildPdfData({
       form: makeForm([piece1, piece2]),
       document_type: 'work_order',
       company,
       globalTerms,
     });
-    expect(data.pieces).toBeUndefined();
+    expect(data.pieces).toBeDefined();
+    expect(data.pieces).toHaveLength(2);
     expect(data.alternative_totals).toBeUndefined();
   });
 

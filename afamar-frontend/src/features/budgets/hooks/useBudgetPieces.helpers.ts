@@ -27,6 +27,7 @@ import { POOL_MATERIAL_GLOBAL } from '@/types/budget';
 import type { AdditionalWork } from '@/types/additionalWork';
 import { addMaterialToList, repointSwapReferences } from '@/hooks/entityFormHelpers';
 import { recomputeFabricationRow } from '@features/budgets/utils/fabricationDetails';
+import { M2_CONCEPTS } from '@/hooks/entityFormConstants';
 import type { AdditionalWorkSelection } from '@/utils/additionalWorkParse';
 import { parseAdditionalWorksData, serializeAdditionalWorksData } from '@/utils/additionalWorkParse';
 import {
@@ -80,6 +81,99 @@ export const FRENTE_PRICE_FIELDS: ReadonlySet<string> = new Set([
   'price_m2_usd',
   'currency',
 ]);
+
+/**
+ * Re-price every m²-based fabrication row (BASEBOARD, FRONT — see
+ * `M2_CONCEPTS`) assigned to the passed material against its CURRENT
+ * $/m². Mirrors `refreshPieceFrentes` (which re-prices the
+ * `additional_works_data` frentes for the same material edit) so the FORM
+ * keeps both the additional works AND the manual fabrication rows in sync
+ * with the material's current price.
+ *
+ * Why this exists: `mutateUpdatePieceMainGroup` and
+ * `mutateUpdatePieceAlternativeGroup` already re-price the frentes via
+ * `refreshPieceFrentes`, but they left the FORM's `fabrication_details`
+ * (zócalos / frentes manuales) frozen at the OLD material's price — the
+ * operator saw the new price on the principal and a stale subtotal on
+ * each linked zócalo until they edited the zócalo's `length` / `width`.
+ * The PDF had a `price:0 → material_price_m2` fallback but it only
+ * triggers for rows that ALREADY had `price:0`; rows whose `price` was
+ * captured at creation (e.g. `0.42 m² × 220 ARS/m² = 92.40 ARS`) kept
+ * that value forever.
+ *
+ * Behaviour:
+ *   - Rows whose `concept` is NOT in `M2_CONCEPTS` are left untouched
+ *     (TRAFORO / CUTOUT etc. carry an operator-set price).
+ *   - Rows whose `material` does NOT match the passed material's name
+ *     are left untouched (they belong to another piece / option / GLOBAL).
+ *   - Rows with `length:0` / `width:0` only get the snapshot
+ *     (`material_price_m2` + `currency`) updated so the PDF's `price:0`
+ *     fallback stays consistent — they don't get a price until the
+ *     operator types dims (mirrors `addDetalle`).
+ *   - Rows with real dims get `price = m² × $/m²` recomputed against the
+ *     CURRENT material price (NOT the captured `material_price_m2`).
+ *
+ * Returns the SAME array reference when nothing changed so the downstream
+ * `commit` doesn't write a no-op JSON.
+ */
+export function refreshPieceFabricationDetails(
+  fabrications: FabricationDetail[],
+  material: MaterialInForm | null | undefined,
+): FabricationDetail[] {
+  if (!material) return fabrications;
+  const materialName = (material.name || '').trim();
+  if (!materialName) return fabrications;
+  const isUsd = material.currency === 'USD';
+  const newPricePerM2 = isUsd
+    ? Number(material.price_m2_usd) || 0
+    : Number(material.price_m2) || 0;
+  const newCurrency: 'ARS' | 'USD' = isUsd ? 'USD' : 'ARS';
+
+  let changed = false;
+  const next = fabrications.map((d) => {
+    if (!M2_CONCEPTS.includes(String(d.concept || ''))) return d;
+    if ((d.material || '').trim() !== materialName) return d;
+
+    const length = Number(d.length || 0);
+    const width = Number(d.width || 0);
+    const quantity = Number(d.quantity || 1);
+
+    // Always sync the snapshot fields so the PDF's `price:0` fallback
+    // (and `total_*_budgeted` migrations) stay consistent with the new
+    // material price — even when the row has no dims yet.
+    const baseUpdate: FabricationDetail = {
+      ...d,
+      material_price_m2: newPricePerM2,
+      currency: newCurrency,
+    };
+
+    if (length <= 0 || width <= 0) {
+      if (
+        baseUpdate.material_price_m2 !== d.material_price_m2 ||
+        baseUpdate.currency !== d.currency
+      ) {
+        changed = true;
+        return baseUpdate;
+      }
+      return d;
+    }
+
+    const newM2 = length * width * quantity;
+    const newPrice = Math.round(newM2 * newPricePerM2 * 100) / 100;
+    const newM2Label = Number(newM2.toFixed(2));
+    if (
+      baseUpdate.material_price_m2 !== d.material_price_m2 ||
+      baseUpdate.currency !== d.currency ||
+      newPrice !== d.price ||
+      newM2Label !== d.m2
+    ) {
+      changed = true;
+      return { ...baseUpdate, m2: newM2Label, price: newPrice };
+    }
+    return d;
+  });
+  return changed ? next : fabrications;
+}
 
 /**
  * Dynamic refresh of a piece's `frente` additional works after a material
@@ -371,17 +465,30 @@ export function mutateUpdatePieceMainGroup(
   catalogueById: Map<number, AdditionalWork>,
 ): BudgetPiece {
   if (!piece.mainMaterial) return piece;
+  const updatedMain = { ...piece.mainMaterial, [field]: value } as MaterialInForm;
   const base = {
     ...piece,
-    mainMaterial: { ...piece.mainMaterial, [field]: value } as MaterialInForm,
+    mainMaterial: updatedMain,
     mainMaterialRows: (piece.mainMaterialRows || []).map((row) => ({
       ...row,
       [field]: value,
     })),
   };
-  return FRENTE_PRICE_FIELDS.has(field)
-    ? refreshPieceFrentes(base, catalogueById)
-    : base;
+  // Price / currency edits affect EVERY row whose `material` matches the
+  // principal's name — frentes (additional_works_data) re-price via
+  // `refreshPieceFrentes`; m² fabrication rows (fabrication_details)
+  // re-price via `refreshPieceFabricationDetails`. Without this call
+  // zócalos captured `material_price_m2` at creation time and stayed
+  // frozen at the OLD subtotal even after the operator typed a new
+  // price in the principal card's shared input.
+  const nextFabrications = FRENTE_PRICE_FIELDS.has(field)
+    ? refreshPieceFabricationDetails(piece.fabrication_details, updatedMain)
+    : piece.fabrication_details;
+  const pieceWithFab = { ...base, fabrication_details: nextFabrications };
+  const result = FRENTE_PRICE_FIELDS.has(field)
+    ? refreshPieceFrentes(pieceWithFab, catalogueById)
+    : pieceWithFab;
+  return result;
 }
 
 export function mutateAddPieceAlternative(
@@ -521,9 +628,19 @@ export function mutateUpdatePieceAlternativeGroup(
       : a,
   );
   const base = { ...piece, alternativeMaterials: newAlts };
+  // Same re-pricing discipline as `mutateUpdatePieceMainGroup`: a price
+  // / currency edit on this alternative must also re-price the manual
+  // fabrication rows assigned to it (otherwise its zócalos / manual
+  // frentes stay frozen at the previous $/m²).
+  const changedAlt = newAlts.find((a) => groupKeyOf(a) === groupKey);
+  const nextFabrications =
+    FRENTE_PRICE_FIELDS.has(field) && changedAlt
+      ? refreshPieceFabricationDetails(piece.fabrication_details, changedAlt)
+      : piece.fabrication_details;
+  const pieceWithFab = { ...base, fabrication_details: nextFabrications };
   return FRENTE_PRICE_FIELDS.has(field)
-    ? refreshPieceFrentes(base, catalogueById)
-    : base;
+    ? refreshPieceFrentes(pieceWithFab, catalogueById)
+    : pieceWithFab;
 }
 
 export function mutateSwapPieceAlternative(

@@ -11,6 +11,7 @@ export function DataTable({
   rows,
   flexes,
   clean = false,
+  sectionHeaderFlags,
 }: {
   headers: { label: string; num?: boolean }[];
   rows: (string | null)[][];
@@ -20,6 +21,12 @@ export function DataTable({
    *  (header + flex included), and the remaining empty cells render blank
    *  instead of the `—` placeholder — no orphan dashes, no empty columns. */
   clean?: boolean;
+  /** Parallel array to `rows`. `true` at index i marks the i-th row as a
+   *  section header (rendered as a bold band spanning every column).
+   *  Used by the COMPARATIVA DE MEDICIÓN to group rows by piece
+   *  ("COCINA" / "PARRILLA" headers). Optional — if omitted, every row
+   *  is treated as a regular data row. */
+  sectionHeaderFlags?: boolean[];
 }) {
   if (rows.length === 0) return null;
 
@@ -27,13 +34,15 @@ export function DataTable({
   let keptRows = rows;
   let keptHeaders = headers;
   let keptFlexes = flexes;
+  let keptSectionFlags = sectionHeaderFlags;
   if (clean) {
-    keptRows = rows.filter((row) => row.some(nonEmpty));
+    keptRows = rows.filter((row, ri) => sectionHeaderFlags?.[ri] === true || row.some(nonEmpty));
     if (keptRows.length === 0) return null;
     const keptCols = headers.map((_, ci) => keptRows.some((row) => nonEmpty(row[ci])));
     if (keptCols.every((k) => !k)) return null;
     keptHeaders = headers.filter((_, ci) => keptCols[ci]);
     keptFlexes = flexes ? flexes.filter((_, ci) => keptCols[ci]) : undefined;
+    keptSectionFlags = keptSectionFlags?.filter((_, ri) => keptRows[ri] != null);
     keptRows = keptRows.map((row) => row.filter((_, ci) => keptCols[ci]));
   }
 
@@ -51,22 +60,35 @@ export function DataTable({
           );
         })}
       </View>
-      {keptRows.map((row, ri) => (
-        <View key={String(row[0] ?? `row-${ri}`)} style={styles.tableRow}>
-          {row.map((cell, ci) => {
-            const isLast = ci === row.length - 1;
-            const isDash = cell == null || cell === '';
-            const value = isDash ? (clean ? '' : '—') : cell;
-            return (
-              <View key={keptHeaders[ci]?.label ?? `cell-${ci}`} style={{ flex: colFlex(ci), ...(isLast ? styles.cellLast : styles.cell) }}>
-                <Text style={keptHeaders[ci]?.num ? styles.tdTextNum : styles.tdText}>
-                  {isDash ? <Text style={{ color: '#64748b' }}>{value}</Text> : value}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
-      ))}
+      {keptRows.map((row, ri) => {
+        const isSectionHeader = keptSectionFlags?.[ri] === true;
+        if (isSectionHeader) {
+          // Section header row: full-width bold band with the piece name.
+          return (
+            <View key={`section-${ri}-${String(row[0] ?? '')}`} style={styles.tableSectionHeader}>
+              <Text style={styles.tableSectionHeaderText}>
+                {String(row[0] ?? '').toUpperCase()}
+              </Text>
+            </View>
+          );
+        }
+        return (
+          <View key={String(row[0] ?? `row-${ri}`)} style={styles.tableRow}>
+            {row.map((cell, ci) => {
+              const isLast = ci === row.length - 1;
+              const isDash = cell == null || cell === '';
+              const value = isDash ? (clean ? '' : '—') : cell;
+              return (
+                <View key={keptHeaders[ci]?.label ?? `cell-${ci}`} style={{ flex: colFlex(ci), ...(isLast ? styles.cellLast : styles.cell) }}>
+                  <Text style={keptHeaders[ci]?.num ? styles.tdTextNum : styles.tdText}>
+                    {isDash ? <Text style={{ color: '#64748b' }}>{value}</Text> : value}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        );
+      })}
     </View>
   );
 }

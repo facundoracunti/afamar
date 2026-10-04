@@ -16,6 +16,15 @@ export interface FabricationDetail {
   currency: 'ARS' | 'USD';
   quantity: number;
   price: number;
+  /** Snapshot keys the COMPARATIVA DE MEDICIÓN reads (taken at
+   *  budget→WO conversion by `work_order._bake_snapshot_into_pieces`).
+   *  All optional: rows that predate the snapshot feature or that were
+   *  newly added during MEDICIÓN have `null` — those render as
+   *  "Presupuestado: 0" in the comparativa (the "newly added" case). */
+  m2_budgeted?: number | null;
+  linear_meters_budgeted?: number | null;
+  total_ars_budgeted?: number | null;
+  total_usd_budgeted?: number | null;
 }
 
 export interface BudgetItemSchema {

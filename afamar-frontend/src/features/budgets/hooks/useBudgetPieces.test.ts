@@ -23,7 +23,7 @@ vi.mock('@/api/resources/additionalWorks', () => ({
 }));
 
 import { useBudgetPieces } from './useBudgetPieces';
-import type { EntityFormState, MaterialInForm } from '@/types';
+import type { EntityFormState, FabricationDetail, MaterialInForm } from '@/types';
 import type { Material } from '@/types/material';
 import type { AdditionalWorkSelection } from '@/utils/additionalWorkParse';
 
@@ -640,6 +640,157 @@ describe('useBudgetPieces (pieces-only mode)', () => {
     expect(add[0].total).toBe(26910);
     expect(add[0].materialName).toBe('__ALT__:Marmol');
     expect(add[0].assigned_material_id).toBe(21);
+  });
+
+  it('updatePieceMainGroup re-prices the zócalo (fabrication_details) against the new $/m²', () => {
+    // Regression (2026-10-01 cont.5 final): editing the principal's
+    // `price_m2` used to leave the linked zócalos in
+    // `fabrication_details` frozen at the OLD material's price — the
+    // operator saw the new price on the principal card and a stale
+    // subtotal on each zócalo until they touched the zócalo's `length` /
+    // `width`. `refreshPieceFabricationDetails` re-runs the
+    // `price = m² × $/m²` formula against the principal's CURRENT price
+    // (and updates `material_price_m2` + `currency` snapshots so the
+    // PDF's `price:0` fallback stays consistent) in the same commit.
+    const mat: MaterialInForm = {
+      id: BLANCO_MAT.id, name: 'Blanco', category: '', color: '',
+      price_m2: 100000, price_m2_usd: 0, currency: 'ARS',
+      quantity: 1, m2_used: 0, m2_budgeted: 0,
+      length: 2, width: 1, is_alternative: false,
+    };
+    const zocalo: FabricationDetail = {
+      concept: 'BASEBOARD',
+      detail: '',
+      material: 'Blanco',
+      material_price_m2: 100000, // captured at creation
+      length: 4,
+      width: 0.1,
+      m2: 0.4,
+      quantity: 1,
+      currency: 'ARS',
+      price: 40, // 0.4 m² × 100000 = 40000 (the OLD price snapshot)
+      labor: null,
+    };
+    const { result, getForm } = setupWith(blankForm({
+      pieces: [{
+        id: 'p1', name: 'Mesada 1',
+        mainMaterial: mat,
+        alternativeMaterials: [],
+        fabrication_details: [zocalo],
+        additional_works_data: '[]',
+        pools: [],
+      }],
+    }));
+    // Pre-condition: per-piece fabrication shows the OLD price (captured
+    // at creation time when the material was $100000/m²).
+    expect(result.current.pieces[0].fabrication_details[0].price).toBe(40);
+    expect(result.current.pieces[0].fabrication_details[0].material_price_m2).toBe(100000);
+
+    // Operator bumps the principal's price from 100000 to 250000.
+    act(() => result.current.updatePieceMainGroup('p1', 'price_m2', 250000));
+
+    // The zócalo now re-prices at the NEW price: 0.4 × 250000 = 100000.
+    const pieceFab = result.current.pieces[0].fabrication_details[0];
+    expect(pieceFab.concept).toBe('BASEBOARD');
+    expect(pieceFab.material).toBe('Blanco');
+    expect(pieceFab.length).toBe(4);
+    expect(pieceFab.width).toBe(0.1);
+    expect(pieceFab.m2).toBe(0.4);
+    expect(pieceFab.price).toBe(100000);
+    expect(pieceFab.material_price_m2).toBe(250000);
+    expect(pieceFab.currency).toBe('ARS');
+    // The flat array (re-derivation on commit) mirrors the re-priced
+    // fabrication so the PDF totals and the FORM stay in sync.
+    const flat = getForm().fabrication_details[0];
+    expect(flat.price).toBe(100000);
+    expect(flat.material_price_m2).toBe(250000);
+  });
+
+  it('updatePieceMainGroup syncs snapshot (material_price_m2 / currency) even on rows without dims', () => {
+    // A new zócalo added via `addDetalle` carries `price:0` and no dims
+    // yet (`length:null, width:null`). The PDF's `price:0 →
+    // material_price_m2` fallback prices it from the linked material's
+    // snapshot. Editing the principal's price must update the SNAPSHOT
+    // (`material_price_m2` + `currency`) so the PDF re-prices correctly,
+    // even though the row's own `price` stays 0 until the operator types
+    // dims.
+    const mat: MaterialInForm = {
+      id: BLANCO_MAT.id, name: 'Blanco', category: '', color: '',
+      price_m2: 100000, price_m2_usd: 0, currency: 'ARS',
+      quantity: 1, m2_used: 0, m2_budgeted: 0,
+      length: 2, width: 1, is_alternative: false,
+    };
+    const blankZocalo: FabricationDetail = {
+      concept: 'BASEBOARD',
+      detail: '',
+      material: 'Blanco',
+      material_price_m2: 100000,
+      length: null,
+      width: null,
+      m2: 0,
+      quantity: 1,
+      currency: 'ARS',
+      price: 0,
+      labor: null,
+    };
+    const { result } = setupWith(blankForm({
+      pieces: [{
+        id: 'p1', name: 'Mesada 1',
+        mainMaterial: mat, alternativeMaterials: [],
+        fabrication_details: [blankZocalo],
+        additional_works_data: '[]', pools: [],
+      }],
+    }));
+
+    act(() => result.current.updatePieceMainGroup('p1', 'price_m2', 250000));
+
+    // No dims → no price yet, but the snapshot follows the new material so
+    // the PDF's price:0 → material_price_m2 fallback prices correctly.
+    const pieceFab = result.current.pieces[0].fabrication_details[0];
+    expect(pieceFab.price).toBe(0);
+    expect(pieceFab.material_price_m2).toBe(250000);
+    expect(pieceFab.currency).toBe('ARS');
+  });
+
+  it('updatePieceMainGroup leaves zócalos assigned to a different material untouched', () => {
+    // A zócalo whose `material` does NOT match the principal's name
+    // belongs to another piece / option / GLOBAL — editing the principal's
+    // price must NOT touch it. (A separate edit on its own material would
+    // re-price it; that's `mutateUpdatePieceAlternativeGroup`'s path.)
+    const mat: MaterialInForm = {
+      id: BLANCO_MAT.id, name: 'Blanco', category: '', color: '',
+      price_m2: 100000, price_m2_usd: 0, currency: 'ARS',
+      quantity: 1, m2_used: 0, m2_budgeted: 0,
+      length: 2, width: 1, is_alternative: false,
+    };
+    const otherZocalo: FabricationDetail = {
+      concept: 'BASEBOARD',
+      detail: '',
+      material: 'Marmol', // different material — must stay untouched
+      material_price_m2: 50000,
+      length: 4,
+      width: 0.1,
+      m2: 0.4,
+      quantity: 1,
+      currency: 'ARS',
+      price: 20, // 0.4 × 50000 = 20000 (other material's price)
+      labor: null,
+    };
+    const { result } = setupWith(blankForm({
+      pieces: [{
+        id: 'p1', name: 'Mesada 1',
+        mainMaterial: mat, alternativeMaterials: [],
+        fabrication_details: [otherZocalo],
+        additional_works_data: '[]', pools: [],
+      }],
+    }));
+
+    act(() => result.current.updatePieceMainGroup('p1', 'price_m2', 250000));
+
+    const pieceFab = result.current.pieces[0].fabrication_details[0];
+    expect(pieceFab.material).toBe('Marmol');
+    expect(pieceFab.price).toBe(20);
+    expect(pieceFab.material_price_m2).toBe(50000);
   });
 
   it('a GLOBAL frente survives a price edit untouched (never zeroed, never re-priced)', () => {

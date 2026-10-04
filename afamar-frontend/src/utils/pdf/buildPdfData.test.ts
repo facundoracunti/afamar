@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildPdfData } from './buildPdfData';
-import type { MaterialInForm, PoolInForm } from '../../types/budget';
+import type { BudgetPiece, FabricationDetail, MaterialInForm, PoolInForm } from '../../types/budget';
 import type { PaymentMethod } from '../../types/paymentMethod';
 
 /**
@@ -1338,8 +1338,11 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
       }),
       overrides: {},
     });
-    expect(data.measurement_comparison).toHaveLength(1);
-    const row = data.measurement_comparison[0];
+    // 1 piece (legacy fallback) → 1 section-header row + 1 material row.
+    expect(data.measurement_comparison).toHaveLength(2);
+    expect(data.measurement_comparison[0].is_section_header).toBe(true);
+    expect(data.measurement_comparison[0].concepto).toBe('PRINCIPAL');
+    const row = data.measurement_comparison[1];
     expect(row.concepto).toBe('Negro Brasil');
     expect(row.m2_real).toBe(6);
     expect(row.m2_budgeted).toBe(3);
@@ -1438,8 +1441,10 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
       }),
       overrides: {},
     });
-    // 2 NEGRO BRASIL rows + exactly 1 frente detail row (deduped).
-    expect(data.measurement_comparison).toHaveLength(3);
+    // 1 piece (legacy "PRINCIPAL" fold) → 1 section-header + 2 NEGRO BRASIL
+    // material rows + exactly 1 frente detail row (per-piece dedupe).
+    expect(data.measurement_comparison).toHaveLength(4);
+    expect(data.measurement_comparison[0].is_section_header).toBe(true);
     const detailRows = data.measurement_comparison.filter((r) => r.is_detail);
     expect(detailRows).toHaveLength(1);
     expect(detailRows[0].concepto).toBe('Frente Ingletetado 45°');
@@ -1508,8 +1513,10 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
       }),
       overrides: {},
     });
-    // 2 NEGRO BRASIL rows + exactly 1 zócalo detail row (deduped).
-    expect(data.measurement_comparison).toHaveLength(3);
+    // 1 piece (legacy "PRINCIPAL" fold) → 1 section-header + 2 NEGRO BRASIL
+    // material rows + exactly 1 zócalo detail row (per-piece dedupe).
+    expect(data.measurement_comparison).toHaveLength(4);
+    expect(data.measurement_comparison[0].is_section_header).toBe(true);
     const detailRows = data.measurement_comparison.filter((r) => r.is_detail);
     expect(detailRows).toHaveLength(1);
     expect(detailRows[0].concepto).toBe('Zócalo NEGRO BRASIL');
@@ -1524,7 +1531,10 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
   it('groups comparison rows contiguously by material, not input order', () => {
     // Pieces entered interleaved (CARAVELLAS WHITE, CARRARA, CARAVELLAS WHITE)
     // must render grouped: all CARAVELLAS WHITE rows together, zócalos
-    // indented under their own piece, no interleaving.
+    // indented under their own piece, no interleaving. The new filter
+    // (2026-10-01 cont.5) drops material rows that didn't change at all
+    // (m²_real == m²_budgeted), so the test data carries a measurable
+    // delta on every material.
     const interleaved = [
       {
         id: 1,
@@ -1535,7 +1545,7 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
         quantity: 1,
         m2_used: 0,
         m2_budgeted: 1.0,
-        length: 1,
+        length: 1.1, // 1.1 × 1 × 1 = 1.1 m² real → +0.1 delta
         width: 1,
         is_alternative: false,
       },
@@ -1548,7 +1558,7 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
         quantity: 1,
         m2_used: 0,
         m2_budgeted: 1.0,
-        length: 1.5,
+        length: 1.5, // 1.5 × 1 × 1 = 1.5 m² real → +0.5 delta
         width: 1,
         is_alternative: false,
       },
@@ -1561,7 +1571,7 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
         quantity: 1,
         m2_used: 0,
         m2_budgeted: 1.0,
-        length: 2,
+        length: 2.2, // 2.2 × 1 × 1 = 2.2 m² real → +1.2 delta
         width: 1,
         is_alternative: false,
       },
@@ -1591,9 +1601,12 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
       overrides: {},
     });
     const concepts = data.measurement_comparison.map((r) => r.concepto);
-    // Material rows sorted by name (CARAVELLAS WHITE < CARRARA), both
-    // CARAVELLAS WHITE pieces contiguous, zócalo indented under CARRARA.
+    // 1 section header (PRINCIPAL) + 3 material rows sorted by name
+    // (CARAVELLAS WHITE < CARRARA) with both CARAVELLAS WHITE pieces
+    // contiguous, then the zócalo indented under CARRARA (per-piece
+    // dedupe emits it once).
     expect(concepts).toEqual([
+      'PRINCIPAL',
       'CARAVELLAS WHITE',
       'CARAVELLAS WHITE',
       'CARRARA',
@@ -1617,7 +1630,9 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
       }),
       overrides: {},
     });
-    expect(data.measurement_comparison).toHaveLength(1);
+    // 1 piece (legacy "PRINCIPAL" fold) → 1 section-header + 1 material row.
+    expect(data.measurement_comparison).toHaveLength(2);
+    expect(data.measurement_comparison[0].is_section_header).toBe(true);
   });
 
   it('hides the comparison for direct work orders when the explicit flag is off', () => {
@@ -1645,7 +1660,9 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
       }),
       overrides: {},
     });
-    expect(data.measurement_comparison).toHaveLength(1);
+    // 1 section header (PRINCIPAL) + 1 material row.
+    expect(data.measurement_comparison).toHaveLength(2);
+    expect(data.measurement_comparison[0].is_section_header).toBe(true);
   });
 
   it('shows a positive ARS subtotal even when measured below budget', () => {
@@ -1674,7 +1691,8 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
       }),
       overrides: {},
     });
-    const row = data.measurement_comparison[0];
+    const row = data.measurement_comparison[1];
+    expect(row.is_section_header).toBeFalsy();
     expect(row.delta).toBe(-2);
     // Monetary DIFERENCIA subtotal of the m² delta: ARS-native 2 m² below
     // budget × 180.000/m² = −360.000 ARS; /1000 → −360 USD. Negative → '−'.
@@ -1732,11 +1750,11 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
       }),
       overrides: {},
     });
-    expect(data.measurement_comparison).toHaveLength(3);
-
-    // Row 0 — the material itself: subtotal is ONLY its m² delta (+990 USD),
-    // the zócalo/frente deltas are NOT folded in.
-    const materialRow = data.measurement_comparison[0];
+    // 1 section header (PRINCIPAL) + 1 material row + 2 detail rows.
+    expect(data.measurement_comparison).toHaveLength(4);
+    expect(data.measurement_comparison[0].is_section_header).toBe(true);
+    // Row 0 — section header; Row 1 — material; Row 2 — zócalo; Row 3 — frente.
+    const materialRow = data.measurement_comparison[1];
     expect(materialRow.concepto).toBe('Negro Brasil');
     expect(materialRow.is_detail).toBeFalsy();
     expect(materialRow.subtotal_usd).toBe(990);
@@ -1744,8 +1762,8 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
     expect(materialRow.subtotal_usd_str).toBe('+990,00');
     expect(materialRow.subtotal_ars_str).toBe('+990.000,00');
 
-    // Row 1 — linked zócalo as an indented detail row (fabrication source).
-    const zocalo = data.measurement_comparison[1];
+    // Row 2 — linked zócalo as an indented detail row (fabrication source).
+    const zocalo = data.measurement_comparison[2];
     expect(zocalo.is_detail).toBe(true);
     expect(zocalo.concepto).toBe('Zócalo Negro Brasil');
     expect(zocalo.subtotal_usd).toBe(20);
@@ -1759,8 +1777,8 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
     expect(zocalo.measure_real_str).toBe('0,42 m²');
     expect(zocalo.measure_delta_str).toBe('+0,08 m²');
 
-    // Row 2 — linked frente as an indented detail row (catalogue source).
-    const frente = data.measurement_comparison[2];
+    // Row 3 — linked frente as an indented detail row (catalogue source).
+    const frente = data.measurement_comparison[3];
     expect(frente.is_detail).toBe(true);
     expect(frente.concepto).toBe('Frente Ingletetado 45°');
     expect(frente.subtotal_usd).toBe(20);
@@ -1810,13 +1828,14 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
       }),
       overrides: {},
     });
-    expect(data.measurement_comparison).toHaveLength(2);
+    // 1 section header (PRINCIPAL) + 1 material row + 1 price-0 zócalo row.
+    expect(data.measurement_comparison).toHaveLength(3);
+    expect(data.measurement_comparison[0].is_section_header).toBe(true);
+    // Row 1 — the material: unchanged (+990 USD, its own m² delta only).
+    expect(data.measurement_comparison[1].subtotal_usd).toBe(990);
 
-    // Row 0 — the material: unchanged (+990 USD, its own m² delta only).
-    expect(data.measurement_comparison[0].subtotal_usd).toBe(990);
-
-    // Row 1 — the zócalo (price 0): measure delta +0,08 m² valued at 330 USD/m².
-    const zocalo = data.measurement_comparison[1];
+    // Row 2 — the zócalo (price 0): measure delta +0,08 m² valued at 330 USD/m².
+    const zocalo = data.measurement_comparison[2];
     expect(zocalo.is_detail).toBe(true);
     expect(zocalo.concepto).toBe('Zócalo Negro Brasil');
     expect(zocalo.measure_unit).toBe('m2');
@@ -1829,10 +1848,13 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
     expect(zocalo.subtotal_ars_str).toBe('+26.400,00');
   });
 
-  it('always emits linked detail rows even when the delta is zero (no snapshot / unchanged)', () => {
-    // Real-world case (A-000003): a frente assigned to a material but with no
-    // `total_*_budgeted` snapshot → delta 0. It must STILL appear as a detail
-    // row (with +0,00) so the client sees the full composition.
+  it('filters out detail rows with zero delta AND zero monetary impact (no noise)', () => {
+    // New behaviour (2026-10-01 cont.5): a zócalo and a frente that didn't
+    // change at all between the budget and the measurement (real ==
+    // budgeted) and didn't move in money either are DROPPED from the
+    // table — the customer shouldn't see "0,00 m²" and "$0,00" lines
+    // that contribute nothing to the comparison TOTAL. The material row
+    // still emits because its own m² delta is non-zero.
     const fabrication_details = [
       {
         concept: 'BASEBOARD',
@@ -1845,6 +1867,7 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
         quantity: 1,
         currency: 'USD',
         price: 50,
+        m2_budgeted: 0.42, // matches real → no dimensional delta
         total_ars_budgeted: 50000,
         total_usd_budgeted: 50,
       },
@@ -1861,6 +1884,9 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
         materialName: 'Negro Brasil',
         assigned_material_id: 1,
         linear_meters: 3,
+        linear_meters_budgeted: 3, // matches real → no dimensional delta
+        total_ars_budgeted: 156980, // matches real total → no monetary delta
+        total_usd_budgeted: 156.98,
       },
     ]);
     const data = buildPdfData({
@@ -1875,33 +1901,15 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
       }),
       overrides: {},
     });
-    // Row 0 = material (its OWN m² delta +990 USD).
-    // Row 1 = zócalo (delta 0, snapshot equals current) still shown.
-    // Row 2 = frente (delta 0, no snapshot) still shown.
-    expect(data.measurement_comparison).toHaveLength(3);
-
-    const zocalo = data.measurement_comparison[1];
-    expect(zocalo.is_detail).toBe(true);
-    expect(zocalo.concepto).toBe('Zócalo Negro Brasil');
-    expect(zocalo.subtotal_usd).toBe(0);
-    expect(zocalo.subtotal_ars_str).toBe('0,00');
-    // Legacy row without a dimensional snapshot: real measure shown, budgeted
-    // and delta '—' (empty string → rendered as '—').
-    expect(zocalo.measure_unit).toBe('m2');
-    expect(zocalo.measure_real_str).toBe('0,42 m²');
-    expect(zocalo.measure_budgeted_str).toBe('');
-    expect(zocalo.measure_delta_str).toBe('');
-
-    const frente = data.measurement_comparison[2];
-    expect(frente.is_detail).toBe(true);
-    expect(frente.concepto).toBe('Frente Ingletetado 45°');
-    expect(frente.subtotal_usd).toBe(0);
-    expect(frente.subtotal_usd_str).toBe('0,00');
-    expect(frente.subtotal_ars_str).toBe('0,00');
-    expect(frente.measure_unit).toBe('ml');
-    expect(frente.measure_real_str).toBe('3 ml');
-    expect(frente.measure_budgeted_str).toBe('');
-    expect(frente.measure_delta_str).toBe('');
+    // 1 section header (PRINCIPAL) + 1 material row (it has a non-zero m²
+    // delta). The zócalo and the frente are filtered out — the previous
+    // "always show" rule is gone.
+    expect(data.measurement_comparison).toHaveLength(2);
+    expect(data.measurement_comparison[0].is_section_header).toBe(true);
+    const materialRow = data.measurement_comparison[1];
+    expect(materialRow.is_detail).toBeFalsy();
+    expect(materialRow.concepto).toBe('Negro Brasil');
+    expect(materialRow.subtotal_usd).toBe(990);
   });
 
   it('orphan material row (no m2_budgeted snapshot) does NOT inflate the comparison TOTAL', () => {
@@ -1971,19 +1979,27 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
       }),
       overrides: {},
     });
-    // Orphan material row: Subtotal cell stays '—' (empty) and the
-    // raw value must be ZERO so the comparison TOTAL doesn't include it.
-    const materialRow = data.measurement_comparison.find((r) => !r.is_detail);
+    // Material row with no `m2_budgeted` snapshot: it's now treated as
+    // a NEWLY ADDED item (per the 2026-10-01 cont.5 redesign) — Presupuestado
+    // renders 0 m², Diferencia is the FULL m² (positive, no prior quote to
+    // subtract from), and the Subtotal is the full new cost. Same for the
+    // fabrication: no budgeted snapshot → counts the full line cost. The
+    // global `__GLOBAL__` additional work is filtered (its `materialName`
+    // is the POOL_MATERIAL_GLOBAL sentinel).
+    const materialRow = data.measurement_comparison.find((r) => !r.is_detail && !r.is_section_header);
     expect(materialRow).toBeDefined();
-    expect(materialRow!.subtotal_ars).toBe(0);
-    expect(materialRow!.subtotal_usd).toBe(0);
-    expect(materialRow!.subtotal_ars_str).toBe('');
-    // TOTAL = sum of all rows' subtotal_ars must be 0 (only detail
-    // rows contribute, and they have delta 0).
+    expect(materialRow!.m2_budgeted_str).toBe('0,00');
+    expect(materialRow!.delta_str).toMatch(/^\+/); // positive delta
+    // BLANCO SUGGAR USD 335/m² × 1.395 m² real = 467.33 USD / 467.325 ARS
+    // (rate 1000). Subtotal is the full new cost (no prior quote).
+    expect(materialRow!.subtotal_usd).toBeCloseTo(467.33, 2);
+    expect(materialRow!.subtotal_ars).toBeCloseTo(467325, 0);
+    // TOTAL = sum of all rows' subtotals includes the new material's full
+    // cost (the customer can see the price impact of the new line).
     const totalArs = data.measurement_comparison.reduce((s, r) => s + r.subtotal_ars, 0);
     const totalUsd = data.measurement_comparison.reduce((s, r) => s + r.subtotal_usd, 0);
-    expect(totalArs).toBe(0);
-    expect(totalUsd).toBe(0);
+    expect(totalArs).toBeGreaterThan(0);
+    expect(totalUsd).toBeGreaterThan(0);
   });
 
   it('exposes the active payment-methods catalogue for the PDF reference box', () => {
@@ -2003,6 +2019,233 @@ describe('buildPdfData — COMPARATIVA DE MEDICIÓN', () => {
       'TARJETA DE DÉBITO',
       'TARJETA DE CRÉDITO - 9% P/ CUOTA',
     ]);
+  });
+
+  // =====================================================================
+  // 2026-10-01 cont.5 — per-piece grouping + zero-delta filter +
+  // duplicate-annotation + newly-added items
+  // =====================================================================
+  it('groups the comparativa per piece with a section header per piece (COCINA, PARRILLA, …)', () => {
+    // Two pieces: COCINA (1 main material, m² delta) + PARRILLA (1 main
+    // material, m² delta). Each piece emits its own section header row
+    // + its own material row, so the comparativa is grouped per piece.
+    const cocina: BudgetPiece = {
+      id: 'p1',
+      name: 'COCINA',
+      mainMaterial: {
+        id: 1,
+        name: 'Negro Brasil',
+        price_m2: 0,
+        price_m2_usd: 330,
+        currency: 'USD',
+        quantity: 1,
+        m2_used: 0,
+        m2_budgeted: 1.0,
+        length: 1.5, // 1.5 × 1 × 1 = 1.5 m² real → +0.5 m² delta
+        width: 1,
+        is_alternative: false,
+      } as MaterialInForm,
+      mainMaterialRows: [],
+      alternativeMaterials: [],
+      fabrication_details: [],
+      additional_works_data: '[]',
+      pools: [],
+    };
+    const parrilla: BudgetPiece = {
+      ...cocina,
+      id: 'p2',
+      name: 'PARRILLA',
+      mainMaterial: {
+        ...(cocina.mainMaterial as MaterialInForm),
+        id: 2,
+        m2_budgeted: 0.5,
+        length: 0.8, // 0.8 × 1 × 1 = 0.8 m² real → +0.3 m² delta
+      },
+    };
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({
+        pieces: [cocina, parrilla],
+        materials_data: [
+          { ...(cocina.mainMaterial as MaterialInForm) },
+          { ...(parrilla.mainMaterial as MaterialInForm) },
+        ],
+        status: 'MEASUREMENT',
+        budget_id: 1,
+        include_measurement_comparison_in_pdf: true,
+      }),
+      overrides: {},
+    });
+    // 2 section headers (COCINA, PARRILLA) + 2 material rows.
+    expect(data.measurement_comparison).toHaveLength(4);
+    expect(data.measurement_comparison[0].is_section_header).toBe(true);
+    expect(data.measurement_comparison[0].concepto).toBe('COCINA');
+    expect(data.measurement_comparison[1].is_section_header).toBeFalsy();
+    expect(data.measurement_comparison[1].concepto).toBe('Negro Brasil');
+    expect(data.measurement_comparison[1].piece_name).toBe('COCINA');
+    expect(data.measurement_comparison[2].is_section_header).toBe(true);
+    expect(data.measurement_comparison[2].concepto).toBe('PARRILLA');
+    expect(data.measurement_comparison[3].is_section_header).toBeFalsy();
+    expect(data.measurement_comparison[3].concepto).toBe('Negro Brasil');
+expect(data.measurement_comparison[3].piece_name).toBe('PARRILLA');
+  });
+
+  it('annotates a duplicated concept name with the piece suffix ("Frente Ingletado 45° - COCINA")', () => {
+    // A "Frente Ingletado 45°" adicional shows up in BOTH COCINA and
+    // PARRILLA pieces. The same concept name in multiple pieces is
+    // suffixed with the piece name so the customer knows which one
+    // changed. A concept that only appears in ONE piece keeps its
+    // clean label (no noise).
+    const cocinas: BudgetPiece[] = [
+      {
+        id: 'p1',
+        name: 'COCINA',
+        mainMaterial: null,
+        mainMaterialRows: [],
+        alternativeMaterials: [],
+        fabrication_details: [],
+        additional_works_data: JSON.stringify([
+          {
+            name: 'Frente Ingletado 45°',
+            type: 'frente',
+            price: 100,
+            quantity: 1,
+            total: 100,
+            currency: 'ARS',
+            materialName: 'Negro Brasil',
+            linear_meters: 3,
+            linear_meters_budgeted: 2.5,
+            total_ars_budgeted: 80, // +20 ARS delta on the frente
+          },
+          {
+            name: 'Traforo de Pileta',
+            type: 'flat',
+            price: 60000,
+            quantity: 1,
+            total: 70000, // +10.000 ARS delta
+            currency: 'ARS',
+            materialName: 'Negro Brasil',
+            total_ars_budgeted: 60000,
+          },
+        ]),
+        pools: [],
+      },
+      {
+        id: 'p2',
+        name: 'PARRILLA',
+        mainMaterial: null,
+        mainMaterialRows: [],
+        alternativeMaterials: [],
+        fabrication_details: [],
+        additional_works_data: JSON.stringify([
+          {
+            name: 'Frente Ingletado 45°',
+            type: 'frente',
+            price: 100,
+            quantity: 1,
+            total: 100,
+            currency: 'ARS',
+            materialName: 'Negro Brasil',
+            linear_meters: 2,
+            linear_meters_budgeted: 1.5,
+            total_ars_budgeted: 80, // +20 ARS delta on the frente
+          },
+        ]),
+        pools: [],
+      },
+    ];
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({
+        pieces: cocinas,
+        status: 'MEASUREMENT',
+        budget_id: 1,
+        include_measurement_comparison_in_pdf: true,
+      }),
+      overrides: {},
+    });
+    // 2 section headers + 2 frentess (one per piece, both annotated with
+    // the piece name) + 1 traforo (only in COCINA, no annotation).
+    expect(data.measurement_comparison).toHaveLength(5);
+    const concepts = data.measurement_comparison.map((r) => r.concepto);
+    expect(concepts).toEqual([
+      'COCINA',
+      'Frente Ingletado 45° — COCINA',
+      'Traforo de Pileta',
+      'PARRILLA',
+      'Frente Ingletado 45° — PARRILLA',
+    ]);
+  });
+
+  it('shows a newly added fabrication row with Presupuestado 0 and a positive delta', () => {
+    // A zócalo that's NOT in the original budget (no m2_budgeted / no
+    // total_*_budgeted snapshot) is a brand-new line item. The comparativa
+    // must surface it with Presupuestado = 0 m², Diferencia = +real,
+    // Subtotal = the full new cost — the customer owes the new line.
+    const pieza: BudgetPiece = {
+      id: 'p1',
+      name: 'PARRILLA',
+      mainMaterial: {
+        id: 1,
+        name: 'Negro Brasil',
+        price_m2: 0,
+        price_m2_usd: 330,
+        currency: 'USD',
+        quantity: 1,
+        m2_used: 0,
+        m2_budgeted: 1.0,
+        length: 1,
+        width: 1,
+        is_alternative: false,
+      } as MaterialInForm,
+      mainMaterialRows: [],
+      alternativeMaterials: [],
+      fabrication_details: [
+        {
+          concept: 'BASEBOARD',
+          detail: '',
+          material: 'Negro Brasil',
+          length: 2,
+          width: 0.1,
+          m2: 0.2,
+          quantity: 1,
+          currency: 'USD',
+          price: 30,
+          // no m2_budgeted / no total_*_budgeted → NEW
+        } as FabricationDetail,
+      ],
+      additional_works_data: '[]',
+      pools: [],
+    };
+    const data = buildPdfData({
+      ...baseParams,
+      form: makeForm({
+        pieces: [pieza],
+        status: 'MEASUREMENT',
+        budget_id: 1,
+        include_measurement_comparison_in_pdf: true,
+      }),
+      overrides: {},
+    });
+    // 1 section header (PARRILLA) + 1 material row (no delta in m²
+    // when m2_real=1 and m2_budgeted=1 → FILTERED) + 1 new zócalo.
+    // Actually material has no delta → filtered; only the new zócalo
+    // remains. The section header still emits.
+    const newZocalo = data.measurement_comparison.find(
+      (r) => r.is_detail && r.piece_name === 'PARRILLA',
+    );
+    expect(newZocalo).toBeDefined();
+    // Presupuestado = 0 m² (the new item wasn't in the original budget).
+    expect(newZocalo!.m2_budgeted_str).toBe('0,00');
+    expect(newZocalo!.measure_budgeted_str).toBe('0,00 m²');
+    expect(newZocalo!.measure_real_str).toBe('0,20 m²');
+    // Diferencia = +0,20 m² (positive — the full m² shows up as new).
+    expect(newZocalo!.measure_delta_str).toBe('+0,20 m²');
+    // Subtotal = the full new cost: 30 USD × 1000 = 30.000 ARS (rate 1000).
+    expect(newZocalo!.subtotal_usd).toBe(30);
+    expect(newZocalo!.subtotal_ars).toBe(30000);
+    expect(newZocalo!.subtotal_ars_str).toBe('+30.000,00');
+    expect(newZocalo!.subtotal_usd_str).toBe('+30,00');
   });
 
   it('excludes inactive payment methods from the catalogue reference box', () => {

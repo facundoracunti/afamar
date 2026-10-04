@@ -155,6 +155,18 @@ export const styles = StyleSheet.create({
   // because the flex ratio is identical on every row.
   tableHead: { flexDirection: 'row', backgroundColor: SLATE_100, borderBottom: `1px solid ${SLATE_400}` },
   tableRow: { flexDirection: 'row', borderBottom: `1px solid ${SLATE_200}` },
+  // Section header band emitted by the comparativa to group rows by piece
+  // (e.g. "COCINA" / "PARRILLA"). Spans the full table width, slate-700
+  // uppercase, so the reader sees the per-piece grouping even when the
+  // document has many small pieces.
+  tableSectionHeader: {
+    flexDirection: 'row',
+    backgroundColor: SLATE_700,
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+    marginTop: 2,
+  },
+  tableSectionHeaderText: { color: '#fff', fontSize: 8, fontWeight: 'bold', letterSpacing: 0.5 },
   cell: { paddingVertical: 3, paddingHorizontal: 5, borderRight: `1px solid ${SLATE_200}` },
   cellLast: { paddingVertical: 3, paddingHorizontal: 5 },
   thText: { fontSize: 6.5, fontWeight: 'bold', color: SLATE_700 },
@@ -182,7 +194,13 @@ export const styles = StyleSheet.create({
   totalsUsdLabel: { fontSize: 8, fontWeight: 'bold', color: SLATE_700, marginBottom: 1 },
   totalsUsdDate: { fontSize: 7, color: SLATE_500, marginBottom: 2 },
   totalsUsdRate: { fontSize: 11, fontWeight: 'bold', color: BLUE_700 },
-  totalsRow: { flexDirection: 'row', paddingVertical: 2 },
+  // Totals rows stay on a single row (`wrap: false` prevents react-pdf
+  // from splitting the label/value pair across pages). The label keeps
+  // 70% of the right column so large ARS values can sit on a single
+  // line in the 30% value cell — overflow only happens for very large
+  // totals (>10-digit ARS) and that's the "speak to your accountant"
+  // limit rather than a layout bug.
+  totalsRow: { flexDirection: 'row', paddingVertical: 2, wrap: false },
   totalsLbl: { width: '70%', textAlign: 'right', color: SLATE_700 },
   totalsVal: { width: '30%', textAlign: 'right', fontWeight: 'bold' },
   // Seña row carries both currencies stacked vertically inside the value
@@ -199,10 +217,47 @@ export const styles = StyleSheet.create({
   },
   totalsValPrimary: { fontWeight: 'bold', textAlign: 'right' },
   totalsValSecondary: { fontSize: 9, fontWeight: 'bold', textAlign: 'right', opacity: 0.7 },
-  grand: { flexDirection: 'row', backgroundColor: BLUE_700, paddingVertical: 6, paddingHorizontal: 8, marginTop: 4 },
-  grandLbl: { width: '70%', color: '#fff', fontWeight: 'bold' },
-  grandVal: { width: '30%', color: '#fff', fontWeight: 'bold', textAlign: 'right' },
-  grandUsdSub: { fontSize: 8, color: '#fff', opacity: 0.85 },
+  // ===== GRAND TOTAL (the blue bar) =====
+  // Column layout: the "TOTAL" label sits on top and the dual-currency
+  // value stack goes below it, fully contained inside the right column.
+  // `wrap: false` on the parent keeps the blue bar intact — react-pdf
+  // will move the whole row to the next page instead of splitting the
+  // label from its value (or ARS from USD).
+  grand: {
+    backgroundColor: BLUE_700,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    marginTop: 4,
+    wrap: false,
+  },
+  grandLbl: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 11,
+    marginBottom: 3,
+  },
+  // Value column: ARS bold large on top, USD smaller just below. Right-
+  // aligned to match the rest of the totals rows above.
+  grandValWrap: {
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+  },
+  grandValArs: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 13,
+    textAlign: 'right',
+  },
+  grandValUsd: {
+    color: '#fff',
+    fontSize: 9,
+    textAlign: 'right',
+    opacity: 0.85,
+    marginTop: 1,
+  },
+  // Legacy aliases intentionally removed: every caller now uses the
+  // grandValWrap + grandValArs / grandValUsd column stack (clean dual-
+  // currency rendering without overflow).
   // ===== PAYMENT METHOD =====
   paymentRow: { fontSize: 6.5, marginTop: 4, marginBottom: 4 },
   // Per-cuota breakdown (credit-card surcharges). Renders a compact
