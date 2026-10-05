@@ -11,6 +11,14 @@ def deduct_pool_stock(db: Session, pool_id: int | None, pools_data: str | None, 
     Called when a work order is created or when pool stock is consumed.
     Uses `with_for_update` to prevent double-deduction under concurrent
     requests (pessimistic lock on the PoolStock row).
+
+    The StockMovement note uses the same prefix as the legacy pool stock
+    ("Salida por producción - <OT-number>") so the Movimientos modal
+    shows a single, recognisable format across every pileta in the
+    catalogue — previously this helper wrote "Consumo por fabricación"
+    which made NEW pileta movements look out of place next to historical
+    ones. ``source_number`` is the OT's own number (NOT the source
+    budget's), so the link is to the document that consumed the stock.
     """
     pools_deducted = set()
     if pool_id and pool_id not in pools_deducted:
@@ -21,7 +29,7 @@ def deduct_pool_stock(db: Session, pool_id: int | None, pools_data: str | None, 
                 pool_id=pool.id,
                 type="exit",
                 quantity=1,
-                notes=f"Consumo por fabricación - {source_number}",
+                notes=f"Salida por producción - {source_number}",
             )
             db.add(movement)
         pools_deducted.add(pool_id)
@@ -40,7 +48,7 @@ def deduct_pool_stock(db: Session, pool_id: int | None, pools_data: str | None, 
                             pool_id=pool.id,
                             type="exit",
                             quantity=qty,
-                            notes=f"Consumo por fabricación - {source_number}",
+                            notes=f"Salida por producción - {source_number}",
                         )
                         db.add(movement)
                     pools_deducted.add(pid)
@@ -48,14 +56,15 @@ def deduct_pool_stock(db: Session, pool_id: int | None, pools_data: str | None, 
             pass
 
 
-def restore_pool_stock(db: Session, pool_id: int | None, pools_data: str | None, source_number: str, notes_prefix: str = "Entrada por cancelación"):
+def restore_pool_stock(db: Session, pool_id: int | None, pools_data: str | None, source_number: str, notes_prefix: str = "Entrada por producción"):
     """Restore pool stock quantities and record incoming movements.
 
     Called when a budget is deleted (undoes the stock deduction) or a
     work order is cancelled. Uses `with_for_update` to prevent races.
-    The `notes_prefix` allows callers to customise the movement note
-    (e.g. "Restauración por eliminación de presupuesto" vs
-    "Entrada por cancelación").
+    The ``notes_prefix`` defaults to "Entrada por producción" to mirror
+    the legacy format ("Salida por producción" on the deduction side);
+    callers can override it (e.g. "Entrada por cancelación" when the
+    trigger is a WO cancellation).
     """
     pools_restored = set()
     if pool_id and pool_id not in pools_restored:

@@ -280,7 +280,16 @@ class WorkOrderService:
             if new_status != "CANCELLED" and new_status not in self.VALID_TRANSITIONS.get(old_status, set()):
                 raise ValidationError(f"Invalid status transition from {old_status} to {new_status}")
             if new_status == "CANCELLED" and order.stock_deducted:
-                restore_pool_stock(self.repo.db, order.pool_id, order.pools_data, order.number)
+                # Cancellation — distinguish from the legacy "Entrada por
+                # producción" prefix (the latter is reserved for budget
+                # deletion, where the movement is a paper correction; the
+                # cancellation of a real OT needs a clear operator-facing
+                # label so the Movimientos modal makes the trigger
+                # obvious at a glance).
+                restore_pool_stock(
+                    self.repo.db, order.pool_id, order.pools_data, order.number,
+                    notes_prefix="Entrada por cancelación",
+                )
                 order.stock_deducted = False
             if new_status == "FINISHED" and order.client_id:
                 update_client_total_purchased(self.repo.db, order.client_id)
