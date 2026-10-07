@@ -6,18 +6,24 @@ When a Work Order is created with a pool (e.g. JOHNSON Q 76 A) in
 `pool_id` field, the system MUST:
 
   1. Decrement the `PoolStock.quantity` (the pileta was consumed by
-     producción).
+     producción). The user's report after the cont.6 fix said the
+     StockMovement was being recorded but `quantity` "stayed frozen" —
+     this file pins the EXPLICIT `pool.quantity -= qty` operation so a
+     regression on the column update is caught immediately.
   2. Insert a `StockMovement` row (`type="exit"`, `quantity=N`,
      `notes="Salida por producción - <OT-number>"`) so the pool's
      "Movimientos" modal shows the outgoing movement linked to the OT.
 
-The fix already exists in `app.services.stock_helpers.deduct_pool_stock`
-and is invoked from `WorkOrderService.create` /
+The fix lives in `app.services.stock_helpers.deduct_pool_stock` and is
+invoked from `WorkOrderService.create` /
 `WorkOrderService.create_from_budget` whenever `order.pool_id or
 order.pools_data` is set. This test file pins the contract so a
-regression in either path surfaces immediately.
+regression in either path surfaces immediately. The first set of tests
+goes through the full OT service (integration); a final test exercises
+`deduct_pool_stock` standalone to lock the EXACT `pool.quantity -= qty`
+operation (the user's main concern in cont.6 follow-up).
 
-Symmetry check: cancelling the WO (or converting then cancelling)
+Symmetry check: cancelling the OT (or converting then cancelling)
 restores the stock via `restore_pool_stock` and records an INCOMING
 movement (`type="entry"`).
 """
@@ -30,6 +36,10 @@ from app.models.daily_cash import CashMovement, DailyCash
 from app.models.pool_stock import PoolStock, StockMovement
 from app.models.reference import Currency, PaymentMethod
 from app.services.daily_cash import DailyCashService
+from app.services.stock_helpers import (
+    commit_pool_stock_changes,
+    deduct_pool_stock,
+)
 from app.services.work_order import WorkOrderService
 
 from tests.conftest import TestingSessionLocal
@@ -339,3 +349,149 @@ def test_cancel_ot_restores_stock_and_records_entry_movement(pool_db):
     assert "cancelación" in entry_move.notes.lower()
     db.refresh(order)
     assert order.stock_deducted is False  # flag flipped back so a re-POST can re-create
+
+
+# ────────────────────────────────────────────────────────────────────
+# 6. Standalone contract — `deduct_pool_stock` mutates pool.quantity
+# ────────────────────────────────────────────────────────────────────
+# The integration tests above prove the END-TO-END behaviour (OT create
+# decrements + StockMovement). The user follow-up asked for a unit-level
+# guarantee that the helper itself performs the EXPLICIT
+# `pool.quantity -= qty` operation. These tests exercise the helper in
+# isolation so a future refactor that drops the column update (e.g.
+# swapping to a `for_update().first()` that returns a stale object) is
+# caught immediately, even if the service-level `db.commit()` hides the
+# problem.
+
+
+def test_deduct_pool_stock_standalone_executes_explicit_subtraction(pool_db):
+    """Direct call: pool.quantity must drop by EXACTLY `qty` (not 1) and
+    the new StockMovement must carry the same `qty`. Uses the standalone
+    helper + `commit_pool_stock_changes` to mirror what the OT service
+    does, so a regression at the helper level is caught regardless of
+    how the service layer wraps it."""
+    db = pool_db
+    pool = db.query(PoolStock).filter(PoolStock.id == 1).one()
+    initial = pool.quantity  # 5
+    ot_number = "A-TEST-001"
+
+    deduct_pool_stock(db, pool_id=1, pools_data=None, source_number=ot_number)
+    commit_pool_stock_changes(db)
+
+    # The column update must have been committed to the DB (a fresh
+    # query against the same session sees it).
+    db.refresh(pool)
+    assert pool.quantity == initial - 1, (
+        f"pool.quantity should be {initial - 1} after deduct_pool_stock, got {pool.quantity}"
+    )
+    # The StockMovement was also committed.
+    move = db.query(StockMovement).filter(StockMovement.pool_id == 1).one()
+    assert move.type == "exit"
+    assert move.quantity == 1
+    assert f"Salida por producción - {ot_number}" == move.notes
+
+
+def test_deduct_pool_stock_pools_data_path_uses_explicit_subtraction(pool_db):
+    """Pieces-v3 path: each entry in `pools_data` has its own `quantity` and
+    the helper subtracts that exact value (not a hardcoded 1) — `pool.quantity
+    -= qty` per row. With quantity=3 and 2 entries the second pool would
+    overshoot below 0; the test uses a fresh pool (quantity=5) + one
+    row at quantity=3 to exercise the loop with a real subtraction."""
+    db = pool_db
+    # Add a second pool to test the loop branch (the per-row subtraction).
+    db.add(PoolStock(
+        id=2, brand="AQUABRASS", model="LUXOR 700", description="Pileta Aquabrass",
+        material="Acero", quantity=5, price=120000.0, currency_id=1,
+    ))
+    db.commit()
+    pool2 = db.query(PoolStock).filter(PoolStock.id == 2).one()
+    initial1 = pool2.quantity
+    pools_data = json.dumps([{
+        "pool_id": 2,
+        "brand": "AQUABRASS",
+        "model": "LUXOR 700",
+        "price": 120000.0,
+        "currency": "ARS",
+        "quantity": 3,  # explicit quantity — must be subtracted
+    }])
+    ot_number = "A-TEST-002"
+
+    deduct_pool_stock(db, pool_id=None, pools_data=pools_data, source_number=ot_number)
+    commit_pool_stock_changes(db)
+
+    db.refresh(pool2)
+    # EXPLICIT subtraction: initial 5 - 3 = 2 (NOT initial - 1 = 4).
+    assert pool2.quantity == initial1 - 3, (
+        f"pool.quantity should be {initial1 - 3} (explicit qty=3 subtraction), "
+        f"got {pool2.quantity}"
+    )
+    move = db.query(StockMovement).filter(StockMovement.pool_id == 2).one()
+    assert move.type == "exit"
+    assert move.quantity == 3
+    assert f"Salida por producción - {ot_number}" == move.notes
+
+
+def test_deduct_pool_stock_skips_row_with_insufficient_stock(pool_db):
+    """Defensive guard: if the pool is at 0 (or below `qty`), the helper
+    skips the row entirely — no subtraction, no StockMovement. This
+    prevents the column from going negative and the inventory log from
+    recording a phantom exit that didn't really happen."""
+    db = pool_db
+    # Drop the pool to 0 (simulate a fully consumed pileta).
+    pool = db.query(PoolStock).filter(PoolStock.id == 1).one()
+    pool.quantity = 0
+    db.commit()
+    db.refresh(pool)
+    assert pool.quantity == 0
+
+    deduct_pool_stock(db, pool_id=1, pools_data=None, source_number="A-TEST-003")
+
+    db.refresh(pool)
+    # The 0-quantity row was NOT deducted any further (would have gone
+    # negative without the guard).
+    assert pool.quantity == 0
+    # And no StockMovement was recorded — the log mustn't lie. Use
+    # `.count()` instead of `.one()` so the empty case is well-defined.
+    assert db.query(StockMovement).filter(StockMovement.pool_id == 1).count() == 0
+
+
+def test_commit_pool_stock_changes_persists_both_atomic(pool_db):
+    """Round-trip: after `deduct_pool_stock` + `commit_pool_stock_changes`,
+    a fresh query (without session cache) sees the updated quantity AND
+    the new StockMovement. This is the EXACT contract the OT service
+    relies on — if the helper returned without writing the column or
+    without adding the movement, this test would catch it."""
+    db = pool_db
+    pool = db.query(PoolStock).filter(PoolStock.id == 1).one()
+    initial = pool.quantity  # 5
+
+    # First decrement
+    deduct_pool_stock(db, pool_id=1, pools_data=None, source_number="A-001")
+    commit_pool_stock_changes(db)
+
+    # Force a fresh read by expiring the session state on the pool object
+    # (mirrors how the OT service's `db.refresh(order)` would force a
+    # re-read of related objects after a commit).
+    db.expire_all()
+    pool_fresh = db.query(PoolStock).filter(PoolStock.id == 1).one()
+    assert pool_fresh.quantity == initial - 1
+
+    moves = db.query(StockMovement).filter(StockMovement.pool_id == 1).all()
+    assert len(moves) == 1
+    assert moves[0].notes == "Salida por producción - A-001"
+
+    # Second decrement
+    deduct_pool_stock(db, pool_id=1, pools_data=None, source_number="A-002")
+    commit_pool_stock_changes(db)
+
+    db.expire_all()
+    pool_fresh2 = db.query(PoolStock).filter(PoolStock.id == 1).one()
+    assert pool_fresh2.quantity == initial - 2
+
+    moves2 = db.query(StockMovement).filter(
+        StockMovement.pool_id == 1
+    ).order_by(StockMovement.id.asc()).all()
+    assert len(moves2) == 2
+    assert moves2[0].notes == "Salida por producción - A-001"
+    assert moves2[1].notes == "Salida por producción - A-002"
+

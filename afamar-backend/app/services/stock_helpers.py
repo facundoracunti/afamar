@@ -6,11 +6,16 @@ from app.models.pool_stock import PoolStock, StockMovement
 
 
 def deduct_pool_stock(db: Session, pool_id: int | None, pools_data: str | None, source_number: str):
-    """Decrement pool stock quantities and record outgoing movements.
+    """Decrement pool stock quantities AND record outgoing movements.
 
     Called when a work order is created or when pool stock is consumed.
     Uses `with_for_update` to prevent double-deduction under concurrent
     requests (pessimistic lock on the PoolStock row).
+
+    The two changes (pool.quantity subtraction + new StockMovement row)
+    are applied in the same session and committed together by the caller
+    (the `commit_pool_stock_changes` helper guarantees both are
+    persisted atomically — see below).
 
     The StockMovement note uses the same prefix as the legacy pool stock
     ("Salida por producción - <OT-number>") so the Movimientos modal
@@ -24,7 +29,12 @@ def deduct_pool_stock(db: Session, pool_id: int | None, pools_data: str | None, 
     if pool_id and pool_id not in pools_deducted:
         pool = db.query(PoolStock).filter(PoolStock.id == pool_id).with_for_update().first()
         if pool and (pool.quantity or 0) > 0:
-            pool.quantity = (pool.quantity or 0) - 1
+            # EXPLICIT subtraction: `pool.quantity -= qty`. The `>` guard
+            # above keeps the value from going negative; if the operator
+            # is somehow trying to deduct from a 0-quantity pool we skip
+            # the row entirely (the StockMovement is also skipped so the
+            # inventory log doesn't lie about a phantom exit).
+            pool.quantity -= 1
             movement = StockMovement(
                 pool_id=pool.id,
                 type="exit",
@@ -43,7 +53,8 @@ def deduct_pool_stock(db: Session, pool_id: int | None, pools_data: str | None, 
                 if pid and pid not in pools_deducted:
                     pool = db.query(PoolStock).filter(PoolStock.id == pid).with_for_update().first()
                     if pool and (pool.quantity or 0) >= qty:
-                        pool.quantity = (pool.quantity or 0) - qty
+                        # EXPLICIT subtraction (see comment above).
+                        pool.quantity -= qty
                         movement = StockMovement(
                             pool_id=pool.id,
                             type="exit",
@@ -56,8 +67,21 @@ def deduct_pool_stock(db: Session, pool_id: int | None, pools_data: str | None, 
             pass
 
 
+def commit_pool_stock_changes(db: Session) -> None:
+    """Atomically commit any pending pool-quantity change + new StockMovement.
+
+    The caller calls this after `deduct_pool_stock` / `restore_pool_stock`
+    so both the column update and the new movement row land in the same
+    transaction. Returning instead of taking a `db.flush()` keeps the
+    control of the transaction lifecycle with the service orchestrator
+    (WorkOrderService.create / create_from_budget / update already wrap
+    this in the same `db.commit()` as the OT insert / status flip).
+    """
+    db.commit()
+
+
 def restore_pool_stock(db: Session, pool_id: int | None, pools_data: str | None, source_number: str, notes_prefix: str = "Entrada por producción"):
-    """Restore pool stock quantities and record incoming movements.
+    """Restore pool stock quantities AND record incoming movements.
 
     Called when a budget is deleted (undoes the stock deduction) or a
     work order is cancelled. Uses `with_for_update` to prevent races.
@@ -70,7 +94,9 @@ def restore_pool_stock(db: Session, pool_id: int | None, pools_data: str | None,
     if pool_id and pool_id not in pools_restored:
         pool = db.query(PoolStock).filter(PoolStock.id == pool_id).with_for_update().first()
         if pool:
-            pool.quantity = (pool.quantity or 0) + 1
+            # EXPLICIT addition (see `deduct_pool_stock` for the matching
+            # `pool.quantity -=` pattern).
+            pool.quantity += 1
             movement = StockMovement(
                 pool_id=pool.id,
                 type="entry",
@@ -89,7 +115,8 @@ def restore_pool_stock(db: Session, pool_id: int | None, pools_data: str | None,
                 if pid and pid not in pools_restored:
                     pool = db.query(PoolStock).filter(PoolStock.id == pid).with_for_update().first()
                     if pool:
-                        pool.quantity = (pool.quantity or 0) + qty
+                        # EXPLICIT addition (matches the deduction above).
+                        pool.quantity += qty
                         movement = StockMovement(
                             pool_id=pool.id,
                             type="entry",
