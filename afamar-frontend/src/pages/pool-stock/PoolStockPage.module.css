@@ -25,6 +25,10 @@
   gap: 16px;
 }
 
+.poolStock__mobile-list {
+  display: none;
+}
+
 .poolStock__card {
   background: var(--surface-bg);
   border: 1px solid var(--border-color);
@@ -115,6 +119,23 @@
   margin-top: 8px;
 }
 
+.poolStock__cardActions button {
+  min-height: 40px;
+}
+
+.poolStock__cardActions button:first-child {
+  flex: 1;
+}
+
+.poolStock__cardInventory {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
 .poolStock__toolbar {
   display: flex;
   align-items: center;
@@ -203,6 +224,54 @@
   text-align: center;
   padding: 40px;
   color: var(--text-muted);
+}
+
+@media (max-width: 767px) {
+  .poolStock__header {
+    align-items: stretch;
+  }
+
+  .poolStock__header .btn {
+    justify-content: center;
+    width: 100%;
+    min-height: 42px;
+  }
+
+  .poolStock__title {
+    font-size: 20px;
+  }
+
+  .poolStock__search {
+    min-width: 0;
+    width: 100%;
+    max-width: none;
+  }
+
+  .poolStock :global(.table-container) {
+    display: none;
+  }
+
+  .poolStock__mobile-list {
+    display: grid;
+    gap: 12px;
+  }
+
+  .poolStock__card {
+    padding: 14px;
+  }
+
+  .poolStock__cardActions {
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .poolStock__cardActions button {
+    padding: 8px 10px;
+  }
+
+  .poolStock__cardActions button:nth-child(2) {
+    flex: 1.4;
+  }
 }
 
 .poolStock__brand-input {

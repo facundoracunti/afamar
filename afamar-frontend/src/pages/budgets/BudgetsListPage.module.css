@@ -57,6 +57,14 @@
   color: var(--text-muted);
 }
 
+.budgets__status-filter {
+  width: 280px;
+}
+
+.budgets__mobile-list {
+  display: none;
+}
+
 .budgets__table {
   background: var(--surface-bg);
   border: 1px solid var(--border-color);
@@ -202,6 +210,56 @@
   font-size: 14px;
 }
 
+.budgets__mobile-card-header,
+.budgets__mobile-action-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.budgets__mobile-card-header {
+  justify-content: space-between;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.budgets__mobile-details,
+.budgets__mobile-details > div {
+  margin: 0;
+}
+
+.budgets__mobile-details {
+  display: grid;
+  gap: 8px;
+  padding: 12px 0;
+}
+
+.budgets__mobile-details > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.budgets__mobile-details dt {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.budgets__mobile-details dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.budgets__mobile-actions {
+  display: grid;
+  gap: 8px;
+}
+
 /* Status badges keep semantic colors in both themes (status indicators). */
 .budgets__status {
   display: inline-block;
@@ -296,4 +354,59 @@
 
 .budgets__ot:hover {
   background: rgba(22, 163, 74, 0.08);
+}
+
+@media (max-width: 767px) {
+  .budgets :global(.header__toolbar) {
+    width: 100%;
+  }
+
+  .budgets :global(.header__toolbar) .btn {
+    width: 100%;
+    min-height: 42px;
+  }
+
+  .budgets__filters {
+    align-items: stretch;
+  }
+
+  .budgets__search,
+  .budgets__status-filter {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .budgets__table {
+    display: none;
+  }
+
+  .budgets__mobile-list {
+    display: grid;
+    gap: 12px;
+  }
+
+  .budgets__mobile-card {
+    min-width: 0;
+    padding: 14px;
+    background: var(--surface-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .budgets__mobile-action-group .budgets__action-btn {
+    min-height: 38px;
+    flex: 1 1 auto;
+  }
+
+  .budgets__mobile-empty {
+    padding: 18px 12px;
+    color: var(--text-muted);
+    background: var(--surface-bg);
+    border: 1px dashed var(--border-color);
+    border-radius: 8px;
+    text-align: center;
+    font-size: 13px;
+  }
 }

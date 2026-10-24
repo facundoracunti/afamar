@@ -139,6 +139,63 @@ export default function PoolStockPage() {
               </tbody>
             </table>
           </div>
+          <div className={s['poolStock__mobile-list']}>
+            {data.map((p) => {
+              const currency = p.currency || 'ARS';
+              return (
+                <article className={s['poolStock__card']} key={p.id}>
+                  <div className={s['poolStock__cardHeader']}>
+                    <div>
+                      <div className={s['poolStock__cardBrand']}>{p.brand}</div>
+                      <div className={s['poolStock__cardModel']}>{p.model}</div>
+                    </div>
+                    <span className={`badge badge-info ${s['poolStock__type-badge']}`}>
+                      {p.pool_type_name || 'Simple'}
+                    </span>
+                  </div>
+                  <div className={s['poolStock__cardMaterial']}>
+                    Material: {p.material || '-'}
+                  </div>
+                  <div className={s['poolStock__cardPrice']}>
+                    <span className={s['poolStock__cardPriceLabel']}>Precio</span>
+                    <strong className={s['poolStock__cardPriceValue']}>
+                      {formatCurrencyValue(Number(p.price || 0), { currency })}
+                    </strong>
+                  </div>
+                  <div className={s['poolStock__cardInventory']}>
+                    <span>Disponible</span>
+                    <strong
+                      className={`${s['poolStock__cardQty']} ${p.quantity > 0 ? '' : s['poolStock__cardQty--out']}`}
+                    >
+                      {p.quantity}
+                    </strong>
+                  </div>
+                  <div className={s['poolStock__cardActions']}>
+                    <button className="btn btn-outline" onClick={() => handleOpenForm(p)}>
+                      Editar
+                    </button>
+                    <button
+                      className="btn btn-success"
+                      onClick={() => handleOpenMov(p)}
+                      title="Movimientos"
+                    >
+                      <Plus size={14} /> <span>Movimientos</span>
+                    </button>
+                    <button
+                      className="btn btn-danger"
+                      onClick={() => requestDelete(p.id)}
+                      aria-label={`Eliminar ${p.brand} ${p.model}`}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+            {data.length === 0 && (
+              <div className={s['poolStock__empty']}>No hay piletas en stock</div>
+            )}
+          </div>
         </div>
       )}
 

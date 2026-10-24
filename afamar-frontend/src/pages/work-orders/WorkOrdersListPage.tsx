@@ -181,8 +181,7 @@ export default function WorkOrdersList({ initialStatus }: { initialStatus?: stri
           leftIcon={<Search size={18} color="#94a3b8" />}
         />
         <select
-          className="input"
-          style={{ width: 260 }}
+          className={`input ${s['workOrders__status-filter']}`}
           value={estado}
           onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEstado(e.target.value)}
         >

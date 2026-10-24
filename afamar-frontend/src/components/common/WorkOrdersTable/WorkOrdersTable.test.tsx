@@ -61,8 +61,8 @@ describe('WorkOrdersTable', () => {
       makeWO({ id: 1, number: 'A-000001' }),
       makeWO({ id: 2, number: 'A-000002' }),
     ]);
-    expect(screen.getByText('A-000001')).toBeDefined();
-    expect(screen.getByText('A-000002')).toBeDefined();
+    expect(screen.getAllByText('A-000001')).toHaveLength(2);
+    expect(screen.getAllByText('A-000002')).toHaveLength(2);
   });
 
   it('renders the empty state when no data', () => {
@@ -72,15 +72,15 @@ describe('WorkOrdersTable', () => {
 
   it('shows both "Avanzar" and "Retroceder" for the first status (MEASUREMENT)', () => {
     renderTable([makeWO({ status: 'MEASUREMENT' })]);
-    expect(screen.getByTitle('Avanzar estado')).toBeDefined();
+    expect(screen.getAllByTitle('Avanzar estado')).toHaveLength(2);
     // MEASUREMENT is the first status, so retroceder is hidden
     expect(screen.queryByTitle('Retroceder estado')).toBeNull();
   });
 
   it('shows both "Avanzar" and "Retroceder" for a middle status (WORKSHOP)', () => {
     renderTable([makeWO({ status: 'WORKSHOP' })]);
-    expect(screen.getByTitle('Avanzar estado')).toBeDefined();
-    expect(screen.getByTitle('Retroceder estado')).toBeDefined();
+    expect(screen.getAllByTitle('Avanzar estado')).toHaveLength(2);
+    expect(screen.getAllByTitle('Retroceder estado')).toHaveLength(2);
   });
 
   it('shows "—" (no advance) when status is not in orderStatuses', () => {
@@ -122,7 +122,7 @@ describe('WorkOrdersTable', () => {
         onDelete={noop}
       />,
     );
-    fireEvent.click(screen.getByText('A-000001'));
+    fireEvent.click(screen.getAllByText('A-000001')[0]);
     expect(onView).toHaveBeenCalled();
   });
 
@@ -139,7 +139,7 @@ describe('WorkOrdersTable', () => {
         onDelete={noop}
       />,
     );
-    fireEvent.click(screen.getByTitle('Avanzar estado'));
+    fireEvent.click(screen.getAllByTitle('Avanzar estado')[0]);
     expect(onStatusAdvance).toHaveBeenCalled();
     const [wo, dir] = onStatusAdvance.mock.calls[0];
     expect(wo.number).toBe('A-000001');
@@ -159,7 +159,7 @@ describe('WorkOrdersTable', () => {
         onDelete={noop}
       />,
     );
-    fireEvent.click(screen.getByTitle('Retroceder estado'));
+    fireEvent.click(screen.getAllByTitle('Retroceder estado')[0]);
     expect(onStatusAdvance).toHaveBeenCalled();
     const [, dir] = onStatusAdvance.mock.calls[0];
     expect(dir).toBe(-1);
@@ -203,7 +203,7 @@ describe('WorkOrdersTable', () => {
 describe('WorkOrdersTable — MATERIAL column', () => {
   it('uses `o.material` when it has a value', () => {
     renderTable([makeWO({ material: 'Negro Brasil' })]);
-    expect(screen.getByText('Negro Brasil')).toBeDefined();
+    expect(screen.getAllByText('Negro Brasil')).toHaveLength(2);
   });
 
   it('falls back to the principal of the first piece when `material` is empty', () => {
@@ -215,7 +215,7 @@ describe('WorkOrdersTable — MATERIAL column', () => {
         ],
       }),
     ]);
-    expect(screen.getByText('Blanco Turco')).toBeDefined();
+    expect(screen.getAllByText('Blanco Turco')).toHaveLength(2);
   });
 
   it('falls back to the first alternative of the first piece when no principal', () => {
@@ -230,7 +230,7 @@ describe('WorkOrdersTable — MATERIAL column', () => {
         ],
       }),
     ]);
-    expect(screen.getByText('Gris Mara')).toBeDefined();
+    expect(screen.getAllByText('Gris Mara')).toHaveLength(2);
   });
 
   it('parses `materials_data` (JSON string) when `material` + `pieces` are empty', () => {
@@ -241,7 +241,7 @@ describe('WorkOrdersTable — MATERIAL column', () => {
         materials_data: JSON.stringify([{ name: 'Negro Brasil' }, { name: 'Respaldo' }]),
       }),
     ]);
-    expect(screen.getByText('Negro Brasil')).toBeDefined();
+    expect(screen.getAllByText('Negro Brasil')).toHaveLength(2);
   });
 
   it('falls back to `items[]` when nothing else has a name', () => {
@@ -253,7 +253,7 @@ describe('WorkOrdersTable — MATERIAL column', () => {
         items: [{ name: 'Item Legacy' }],
       }),
     ]);
-    expect(screen.getByText('Item Legacy')).toBeDefined();
+    expect(screen.getAllByText('Item Legacy')).toHaveLength(2);
   });
 
   it('shows "-" when no source has a name', () => {

@@ -60,9 +60,9 @@ describe('BudgetTable', () => {
       makeBudget({ id: 2, number: 'P-000002' }),
       makeBudget({ id: 3, number: 'P-000003' }),
     ]);
-    expect(screen.getByText('P-000001')).toBeDefined();
-    expect(screen.getByText('P-000002')).toBeDefined();
-    expect(screen.getByText('P-000003')).toBeDefined();
+    expect(screen.getAllByText('P-000001')).toHaveLength(2);
+    expect(screen.getAllByText('P-000002')).toHaveLength(2);
+    expect(screen.getAllByText('P-000003')).toHaveLength(2);
   });
 
   it('renders the empty state when no data', () => {
@@ -100,7 +100,7 @@ describe('BudgetTable', () => {
     // are intentional: the badge makes the relationship visible inline,
     // the button lets the user jump to the OT.
     const matches = screen.getAllByText(/A-000010/);
-    expect(matches.length).toBe(2);
+    expect(matches.length).toBe(4);
   });
 
   it('disables WhatsApp button when no phone is set', () => {
@@ -126,7 +126,7 @@ describe('BudgetTable', () => {
         />
       </MemoryRouter>,
     );
-    fireEvent.click(screen.getByText('P-000001'));
+    fireEvent.click(screen.getAllByText('P-000001')[0]);
     expect(onView).toHaveBeenCalled();
   });
 

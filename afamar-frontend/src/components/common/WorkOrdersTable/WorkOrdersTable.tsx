@@ -95,6 +95,7 @@ function WorkOrdersTableInner({
   onDelete,
 }: WorkOrdersTableProps) {
   return (
+    <>
     <div className={s['wo-table']}>
       <table>
         <thead>
@@ -250,6 +251,46 @@ function WorkOrdersTableInner({
         </tbody>
       </table>
     </div>
+    <div className={s['wo-table__mobile-list']}>
+      {data.map((o: WorkOrderListItem) => {
+        const statusIdx = orderStatuses.indexOf(o.status);
+        const canBack = statusIdx > 0;
+        const canForward = statusIdx >= 0 && statusIdx < orderStatuses.length - 1;
+        const canWhatsApp = !!o.client_phone;
+        return (
+          <article key={`mobile-${o.id}`} className={s['wo-table__mobile-card']} onClick={() => onView(o)}>
+            <div className={s['wo-table__mobile-card-header']}>
+              <span className={s['wo-table__numero']}>{o.number}</span>
+              <StatusBadge status={o.status} />
+            </div>
+            <dl className={s['wo-table__mobile-details']}>
+              <div><dt>Cliente</dt><dd>{o.client_name || '-'}</dd></div>
+              <div><dt>Fecha</dt><dd>{formatDate((o.date || o.created_at || '').split('T')[0]) || '-'}</dd></div>
+              <div><dt>Material</dt><dd>{resolveMaterialName(o)}</dd></div>
+              <div><dt>Total</dt><dd><CurrencyDisplay value={o.total} /></dd></div>
+              <div><dt>Saldo</dt><dd><CurrencyDisplay value={o.balance_due} /></dd></div>
+            </dl>
+            <div className={s['wo-table__mobile-actions']} onClick={(e) => e.stopPropagation()}>
+              <div className={s['wo-table__mobile-action-group']}>
+                {canBack && <button type="button" className={btnCls()} onClick={() => void onStatusAdvance(o, -1)} title="Retroceder estado"><ChevronLeft size={12} /> Atrás</button>}
+                {canForward && <button type="button" className={btnCls('info')} onClick={() => void onStatusAdvance(o, 1)} title="Avanzar estado"><ChevronRight size={12} /> Avanzar</button>}
+              </div>
+              <div className={s['wo-table__mobile-action-group']}>
+                <button type="button" className={btnCls()} onClick={() => onView(o)}><Eye size={12} /> Ver</button>
+                <button type="button" className={btnCls()} onClick={() => void onOpenPdf(o)}><FileDown size={12} /> PDF</button>
+                <button type="button" className={btnCls('success')} onClick={() => void onOpenFicha(o)}><ClipboardList size={12} /> Ficha</button>
+              </div>
+              <div className={s['wo-table__mobile-action-group']}>
+                <button type="button" className={canWhatsApp ? btnCls('success') : btnCls()} onClick={canWhatsApp ? () => onWhatsApp(o) : undefined} disabled={!canWhatsApp}><Send size={12} /> WhatsApp</button>
+                <button type="button" className={btnCls('danger')} onClick={() => onDelete(o.id)} aria-label={`Eliminar orden ${o.number}`}><Trash2 size={12} /></button>
+              </div>
+            </div>
+          </article>
+        );
+      })}
+      {data.length === 0 && <div className={s['wo-table__mobile-empty']}>No hay órdenes de trabajo.</div>}
+    </div>
+    </>
   );
 }
 

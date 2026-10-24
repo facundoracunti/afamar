@@ -199,8 +199,7 @@ export default function BudgetsList() {
           />
         </div>
         <select
-          className="input"
-          style={{ width: 280 }}
+          className={`input ${s['budgets__status-filter']}`}
           value={estado}
           onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEstado(e.target.value)}
         >

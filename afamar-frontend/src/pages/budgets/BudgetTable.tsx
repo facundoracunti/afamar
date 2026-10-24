@@ -52,6 +52,7 @@ export default function BudgetTable({
     p.status === 'PENDING' || p.status === 'APPROVED';
 
   return (
+    <>
     <div className={s['budgets__table']}>
       <table>
         <thead>
@@ -199,5 +200,61 @@ export default function BudgetTable({
         </tbody>
       </table>
     </div>
+    <div className={s['budgets__mobile-list']}>
+      {data.map((p: UnifiedBudget) => (
+        <article
+          key={`mobile-${p.type}-${p.id}`}
+          className={s['budgets__mobile-card']}
+          onClick={() => onView(p)}
+        >
+          <div className={s['budgets__mobile-card-header']}>
+            <div>
+              <div className={s['budgets__numero']}>{p.number}</div>
+              {p.workOrderNumber && <div className={s['budgets__numeroSub']}>{'-> '}{p.workOrderNumber}</div>}
+            </div>
+            {p.status === 'CONVERTED_TO_OT' ? (
+              <span className={`${s['budgets__status']} ${s['budgets__status--done']}`}>CONCRETADO</span>
+            ) : p.status === 'APPROVED' ? (
+              <span className={`${s['budgets__status']} ${s['budgets__status--approved']}`}>APROBADO</span>
+            ) : p.status === 'REJECTED' ? (
+              <span className={`${s['budgets__status']} ${s['budgets__status--rejected']}`}>RECHAZADO</span>
+            ) : (
+              <span className={`${s['budgets__status']} ${s['budgets__status--pending']}`}>{translateStatus(p.status)}</span>
+            )}
+          </div>
+          <dl className={s['budgets__mobile-details']}>
+            <div><dt>Cliente</dt><dd>{p.clientName || '-'}</dd></div>
+            <div><dt>Fecha</dt><dd>{formatDate((p.date || '').split('T')[0]) || '-'}</dd></div>
+            <div><dt>Importe</dt><dd><CurrencyDisplay value={p.total} /></dd></div>
+          </dl>
+          <div className={s['budgets__mobile-actions']} onClick={(e) => e.stopPropagation()}>
+            {(canAprobar(p) || canRechazar(p)) && (
+              <div className={s['budgets__mobile-action-group']}>
+                {canAprobar(p) && <button type="button" className={btnCls('success')} onClick={() => onCambiarEstado(p, 'APPROVED')}><Check size={12} /> Aprobar</button>}
+                {canRechazar(p) && <button type="button" className={btnCls('danger')} onClick={() => onCambiarEstado(p, 'REJECTED')}><X size={12} /> Rechazar</button>}
+              </div>
+            )}
+            <div className={s['budgets__mobile-action-group']}>
+              {isConvertible(p) ? (
+                <button type="button" className={btnCls('danger')} onClick={() => onConvertir(p.id)}><FileOutput size={11} /> A OT</button>
+              ) : p.workOrderNumber ? (
+                <button type="button" className={btnCls('ghost')} onClick={() => navigate(`/admin/work-orders?search=${p.workOrderNumber}`)}>OT {p.workOrderNumber}</button>
+              ) : null}
+              <button type="button" className={btnCls()} onClick={() => onView(p)}><Eye size={12} /> Ver</button>
+              <button type="button" className={btnCls()} onClick={() => onOpenPdf(p)}><FileDown size={12} /> PDF</button>
+            </div>
+            <div className={s['budgets__mobile-action-group']}>
+              <button type="button" className={p.clientPhone ? btnCls('success') : btnCls()} onClick={p.clientPhone ? () => onEnviarWhatsApp(p) : undefined} disabled={!p.clientPhone}>
+                <Send size={12} /> WhatsApp
+              </button>
+              <button type="button" className={btnCls('info')} onClick={() => onEnviarEmail(p.id)}><Mail size={12} /> Correo</button>
+              <button type="button" className={btnCls('danger')} onClick={() => onSetDeleteId(p.id)} aria-label={`Eliminar presupuesto ${p.number}`}><Trash2 size={12} /></button>
+            </div>
+          </div>
+        </article>
+      ))}
+      {data.length === 0 && <div className={s['budgets__mobile-empty']}>No hay presupuestos en esta categoría.</div>}
+    </div>
+    </>
   );
 }
