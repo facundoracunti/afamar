@@ -66,8 +66,6 @@ const QuoteOptionsGrid = ({
   principalesBreakdown,
   detalleTrabajosComunes,
   tipoCambio = 1000,
-  budgetId,
-  onConvertirAlternativa,
   modoUSD = false,
 }: Props) => {
   const listaPrincipales: Alternativa[] = mainMaterials && mainMaterials.length > 0 ? mainMaterials : [];

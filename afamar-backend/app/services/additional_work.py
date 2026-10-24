@@ -1,8 +1,7 @@
-from typing import List, Optional
+from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import ValidationError
 from app.models.additional_work import AdditionalWork
 from app.repositories.additional_work import AdditionalWorkRepository
 from app.services.base import BaseService

@@ -115,7 +115,7 @@ export function normalisePiece(raw: unknown, index = 0): BudgetPiece {
   const alts = allMats
     .filter((m) => m.is_alternative)
     .map((m) => ({ ...m, is_alternative: true }));
-  let main: MaterialInForm | null = firstMain
+  const main: MaterialInForm | null = firstMain
     ? { ...firstMain, is_alternative: false }
     : null;
   // Additional "panes" of the principal material become extra measurement

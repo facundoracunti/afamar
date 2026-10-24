@@ -24,12 +24,6 @@ const EMPTY_COMPANY: CompanyInfo = {
   budget_validity_text: '',
 };
 
-const EMPTY_TERMS: TermsInfo = {
-  budget_terms: [],
-  delivery_terms: [],
-  warranty_text: [],
-};
-
 interface RawSettings {
   company_name?: string;
   company_tagline?: string;

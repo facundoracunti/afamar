@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import type { ClientAddress } from '../../types/client';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Plus, X, Star, MapPin } from 'lucide-react';
 import { getClient, createClient, updateClient } from '@/api/resources/clients';
 import { parseApiError } from '../../utils/error';
 import { useCreate, useUpdate, useGet } from '../../api/hooks';
-import { Modal } from '../../components/ui/Modal/Modal';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { FormActions } from '../../components/ui/FormActions/FormActions';
 import { useNotify } from '../../context/NotificationContext';
 import { useClientAddresses } from '../../hooks/useClientAddresses';
 import { ClientHistoryCard } from '../../components/common/ClientHistoryCard';
+import { ClientContactFields, type ClientFormValues } from './ClientContactFields';
+import { ClientAddressesPanel } from './ClientAddressesPanel';
+import { ClientAddressModal } from './ClientAddressModal';
 import styles from './ClientFormPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -34,7 +35,7 @@ export default function ClientForm(props: ClientFormProps = {}) {
   const isEdit = !!id;
   const [saving, setSaving] = useState(false);
   const notify = useNotify();
-  const [cliente, setCliente] = useState({
+  const [cliente, setCliente] = useState<ClientFormValues>({
     name: '', phone: '', email: '', address: '', notes: '',
   });
 
@@ -46,7 +47,6 @@ export default function ClientForm(props: ClientFormProps = {}) {
     addressSaving,
     openNewAddress, openEditAddress,
     handleSaveAddress, handleDeleteAddress, handleSetDefault,
-    reloadAddresses,
   } = useClientAddresses({ clientId: id });
 
   const { data: clientData, loading } = useGet<Record<string, unknown>>(
@@ -82,6 +82,10 @@ export default function ClientForm(props: ClientFormProps = {}) {
     async (variables) => { await updateClient(variables.id, variables.data); },
     { invalidateKeys: [CLIENTS_KEY] }
   );
+
+  const handleChange = (field: keyof ClientFormValues, value: string) => {
+    setCliente((prev) => ({ ...prev, [field]: value }));
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -130,26 +134,7 @@ export default function ClientForm(props: ClientFormProps = {}) {
                 className={`${s['client-form__card']} ${s['client-form__card--fill']}`}
               >
                 <h3 className={s['client-form__section']}>Datos del cliente</h3>
-                <div className={s['client-form__form-row']}>
-                  <div className={s['client-form__group']}>
-                    <label className={s['client-form__label']}>Nombre *</label>
-                    <input className="input" required value={cliente.name} onChange={(e) => setCliente({ ...cliente, name: e.target.value })} />
-                  </div>
-                  <div className={s['client-form__group']}>
-                    <label className={s['client-form__label']}>Teléfono</label>
-                    <input className="input" value={cliente.phone || ''} onChange={(e) => setCliente({ ...cliente, phone: e.target.value })} />
-                  </div>
-                </div>
-                <div className={s['client-form__form-row']}>
-                  <div className={s['client-form__group']}>
-                    <label className={s['client-form__label']}>Correo</label>
-                    <input className="input" type="email" value={cliente.email || ''} onChange={(e) => setCliente({ ...cliente, email: e.target.value })} />
-                  </div>
-                  <div className={s['client-form__group']}>
-                    <label className={s['client-form__label']}>Dirección</label>
-                    <input className="input" value={cliente.address || ''} onChange={(e) => setCliente({ ...cliente, address: e.target.value })} />
-                  </div>
-                </div>
+                <ClientContactFields values={cliente} onChange={handleChange} />
                 <FormActions
                   className={s['client-form__actions--push']}
                   loading={saving}
@@ -164,65 +149,17 @@ export default function ClientForm(props: ClientFormProps = {}) {
                 <h3 className={s['client-form__section']}>Notas y domicilios</h3>
                 <div className={s['client-form__group']}>
                   <label className={s['client-form__label']}>Observaciones</label>
-                  <textarea className="input" rows={4} value={cliente.notes || ''} onChange={(e) => setCliente({ ...cliente, notes: e.target.value })} />
+                  <textarea className="input" rows={4} value={cliente.notes || ''} onChange={(e) => handleChange('notes', e.target.value)} />
                 </div>
 
                 {isEdit && clientData && (
-                  <div className={s['client-form__group']}>
-                    <div className={s['client-form__addresses-header']}>
-                      <label className={s['client-form__label']}>
-                        <MapPin size={14} aria-hidden="true" /> Domicilios alternativos
-                      </label>
-                      <button type="button" className="btn btn-outline" onClick={openNewAddress}>
-                        <Plus size={14} /> Agregar domicilio
-                      </button>
-                    </div>
-                    {addresses.length === 0 ? (
-                      <div className={s['client-form__item-empty']}>
-                        Sin domicilios alternativos. El domicilio de arriba se usa como principal.
-                      </div>
-                    ) : (
-                      <div className={s['client-form__addresses-list']}>
-                        {addresses.map((a) => (
-                          <div
-                            key={a.id}
-                            className={`${s['client-form__address-row']} ${a.is_default ? s['client-form__address-row--default'] : ''}`}
-                          >
-                            <div className={s['client-form__address-info']}>
-                              {a.label && (
-                                <span className={s['client-form__address-label']}>{a.label}</span>
-                              )}
-                              <span className={s['client-form__address-text']}>{a.address}</span>
-                            </div>
-                            <div className={s['client-form__address-actions']}>
-                              {a.is_default ? (
-                                <span className={s['client-form__address-default-badge']} title="Domicilio principal">
-                                  <Star size={12} fill="currentColor" aria-hidden="true" /> Principal
-                                </span>
-                              ) : (
-                                <button type="button" className="btn btn-outline" onClick={() => handleSetDefault(a)} title="Marcar como domicilio principal">
-                                  Hacer principal
-                                </button>
-                              )}
-                              <button type="button" className="btn btn-outline" onClick={() => openEditAddress(a)} aria-label="Editar domicilio">
-                                Editar
-                              </button>
-                              <button
-                                type="button"
-                                className="btn btn-outline"
-                                onClick={() => handleDeleteAddress(a)}
-                                aria-label="Eliminar domicilio"
-                                disabled={addresses.length <= 1}
-                                title={addresses.length <= 1 ? 'El cliente debe tener al menos un domicilio' : 'Eliminar'}
-                              >
-                                <X size={14} />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <ClientAddressesPanel
+                    addresses={addresses}
+                    onOpenNew={openNewAddress}
+                    onEdit={openEditAddress}
+                    onDelete={handleDeleteAddress}
+                    onSetDefault={handleSetDefault}
+                  />
                 )}
               </div>
             </div>
@@ -235,29 +172,10 @@ export default function ClientForm(props: ClientFormProps = {}) {
                 className={`${s['client-form__card']} ${s['client-form__card--fill']}`}
               >
                 <h3 className={s['client-form__section']}>Datos del cliente</h3>
-                <div className={s['client-form__form-row']}>
-                  <div className={s['client-form__group']}>
-                    <label className={s['client-form__label']}>Nombre *</label>
-                    <input className="input" required value={cliente.name} onChange={(e) => setCliente({ ...cliente, name: e.target.value })} />
-                  </div>
-                  <div className={s['client-form__group']}>
-                    <label className={s['client-form__label']}>Teléfono</label>
-                    <input className="input" value={cliente.phone || ''} onChange={(e) => setCliente({ ...cliente, phone: e.target.value })} />
-                  </div>
-                </div>
-                <div className={s['client-form__form-row']}>
-                  <div className={s['client-form__group']}>
-                    <label className={s['client-form__label']}>Correo</label>
-                    <input className="input" type="email" value={cliente.email || ''} onChange={(e) => setCliente({ ...cliente, email: e.target.value })} />
-                  </div>
-                  <div className={s['client-form__group']}>
-                    <label className={s['client-form__label']}>Dirección</label>
-                    <input className="input" value={cliente.address || ''} onChange={(e) => setCliente({ ...cliente, address: e.target.value })} />
-                  </div>
-                </div>
+                <ClientContactFields values={cliente} onChange={handleChange} />
                 <div className={s['client-form__group']}>
                   <label className={s['client-form__label']}>Observaciones</label>
-                  <textarea className="input" rows={3} value={cliente.notes || ''} onChange={(e) => setCliente({ ...cliente, notes: e.target.value })} />
+                  <textarea className="input" rows={3} value={cliente.notes || ''} onChange={(e) => handleChange('notes', e.target.value)} />
                 </div>
                 <FormActions
                   loading={saving}
@@ -278,58 +196,15 @@ export default function ClientForm(props: ClientFormProps = {}) {
         )}
       </div>
 
-      <Modal
-        isOpen={showAddressModal}
+      <ClientAddressModal
+        open={showAddressModal}
+        editing={!!editingAddress}
+        form={addressForm}
+        saving={addressSaving}
+        onChange={setAddressForm}
+        onSave={() => { void handleSaveAddress(); }}
         onClose={() => setShowAddressModal(false)}
-        title={editingAddress ? 'Editar domicilio' : 'Nuevo domicilio'}
-      >
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSaveAddress();
-          }}
-        >
-          <div className="form-group">
-            <label>Etiqueta (ej. Casa, Oficina, Cliente 1)</label>
-            <input
-              className="input"
-              value={addressForm.label}
-              onChange={(e) => setAddressForm({ ...addressForm, label: e.target.value })}
-              placeholder="Principal"
-              autoFocus
-            />
-          </div>
-          <div className="form-group">
-            <label>Dirección *</label>
-            <input
-              className="input"
-              required
-              value={addressForm.address}
-              onChange={(e) => setAddressForm({ ...addressForm, address: e.target.value })}
-              placeholder="Calle N° - Ciudad - Provincia"
-            />
-          </div>
-          <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <input
-              id="address-default"
-              type="checkbox"
-              checked={addressForm.is_default}
-              onChange={(e) => setAddressForm({ ...addressForm, is_default: e.target.checked })}
-            />
-            <label htmlFor="address-default" style={{ marginBottom: 0 }}>
-              Marcar como domicilio principal
-            </label>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-            <button type="button" className="btn btn-outline" onClick={() => setShowAddressModal(false)}>
-              Cancelar
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={addressSaving || !addressForm.address.trim()}>
-              {addressSaving ? 'Guardando...' : editingAddress ? 'Actualizar' : 'Agregar'}
-            </button>
-          </div>
-        </form>
-      </Modal>
+      />
     </div>
   );
 }

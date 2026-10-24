@@ -20,12 +20,6 @@ class StockMovementResponse(BaseResponse):
     created_at: datetime
 
 
-class PoolTypeResponse(BaseResponse):
-    id: int
-    name: str
-    label: str
-
-
 class PoolStockBase(BaseModel):
     brand: str
     model: str

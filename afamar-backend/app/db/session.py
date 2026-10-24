@@ -1,7 +1,6 @@
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import QueuePool
-from sqlalchemy.orm import sessionmaker
 
 from app.core.settings import settings
 

@@ -1,5 +1,4 @@
 import React, { Suspense, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Edit, Trash2 } from 'lucide-react';
 import { getClients, searchClients, deleteClient } from '@/api/resources/clients';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
@@ -35,7 +34,6 @@ interface LocalClient {
 const CLIENTS_KEY = ['clients'] as const;
 
 export default function ClientsList() {
-  const navigate = useNavigate();
   const [modal, setModal] = useState<ClientModal>(null);
   const closeModal = () => setModal(null);
 

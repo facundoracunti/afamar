@@ -1,22 +1,18 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Save } from 'lucide-react';
 import { getMeasurement, createMeasurement, updateMeasurement } from '@/api/resources/measurements';
 import { getClients } from '@/api/resources/clients';
 import { getWorkOrders, getWorkOrder } from '@/api/resources/workOrders';
 import { parseApiError } from '../../utils/error';
-import { measurementStatuses, formatDate } from '../../utils/formatters';
-import { t } from '../../utils/translate';
 import { useGet, useList } from '../../api/hooks';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
-import { StatusBadge } from '../../components/ui/StatusBadge';
-import ClientInfoCard from '../../components/orders/ClientInfoCard/ClientInfoCard';
-import { MeasurementPhotoGrid } from '../../components/common/MeasurementPhotoGrid';
 import type { Measurement, MeasurementFormData } from '../../types/measurement';
 import type { Client } from '../../types/client';
 import type { WorkOrderListItem } from '../../types/workOrder';
 import { useNotify } from '../../context/NotificationContext';
+import { MeasurementFormFields } from './MeasurementFormFields';
+import { MeasurementClientCard } from './MeasurementClientCard';
 import styles from './MeasurementFormPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -100,21 +96,7 @@ export default function MeasurementForm(props: MeasurementFormProps = {}) {
     },
   );
 
-  const addOrRefreshClientes = useCallback((newClient?: Client) => {
-    if (newClient) {
-      // Prepend the new client to the cached list (no API refetch needed).
-      queryClient.setQueryData<Client[]>(CLIENTS_KEY, (prev) => {
-        const list = prev ?? [];
-        if (list.some((c) => c.id === newClient.id)) return list;
-        return [newClient, ...list];
-      });
-    } else {
-      // No-arg path → full refetch.
-      queryClient.invalidateQueries({ queryKey: ['clients'] });
-    }
-  }, [queryClient]);
-
-  const [woKey, setWoKey] = useState(0);
+  const [woKey] = useState(0);
   const { items: workOrders, loading: loadingWorkOrders } = useList<WorkOrderListItem>(
     ['work-orders', 'measurement-candidates', woKey, selectedClientId],
     () => fetchWorkOrdersForClient(selectedClientId)
@@ -133,8 +115,8 @@ export default function MeasurementForm(props: MeasurementFormProps = {}) {
 
     let sketch: unknown[] = [];
     let photos: string[] = [];
-    try { if (measurement.sketch_data) sketch = JSON.parse(measurement.sketch_data); } catch {}
-    try { if (measurement.photos_data) photos = JSON.parse(measurement.photos_data); } catch {}
+    try { if (measurement.sketch_data) sketch = JSON.parse(measurement.sketch_data); } catch { sketch = []; }
+    try { if (measurement.photos_data) photos = JSON.parse(measurement.photos_data); } catch { photos = []; }
     setForm({
       clientId: measurement.client_id ?? null,
       scheduledDate: measurement.scheduled_date ? measurement.scheduled_date.split('T')[0] : '',
@@ -185,23 +167,21 @@ export default function MeasurementForm(props: MeasurementFormProps = {}) {
         console.warn('Pre-fill from work order failed (user can fill manually):', err);
       });
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [presetWorkOrderId, isEdit]);
 
   const notify = useNotify();
 
-  const handleChange = (field: keyof MeasurementFormData) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    setForm((prev) => ({ ...prev, [field]: e.target.value }));
+  const handleChange = (field: keyof MeasurementFormData, value: string) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleWorkOrderChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const woId = Number(e.target.value);
+  const handleWorkOrderChange = (workOrderId: number | '') => {
     setForm((prev) => {
-      if (!woId) return { ...prev, workOrderId: '' };
-      const wo = workOrders.find((w) => w.id === woId);
+      if (!workOrderId) return { ...prev, workOrderId: '' };
+      const wo = workOrders.find((w) => w.id === workOrderId);
       return {
         ...prev,
-        workOrderId: woId,
+        workOrderId,
         clientId: prev.clientId ?? wo?.client_id ?? null,
       };
     });
@@ -255,7 +235,6 @@ export default function MeasurementForm(props: MeasurementFormProps = {}) {
 
   if (loading || (isEdit && !measurement)) return <LoadingSpinner />;
 
-  const selectedWo = workOrders.find((w) => w.id === (form.workOrderId ? Number(form.workOrderId) : 0));
   const selectedClient = clientes.find((c) => c.id === form.clientId);
 
   const isModal = Boolean(props.onCancel || props.onSuccess);
@@ -272,73 +251,23 @@ export default function MeasurementForm(props: MeasurementFormProps = {}) {
         <div className={s['measurement-form__layout']}>
           {/* Left column: WO + measurement fields */}
           <div className={s['measurement-form__left']}>
-            {/* Measurement fields card */}
-            <div className={s['measurement-form__card']}>
-              <div className={s['measurement-form__row']}>
-                <div className={s['measurement-form__group']}>
-                  <label className={s['measurement-form__label']}>Orden de Trabajo (Medición)</label>
-                  <select
-                    className="input"
-                    value={form.workOrderId ?? ''}
-                    onChange={handleWorkOrderChange}
-                    disabled={loadingWorkOrders}
-                  >
-                    <option value="">— Ninguna —</option>
-                    {workOrders.map((wo) => (
-                      <option key={wo.id} value={wo.id}>
-                        {wo.number}{wo.client_name ? ` — ${wo.client_name}` : ''} ({t(wo.status)})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className={s['measurement-form__group']}>
-                  <label className={s['measurement-form__label']}>Estado</label>
-                  <select className="input" value={form.status} onChange={handleChange('status')}>
-                    {measurementStatuses.map((e: string) => <option key={e} value={e}>{t(e)}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              <div className={s['measurement-form__row']}>
-                <div className={s['measurement-form__group']}>
-                  <label className={s['measurement-form__label']}>Fecha programada</label>
-                  <input className="input" type="date" value={form.scheduledDate} onChange={handleChange('scheduledDate')} />
-                </div>
-                <div className={s['measurement-form__group']}>
-                  <label className={s['measurement-form__label']}>Hora programada</label>
-                  <input className="input" type="time" value={form.scheduledTime} onChange={handleChange('scheduledTime')} />
-                </div>
-              </div>
-
-              <div className={s['measurement-form__group']}>
-                <label className={s['measurement-form__label']}>Observaciones</label>
-                <textarea className="input" rows={3} value={form.observations} onChange={handleChange('observations')} />
-              </div>
-
-              <div className={s['measurement-form__group']}>
-                <label className={s['measurement-form__label']}>Fotos</label>
-                <MeasurementPhotoGrid
-                  fotos={form.photos}
-                  onAddFotos={(newFotos) => setForm((prev) => ({ ...prev, photos: newFotos }))}
-                  onRemoveFoto={(idx) => setForm((prev) => ({ ...prev, photos: prev.photos.filter((_, i) => i !== idx) }))}
-                />
-              </div>
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
-                <button type="button" className="btn btn-outline" onClick={handleCancel}>
-                  Cancelar
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={saving}>
-                  <Save size={16} /> {saving ? 'Guardando...' : (isEdit ? 'Actualizar' : 'Crear Medición')}
-                </button>
-              </div>
-            </div>
+            <MeasurementFormFields
+              form={form}
+              workOrders={workOrders}
+              loadingWorkOrders={loadingWorkOrders}
+              saving={saving}
+              isEdit={isEdit}
+              onChange={handleChange}
+              onWorkOrderChange={handleWorkOrderChange}
+              onAddPhotos={(newFotos) => setForm((prev) => ({ ...prev, photos: newFotos }))}
+              onRemovePhoto={(idx) => setForm((prev) => ({ ...prev, photos: prev.photos.filter((_, i) => i !== idx) }))}
+              onCancel={handleCancel}
+            />
           </div>
 
           {/* Right column: client card */}
           <div className={s['measurement-form__right']}>
-            <div className={s['measurement-form__card']}>
-              <ClientInfoCard client={selectedClient} />
-            </div>
+            <MeasurementClientCard client={selectedClient} />
           </div>
         </div>
       </form>

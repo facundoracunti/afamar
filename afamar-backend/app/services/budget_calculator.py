@@ -30,10 +30,6 @@ def filter_main_materials(materials: list) -> list:
     return [m for m in materials if not m.get("is_alternative") and not m.get("es_alternativa")]
 
 
-def has_alternative_materials(materials: list) -> bool:
-    return any(m.get("is_alternative") or m.get("es_alternativa") for m in materials)
-
-
 def flatten_pieces(data: dict, only_if_missing: bool = False) -> None:
     """When `data` carries `pieces_data` (multi-piece flow), derive the legacy
     document-level arrays from it and write them into `data`.

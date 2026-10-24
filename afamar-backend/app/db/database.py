@@ -1,5 +1,5 @@
 import logging
-from .session import SessionLocal, engine
+from .session import SessionLocal, engine as engine
 
 logger = logging.getLogger(__name__)
 
@@ -10,6 +10,3 @@ def get_db():
         yield db
     finally:
         db.close()
-
-def dispose_db():
-    engine.dispose()

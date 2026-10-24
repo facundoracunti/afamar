@@ -52,10 +52,6 @@ class BudgetSketchElementBase(BaseModel):
     order: int = 0
 
 
-class BudgetSketchElementCreate(BudgetSketchElementBase):
-    pass
-
-
 class BudgetSketchElementResponse(BudgetSketchElementBase, BaseResponse):
     id: int
     budget_id: int

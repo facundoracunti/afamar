@@ -1,81 +1,26 @@
-import React, { Suspense, useState, type ReactNode } from 'react';
-import type { FabricationDetail, MaterialInForm } from '../../types';
-import type { PdfDocumentData } from '../../utils/pdf/buildPdfData';
-import EntityFormClient from './EntityFormClient';
-import EntityFormSpecs from './EntityFormSpecs';
-import EntityFormFinancial from './EntityFormFinancial';
-import BudgetFormAdicionales from '../../pages/budgets/BudgetFormAdicionales';
-import FabricationSection from '../budget/FabricationSection/FabricationSection';
-import AdditionalWorkSection from '../budget/AdditionalWorkSection/AdditionalWorkSection';
-import PiecesSection from '@features/budgets/components/PiecesSection';
-import SketchSection from '../sketch/SketchSection/SketchSection';
+import React, { useState } from 'react';
+import type { FabricationDetail } from '../../types';
 import PorcelainCalculatorSection from '../calculator/PorcelainCalculatorSection/PorcelainCalculatorSection';
 import TermsEditor from '../ui/TermsEditor/TermsEditor';
-import FormFooter from '../orders/FormFooter/FormFooter';
-import EntityFormWizard, { type EntityFormWizardStep } from './EntityFormWizard';
-import { ConfirmDialog } from '../ui/ConfirmDialog/ConfirmDialog';
-import { LoadingSpinner } from '../ui/LoadingSpinner/LoadingSpinner';
-import { parseNumber } from '../../utils/formatters';
+import EntityFormWizard from './EntityFormWizard';
+import EntityFormLayoutPiecesLayout from './EntityFormLayout.PiecesLayout';
+import EntityFormLayoutLegacyLayout from './EntityFormLayout.LegacyLayout';
+import EntityFormLayoutOverlays from './EntityFormLayout.Overlays';
+import { useEntityFormWizardSteps } from './EntityFormLayout.useWizardSteps';
 import {
   useEntityFormActions,
   useEntityFormDomain,
   useEntityFormState,
   useEntityFormStyle,
 } from './EntityFormContexts';
-import type { UseBudgetPiecesReturn } from '@features/budgets/hooks/useBudgetPieces';
+import type {
+  EntityFormLayoutProps,
+  EntityFormLayoutSlots,
+} from './EntityFormLayout.types';
 
-const PdfPreviewModal = React.lazy(() => import('../ui/PdfPreviewModal/PdfPreviewModal'));
-const SketchImageExtractor = React.lazy(() => import('../ui/PdfPreviewModal/SketchImageExtractor'));
-
-interface TermConfig {
-  title: string;
-  items: string[];
-  onChange: (items: string[]) => void;
-  placeholder?: string;
-  hint?: string;
-  disabled: boolean;
-}
-
-/**
- * Public API. Most state/handlers are consumed from the 4 contexts set up
- * by the consuming page. The slots below are page-specific extras:
- *
- *   - `beforeLayout`, `observations`, `extraDialogs` — render slots
- *   - `terms` — per-page list of term editor cards (Budget = none,
- *     WorkOrder = delivery + warranty)
- *   - `alternativasGrid` — only set by the Budget page
- *   - `specsCardClassName`, `fabricationShowMeasurementComparison` —
- *     `fabricationMaterialsData` — small layout/materialisation overrides
- *
- * The BudgetFormPage and WorkOrderFormPage wrap this component in the
- * 4 `EntityFormXxxProvider`s from `EntityFormContexts.tsx`.
- */
-export interface EntityFormLayoutProps {
-  beforeLayout?: ReactNode;
-  observations?: ReactNode;
-  terms?: TermConfig[];
-  alternativasGrid?: ReactNode;
-  /** Slot para acciones primarias (ej: "CONVERTIR A ORDEN"). */
-  actionBlock?: ReactNode;
-  extraDialogs?: ReactNode;
-  specsCardClassName?: string;
-  fabricationShowMeasurementComparison?: boolean;
-  fabricationMaterialsData?: MaterialInForm[];
-  mode?: 'full' | 'wizard';
-  /**
-   * Pieces v3: budgets AND work orders render in pieces-only mode. This
-   * flag exists so a legacy consumer could still opt into the flat
-   * single-mesada layout — currently nothing sets it to false.
-   */
-  showPieces?: boolean;
-  /** Required when `showPieces` is true. Comes from `useEntityForm().piecesFlow`. */
-  piecesFlow?: UseBudgetPiecesReturn;
-  /** Slot para la sección de cobros. La página de presupuestos NO la pasa
-   *  (cotización pura: sin Traslado/Forma de pago/Fechas). `WorkOrderFormPage`
-   *  la enchufa con `<WorkOrderPaymentSection .../>` para desacoplar el
-   *  cobro de la OT del resto del flujo del presupuesto. */
-  paymentSection?: ReactNode;
-}
+// Public types — kept exported from this file so the consuming pages
+// (and any other consumer) keep importing them from the same place.
+export type { EntityFormLayoutProps, EntityFormLayoutSlots, TermConfig } from './EntityFormLayout.types';
 
 // Helper: ts-friendly accessor — the lazy providers below accept the
 // domain value object directly, but the public prop type re-exports the
@@ -88,31 +33,26 @@ function useEntityFormLayoutInternals() {
   return { styles, prefix, state, domain, actions };
 }
 
+/**
+ * Orchestrator of the shared entity form body.
+ *
+ * It only decides WHICH layout runs (wizard / pieces-only / legacy
+ * 2-column) and assembles the page-specific slots every sub-block needs.
+ * The blocks themselves live in focused sibling components:
+ *
+ *   - `EntityFormLayout.ClientBlock`  → client card (shared by all modes)
+ *   - `EntityFormLayout.BottomStack`  → calculator + croquis + totals +
+ *                                        observations + terms + footer
+ *   - `EntityFormLayout.PiecesLayout` → pieces-only cascade (budgets)
+ *   - `EntityFormLayout.LegacyLayout` → flat 2-column layout
+ *   - `EntityFormLayout.Overlays`     → PDF preview + delete dialog
+ *   - `EntityFormLayout.useWizardSteps` → the wizard panels
+ */
 export default function EntityFormLayout(props: EntityFormLayoutProps) {
   const { styles: s, prefix, state, domain, actions } = useEntityFormLayoutInternals();
-  const {
-    form, setForm, update, readOnly, saving, M2_CONCEPTS,
-  } = state;
-  const {
-    materials: materiales, addMaterial, removeMaterial, updateMaterial,
-    addMaterialRow, removeMaterialGroup, updateMaterialGroup, swapMaterialGroup,
-    pools, addPileta, removePileta, updatePileta, setPoolFields,
-    clientes, addOrRefreshClientes, onAddressAdded,
-    paymentMethods,
-    handleDetailChange, addDetalle, removeDetalle,
-    modoUSD, toggleModoUSD, hayUSD, hayAlternativas,
-    handleTransportChange, handleDepositCurrencyChange, handleDepositAmountChange,
-    handleUsdRateChange, onUsdRateRefresh,
-    formMaterials,
-  } = domain;
-  const {
-    handleSubmit, onCancel, onConfirmarPago,
-    showCroquis, setShowCroquis,
-    pdfData, pdfPreviewLoading, handleClosePdfPreview, pdfTitle, pdfFileName,
-    sketchExtractorActive, handleSketchImagesReady,
-    deleteConfirm, setDeleteConfirm, handleDelete,
-    deleteTitle, deleteMessage, deleteConfirmLabel, deleteDanger,
-  } = actions;
+  const { form, update, readOnly, saving } = state;
+  const { formMaterials, modoUSD } = domain;
+  const { showCroquis, handleSubmit, onCancel } = actions;
 
   const {
       beforeLayout, observations, terms = [],
@@ -129,20 +69,6 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
   // into the flat layout, but nothing does today.
   const piecesOn = Boolean(showPieces && piecesFlow);
 
-  // Single-column cascade: each piece card spans the full width and
-  // stacks downward as the operator adds more mesadas. Pools sit below
-  // as a compact document-global section.
-  const piecesSection = piecesOn && piecesFlow ? (
-    <PiecesSection
-      form={form}
-      readOnly={readOnly}
-      materials={materiales}
-      pools={pools}
-      pieces={piecesFlow.pieces}
-      handlers={piecesFlow}
-      showMeasurementComparison={fabricationShowMeasurementComparison}
-    />
-  ) : null;
   const [wizardStep, setWizardStep] = useState(0);
 
   const layoutClass = showCroquis ? `${prefix}layout` : `${prefix}layout ${prefix}layout--no-sketch`;
@@ -166,68 +92,6 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
 
   const addPorcelainDetail = (detail: FabricationDetail) =>
     update('fabrication_details', [...(form.fabrication_details || []), detail]);
-
-  // Bottom stack — shared between the pieces-only branch (budgets) and
-  // the legacy 2-column branch (work orders). These modules are
-  // document-global, not piece-scoped, so they must always render below
-  // the materials/pieces card regardless of layout mode.
-  const renderBottom = () => (
-    <>
-      <div className={s[`${prefix}bottom`]}>
-        {porcelainCalculatorCollapsed}
-
-        <SketchSection
-          showCroquis={showCroquis}
-          setShowCroquis={setShowCroquis}
-          sketchElements={form.sketch_elements}
-          onChange={(v) => update('sketch_elements', v)}
-          readOnly={readOnly}
-          toggleLabel="Diseño / Plano"
-          materials={sketchMaterials}
-        />
-
-        <EntityFormFinancial
-          form={form}
-          modoUSD={modoUSD}
-          toggleModoUSD={toggleModoUSD}
-          hayUSD={hayUSD}
-          hayAlternativas={hayAlternativas}
-          readOnly={readOnly}
-          saving={saving}
-          handleTransportChange={handleTransportChange}
-          handleDepositCurrencyChange={handleDepositCurrencyChange}
-          handleDepositAmountChange={handleDepositAmountChange}
-          handleUsdRateChange={handleUsdRateChange}
-          onUsdRateRefresh={onUsdRateRefresh}
-          setForm={setForm}
-          update={update}
-          num={parseNumber}
-          alternativasGrid={alternativasGrid}
-          actionBlock={actionBlock}
-          paymentSection={paymentSection}
-          onConfirmarPago={onConfirmarPago}
-          paymentMethods={paymentMethods}
-        />
-      </div>
-
-      {observations}
-
-      {terms.map((t) => (
-        <div key={t.title} className={s[`${prefix}card`]} style={{ marginTop: 16 }}>
-          <h3 className={s[`${prefix}card-title`]}>{t.title}</h3>
-          <TermsEditor
-            items={t.items}
-            onChange={t.onChange}
-            placeholder={t.placeholder || ''}
-            hint={t.hint}
-            disabled={t.disabled}
-          />
-        </div>
-      ))}
-
-      <FormFooter saving={saving} onCancel={onCancel} />
-    </>
-  );
 
   // Unique material names from the form so each sketch page can be labeled
   // with the countertop material it draws (printed on the taller sheet).
@@ -256,177 +120,28 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
   // En el modo full vive al pie, junto al croquis: collapsed por defecto.
   const porcelainCalculatorCollapsed = <PorcelainCalculatorSection {...porcelainCalculatorProps} />;
 
-  const wizardSteps: EntityFormWizardStep[] = [
-    {
-      id: 'client',
-      label: 'Cliente y entrega',
-      description: 'Datos del cliente y domicilio de obra.',
-      content: (
-        <>
-          <EntityFormClient
-            form={form}
-            readOnly={readOnly}
-            update={update}
-            clientes={clientes}
-            onClientCreated={addOrRefreshClientes}
-            onAddressAdded={onAddressAdded}
-          />
-          {beforeLayout}
-        </>
-      ),
-    },
-    {
-      id: 'materials',
-      label: 'Materiales',
-      description: 'Materiales principales y alternativas.',
-      content: piecesOn && piecesFlow ? (
-        <PiecesSection
-          form={form}
-          readOnly={readOnly}
-          materials={materiales}
-          pools={pools}
-          pieces={piecesFlow.pieces}
-          handlers={piecesFlow}
-          showMeasurementComparison={fabricationShowMeasurementComparison}
-        />
-      ) : (
-        <EntityFormSpecs
-          form={form}
-          readOnly={readOnly}
-          materials={materiales}
-          addMaterial={addMaterial}
-          updateMaterial={updateMaterial}
-          removeMaterial={removeMaterial}
-          addMaterialRow={addMaterialRow}
-          removeMaterialGroup={removeMaterialGroup}
-          updateMaterialGroup={updateMaterialGroup}
-          swapMaterialGroup={swapMaterialGroup}
-          update={update}
-          num={parseNumber}
-          cardClassName={specsCardClassName}
-        />
-      ),
-    },
-    {
-      id: 'pools',
-      label: 'Piletas',
-      description: 'Piletas y asignación a materiales.',
-      content: (
-        <BudgetFormAdicionales
-          form={form}
-          readOnly={readOnly}
-          pools={pools}
-          formMaterials={formMaterials}
-          updatePileta={updatePileta}
-          removePileta={removePileta}
-          addPileta={addPileta}
-          setPoolFields={setPoolFields}
-          num={parseNumber}
-        />
-      ),
-    },
-    {
-      id: 'fabrication',
-      label: 'Fabricación',
-      description: 'Zócalos, frentes y medidas adicionales.',
-      content: (
-        <FabricationSection
-          detalles={(form.fabrication_details as FabricationDetail[]) || []}
-          readOnly={readOnly}
-          formMaterials={formMaterials}
-          M2_CONCEPTS={M2_CONCEPTS}
-          num={parseNumber as (v: unknown) => number}
-          handleDetailChange={handleDetailChange}
-          addDetalle={addDetalle}
-          removeDetalle={removeDetalle}
-          showMeasurementComparison={fabricationShowMeasurementComparison}
-          materialsData={fabricationMaterialsData}
-        />
-      ),
-    },
-    {
-      id: 'additional-works',
-      label: 'Trabajos adicionales',
-      description: 'Extras, frentes y trabajos del catálogo.',
-      content: (
-        <AdditionalWorkSection
-          value={form.additional_works_data}
-          onChange={(json) => setForm({ ...form, additional_works_data: json })}
-          readOnly={readOnly}
-          formMaterials={formMaterials}
-        />
-      ),
-    },
-    {
-      id: 'sketch',
-      label: 'Diseño y plano',
-      description: 'Croquis, observaciones y diseño.',
-      content: (
-        <SketchSection
-          showCroquis={showCroquis}
-          setShowCroquis={setShowCroquis}
-          sketchElements={form.sketch_elements}
-          onChange={(v) => update('sketch_elements', v)}
-          readOnly={readOnly}
-          toggleLabel="Diseño / Plano"
-          materials={sketchMaterials}
-        />
-      ),
-    },
-    {
-      id: 'porcelain-calculator',
-      label: 'Calculadora de porcelanato',
-      description: 'Servicio de corte de zócalos de porcelanato.',
-      content: porcelainCalculator,
-    },
-    {
-      id: 'financial',
-      label: 'Totales y pago',
-      description: 'Precios, descuentos, señas y entrega.',
-      content: (
-        <EntityFormFinancial
-          form={form}
-          modoUSD={modoUSD}
-          toggleModoUSD={toggleModoUSD}
-          hayUSD={hayUSD}
-          hayAlternativas={hayAlternativas}
-          readOnly={readOnly}
-          saving={saving}
-          handleTransportChange={handleTransportChange}
-          handleDepositCurrencyChange={handleDepositCurrencyChange}
-          handleDepositAmountChange={handleDepositAmountChange}
-          handleUsdRateChange={handleUsdRateChange}
-          onUsdRateRefresh={onUsdRateRefresh}
-          setForm={setForm}
-          update={update}
-          num={parseNumber}
-          alternativasGrid={alternativasGrid}
-          actionBlock={actionBlock}
-          paymentSection={paymentSection}
-          onConfirmarPago={onConfirmarPago}
-          paymentMethods={paymentMethods}
-        />
-      ),
-    },
-    {
-      id: 'review',
-      label: 'Observaciones y condiciones',
-      description: 'Notas finales, entrega y garantía.',
-      content: (
-        <div className={s[`${prefix}right`]}>
-          {observations}
-          {wizardTerms}
-        </div>
-      ),
-    },
-  ].filter(
-    // Pieces v3: with the multi-piece editor active, the legacy
-    // Piletas / Fabricación / Trabajos adicionales steps collapse into
-    // the single "Materiales" step (each piece carries its own pools +
-    // zócalos + adicionales). Hide them in the wizard so the operator
-    // doesn't see duplicate controls.
-    (step) => !piecesOn || !['pools', 'fabrication', 'additional-works'].includes(step.id),
-  );
+  const slots: EntityFormLayoutSlots = {
+    beforeLayout,
+    observations,
+    terms,
+    wizardTerms,
+    alternativasGrid,
+    actionBlock,
+    paymentSection,
+    onConfirmarPago: actions.onConfirmarPago,
+    porcelainCalculator,
+    porcelainCalculatorCollapsed,
+    sketchMaterials,
+  };
+
+  const wizardSteps = useEntityFormWizardSteps({
+    slots,
+    piecesOn,
+    piecesFlow,
+    specsCardClassName,
+    fabricationShowMeasurementComparison,
+    fabricationMaterialsData,
+  });
 
   return (
     <>
@@ -444,127 +159,28 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
             onCancel={onCancel}
             saving={saving}
           />
-        ) : piecesOn ? (
+        ) : piecesOn && piecesFlow ? (
           // Pieces-only mode (budgets): single-column cascade. The pieces
           // card already embeds its own pools + zócalo/frente + adicionales
           // sections, so the legacy globals (MATERIALES / PILETAS /
           // FABRICACIÓN / ADICIONALES) collapse into it.
-          <>
-            <EntityFormClient
-              form={form}
-              readOnly={readOnly}
-              update={update}
-              clientes={clientes}
-              onClientCreated={addOrRefreshClientes}
-              onAddressAdded={onAddressAdded}
-            />
-
-            {beforeLayout}
-
-            {piecesSection}
-
-            {renderBottom()}
-          </>
+          <EntityFormLayoutPiecesLayout
+            slots={slots}
+            piecesFlow={piecesFlow}
+            fabricationShowMeasurementComparison={fabricationShowMeasurementComparison}
+          />
         ) : (
-          <>
-            <EntityFormClient
-          form={form}
-          readOnly={readOnly}
-          update={update}
-          clientes={clientes}
-          onClientCreated={addOrRefreshClientes}
-          onAddressAdded={onAddressAdded}
-        />
-
-        {beforeLayout}
-
-        <div className={layoutClassName}>
-          <div className={s[`${prefix}right`]}>
-            <EntityFormSpecs
-              form={form}
-              readOnly={readOnly}
-              materials={materiales}
-              addMaterial={addMaterial}
-              updateMaterial={updateMaterial}
-              removeMaterial={removeMaterial}
-              addMaterialRow={addMaterialRow}
-              removeMaterialGroup={removeMaterialGroup}
-              updateMaterialGroup={updateMaterialGroup}
-              swapMaterialGroup={swapMaterialGroup}
-              update={update}
-              num={parseNumber}
-              cardClassName={specsCardClassName}
-            />
-            <BudgetFormAdicionales
-              form={form}
-              readOnly={readOnly}
-              pools={pools}
-              formMaterials={formMaterials}
-              updatePileta={updatePileta}
-              removePileta={removePileta}
-              addPileta={addPileta}
-              setPoolFields={setPoolFields}
-              num={parseNumber}
-            />
-          </div>
-          <div className={s[`${prefix}right`]}>
-            <FabricationSection
-              detalles={(form.fabrication_details as FabricationDetail[]) || []}
-              readOnly={readOnly}
-              formMaterials={formMaterials}
-              M2_CONCEPTS={M2_CONCEPTS}
-              num={parseNumber as (v: unknown) => number}
-              handleDetailChange={handleDetailChange}
-              addDetalle={addDetalle}
-              removeDetalle={removeDetalle}
-              showMeasurementComparison={fabricationShowMeasurementComparison}
-              materialsData={fabricationMaterialsData}
-            />
-            <AdditionalWorkSection
-              value={form.additional_works_data}
-              onChange={(json) => setForm({ ...form, additional_works_data: json })}
-              readOnly={readOnly}
-              formMaterials={formMaterials}
-            />
-          </div>
-        </div>
-
-        {renderBottom()}
-          </>
+          <EntityFormLayoutLegacyLayout
+            slots={slots}
+            layoutClassName={layoutClassName}
+            specsCardClassName={specsCardClassName}
+            fabricationShowMeasurementComparison={fabricationShowMeasurementComparison}
+            fabricationMaterialsData={fabricationMaterialsData}
+          />
         )}
       </form>
 
-      <Suspense fallback={<LoadingSpinner />}>
-        <PdfPreviewModal
-          isOpen={pdfData !== null || pdfPreviewLoading}
-          onClose={handleClosePdfPreview}
-          data={pdfData}
-          loading={pdfPreviewLoading}
-          title={pdfTitle}
-          fileName={pdfFileName}
-        />
-      </Suspense>
-
-      {sketchExtractorActive && (
-        <Suspense fallback={null}>
-          <SketchImageExtractor
-            sketchElements={form.sketch_elements}
-            onReady={handleSketchImagesReady}
-          />
-        </Suspense>
-      )}
-
-      <ConfirmDialog
-        open={deleteConfirm}
-        onCancel={() => setDeleteConfirm(false)}
-        onConfirm={handleDelete}
-        title={deleteTitle}
-        message={deleteMessage}
-        confirmLabel={deleteConfirmLabel}
-        danger={deleteDanger}
-      />
-
-      {extraDialogs}
+      <EntityFormLayoutOverlays extraDialogs={extraDialogs} />
     </>
   );
 }

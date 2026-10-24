@@ -4,7 +4,6 @@ from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
-from app.models.reference import Currency
 
 
 class PoolType(Base):

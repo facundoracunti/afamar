@@ -48,18 +48,6 @@ class PaymentMethodCreate(PaymentMethodBase):
     pass
 
 
-class PaymentMethodUpdate(BaseModel):
-    name: Optional[str] = Field(default=None, min_length=1, max_length=50)
-    label: Optional[str] = Field(default=None, min_length=1, max_length=100)
-    color: Optional[str] = Field(default=None, max_length=20)
-    is_active: Optional[bool] = None
-    sort_order: Optional[int] = None
-    type: Optional[str] = None
-    value: Optional[float] = None
-    is_percentage: Optional[bool] = None
-    applies_to_installments: Optional[bool] = None
-
-
 class PaymentMethodResponse(PaymentMethodBase):
     id: int
     created_at: Optional[datetime] = None

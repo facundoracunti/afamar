@@ -23,7 +23,7 @@ from app.services.budget_calculator import (
     compute_pool_totals,
     parse_additional_works_snapshot,
 )
-from app.services.budget_options import parse_pieces, resolve_budget_options
+from app.services.budget_options import resolve_budget_options
 
 
 def _flatten_option_pieces(option: dict) -> dict[str, list]:

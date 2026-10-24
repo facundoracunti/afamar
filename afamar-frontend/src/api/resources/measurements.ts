@@ -1,4 +1,3 @@
-import http from '../http';
 import { createResource } from './createResource';
 
 const measurements = createResource('measurements');

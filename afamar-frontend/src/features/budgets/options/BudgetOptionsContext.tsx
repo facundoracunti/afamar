@@ -8,17 +8,23 @@ import React, {
 } from 'react';
 import type { EntityFormState } from '../../../types/form';
 import type { BudgetOption, BudgetPiece } from '../../../types/budget';
-import { flattenPieces } from '../utils/pieces';
 import { computeOptionSubtotal } from '@/utils/pdf/buildPdfData.alternatives';
 import {
-  clonePieces,
-  createEmptyOption,
-  createEmptyOptionPieces,
   isMultiOption,
-  nextOptionId,
-  nextOptionName,
   resolveActiveOptionId,
 } from './budgetOptions';
+import { withPieces } from './budgetOptions.pieces';
+import { createGhostPiecesRegistry } from './budgetOptions.ghost';
+import type { GhostPiecesRegistry } from './budgetOptions.ghost';
+import {
+  applyAddOption,
+  applyDuplicateOption,
+  applyRemoveOption,
+  applyRenameOption,
+  applySelectOption,
+  applySetActiveOption,
+  applySyncActivePieces,
+} from './budgetOptions.actions';
 
 interface BudgetOptionsValue {
   /** Every real option. Empty for a legacy single-option budget. */
@@ -60,26 +66,6 @@ interface BudgetOptionsValue {
 
 const BudgetOptionsContext = createContext<BudgetOptionsValue | null>(null);
 
-/**
- * Write a pieces array into the form AND re-derive the legacy flat arrays
- * (`materials_data` / `fabrication_details` / `additional_works_data` /
- * `pools_data`) from it.
- *
- * WHY THIS MUST BE ATOMIC (2026-10-01, bugfix): the flat arrays are what
- * the totals (`useBudgetCalculations`), the document-level PDF blocks and
- * the backend recalc read. Mirroring `form.pieces` WITHOUT re-flattening
- * left the flats pointing at the PREVIOUS option, so the operator saw the
- * wrong scenario's amounts in the form while the PDF priced the right one
- * — the two never matched. Every write of `form.pieces` that is not
- * produced by the pieces hook's own `commit` MUST go through here.
- */
-function withPieces(
-  prev: EntityFormState,
-  pieces: BudgetPiece[],
-): EntityFormState {
-  return { ...prev, pieces, ...flattenPieces(pieces) };
-}
-
 /** Read the budget-options context. Returns `null` outside a provider
  *  (e.g. a work order form, which has no options). */
 export function useBudgetOptions(): BudgetOptionsValue | null {
@@ -105,6 +91,12 @@ export interface BudgetOptionsProviderProps {
  *
  * A legacy budget (`options: []`) is completely inert here: the tabs stay
  * hidden and `form.pieces` flows straight through.
+ *
+ * The RULES live in pure modules next to this file:
+ *   - `budgetOptions.actions.ts` → the state transitions (pure).
+ *   - `budgetOptions.ghost.ts`   → the stable ghost piece of an empty
+ *                                  option.
+ *   - `budgetOptions.pieces.ts`   → the atomic pieces + flat write.
  */
 export function BudgetOptionsProvider({
   form,
@@ -119,29 +111,14 @@ export function BudgetOptionsProvider({
   const isMulti = isMultiOption(options);
 
   // ── Ghost piece of an EMPTY option ──────────────────────────────────
-  // A brand-new option is created EMPTY (`pieces: []`), but the pieces
-  // editor needs at least one piece to render: its own fallback piece is
-  // a NEW object on every render (the id changes), so the card remounts
-  // and any edit on it is lost. The provider therefore keeps ONE STABLE
-  // piece per empty option and hands it to the editor — WITHOUT storing
-  // it in the option (the option stays empty, so the backend drops it and
-  // a half-built scenario is never quoted at $0).
-  const ghostsRef = useRef<Record<string, BudgetPiece[]>>({});
-  const ghostFor = useCallback((optionId: string): BudgetPiece[] => {
-    const existing = ghostsRef.current[optionId];
-    if (existing && existing.length > 0) return existing;
-    const created = createEmptyOptionPieces();
-    ghostsRef.current[optionId] = created;
-    return created;
-  }, []);
-
-  /** The pieces the editor must show for an option: its own, or the
-   *  stable ghost while the option is still empty. */
-  const editorPiecesFor = useCallback(
-    (option: BudgetOption): BudgetPiece[] =>
-      option.pieces.length > 0 ? option.pieces : ghostFor(option.id),
-    [ghostFor],
-  );
+  // The registry keeps ONE STABLE piece per empty option (see
+  // `budgetOptions.ghost.ts`); it lives in a ref so the piece identity
+  // survives every render.
+  const ghostsRef = useRef<GhostPiecesRegistry | null>(null);
+  if (ghostsRef.current === null) {
+    ghostsRef.current = createGhostPiecesRegistry();
+  }
+  const ghosts = ghostsRef.current;
 
   // ── Mirror: pull the active option's pieces into `form.pieces` ──
   // Runs on tab switch / option list change only (NOT on every pieces
@@ -162,161 +139,47 @@ export function BudgetOptionsProvider({
     // and back would rewrite the array reference and drop any pending
     // local state in the pieces editor.
     setForm((prev) => {
-      const pieces = editorPiecesFor(option);
+      const pieces = ghosts.editorPiecesFor(option);
       if (prev.pieces === pieces) return prev;
       return withPieces(prev, pieces);
     });
-  }, [options, activeOptionId, setForm, editorPiecesFor]);
+  }, [options, activeOptionId, setForm, ghosts]);
 
   const setActiveOptionId = useCallback(
     (id: string) => {
-      setForm((prev) => {
-        const list = prev.options ?? [];
-        const target = list.find((o) => o.id === id);
-        // Atomic switch: the active id AND the pieces AND the flat arrays
-        // move together, so no consumer can ever observe a half-applied
-        // tab switch (the pieces of one option with the totals of
-        // another).
-        if (!target) return { ...prev, active_option_id: id };
-        return {
-          ...withPieces(prev, editorPiecesFor(target)),
-          active_option_id: id,
-        };
-      });
+      setForm((prev) => applySetActiveOption(prev, id, ghosts.editorPiecesFor));
     },
-    [setForm, editorPiecesFor],
+    [setForm, ghosts],
   );
 
   const addOption = useCallback(() => {
-    setForm((prev) => {
-      const list = prev.options ?? [];
-
-      // ── Case A — the budget has NO materialised option yet (a new budget,
-      // or a legacy budget that only carries `pieces`). The current
-      // configuration must NOT be lost: it is materialised as "Opción 1"
-      // and the NEW option is added EMPTY, so the operator can build a
-      // scenario from scratch.
-      if (list.length === 0) {
-        const basePieces = prev.pieces ?? [];
-        // Nothing to preserve (brand-new budget): a single empty option is
-        // enough — there is no "Opción 1" configuration to keep.
-        if (basePieces.length === 0) {
-          const empty = createEmptyOption('opt-1', 'Opción 1');
-          return {
-            ...withPieces(prev, ghostFor(empty.id)),
-            options: [{ ...empty, is_selected: true }],
-            active_option_id: empty.id,
-          };
-        }
-        const empty = createEmptyOption('opt-2', 'Opción 2');
-        return {
-          ...withPieces(prev, ghostFor(empty.id)),
-          options: [
-            {
-              id: 'opt-1',
-              name: 'Opción 1',
-              is_selected: true,
-              pieces: basePieces,
-            },
-            empty,
-          ],
-          active_option_id: empty.id,
-        };
-      }
-
-      // ── Case B — options already exist: append an EMPTY option. The
-      // operator builds the scenario from scratch; to CLONE the current
-      // configuration (measures, pieces and piletas) they use the ❐
-      // button of the tab, which is the explicit "duplicate" action.
-      const empty = createEmptyOption(nextOptionId(list), nextOptionName(list));
-      const nextList = [...list, empty];
-      // Keep exactly one winner: if the stored list had none, promote the
-      // first one so a conversion is never left ambiguous.
-      if (!nextList.some((o) => o.is_selected)) {
-        nextList[0] = { ...nextList[0], is_selected: true };
-      }
-      return {
-        ...withPieces(prev, ghostFor(empty.id)),
-        options: nextList,
-        active_option_id: empty.id,
-      };
-    });
-  }, [setForm, ghostFor]);
+    setForm((prev) => applyAddOption(prev, ghosts.ghostFor));
+  }, [setForm, ghosts]);
 
   const duplicateOption = useCallback(
     (id: string) => {
-      setForm((prev) => {
-        const list = prev.options ?? [];
-        const source = list.find((o) => o.id === id);
-        if (!source) return prev;
-        const newId = nextOptionId(list);
-        const copy: BudgetOption = {
-          id: newId,
-          name: nextOptionName(list),
-          // A duplicate is never the winner until the operator says so.
-          is_selected: false,
-          pieces: clonePieces(source.pieces),
-        };
-        return {
-          ...withPieces(prev, copy.pieces),
-          options: [...list, copy],
-          active_option_id: newId,
-        };
-      });
+      setForm((prev) => applyDuplicateOption(prev, id));
     },
     [setForm],
   );
 
   const removeOption = useCallback(
     (id: string) => {
-      setForm((prev) => {
-        const list = prev.options ?? [];
-        if (list.length <= 1) return prev; // never leave zero options stored
-        const next = list.filter((o) => o.id !== id);
-        // Keep exactly one winner: if we removed the selected one and a
-        // survivor exists, promote the first.
-        if (next.length > 0 && !next.some((o) => o.is_selected)) {
-          next[0] = { ...next[0], is_selected: true };
-        }
-        // The removed option may have been the active one — the editor
-        // must show a SURVIVOR's pieces (and its totals), never the
-        // deleted scenario.
-        const nextActiveId =
-          prev.active_option_id === id ? next[0]?.id ?? '' : prev.active_option_id;
-        const target = next.find((o) => o.id === nextActiveId);
-        const base = target
-          ? withPieces(prev, target.pieces)
-          : { ...prev, pieces: [] };
-        return {
-          ...base,
-          options: next,
-          active_option_id: nextActiveId,
-        };
-      });
+      setForm((prev) => applyRemoveOption(prev, id));
     },
     [setForm],
   );
 
   const renameOption = useCallback(
     (id: string, name: string) => {
-      setForm((prev) => ({
-        ...prev,
-        options: (prev.options ?? []).map((o) =>
-          o.id === id ? { ...o, name } : o,
-        ),
-      }));
+      setForm((prev) => applyRenameOption(prev, id, name));
     },
     [setForm],
   );
 
   const selectOption = useCallback(
     (id: string) => {
-      setForm((prev) => ({
-        ...prev,
-        options: (prev.options ?? []).map((o) =>
-          o.id === id ? { ...o, is_selected: true } : { ...o, is_selected: false },
-        ),
-      }));
+      setForm((prev) => applySelectOption(prev, id));
     },
     [setForm],
   );
@@ -329,16 +192,7 @@ export function BudgetOptionsProvider({
    */
   const syncActivePieces = useCallback(
     (pieces: BudgetPiece[]) => {
-      setForm((prev) => {
-        if (!prev.options || prev.options.length === 0) return prev;
-        const id = resolveActiveOptionId(prev.options, prev.active_option_id ?? '');
-        const option = prev.options.find((o) => o.id === id);
-        if (!option || option.pieces === pieces) return prev;
-        return {
-          ...prev,
-          options: prev.options.map((o) => (o.id === id ? { ...o, pieces } : o)),
-        };
-      });
+      setForm((prev) => applySyncActivePieces(prev, pieces));
     },
     [setForm],
   );

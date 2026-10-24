@@ -18,7 +18,6 @@ from app.core.settings import settings
 from app.services.work_order.snapshots import bake_snapshot_into_pieces
 
 if TYPE_CHECKING:
-    from app.models.budget import Budget
     from app.repositories.work_order import WorkOrderRepository
 
 

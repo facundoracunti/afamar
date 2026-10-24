@@ -2,8 +2,7 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session, joinedload
 
-from app.core.exceptions import ValidationError
-from app.models.pool_stock import PoolStock, PoolType, StockMovement
+from app.models.pool_stock import PoolStock, StockMovement
 from app.repositories.pool_stock import PoolStockRepository
 from app.utils.currency import resolve_currency_id
 from app.utils.pagination import paginate, Page

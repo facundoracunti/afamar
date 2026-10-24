@@ -1,7 +1,7 @@
 import React from 'react';
 import PoolSection from '../../components/materials/PoolSection/PoolSection';
 import type { EntityFormState } from '../../types';
-import type { MaterialInForm, PoolInForm } from '../../types/budget';
+import type { MaterialInForm } from '../../types/budget';
 import type { Pool } from '../../types/poolStock';
 
 interface BudgetFormAdicionalesProps {

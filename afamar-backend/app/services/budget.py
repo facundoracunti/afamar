@@ -1,183 +1,79 @@
+"""Budget service (quotes).
+
+Queries + CRUD live here; the heavy helpers were extracted (ADR 0009 —
+modularización):
+
+  * ``app/services/budget_helpers.py``    — croquis normalisation, the
+    1-N children sync and the additional-works snapshot (frente pricing
+    + budgeted-measurement freeze).
+  * ``app/services/budget_conversion.py`` — the alternative-material →
+    work-order conversion.
+
+The helper names are re-exported here so the historical import path
+(``from app.services.budget import _process_additional_works_snapshot``)
+keeps working.
+"""
 import json
 from datetime import date
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import NotFoundError, ValidationError
-from app.models.additional_work import AdditionalWork
-from app.models.budget import Budget, BudgetAdicional, BudgetItem, BudgetSketchElement
-from app.models.material import Material
+from app.core.settings import settings
+from app.models.budget import Budget, BudgetItem, BudgetSketchElement
 from app.models.work_order import WorkOrder
 from app.repositories.budget import BudgetRepository
 from app.repositories.work_order import WorkOrderRepository
-from app.services.stock_helpers import deduct_pool_stock, restore_pool_stock
 from app.services.budget_calculator import (
     compute_alternative_totals,
     compute_detail_totals,
     compute_pool_totals,
-    filter_main_materials,
     flatten_pieces,
     parse_additional_works_snapshot,
     parse_materials_data,
 )
+from app.services.budget_conversion import create_alternative_work_order
+from app.services.budget_helpers import (
+    _flatten_sketch_pages,
+    _process_additional_works_snapshot,
+    _sync_children,
+)
 from app.services.frente_pricing import apply_frente_rows
-from app.core.settings import settings
+from app.services.stock_helpers import deduct_pool_stock, restore_pool_stock
 from app.utils.client_helpers import resolve_client_id
 from app.utils.numbering import generate_budget_number, generate_work_order_number
 
-
-def _flatten_sketch_pages(sketch_data: list) -> list:
-    """Normalise the frontend wire format for `sketch_elements` into the
-    flat list of `{type, data, order}` rows the `BudgetSketchElement` 1-N
-    table expects.
-
-    Two shapes arrive:
-      1. New page shape (WorkOrders persist it): `[{ pagina_id, name,
-         material?, dibujo: [{type, data, order}] }, ...]`. Budget has no
-         per-page column, so we flatten `dibujo` rows back into elements.
-      2. Legacy flat element list `[{type, data, order}]` — returned as-is.
-    """
-    out = []
-    for item in sketch_data:
-        if not isinstance(item, dict):
-            continue
-        dibujo = item.get("dibujo")
-        if isinstance(dibujo, list) and dibujo:
-            for el in dibujo:
-                if isinstance(el, dict) and el.get("type"):
-                    out.append({
-                        "type": el.get("type"),
-                        "data": el.get("data"),
-                        "order": el.get("order"),
-                    })
-        elif item.get("type"):
-            out.append({
-                "type": item.get("type"),
-                "data": item.get("data"),
-                "order": item.get("order"),
-            })
-    return out
-
-
-def _sync_children(budget: Budget, repo: BudgetRepository, attr: str, model_class, data_list: Optional[List[Dict]]):
-    if data_list is None:
-        return
-    existing = {getattr(obj, "id"): obj for obj in getattr(budget, attr)}
-    incoming_ids = {d.get("id") for d in data_list if d.get("id")}
-    for obj_id, obj in existing.items():
-        if obj_id not in incoming_ids:
-            repo.delete(obj)
-    for d in data_list:
-        obj_id = d.get("id")
-        if obj_id and obj_id in existing:
-            for k, v in d.items():
-                if k != "id":
-                    setattr(existing[obj_id], k, v)
-        else:
-            new_obj = model_class(budget_id=budget.id, **{k: v for k, v in d.items() if k != "id"})
-            repo.add(new_obj)
-
-
-def _process_additional_works_snapshot(
-    db: Session,
-    raw_json: Optional[str],
-    usd_rate: Optional[float] = None,
-) -> Optional[str]:
-    """Take the JSON snapshot from the form, resolve any `frente`
-    rows against their linked Material row, and return the serialised
-    JSON for persistence (with `price`, `total`, and `formula_values`
-    frozen at the chosen moment).
-
-    Rows that aren't `frente` pass through unchanged. Rows whose linked
-    catalogue item or material can't be found are kept verbatim so the
-    budget doesn't lose data when an item is deleted after the fact.
-
-    After applying the catalogue pricing we ALSO snapshot the dimensional
-    budgeted measure (`linear_meters_budgeted`) and the budgeted monetary
-    totals (`total_ars_budgeted` / `total_usd_budgeted`) for each frente.
-    These snapshots are what the COMPARATIVA DE MEDICIÓN of the resulting
-    work order needs to render the "Presupuestado" column and the delta
-    vs the Real measurement. Without them the comparison would show "—"
-    in Presupuestado for every frente and the deltas would be wrong the
-    moment the operator edits the measure in MEASUREMENT.
-    """
-    if not raw_json:
-        return raw_json
-    try:
-        rows = json.loads(raw_json) if isinstance(raw_json, str) else raw_json
-    except (ValueError, TypeError):
-        return raw_json
-    if not isinstance(rows, list) or not rows:
-        return raw_json
-
-    catalogue_ids = {
-        int(r.get("additional_work_id"))
-        for r in rows
-        if r.get("additional_work_id") is not None
-    }
-    material_ids = {
-        int(r.get("assigned_material_id"))
-        for r in rows
-        if r.get("assigned_material_id") is not None
-    }
-
-    catalogue_by_id: Dict[int, AdditionalWork] = {}
-    if catalogue_ids:
-        catalogue_by_id = {
-            c.id: c
-            for c in db.query(AdditionalWork).filter(AdditionalWork.id.in_(catalogue_ids)).all()
-        }
-
-    materials_by_id: Dict[int, Material] = {}
-    if material_ids:
-        materials_by_id = {
-            m.id: m for m in db.query(Material).filter(Material.id.in_(material_ids)).all()
-        }
-
-    try:
-        processed = apply_frente_rows(
-            rows,
-            catalogue_by_id=catalogue_by_id,
-            materials_by_id=materials_by_id,
-        )
-    except Exception as e:
-        return json.dumps(rows, ensure_ascii=False)
-
-    # Snapshot the dimensional budgeted measure and the budgeted monetary
-    # totals for every `frente` row, so the COMPARATIVA DE MEDICIÓN of the
-    # converted work order can render the Presupuestado column and the
-    # delta vs Real. We freeze the snapshot at the moment the BUDGET is
-    # saved (the conversion path reuses the same JSON, so the snapshot
-    # survives the budget → work order handoff). See WorkOrderService.
-    # create_from_budget for the matching read-side snapshot logic on
-    # work-order creation.
-    effective_usd_rate = float(
-        usd_rate if usd_rate not in (None, 0) else settings.DEFAULT_USD_RATE
-    )
-    snapped: List[Dict] = []
-    for r in processed:
-        if not isinstance(r, dict) or str(r.get("type") or "").lower() != "frente":
-            snapped.append(r)
-            continue
-        row_currency = "USD" if str(r.get("currency") or "").upper() == "USD" else "ARS"
-        price = float(r.get("price") or 0)
-        quantity = float(r.get("quantity") or 1)
-        total_src = float(r.get("total") or price * quantity)
-        if row_currency == "ARS":
-            snap_ars = total_src
-            snap_usd = total_src / effective_usd_rate if effective_usd_rate > 0 else 0
-        else:
-            snap_usd = total_src
-            snap_ars = total_src * effective_usd_rate if effective_usd_rate > 0 else 0
-        r["total_ars_budgeted"] = snap_ars
-        r["total_usd_budgeted"] = snap_usd
-        if "linear_meters" in r and r.get("linear_meters") is not None:
-            r["linear_meters_budgeted"] = float(r.get("linear_meters") or 0)
-        snapped.append(r)
-    processed = snapped
-
-    return json.dumps(processed, ensure_ascii=False)
+__all__ = [
+    "BudgetService",
+    # Historical helper names (kept importable from this module).
+    "_flatten_sketch_pages",
+    "_sync_children",
+    "_process_additional_works_snapshot",
+    # Names that were importable from this module before the split — kept
+    # here so NO existing import breaks.
+    "NotFoundError",
+    "ValidationError",
+    "settings",
+    "Budget",
+    "BudgetItem",
+    "BudgetSketchElement",
+    "WorkOrder",
+    "BudgetRepository",
+    "WorkOrderRepository",
+    "compute_alternative_totals",
+    "compute_detail_totals",
+    "compute_pool_totals",
+    "flatten_pieces",
+    "parse_additional_works_snapshot",
+    "parse_materials_data",
+    "apply_frente_rows",
+    "deduct_pool_stock",
+    "restore_pool_stock",
+    "resolve_client_id",
+    "generate_budget_number",
+    "generate_work_order_number",
+]
 
 
 class BudgetService:
@@ -277,7 +173,7 @@ class BudgetService:
         budget = self.repo.get_by_id(budget_id)
         if not budget:
             return None
-        items_data = data.pop("items", None)
+        data.pop("items", None)
         # The catalogue selection is persisted as a JSON snapshot in
         # `additional_works_data` (the canonical wire format from the
         # frontend). The legacy `BudgetAdicional` 1-N table is read-only
@@ -333,157 +229,4 @@ class BudgetService:
         budget = self.repo.get_by_id(budget_id)
         if not budget:
             raise NotFoundError("Budget")
-
-        materials = parse_materials_data(budget.materials_data)
-        if idx < 0 or idx >= len(materials):
-            raise ValidationError(f"Alternative index {idx} out of range")
-
-        alt = materials[idx]
-        if not (alt.get("is_alternative") or alt.get("es_alternativa")):
-            raise ValidationError("Material at index is not marked as alternative")
-
-        mat_cost_ars, mat_cost_usd, alt_currency, usd_rate_value, _ = compute_alternative_totals(alt, budget)
-
-        detalles = []
-        if budget.fabrication_details:
-            try:
-                detalles = json.loads(budget.fabrication_details) if isinstance(budget.fabrication_details, str) else budget.fabrication_details
-            except (json.JSONDecodeError, TypeError):
-                pass
-        total_detalles_ars, total_detalles_usd = compute_detail_totals(detalles)
-
-        pools = parse_materials_data(budget.pools_data)
-        # The alternative inherits the piece's piletas ("piletas travel with
-        # the piece"). The per-variant sink override was removed
-        # (2026-10-23): the top-level OPCIONES are the only place where a
-        # variant is defined, and each option carries its own piletas.
-        total_piletas_ars, total_piletas_usd = compute_pool_totals(pools)
-        budget_additional = parse_additional_works_snapshot(budget.additional_works_data)
-        additional_for_wo = list(budget_additional)
-
-        traslado = float(budget.transport or 0)
-
-        if alt_currency == "USD":
-            subtotal_ars = total_detalles_ars + total_piletas_ars
-            subtotal_usd = mat_cost_usd + total_detalles_usd + total_piletas_usd
-        else:
-            subtotal_ars = mat_cost_ars + total_detalles_ars + total_piletas_ars
-            subtotal_usd = total_detalles_usd + total_piletas_usd
-
-        total_ars = round(subtotal_ars + round(subtotal_usd * usd_rate_value, 2) + traslado)
-        total_usd_val = round(subtotal_usd + round(subtotal_ars / usd_rate_value, 2) + round(traslado / usd_rate_value, 2), 2) if usd_rate_value > 0 else 0
-
-        common = [m for m in materials if not (m.get("is_alternative") or m.get("es_alternativa"))]
-        budgeted_details_list = [alt] + common
-
-        last_number = self.repo.db.query(WorkOrder).order_by(WorkOrder.id.desc()).first()
-        number = generate_work_order_number(last_number.number if last_number else None)
-
-        alt_nombre = alt.get("nombre") or alt.get("name") or alt.get("description") or ""
-        alt_precio_m2 = alt.get("price_m2") or alt.get("precio_m2", 0) or 0
-        alt_color = alt.get("color") or ""
-        alt_espesor = alt.get("espesor") or alt.get("thickness") or ""
-
-        data = {
-            "number": number,
-            "client_id": budget.client_id,
-            "delivery_address_id": budget.delivery_address_id,
-            "budget_id": budget.id,
-            "status": "MEASUREMENT",
-            "origin": "Desde alternativa",
-            "material": alt_nombre,
-            "material_price_m2": alt_precio_m2,
-            "materials_data": json.dumps(materials),
-            # Cutout/traforo of the alternative's own sink joins the document
-            # additional works so the recalc and the PDF price it with the rest.
-            "additional_works_data": (
-                json.dumps(additional_for_wo, ensure_ascii=False)
-                if additional_for_wo
-                else None
-            ),
-            "pools_data": json.dumps(pools, ensure_ascii=False) if pools else None,
-            "pieces_data": budget.pieces_data,
-            "color": alt_color or budget.color,
-            "thickness": alt_espesor or budget.thickness,
-            "finish": alt.get("finish") or budget.finish,
-            "bacha": budget.bacha,
-            "anafe": budget.anafe,
-            "currency": alt_currency,
-            "usd_rate": usd_rate_value,
-            "subtotal": round(subtotal_ars),
-            "transport": traslado,
-            "installation": budget.installation or 0,
-            "discount": budget.discount or 0,
-            "discount_percentage": budget.discount_percentage or 0,
-            "discount_fixed_amount": budget.discount_fixed_amount or 0,
-            # Carry the commercial-discount gate over verbatim (see
-            # `create_from_budget`). `or "materials"` only fires if the budget
-            # row somehow lacks the target — the column is NOT NULL, default
-            # 'total', since the j0k1l2m3n4o5 migration.
-            "discount_enabled": budget.discount_enabled or False,
-            "discount_target": budget.discount_target or "materials",
-            "total": total_ars,
-            "subtotal_usd": round(subtotal_usd, 2),
-            "transport_usd": round(traslado / usd_rate_value, 2) if usd_rate_value > 0 else 0,
-            "total_usd": total_usd_val,
-            # Budgets are pure quote documents — no seña is carried over. The
-            # converted order starts fully unpaid (`balance_due` mirrors the
-            # alternate-total) and the cash box is touched only when the
-            # operator registers the seña in MEDICIÓN.
-            "deposit_received": 0,
-            "deposit_currency": "ARS",
-            "deposit_usd": 0,
-            "balance_due": total_ars,
-            "balance_due_usd": total_usd_val,
-            "balance_paid": False,
-            "payment_method": budget.payment_method,
-            "installments": budget.installments or 1,
-            "priority": budget.priority or "NORMAL",
-            "delivery_date": budget.delivery_date,
-            "notes": budget.notes,
-            "fabrication_details": budget.fabrication_details,
-            "budgeted_details": json.dumps(budgeted_details_list),
-            # Carry the croquis over too — same logic as `create_from_budget`
-            # in work_order.py. The source is the `BudgetSketchElement` rows
-            # on the budget; we serialise them into the new
-            # `WorkOrder.sketch_elements` TEXT column so the WO form + PDF
-            # show the same drawing the customer signed on the budget.
-            "sketch_elements": (
-                json.dumps(
-                    [
-                        {"type": el.type, "data": el.data, "order": el.order}
-                        for el in budget.sketch_elements
-                    ],
-                    ensure_ascii=False,
-                )
-                if budget.sketch_elements
-                else None
-            ),
-            "design_observations": budget.design_observations or "",
-            "important_observations": budget.important_observations or "",
-            # Per-document term overrides carry over so the order PDF shows the
-            # same payment / garantía terms the customer signed on the budget
-            # (empty string = fall back to the global /admin/configuration).
-            "delivery_terms_override": budget.budget_terms_override or "",
-            "warranty_override": budget.warranty_override or "",
-            "date": budget.date,
-        }
-
-        wo_repo = WorkOrderRepository(self.repo.db)
-        work_order = wo_repo.create(data)
-        self.repo.db.commit()
-        self.repo.db.refresh(work_order)
-        # Deduct the pileta the OT actually carries — the piece's own
-        # piletas (the per-variant sink override was removed on
-        # 2026-10-23), so the stock movement references the model the
-        # customer chose.
-        deduct_pool_stock(
-            self.repo.db,
-            budget.pool_id,
-            json.dumps(pools, ensure_ascii=False) if pools else None,
-            work_order.number,
-        )
-        work_order.stock_deducted = True
-        self.repo.db.commit()
-        self.repo.db.refresh(work_order)
-        return work_order
+        return create_alternative_work_order(budget, self.repo, idx)

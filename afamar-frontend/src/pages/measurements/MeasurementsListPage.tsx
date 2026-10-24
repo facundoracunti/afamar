@@ -1,43 +1,33 @@
-import React, { Suspense, useEffect, useMemo, useState } from 'react';
-import { Plus, Search, CalendarDays } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Plus } from 'lucide-react';
 import { getMeasurements, updateMeasurement, deleteMeasurement } from '@/api/resources/measurements';
 import { getWorkOrders } from '@/api/resources/workOrders';
 import { useList, useUpdate, useDelete, useGet } from '../../api/hooks';
 import { todayLocalISO } from '../../utils/formatters';
-import { t } from '../../utils/translate';
 import type { Measurement } from '../../types/measurement';
 import type { WorkOrderListItem } from '../../types/workOrder';
 import { computeScheduledWorkOrderIds, countMeasurementStatuses } from '../../utils/measurementHelpers';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
-import { Modal } from '../../components/ui/Modal/Modal';
 import { PageHeader } from '../../components/ui/PageHeader/PageHeader';
 import { Pagination } from '../../components/ui/Pagination';
-import { SearchInput } from '../../components/ui/SearchInput/SearchInput';
 import PendingMeasurementCards, { type PendingMeasurementSort } from '../../components/measurements/PendingMeasurementCards/PendingMeasurementCards';
 import { MeasurementsTable } from '../../components/measurements/MeasurementsTable/MeasurementsTable';
+import { MeasurementsFiltersBar, type StatusTab } from './MeasurementsFiltersBar';
+import { MeasurementFormModal, type MeasurementModal } from './MeasurementFormModal';
+import {
+  sortMeasurementRows,
+  sortPendingOrders,
+  type SortDir,
+  type SortField,
+} from './measurementListHelpers';
 import styles from './MeasurementsListPage.module.css';
-
-const MeasurementForm = React.lazy(() => import('./MeasurementFormPage'));
-
-type MeasurementModal = null
-  | { kind: 'create' }
-  | { kind: 'createFromWo'; workOrderId: number }
-  | { kind: 'edit'; id: number };
 
 const s = styles as unknown as Record<string, string>;
 
 const MEASUREMENTS_KEY = ['measurements'] as const;
 const PAGE_SIZE = 25;
 const PENDING_PAGE_SIZE = 15;
-
-type SortField = 'client_name' | 'client_phone' | 'client_address' | 'scheduled_date' | 'scheduled_time' | 'status';
-type SortDir = 'asc' | 'desc';
-
-/** Tabs reemplazan el dropdown de estados: '' muestra todos los estados. */
-type StatusTab = '' | 'PENDING' | 'DONE' | 'CANCELLED';
-
-const STATUS_TABS: StatusTab[] = ['', 'PENDING', 'DONE', 'CANCELLED'];
 
 export default function MeasurementsList() {
   const [search, setSearch] = useState('');
@@ -50,7 +40,7 @@ export default function MeasurementsList() {
   const [page, setPage] = useState(1);
   const [pendingPage, setPendingPage] = useState(1);
   const [pendingSort, setPendingSort] = useState<PendingMeasurementSort>('delivery_asc');
-  const [modal, setModal] = useState<MeasurementModal>(null);
+  const [modal, setModal] = useState<MeasurementModal | null>(null);
   const closeMeasurementModal = () => setModal(null);
 
   const { items: data, loading } = useList<Measurement>(
@@ -111,27 +101,10 @@ export default function MeasurementsList() {
     [pendingOrders, scheduledWorkOrderIds],
   );
 
-  const sortedPendingOrders = useMemo(() => {
-    const sorted = [...unscheduledOrders];
-    sorted.sort((a, b) => {
-      if (pendingSort === 'client_asc') {
-        return (a.client_name || '').localeCompare(b.client_name || '', 'es', { sensitivity: 'base' });
-      }
-      if (pendingSort === 'number_asc') {
-        return a.number.localeCompare(b.number, 'es', { numeric: true });
-      }
-      if (pendingSort === 'created_asc' || pendingSort === 'created_desc') {
-        const comparison = (a.created_at || '').localeCompare(b.created_at || '');
-        return pendingSort === 'created_asc' ? comparison : -comparison;
-      }
-      const dateA = a.delivery_date || '';
-      const dateB = b.delivery_date || '';
-      if (!dateA && dateB) return 1;
-      if (dateA && !dateB) return -1;
-      return dateA.localeCompare(dateB);
-    });
-    return sorted;
-  }, [unscheduledOrders, pendingSort]);
+  const sortedPendingOrders = useMemo(
+    () => sortPendingOrders(unscheduledOrders, pendingSort),
+    [unscheduledOrders, pendingSort],
+  );
 
   const pendingTotalPages = Math.max(1, Math.ceil(sortedPendingOrders.length / PENDING_PAGE_SIZE));
   const safePendingPage = Math.min(pendingPage, pendingTotalPages);
@@ -159,28 +132,21 @@ export default function MeasurementsList() {
     }
   };
 
+  const handleDateFilterChange = (value: string): void => {
+    setDateFilter(value);
+    setDateFilterEnabled(true);
+  };
+
   useEffect(() => { setPage(1); }, [search, activeStatus, dateFilter, dateFilterEnabled]);
   useEffect(() => { setPendingPage(1); }, [pendingSort]);
   useEffect(() => {
     if (pendingPage > pendingTotalPages) setPendingPage(pendingTotalPages);
   }, [pendingPage, pendingTotalPages]);
 
-  const visibleRowsAll = useMemo(() => {
-    const sorted = [...data].sort((a, b) => {
-      const rawA = (a[sortField] ?? '') as string;
-      const rawB = (b[sortField] ?? '') as string;
-      const aEmpty = rawA === '' || rawA == null;
-      const bEmpty = rawB === '' || rawB == null;
-      if (aEmpty && !bEmpty) return 1;
-      if (!aEmpty && bEmpty) return -1;
-      if (aEmpty && bEmpty) return 0;
-      let cmp = 0;
-      if (rawA < rawB) cmp = -1;
-      else if (rawA > rawB) cmp = 1;
-      return sortDir === 'asc' ? cmp : -cmp;
-    });
-    return sorted;
-  }, [data, sortField, sortDir]);
+  const visibleRowsAll = useMemo(
+    () => sortMeasurementRows(data, sortField, sortDir),
+    [data, sortField, sortDir],
+  );
   const totalPages = Math.max(1, Math.ceil(visibleRowsAll.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const visibleRows = visibleRowsAll.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
@@ -212,67 +178,17 @@ export default function MeasurementsList() {
         onCreateFromWo={(workOrderId) => setModal({ kind: 'createFromWo', workOrderId })}
       />
 
-      <div className={s['measurements__filters']}>
-        <div className={s['measurements__tabs']} role="group" aria-label="Filtrar mediciones por estado">
-          {STATUS_TABS.map((status) => {
-            const count = status
-              ? (statusCounts[status] || 0)
-              : Object.values(statusCounts).reduce((sum, c) => sum + c, 0);
-            return (
-              <button
-                key={status || 'ALL'}
-                type="button"
-                className={`${s['measurements__tab']} ${activeStatus === status ? s['measurements__tab--active'] : ''}`}
-                onClick={() => setActiveStatus(status)}
-                aria-pressed={activeStatus === status}
-              >
-                {status === '' ? 'Todas' : t(status)}
-                <span className={s['measurements__tab-count']}>{count}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        <SearchInput
-          value={search}
-          onChange={setSearch}
-          placeholder="Buscar por cliente, teléfono o dirección..."
-          leftIcon={<Search size={18} />}
-        />
-        <div className={s['measurements__date-group']}>
-          <CalendarDays size={16} className={s['measurements__date-icon']} aria-hidden="true" />
-          <input
-            type="date"
-            className={`input ${s['measurements__filter']}`}
-            value={dateFilter}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-              setDateFilter(e.target.value);
-              setDateFilterEnabled(true);
-            }}
-            disabled={!dateFilterEnabled}
-            aria-label="Fecha de la agenda"
-          />
-          <button
-            type="button"
-            className="btn btn-outline"
-            onClick={() => {
-              setDateFilter(todayLocalISO());
-              setDateFilterEnabled(true);
-            }}
-            title="Ir a hoy"
-          >
-            Hoy
-          </button>
-          <button
-            type="button"
-            className={`btn ${dateFilterEnabled ? 'btn-outline' : 'btn-primary'}`}
-            onClick={() => setDateFilterEnabled((v) => !v)}
-            title={dateFilterEnabled ? 'Mostrar las mediciones de cualquier fecha' : 'Filtrar por día'}
-          >
-            {dateFilterEnabled ? 'Limpiar fecha' : 'Filtrar por día'}
-          </button>
-        </div>
-      </div>
+      <MeasurementsFiltersBar
+        search={search}
+        onSearchChange={setSearch}
+        activeStatus={activeStatus}
+        onStatusChange={setActiveStatus}
+        statusCounts={statusCounts}
+        dateFilter={dateFilter}
+        onDateFilterChange={handleDateFilterChange}
+        dateFilterEnabled={dateFilterEnabled}
+        onDateFilterToggle={() => setDateFilterEnabled((v) => !v)}
+      />
 
       {loading ? <LoadingSpinner /> : (
         <>
@@ -302,46 +218,9 @@ export default function MeasurementsList() {
         danger
       />
 
-      <Suspense fallback={<LoadingSpinner />}>
-        {modal && (
-          <Modal
-            isOpen
-            onClose={closeMeasurementModal}
-            title={
-              modal.kind === 'edit'
-                ? 'Editar Medición'
-                : modal.kind === 'createFromWo'
-                  ? 'Nueva Medición (orden)'
-                  : 'Nueva Medición'
-            }
-            width="1100px"
-          >
-            {modal.kind === 'create' && (
-              <MeasurementForm
-                key="measurement-create"
-                onSuccess={closeMeasurementModal}
-                onCancel={closeMeasurementModal}
-              />
-            )}
-            {modal.kind === 'createFromWo' && (
-              <MeasurementForm
-                key={`measurement-create-wo-${modal.workOrderId}`}
-                presetWorkOrderId={modal.workOrderId}
-                onSuccess={closeMeasurementModal}
-                onCancel={closeMeasurementModal}
-              />
-            )}
-            {modal.kind === 'edit' && (
-              <MeasurementForm
-                key={`measurement-edit-${modal.id}`}
-                entityId={modal.id}
-                onSuccess={closeMeasurementModal}
-                onCancel={closeMeasurementModal}
-              />
-            )}
-          </Modal>
-        )}
-      </Suspense>
+      {modal && (
+        <MeasurementFormModal modal={modal} onClose={closeMeasurementModal} />
+      )}
     </div>
   );
 }

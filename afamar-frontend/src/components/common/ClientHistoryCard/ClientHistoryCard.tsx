@@ -31,7 +31,7 @@ function formatCurrency(n: number): string {
   return formatCurrencyValue(n, { currency: 'ARS' });
 }
 
-export function ClientHistoryCard({ clientData, client }: ClientHistoryCardProps) {
+export function ClientHistoryCard({ clientData, client: _client }: ClientHistoryCardProps) {
   const navigate = useNavigate();
 
   const historial: HistoryData | null = clientData

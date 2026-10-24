@@ -11,13 +11,6 @@ class PaginationInfo(BaseModel):
     limit: int = 100
 
 
-class APIResponse(BaseModel):
-    success: bool = True
-    data: Any = None
-    error: str | None = None
-    pagination: PaginationInfo | None = None
-
-
 def _build(success: bool, data: Any = None, error: str | None = None, pagination: PaginationInfo | dict | None = None) -> dict:
     body: dict[str, Any] = {"success": success, "data": jsonable_encoder(data), "error": error}
     if pagination is not None:

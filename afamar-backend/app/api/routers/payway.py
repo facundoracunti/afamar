@@ -16,18 +16,15 @@ operators can test the "Copiar" + "WhatsApp" buttons against a real
 HTTPS URL.
 """
 import hashlib
-from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user, get_db
 from app.core.settings import settings
-from app.models.daily_cash import CashMovement
 from app.services.daily_cash import DailyCashService
-from app.utils.responses import success
 
 
 router = APIRouter(prefix="/payments/payway", tags=["Payway"], dependencies=[Depends(get_current_user)])

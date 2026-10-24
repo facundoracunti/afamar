@@ -32,14 +32,6 @@ class CashMovementCreate(CashMovementBase):
     pass
 
 
-class CashMovementUpdate(BaseModel):
-    amount: Optional[float] = None
-    description: Optional[str] = None
-    payment_method: Optional[str] = None
-    folder_status: Optional[str] = None
-    expense_type: Optional[str] = None
-
-
 class CashMovementResponse(CashMovementBase):
     id: int
     daily_cash_id: int

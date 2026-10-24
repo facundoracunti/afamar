@@ -55,7 +55,7 @@ function normalizePages(raw: unknown): SketchPage[] {
   if (looksLikeFlatElements) {
     const elements = raw.map((item) => {
       const obj = item as Record<string, unknown>;
-      const { type, data, ...rest } = obj;
+      const { type, data } = obj;
       void data;
       let parsed: Record<string, unknown> = {};
       if (typeof data === 'string' && data.length > 0) {

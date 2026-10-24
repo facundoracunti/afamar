@@ -1,7 +1,6 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Eye, Save, FileOutput, Check, Send } from 'lucide-react';
 import { getBudget, createBudget, updateBudget, deleteBudget, getNextBudgetNumber, getBudgetPdf } from '@/api/resources/budgets';
 import { getMaterials } from '@/api/resources/materials';
 import { getPoolStock } from '@/api/resources/poolStock';
@@ -12,30 +11,21 @@ import { useBudgetQuoteCalculations } from '../../hooks/useBudgetQuoteCalculatio
 import { useBudgetActions } from '../../hooks/useBudgetActions';
 import { createAddressAddedHandler } from '../../hooks/entityFormHelpers';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { useNotify } from '../../context/NotificationContext';
 import { useUsdRate } from '../../hooks/useUsdRate';
 import QuoteOptionsGrid from '../../components/budget/QuoteOptionsGrid/QuoteOptionsGrid';
 import FormHeader from '../../components/orders/FormHeader/FormHeader';
 import EntityFormLayout from '../../components/entity/EntityFormLayout';
-import {
-  EntityFormActionsProvider,
-  EntityFormDomainProvider,
-  EntityFormStateProvider,
-  EntityFormStyleProvider,
-} from '../../components/entity/EntityFormContexts';
 import ObservationsSection from '../../components/orders/ObservationsSection/ObservationsSection';
-import { BudgetOptionsProvider } from '../../features/budgets/options/BudgetOptionsContext';
 import BudgetOptionsTabs from '../../features/budgets/options/BudgetOptionsTabs';
 import { pickWinningOptionId } from '../../features/budgets/options/budgetOptions';
-import type { EntityFormState, MaterialInForm, EntityServices } from '../../types';
-import {
-  buildOptionFromMaterial,
-  buildDetailFromSection,
-  type AlternativaLike,
-} from '../../utils/budgetOptions';
-import { buildAlternativeSections } from '../../utils/pdf/buildPdfData';
+import type { EntityServices } from '../../types';
 import styles from './BudgetFormPage.module.css';
+import BudgetFormPageHeaderActions from './BudgetFormPage.HeaderActions';
+import BudgetFormPageConvertAction from './BudgetFormPage.ConvertAction';
+import BudgetFormPageConvertDialogs from './BudgetFormPage.ConvertDialogs';
+import BudgetFormPageProviders from './BudgetFormPage.Providers';
+import { useBudgetQuoteOptions } from './BudgetFormPage.useQuoteOptions';
 
 const s = styles as unknown as Record<string, string>;
 
@@ -72,25 +62,7 @@ export default function BudgetForm(props: BudgetFormProps = {}) {
 
   const handleCancelClick = () => (props.onCancel ? props.onCancel() : navigate('/admin/budgets'));
 
-  const {
-    form, loading, saving, materials, pools, logoUrl, clientes, addOrRefreshClientes, updateClientAddresses,
-    menuOpen, deleteConfirm, showCroquis,
-    readOnly, hayUSD, hayAlternativas, isEdit,
-    modoUSD, toggleModoUSD,
-    setForm, setSaving,
-    setDeleteConfirm, setShowCroquis,
-    update, buildPayload,
-    handleTransportChange,
-    handleDepositCurrencyChange, handleDepositAmountChange, handleUsdRateChange,
-    handleDetailChange, addDetalle, removeDetalle,
-    addMaterial, removeMaterial, updateMaterial, addMaterialRow, removeMaterialGroup, updateMaterialGroup,
-    swapMaterialGroup,
-    addPileta, removePileta, updatePileta, setPoolFields,
-    handleDelete,
-    paymentMethods,
-    M2_CONCEPTS,
-    piecesFlow,
-  } = useEntityForm({
+  const entity = useEntityForm({
     services: budgetServices,
     defaultStatus: 'PENDING',
     id,
@@ -101,6 +73,15 @@ export default function BudgetForm(props: BudgetFormProps = {}) {
     onError: (msg) => notify(msg, 'error'),
     onAfterAction: props.onSuccess,
   });
+  const {
+    form, loading, saving, materials, logoUrl, clientes, updateClientAddresses,
+    readOnly, hayAlternativas, isEdit,
+    modoUSD,
+    setForm, setSaving,
+    update, buildPayload,
+    paymentMethods,
+    piecesFlow,
+  } = entity;
 
   const {
     sumatoriaAdicionalesARS, detalleTrabajosComunes, principalesBreakdown,
@@ -112,7 +93,6 @@ export default function BudgetForm(props: BudgetFormProps = {}) {
     showConvertDialog, setShowConvertDialog,
     pendingAltIdx, setPendingAltIdx,
     handleSubmit: rawHandleSubmit,
-    handleGuardar,
     handleAprobar,
     handleConvertirGuardar,
     handleConvertirAlternativa,
@@ -137,38 +117,6 @@ export default function BudgetForm(props: BudgetFormProps = {}) {
       ? (form.options ?? []).find((o) => o.id === winningOptionId)?.name ?? null
       : null;
 
-  // Acción primaria "CONVERTIR A ORDEN" — se renderiza debajo de
-  // Traslado dentro del Presupuesto card, no en el header.
-  const convertAction = isEdit && !workOrderNumber && form.status === 'APPROVED' ? (
-    <div className={s['budget-form__convert-block']}>
-      <button
-        type="button"
-        className={`btn btn-primary ${s['budget-form__btn-convert']}`}
-        onClick={() => setShowConvertDialog(true)}
-        disabled={saving || conversionAmbiguous}
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-        title={
-          conversionAmbiguous
-            ? 'Marcá una sola opción como ganadora (✓) para poder convertir'
-            : winningOptionName
-              ? `Se convierte la opción: ${winningOptionName}`
-              : undefined
-        }
-      >
-        <FileOutput size={16} /> {saving ? 'CONVIRTIENDO...' : 'CONVERTIR A ORDEN'}
-      </button>
-      {conversionAmbiguous ? (
-        <span className={s['budget-form__convert-hint']}>
-          Tenés varias opciones: marcá una sola con ✓ como ganadora para convertir.
-        </span>
-      ) : winningOptionName && winningOptionName !== 'Opción Única' ? (
-        <span className={s['budget-form__convert-hint']}>
-          {`Se va a convertir: ${winningOptionName}`}
-        </span>
-      ) : null}
-    </div>
-  ) : null;
-
   const { refresh: refreshUsdRate } = useUsdRate({ form, setForm, isEdit, source: 'official' });
 
   const handleSubmit = useCallback(async (e?: React.FormEvent) => {
@@ -178,50 +126,24 @@ export default function BudgetForm(props: BudgetFormProps = {}) {
 
   const handleAddressAdded = useCallback(createAddressAddedHandler(clientes, updateClientAddresses), [clientes, updateClientAddresses]);
 
-  // Build each material into a `QuoteOptionsGrid` row. Pure helper from
-  // `utils/budgetOptions.ts` — same code path used to live inline.
-  const buildOption = useCallback(
-    (mat: MaterialInForm): AlternativaLike =>
-      buildOptionFromMaterial(mat, {
-        usdRate: form.usd_rate,
-        sumatoriaMaterialesPrincipalARS,
-        sumatoriaAdicionalesARS,
-      }),
-    [form.usd_rate, sumatoriaMaterialesPrincipalARS, sumatoriaAdicionalesARS],
-  );
+  const { buildOption, buildAltOption } = useBudgetQuoteOptions({
+    form,
+    sumatoriaMaterialesPrincipalARS,
+    sumatoriaAdicionalesARS,
+  });
 
-  // Per-option subtotals + detail lines for the ALTERNATIVE cards, derived
-  // from the SAME orchestration the PDF uses (`buildAlternativeSections`), so
-  // the cards can never drift from the "Subtotal Opción" the PDF draws (a
-  // sole-alternatives budget revalues global zócalo/frente per option).
-  const altSections = useMemo(
-    () => buildAlternativeSections(form as unknown as Record<string, unknown>).sections
-      .filter((s) => !s.is_main && !s.is_global),
-    [
-      JSON.stringify(form.materials_data),
-      JSON.stringify(form.pools_data),
-      JSON.stringify(form.fabrication_details),
-      JSON.stringify(form.additional_works_data),
-      form.usd_rate,
-    ],
-  );
+  const handleConfirmConvert = () => {
+    setShowConvertDialog(false);
+    void handleConvertirGuardar().catch(() => { /* already notifies errors */ });
+  };
 
-  const buildAltOption = useCallback(
-    (mat: MaterialInForm): AlternativaLike => {
-      const card = buildOption(mat);
-      const section = altSections.find((s) => s.material_name === mat.name);
-      if (!section) {
-        return card;
-      }
-      return {
-        ...card,
-        subtotalARS: Math.round(section.subtotal_ars * 100) / 100,
-        subtotalUSD: Math.round(section.subtotal_usd * 100) / 100,
-        detail: buildDetailFromSection(section),
-      };
-    },
-    [buildOption, altSections],
-  );
+  const handleConfirmPendingAlt = () => {
+    if (pendingAltIdx !== null) {
+      const idx = pendingAltIdx;
+      setPendingAltIdx(null);
+      void handleConvertirAlternativa(idx).catch(() => { /* already notifies errors */ });
+    }
+  };
 
   if (loading) return <LoadingSpinner />;
 
@@ -238,6 +160,17 @@ export default function BudgetForm(props: BudgetFormProps = {}) {
     />
   ) : null;
 
+  // Acción primaria "CONVERTIR A ORDEN" — se renderiza debajo de
+  // Traslado dentro del Presupuesto card, no en el header.
+  const convertAction = isEdit && !workOrderNumber && form.status === 'APPROVED' ? (
+    <BudgetFormPageConvertAction
+      conversionAmbiguous={conversionAmbiguous}
+      winningOptionName={winningOptionName}
+      saving={saving}
+      onOpenConvertDialog={() => setShowConvertDialog(true)}
+    />
+  ) : null;
+
   return (
     <div className={s['budget-form']}>
       <FormHeader
@@ -246,163 +179,67 @@ export default function BudgetForm(props: BudgetFormProps = {}) {
         badge={!['PENDING'].includes(form.status) ? <StatusBadge status={form.status} /> : undefined}
         logoUrl={logoUrl}
       >
-        <button type="button" className="btn btn-outline" onClick={handlePreviewPdf} disabled={pdfPreviewLoading} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Eye size={16} /> {pdfPreviewLoading ? 'GENERANDO...' : 'VISTA PREVIA PDF'}
-        </button>
-        {isEdit ? (
-          workOrderNumber ? (
-            <button type="button" className={s['budget-form__btn-ot']} onClick={() => navigate(`/admin/work-orders?search=${workOrderNumber}`)}>
-              <FileOutput size={16} /> OT {workOrderNumber}
-            </button>
-          ) : ['PENDING', 'ONLINE'].includes(form.status) ? (
-            <button type="button" className={s['budget-form__btn-approve']} onClick={handleAprobar}
-              disabled={saving}>
-              <Check size={16} /> {saving ? 'APROBANDO...' : 'APROBAR PRESUPUESTO'}
-            </button>
-          ) : null
-          ) : props.layoutMode !== 'wizard' ? (
-          <button className={`btn btn-primary ${s['budget-form__btn-save']}`} onClick={handleSubmit} disabled={saving}>
-            <Save size={16} /> {saving ? 'GUARDANDO...' : 'GUARDAR'}
-          </button>
-        ) : null}
-        <button type="button" className="btn btn-success" onClick={handleEnviarWhatsApp} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', fontSize: 13 }}>
-          <Send size={16} /> WhatsApp
-        </button>
+        <BudgetFormPageHeaderActions
+          status={form.status}
+          isEdit={isEdit}
+          workOrderNumber={workOrderNumber}
+          saving={saving}
+          pdfPreviewLoading={pdfPreviewLoading}
+          onPreviewPdf={handlePreviewPdf}
+          onOpenWorkOrder={() => navigate(`/admin/work-orders?search=${workOrderNumber}`)}
+          onAprobar={handleAprobar}
+          onSubmit={handleSubmit}
+          onEnviarWhatsApp={handleEnviarWhatsApp}
+          showSaveButton={props.layoutMode !== 'wizard'}
+        />
       </FormHeader>
 
-      <EntityFormStyleProvider value={{ styles: s, prefix: 'budget-form__' }}>
-        {/* Multi-option budgets (2026-10-01 Fase 2): the provider owns the
-            options array AND keeps `form.pieces` mirroring the active
-            option, so every consumer below (totals, PDF, pieces editor)
-            keeps reading `form.pieces` unchanged. A legacy budget has
-            `options: []` → fully inert. */}
-        <BudgetOptionsProvider form={form} setForm={setForm}>
-        <EntityFormStateProvider
-          value={{
-            form,
-            setForm,
-            update,
-            readOnly,
-            saving,
-            logoUrl,
-            M2_CONCEPTS,
-          }}
-        >
-          <EntityFormDomainProvider
-            value={{
-              clientes,
-              materials,
-              pools,
-              paymentMethods,
-              addOrRefreshClientes,
-              onAddressAdded: handleAddressAdded,
-              addMaterial,
-              removeMaterial,
-              updateMaterial,
-              addMaterialRow,
-              removeMaterialGroup,
-              updateMaterialGroup,
-              swapMaterialGroup,
-              addPileta,
-              removePileta,
-              updatePileta,
-              setPoolFields,
-              handleDetailChange,
-              addDetalle,
-              removeDetalle,
-              modoUSD,
-              toggleModoUSD,
-              hayUSD,
-              hayAlternativas,
-              handleTransportChange,
-              handleDepositCurrencyChange,
-              handleDepositAmountChange,
-              handleUsdRateChange,
-              onUsdRateRefresh: refreshUsdRate,
-              formMaterials: form.materials_data || [],
-            }}
-          >
-            <EntityFormActionsProvider
-              value={{
-                handleSubmit,
-                onCancel: handleCancelClick,
-                deleteConfirm,
-                setDeleteConfirm,
-                handleDelete,
-                deleteTitle: 'Eliminar presupuesto',
-                deleteMessage: '¿Estás seguro de eliminar este PRESUPUESTO LOCAL?',
-                deleteConfirmLabel: 'Eliminar',
-                deleteDanger: true,
-                pdfData,
-                pdfPreviewLoading,
-                handleClosePdfPreview,
-                pdfTitle: 'Vista previa — Presupuesto',
-                pdfFileName: `presupuesto_${form.number || 'nuevo'}.pdf`,
-                sketchExtractorActive,
-                handleSketchImagesReady,
-                showCroquis,
-                setShowCroquis,
-              }}
-            >
-              {/* Option tabs — only render when the budget really has 2+
-                  options (the component self-hides otherwise, so legacy
-                  and single-option budgets keep their current UI). */}
-              <BudgetOptionsTabs />
-              <EntityFormLayout
-                mode={props.layoutMode || 'full'}
-                showPieces
-                piecesFlow={piecesFlow}
-                alternativasGrid={alternativasGrid}
-                actionBlock={convertAction}
-                observations={
-                  <ObservationsSection
-                    form={form}
-                    readOnly={readOnly}
-                    update={update as (field: string, value: unknown) => void}
-                    className={s['budget-form__card']}
-                    titleClassName={s['budget-form__card-title']}
-                  />
-                }
-                extraDialogs={
-                  <>
-                    <ConfirmDialog
-                      open={showConvertDialog}
-                      onCancel={() => setShowConvertDialog(false)}
-                      onConfirm={() => {
-                        setShowConvertDialog(false);
-                        void handleConvertirGuardar().catch(() => { /* already notifies errors */ });
-                      }}
-                      title="Convertir a Orden de Trabajo"
-                      message={
-                        winningOptionName && winningOptionName !== 'Opción Única'
-                          ? `Se guardará y copiará toda la información de la opción "${winningOptionName}": croquis, materiales, detalles de fabricación, piletas, precios y condiciones comerciales. El stock se descuenta del stock de esa opción.`
-                          : 'Se guardará y copiará toda la información: croquis, material, detalles de fabricación, pileta, firma, precios y condiciones comerciales.'
-                      }
-                      confirmLabel="Convertir"
-                    />
-
-                    <ConfirmDialog
-                      open={pendingAltIdx !== null}
-                      onCancel={() => setPendingAltIdx(null)}
-                      onConfirm={() => {
-                        if (pendingAltIdx !== null) {
-                          const idx = pendingAltIdx;
-                          setPendingAltIdx(null);
-                          void handleConvertirAlternativa(idx).catch(() => { /* already notifies errors */ });
-                        }
-                      }}
-                      title="Convertir alternativa"
-                      message="Se creará una nueva Orden de Trabajo con el material de esta opción más los trabajos comunes."
-                      confirmLabel="Convertir"
-                    />
-                  </>
-                }
-              />
-            </EntityFormActionsProvider>
-          </EntityFormDomainProvider>
-        </EntityFormStateProvider>
-        </BudgetOptionsProvider>
-      </EntityFormStyleProvider>
+      <BudgetFormPageProviders
+        entity={entity}
+        handleSubmit={handleSubmit}
+        onCancel={handleCancelClick}
+        handleAddressAdded={handleAddressAdded}
+        onUsdRateRefresh={refreshUsdRate}
+        pdfPreview={{
+          pdfData,
+          pdfPreviewLoading,
+          sketchExtractorActive,
+          handleClosePdfPreview,
+          handleSketchImagesReady,
+        }}
+      >
+        {/* Option tabs — only render when the budget really has 2+
+            options (the component self-hides otherwise, so legacy
+            and single-option budgets keep their current UI). */}
+        <BudgetOptionsTabs />
+        <EntityFormLayout
+          mode={props.layoutMode || 'full'}
+          showPieces
+          piecesFlow={piecesFlow}
+          alternativasGrid={alternativasGrid}
+          actionBlock={convertAction}
+          observations={
+            <ObservationsSection
+              form={form}
+              readOnly={readOnly}
+              update={update as (field: string, value: unknown) => void}
+              className={s['budget-form__card']}
+              titleClassName={s['budget-form__card-title']}
+            />
+          }
+          extraDialogs={
+            <BudgetFormPageConvertDialogs
+              showConvertDialog={showConvertDialog}
+              onCloseConvertDialog={() => setShowConvertDialog(false)}
+              onConfirmConvert={handleConfirmConvert}
+              winningOptionName={winningOptionName}
+              pendingAltIdx={pendingAltIdx}
+              onClosePendingAlt={() => setPendingAltIdx(null)}
+              onConfirmPendingAlt={handleConfirmPendingAlt}
+            />
+          }
+        />
+      </BudgetFormPageProviders>
 
     </div>
   );

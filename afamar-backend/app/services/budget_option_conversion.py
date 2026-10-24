@@ -31,7 +31,7 @@ from app.models.work_order import WorkOrder
 from app.repositories.work_order import WorkOrderRepository
 from app.services.budget_calculator import flatten_pieces
 from app.services.budget_option_totals import pick_winning_option
-from app.services.budget_options import resolve_budget_options, SINGLE_OPTION_ID
+from app.services.budget_options import SINGLE_OPTION_ID
 from app.services.stock_helpers import deduct_pool_stock
 
 

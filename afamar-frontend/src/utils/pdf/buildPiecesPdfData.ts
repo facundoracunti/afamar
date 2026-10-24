@@ -27,7 +27,6 @@
 import type { BudgetPiece, FabricationDetail, MaterialInForm } from '../../types/budget';
 import type { PiecesPdfPiece } from './pdfTypes';
 import { materialGroupKey } from '../materialGroups';
-import { fmtMoney } from './pdfHelpers';
 import {
   buildAdditionalWorksRows,
   buildFabricationRows,

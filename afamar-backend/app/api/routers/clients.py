@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user, get_db
 from app.core.exceptions import ConflictError, NotFoundError
-from app.utils.pagination import Page
 from app.utils.responses import PaginationInfo, created, success
 from app.schemas.client import ClientCreate, ClientUpdate
 from app.services.client import ClientService

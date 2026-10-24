@@ -1,7 +1,6 @@
 // Work order payload — English snake_case field names matching backend API exactly.
 // Source of truth: afamar-backend/app/schemas/work_order.py (WorkOrderBase / WorkOrderCreate / WorkOrderUpdate).
 
-import type { FabricationDetail, MaterialInForm, PoolInForm } from './budget';
 import type { FinancialBase } from './shared';
 
 export interface ConvertOptionResponse {

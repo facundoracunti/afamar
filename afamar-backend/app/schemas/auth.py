@@ -9,12 +9,6 @@ class LoginRequest(BaseModel):
     password: str
 
 
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    user: "UserResponse"
-
-
 class UserResponse(BaseModel):
     id: int
     username: str
@@ -34,9 +28,3 @@ class UserCreate(BaseModel):
     full_name: Optional[str] = None
     is_admin: bool = False
 
-
-class UserUpdate(BaseModel):
-    email: Optional[str] = None
-    full_name: Optional[str] = None
-    password: Optional[str] = None
-    is_active: Optional[bool] = None

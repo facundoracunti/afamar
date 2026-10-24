@@ -17,7 +17,7 @@
  *  - balance_due never goes negative
  */
 import { describe, expect, it } from 'vitest';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { useBudgetCalculations } from './useBudgetCalculations';
 import type { EntityFormState, MaterialInForm } from '../types';

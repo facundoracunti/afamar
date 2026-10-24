@@ -22,11 +22,6 @@ class MaterialCategoryCreate(CapitalizeNameMixin):
     name: str
 
 
-class MaterialCategoryResponse(BaseResponse):
-    id: int
-    name: str
-
-
 class MaterialColorCreate(CapitalizeNameMixin):
     name: str
     category_id: int | None = None
@@ -37,18 +32,7 @@ class MaterialColorUpdate(CapitalizeNameMixin):
     category_id: int | None = None
 
 
-class MaterialColorResponse(BaseResponse):
-    id: int
-    name: str
-    category_id: int | None = None
-
-
 class MaterialThicknessCreate(BaseModel):
-    name: str
-
-
-class MaterialThicknessResponse(BaseResponse):
-    id: int
     name: str
 
 
@@ -124,16 +108,3 @@ class MaterialResponse(MaterialBase, CurrencyCodeMixin, MaterialColorMixin, Base
     created_at: datetime
     color: str | None = None
 
-
-class PriceHistoryCreate(BaseModel):
-    material_id: int
-    price_m2: float = 0.0
-
-
-class PriceHistoryResponse(BaseResponse):
-    id: int
-    material_id: int
-    material_name: str | None = None
-    price_m2: float
-    date: datetime
-    created_at: datetime

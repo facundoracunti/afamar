@@ -1,13 +1,10 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Eye, MessageCircle, Save } from 'lucide-react';
 import { useNotify } from '../../context/NotificationContext';
 import { useAuth } from '../../context/AuthContext';
 import { useUsdRate } from '../../hooks/useUsdRate';
-import { getWorkOrder, createWorkOrder, updateWorkOrder, deleteWorkOrder, getNextWorkOrderNumber, getWorkOrderPdf, getWorkOrderPayments, getWorkOrderPublicPdfToken } from '@/api/resources/workOrders';
-import type { CashMovement } from '../../types/cash';
-import { buildOrderShareMessage, buildWhatsAppUrl, resolvePublicDocumentPdfUrl } from '../../utils/whatsapp';
+import { getWorkOrder, createWorkOrder, updateWorkOrder, deleteWorkOrder, getNextWorkOrderNumber, getWorkOrderPdf } from '@/api/resources/workOrders';
 import { getMaterials } from '@/api/resources/materials';
 import { getPoolStock } from '@/api/resources/poolStock';
 import { getClients } from '@/api/resources/clients';
@@ -18,27 +15,20 @@ import { useSettingsWithTerms } from '../../hooks/useSettingsWithTerms';
 import { useWorkshopPdfController } from '../../hooks/useWorkshopPdfController';
 import { useConfirmPayment } from '../../hooks/useConfirmPayment';
 import { createAddressAddedHandler } from '../../hooks/entityFormHelpers';
-import { t } from '../../utils/translate';
-import { buildPdfData } from '../../utils/pdf/buildPdfData';
-import type { PdfDocumentData } from '../../utils/pdf/buildPdfData';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import FormHeader from '../../components/orders/FormHeader/FormHeader';
 import EntityFormLayout from '../../components/entity/EntityFormLayout';
-import {
-  EntityFormActionsProvider,
-  EntityFormDomainProvider,
-  EntityFormStateProvider,
-  EntityFormStyleProvider,
-} from '../../components/entity/EntityFormContexts';
-import WorkOrderFormStatus from './WorkOrderFormStatus';
-import WorkOrderFormSnapshot from './WorkOrderFormSnapshot';
 import { AlternativeBudgetGrid } from './AlternativeBudgetGrid';
-import WorkOrderPaymentSection, { backendMethodFor } from '../../features/orders/components/WorkOrderPaymentSection';
 import ObservationsSection from '../../components/orders/ObservationsSection/ObservationsSection';
-import { resolveTotalPaidArs } from '../../features/payments/utils/paymentParsing';
-import type { PaymentMethod } from '../../features/payments/types/payment.types';
-import type { EntityFormState, EntityServices, MaterialInForm } from '../../types';
+import type { EntityServices, MaterialInForm } from '../../types';
 import styles from './WorkOrderFormPage.module.css';
+import WorkOrderFormPageHeaderActions from './WorkOrderFormPage.HeaderActions';
+import WorkOrderFormPageBeforeLayout from './WorkOrderFormPage.BeforeLayout';
+import WorkOrderFormPagePaymentSection from './WorkOrderFormPage.PaymentSection';
+import WorkOrderFormPageProviders from './WorkOrderFormPage.Providers';
+import { useWorkOrderPdfPreview } from './WorkOrderFormPage.usePdfPreview';
+import { useWorkOrderWhatsAppShare } from './WorkOrderFormPage.useWhatsAppShare';
+import { buildWorkOrderTerms } from './WorkOrderFormPage.terms';
 
 const s = styles as unknown as Record<string, string>;
 
@@ -53,12 +43,6 @@ const workOrderServices = {
   getClients: getClients as EntityServices['getClients'],
   getPdfUrl: getWorkOrderPdf,
   listPath: '/admin/work-orders',
-};
-
-const STATUS_ROLLBACK: Record<string, string> = {
-  WORKSHOP: 'MEASUREMENT',
-  FINISHED: 'WORKSHOP',
-  DELIVERED: 'FINISHED',
 };
 
 interface WorkOrderFormProps {
@@ -77,9 +61,6 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
   const queryClient = useQueryClient();
   const notify = useNotify();
   const { user } = useAuth();
-  const [pdfData, setPdfData] = useState<PdfDocumentData | null>(null);
-  const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
-  const [sketchExtractorActive, setSketchExtractorActive] = useState(false);
   const [deliveryTerms, setDeliveryTerms] = useState<string[]>([]);
   const [warrantyTerms, setWarrantyTerms] = useState<string[]>([]);
   const [showComparisonToggle, setShowComparisonToggle] = useState(false);
@@ -118,28 +99,7 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
     else if (info?.deleted) navigate('/admin/work-orders');
   };
 
-  const {
-    form, loading, saving, materials, pools, logoUrl, clientes, addOrRefreshClientes, updateClientAddresses,
-    menuOpen, deleteConfirm, showCroquis,
-    readOnly, hayUSD, hayAlternativas, isEdit,
-    modoUSD, toggleModoUSD,
-    menuRef,
-    setForm,
-    setSaving,
-    setMenuOpen, setDeleteConfirm, setShowCroquis,
-    update,
-    handleTransportChange,
-    handleDepositCurrencyChange, handleDepositAmountChange, handleUsdRateChange,
-    handleDetailChange, addDetalle, removeDetalle,
-    addMaterial, removeMaterial, updateMaterial, addMaterialRow, removeMaterialGroup, updateMaterialGroup,
-    swapMaterialGroup,
-    addPileta, removePileta, updatePileta, setPoolFields,
-    handleSubmit: legacyHandleSubmit, handleDelete, handleStatusChangeAction, handlePrint,
-    buildPayload,
-    paymentMethods,
-    M2_CONCEPTS,
-    piecesFlow,
-  } = useEntityForm({
+  const entity = useEntityForm({
     services: workOrderServices,
     defaultStatus: 'MEASUREMENT',
     id,
@@ -151,6 +111,16 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
     onError: (msg) => notify(msg, 'error'),
     onAfterAction: handleSuccessCallback,
   });
+  const {
+    form, loading, saving, logoUrl, clientes, updateClientAddresses,
+    readOnly, hayAlternativas, isEdit,
+    modoUSD,
+    setForm,
+    update,
+    handleSubmit: legacyHandleSubmit, handleStatusChangeAction,
+    paymentMethods,
+    piecesFlow,
+  } = entity;
 
   // Wrap the legacy submit so the work-orders list cache is invalidated
   // AND immediately refetched on every successful save. The bare
@@ -182,57 +152,11 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
     );
   };
 
-  // Enviar el resumen completo de la OT por WhatsApp: número, cliente,
-  // materiales principales, Total, Seña/Saldo pendiente, el link del PDF
-  // público firmado (sin login) y el link de pago seguro Payway (si la OT
-  // tiene un checkout activo). NO descarga nada local en la PC del operador:
-  // solo obtiene el token público, arma el mensaje y abre WhatsApp.
-  const [whatsappSending, setWhatsappSending] = useState(false);
-  const handleEnviarWhatsApp = async () => {
-    if (!form.client_phone) {
-      notify('El cliente no tiene teléfono cargado, no se puede enviar el WhatsApp.', 'error');
-      return;
-    }
-    setWhatsappSending(true);
-    let paywayLink: string | null = null;
-    if (id) {
-      try {
-        const res = await getWorkOrderPayments(id);
-        const payments = (res.data as CashMovement[]) ?? [];
-        const latest = [...payments]
-          .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
-          .find((m) => !!m.payway_checkout_url);
-        paywayLink = latest?.payway_checkout_url ?? null;
-      } catch {
-        // Sin movimientos / offline → el mensaje sale igual, el link es opcional.
-      }
-    }
-    const mensaje = buildOrderShareMessage({
-      clientName: form.client_name || null,
-      documentLabel: 'la Orden de Trabajo',
-      documentNumber: form.number || null,
-      // Link público firmado (sin login) para que el cliente pueda abrir el
-      // PDF desde el chat; '' si la OT no existe / offline → mensaje sin link.
-      pdfUrl: id
-        ? await resolvePublicDocumentPdfUrl('work_order', () => getWorkOrderPublicPdfToken(id))
-        : '',
-      paywayLink,
-      currency: form.currency,
-      total: form.total,
-      depositReceived: form.deposit_received,
-      balanceDue: form.balance_due,
-      materials: (form.materials_data || []).map((m) => ({
-        name: m.name,
-        quantity: m.quantity,
-        length: m.length,
-        width: m.width,
-        is_alternative: m.is_alternative,
-      })),
-    });
-    const whatsappUrl = buildWhatsAppUrl(form.client_phone, mensaje);
-    window.open(whatsappUrl, '_blank');
-    setWhatsappSending(false);
-  };
+  const { whatsappSending, handleEnviarWhatsApp } = useWorkOrderWhatsAppShare({
+    form,
+    id,
+    notify,
+  });
 
   const handleAddressAdded = useCallback(createAddressAddedHandler(clientes, updateClientAddresses), [clientes, updateClientAddresses]);
 
@@ -250,54 +174,22 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
 
   const { refresh: refreshUsdRate } = useUsdRate({ form, setForm, isEdit, source: 'blue_mid' });
 
+  const {
+    pdfData, pdfPreviewLoading, sketchExtractorActive,
+    handlePreviewPdf, handleSketchImagesReady, handleClosePdfPreview,
+  } = useWorkOrderPdfPreview({
+    form,
+    company,
+    globalTerms,
+    deliveryTerms,
+    warrantyTerms,
+    paymentMethods,
+    pagoAcumuladoModulo,
+  });
+
   if (loading) return <LoadingSpinner />;
 
-  const matsMain = hayAlternativas ? (form.materials_data as unknown as MaterialInForm[] || []).filter((m) => !m.is_alternative) : (form.materials_data as unknown as MaterialInForm[] || []);
   const matsAlt = (form.materials_data as unknown as MaterialInForm[] || []).filter((m) => m.is_alternative);
-
-  const handlePreviewPdf = () => {
-    setPdfPreviewLoading(true);
-    setPdfData(null);
-    setSketchExtractorActive(true);
-  };
-
-  const handleSketchImagesReady = (images: string[]) => {
-    // El preview del PDF muestra el pago abonado real en "Seña / Pagos
-    // Registrados" y deriva el saldo (Paid + Saldo = TOTAL). El acumulado
-    // del módulo ya es la verdad (reconcilia los movimientos del backend);
-    // la seña del form en ARS es SOLO fallback legacy para OTs donde nunca
-    // se registró un pago por módulo (nunca se suman, o el PDF duplicaría el
-    // total: el depósito autocompletado ya = total + pagos del módulo).
-    const depositEnArs =
-      form.deposit_currency === 'USD' && Number(form.usd_rate) > 0
-        ? (Number(form.deposit_usd) || 0) * Number(form.usd_rate)
-        : (Number(form.deposit_received) || 0);
-    const totalPaidArs = resolveTotalPaidArs(depositEnArs, pagoAcumuladoModulo);
-    const data = buildPdfData({
-      form: form as unknown as Record<string, unknown>,
-      document_type: 'work_order',
-      overrides: {
-        delivery_terms: deliveryTerms,
-        warranty_terms: warrantyTerms,
-      },
-      company,
-      globalTerms,
-      sketchImages: images,
-      totalPaid: totalPaidArs,
-      // Pasar el catálogo para que el PDF pueda aplicar la regla del
-      // método (SURCHARGE) y emitir la tabla 3-columnas
-      // de cuotas cuando hay tarjeta de crédito.
-      paymentMethods,
-    });
-    setPdfData(data);
-    setPdfPreviewLoading(false);
-    setSketchExtractorActive(false);
-  };
-
-  const handleClosePdfPreview = () => {
-    setPdfData(null);
-    setSketchExtractorActive(false);
-  };
 
   const alternativasGrid = hayAlternativas ? (
     <AlternativeBudgetGrid
@@ -315,254 +207,81 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
         badge={<StatusBadge status={form.status} />}
         logoUrl={logoUrl}
       >
-        {form.status === 'MEASUREMENT' && (
-          <button type="button" className={s['work-order-form__btn-measurement']} onClick={() => handleStatusChangeAction('WORKSHOP')} disabled={saving}>
-            🏭 Enviar a Taller
-          </button>
-        )}
-        {form.status === 'WORKSHOP' && (
-          <button type="button" className={s['work-order-form__btn-workshop']} onClick={() => handleStatusChangeAction('FINISHED')} disabled={saving}>
-            ✅ Finalizar Trabajo
-          </button>
-        )}
-        {(form.status === 'WORKSHOP' || form.status === 'FINISHED' || form.status === 'DELIVERED') && (
-          <button type="button" className={s['work-order-form__btn-rollback']} onClick={() => handleStatusChangeAction(STATUS_ROLLBACK[form.status])} disabled={saving}>
-            ↩ Volver a {t(STATUS_ROLLBACK[form.status])}
-          </button>
-        )}
-        {form.status === 'FINISHED' && (
-          <button type="button" className={s['work-order-form__btn-delivery']} onClick={() => handleStatusChangeAction('DELIVERED')} disabled={saving}>
-            🚚 Entregar al Cliente
-          </button>
-        )}
-        {form.status === 'DELIVERED' && (
-          <span className={s['work-order-form__badge-delivered']}>
-            📦 Trabajo Entregado
-          </span>
-        )}
-        <button type="button" className={`btn btn-outline ${s['work-order-form__preview-btn']}`} onClick={() => handlePrintFicha()} disabled={!id || pdfPreviewLoading}>
-          🖨️ Ficha de Taller
-        </button>
-        <button type="button" className={`btn ${s['work-order-form__btn-whatsapp']}`} onClick={handleEnviarWhatsApp} disabled={saving || whatsappSending}>
-          <MessageCircle size={16} /> {whatsappSending ? 'ABRIENDO...' : 'ENVIAR POR WHATSAPP'}
-        </button>
-        <button type="button" className={`btn btn-outline ${s['work-order-form__preview-btn']}`} onClick={handlePreviewPdf} disabled={pdfPreviewLoading}>
-          <Eye size={16} /> {pdfPreviewLoading ? 'GENERANDO...' : 'VISTA PREVIA PDF'}
-        </button>
-        {props.layoutMode !== 'wizard' && (
-          <button type="button" className={`btn btn-primary ${s['work-order-form__btn-save']}`} onClick={handleSubmit} disabled={saving}>
-            <Save size={16} /> {saving ? 'GUARDANDO...' : 'GUARDAR'}
-          </button>
-        )}
+        <WorkOrderFormPageHeaderActions
+          form={form}
+          saving={saving}
+          hasId={Boolean(id)}
+          pdfPreviewLoading={pdfPreviewLoading}
+          whatsappSending={whatsappSending}
+          onStatusChange={handleStatusChangeAction}
+          onPrintFicha={handlePrintFicha}
+          onEnviarWhatsApp={handleEnviarWhatsApp}
+          onPreviewPdf={handlePreviewPdf}
+          onSubmit={handleSubmit}
+          showSaveButton={props.layoutMode !== 'wizard'}
+        />
       </FormHeader>
 
-      <EntityFormStyleProvider value={{ styles: s, prefix: 'work-order-form__' }}>
-        <EntityFormStateProvider
-          value={{
-            form,
-            setForm,
-            update,
+      <WorkOrderFormPageProviders
+        entity={entity}
+        handleSubmit={handleSubmit}
+        onCancel={handleCancelClick}
+        onConfirmarPago={handleConfirmarPago}
+        handleAddressAdded={handleAddressAdded}
+        onUsdRateRefresh={refreshUsdRate}
+        pdfPreview={{
+          pdfData,
+          pdfPreviewLoading,
+          sketchExtractorActive,
+          handleClosePdfPreview,
+          handleSketchImagesReady,
+        }}
+      >
+        <EntityFormLayout
+          mode={props.layoutMode || 'full'}
+          showPieces
+          piecesFlow={piecesFlow}
+          paymentSection={
+            <WorkOrderFormPagePaymentSection
+              orderId={id ? Number(id) : null}
+              form={form}
+              update={update}
+              onPaidChange={setPagoAcumuladoModulo}
+              isAdmin={user?.is_admin === true}
+            />
+          }
+          alternativasGrid={alternativasGrid}
+          beforeLayout={
+            <WorkOrderFormPageBeforeLayout
+              form={form}
+              readOnly={readOnly}
+              update={update}
+              setForm={setForm}
+              showComparisonToggle={showComparisonToggle}
+              setShowComparisonToggle={setShowComparisonToggle}
+            />
+          }
+          observations={
+            <ObservationsSection
+              form={form}
+              readOnly={readOnly}
+              update={update as (field: string, value: unknown) => void}
+              className={s['work-order-form__card']}
+              titleClassName={s['work-order-form__card-title']}
+            />
+          }
+          terms={buildWorkOrderTerms({
+            deliveryTerms,
+            warrantyTerms,
+            setDeliveryTerms,
+            setWarrantyTerms,
             readOnly,
-            saving,
-            logoUrl,
-            M2_CONCEPTS,
-          }}
-        >
-          <EntityFormDomainProvider
-            value={{
-              clientes,
-              materials,
-              pools,
-              paymentMethods,
-              addOrRefreshClientes,
-              onAddressAdded: handleAddressAdded,
-              addMaterial,
-              removeMaterial,
-              updateMaterial,
-              addMaterialRow,
-              removeMaterialGroup,
-              updateMaterialGroup,
-              swapMaterialGroup,
-              addPileta,
-              removePileta,
-              updatePileta,
-              setPoolFields,
-              handleDetailChange,
-              addDetalle,
-              removeDetalle,
-              modoUSD,
-              toggleModoUSD,
-              hayUSD,
-              hayAlternativas,
-              handleTransportChange,
-              handleDepositCurrencyChange,
-              handleDepositAmountChange,
-              handleUsdRateChange,
-              onUsdRateRefresh: refreshUsdRate,
-              formMaterials: form.materials_data || [],
-            }}
-          >
-            <EntityFormActionsProvider
-              value={{
-                handleSubmit,
-                onCancel: handleCancelClick,
-                onConfirmarPago: handleConfirmarPago,
-                deleteConfirm,
-                setDeleteConfirm,
-                handleDelete,
-                deleteTitle: 'Eliminar orden',
-                deleteMessage: '¿Estás seguro de eliminar esta orden de trabajo?',
-                deleteConfirmLabel: 'Eliminar',
-                deleteDanger: true,
-                pdfData,
-                pdfPreviewLoading,
-                handleClosePdfPreview,
-                pdfTitle: 'Vista previa — Orden de Trabajo',
-                pdfFileName: `orden_${form.number || 'nueva'}.pdf`,
-                sketchExtractorActive,
-                handleSketchImagesReady,
-                showCroquis,
-                setShowCroquis,
-              }}
-            >
-              <EntityFormLayout
-                mode={props.layoutMode || 'full'}
-                  showPieces
-                  piecesFlow={piecesFlow}
-                  paymentSection={
-                    <WorkOrderPaymentSection
-                      orderId={id ? Number(id) : null}
-                      orderNumber={form.number ?? null}
-                      clientName={form.client_name ?? null}
-                      clientPhone={form.client_phone ?? null}
-                      montoTotal={form.total}
-                      montoSeniaRequerida={(() => {
-                        const seniaGuardada = form.deposit_received ?? 0;
-                        const totalPositivo = form.total > 0;
-                        // Umbral 95%: si `deposit_received` está al 95% o más del
-                        // total, lo tratamos como "se guardó el total" (típico
-                        // de OTs legacy donde `deposit_received` se usaba como
-                        // pago total, o de operadores que copiaron el total
-                        // por error) y recalculamos al 50%.
-                        const seniaEsCustom =
-                          totalPositivo &&
-                          seniaGuardada > 0 &&
-                          seniaGuardada < form.total * 0.95;
-                        return seniaEsCustom
-                          ? seniaGuardada
-                          : Math.round(form.total * 50) / 100;
-                      })()}
-                      montoPagadoAcumulado={0}
-                      preferredMethodBackend={form.payment_method ?? null}
-                      currency={form.currency === 'USD' ? 'USD' : 'ARS'}
-                      usdRate={Number(form.usd_rate) > 0 ? Number(form.usd_rate) : 0}
-                      onPreferredMethodChange={(method: PaymentMethod | null) =>
-                        update('payment_method', backendMethodFor(method))
-                      }
-                      onPaidChange={setPagoAcumuladoModulo}
-                      isAdmin={user?.is_admin === true}
-                    />
-                  }
-                  alternativasGrid={alternativasGrid}
-                  beforeLayout={
-                  <>
-                    <div className={s['work-order-form__card-section']}>
-                      <WorkOrderFormStatus
-                        form={form}
-                        readOnly={readOnly}
-                        update={update}
-                      />
-                    </div>
-                    <div className={s['work-order-form__card-section']}>
-                      <WorkOrderFormSnapshot form={form} readOnly={readOnly} />
-                    </div>
-                    {/* The measurement-comparison toggle is available for BOTH
-                        work orders converted from a budget (shows estimated vs
-                        real measures) and direct work orders (the operator can
-                        still activate it — e.g. to print the real measures as a
-                        spec reference). It is always visible. */}
-                    <div className={s['work-order-form__card-section']}>
-                      <div className={`card ${s['work-order-form__pdf-toggle-card']}`}>
-                        <div className={s['work-order-form__comparison-toggle-header']}>
-                          <button
-                            type="button"
-                            className={`btn btn-outline ${s['work-order-form__comparison-toggle']}`}
-                            onClick={() => setShowComparisonToggle(!showComparisonToggle)}
-                            disabled={readOnly}
-                          >
-                            {showComparisonToggle ? '👁️' : '⚖️'}{' '}
-                            {showComparisonToggle
-                              ? 'Ocultar Comparativa de medición'
-                              : 'Activar Comparativa de medición'}
-                          </button>
-                          {!showComparisonToggle && (
-                            <span className={s['work-order-form__comparison-toggle-hint']}>
-                              Comparativa oculta.
-                            </span>
-                          )}
-                        </div>
-                        {showComparisonToggle && (
-                          <div className={s['work-order-form__comparison-toggle-panel']}>
-                            <label className={s['work-order-form__pdf-toggle']}>
-                              <input
-                                type="checkbox"
-                                checked={form.include_measurement_comparison_in_pdf === true}
-                                disabled={readOnly}
-                                onChange={(e) =>
-                                  setForm({
-                                    ...form,
-                                    include_measurement_comparison_in_pdf: e.target.checked,
-                                  })
-                                }
-                              />
-                              <span>Incluir comparativa de medición en el PDF</span>
-                            </label>
-                            <p className={s['work-order-form__pdf-toggle-hint']}>
-                              Muestra la tabla COMPARATIVA DE MEDICIÓN (M² Real / M²
-                              Presupuestado / Diferencia) en el PDF de esta orden.
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </>
-                }
-                observations={
-                  <ObservationsSection
-                    form={form}
-                    readOnly={readOnly}
-                    update={update as (field: string, value: unknown) => void}
-                    className={s['work-order-form__card']}
-                    titleClassName={s['work-order-form__card-title']}
-                  />
-                }
-                terms={[
-                  {
-                    title: 'Condiciones de Entrega',
-                    items: deliveryTerms,
-                    onChange: setDeliveryTerms,
-                    placeholder: 'Ej: Entrega a convenir, transporte a cargo del cliente…',
-                    hint: 'Si dejás la lista vacía, se usarán las condiciones globales configuradas.',
-                    disabled: readOnly,
-                  },
-                  {
-                    title: 'Garantía',
-                    items: warrantyTerms,
-                    onChange: setWarrantyTerms,
-                    placeholder: 'Ej: 12 meses por defectos de fabricación…',
-                    hint: 'Si dejás la lista vacía, se usará la garantía global configurada.',
-                    disabled: readOnly,
-                  },
-                ]}
-                specsCardClassName={`card ${s['specs-card']}`}
-                fabricationShowMeasurementComparison={form.status === 'MEASUREMENT'}
-                fabricationMaterialsData={form.materials_data}
-              />
-            </EntityFormActionsProvider>
-
-          </EntityFormDomainProvider>
-        </EntityFormStateProvider>
-      </EntityFormStyleProvider>
+          })}
+          specsCardClassName={`card ${s['specs-card']}`}
+          fabricationShowMeasurementComparison={form.status === 'MEASUREMENT'}
+          fabricationMaterialsData={form.materials_data}
+        />
+      </WorkOrderFormPageProviders>
 
       {ficha.UI}
 

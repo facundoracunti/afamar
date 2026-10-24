@@ -6,7 +6,6 @@ from app.core.exceptions import NotFoundError
 from app.utils.responses import PaginationInfo, created, success
 from app.schemas.pool_stock import PoolStockCreate, PoolStockResponse, PoolStockUpdate, StockMovementCreate
 from app.services.pool_stock import PoolStockService
-from app.utils.pagination import paginate
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
 

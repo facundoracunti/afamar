@@ -1,40 +1,43 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Printer, Lock, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import { Printer, Lock } from 'lucide-react';
 import { getCurrentCash, createCashMovement, deleteCashMovement, setPreviousBalance, closeCash } from '@/api/resources/cash';
 import type { CashMovePayload } from '@/api/resources/cash';
 import type { CashRegister, CashMovement } from '../../types/cash';
 import type { WorkOrderListItem } from '../../types/workOrder';
 import { useGet } from '../../api/hooks';
-import { formatCurrency } from '../../utils/formatters';
 import {
-  resolveBalanceDue,
-  resolveStatus,
-  FALLBACK_OT_STATUS,
   type WorkOrdersById,
 } from '../../utils/cashMovementFormatters';
-import { folderStatusClass } from '../../constants';
-import { t } from '../../utils/translate';
 import { parseApiError } from '../../utils/error';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import PreviousBalanceCard from '../../components/cash/PreviousBalanceCard/PreviousBalanceCard';
-import { CashMovementTable } from '../../components/cash/CashMovementTable/CashMovementTable';
 import CashTotalCards from '../../components/cash/CashTotalCards/CashTotalCards';
 import IncomeModal from '../../components/cash/IncomeModal/IncomeModal';
 import ExpenseModal from '../../components/cash/ExpenseModal/ExpenseModal';
 import CloseCashModal from '../../components/cash/CloseCashModal/CloseCashModal';
 import { getWorkOrders } from '@/api/resources/workOrders';
 import { useNotify } from '../../context/NotificationContext';
+import { formatDateTime } from './CashDailyPage.format';
+import { CashPrintHeader } from './CashDailyPage.PrintHeader';
+import { CashMovements } from './CashDailyPage.Movements';
+import { CashPrintSummary } from './CashDailyPage.PrintSummary';
 import styles from './CashDailyPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
 
-function formatDateTime(iso?: string | null): string {
-  if (!iso) return '-';
-  const d = new Date(iso);
-  return `${d.toLocaleDateString('es-AR')} ${d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}`;
-}
-
+/** Cash register page (open box) — movements, totals and the printable
+ *  closing report.
+ *
+ *  This file is the ORCHESTRATOR (see ADR 0009): the data fetching, the
+ *  state and the handlers live here while the UI blocks are delegated to
+ *  focused sub-components:
+ *
+ *   - `CashDailyPage.PrintHeader.tsx`  — print-only report header.
+ *   - `CashDailyPage.Movements.tsx`    — Entradas / Salidas tables.
+ *   - `CashDailyPage.PrintSummary.tsx` — print-only totals + signatures.
+ *   - `CashDailyPage.format.ts`        — shared formatters.
+ */
 export default function CashDailyPage() {
   const [previousBalance, setPreviousBalanceState] = useState<number>(0);
   const [previousBalanceEdit, setPreviousBalanceEdit] = useState<boolean>(false);
@@ -172,17 +175,7 @@ export default function CashDailyPage() {
         .print-only { display: none; }
       `}</style>
       <div id="print-area">
-        <div className={`print-only ${s['cash__print-header']}`}>
-          <h1 className={s['cash__print-title']}>CIERRE DE CAJA</h1>
-          {boxNumber !== undefined && boxNumber !== null && (
-            <p className={s['cash__print-date']}>Caja #{boxNumber}</p>
-          )}
-          <p className={s['cash__print-date']}>
-            Apertura: {formatDateTime(openedAt)}
-            {closedAt ? ` — Cierre: ${formatDateTime(closedAt)}` : ''}
-          </p>
-          <hr className={s['cash__print-hr']} />
-        </div>
+        <CashPrintHeader boxNumber={boxNumber} openedAt={openedAt} closedAt={closedAt} />
 
         {/* Header */}
         <div className={`no-print ${s['cash__page-header']}`}>
@@ -224,83 +217,15 @@ export default function CashDailyPage() {
 
         {loading ? <LoadingSpinner /> : (
           <>
-            <div className={s['cash__movements-grid']}>
-              <CashMovementTable
-                title="Entradas (Ingresos)"
-                titleColor="#16a34a"
-                icon={<ArrowUpCircle size={20} />}
-                addLabel="Agregar Ingreso"
-                emptyMessage="Sin ingresos registrados"
-                movements={incomes}
-                columns={[
-                  { key: 'order_number', label: 'N° Orden', width: 90, render: (m) => <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{m.order_number || '-'}</span> },
-                  { key: 'client_name', label: 'Cliente', render: (m) => m.client_name || '-' },
-                  { key: 'amount', label: 'Monto', width: 110, render: (m) => <span className={s['cash__amount--income']}>{formatCurrency(m.amount)}</span> },
-                  { key: 'remaining_balance', label: 'Saldo Restante', width: 130, render: (m) => {
-                      // Resolver contra el `balance_due` ACTUAL de la OT
-                      // (catálogo vivo) → cae al snapshot del movimiento →
-                      // heurística `order_total - amount`. Siempre
-                      // formato moneda ($ 0,00 incluido) cuando hay OT
-                      // asociada; `'-'` solo cuando el movimiento no
-                      // tiene `order_id` (egreso genérico / ingreso libre).
-                      const orderId = m.order_id;
-                      if (orderId == null) return '-';
-                      // El helper garantiza `number` cuando `order_id`
-                      // está presente; el `?? 0` es solo para contentar
-                      // el type-narrowing de TS (no debería disparar).
-                      const v = resolveBalanceDue(m, workOrdersById) ?? 0;
-                      return (
-                        <span
-                          className={v > 0 ? s['cash__amount--expense'] : s['cash__balance--positive']}
-                          title={v === 0 ? 'Saldo completamente cobrado' : 'Saldo pendiente'}
-                        >
-                          {formatCurrency(v)}
-                        </span>
-                      );
-                    }
-                  },
-                  { key: 'payment_method', label: 'Pago', width: 140, render: (m) => {
-                      const pm = m.payment_method as string;
-                      return <span className="badge badge-pending">{pm || '-'}</span>;
-                    }
-                  },
-                  { key: 'folder_status', label: 'Estado', width: 110, render: (m) => {
-                      // Prioridad: `status` ACTUAL de la OT → snapshot del
-                      // movimiento. Para movimientos SIN OT asociada
-                      // muestra `'-'`. Para los que sí tienen OT,
-                      // siempre muestra un badge (incluso si el status
-                      // no llegó, usa `MEASUREMENT` como fallback).
-                      const fs = resolveStatus(m, workOrdersById) ?? (m.order_id != null ? FALLBACK_OT_STATUS : null);
-                      return fs ? <span className={`badge ${folderStatusClass(fs)}`}>{t(fs)}</span> : '-';
-                    }
-                  },
-                ]}
-                closed={isClosed}
-                onAdd={() => setShowIncome(true)}
-                onDelete={(id: number) => setDeleteId(id)}
-              />
-              <CashMovementTable
-                title="Salidas (Egresos)"
-                titleColor="#dc2626"
-                icon={<ArrowDownCircle size={20} />}
-                addLabel="Agregar Egreso"
-                emptyMessage="Sin egresos registrados"
-                movements={expenses}
-                columns={[
-                  { key: 'description', label: 'Concepto', render: (m) => m.description || '-' },
-                  { key: 'amount', label: 'Monto', width: 110, render: (m) => <span className={s['cash__amount--expense']}>{formatCurrency(m.amount)}</span> },
-                  { key: 'expense_type', label: 'Tipo', width: 90, render: (m) => {
-                      const et = m.expense_type as string;
-                      const cls = et === 'GENERAL' ? 'badge-rejected' : 'badge-production';
-                      return <span className={`badge ${cls}`}>{et || 'GENERAL'}</span>;
-                    }
-                  },
-                ]}
-                closed={isClosed}
-                onAdd={() => setShowExpense(true)}
-                onDelete={(id: number) => setDeleteId(id)}
-              />
-            </div>
+            <CashMovements
+              incomes={incomes}
+              expenses={expenses}
+              workOrdersById={workOrdersById}
+              isClosed={isClosed}
+              onAddIncome={() => setShowIncome(true)}
+              onAddExpense={() => setShowExpense(true)}
+              onDelete={(id: number) => setDeleteId(id)}
+            />
 
             <div className="no-print">
               <CashTotalCards
@@ -313,47 +238,13 @@ export default function CashDailyPage() {
           </>
         )}
 
-        {/* Compact print-only totals block (planilla style, one A4 page) */}
-        <div className={s['cash__print-totals']}>
-          <div className={s['cash__print-totals-row']}>
-            <div className={s['cash__print-totals-cell']}>
-              <span className={s['cash__print-totals-label']}>Saldo Anterior</span>
-              <span className={s['cash__print-totals-value']}>{formatCurrency(cashData?.previous_balance ?? 0)}</span>
-            </div>
-            <div className={s['cash__print-totals-cell']}>
-              <span className={s['cash__print-totals-label']}>Entradas</span>
-              <span className={s['cash__print-totals-value']}>{formatCurrency(cashData?.total_income ?? 0)}</span>
-            </div>
-            <div className={s['cash__print-totals-cell']}>
-              <span className={s['cash__print-totals-label']}>Salidas</span>
-              <span className={s['cash__print-totals-value']}>{formatCurrency(cashData?.total_expenses ?? 0)}</span>
-            </div>
-            <div className={s['cash__print-totals-cell']}>
-              <span className={s['cash__print-totals-label']}>Saldo Actual</span>
-              <span className={s['cash__print-totals-value']}>{formatCurrency(cashData?.current_balance ?? 0)}</span>
-            </div>
-            <div className={`${s['cash__print-totals-cell']} ${s['cash__print-totals-cell--highlight']}`}>
-              <span className={s['cash__print-totals-label']}>Efectivo Real en Cajón</span>
-              <span className={s['cash__print-totals-value']}>{formatCurrency(cashData?.real_cash ?? 0)}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Print-only signature block at the foot of the report */}
-        <div className={s['cash__print-signatures']}>
-          <div className={s['cash__print-signature-item']}>
-            <div className={s['cash__print-signature-line']} />
-            <span className={s['cash__print-signature-label']}>Firma y Aclaración Responsable de Caja</span>
-          </div>
-          <div className={s['cash__print-signature-item']}>
-            <div className={s['cash__print-signature-line']} />
-            <span className={s['cash__print-signature-label']}>Firma y Aclaración Receptor / Administración</span>
-          </div>
-        </div>
-
-        <div className={`print-only ${s['cash__print-footer-block']}`}>
-          <span className={s['cash__print-footer']}>Reporte generado el {new Date().toLocaleDateString('es-AR')} a las {new Date().toLocaleTimeString('es-AR')}</span>
-        </div>
+        <CashPrintSummary
+          previousBalance={cashData?.previous_balance ?? 0}
+          totalIncome={cashData?.total_income ?? 0}
+          totalExpenses={cashData?.total_expenses ?? 0}
+          currentBalance={cashData?.current_balance ?? 0}
+          realCash={cashData?.real_cash ?? 0}
+        />
       </div>
 
       <IncomeModal isOpen={showIncome} onClose={() => setShowIncome(false)} onSubmit={handleAddIncome} />

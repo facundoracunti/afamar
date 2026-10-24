@@ -59,7 +59,7 @@ interface BudgetFormActions {
 }
 
 export function useBudgetActions({
-  form, setForm, setSaving, saving, buildPayload, isEdit, id, paymentMethods = [],
+  form, setForm, setSaving, saving: _saving, buildPayload, isEdit, id, paymentMethods = [],
 }: BudgetFormActionsParams): BudgetFormActions {
   const navigate = useNavigate();
   const queryClient = useQueryClient();

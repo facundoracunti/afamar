@@ -2,7 +2,7 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import ConflictError, ValidationError
+from app.core.exceptions import ConflictError
 from app.models.material import Material, MaterialCategory, MaterialColor, MaterialThickness
 from app.models.price_history import PriceHistory
 from app.repositories.material import ColorRepository, MaterialCategoryRepository, MaterialRepository, PriceHistoryRepository, ThicknessRepository

@@ -1,7 +1,6 @@
 import logging
 import time
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from alembic import command
 from alembic.config import Config as AlembicConfig

@@ -2,7 +2,6 @@ import json as _json
 
 from sqlalchemy.orm import Session
 
-from app.models.client import Client
 from app.models.setting import Setting
 from app.schemas.budget import BudgetResponse
 from app.schemas.work_order import WorkOrderResponse
@@ -21,23 +20,6 @@ def has_terms(value) -> bool:
         return False
     s = str(value).strip()
     return s not in ("", "[]")
-
-
-def split_or_default(value, default_global_terms) -> list[str]:
-    if value is None or value == "":
-        return default_global_terms or []
-    if isinstance(value, list):
-        return [str(t) for t in value if str(t).strip()]
-    raw = str(value).strip()
-    if not raw:
-        return default_global_terms or []
-    try:
-        parsed = _json.loads(raw)
-        if isinstance(parsed, list):
-            return [str(t) for t in parsed if str(t).strip()]
-    except (ValueError, TypeError):
-        pass
-    return [t for t in (line.strip() for line in raw.splitlines()) if t]
 
 
 def build_company_and_terms(settings_data: dict, budget_key: str, overrides: dict | None = None) -> tuple[dict, dict]:

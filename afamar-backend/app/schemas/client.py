@@ -47,15 +47,6 @@ class ClientResponse(ClientBase, BaseResponse):
     addresses: List["ClientAddressResponse"] = []
 
 
-class ClientHistoryResponse(BaseModel):
-    total_budgets: int = 0
-    total_orders: int = 0
-    total_billed: float = 0.0
-    last_order_number: str | None = None
-    recent_orders: list[ClientHistoryItem] = []
-    recent_budgets: list[ClientHistoryItem] = []
-
-
 # Imported here to break the circular type reference: ClientResponse
 # embeds `ClientAddressResponse` and that schema is the one most often
 # used standalone.

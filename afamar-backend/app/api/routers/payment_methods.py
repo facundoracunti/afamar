@@ -5,13 +5,12 @@ because this catalogue has richer fields than the other 4 reference
 tables, and the form needs an `active_only` filter for the
 "Forma de pago" dropdown that the generic router doesn't expose.
 """
-from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user, get_db
-from app.core.exceptions import NotFoundError, ValidationError
+from app.core.exceptions import NotFoundError
 from app.schemas.payment_method import (
     PaymentMethodCreate,
     PaymentMethodResponse,

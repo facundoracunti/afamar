@@ -1,9 +1,6 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { Plus } from 'lucide-react';
 import type { Client } from '../../../types/client';
-import styles from './ClientSection.module.css';
-
-const s = styles as unknown as Record<string, string>;
 
 interface ClientTypeaheadProps {
   value: string;

@@ -1,14 +1,12 @@
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect } from 'react';
 import { parseApiError } from '../../../utils/error';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { FolderTree, Palette } from 'lucide-react';
 import {
   getMaterial,
   createMaterial,
   updateMaterial,
   uploadMaterialPhoto,
-  deleteMaterialPhoto,
   getMaterialCategories,
   getMaterialColors,
   primeMaterialCategoryMap,
@@ -20,19 +18,21 @@ import { useNotify } from '../../../context/NotificationContext';
 import { useGet, useList } from '../../../api/hooks';
 import type { MaterialFormData, Material } from '../../../types/material';
 import { LoadingSpinner } from '../../ui/LoadingSpinner/LoadingSpinner';
-import { Modal } from '../../ui/Modal/Modal';
 import { FormActions } from '../../ui/FormActions/FormActions';
 import { MaterialPhotoUploader } from '../MaterialPhotoUploader/MaterialPhotoUploader';
+import {
+  CATEGORIES_KEY,
+  COLORS_KEY,
+  SETTINGS_KEY,
+  MATERIAL_KEY,
+} from './MaterialForm.constants';
+import { useMaterialPhoto } from './MaterialForm.usePhoto';
+import { MaterialIdentityFields } from './MaterialForm.IdentityFields';
+import { MaterialCommercialFields } from './MaterialForm.CommercialFields';
+import { MaterialExtraFields } from './MaterialForm.ExtraFields';
 import styles from './MaterialForm.module.css';
 
 const s = styles as unknown as Record<string, string>;
-
-const MaterialsColorsPage = React.lazy(() => import('../../../pages/materials/MaterialsColorsPage'));
-
-const CATEGORIES_KEY = ['material-categories'] as const;
-const COLORS_KEY = ['material-colors'] as const;
-const SETTINGS_KEY = ['settings'] as const;
-const MATERIAL_KEY = (id: string | number | undefined) => ['material', id] as const;
 
 interface MaterialFormProps {
   /** When provided, the form runs in edit mode and pre-fills from the API. */
@@ -43,6 +43,18 @@ interface MaterialFormProps {
   onCancel?: () => void;
 }
 
+/** Material create/edit form.
+ *
+ *  This file is the ORCHESTRATOR (see ADR 0009): the state, the queries and
+ *  the submit flow live here while the UI is delegated to focused
+ *  sub-components:
+ *
+ *   - `MaterialForm.IdentityFields.tsx`  — nombre / categoría / color / espesor.
+ *   - `MaterialForm.CommercialFields.tsx` — precio M² / moneda / proveedor / stock.
+ *   - `MaterialForm.ExtraFields.tsx`     — bacha integrada + observaciones.
+ *   - `MaterialForm.usePhoto.ts`         — foto (selección / preview / borrado).
+ *   - `MaterialForm.constants.ts`        — query keys.
+ */
 export default function MaterialForm({ materialId, onSaved, onCancel }: MaterialFormProps) {
   const isEdit = materialId !== undefined;
   const navigate = useNavigate();
@@ -64,10 +76,16 @@ export default function MaterialForm({ materialId, onSaved, onCancel }: Material
     allows_integrated_sink: true,
     notes: '',
   });
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [fotoPreview, setFotoPreview] = useState<string | null>(null);
-  const [existingFoto, setExistingFoto] = useState<string | null>(null);
-  const [deletingPhoto, setDeletingPhoto] = useState(false);
+
+  const {
+    selectedFile,
+    fotoPreview,
+    existingFoto,
+    deletingPhoto,
+    handleFotoSelect,
+    handleRemoveFoto,
+    setExistingFoto,
+  } = useMaterialPhoto({ materialId, notify });
 
   const { items: categorias, loading: loadingCategories } = useList<MaterialCategory>(
     CATEGORIES_KEY,
@@ -122,40 +140,10 @@ export default function MaterialForm({ materialId, onSaved, onCancel }: Material
       notes: materialData.notes || '',
     });
     if (materialData.photo) setExistingFoto(materialData.photo);
-  }, [materialData]);
+  }, [materialData, setExistingFoto]);
 
-  useEffect(() => {
-    return () => {
-      if (fotoPreview) URL.revokeObjectURL(fotoPreview);
-    };
-  }, [fotoPreview]);
-
-  const handleFotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (fotoPreview) URL.revokeObjectURL(fotoPreview);
-    setSelectedFile(file);
-    setFotoPreview(URL.createObjectURL(file));
-  };
-
-  const handleRemoveFoto = async () => {
-    if (fotoPreview) URL.revokeObjectURL(fotoPreview);
-    setSelectedFile(null);
-    setFotoPreview(null);
-    if (materialId && existingFoto) {
-      try {
-        setDeletingPhoto(true);
-        await deleteMaterialPhoto(materialId);
-        setExistingFoto(null);
-      } catch (err) {
-        const detail = (err as { message?: string })?.message ?? 'No se pudo eliminar la foto';
-        notify(detail, 'error');
-      } finally {
-        setDeletingPhoto(false);
-      }
-    } else {
-      setExistingFoto(null);
-    }
+  const patchForm = (patch: Partial<MaterialFormData>) => {
+    setForm({ ...form, ...patch });
   };
 
   const handlePrecioArsChange = (value: number) => {
@@ -224,123 +212,38 @@ export default function MaterialForm({ materialId, onSaved, onCancel }: Material
   return (
     <form onSubmit={handleSubmit} className={s['material-form']}>
       <div className={s['material-form__card']}>
-        <div className={s['material-form__row']}>
-          <div className={s['material-form__group']}>
-            <label className={s['material-form__label']}>Nombre *</label>
-            <input className="input" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          </div>
-          <div className={s['material-form__group']}>
-            <label className={s['material-form__label']}>
-              Categoría *
-              <a
-                href="/admin/materials/categories"
-                onClick={(e) => { e.preventDefault(); navigate('/admin/materials/categories'); }}
-                className={s['material-form__label-link']}
-                title="Gestionar categorías"
-              >
-                <FolderTree size={12} /> Gestionar
-              </a>
-            </label>
-            <select
-              className="input"
-              value={form.category_id}
-              onChange={(e) => setForm({ ...form, category_id: e.target.value })}
-              disabled={loadingCategories && categorias.length === 0}
-              required
-            >
-              <option value="">{loadingCategories ? 'Cargando categorías...' : 'Seleccionar...'}</option>
-              {categorias.map((c) => (
-                <option key={c.id} value={String(c.id)}>{c.name}</option>
-              ))}
-            </select>
-            {!loadingCategories && categorias.length === 0 && (
-              <small className={s['material-form__warn-text']}>
-                No hay categorías cargadas. Creá una desde "Gestionar Categorías" en el menú.
-              </small>
-            )}
-          </div>
-        </div>
-        <div className={s['material-form__row']}>
-          <div className={s['material-form__group']}>
-            <label className={s['material-form__label']}>
-              Color
-              <a
-                href="/admin/materials/colors"
-                onClick={(e) => { e.preventDefault(); navigate('/admin/materials/colors'); }}
-                className={s['material-form__label-link']}
-                title="Gestionar colores"
-              >
-                <Palette size={12} /> Gestionar
-              </a>
-            </label>
-            <select
-              className="input"
-              value={form.color_id}
-              onChange={(e) => setForm({ ...form, color_id: e.target.value })}
-              disabled={loadingColors && colores.length === 0}
-            >
-              <option value="">Sin color</option>
-              {colores.map((c) => (
-                <option key={c.id} value={String(c.id)}>{c.name}</option>
-              ))}
-            </select>
-            {!loadingColors && colores.length === 0 && (
-              <small className={s['material-form__warn-text']}>
-                No hay colores cargados. Creá uno desde "Gestionar Colores" en el menú.
-              </small>
-            )}
-          </div>
-          <div className={s['material-form__group']}>
-            <label className={s['material-form__label']}>Espesor disponible</label>
-            <input className="input" value={form.available_thickness} onChange={(e) => setForm({ ...form, available_thickness: e.target.value })} />
-          </div>
-        </div>
-        <div className={s['material-form__row']}>
-          <div className={`${s['material-form__group']} ${s['material-form__group--grow']}`}>
-            <label className={s['material-form__label']}>Precio M²</label>
-            <input className="input" type="number" step="0.01" min="0"
-              value={form.currency === 'USD' ? (form.price_usd || '') : (form.base_price || '')}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                if (form.currency === 'USD') handlePrecioUsdChange(v);
-                else handlePrecioArsChange(v);
-              }} />
-          </div>
-          <div className={`${s['material-form__group']} ${s['material-form__group--fixed']}`}>
-            <label className={s['material-form__label']}>Moneda</label>
-            <select className="input" value={form.currency} onChange={(e) => handleMonedaChange(e.target.value)}>
-              <option value="ARS">ARS</option>
-              <option value="USD">USD</option>
-            </select>
-          </div>
-        </div>
-        <div className={s['material-form__row']}>
-          <div className={s['material-form__group']}>
-            <label className={s['material-form__label']}>Proveedor</label>
-            <input className="input" value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} />
-          </div>
-          <div className={s['material-form__group']}>
-            <label className={s['material-form__label']}>Stock disponible</label>
-            <input className="input" type="number" min="0" value={form.stock_available} onChange={(e) => setForm({ ...form, stock_available: Number(e.target.value) })} />
-          </div>
-        </div>
-        <div className={s['material-form__group']}>
-          <label className={s['material-form__label']}>
-            <input
-              type="checkbox"
-              checked={form.allows_integrated_sink}
-              onChange={(e) => setForm({ ...form, allows_integrated_sink: e.target.checked })}
-            />{' '}
-            Admite bacha integrada
-          </label>
-          <small className={s['material-form__hint-text']}>
-            Desmarcá si este material no se puede cortar con bacha integrada (ej. granitos porosos).
-          </small>
-        </div>
-        <div className={s['material-form__group']}>
-          <label className={s['material-form__label']}>Observaciones</label>
-          <textarea className="input" rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-        </div>
+        <MaterialIdentityFields
+          form={{
+            name: form.name,
+            category_id: form.category_id,
+            color_id: form.color_id,
+            available_thickness: form.available_thickness,
+          }}
+          categorias={categorias}
+          colores={colores}
+          loadingCategories={loadingCategories}
+          loadingColors={loadingColors}
+          navigate={navigate}
+          onChange={patchForm}
+        />
+        <MaterialCommercialFields
+          form={{
+            base_price: form.base_price,
+            price_usd: form.price_usd,
+            currency: form.currency,
+            supplier: form.supplier,
+            stock_available: form.stock_available,
+          }}
+          onChange={patchForm}
+          onPrecioArsChange={handlePrecioArsChange}
+          onPrecioUsdChange={handlePrecioUsdChange}
+          onMonedaChange={handleMonedaChange}
+        />
+        <MaterialExtraFields
+          allows_integrated_sink={form.allows_integrated_sink}
+          notes={form.notes}
+          onChange={patchForm}
+        />
 
         <MaterialPhotoUploader
           existingFoto={existingFoto}

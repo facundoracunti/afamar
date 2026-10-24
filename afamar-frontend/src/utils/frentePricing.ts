@@ -14,10 +14,6 @@ import { materialGroupKey } from './materialGroups';
 export const FRENTE_LINEAR_COEFFICIENT = 0.13;
 export const FRENTE_FORMULA_MULTIPLIER_DEFAULT = 1.15;
 
-function rowBasePrice(m: MaterialInForm, currency: 'ARS' | 'USD'): number {
-  return currency === 'USD' ? Number(m.price_m2_usd ?? 0) : Number(m.price_m2 ?? 0);
-}
-
 /** Backwards-compatible shape used by `AdditionalWorkCard` and the
  *  `useAdditionalWorkSelection` hook. Each entry corresponds to one
  *  `materials_data` row in the form's snapshot (kept flat — the
