@@ -28,9 +28,7 @@ export function DocumentHeader({ data }: { data: PdfDocumentData }) {
             {data.company.company_tagline ? (
               <Text style={styles.tagline}>{data.company.company_tagline}</Text>
             ) : null}
-            {data.document_type === 'budget' ? (
-              <Text style={styles.trajectory}>Más de 40 años de trayectoria</Text>
-            ) : null}
+            <Text style={styles.trajectory}>Más de 40 años de trayectoria</Text>
             {data.company.company_address ? (
               <Text style={styles.contactLine}>{data.company.company_address}</Text>
             ) : null}

@@ -49,6 +49,8 @@ export interface DocumentRows {
   globalSection: MaterialSection | undefined;
   /** The document subtotal the rule set runs on. */
   computedSubtotal: number;
+  /** The structured pieces subtotal in USD, when pieces are valid. */
+  computedSubtotalUsd: number;
 }
 
 /**
@@ -104,9 +106,14 @@ export function collectDocumentRows({
   // "Alternativa". The piece principal subtotals already include pools
   // (they moved into the pieces), so they sum to the true document total.
   const piecesEarly = buildPieces(effectiveForm, usdRate);
-  const computedSubtotal = piecesEarly.length > 0
-    ? piecesSubtotal(piecesEarly).ars
+  const piecesTotals = piecesEarly.length > 0 ? piecesSubtotal(piecesEarly) : null;
+  const globalSection = sections.find((s) => s.is_global);
+  const computedSubtotal = piecesTotals
+    ? piecesTotals.ars
     : (mainSection ? mainSection.subtotal_ars : subtotalMain) + subtotalGlobal;
+  const computedSubtotalUsd = piecesTotals
+    ? piecesTotals.usd
+    : (mainSection ? mainSection.subtotal_usd : globalSection?.subtotal_usd ?? 0);
 
   return {
     usdRate,
@@ -120,7 +127,8 @@ export function collectDocumentRows({
     additionalWorksSubtotalUsd,
     adtBuckets,
     mainSection,
-    globalSection: sections.find((s) => s.is_global),
+    globalSection,
     computedSubtotal,
+    computedSubtotalUsd,
   };
 }

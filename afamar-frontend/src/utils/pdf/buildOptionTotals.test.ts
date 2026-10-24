@@ -107,6 +107,33 @@ describe('buildOptionTotals — Resumen Comparativo de Opciones (B1)', () => {
     expect(data.option_totals![1].subtotal_ars).toBe(1_800_000);
   });
 
+  it('keeps the selected option USD total aligned with its structured pileta', () => {
+    const base = piece('COCINA', 'CALACATTA', 1_000_000, 200_000);
+    const usdPiece: BudgetPiece = {
+      ...base,
+      mainMaterial: {
+        ...base.mainMaterial!,
+        currency: 'USD',
+        price_m2: 1_000_000,
+        price_m2_usd: 1000,
+      },
+    };
+    const opts = [
+      option('opt-1', 'Opción 1', true, [usdPiece]),
+      option('opt-2', 'Opción 2', false, [piece('COCINA', 'NEGRO', 300_000, 300_000)]),
+    ];
+    const data = buildPdfData({
+      ...baseParams,
+      form: { ...formWithOptions(opts), usd_rate: 1000 },
+      overrides: {},
+    });
+
+    expect(data.total_usd).toBe(2200);
+    const selected = data.option_totals!.find((total) => total.is_selected);
+    expect(selected?.subtotal_usd).toBe(2200);
+    expect(selected?.total_usd).toBe(2200);
+  });
+
   it('is EMPTY for a legacy single-option budget (B1: zero PDF regression)', () => {
     // No `options` at all — the traditional Hoja de Alternativas must
     // stay in charge, so `option_totals` is not populated.

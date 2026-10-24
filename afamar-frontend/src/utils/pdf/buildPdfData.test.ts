@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildPdfData } from './buildPdfData';
 import type { BudgetPiece, FabricationDetail, MaterialInForm, PoolInForm } from '../../types/budget';
 import type { PaymentMethod } from '../../types/paymentMethod';
+import { flattenPieces } from '@features/budgets/utils/pieces';
 
 /**
  * Catalogue fixture mirroring the 4 default rows seeded by
@@ -121,6 +122,183 @@ const materialsWithAlt = [
 function makeForm(extra: Record<string, unknown> = {}) {
   return { ...formBase, ...extra } as unknown as Parameters<typeof buildPdfData>[0]['form'];
 }
+
+function structuredPiece(overrides: Partial<BudgetPiece> = {}): BudgetPiece {
+  return {
+    id: 'structured-piece',
+    name: 'Mesada estructurada',
+    mainMaterial: {
+      id: 10,
+      name: 'CALACATTA',
+      price_m2: 1_000_000,
+      price_m2_usd: 1000,
+      currency: 'USD',
+      quantity: 1,
+      m2_used: 0,
+      m2_budgeted: 0,
+      length: 2,
+      width: 1,
+      is_alternative: false,
+    },
+    alternativeMaterials: [],
+    fabrication_details: [],
+    additional_works_data: '[]',
+    pools: [{
+      pool_id: 10,
+      brand: 'JOHNSON',
+      model: 'LUXOR',
+      price: 200_000,
+      currency: 'ARS',
+      quantity: 1,
+      material: '',
+    }],
+    ...overrides,
+  };
+}
+
+function structuredForm(pieces: BudgetPiece[], extra: Record<string, unknown> = {}) {
+  const flat = flattenPieces(pieces);
+  return makeForm({
+    pieces,
+    materials_data: flat.materials_data,
+    pools_data: flat.pools_data,
+    fabrication_details: flat.fabrication_details,
+    additional_works_data: flat.additional_works_data,
+    ...extra,
+  });
+}
+
+const pdfParams = {
+  document_type: 'work_order' as const,
+  company: {
+    company_name: 'AFAMAR', company_tagline: '', company_address: '',
+    company_phone: '', company_email: '', company_logo: '', pdf_footer: '',
+  },
+  globalTerms: { budget_terms: [], delivery_terms: [], warranty_text: [] },
+  overrides: {},
+  sketchImages: [],
+};
+
+function structuredSubtotalUsd(data: ReturnType<typeof buildPdfData>): number {
+  return data.pieces && data.pieces.length > 0
+    ? data.pieces.reduce((sum, piece) => sum + piece.subtotal_usd, 0)
+    : data.sections.reduce((sum, section) => sum + section.subtotal_usd, 0);
+}
+
+describe('buildPdfData — structured pieces keep ARS/USD totals aligned', () => {
+  it('includes the pileta in the USD total for a material-only piece', () => {
+    const data = buildPdfData({ ...pdfParams, form: structuredForm([structuredPiece()]) });
+    expect(data.subtotal).toBe(2_200_000);
+    expect(structuredSubtotalUsd(data)).toBe(2200);
+    expect(data.total).toBe(2_200_000);
+    expect(data.total_usd).toBe(2200);
+  });
+
+  it('includes material, additional work, and pileta exactly once', () => {
+    const piece = structuredPiece({
+      additional_works_data: JSON.stringify([{
+        name: 'Traforo', detail: '', currency: 'USD', price: 50,
+        quantity: 1, total: 50, type: 'flat', materialName: '__GLOBAL__',
+      }]),
+    });
+    const data = buildPdfData({ ...pdfParams, form: structuredForm([piece]) });
+    expect(structuredSubtotalUsd(data)).toBe(2250);
+    expect(data.total_usd).toBe(2250);
+    expect(data.total).toBe(2_250_000);
+  });
+
+  it('uses pieces when pools_data is empty', () => {
+    const piece = structuredPiece();
+    const data = buildPdfData({
+      ...pdfParams,
+      form: structuredForm([piece], { pools_data: [] }),
+    });
+    expect(data.total_usd).toBe(2200);
+    expect(data.total).toBe(2_200_000);
+  });
+
+  it('uses pieces when all flat arrays are stale', () => {
+    const piece = structuredPiece({
+      additional_works_data: JSON.stringify([{
+        name: 'Traforo', detail: '', currency: 'USD', price: 50,
+        quantity: 1, total: 50, type: 'flat', materialName: '__GLOBAL__',
+      }]),
+    });
+    const data = buildPdfData({
+      ...pdfParams,
+      form: structuredForm([piece], {
+        materials_data: [], pools_data: [], fabrication_details: [], additional_works_data: '[]',
+      }),
+    });
+    expect(data.total_usd).toBe(2250);
+    expect(data.total).toBe(2_250_000);
+  });
+
+  it('keeps the flat-array behavior when pieces_data is absent', () => {
+    const piece = structuredPiece();
+    const flat = flattenPieces([piece]);
+    const data = buildPdfData({
+      ...pdfParams,
+      form: makeForm({
+        materials_data: flat.materials_data,
+        pools_data: flat.pools_data,
+        additional_works_data: flat.additional_works_data,
+      }),
+    });
+    expect(data.total_usd).toBe(2200);
+    expect(data.total).toBe(2_200_000);
+  });
+
+  it('sums USD subtotals across several pieces without duplication', () => {
+    const pieces = [structuredPiece({ id: 'piece-1' }), structuredPiece({ id: 'piece-2' })];
+    const data = buildPdfData({ ...pdfParams, form: structuredForm(pieces) });
+    expect(structuredSubtotalUsd(data)).toBe(4400);
+    expect(data.total_usd).toBe(4400);
+    expect(data.total).toBe(4_400_000);
+  });
+
+  it('applies commercial discounts after the structured subtotal', () => {
+    const data = buildPdfData({
+      ...pdfParams,
+      form: structuredForm([structuredPiece()], {
+        discount_enabled: true,
+        discount_target: 'total',
+        discount_percentage: 10,
+      }),
+    });
+    expect(structuredSubtotalUsd(data)).toBe(2200);
+    expect(data.total_usd).toBe(1980);
+    expect(data.total).toBe(1_980_000);
+  });
+
+  it('applies catalogue surcharges after the structured subtotal', () => {
+    const data = buildPdfData({
+      ...pdfParams,
+      paymentMethods: PAYMENT_METHODS,
+      form: structuredForm([structuredPiece()], {
+        payment_method: 'TARJETA DE CRÉDITO',
+        payment_method_id: 4,
+        installments: 2,
+      }),
+    });
+    expect(structuredSubtotalUsd(data)).toBe(2200);
+    expect(data.total_usd).toBe(2596);
+    expect(data.total).toBe(2_596_000);
+  });
+
+  it('keeps transport outside the structured subtotal and inside the total', () => {
+    const data = buildPdfData({
+      ...pdfParams,
+      form: structuredForm([structuredPiece()], {
+        transport: 100_000,
+        transport_usd: 100,
+      }),
+    });
+    expect(structuredSubtotalUsd(data)).toBe(2200);
+    expect(data.total_usd).toBe(2300);
+    expect(data.total).toBe(2_300_000);
+  });
+});
 
 describe('buildPdfData — additional works per-section routing', () => {
   it('puts global adicionais in every section', () => {

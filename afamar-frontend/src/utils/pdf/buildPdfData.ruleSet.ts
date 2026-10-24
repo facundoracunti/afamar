@@ -77,7 +77,15 @@ export function computeDocumentRuleSet({
   const str = (k: string): string => formStr(form, k);
   const num = (k: string): number => formNum(form, k);
 
-  const { usdRate, allMaterials, sections, mainSection, globalSection, computedSubtotal } = rows;
+  const {
+    usdRate,
+    allMaterials,
+    sections,
+    mainSection,
+    globalSection,
+    computedSubtotal,
+    computedSubtotalUsd,
+  } = rows;
 
   const transport = num('transport');
   const transportUsd = num('transport_usd');
@@ -132,11 +140,9 @@ export function computeDocumentRuleSet({
   // Document-level totals — the "representative" total used by the base PDF
   // data (and by a PRINCIPAL page when it exists). Shares the exact same
   // rule set with the per-section totals below via `computeTotals`.
-  const mainSectionSubtotalUsd = mainSection
-    ? mainSection.subtotal_usd
-    : globalSection
-      ? globalSection.subtotal_usd
-      : 0;
+  // Pieces are the authoritative source for both currencies. The flat rows
+  // can be stale after a pieces edit, especially for piletas and additions.
+  const mainSectionSubtotalUsd = computedSubtotalUsd;
   const totalsContext: TotalsContext = {
     transport,
     transportUsd,

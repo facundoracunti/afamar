@@ -107,6 +107,12 @@ const baseParams = {
   sketchImages: [],
 };
 
+const workOrderParams = {
+  ...baseParams,
+  document_type: 'work_order' as const,
+  globalTerms: { budget_terms: [], delivery_terms: ['Entrega coordinada con el cliente.'], warranty_text: ['Garantía AFAMAR.'] },
+};
+
 /** Text of the PDF's pages in VISUAL order.
  *
  * The content streams are stored in the file in an arbitrary order, so
@@ -580,5 +586,94 @@ describe('PDF multi-opción — documento comercial sin jerga interna', () => {
     expect(occurrences).toBe(1);
     const modalidades = cover.split(normalize('Modalidades de pago')).length - 1;
     expect(modalidades).toBe(0);
+  });
+
+  it('renders work orders with the premium header and all OT-specific content', { timeout: RENDER_TIMEOUT }, async () => {
+    const workOrderPiece = {
+      ...piece('wo-piece', 'COCINA', 'NEGRO BRASIL', 300_000),
+      fabrication_details: [
+        {
+          concept: 'BASEBOARD',
+          detail: 'Zócalo pulido',
+          material: 'NEGRO BRASIL',
+          length: 2,
+          width: 0.1,
+          quantity: 1,
+          price: 45_000,
+          currency: 'ARS',
+        },
+      ],
+    } as unknown as BudgetPiece;
+    const form = {
+      ...INITIAL_FORM,
+      number: 'A-000001',
+      status: 'MEASUREMENT',
+      pieces: [workOrderPiece],
+      include_measurement_comparison_in_pdf: true,
+      deposit_received: 400_000,
+      balance_due: 1_510_000,
+      notes: 'Verificar medidas en obra.',
+      important_observations: 'Coordinar visita con el cliente.',
+      usd_rate: 1555,
+    } as unknown as Record<string, unknown>;
+
+    const data = buildPdfData({
+      ...workOrderParams,
+      form,
+      overrides: {},
+      totalPaid: 400_000,
+      paymentMethods: [
+        { id: 1, name: 'EFECTIVO', label: 'Efectivo', color: '', is_active: true, sort_order: 1, type: 'NONE', value: 0, is_percentage: false, applies_to_installments: false },
+      ],
+    });
+    const buffer = await renderToBuffer(
+      React.createElement(DocumentPdf, { data }) as never,
+    );
+    const pages = (await pdfVisualPageTexts(buffer)).map(normalize);
+    const firstPage = pages[0] || '';
+    const wholeDocument = pages.join('');
+
+    expect(buffer.slice(0, 4).toString()).toBe('%PDF');
+    expect(firstPage).toContain(normalize('ORDEN DE TRABAJO'));
+    expect(firstPage).toContain('A-000001');
+    expect(firstPage).toContain(normalize('AFAMAR'));
+    expect(firstPage).toContain(normalize('Más de 40 años de trayectoria'));
+    expect(firstPage).toContain(normalize('PIEZA: COCINA'));
+    expect(firstPage).toContain(normalize('Fabricación'));
+    expect(firstPage).toContain(normalize('Trabajos adicionales'));
+    expect(firstPage).toContain(normalize('Piletas'));
+    expect(wholeDocument).toContain(normalize('TOTAL'));
+    expect(wholeDocument).toContain(normalize('Pagos registrados'));
+    expect(wholeDocument).toContain(normalize('Saldo pendiente'));
+    expect(wholeDocument).toContain(normalize('Condiciones de entrega'));
+  });
+
+  it('keeps a long work order paginated without dropping its total block', { timeout: RENDER_TIMEOUT }, async () => {
+    const pieces = Array.from({ length: 4 }, (_, index) =>
+      pieceWithRows(
+        piece(`wo-${index}`, `AMBIENTE ${index + 1}`, `MATERIAL ${index + 1}`, 180_000),
+        `AMBIENTE ${index + 1}`,
+        8,
+      ),
+    );
+    const form = {
+      ...INITIAL_FORM,
+      number: 'A-000002',
+      status: 'WORKSHOP',
+      pieces,
+      notes: 'Orden con mucho contenido para validar la paginación.',
+      usd_rate: 1555,
+    } as unknown as Record<string, unknown>;
+
+    const data = buildPdfData({ ...workOrderParams, form, overrides: {} });
+    const buffer = await renderToBuffer(
+      React.createElement(DocumentPdf, { data }) as never,
+    );
+    const pages = (await pdfVisualPageTexts(buffer)).map(normalize);
+
+    expect(pageCount(buffer)).toBeGreaterThan(1);
+    expect(pages.some((text) => text.includes(normalize('ORDEN DE TRABAJO')))).toBe(true);
+    expect(pages.some((text) => text.includes(normalize('TOTAL')))).toBe(true);
+    expect(pages.some((text) => text.includes(normalize('Saldo pendiente')))).toBe(true);
   });
 });
