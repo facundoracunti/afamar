@@ -9,7 +9,12 @@ from app.services.pdf_html.catalogue import _payment_methods_catalogue, _resolve
 from app.services.pdf_html.formatting import _format_date, _format_date_optional, _fmt_money, _split_terms
 from app.services.pdf_html.measurement import _build_measurement_comparison
 from app.services.pdf_html.payments import _sum_income_paid
-from app.services.pdf_html.rows import _build_materials_pdf, _build_pools_pdf, _parse_fabrication_details
+from app.services.pdf_html.rows import (
+    _build_materials_pdf,
+    _build_pools_pdf,
+    _build_work_order_pieces_pdf,
+    _parse_fabrication_details,
+)
 
 
 def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict, terms: dict, db=None) -> dict:
@@ -86,6 +91,10 @@ def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict
         if include_comparison
         else []
     )
+    work_order_pieces = _build_work_order_pieces_pdf(
+        order_data.get("pieces_data"),
+        usd_rate_value,
+    )
 
     return {
         # Header
@@ -113,6 +122,9 @@ def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict
 
         # Materials (English field names with computed m2/subtotal)
         "materials": materials,
+        # Presentation-only per-piece layout. The persisted financial fields
+        # below remain the sole source for totals and balances.
+        "work_order_pieces": work_order_pieces,
 
         # COMPARATIVA DE MEDICIÓN (Concepto | M² Real | M² Presupuestado |
         # Diferencia). Empty when the per-order flag is off.

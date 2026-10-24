@@ -18,6 +18,32 @@
   flex-shrink: 0;
 }
 
+.entity-form-client__actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.entity-form-client__edit-btn {
+  padding: 5px 12px;
+  font-size: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--surface-alt-bg);
+  color: var(--text-primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.entity-form-client__edit-btn:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
+}
+
 .entity-form-client__remove-btn:hover {
   border-color: var(--color-danger);
   background: var(--color-danger);

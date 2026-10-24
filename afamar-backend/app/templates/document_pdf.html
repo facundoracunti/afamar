@@ -105,22 +105,61 @@
   .signatures td { width: 50%; text-align: center; vertical-align: bottom; padding: 0 8px; }
   .signature-line { border-top: 1px solid #1a1a1a; padding-top: 4px; min-height: 50px; }
   .signature-caption { font-size: 7.5pt; color: #64748b; margin-top: 2px; }
+
+  /* ===== PREMIUM WORK ORDER ONLY =====
+     These rules are deliberately scoped to the OT body class. Budget PDFs
+     continue using the legacy declarations above unchanged. */
+  .work-order-document { color: #252B33; }
+  .work-order-document .header-table { margin-bottom: 10px; }
+  .work-order-document .header-tagline,
+  .work-order-document .header-contact { color: #69717C; }
+  .work-order-document .header-tagline { font-size: 9pt; }
+  .work-order-document .wo-company-name { font-size: 12pt; font-weight: bold; color: #252B33; margin-bottom: 1px; }
+  .work-order-document .wo-trajectory { font-size: 8pt; color: #69717C; margin-top: 2px; }
+  .work-order-document .doc-title { color: #252B33; font-size: 12pt; }
+  .work-order-document .doc-number { color: #B6403A; }
+  .work-order-document .header-divider { border-top: 1.5px solid #B6403A; margin-bottom: 10px; }
+  .work-order-document .divider { border-top: 1px solid #E5E7EB; }
+  .work-order-document .section-title { color: #B6403A; border-bottom-color: #B6403A; margin-top: 8px; }
+  .work-order-document .obs-box { background: #F4F5F6; border: 1px solid #E5E7EB; }
+  .work-order-document .obs-title { color: #B6403A; }
+  .work-order-document .data-table th { background: #F4F5F6; color: #252B33; border-color: #E5E7EB; }
+  .work-order-document .data-table td { color: #252B33; border-color: #E5E7EB; }
+  .work-order-document .totals .grand { background: #252B33; color: #FFFFFF; border-left: 3px solid #B6403A; }
+  .work-order-document .wo-grand-cell { height: 54px; padding: 7px 10px !important; vertical-align: middle; }
+  .work-order-document .wo-grand-gap td { height: 20px; padding: 0; line-height: 1px; font-size: 1px; }
+  .work-order-document .totals .lbl { color: #69717C; }
+  .work-order-document .totals-usd-label { color: #69717C; }
+  .work-order-document .totals-usd-rate { color: #B6403A; }
+  .work-order-document .terms-box { background: #F4F5F6; border-color: #E5E7EB; }
+  .work-order-document .terms-title { color: #B6403A; }
+  .work-order-document .info-box { background: #F4F5F6; border-color: #E5E7EB; }
+  .work-order-document .wo-piece-card { border: 1px solid #E5E7EB; background: #FFFFFF; padding: 8px; margin: 8px 0; page-break-inside: avoid; }
+  .work-order-document .wo-piece-title { background: #F4F5F6; border-left: 3px solid #B6403A; color: #252B33; font-size: 10pt; font-weight: bold; padding: 5px 7px; margin-bottom: 6px; text-transform: uppercase; }
+  .work-order-document .wo-piece-subtitle { color: #B6403A; font-size: 8pt; font-weight: bold; margin: 5px 0 2px; text-transform: uppercase; }
+  .work-order-document .wo-piece-card .data-table { margin-bottom: 4px; }
+  .work-order-document .wo-piece-card .data-table th,
+  .work-order-document .wo-piece-card .data-table td { font-size: 7.5pt; padding: 3px 4px; }
+  .work-order-document .wo-piece-card .data-table th { white-space: nowrap; }
+  .work-order-document .wo-piece-card .num { text-align: right; }
 </style>
 </head>
-<body>
+<body class="{% if document_type == 'work_order' %}work-order-document{% endif %}">
 
 {# =========================================================================
    HEADER (top of first page only)
    ========================================================================= #}
 <table class="header-table"><tr>
-  <td style="width:60%;">
+  <td class="header-left-cell" style="width:60%;">
     {% if logo_base64 %}<img class="logo-img" src="data:image/png;base64,{{ logo_base64 }}">{% endif %}
+    {% if document_type == "work_order" %}<div class="wo-company-name">{{ company_name or "AFAMAR" }}</div>{% endif %}
     {% if company_tagline %}<div class="header-tagline">{{ company_tagline }}</div>{% endif %}
+    {% if document_type == "work_order" %}<div class="wo-trajectory">Más de 40 años de trayectoria</div>{% endif %}
     {% if company_address %}<div class="header-contact">{{ company_address }}</div>{% endif %}
     {% if company_phone %}<div class="header-contact">Tel: {{ company_phone }}</div>{% endif %}
     {% if company_email %}<div class="header-contact">{{ company_email }}</div>{% endif %}
   </td>
-  <td style="width:40%; text-align:right; vertical-align:top;">
+  <td class="header-right-cell" style="width:40%; text-align:right; vertical-align:top;">
     <div class="doc-title">{{ title }}</div>
     <div class="doc-number">{{ number }}</div>
     {# Free-text validity line (admin-editable "válido por X días"). Moved
@@ -184,6 +223,7 @@
 {# =========================================================================
    FABRICATION DETAILS
    ========================================================================= #}
+{% if document_type != "work_order" or not work_order_pieces %}
 {% if fabrication_details %}
 <div class="section-title">Detalles de fabricación</div>
 <table class="data-table">
@@ -210,10 +250,67 @@
   </tbody>
 </table>
 {% endif %}
+{% endif %}
+
+{% if document_type == "work_order" and work_order_pieces %}
+<div class="section-title">Piezas / Mesadas</div>
+{% for piece in work_order_pieces %}
+<div class="wo-piece-card">
+  <div class="wo-piece-title">Pieza: {{ piece.name }}</div>
+  {% if piece.materials %}
+  <div class="wo-piece-subtitle">Materiales</div>
+  <table class="data-table">
+    <thead><tr>
+      <th>Material</th><th>Color</th><th class="num">Largo</th><th class="num">Ancho</th>
+      <th class="num">Cant.</th><th class="num">M²</th><th class="num">Precio/m²</th><th class="num">Subtotal</th>
+    </tr></thead>
+    <tbody>{% for m in piece.materials %}<tr>
+      <td>{{ m.name or "—" }}</td><td>{{ m.color or "—" }}</td>
+      <td class="num">{{ m.length_str or "0.00 m" }}</td><td class="num">{{ m.width_str or "0.00 m" }}</td>
+      <td class="num">{{ m.quantity }}</td><td class="num">{{ m.m2_str }}</td>
+      <td class="num">{{ m.currency }} {{ m.price_str }}</td><td class="num">{{ m.currency }} {{ m.subtotal_str }}</td>
+    </tr>{% endfor %}</tbody>
+  </table>
+  {% endif %}
+  {% if piece.fabrication %}
+  <div class="wo-piece-subtitle">Fabricación</div>
+  <table class="data-table">
+    <thead><tr><th>Concepto</th><th>Detalle</th><th>Material</th><th class="num">Largo</th><th class="num">Ancho</th><th class="num">Cant.</th><th class="num">Precio</th></tr></thead>
+    <tbody>{% for d in piece.fabrication %}<tr>
+      <td>{{ d.concept or "" }}</td><td>{{ d.detail or "" }}</td><td>{{ d.material or "" }}</td>
+      <td class="num">{{ d.length_str or "" }}</td><td class="num">{{ d.width_str or "" }}</td>
+      <td class="num">{{ d.quantity if d.show_quantity else "" }}</td><td class="num">{{ d.currency }} {{ d.price_str or "0.00" }}</td>
+    </tr>{% endfor %}</tbody>
+  </table>
+  {% endif %}
+  {% if piece.additional %}
+  <div class="wo-piece-subtitle">Trabajos adicionales</div>
+  <table class="data-table">
+    <thead><tr><th>Trabajo</th><th>Detalle</th><th class="num">Cant.</th><th class="num">Precio</th><th class="num">Subtotal</th></tr></thead>
+    <tbody>{% for a in piece.additional %}<tr>
+      <td>{{ a.name }}</td><td>{{ a.detail or "" }}</td><td class="num">{{ a.quantity }}</td>
+      <td class="num">{{ a.currency }} {{ a.price_str }}</td><td class="num">{{ a.currency }} {{ a.total_str }}</td>
+    </tr>{% endfor %}</tbody>
+  </table>
+  {% endif %}
+  {% if piece.pools %}
+  <div class="wo-piece-subtitle">Piletas</div>
+  <table class="data-table">
+    <thead><tr><th>Marca</th><th>Modelo</th><th class="num">Cant.</th><th class="num">Precio</th><th class="num">Subtotal</th></tr></thead>
+    <tbody>{% for p in piece.pools %}<tr>
+      <td>{{ p.brand or "—" }}</td><td>{{ p.model or "—" }}</td><td class="num">{{ p.quantity }}</td>
+      <td class="num">$ {{ p.price_str or "0.00" }}</td><td class="num">$ {{ p.subtotal_str or "0.00" }}</td>
+    </tr>{% endfor %}</tbody>
+  </table>
+  {% endif %}
+</div>
+{% endfor %}
+{% endif %}
 
 {# =========================================================================
    MATERIALS
    ========================================================================= #}
+{% if document_type != "work_order" or not work_order_pieces %}
 {% if materials %}
 <div class="section-title">Materiales</div>
 <table class="data-table">
@@ -241,6 +338,7 @@
     {% endfor %}
   </tbody>
 </table>
+{% endif %}
 {% endif %}
 
 {# =========================================================================
@@ -295,6 +393,7 @@
 {# =========================================================================
    POOLS
    ========================================================================= #}
+{% if document_type != "work_order" or not work_order_pieces %}
 {% if pools %}
 <div class="section-title">Piletas</div>
 <table class="data-table">
@@ -316,6 +415,7 @@
     {% endfor %}
   </tbody>
 </table>
+{% endif %}
 {% endif %}
 
 {# =========================================================================
@@ -427,10 +527,21 @@
         {% endif %}
         {# TOTAL blue bar — sits in the right column AFTER descuento/interés
            and BEFORE seña/saldo (2026-09-25 tarde). #}
+        {% if document_type == "work_order" %}
+        <tr class="grand">
+          <td colspan="2" class="wo-grand-cell">
+            <div class="wo-grand-label">TOTAL</div>
+            <div class="wo-grand-ars">ARS $ {{ "{:,.2f}"|format(total or 0) }}</div>
+            {% if total_usd %}<div class="wo-grand-usd">USD {{ "{:,.2f}"|format(total_usd or 0) }}</div>{% endif %}
+          </td>
+        </tr>
+        <tr class="wo-grand-gap"><td colspan="2">&nbsp;</td></tr>
+        {% else %}
         <tr class="grand">
           <td>TOTAL</td>
           <td>$ {{ "{:,.2f}"|format(total or 0) }}{% if total_usd %} <span style="font-size:8pt;opacity:0.8;">(USD ${{ "{:,.2f}"|format(total_usd or 0) }})</span>{% endif %}</td>
         </tr>
+        {% endif %}
         {# Seña / Pagos Registrados — unified row for WORK ORDERS: the builder
            (`build_work_order_pdf_data`) sets `paid_label` / `total_paid_ars` /
            `total_paid_usd` to the accumulated INCOME payments of the order (seña
@@ -473,7 +584,7 @@
 </table>
 
 {% if payment_method %}
-<div style="font-size: 8.5pt; margin-bottom: 6px;">
+<div class="{% if document_type == 'work_order' %}wo-payment-summary{% endif %}" style="font-size: 8.5pt; margin-bottom: 6px;">
   <span class="label">Forma de pago:</span> {{ payment_method }}{% if catalogue_installment_detail %}{% set _interes = catalogue_installment_detail[0].interes %}{% if installments > 1 %} ({{ installments }} cuotas con {{ "{:g}".format(_interes) }}% de interés por cuota){% else %} (con {{ "{:g}".format(_interes) }}% de interés){% endif %}{% elif installments %} ({{ installments }} cuota{{ "" if installments == 1 else "s" }}){% endif %}
 </div>
 {% endif %}
@@ -485,7 +596,7 @@
    with the METODO DE PAGO reference box (side by side), then Garantía
    renders full-width below. Mirrors the frontend preview layout.
    ========================================================================= #}
-<table style="width: 100%; border-collapse: collapse;">
+<table class="{% if document_type == 'work_order' %}wo-bottom-layout{% endif %}" style="width: 100%; border-collapse: collapse;">
   <tr>
     <td style="vertical-align: top;">
       {% if document_type == "budget" %}
@@ -509,10 +620,10 @@
       {% endif %}
     </td>
     {% if payment_methods_catalogue %}
-    <td style="vertical-align: top; width: 40%;">
-      <div class="info-box" style="margin-top: 8px;">
+    <td class="{% if document_type == 'work_order' %}wo-bottom-payment{% endif %}" style="vertical-align: top; width: 40%;">
+      <div class="info-box"{% if document_type != "work_order" %} style="margin-top: 8px;"{% endif %}>
         <div class="terms-title">Metodo de pago</div>
-        <div style="font-size: 8.5pt;">
+        <div class="{% if document_type == 'work_order' %}payment-method-item{% endif %}" style="font-size: 8.5pt;">
           {% for m in payment_methods_catalogue %}{{ m }}{% if not loop.last %}<br>{% endif %}{% endfor %}
         </div>
       </div>

@@ -3,6 +3,7 @@ import { parseApiError } from '../../utils/error';
 import { MapPin, Plus } from 'lucide-react';
 import ClientSection from '../../components/orders/ClientSection/ClientSection';
 import ClientInfoCard from '../../components/orders/ClientInfoCard/ClientInfoCard';
+import EditClientModal from './EditClientModal';
 import { createClientAddress } from '@/api/resources/clientAddresses';
 import { useNotify } from '../../context/NotificationContext';
 import type { EntityFormState } from '../../types';
@@ -32,6 +33,7 @@ export default function EntityFormClient({
 }: EntityFormClientProps) {
   const [newAddrText, setNewAddrText] = useState('');
   const [addingAddr, setAddingAddr] = useState(false);
+  const [editClientOpen, setEditClientOpen] = useState(false);
   const notify = useNotify();
 
   const selectedClient = clientes.find((c) => c.name === form.client_name);
@@ -132,24 +134,53 @@ export default function EntityFormClient({
     update('delivery_address_id', null);
   };
 
+  const handleClientUpdated = (updatedClient: Client) => {
+    const currentPrimaryAddress = selectedClient?.address || '';
+    const usesPrimaryAddress = form.delivery_address_id == null
+      && (form.client_address || '') === currentPrimaryAddress;
+
+    onClientCreated(updatedClient);
+    update('client_name', updatedClient.name);
+    update('client_phone', updatedClient.phone || '');
+    update('client_email', updatedClient.email || '');
+    if (usesPrimaryAddress) update('client_address', updatedClient.address || '');
+  };
+
   if (hasClient) {
     return (
       <div className={cardClassName}>
-        <div className={s['entity-form-client__info-row']}>
-          <ClientInfoCard client={selectedClient} />
-          {!readOnly && (
-            <button
-              type="button"
-              className={s['entity-form-client__remove-btn']}
-              onClick={handleRemoveClient}
-              title="Quitar este cliente para elegir otro"
-            >
-              Quitar cliente
-            </button>
-          )}
-        </div>
-        {renderAddressPicker(selectedClient)}
-      </div>
+          <div className={s['entity-form-client__info-row']}>
+           <ClientInfoCard client={selectedClient} />
+           {!readOnly && (
+             <div className={s['entity-form-client__actions']}>
+               {Number.isInteger(selectedClient.id) && selectedClient.id > 0 && (
+                 <button
+                   type="button"
+                   className={s['entity-form-client__edit-btn']}
+                   onClick={() => setEditClientOpen(true)}
+                 >
+                   Editar cliente
+                 </button>
+               )}
+               <button
+                 type="button"
+                 className={s['entity-form-client__remove-btn']}
+                 onClick={handleRemoveClient}
+                 title="Quitar este cliente para elegir otro"
+               >
+                 Quitar cliente
+               </button>
+             </div>
+           )}
+         </div>
+         {renderAddressPicker(selectedClient)}
+         <EditClientModal
+           isOpen={editClientOpen}
+           client={selectedClient}
+           onClose={() => setEditClientOpen(false)}
+           onSaved={handleClientUpdated}
+         />
+       </div>
     );
   }
 

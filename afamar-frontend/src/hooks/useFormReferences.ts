@@ -58,6 +58,19 @@ export const PAYMENT_METHODS_KEY = ['payment-methods', 'reference'] as const;
 const ENTITY_KEY = (entity: string, id: string | undefined) => [entity, id] as const;
 const NEXT_NUMBER_KEY = (entity: string) => [entity, 'next-number'] as const;
 
+export function upsertClientReference(list: Client[], newClient: Client): Client[] {
+  const existing = list.find((client) => client.id === newClient.id);
+  if (!existing) return [newClient, ...list];
+
+  return list.map((client) => client.id === newClient.id ? {
+    ...client,
+    ...newClient,
+    addresses: newClient.addresses ?? client.addresses,
+    totalPurchased: newClient.totalPurchased ?? client.totalPurchased,
+    lastOrderNumber: newClient.lastOrderNumber ?? client.lastOrderNumber,
+  } : client);
+}
+
 export function useFormReferences({
   services,
   defaultStatus,
@@ -192,8 +205,7 @@ export function useFormReferences({
     }
     queryClient.setQueryData<Client[]>([...CLIENTS_KEY], (prev) => {
       const list = prev ?? [];
-      if (list.some((c) => c.id === newClient.id)) return list;
-      return [newClient, ...list];
+      return upsertClientReference(list, newClient);
     });
   };
 

@@ -117,3 +117,101 @@ def _build_pools_pdf(pools: list) -> list[dict]:
             "subtotal_str": _fmt_money(subtotal),
         })
     return result
+
+
+def _parse_piece_list(raw) -> list[dict]:
+    """Parse a piece-owned JSON list without changing the source data."""
+    if not raw:
+        return []
+    import json as _json
+
+    try:
+        parsed = _json.loads(raw) if isinstance(raw, str) else raw
+    except (_json.JSONDecodeError, TypeError):
+        return []
+    return parsed if isinstance(parsed, list) else []
+
+
+def _build_piece_materials_pdf(materials: list) -> list[dict]:
+    """Build display rows for the OT piece cards.
+
+    This mirrors the existing material row presentation but keeps the native
+    currency visible for the piece layout. It does not feed document totals.
+    """
+    result = []
+    for src in materials or []:
+        if not isinstance(src, dict):
+            continue
+        length = float(src.get("length") or src.get("largo") or 0)
+        width = float(src.get("width") or src.get("ancho") or 0)
+        quantity = float(src.get("quantity") or src.get("cantidad") or 1)
+        currency = "USD" if str(src.get("currency") or "").upper() == "USD" else "ARS"
+        price_key = "price_m2_usd" if currency == "USD" else "price_m2"
+        price = float(src.get(price_key) or 0)
+        m2 = length * width * quantity
+        result.append({
+            "name": src.get("name") or src.get("nombre") or "",
+            "color": src.get("color") or "",
+            "length_str": _fmt_unit(length, suffix="m"),
+            "width_str": _fmt_unit(width, suffix="m"),
+            "quantity": int(quantity) if quantity.is_integer() else quantity,
+            "m2_str": _fmt_m2(m2),
+            "price_str": _fmt_money(price),
+            "subtotal_str": _fmt_money(m2 * price),
+            "currency": currency,
+        })
+    return result
+
+
+def _build_piece_additional_pdf(raw) -> list[dict]:
+    """Build presentation rows for piece-owned additional works."""
+    result = []
+    for src in _parse_piece_list(raw):
+        if not isinstance(src, dict):
+            continue
+        currency = "USD" if str(src.get("currency") or "").upper() == "USD" else "ARS"
+        price = float(src.get("price") or 0)
+        quantity = float(src.get("quantity") or 1)
+        total = float(src.get("total") or price * quantity)
+        result.append({
+            "name": src.get("name") or "Trabajo adicional",
+            "detail": src.get("detail") or src.get("detalle") or "",
+            "quantity": int(quantity) if quantity.is_integer() else quantity,
+            "price_str": _fmt_money(price),
+            "total_str": _fmt_money(total),
+            "currency": currency,
+        })
+    return result
+
+
+def _build_work_order_pieces_pdf(raw, usd_rate: float = 0) -> list[dict]:
+    """Adapt ``pieces_data`` into presentation-only OT card rows.
+
+    The legacy builder remains flat for budgets and for OTs without valid
+    pieces. These rows are only consumed by the conditional OT template block;
+    financial values continue to come from the persisted order fields.
+    """
+    pieces = _parse_piece_list(raw)
+    result = []
+    for piece in pieces:
+        if not isinstance(piece, dict):
+            continue
+        main = piece.get("mainMaterial")
+        main_rows = piece.get("mainMaterialRows") or []
+        materials = ([main] if isinstance(main, dict) else []) + [
+            row for row in main_rows if isinstance(row, dict)
+        ]
+        fabrication = _parse_fabrication_details(piece.get("fabrication_details"))
+        for row in fabrication:
+            row["currency"] = "USD" if str(row.get("currency") or "").upper() == "USD" else "ARS"
+        result.append({
+            "name": piece.get("name") or "Pieza",
+            "materials": _build_piece_materials_pdf(materials),
+            "fabrication": fabrication,
+            "additional": _build_piece_additional_pdf(piece.get("additional_works_data")),
+            "pools": _build_pools_pdf(piece.get("pools") or []),
+        })
+    return [
+        piece for piece in result
+        if piece["materials"] or piece["fabrication"] or piece["additional"] or piece["pools"]
+    ]
