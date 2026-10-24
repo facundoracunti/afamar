@@ -125,6 +125,10 @@ export const styles = StyleSheet.create({
   // the reader can see "PRINCIPAL: GRIS MARA" / "ALTERNATIVA 1: TAJ MAHAL" as
   // independent quotes (the customer only executes one).
   optSectionBlock: { marginTop: 5, marginBottom: 5, padding: 7, border: `1px solid ${SOFT_BORDER}`, borderRadius: 4, backgroundColor: '#FFFFFF' },
+  // Piece cards use a slightly tighter outer rhythm so a compact option can
+  // keep its complete total card on the same A4 page. Internal card spacing,
+  // table rows, typography and borders remain unchanged.
+  pieceBlock: { marginTop: 2, marginBottom: 2 },
   optSectionBlockMain: { borderColor: SOFT_BORDER, backgroundColor: '#FFFFFF' },
   optSectionBlockAlt: { borderColor: SLATE_400, backgroundColor: SLATE_50 },
   optSectionTitle: { fontSize: 10, fontWeight: 'bold', color: GRAPHITE, textTransform: 'uppercase', marginBottom: 5, paddingLeft: 6, paddingBottom: 2, borderLeft: `3px solid ${AFAMAR_RED}` },

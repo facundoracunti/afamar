@@ -29,7 +29,7 @@ import type { BudgetPiece, MaterialInForm } from '@/types/budget';
 import type { AdditionalWork } from '@/types/additionalWork';
 import { getAdditionalWorks } from '@/api/resources/additionalWorks';
 import { createEmptyPiece, flattenPieces } from '@features/budgets/utils/pieces';
-import { resolveActiveOptionId } from '@features/budgets/options/budgetOptions';
+import { resolveActiveOptionId, isContentlessPiece } from '@features/budgets/options/budgetOptions';
 import {
   mutateAddPieceAlternative,
   mutateAddPieceAlternativeRow,
@@ -115,6 +115,12 @@ export function useBudgetPieces({
   // state. Persisting the ghost would replace the option's real pieces
   // with a material-less piece — the option then priced at $0 in the
   // PDF (only its traforos survived).
+  //
+  // The same rule applies to a brand-new EMPTY option (2026-10-24): it
+  // is edited through a stable ghost piece that lives only in the editor
+  // state, so the push waits until that piece carries real content —
+  // otherwise the option would be persisted as a material-less scenario
+  // (and quoted at $0 in the customer's comparative).
   useEffect(() => {
     const list = form.options;
     if (!list || list.length === 0) return;
@@ -123,6 +129,9 @@ export function useBudgetPieces({
       resolveActiveOptionId(list, form.active_option_id ?? '') || '';
     const option = list.find((o) => o.id === activeId);
     if (!option || option.pieces === form.pieces) return;
+    if (option.pieces.length === 0 && form.pieces.every(isContentlessPiece)) {
+      return;
+    }
     setForm((prev) => ({
       ...prev,
       options: (prev.options ?? []).map((o) =>

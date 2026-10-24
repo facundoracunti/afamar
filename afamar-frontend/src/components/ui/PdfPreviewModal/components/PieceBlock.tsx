@@ -36,7 +36,7 @@ export function PieceBlock({ piece }: { piece: PiecesPdfPiece }) {
     // page instead of splitting the tables across the page break. The card
     // chrome (border + title) travels with it so the customer still reads
     // it as a single block.
-    <View style={{ ...styles.optSectionBlock, ...styles.optSectionBlockMain }} wrap={false}>
+    <View style={{ ...styles.optSectionBlock, ...styles.pieceBlock, ...styles.optSectionBlockMain }} wrap={false}>
       <Text style={styles.optSectionTitle}>{`Pieza: ${piece.name}`}</Text>
 
       {matRows.length > 0 ? (
@@ -47,21 +47,21 @@ export function PieceBlock({ piece }: { piece: PiecesPdfPiece }) {
       ) : null}
 
       {fabRows.length > 0 ? (
-        <View style={{ marginTop: 4 }}>
+        <View style={{ marginTop: 2 }}>
           <Text style={styles.pieceSubsectionLabel}>Fabricación</Text>
           <DataTable headers={FAB_HEADERS} rows={fabRows} flexes={FAB_FLEXES} clean />
         </View>
       ) : null}
 
       {adicRows.length > 0 ? (
-        <View style={{ marginTop: 4 }}>
+        <View style={{ marginTop: 2 }}>
           <Text style={styles.pieceSubsectionLabel}>Trabajos adicionales</Text>
           <DataTable headers={ADDITIONAL_WORKS_HEADERS} rows={adicRows} flexes={ADDITIONAL_WORKS_FLEXES} clean />
         </View>
       ) : null}
 
       {poolRows.length > 0 ? (
-        <View style={{ marginTop: 4 }}>
+        <View style={{ marginTop: 2 }}>
           <Text style={styles.pieceSubsectionLabel}>Piletas</Text>
           <DataTable headers={POOL_HEADERS} rows={poolRows} flexes={POOL_FLEXES} />
         </View>

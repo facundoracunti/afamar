@@ -88,13 +88,40 @@ describe('BudgetOptionsTabs — always visible', () => {
 
   it('clicking "Agregar Opción" on a new budget creates Opción 1 + Opción 2', () => {
     // The operator must be able to reach the feature from a fresh budget:
-    // pressing the button clones the current config into a second option.
+    // pressing the button materialises the current config as "Opción 1"
+    // and adds an EMPTY "Opción 2" (scenario built from scratch).
     renderTabs(baseForm());
     expect(screen.queryByText('Opción 2')).toBeNull();
 
     fireEvent.click(screen.getByText('Agregar Opción'));
 
     expect(screen.getByText('Opción 1')).toBeTruthy();
+    expect(screen.getByText('Opción 2')).toBeTruthy();
+  });
+
+  it('"Agregar Opción" advertises that it creates an EMPTY option', () => {
+    renderTabs(baseForm());
+    const add = screen.getByText('Agregar Opción').closest('button');
+    expect(add?.getAttribute('title')).toBe(
+      'Crea una nueva opción vacía para cotizar un escenario desde cero',
+    );
+    // The hint explains the difference between the two actions.
+    expect(
+      screen.getByText(/«Agregar Opción» crea una opción vacía/),
+    ).toBeTruthy();
+  });
+
+  it('the ❐ button of the tab keeps CLONING the option (explicit duplicate)', () => {
+    // "+ Agregar Opción" creates an empty option; the ❐ button is the
+    // explicit clone (structure copied: measures, pieces and piletas).
+    renderTabs(baseForm({
+      options: [option('opt-1', 'Opción 1', true, piece('COCINA'))],
+      active_option_id: 'opt-1',
+    }));
+    expect(screen.queryByText('Opción 2')).toBeNull();
+
+    fireEvent.click(screen.getByTitle(/Duplicar Opción 1/));
+
     expect(screen.getByText('Opción 2')).toBeTruthy();
   });
 

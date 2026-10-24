@@ -152,7 +152,7 @@ export function BudgetOptionsTabs() {
                 type="button"
                 className={s['opt-tab__action']}
                 onClick={() => duplicateOption(o.id)}
-                title={`Duplicar ${o.name} para cambiar solo un dato (material o bacha)`}
+                title={`Duplicar ${o.name} (copia medidas, piezas y piletas) para cambiar solo un dato (material o bacha)`}
                 aria-label={`Duplicar ${o.name}`}
               >
                 <Copy size={12} />
@@ -176,15 +176,15 @@ export function BudgetOptionsTabs() {
           );
         })}
 
-        {/* "+ Agregar Opción" — the behaviour is DUPLICATE the option
-            being edited (so the operator only has to change ONE thing,
-            e.g. the alzada's material). The tooltip + the hint below
-            spell it out so the action is never a surprise. */}
+        {/* "+ Agregar Opción" — creates a NEW EMPTY option so the operator
+            can quote a scenario built from scratch. Cloning the current
+            configuration is the explicit ❐ action of the tab. The tooltip
+            + the hint below spell both apart so neither is a surprise. */}
         <button
           type="button"
           className={`btn btn-outline ${s['opt-tabs__add']}`}
           onClick={addOption}
-          title="Duplica la opción actual para cotizar una variante: copia sus piezas, materiales y piletas, y las editable de forma independiente (por ejemplo, cambiar solo el material de la alzada)."
+          title="Crea una nueva opción vacía para cotizar un escenario desde cero"
         >
           <Plus size={12} /> Agregar Opción
         </button>
@@ -192,17 +192,21 @@ export function BudgetOptionsTabs() {
 
       {options.length > 1 ? (
         <p className={s['opt-tabs__hint']}>
-          Cada opción es independiente (piezas, materiales y piletas propios).
-          <strong> «Agregar Opción» duplica la que estás editando</strong> para que
-          solo tengas que cambiar lo que distingue a la variante (por ejemplo, el
-          material de la alzada). La marcada con ✓ es la que se convierte en
+          Cada opción es independiente (piezas, materiales y piletas propios).{' '}
+          <strong>«Agregar Opción» crea una opción vacía</strong> para cotizar un
+          escenario desde cero, y el botón ❐{' '}
+          <strong>duplica la que estás editando</strong> (mismas medidas, piezas y
+          piletas) para cambiar solo lo que distingue a la variante (por ejemplo,
+          el material de la alzada). La marcada con ✓ es la que se convierte en
           Orden de Trabajo.
         </p>
       ) : (
         <p className={s['opt-tabs__hint']}>
-          Todavía tenés una sola opción. <strong>«Agregar Opción» la duplica</strong>{' '}
-          (mismas piezas, materiales y piletas) para que cotices una variante sin
-          rehacer todo el presupuesto.
+          Todavía tenés una sola opción.{' '}
+          <strong>«Agregar Opción» crea una opción vacía</strong> para cotizar un
+          escenario desde cero; el botón ❐{' '}
+          <strong>duplica la que estás editando</strong> (mismas piezas, materiales y
+          piletas) si solo querés cambiar un dato.
         </p>
       )}
     </div>

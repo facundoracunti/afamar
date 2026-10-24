@@ -66,6 +66,27 @@ function piece(id: string, name: string, matName: string, priceM2: number): Budg
   } as unknown as BudgetPiece;
 }
 
+function pieceWithRows(
+  base: BudgetPiece,
+  prefix: string,
+  rowCount: number,
+): BudgetPiece {
+  return {
+    ...base,
+    mainMaterialRows: Array.from({ length: rowCount }, (_, index) => ({
+      id: `${base.id}-row-${index}`,
+      name: `${prefix} tramo ${index + 1}`,
+      price_m2: 180_000,
+      price_m2_usd: 0,
+      currency: 'ARS',
+      quantity: 1,
+      length: 1.2,
+      width: 0.6,
+      is_alternative: false,
+    })),
+  } as unknown as BudgetPiece;
+}
+
 function option(id: string, name: string, sel: boolean, pieces: BudgetPiece[]): BudgetOption {
   return { id, name, is_selected: sel, pieces };
 }
@@ -368,6 +389,82 @@ describe('PDF multi-opción — documento comercial sin jerga interna', () => {
     expect(text).toContain(normalize('Opción 3'));
     expect(text).toContain('PARRILLA');
     expect(text).toContain('GRISMARA');
+  });
+
+  it('keeps a single-option budget in its existing one-page pieces layout', { timeout: RENDER_TIMEOUT }, async () => {
+    const singlePiece = piece('p1', 'COCINA', 'DALLAS', 300_000);
+    const form = {
+      ...INITIAL_FORM,
+      options: [],
+      active_option_id: null,
+      pieces: [singlePiece],
+      usd_rate: 1000,
+    } as unknown as Record<string, unknown>;
+
+    const data = buildPdfData({ ...baseParams, form, overrides: {} });
+    const buffer = await renderToBuffer(
+      React.createElement(DocumentPdf, { data }) as never,
+    );
+
+    expect(pageCount(buffer)).toBe(1);
+  });
+
+  it('keeps compact two-piece options and their totals on one page each', { timeout: RENDER_TIMEOUT }, async () => {
+    const opt1 = option('opt-1', 'Dallas + Gris Mara', true, [
+      pieceWithRows(piece('p1', 'DALLAS', 'DALLAS', 300_000), 'DALLAS', 1),
+      pieceWithRows(piece('p2', 'GRIS MARA', 'GRIS MARA', 180_000), 'GRIS MARA', 1),
+    ]);
+    const opt2 = option('opt-2', 'Dallas + Boreal', false, [
+      pieceWithRows(piece('p3', 'DALLAS', 'DALLAS', 300_000), 'DALLAS', 1),
+      pieceWithRows(piece('p4', 'BOREAL', 'NEGRO BOREAL', 250_000), 'BOREAL', 1),
+    ]);
+    const form = {
+      ...INITIAL_FORM,
+      options: [opt1, opt2],
+      active_option_id: 'opt-1',
+      pieces: opt1.pieces,
+      usd_rate: 1000,
+    } as unknown as Record<string, unknown>;
+
+    const data = buildPdfData({ ...baseParams, form, overrides: {} });
+    const buffer = await renderToBuffer(
+      React.createElement(DocumentPdf, { data }) as never,
+    );
+
+    expect(pageCount(buffer)).toBe(3);
+    const visualPages = (await pdfVisualPageTexts(buffer)).map(normalize);
+    const totalPages = visualPages.filter((text) => text.includes('TOTALDELAOPCIÓN'));
+    expect(totalPages).toHaveLength(2);
+    expect(totalPages.every((text) => text.includes('PIEZAS:'))).toBe(true);
+  });
+
+  it('continues long options without splitting PieceBlock or isolating totals', { timeout: RENDER_TIMEOUT }, async () => {
+    const opt1 = option('opt-1', 'Dallas + Gris Mara', true, [
+      pieceWithRows(piece('p1', 'DALLAS', 'DALLAS', 300_000), 'DALLAS', 5),
+      pieceWithRows(piece('p2', 'GRIS MARA', 'GRIS MARA', 180_000), 'GRIS MARA', 5),
+    ]);
+    const opt2 = option('opt-2', 'Dallas + Boreal', false, [
+      pieceWithRows(piece('p3', 'DALLAS', 'DALLAS', 300_000), 'DALLAS', 5),
+      pieceWithRows(piece('p4', 'BOREAL', 'NEGRO BOREAL', 250_000), 'BOREAL', 5),
+    ]);
+    const form = {
+      ...INITIAL_FORM,
+      options: [opt1, opt2],
+      active_option_id: 'opt-1',
+      pieces: opt1.pieces,
+      usd_rate: 1000,
+    } as unknown as Record<string, unknown>;
+
+    const data = buildPdfData({ ...baseParams, form, overrides: {} });
+    const buffer = await renderToBuffer(
+      React.createElement(DocumentPdf, { data }) as never,
+    );
+
+    expect(pageCount(buffer)).toBe(5);
+    const visualPages = (await pdfVisualPageTexts(buffer)).map(normalize);
+    const totalPages = visualPages.filter((text) => text.includes('TOTALDELAOPCIÓN'));
+    expect(totalPages).toHaveLength(2);
+    expect(totalPages.every((text) => text.includes('PIEZAS:'))).toBe(true);
   });
 
   it('orders the options CHEAPEST FIRST on the cover and in the detail pages', { timeout: RENDER_TIMEOUT }, async () => {

@@ -7,6 +7,9 @@ import { BudgetOptionsProvider, useBudgetOptions } from './BudgetOptionsContext'
 import {
   activePieces,
   clonePieces,
+  createEmptyOption,
+  createEmptyOptionPieces,
+  isContentlessPiece,
   isMultiOption,
   nextOptionId,
   nextOptionName,
@@ -178,12 +181,11 @@ describe('BudgetOptionsProvider — mirror + CRUD', () => {
     expect(result.current?.activePieces[0].name).toBe('COCINA');
   });
 
-  it('addOption materialises the current config as Opción 1 and CLONES it as Opción 2', () => {
+  it('addOption materialises the current config as Opción 1 and adds an EMPTY Opción 2', () => {
     // A new / legacy budget has no materialised option. "+ Agregar Opción"
-    // must not start from scratch (the operator would have to rewrite
-    // everything): the current pieces become "Opción 1" and a CLONE
-    // becomes "Opción 2", ready for a single-material swap (e.g. alzada →
-    // Blanco Zen Mate).
+    // creates a NEW EMPTY option so the operator can quote a scenario
+    // built from scratch — but the current configuration must NOT be lost:
+    // it is materialised as "Opción 1" first.
     const { result } = setup(baseForm());
     expect(result.current!.options).toHaveLength(0);
 
@@ -194,19 +196,23 @@ describe('BudgetOptionsProvider — mirror + CRUD', () => {
     expect(opts[0].id).toBe('opt-1');
     expect(opts[0].name).toBe('Opción 1');
     expect(opts[0].is_selected).toBe(true);
+    // The current configuration survives in "Opción 1".
+    expect(opts[0].pieces[0].name).toBe('COCINA');
+    // The NEW option is EMPTY — nothing was cloned into it.
     expect(opts[1].id).toBe('opt-2');
     expect(opts[1].name).toBe('Opción 2');
     expect(opts[1].is_selected).toBe(false);
-
-    // The clone carries the SAME configuration but FRESH piece ids, so
-    // editing the copy never mutates the original.
-    expect(opts[1].pieces[0].name).toBe('COCINA');
-    expect(opts[1].pieces[0].id).not.toBe(opts[0].pieces[0].id);
+    expect(opts[1].pieces).toEqual([]);
     // Opción 2 is the one being edited.
     expect(result.current!.activeOptionId).toBe('opt-2');
+    // The editor gets a STABLE piece to write on (the option itself stays
+    // empty — the ghost is never stored in the option).
+    expect(result.current!.activePieces).toHaveLength(1);
+    expect(result.current!.activePieces[0].mainMaterial).toBeNull();
+    expect(result.current!.options[1].pieces).toEqual([]);
   });
 
-  it('addOption clones the ACTIVE option when options already exist', () => {
+  it('addOption creates an EMPTY option when options already exist', () => {
     const optA = option('opt-1', 'Opción 1', true, piece('p1', 'COCINA'));
     const optB = option('opt-2', 'Opción 2', false, piece('p2', 'BAÑO'));
     const { result } = setup(
@@ -220,13 +226,28 @@ describe('BudgetOptionsProvider — mirror + CRUD', () => {
     const added = opts[2];
     expect(added.name).toBe('Opción 3');
     expect(added.is_selected).toBe(false);
-    // Cloned from the ACTIVE option (Opt2 / BAÑO), not the first one.
-    expect(added.pieces[0].name).toBe('BAÑO');
-    expect(added.pieces[0].id).not.toBe('p2');
+    // EMPTY — the previous options are untouched (no clone).
+    expect(added.pieces).toEqual([]);
+    // The existing options keep their own pieces.
+    expect(opts[0].pieces[0].name).toBe('COCINA');
+    expect(opts[1].pieces[0].name).toBe('BAÑO');
     expect(result.current!.activeOptionId).toBe(added.id);
   });
 
-  it('duplicateOption deep-clones with fresh piece ids', () => {
+  it('addOption creates ONE empty option on a brand-new budget (nothing to preserve)', () => {
+    const { result } = setup(baseForm({ pieces: [] }));
+    act(() => result.current!.addOption());
+    const opts = result.current!.options;
+    expect(opts).toHaveLength(1);
+    expect(opts[0].id).toBe('opt-1');
+    expect(opts[0].pieces).toEqual([]);
+    expect(result.current!.activeOptionId).toBe('opt-1');
+  });
+
+  it('duplicateOption deep-clones with fresh piece ids (the explicit ❐ action)', () => {
+    // The tab's duplicate button is the EXPLICIT clone: it copies the
+    // structure (measures, pieces and piletas) so the operator only has to
+    // change one thing.
     const src = option('opt-1', 'Opción 1', true, piece('p1', 'COCINA'));
     const { result } = setup(baseForm({ options: [src], active_option_id: 'opt-1' }));
     act(() => result.current!.duplicateOption('opt-1'));
@@ -288,8 +309,37 @@ describe('BudgetOptionsProvider — mirror + CRUD', () => {
   });
 });
 
-describe('clonePieces', () => {
-  it('gives every cloned piece a fresh id but keeps the values', () => {
+describe('empty-option helpers', () => {
+  it('createEmptyOption returns an option with NO pieces', () => {
+    const empty = createEmptyOption('opt-9', 'Opción 9');
+    expect(empty.id).toBe('opt-9');
+    expect(empty.name).toBe('Opción 9');
+    expect(empty.is_selected).toBe(false);
+    expect(empty.pieces).toEqual([]);
+  });
+
+  it('createEmptyOptionPieces returns ONE piece to write on', () => {
+    const pieces = createEmptyOptionPieces();
+    expect(pieces).toHaveLength(1);
+    expect(pieces[0].mainMaterial).toBeNull();
+    expect(pieces[0].id).toBeTruthy();
+  });
+
+  it('isContentlessPiece detects the ghost of an empty option', () => {
+    expect(isContentlessPiece(createEmptyOptionPieces()[0])).toBe(true);
+    // A piece with a material carries content.
+    const withMaterial = piece('p1', 'COCINA');
+    expect(isContentlessPiece(withMaterial)).toBe(false);
+    // A piece with a zócalo carries content too.
+    const withZocalo = createEmptyOptionPieces()[0];
+    withZocalo.fabrication_details = [
+      { concept: 'BASEBOARD' } as never,
+    ];
+    expect(isContentlessPiece(withZocalo)).toBe(false);
+  });
+});
+
+describe('clonePieces', () => {  it('gives every cloned piece a fresh id but keeps the values', () => {
     const src = piece('p1', 'COCINA');
     src.alternativeMaterials = [
       {

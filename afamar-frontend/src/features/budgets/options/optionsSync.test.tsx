@@ -29,6 +29,7 @@ import { INITIAL_FORM } from '@/hooks/entityFormConstants';
 import { buildPdfData } from '@/utils/pdf/buildPdfData';
 import { buildPieces } from '@/utils/pdf/buildPiecesPdfData';
 import type { EntityFormState } from '@/types/form';
+import type { Material } from '@/types/material';
 import type { BudgetOption, BudgetPiece } from '@/types/budget';
 
 // ── Fixtures ─────────────────────────────────────────────────────────
@@ -102,16 +103,48 @@ const baseParams = {
 
 /** Mirrors the REAL tree: the parent owns `useBudgetPieces` (through
  *  `useEntityForm`), the provider + tabs are CHILDREN. */
-function Harness({ initial }: { initial: EntityFormState }) {
+function Harness({
+  initial,
+  materials = [],
+}: {
+  initial: EntityFormState;
+  materials?: Material[];
+}) {
   const [form, setForm] = useState<EntityFormState>(initial);
-  useBudgetPieces({ form, setForm, materials: [] as never });
+  const piecesFlow = useBudgetPieces({ form, setForm, materials });
   return (
     <BudgetOptionsProvider form={form} setForm={setForm}>
       <BudgetOptionsTabs />
+      <button
+        type="button"
+        onClick={() =>
+          piecesFlow.setPieceMain(piecesFlow.pieces[0].id, 'NEGRO BRASIL')
+        }
+      >
+        Poner material
+      </button>
       <div data-testid="flat">{JSON.stringify(form.materials_data)}</div>
+      <div data-testid="options">
+        {JSON.stringify(
+          (form.options ?? []).map((o) => ({ id: o.id, pieces: o.pieces.length })),
+        )}
+      </div>
     </BudgetOptionsProvider>
   );
 }
+
+const MATERIALS = [
+  {
+    id: 7,
+    name: 'NEGRO BRASIL',
+    category_id: 1,
+    color: 'Negro',
+    base_price: 300_000,
+    price_usd: 0,
+    currency: 'ARS',
+    allows_integrated_sink: true,
+  },
+] as unknown as Material[];
 
 function legacyForm(pieces: BudgetPiece[]): EntityFormState {
   return {
@@ -134,17 +167,18 @@ describe('multi-option sync — the UI and the PDF describe the SAME scenario', 
     const p = piece('p1', 'COCINA', 'NEGRO BRASIL', 300_000);
     render(<Harness initial={legacyForm([p])} />);
 
-    // "+ Agregar Opción" → Opción 1 (the original) + Opción 2 (the clone).
+    // "+ Agregar Opción" → Opción 1 (the original) + Opción 2 (EMPTY — a
+    // scenario built from scratch).
     act(() => {
       fireEvent.click(screen.getByText('Agregar Opción'));
     });
     expect(screen.getByText('Opción 1')).toBeTruthy();
     expect(screen.getByText('Opción 2')).toBeTruthy();
 
-    // The flat arrays now describe the ACTIVE option (Opción 2).
+    // The flat arrays now describe the ACTIVE option (Opción 2), which is
+    // empty → there is nothing to price yet.
     const flatAfterAdd = JSON.parse(screen.getByTestId('flat').textContent || '[]');
-    expect(flatAfterAdd).toHaveLength(1);
-    expect(flatAfterAdd[0].name).toBe('NEGRO BRASIL');
+    expect(flatAfterAdd).toHaveLength(0);
 
     // Switch to Opción 1 — the flat must follow (it holds the same
     // material here, so we check the identity of the scenario instead by
@@ -155,6 +189,47 @@ describe('multi-option sync — the UI and the PDF describe the SAME scenario', 
     const flatAfterSwitch = JSON.parse(screen.getByTestId('flat').textContent || '[]');
     expect(flatAfterSwitch).toHaveLength(1);
     expect(flatAfterSwitch[0].name).toBe('NEGRO BRASIL');
+  });
+
+  it('never persists the ghost piece into a brand-new EMPTY option', () => {
+    // "+ Agregar Opción" creates an option with `pieces: []`. The editor
+    // shows a STABLE piece to write on, but that piece must never land in
+    // the option: an option holding a material-less piece would be
+    // persisted as a $0 scenario and quoted at $0 in the comparative.
+    const p = piece('p1', 'COCINA', 'NEGRO BRASIL', 300_000);
+    render(<Harness initial={legacyForm([p])} />);
+
+    act(() => {
+      fireEvent.click(screen.getByText('Agregar Opción'));
+    });
+
+    const options = JSON.parse(screen.getByTestId('options').textContent || '[]');
+    // Opción 1 keeps the original piece; Opción 2 owns NOTHING.
+    expect(options).toHaveLength(2);
+    expect(options[0].pieces).toBe(1);
+    expect(options[1].pieces).toBe(0);
+  });
+
+  it('the operator builds the EMPTY option from scratch (the piece lands in the option)', () => {
+    // The empty option is edited through a STABLE piece: when the operator
+    // gives it a material, the piece is pushed into the option and the
+    // scenario becomes quotable.
+    const p = piece('p1', 'COCINA', 'NEGRO BRASIL', 300_000);
+    render(<Harness initial={legacyForm([p])} materials={MATERIALS} />);
+
+    act(() => {
+      fireEvent.click(screen.getByText('Agregar Opción'));
+    });
+
+    act(() => {
+      fireEvent.click(screen.getByText('Poner material'));
+    });
+
+    const options = JSON.parse(screen.getByTestId('options').textContent || '[]');
+    expect(options[1].pieces).toBe(1);
+    const flat = JSON.parse(screen.getByTestId('flat').textContent || '[]');
+    expect(flat).toHaveLength(1);
+    expect(flat[0].name).toBe('NEGRO BRASIL');
   });
 
   it('keeps each option with ITS OWN material after a tab switch', () => {

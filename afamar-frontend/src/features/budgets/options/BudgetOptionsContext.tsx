@@ -12,6 +12,8 @@ import { flattenPieces } from '../utils/pieces';
 import { computeOptionSubtotal } from '@/utils/pdf/buildPdfData.alternatives';
 import {
   clonePieces,
+  createEmptyOption,
+  createEmptyOptionPieces,
   isMultiOption,
   nextOptionId,
   nextOptionName,
@@ -28,7 +30,8 @@ interface BudgetOptionsValue {
   /** Pieces of the active option (what `form.pieces` mirrors). */
   activePieces: BudgetPiece[];
   setActiveOptionId: (id: string) => void;
-  /** Append an empty option and activate it. */
+  /** Append an EMPTY option and activate it (the operator builds the
+   *  scenario from scratch). */
   addOption: () => void;
   /** Deep-clone an option (fresh piece ids) and activate the copy. */
   duplicateOption: (id: string) => void;
@@ -115,6 +118,31 @@ export function BudgetOptionsProvider({
   const activeOptionId = resolveActiveOptionId(options, form.active_option_id ?? '');
   const isMulti = isMultiOption(options);
 
+  // ── Ghost piece of an EMPTY option ──────────────────────────────────
+  // A brand-new option is created EMPTY (`pieces: []`), but the pieces
+  // editor needs at least one piece to render: its own fallback piece is
+  // a NEW object on every render (the id changes), so the card remounts
+  // and any edit on it is lost. The provider therefore keeps ONE STABLE
+  // piece per empty option and hands it to the editor — WITHOUT storing
+  // it in the option (the option stays empty, so the backend drops it and
+  // a half-built scenario is never quoted at $0).
+  const ghostsRef = useRef<Record<string, BudgetPiece[]>>({});
+  const ghostFor = useCallback((optionId: string): BudgetPiece[] => {
+    const existing = ghostsRef.current[optionId];
+    if (existing && existing.length > 0) return existing;
+    const created = createEmptyOptionPieces();
+    ghostsRef.current[optionId] = created;
+    return created;
+  }, []);
+
+  /** The pieces the editor must show for an option: its own, or the
+   *  stable ghost while the option is still empty. */
+  const editorPiecesFor = useCallback(
+    (option: BudgetOption): BudgetPiece[] =>
+      option.pieces.length > 0 ? option.pieces : ghostFor(option.id),
+    [ghostFor],
+  );
+
   // ── Mirror: pull the active option's pieces into `form.pieces` ──
   // Runs on tab switch / option list change only (NOT on every pieces
   // edit — that would fight the pieces hook, which owns `form.pieces`
@@ -134,10 +162,11 @@ export function BudgetOptionsProvider({
     // and back would rewrite the array reference and drop any pending
     // local state in the pieces editor.
     setForm((prev) => {
-      if (prev.pieces === option.pieces) return prev;
-      return withPieces(prev, option.pieces);
+      const pieces = editorPiecesFor(option);
+      if (prev.pieces === pieces) return prev;
+      return withPieces(prev, pieces);
     });
-  }, [options, activeOptionId, setForm]);
+  }, [options, activeOptionId, setForm, editorPiecesFor]);
 
   const setActiveOptionId = useCallback(
     (id: string) => {
@@ -150,68 +179,69 @@ export function BudgetOptionsProvider({
         // another).
         if (!target) return { ...prev, active_option_id: id };
         return {
-          ...withPieces(prev, target.pieces),
+          ...withPieces(prev, editorPiecesFor(target)),
           active_option_id: id,
         };
       });
     },
-    [setForm],
+    [setForm, editorPiecesFor],
   );
 
   const addOption = useCallback(() => {
     setForm((prev) => {
       const list = prev.options ?? [];
 
-      // Case A — the budget has NO materialised option yet (a new budget, or
-      // a legacy budget that only carries `pieces`). Materialise the current
-      // configuration as "Opción 1" and add a CLONE of it as "Opción 2", so
-      // the operator can change just one material (e.g. swap the alzada to
-      // Blanco Zen Mate) without rewriting the whole job.
+      // ── Case A — the budget has NO materialised option yet (a new budget,
+      // or a legacy budget that only carries `pieces`). The current
+      // configuration must NOT be lost: it is materialised as "Opción 1"
+      // and the NEW option is added EMPTY, so the operator can build a
+      // scenario from scratch.
       if (list.length === 0) {
-        const firstId = 'opt-1';
-        const secondId = 'opt-2';
         const basePieces = prev.pieces ?? [];
-        const cloned = clonePieces(basePieces);
+        // Nothing to preserve (brand-new budget): a single empty option is
+        // enough — there is no "Opción 1" configuration to keep.
+        if (basePieces.length === 0) {
+          const empty = createEmptyOption('opt-1', 'Opción 1');
+          return {
+            ...withPieces(prev, ghostFor(empty.id)),
+            options: [{ ...empty, is_selected: true }],
+            active_option_id: empty.id,
+          };
+        }
+        const empty = createEmptyOption('opt-2', 'Opción 2');
         return {
-          ...withPieces(prev, cloned),
+          ...withPieces(prev, ghostFor(empty.id)),
           options: [
             {
-              id: firstId,
+              id: 'opt-1',
               name: 'Opción 1',
               is_selected: true,
               pieces: basePieces,
             },
-            {
-              id: secondId,
-              name: 'Opción 2',
-              is_selected: false,
-              pieces: cloned,
-            },
+            empty,
           ],
-          active_option_id: secondId,
+          active_option_id: empty.id,
         };
       }
 
-      // Case B — options already exist: clone the ACTIVE one (the
-      // configuration the operator is looking at right now).
-      const activeId = resolveActiveOptionId(list, prev.active_option_id ?? '');
-      const source = list.find((o) => o.id === activeId) ?? list[0];
-      const id = nextOptionId(list);
-      const copy: BudgetOption = {
-        id,
-        name: nextOptionName(list),
-        // A new option is never the winner until the operator says so.
-        is_selected: false,
-        pieces: clonePieces(source.pieces),
-      };
-      const nextList = [...list, copy];
+      // ── Case B — options already exist: append an EMPTY option. The
+      // operator builds the scenario from scratch; to CLONE the current
+      // configuration (measures, pieces and piletas) they use the ❐
+      // button of the tab, which is the explicit "duplicate" action.
+      const empty = createEmptyOption(nextOptionId(list), nextOptionName(list));
+      const nextList = [...list, empty];
+      // Keep exactly one winner: if the stored list had none, promote the
+      // first one so a conversion is never left ambiguous.
+      if (!nextList.some((o) => o.is_selected)) {
+        nextList[0] = { ...nextList[0], is_selected: true };
+      }
       return {
-        ...withPieces(prev, copy.pieces),
+        ...withPieces(prev, ghostFor(empty.id)),
         options: nextList,
-        active_option_id: id,
+        active_option_id: empty.id,
       };
     });
-  }, [setForm]);
+  }, [setForm, ghostFor]);
 
   const duplicateOption = useCallback(
     (id: string) => {

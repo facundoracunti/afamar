@@ -15,6 +15,7 @@
  */
 import type { BudgetOption, BudgetPiece } from '../../../types/budget';
 import { SINGLE_OPTION_ID, SINGLE_OPTION_NAME } from '../../../types/budget';
+import { createEmptyPiece } from '../utils/pieces';
 
 /** Parse a `pieces_data`-shaped payload (JSON string | list | null) →
  *  list of piece dicts. Mirrors the backend's tolerant parsing. */
@@ -143,6 +144,46 @@ export function clonePieces(pieces: BudgetPiece[]): BudgetPiece[] {
     pools: (p.pools ?? []).map((pool) => ({ ...pool })),
   });
   return pieces.map(clonePiece);
+}
+
+/** A brand-new option with NO content yet — the operator builds the
+ *  scenario from scratch.
+ *
+ *  `pieces: []` is deliberate: an option without a piece is dropped by
+ *  the backend (`_normalize_option`) and never reaches the customer's
+ *  comparative, so a half-built scenario can never be quoted at $0.
+ *  To CLONE an existing option the operator uses the tab's ❐ button
+ *  (`duplicateOption`), which copies pieces, measures and piletas. */
+export function createEmptyOption(id: string, name: string): BudgetOption {
+  return { id, name, is_selected: false, pieces: [] };
+}
+
+/** The piece the editor shows while an option is still empty.
+ *
+ *  The pieces editor draws its OWN fallback piece when the list is empty,
+ *  but that fallback is a NEW object on every render (its id changes), so
+ *  the card remounts and any edit on it is lost. The provider therefore
+ *  keeps ONE STABLE piece per empty option and hands it to the editor —
+ *  without storing it in the option (the option stays `pieces: []`). */
+export function createEmptyOptionPieces(): BudgetPiece[] {
+  return [createEmptyPiece(0)];
+}
+
+/** True when a piece carries NO billable content (no material, no
+ *  alternative, no zócalo/frente, no additional works, no pileta).
+ *
+ *  Such a piece is the "ghost" of an empty option: it must NEVER be
+ *  pushed into the option, or the option would be persisted as a
+ *  material-less scenario and quoted at $0 (the defect documented for
+ *  the "ghost piece" bug of 2026-10-01). */
+export function isContentlessPiece(piece: BudgetPiece): boolean {
+  return (
+    !piece.mainMaterial &&
+    (piece.alternativeMaterials || []).length === 0 &&
+    (piece.fabrication_details || []).length === 0 &&
+    (piece.pools || []).length === 0 &&
+    (!piece.additional_works_data || piece.additional_works_data === '[]')
+  );
 }
 
 /** The option a conversion would use, or `null` when ambiguous. Mirrors
