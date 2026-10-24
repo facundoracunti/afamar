@@ -40,7 +40,9 @@ export function OptionsComparisonSheet({
 
   return (
     <View>
-      <Text style={styles.sectionTitle}>Comparativa de opciones</Text>
+      <View style={styles.comparisonTitle}>
+        <Text style={styles.comparisonTitleText}>Comparativa de opciones</Text>
+      </View>
 
       {/* ── Una tarjeta por opción (de menor a mayor precio) ─────────── */}
       {ordered.map((t, index) => {

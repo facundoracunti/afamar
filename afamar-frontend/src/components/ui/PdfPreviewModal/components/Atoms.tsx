@@ -80,7 +80,10 @@ export function DataTable({
               const value = isDash ? (clean ? '' : '—') : cell;
               return (
                 <View key={keptHeaders[ci]?.label ?? `cell-${ci}`} style={{ flex: colFlex(ci), ...(isLast ? styles.cellLast : styles.cell) }}>
-                  <Text style={keptHeaders[ci]?.num ? styles.tdTextNum : styles.tdText}>
+                  <Text
+                    wrap={!keptHeaders[ci]?.num}
+                    style={keptHeaders[ci]?.num ? styles.tdTextNum : styles.tdText}
+                  >
                     {isDash ? <Text style={{ color: '#64748b' }}>{value}</Text> : value}
                   </Text>
                 </View>

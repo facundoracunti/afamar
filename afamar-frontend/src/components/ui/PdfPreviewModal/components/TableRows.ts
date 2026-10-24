@@ -24,7 +24,7 @@ export const FAB_HEADERS = [
   { label: 'Subtotal ARS', num: true },
   { label: 'Subtotal USD', num: true },
 ];
-export const FAB_FLEXES = [2, 2.8, 1.6, 0.6, 0.6, 0.5, 0.9, 0.9, 0.5, 1.1, 1.1];
+export const FAB_FLEXES = [1.5, 2.1, 1.3, 0.55, 0.55, 0.6, 1.0, 0.8, 0.45, 1.4, 1.4];
 
 export const MAT_HEADERS = [
   { label: 'Material' },
@@ -38,7 +38,8 @@ export const MAT_HEADERS = [
   { label: 'Subtotal ARS', num: true },
   { label: 'Subtotal USD', num: true },
 ];
-export const MAT_FLEXES = [2.4, 1.4, 0.6, 0.6, 0.4, 0.8, 1, 0.5, 1.2, 1.2];
+// Keep all ten columns while reserving width for the monetary subtotals.
+export const MAT_FLEXES = [2.1, 1.1, 0.55, 0.55, 0.4, 0.75, 1.05, 0.45, 1.6, 1.6];
 
 export const POOL_HEADERS = [
   { label: 'Marca' },
@@ -49,7 +50,7 @@ export const POOL_HEADERS = [
   { label: 'Subtotal ARS', num: true },
   { label: 'Subtotal USD', num: true },
 ];
-export const POOL_FLEXES = [2, 2, 0.4, 1, 0.5, 1.2, 1.2];
+export const POOL_FLEXES = [1.6, 2.2, 0.45, 1.1, 0.45, 1.4, 1.4];
 
 export const ADDITIONAL_WORKS_HEADERS = [
   { label: 'Adicional' },
@@ -60,7 +61,7 @@ export const ADDITIONAL_WORKS_HEADERS = [
   { label: 'Subtotal ARS', num: true },
   { label: 'Subtotal USD', num: true },
 ];
-export const ADDITIONAL_WORKS_FLEXES = [2, 2.4, 0.4, 1, 0.5, 1.2, 1.2];
+export const ADDITIONAL_WORKS_FLEXES = [1.8, 2.1, 0.45, 1.1, 0.45, 1.4, 1.4];
 
 export const COMPARISON_HEADERS = [
   { label: 'Concepto' },

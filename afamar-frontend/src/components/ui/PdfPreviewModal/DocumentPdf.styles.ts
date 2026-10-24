@@ -35,8 +35,8 @@ const SKETCH_PDF_LARGE_WIDTH = SKETCH_CONTENT_WIDTH_LANDSCAPE - 8; // 4pt margin
 const SKETCH_PDF_LARGE_HEIGHT = SKETCH_PDF_LARGE_WIDTH / SKETCH_STAGE_ASPECT;
 
 const FONT = 'Helvetica';
-const ACCENT = '#c0392b';
-const HEADER_RED = '#c0392b';
+const ACCENT = '#B6403A';
+const HEADER_RED = '#B6403A';
 const SLATE_700 = '#334155';
 const SLATE_600 = '#475569';
 const SLATE_900 = '#0f172a';
@@ -46,11 +46,15 @@ const SLATE_400 = '#94a3b8';
 const SLATE_300 = '#cbd5e1';
 const SLATE_200 = '#e2e8f0';
 const SLATE_100 = '#f1f5f9';
+const AFAMAR_RED = '#B6403A';
+const GRAPHITE = '#252B33';
+const SECONDARY_TEXT = '#69717C';
+const LIGHT_SURFACE = '#F4F5F6';
+const SOFT_BORDER = '#E5E7EB';
 const SLATE_50 = '#f8fafc';
 const AMBER_700 = '#92400e';
 const AMBER_200 = '#fde68a';
 const AMBER_50 = '#fffbeb';
-const BLUE_700 = '#1e40af';
 const TEXT_DARK = '#1a1a1a';
 
 export const styles = StyleSheet.create({
@@ -81,18 +85,20 @@ export const styles = StyleSheet.create({
   // right of the logo; the header now reads top-down: LOGO → TAGLINE →
   // contact lines (2026-09-25 mañana).
   headerLeft: { width: '65%', flexDirection: 'column', alignItems: 'flex-start' },
-  // Logo container — capped at 140px (ceiling 150) so the AFAMAR mark
+  // Logo container — capped at 161px (ceiling 170) so the AFAMAR mark
   // never stretches past ~35% of the column even on a wide logo (2026-09-25
   // mañana). The previous `width: '100%'` made it consume every pixel the
   // column had, so the tagline underneath looked crammed.
-  headerLeftLogo: { width: 140, maxWidth: 150, alignItems: 'flex-start' },
-  headerLeftInfo: { width: '100%', marginTop: 6 },
+  headerLeftLogo: { width: 161, maxWidth: 170, alignItems: 'flex-start' },
+  headerLeftInfo: { width: '100%', marginTop: 7 },
   headerRight: { width: '35%', textAlign: 'right' },
-  // Logo image itself: width 140 (matches the container), height auto
+  // Logo image itself: width 161 (matches the container), height auto
   // preserves the source aspect ratio. `objectFit` is dropped because
   // the image now has natural dimensions.
-  logo: { width: 140, height: 'auto', maxHeight: 70, marginBottom: 0 },
-  tagline: { fontSize: 10, fontWeight: 'bold', color: SLATE_700, lineHeight: 1.2, marginBottom: 2 },
+  logo: { width: 161, height: 'auto', maxHeight: 81, marginBottom: 0 },
+  companyName: { fontSize: 11, fontWeight: 'bold', color: GRAPHITE, lineHeight: 1.2, marginBottom: 1 },
+  tagline: { fontSize: 9, fontWeight: 'bold', color: SECONDARY_TEXT, lineHeight: 1.2, marginBottom: 2 },
+  trajectory: { fontSize: 7.5, color: SECONDARY_TEXT, lineHeight: 1.2, marginBottom: 2 },
   contactLine: { fontSize: 8, color: SLATE_700, lineHeight: 1.4 },
   docTitle: { fontSize: 13, fontWeight: 'bold', color: HEADER_RED, lineHeight: 1.2, marginTop: 4 },
   docNumber: { fontSize: 18, fontWeight: 'bold', color: HEADER_RED, fontFamily: 'Courier', marginTop: 2 },
@@ -101,7 +107,7 @@ export const styles = StyleSheet.create({
   // 8 so the line breathes below the document number (the previous 2 made
   // "P-XXXXXX" and the validity text visually collide).
   validityText: { fontSize: 8.5, fontWeight: 'bold', color: '#92400e', marginTop: 8, textAlign: 'right' },
-  divider: { borderTop: `1px solid ${HEADER_RED}`, marginBottom: 4 },
+  divider: { borderTop: `1px solid ${AFAMAR_RED}`, marginBottom: 5 },
   dividerLight: { borderTop: `1px solid ${SLATE_200}`, marginVertical: 2 },
   // ===== INFO-GRID =====
   infoGrid: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 4 },
@@ -118,15 +124,16 @@ export const styles = StyleSheet.create({
   // Each section is a self-contained card with its own tables + subtotal so
   // the reader can see "PRINCIPAL: GRIS MARA" / "ALTERNATIVA 1: TAJ MAHAL" as
   // independent quotes (the customer only executes one).
-  optSectionBlock: { marginTop: 4, marginBottom: 4, padding: 6, border: `1px solid ${SLATE_200}`, borderRadius: 4 },
-  optSectionBlockMain: { borderColor: HEADER_RED, backgroundColor: '#fef9f9' },
+  optSectionBlock: { marginTop: 5, marginBottom: 5, padding: 7, border: `1px solid ${SOFT_BORDER}`, borderRadius: 4, backgroundColor: '#FFFFFF' },
+  optSectionBlockMain: { borderColor: SOFT_BORDER, backgroundColor: '#FFFFFF' },
   optSectionBlockAlt: { borderColor: SLATE_400, backgroundColor: SLATE_50 },
-  optSectionTitle: { fontSize: 10, fontWeight: 'bold', color: HEADER_RED, textTransform: 'uppercase', marginBottom: 4, paddingBottom: 2, borderBottom: `1px solid ${HEADER_RED}` },
+  optSectionTitle: { fontSize: 10, fontWeight: 'bold', color: GRAPHITE, textTransform: 'uppercase', marginBottom: 5, paddingLeft: 6, paddingBottom: 2, borderLeft: `3px solid ${AFAMAR_RED}` },
   optSectionTitleAlt: { color: SLATE_700, borderBottomColor: SLATE_400 },
-  optSectionSubtotal: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 4, paddingTop: 3, borderTop: `1px dashed ${SLATE_200}` },
-  optSectionSubtotalLbl: { fontSize: 8, fontWeight: 'bold', color: SLATE_700, marginRight: 8 },
-  optSectionSubtotalVal: { fontSize: 9, fontWeight: 'bold', color: HEADER_RED },
-  optSectionSubtotalUsd: { fontSize: 8, color: BLUE_700, marginLeft: 6 },
+  optSectionSubtotal: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'baseline', marginTop: 6, paddingVertical: 5, paddingHorizontal: 6, backgroundColor: LIGHT_SURFACE, borderRadius: 3 },
+  optSectionSubtotalLbl: { fontSize: 8, fontWeight: 'bold', color: GRAPHITE, marginRight: 8 },
+  optSectionSubtotalVal: { fontSize: 10, fontWeight: 'bold', color: GRAPHITE },
+  optSectionSubtotalUsd: { fontSize: 7.5, color: SECONDARY_TEXT, marginLeft: 6 },
+  pieceSubsectionLabel: { fontSize: 7.5, fontWeight: 'bold', color: SECONDARY_TEXT, textTransform: 'uppercase', letterSpacing: 0.25, marginBottom: 2 },
   // Consolidated TOTAL GENERAL ALTERNATIVO card (end of the HOJA DE
   // ALTERNATIVAS) — one compact 3-line card per alternative material
   // (2026-10-01 cont.7): [name + pieces] / [Subtotal] / [TOTAL bar].
@@ -138,7 +145,7 @@ export const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 5,
     border: `1px solid ${SLATE_200}`,
-    borderLeft: `3px solid ${BLUE_700}`,
+    borderLeft: `3px solid ${AFAMAR_RED}`,
     borderRadius: 3,
   },
   altTotalHead: {
@@ -161,7 +168,8 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: BLUE_700,
+    backgroundColor: GRAPHITE,
+    borderLeft: `3px solid ${AFAMAR_RED}`,
     paddingVertical: 3,
     paddingHorizontal: 4,
     marginTop: 2,
@@ -169,6 +177,9 @@ export const styles = StyleSheet.create({
   },
   altTotalBarLbl: { fontSize: 7.5, fontWeight: 'bold', color: '#fff' },
   altTotalBarVal: { fontSize: 9, fontWeight: 'bold', color: '#fff' },
+  optionTotalBarValue: { alignItems: 'flex-end' },
+  optionTotalBarArs: { fontSize: 11, fontWeight: 'bold', color: '#fff', textAlign: 'right' },
+  optionTotalBarUsd: { fontSize: 7.5, color: '#fff', opacity: 0.82, marginTop: 1, textAlign: 'right' },
   // ===== RESUMEN COMPARATIVO DE OPCIONES (B1) =====
   // One compact row per independent option: name + badge on the first
   // line, pieces/materiales/sink summary on a muted second line, and the
@@ -183,8 +194,8 @@ export const styles = StyleSheet.create({
     borderRadius: 3,
   },
   optRowWinner: {
-    borderColor: BLUE_700,
-    backgroundColor: '#eff6ff',
+    borderColor: AFAMAR_RED,
+    backgroundColor: LIGHT_SURFACE,
   },
   optRowCheapest: {
     borderColor: SLATE_400,
@@ -200,7 +211,7 @@ export const styles = StyleSheet.create({
     fontSize: 6.5,
     fontWeight: 'bold',
     color: '#fff',
-    backgroundColor: BLUE_700,
+    backgroundColor: AFAMAR_RED,
     paddingVertical: 1,
     paddingHorizontal: 3,
     borderRadius: 2,
@@ -220,7 +231,7 @@ export const styles = StyleSheet.create({
     marginTop: 2,
   },
   optRowTotalArs: { fontSize: 10, fontWeight: 'bold', color: HEADER_RED },
-  optRowTotalUsd: { fontSize: 7.5, color: BLUE_700, marginLeft: 5 },
+  optRowTotalUsd: { fontSize: 7.5, color: SECONDARY_TEXT, marginLeft: 5 },
   optRowFootnote: {
     fontSize: 6.5,
     color: SLATE_500,
@@ -236,8 +247,8 @@ export const styles = StyleSheet.create({
 
   /** Option card — roomy, with a defined border. */
   optCard: {
-    marginTop: 4,
-    marginBottom: 4,
+    marginTop: 3,
+    marginBottom: 3,
     paddingVertical: 7,
     paddingHorizontal: 8,
     border: `1px solid ${SLATE_300}`,
@@ -274,7 +285,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     flexGrow: 1,
   },
-  optCardName: { fontSize: 12, fontWeight: 'bold', color: SLATE_900 },
+  optCardName: { fontSize: 12.5, fontWeight: 'bold', color: SLATE_900 },
   optCardBadge: {
     fontSize: 7,
     fontWeight: 'bold',
@@ -293,7 +304,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 4,
     borderRadius: 2,
   },
-  optCardMeta: { fontSize: 7.5, color: SLATE_600, marginTop: 3 },
+  optCardMeta: { fontSize: 7.5, color: SLATE_600, marginTop: 3, lineHeight: 1.2 },
   /** The pileta (bacha) the option includes — a discreet highlighted row. */
   optCardPool: {
     flexDirection: 'row',
@@ -314,22 +325,28 @@ export const styles = StyleSheet.create({
   },
   optCardPoolValue: { fontSize: 7.5, fontWeight: 'bold', color: SLATE_700 },
   /** Price block — right aligned, big ARS + smaller USD below. */
-  optCardPriceRow: {
+   optCardPriceRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    marginTop: 5,
-    paddingTop: 4,
-    borderTop: `1px dashed ${SLATE_200}`,
+    marginTop: 6,
+    marginHorizontal: -8,
+    marginBottom: -6,
+     paddingVertical: 7,
+    paddingHorizontal: 8,
+    backgroundColor: GRAPHITE,
+    borderBottomLeftRadius: 3,
+    borderBottomRightRadius: 3,
   },
   optCardPriceLabel: {
     fontSize: 6.5,
-    color: SLATE_500,
+    color: '#FFFFFF',
+    opacity: 0.78,
     textTransform: 'uppercase',
     letterSpacing: 0.3,
   },
-  optCardPriceArs: { fontSize: 15, fontWeight: 'bold', color: HEADER_RED },
-  optCardPriceUsd: { fontSize: 8.5, color: BLUE_700, marginTop: 1 },
+  optCardPriceArs: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', textAlign: 'right' },
+   optCardPriceUsd: { fontSize: 8, color: '#FFFFFF', opacity: 0.78, marginTop: 5, textAlign: 'right' },
 
   /** Closing block with the commercial conditions. */
   optFooterBox: {
@@ -364,6 +381,24 @@ export const styles = StyleSheet.create({
     flexGrow: 1,
     lineHeight: 1.35,
   },
+  comparisonTitle: {
+    marginTop: 5,
+    marginBottom: 5,
+    paddingLeft: 7,
+    paddingVertical: 2,
+    borderLeft: `3px solid ${AFAMAR_RED}`,
+  },
+  comparisonTitleText: { fontSize: 10, fontWeight: 'bold', color: GRAPHITE, textTransform: 'uppercase' },
+  optionPageTitle: {
+    marginTop: 5,
+    marginBottom: 5,
+    paddingVertical: 4,
+    paddingHorizontal: 7,
+    backgroundColor: LIGHT_SURFACE,
+    borderLeft: `3px solid ${AFAMAR_RED}`,
+    borderRadius: 2,
+  },
+  optionPageTitleText: { fontSize: 10.5, fontWeight: 'bold', color: GRAPHITE, textTransform: 'uppercase' },
   // ===== SECTION TITLE =====
   // ===== CROQUIS =====
   // The sketch image is rendered at the same aspect ratio as the editor's
@@ -381,8 +416,8 @@ export const styles = StyleSheet.create({
   // ===== DATA TABLE =====
   // Each column is a <View> with flex — this keeps headers and cells aligned
   // because the flex ratio is identical on every row.
-  tableHead: { flexDirection: 'row', backgroundColor: SLATE_100, borderBottom: `1px solid ${SLATE_400}` },
-  tableRow: { flexDirection: 'row', borderBottom: `1px solid ${SLATE_200}` },
+  tableHead: { flexDirection: 'row', backgroundColor: LIGHT_SURFACE, borderBottom: `1px solid ${SOFT_BORDER}` },
+  tableRow: { flexDirection: 'row', borderBottom: `1px solid ${SOFT_BORDER}` },
   // Section header band emitted by the comparativa to group rows by piece
   // (e.g. "COCINA" / "PARRILLA"). Spans the full table width, slate-700
   // uppercase, so the reader sees the per-piece grouping even when the
@@ -395,12 +430,12 @@ export const styles = StyleSheet.create({
     marginTop: 2,
   },
   tableSectionHeaderText: { color: '#fff', fontSize: 8, fontWeight: 'bold', letterSpacing: 0.5 },
-  cell: { paddingVertical: 3, paddingHorizontal: 5, borderRight: `1px solid ${SLATE_200}` },
-  cellLast: { paddingVertical: 3, paddingHorizontal: 5 },
-  thText: { fontSize: 6.5, fontWeight: 'bold', color: SLATE_700 },
-  thTextNum: { fontSize: 6.5, fontWeight: 'bold', color: SLATE_700, textAlign: 'right' },
-  tdText: { fontSize: 7.5 },
-  tdTextNum: { fontSize: 7.5, textAlign: 'right' },
+  cell: { paddingVertical: 4, paddingHorizontal: 5 },
+  cellLast: { paddingVertical: 4, paddingHorizontal: 5 },
+  thText: { fontSize: 6.5, fontWeight: 'bold', color: GRAPHITE },
+  thTextNum: { fontSize: 6.5, fontWeight: 'bold', color: GRAPHITE, textAlign: 'right' },
+  tdText: { fontSize: 7.5, color: GRAPHITE },
+  tdTextNum: { fontSize: 7.2, textAlign: 'right', color: GRAPHITE },
   dash: { color: SLATE_500 },
   // ===== TOTALS =====
   totals: { marginTop: 2 },
@@ -421,7 +456,7 @@ export const styles = StyleSheet.create({
   totalsLayoutRight: { width: '68%' },
   totalsUsdLabel: { fontSize: 8, fontWeight: 'bold', color: SLATE_700, marginBottom: 1 },
   totalsUsdDate: { fontSize: 7, color: SLATE_500, marginBottom: 2 },
-  totalsUsdRate: { fontSize: 11, fontWeight: 'bold', color: BLUE_700 },
+  totalsUsdRate: { fontSize: 11, fontWeight: 'bold', color: GRAPHITE },
   // Totals rows stay on a single row (`wrap: false` prevents react-pdf
   // from splitting the label/value pair across pages). The label keeps
   // 70% of the right column so large ARS values can sit on a single
@@ -452,9 +487,10 @@ export const styles = StyleSheet.create({
   // will move the whole row to the next page instead of splitting the
   // label from its value (or ARS from USD).
   grand: {
-    backgroundColor: BLUE_700,
+    backgroundColor: GRAPHITE,
+    borderLeft: `3px solid ${AFAMAR_RED}`,
     paddingVertical: 6,
-    paddingHorizontal: 8,
+    paddingHorizontal: 7,
     marginTop: 4,
     wrap: false,
   },
@@ -493,7 +529,7 @@ export const styles = StyleSheet.create({
   installmentTable: { marginTop: 4, marginBottom: 4, marginLeft: 8 },
   installmentHeader: {
     flexDirection: 'row',
-    backgroundColor: SLATE_100,
+     backgroundColor: LIGHT_SURFACE,
     borderBottom: `1px solid ${SLATE_400}`,
     paddingVertical: 2,
     paddingHorizontal: 4,
@@ -519,21 +555,21 @@ export const styles = StyleSheet.create({
   // both sit side by side, then Garantía appears full-width below.
   termsRow: { flexDirection: 'row', alignItems: 'flex-start' },
   termsRowCol: { flex: 1, marginRight: 8 },
-  termsBox: { marginTop: 6, backgroundColor: SLATE_50, border: `1px solid ${SLATE_200}`, borderRadius: 4, paddingVertical: 4, paddingHorizontal: 6 },
-  termsTitle: { fontSize: 6.5, fontWeight: 'bold', color: BLUE_700, textTransform: 'uppercase', lineHeight: 1.1 },
+  termsBox: { marginTop: 6, backgroundColor: SLATE_50, border: `1px solid ${SLATE_200}`, borderLeft: `3px solid ${AFAMAR_RED}`, borderRadius: 4, paddingVertical: 4, paddingHorizontal: 6 },
+  termsTitle: { fontSize: 6.5, fontWeight: 'bold', color: GRAPHITE, textTransform: 'uppercase', lineHeight: 1.1 },
   termsText: { fontSize: 6, lineHeight: 1.05 },
   termsListItem: { fontSize: 6, lineHeight: 1.05 },
   // ===== PAYMENT METHODS CATALOGUE (reference box) =====
   // Lists the active payment methods from /admin/configuration/payment-methods
   // so the customer sees every way they can pay. Renders next to the
   // delivery-conditions column in `termsRow` (right side, same row).
-  paymentMethodsBox: { flex: 1, marginTop: 6, backgroundColor: SLATE_50, border: `1px solid ${SLATE_200}`, borderRadius: 4, paddingVertical: 4, paddingHorizontal: 6 },
+  paymentMethodsBox: { flex: 1, marginTop: 6, backgroundColor: SLATE_50, border: `1px solid ${SLATE_200}`, borderLeft: `3px solid ${AFAMAR_RED}`, borderRadius: 4, paddingVertical: 4, paddingHorizontal: 6 },
   paymentMethodsItem: { fontSize: 6.5, lineHeight: 1.3 },
   // ===== SIGNATURES =====
-  signatures: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 30 },
-  signatureCell: { width: '25%', textAlign: 'center' },
-  signatureLine: { borderTopWidth: 0.5, borderTopColor: TEXT_DARK, height: 1 },
-  signatureCaption: { fontSize: 4, color: SLATE_500, lineHeight: 1.05 },
+  signatures: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 24 },
+  signatureCell: { width: '38%', textAlign: 'center' },
+  signatureLine: { borderTopWidth: 0.75, borderTopColor: GRAPHITE, height: 1 },
+  signatureCaption: { fontSize: 5.5, color: SLATE_500, lineHeight: 1.1 },
   // ===== FOOTER =====
   footer: { position: 'absolute', bottom: 2 * 2.83, left: 12 * 2.83, right: 12 * 2.83, textAlign: 'center', fontSize: 5, color: SLATE_500, lineHeight: 1 },
   emptyRow: { fontSize: 8, color: SLATE_500, fontStyle: 'italic', paddingVertical: 4 },

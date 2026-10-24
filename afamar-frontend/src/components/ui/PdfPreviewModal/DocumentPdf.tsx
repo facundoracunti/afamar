@@ -135,7 +135,9 @@ return (
             <Page key={option.id} size="A4" style={styles.page} wrap>
               <DocumentHeader data={data} />
               <ClientGrid data={data} />
-              <Text style={styles.sectionTitle}>{option.name}</Text>
+              <View style={styles.optionPageTitle}>
+                <Text style={styles.optionPageTitleText}>{option.name}</Text>
+              </View>
               {option.pieces.map((piece) => (
                 <PieceBlock key={piece.id || piece.name} piece={piece} />
               ))}

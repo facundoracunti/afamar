@@ -54,10 +54,12 @@ export function OptionTotalsCard({ option }: { option: OptionTotal }) {
 
       <View style={styles.altTotalBar}>
         <Text style={styles.altTotalBarLbl}>TOTAL DE LA OPCIÓN</Text>
-        <Text style={styles.altTotalBarVal}>
-          {`$${fmt(option.total_ars)}`}
-          {option.total_usd > 0 ? `  (USD $${fmt(option.total_usd)})` : ''}
-        </Text>
+        <View style={styles.optionTotalBarValue}>
+          <Text style={styles.optionTotalBarArs}>{`$ ${fmt(option.total_ars)}`}</Text>
+          {option.total_usd > 0 ? (
+            <Text style={styles.optionTotalBarUsd}>{`USD $ ${fmt(option.total_usd)}`}</Text>
+          ) : null}
+        </View>
       </View>
     </View>
   );
