@@ -96,6 +96,20 @@
   min-width: 0;
 }
 
+/* Hint shown when the piece already has a principal material: variants
+   are now quoted at the OPCIONES level (the tabs above), not as a
+   per-piece "alternativa de material". */
+.piece-card__variant-hint {
+  margin: 0 0 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.piece-card__variant-hint strong {
+  color: var(--text-primary);
+}
+
 .pieces__materials-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -175,3 +189,4 @@
   flex: 1;
   font-size: 13px;
 }
+

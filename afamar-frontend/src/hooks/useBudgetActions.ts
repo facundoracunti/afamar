@@ -2,7 +2,14 @@ import { parseApiError } from '../utils/error';
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { getBudgetPublicPdfToken, convertBudgetToWorkOrder, convertAlternativeToWorkOrder, updateBudget, createBudget } from '@/api/resources/budgets';
+import {
+  getBudgetPublicPdfToken,
+  convertBudgetOptionToWorkOrder,
+  convertAlternativeToWorkOrder,
+  updateBudget,
+  createBudget,
+} from '@/api/resources/budgets';
+import { pickWinningOptionId } from '@/features/budgets/options/budgetOptions';
 import { todayLocalISO } from '../utils/formatters';
 import { buildPdfData } from '../utils/pdf/buildPdfData';
 import type { PdfDocumentData } from '../utils/pdf/buildPdfData';
@@ -148,20 +155,44 @@ export function useBudgetActions({
   const handleConvertirGuardar = useCallback(async () => {
     setSaving(true);
     try {
+      // Multi-option budgets (2026-10-01 Fase 3): resolve the WINNING
+      // option before anything else. `pickWinningOptionId` returns null
+      // when the choice is ambiguous (2+ options, none marked, or two
+      // marked) — converting the wrong scenario would bill the wrong
+      // price AND deduct the wrong pileta from stock, so we block here
+      // instead of letting the backend reject a request we could have
+      // prevented.
+      const winningOptionId = pickWinningOptionId(form.options ?? []);
+      if (winningOptionId === null) {
+        notify(
+          'Marcá cuál opción es la ganadora antes de convertir (una sola con el ✓).',
+          'error',
+        );
+        setSaving(false);
+        return;
+      }
+
       const payload = buildPayload();
       await updateBudget(id as string, payload);
-      const res = await convertBudgetToWorkOrder(id as string);
+      const res = await convertBudgetOptionToWorkOrder(id as string, winningOptionId);
+      const order = res.data?.work_order ?? res.data;
+      const optionLabel = res.data?.option_name;
       setForm((prev) => ({ ...prev, status: 'CONVERTED_TO_OT' }));
-      notify(`¡Orden ${res.data.number} creada exitosamente!`, 'success');
+      notify(
+        optionLabel && optionLabel !== 'Opción Única'
+          ? `¡Orden ${order.number} creada exitosamente desde "${optionLabel}"!`
+          : `¡Orden ${order.number} creada exitosamente!`,
+        'success',
+      );
       queryClient.invalidateQueries({ queryKey: ['budgets'] });
       queryClient.invalidateQueries({ queryKey: ['work-orders'] });
-      navigate(`/admin/work-orders/${res.data.id}`);
+      navigate(`/admin/work-orders/${order.id}`);
     } catch (err: unknown) {
       notify(extractError(err), 'error');
     } finally {
       setSaving(false);
     }
-  }, [buildPayload, id, queryClient, notify, setSaving, setForm, navigate]);
+  }, [buildPayload, id, queryClient, notify, setSaving, setForm, navigate, form.options]);
 
   const handleConvertirAlternativa = useCallback(async (idx: number) => {
     if (!id) {

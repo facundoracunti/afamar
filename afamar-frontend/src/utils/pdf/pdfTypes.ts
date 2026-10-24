@@ -173,6 +173,11 @@ export interface MaterialSection {
  * "HOJA DE ALTERNATIVAS" (page 2). Its `subtotal_*` already includes the
  * piece's zócalo/frente + additional works revalued against this
  * alternative's material (same rule as `buildSections`).
+ *
+ * The variant INHERITS the piece's piletas ("piletas travel with the
+ * piece"). The per-variant sink override was removed (2026-10-23): the
+ * top-level OPCIONES (tabs) are the only place where a variant is
+ * defined, and each option carries its own piletas.
  */
 export interface PiecesPdfAlternative {
   title: string;
@@ -180,7 +185,7 @@ export interface PiecesPdfAlternative {
   materials: MaterialPdfRow[];
   fabrication_details: PdfDataRow[];
   additional_works: AdditionalWorkPdfRow[];
-  /** Pools inherited from the piece (piletas travel with the piece). */
+  /** Pools rendered for this variant — the piece's own piletas. */
   pools: PoolPdfRow[];
   subtotal_ars: number;
   subtotal_usd: number;
@@ -209,19 +214,37 @@ export interface PiecesPdfPiece {
  * Consolidated TOTAL GENERAL ALTERNATIVO for ONE alternative material,
  * aggregated across every piece that quotes it (e.g. "BLANCO NORTE"
  * appearing as Alternativa 1 in Mesada 1 AND Mesada 2 → a single block
- * that covers both). Each piece's contribution is that piece's alternative
- * `subtotal_*` (materials + zócalo/frente + additional works + inherited
- * piletas); the whole block re-runs the document's total rule set
- * (`computeTotals`: traslado + descuento comercial + recargo + seña) so the
- * customer sees the real final price of choosing that material everywhere.
+ * that covers both).
+ *
+ * **Composition:** a budget usually quotes alternatives for only ONE
+ * sector (e.g. "COCINA / ALZADA / ISLA" → Negro Brasil) while the rest
+ * of the job keeps its principal material (e.g. "BAÑO" stays Blanco
+ * Suggar). The customer's question is always "cuánto me sale la obra
+ * COMPLETA con esta variante?", so the total must include BOTH:
+ *   - `alternative_subtotal_*` — the pieces that quote this alternative.
+ *   - `fixed_subtotal_*` — the pieces WITHOUT alternatives (common to
+ *     every alternative), listed in `fixed_pieces`.
+ * The document's total rule set (`computeTotals`: traslado + descuento
+ * comercial + recargo + seña) runs over the COMBINED subtotal so the
+ * discount / surcharge apply to the real job cost.
  */
 export interface PieceAlternativeTotal {
   /** Material name (the alternative grouped by physical material). */
   material_name: string;
   /** Names of the pieces that quote this material as an alternative. */
   pieces: string[];
+  // ── Composition (transparent breakdown for the PDF block) ──
+  /** Subtotal of the pieces that quote this alternative. */
+  alternative_subtotal_ars: number;
+  alternative_subtotal_usd: number;
+  /** Names of the FIXED pieces (no alternative) added to every variant. */
+  fixed_pieces: string[];
+  /** Subtotal of the fixed pieces added to every variant. */
+  fixed_subtotal_ars: number;
+  fixed_subtotal_usd: number;
+  // ── Combined job subtotal (alternative + fixed) ──
   /** Currency-agnostic consolidated subtotal (materials + adicionales +
-   *  piletas of every piece). */
+   *  piletas of EVERY piece: the alternative ones + the fixed ones). */
   subtotal_ars: number;
   subtotal_usd: number;
   /** Same rule set as the document-level totals applied to the
@@ -230,6 +253,55 @@ export interface PieceAlternativeTotal {
   surcharge_percentage: number;
   surcharge_amount: number;
   catalogue_installment_detail: Array<{ cuota: number; interes: number; monto: number }>;
+  total_ars: number;
+  total_usd: number;
+  balance_due: number;
+}
+
+/**
+ * Per-option totals for the "Resumen Comparativo de Opciones" (B1,
+ * 2026-10-01 Fase 2). One entry per independent quote scenario, each
+ * priced with the SAME document rule set (`computeTotals`: traslado +
+ * descuento comercial + recargo + seña) over ITS OWN subtotal.
+ *
+ * Only populated when the budget has 2+ options — a legacy or
+ * single-option budget keeps the traditional Hoja de Alternativas.
+ */
+export interface OptionTotal {
+  id: string;
+  name: string;
+  is_selected: boolean;
+  /** Names of the pieces this option covers. */
+  piece_names: string[];
+  /** Materials quoted across the option's pieces (deduped). */
+  material_names: string[];
+  /**
+   * The piletas (bachas) INCLUDED in this option — brand + model of every
+   * sink the option's pieces carry.
+   *
+   * Printed on the option's card so the customer knows exactly WHICH
+   * sink each variant includes ("Pileta: JOHNSON LUXOR COMPACT SI71A").
+   */
+  pool_models: string[];
+  /**
+   * The option's OWN per-piece blocks (materials + zócalo/frente +
+   * additional works + pools + piece subtotal).
+   *
+   * The PDF prints one page per option, so the customer can evaluate
+   * EVERY variant in full detail — not just a one-line summary.
+   */
+  pieces: PiecesPdfPiece[];
+  /** Total m² of the option's principal surfaces (the quoted area). */
+  total_m2: number;
+  /** How many pieces / ambientes the option covers. */
+  piece_count: number;
+  subtotal_ars: number;
+  subtotal_usd: number;
+  discount_fixed_amount: number;
+  surcharge_percentage: number;
+  surcharge_amount: number;
+  /** Per-cuota breakdown of the recargo (printed on the option's page). */
+  catalogue_installment_detail?: Array<{ cuota: number; interes: number; monto: number }>;
   total_ars: number;
   total_usd: number;
   balance_due: number;
@@ -348,6 +420,11 @@ export interface PdfDocumentData {
    * budgets without pieces (legacy layout).
    */
   alternative_totals?: PieceAlternativeTotal[];
+  /** Per-option totals for the "Resumen Comparativo de Opciones".
+   *  Only populated when the budget has 2+ options (B1) — a legacy or
+   *  single-option budget keeps the traditional Hoja de Alternativas and
+   *  leaves this empty. */
+  option_totals?: OptionTotal[];
 }
 
 export interface BuildPdfDataParams {

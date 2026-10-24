@@ -7,7 +7,7 @@ import {
   getBudget,
   deleteBudget,
   updateBudget,
-  convertBudgetToWorkOrder,
+  convertBudgetOptionToWorkOrder,
   getBudgetPublicPdfToken,
   sendBudgetEmail,
   mapBudgetStatusToApi,
@@ -122,12 +122,25 @@ export default function BudgetsList() {
 
   const performConvert = async (pending: PendingConvert) => {
     try {
-      const res = await convertBudgetToWorkOrder(pending.id as string);
-      notify(`Orden ${(res.data as Record<string, unknown>).number as string} creada exitosamente`, 'success');
+      // 2026-10-01 Fase 3: convert via the winning OPTION. The list page
+      // doesn't load the budget's pieces, so we can't resolve the winner
+      // client-side — the backend does it (`is_selected` → single option →
+      // legacy SINGLE) and REFUSES with 400 when the choice is ambiguous,
+      // which surfaces here as an error instead of converting the wrong
+      // scenario.
+      const res = await convertBudgetOptionToWorkOrder(pending.id as string, null);
+      const order = (res.data?.work_order ?? res.data) as Record<string, unknown>;
+      const optionName = res.data?.option_name as string | undefined;
+      notify(
+        optionName && optionName !== 'Opción Única'
+          ? `Orden ${order.number as string} creada exitosamente desde "${optionName}"`
+          : `Orden ${order.number as string} creada exitosamente`,
+        'success',
+      );
       // Both lists change: budget becomes CONVERTED_TO_OT, OT is created.
       queryClient.invalidateQueries({ queryKey: ['budgets'] });
       queryClient.invalidateQueries({ queryKey: ['work-orders'], refetchType: 'all' });
-      navigate(`/admin/work-orders/${(res.data as Record<string, unknown>).id as string}`);
+      navigate(`/admin/work-orders/${order.id as string}`);
     } catch (err: unknown) {
       notify(parseApiError(err, 'Error al convertir'), 'error');
     }

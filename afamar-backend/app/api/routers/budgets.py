@@ -3,16 +3,21 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import Response
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db.database import SessionLocal
 from app.api.dependencies import get_current_user, get_db
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import NotFoundError, ValidationError
 from app.core.settings import settings
-from app.utils.responses import PaginationInfo, created, success
+from app.utils.responses import PaginationInfo, created, error, success
 from app.schemas.budget import BudgetCreate, BudgetResponse, BudgetUpdate
 from app.services.budget import BudgetService
+from app.services.budget_option_conversion import (
+    convert_budget_to_work_order as convert_budget_to_work_order_service,
+)
 from app.services.email import send_budget_email
 from app.services.pdf_helpers import prepare_budget_payload
 from app.services.pdf_html import build_budget_pdf_data, generate_budget_pdf
@@ -177,6 +182,50 @@ def convert_alternative_to_work_order(budget_id: int, idx: int, db: Session = De
     service = BudgetService(db)
     work_order = service.convert_alternative_to_work_order(budget_id, idx)
     return created(work_order)
+
+
+class ConvertOptionBody(BaseModel):
+    """Body of `POST /{budget_id}/convert`.
+
+    `option_id` selects the WINNING option. It may be omitted for a
+    legacy / single-option budget (the backend then resolves the only
+    option automatically), but a multi-option budget without it is
+    REFUSED with 400 rather than silently converting the wrong scenario
+    — that would bill the wrong price and deduct the wrong sink.
+    """
+    option_id: Optional[str] = None
+
+
+@router.post("/{budget_id}/convert", status_code=201)
+def convert_budget_to_work_order(
+    budget_id: int,
+    payload: Optional[ConvertOptionBody] = Body(default=None),
+    db: Session = Depends(get_db),
+):
+    """Convert a budget into a Work Order using the winning option.
+
+    The work order is built from ONLY that option's pieces, materials,
+    piletas and additional works, and the stock deduction is scoped to
+    that option's piletas. Responds with the work order plus the resolved
+    option so the UI can confirm which scenario was converted.
+    """
+    option_id = payload.option_id if payload else None
+    try:
+        work_order, option = convert_budget_to_work_order_service(
+            db, budget_id, option_id
+        )
+    except NotFoundError as exc:
+        return error(detail=str(exc), status_code=404)
+    except ValidationError as exc:
+        # 400 — the budget has several options and no unambiguous winner.
+        # Never guess: converting the wrong scenario would bill the wrong
+        # price AND deduct the wrong pileta from stock.
+        return error(detail=str(exc), status_code=400)
+    return created({
+        "work_order": jsonable_encoder(work_order),
+        "option_id": option["id"],
+        "option_name": option["name"],
+    })
 
 
 @router.get("/{budget_id}/pdf")

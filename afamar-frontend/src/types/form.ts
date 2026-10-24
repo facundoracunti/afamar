@@ -1,4 +1,4 @@
-import type { FabricationDetail, BudgetPiece, MaterialInForm, PoolInForm } from './budget';
+import type { BudgetOption, FabricationDetail, BudgetPiece, MaterialInForm, PoolInForm } from './budget';
 import type { Client } from './client';
 import type { Material } from './material';
 import type { Pool } from './poolStock';
@@ -100,6 +100,22 @@ export interface EntityFormState extends FinancialBase {
   // orders flatten it back to `materials_data`/`additional_works_data`
   // when converting (see backend `_flatten_pieces`).
   pieces: BudgetPiece[];
+
+  // Multi-option / multi-escenario budgets (2026-10-01 Fase 2). Each
+  // option owns its OWN `pieces` (same shape as the legacy `pieces_data`
+  // above), so several independent quote variants can live side by side
+  // and the operator converts only the winning one.
+  //
+  // `options` is the SINGLE source of truth for the pieces being edited:
+  // `pieces` above mirrors the ACTIVE option so the legacy consumers
+  // (useBudgetCalculations, buildPdfData, PiecesSection) keep working
+  // without branching. When `options` is empty the budget is legacy and
+  // `pieces` stands on its own (single implicit option).
+  options: BudgetOption[];
+
+  // Id of the option being edited. Empty = use `pieces` directly
+  // (legacy single-option budget).
+  active_option_id: string;
 
   // Arrays (sent as *_data JSON to API)
   materials_data: MaterialInForm[];

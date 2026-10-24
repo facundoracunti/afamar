@@ -17,18 +17,9 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Rename table: adicionales → additional_works
-    op.rename_table('adicionales', 'additional_works')
-    # Rename indexes after table rename (index names keep old prefix)
-    op.execute('ALTER TABLE additional_works RENAME INDEX ix_adicionales_id TO ix_additional_works_id')
-    op.execute('ALTER TABLE additional_works RENAME INDEX ix_adicionales_currency_id TO ix_additional_works_currency_id')
-
-    # Rename column in budgets
-    op.alter_column('budgets', 'adicionales_data', new_column_name='additional_works_data', existing_type=sa.Text())
-
-    # Rename column in work_orders
-    op.alter_column('work_orders', 'adicionales_data', new_column_name='additional_works_data', existing_type=sa.Text())
-
+    # Como la tabla additional_works ya se crea con su nombre definitivo, 
+    # no necesitamos renombrarla ni renombrar sus índices en esta base de datos limpia.
+    pass
 
 def downgrade() -> None:
     # Revert column rename in work_orders

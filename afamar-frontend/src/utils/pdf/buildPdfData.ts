@@ -33,6 +33,8 @@ import {
 } from './buildSectionData';
 import { buildPieces, piecesSubtotal } from './buildPiecesPdfData';
 import { computeMaterialsSubtotal } from '@features/budgets/utils/commercialDiscount';
+import { flattenPieces } from '@features/budgets/utils/pieces';
+import type { BudgetOption } from '../../types/budget';
 import { computeTotals, applyPerSectionTotals } from './buildPdfData.totals';
 import {
   computeAdditionalWorksSubtotals,
@@ -40,7 +42,11 @@ import {
   computePaymentMethodsCatalogue,
   resolvePaymentMethod,
 } from './buildPdfData.helpers';
-import { attachBudgetPiecesData, attachPiecesBlocks } from './buildPdfData.alternatives';
+import {
+  attachBudgetPiecesData,
+  attachPiecesBlocks,
+  buildOptionTotals,
+} from './buildPdfData.alternatives';
 import type {
   DepositCurrency,
   TotalsContext,
@@ -66,15 +72,43 @@ export function buildPdfData({
   const str = (k: string): string => (form[k] as string | null | undefined) ?? '';
   const num = (k: string): number => Number(form[k]) || 0;
 
-  const allMaterials = asMaterials(form.materials_data);
+  // ── Multi-option budgets (2026-10-01): the document describes the
+  // WINNING option ────────────────────────────────────────────────────
+  // A budget with 2+ independent options has no single "document content":
+  // each option carries its own pieces, materials, traforos and piletas.
+  // Page 1 and the document totals must therefore describe the option the
+  // conversion would use (the one marked as winner), so the TOTAL at the
+  // bottom of the PDF always adds up to the pieces printed above it.
+  //
+  // The winner's pieces are re-flattened into the legacy arrays so EVERY
+  // downstream reader (sections, additional works, pools, the discount
+  // base) sees the same scenario. Without this the totals came from
+  // whichever option the operator had open in the form while page 1
+  // printed another one — the two never matched.
+  const options = (form.options ?? []) as BudgetOption[];
+  const winner =
+    options.length > 0
+      ? (options.find((o) => o.is_selected) ??
+        options.find((o) => o.id === (form.active_option_id as string)) ??
+        options[0])
+      : null;
+  const effectiveForm: Record<string, unknown> = winner
+    ? {
+        ...form,
+        pieces: winner.pieces,
+        ...flattenPieces(winner.pieces),
+      }
+    : (form as unknown as Record<string, unknown>);
+
+  const allMaterials = asMaterials(effectiveForm.materials_data);
   const mainMaterials = allMaterials.filter((m) => !m.is_alternative);
   const alternatives = allMaterials.filter((m) => m.is_alternative);
-  const pools = asPools(form.pools_data);
+  const pools = asPools(effectiveForm.pools_data);
   const usdRate = num('usd_rate');
 
-  const fabricationRows = buildFabricationRows(form.fabrication_details, usdRate);
+  const fabricationRows = buildFabricationRows(effectiveForm.fabrication_details, usdRate);
 
-  const additional_works = buildAdditionalWorksRows(form, usdRate);
+  const additional_works = buildAdditionalWorksRows(effectiveForm, usdRate);
   const {
     ars: additionalWorksSubtotalArs,
     usd: additionalWorksSubtotalUsd,
@@ -106,10 +140,7 @@ export function buildPdfData({
   // document subtotal the moment the operator marks a material as
   // "Alternativa". The piece principal subtotals already include pools
   // (they moved into the pieces), so they sum to the true document total.
-  const piecesEarly = buildPieces(
-    (form as unknown) as Record<string, unknown>,
-    usdRate,
-  );
+  const piecesEarly = buildPieces(effectiveForm, usdRate);
   const computedSubtotal = piecesEarly.length > 0
     ? piecesSubtotal(piecesEarly).ars
     : (mainSection ? mainSection.subtotal_ars : subtotalMain) + subtotalGlobal;
@@ -229,7 +260,7 @@ export function buildPdfData({
   // API responses). In the latter case, fold the flat arrays into a
   // single piece so the per-piece grouping still has something to
   // render under.
-  const renderingPieces = resolveRenderingPieces(form);
+  const renderingPieces = resolveRenderingPieces(effectiveForm);
   const measurement_comparison = includeComparison
     ? buildMeasurementComparison(renderingPieces, usdRate)
     : [];
@@ -311,13 +342,13 @@ export function buildPdfData({
   // the legacy single-section "PRINCIPAL" card. This unifies the OT and
   // Presupuesto layouts so the operator gets the same per-piece grouping
   // in both document types.
-  attachPiecesBlocks(base, form, usdRate);
+  attachPiecesBlocks(base, effectiveForm, usdRate);
 
   if (document_type === 'budget') {
     // Budget terms + (multi-piece budgets) the consolidated TOTAL GENERAL
     // ALTERNATIVO per material. The alternatives block is budget-only
     // (WO doesn't quote alternatives).
-    attachBudgetPiecesData(base, form, usdRate, {
+    attachBudgetPiecesData(base, effectiveForm, usdRate, {
       budgetTermsOverride: overrides?.budget_terms,
       globalBudgetTerms: globalTerms.budget_terms,
       altParams: {
@@ -333,6 +364,31 @@ export function buildPdfData({
         discountTarget,
       },
     });
+
+    // ── Resumen Comparativo de Opciones (B1) ──
+    // Populated ONLY when the budget has 2+ independent options. Each
+    // option is priced from its OWN pieces with the same document rule
+    // set, so the customer compares final prices. A legacy or
+    // single-option budget leaves this empty and keeps the traditional
+    // Hoja de Alternativas (zero regression on historical documents).
+    const optionTotals = buildOptionTotals(
+      (form.options ?? []) as never,
+      base.pieces ?? [],
+      usdRate,
+      {
+        transport,
+        transportUsd,
+        discountPct,
+        discountFixedRaw,
+        usdRate,
+        pm,
+        installments: installmentsNum,
+        deposit: paidArs,
+        discountEnabled,
+        discountTarget,
+      },
+    );
+    if (optionTotals.length > 0) base.option_totals = optionTotals;
   }
 
   return base;
@@ -358,5 +414,6 @@ export type {
   PiecesPdfAlternative,
   PiecesPdfPiece,
   PieceAlternativeTotal,
+  OptionTotal,
   BuildPdfDataParams,
 } from './pdfTypes';

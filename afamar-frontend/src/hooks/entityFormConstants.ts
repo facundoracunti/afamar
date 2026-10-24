@@ -77,6 +77,10 @@ export const INITIAL_FORM: EntityFormState = {
   // state already carries one empty piece waiting for the operator's main
   // material pick.
   pieces: [createEmptyPiece(0)],
+  // Multi-option budgets (2026-10-01 Fase 2). Empty = legacy single-option
+  // budget, where `pieces` stands on its own and the option tabs are hidden.
+  options: [],
+  active_option_id: '',
   materials_data: [],
   pools_data: [],
   sketch_elements: [],

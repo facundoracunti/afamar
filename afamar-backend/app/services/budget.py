@@ -16,7 +16,9 @@ from app.services.budget_calculator import (
     compute_alternative_totals,
     compute_detail_totals,
     compute_pool_totals,
+    filter_main_materials,
     flatten_pieces,
+    parse_additional_works_snapshot,
     parse_materials_data,
 )
 from app.services.frente_pricing import apply_frente_rows
@@ -351,7 +353,13 @@ class BudgetService:
         total_detalles_ars, total_detalles_usd = compute_detail_totals(detalles)
 
         pools = parse_materials_data(budget.pools_data)
+        # The alternative inherits the piece's piletas ("piletas travel with
+        # the piece"). The per-variant sink override was removed
+        # (2026-10-23): the top-level OPCIONES are the only place where a
+        # variant is defined, and each option carries its own piletas.
         total_piletas_ars, total_piletas_usd = compute_pool_totals(pools)
+        budget_additional = parse_additional_works_snapshot(budget.additional_works_data)
+        additional_for_wo = list(budget_additional)
 
         traslado = float(budget.transport or 0)
 
@@ -386,7 +394,14 @@ class BudgetService:
             "material": alt_nombre,
             "material_price_m2": alt_precio_m2,
             "materials_data": json.dumps(materials),
-            "additional_works_data": None,
+            # Cutout/traforo of the alternative's own sink joins the document
+            # additional works so the recalc and the PDF price it with the rest.
+            "additional_works_data": (
+                json.dumps(additional_for_wo, ensure_ascii=False)
+                if additional_for_wo
+                else None
+            ),
+            "pools_data": json.dumps(pools, ensure_ascii=False) if pools else None,
             "pieces_data": budget.pieces_data,
             "color": alt_color or budget.color,
             "thickness": alt_espesor or budget.thickness,
@@ -458,7 +473,16 @@ class BudgetService:
         work_order = wo_repo.create(data)
         self.repo.db.commit()
         self.repo.db.refresh(work_order)
-        deduct_pool_stock(self.repo.db, budget.pool_id, budget.pools_data, work_order.number)
+        # Deduct the pileta the OT actually carries — the piece's own
+        # piletas (the per-variant sink override was removed on
+        # 2026-10-23), so the stock movement references the model the
+        # customer chose.
+        deduct_pool_stock(
+            self.repo.db,
+            budget.pool_id,
+            json.dumps(pools, ensure_ascii=False) if pools else None,
+            work_order.number,
+        )
         work_order.stock_deducted = True
         self.repo.db.commit()
         self.repo.db.refresh(work_order)

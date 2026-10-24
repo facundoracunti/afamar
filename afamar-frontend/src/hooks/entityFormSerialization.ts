@@ -23,6 +23,11 @@ import { INITIAL_FORM } from './entityFormConstants';
 import { buildFinancialPayload, mapFinancialToForm } from './entityFormFinancial';
 import { flattenPieces, normalisePieces } from '@features/budgets/utils/pieces';
 import {
+  parseOptions,
+  resolveActiveOptionId,
+} from '@features/budgets/options/budgetOptions';
+import type { BudgetOption } from '../types/budget';
+import {
   serializeSketchPages,
   unflattenSketchElements,
 } from './entityForm/sketch';
@@ -145,6 +150,46 @@ function loadPieces(
   };
 }
 
+/**
+ * Multi-option budgets (2026-10-01 Fase 2) — hydrate `options` /
+ * `active_option_id` from the API's `options_data`.
+ *
+ * A budget saved before the migration has `options_data` NULL → `options`
+ * stays `[]` and `pieces` (from `pieces_data`) stands alone, so the form
+ * looks exactly as it did. A budget with options gets them parsed AND
+ * hydrated through the same snapshot pipeline as `pieces_data`, so the
+ * COMPARATIVA DE MEDICIÓN keeps working inside every option.
+ *
+ * The ACTIVE option's pieces are mirrored into the top-level `pieces`
+ * so every legacy consumer (totals, PDF, pieces editor) reads the
+ * option being edited without knowing options exist.
+ */
+function loadOptions(
+  d: Record<string, unknown>,
+  fallbackPieces: BudgetPiece[],
+): { options: BudgetOption[]; active_option_id: string; pieces: BudgetPiece[] } {
+  const options = parseOptions(d.options_data);
+  if (options.length === 0) {
+    // Legacy budget → inert options, `pieces` untouched.
+    return { options: [], active_option_id: '', pieces: fallbackPieces };
+  }
+  // Hydrate each option's pieces so measurement snapshots survive.
+  const hydrated = options.map((o) => ({
+    ...o,
+    pieces: hydratePiecesSnapshots(d, o.pieces),
+  }));
+  const activeId = resolveActiveOptionId(hydrated, '');
+  const active = hydrated.find((o) => o.id === activeId) ?? hydrated[0];
+  return {
+    options: hydrated,
+    active_option_id: activeId,
+    // Mirror the active option's pieces so the legacy `pieces` consumers
+    // (useBudgetCalculations / buildPdfData / PiecesSection) read the
+    // option being edited. The pools mirror follows from it.
+    pieces: active.pieces,
+  };
+}
+
 function sliceDateToInput(v: unknown): string {
   if (!v) return '';
   const s = String(v);
@@ -183,6 +228,17 @@ export function buildPayload(form: EntityFormState): Record<string, unknown> {
     include_measurement_comparison_in_pdf: form.include_measurement_comparison_in_pdf === true,
     fabrication_details: jsonStringify(form.fabrication_details),
     pieces_data: jsonStringify(form.pieces),
+    // Multi-option budgets (2026-10-01 Fase 2). NULL when the budget is
+    // legacy single-option — the backend then synthesises one option from
+    // `pieces_data`, so old and new rows share one code path.
+    options_data: jsonStringify(
+      (form.options ?? []).map((o) => ({
+        id: o.id,
+        name: o.name,
+        is_selected: o.is_selected,
+        pieces: o.pieces,
+      })),
+    ),
     materials_data: jsonStringify(form.materials_data),
     pools_data: jsonStringify(form.pools_data),
     sketch_elements: jsonStringify(serializeSketchPages(form.sketch_elements)),
@@ -244,7 +300,7 @@ export function mapApiToForm(d: Record<string, unknown>, defaultStatus: string):
     // the legacy migration runs once and the flat arrays are guaranteed
     // to match the pieces (no drift between `pools_data` and `piece.pools`,
     // which was a bug in the previous duplicated-IIFE implementation).
-    ...loadPieces(d),
+    ...loadOptions(d, loadPieces(d).pieces),
     materials_data: jsonParseList(d.materials_data) as EntityFormState['materials_data'],
     sketch_elements: unflattenSketchElements(d.sketch_elements) as unknown[],
     additional_works_data: (d.additional_works_data as string | null) ?? null,

@@ -10,7 +10,15 @@ export const getBudget = (id: number | string) => http.get(`/budgets/${id}`);
 export const createBudget = (data: Record<string, unknown>) => http.post('/budgets', data);
 export const updateBudget = (id: number | string, data: Record<string, unknown>) => http.put(`/budgets/${id}`, data);
 export const deleteBudget = (id: number | string) => http.delete(`/budgets/${id}`);
-export const convertBudgetToWorkOrder = (id: number | string) => http.post(`/work-orders/from-budget/${id}`);
+/**
+ * @deprecated Legacy conversion endpoint (`POST /work-orders/from-budget/{id}`).
+ * It converts the WHOLE budget row regardless of its options, so a
+ * multi-option budget would ignore the winning scenario. Since
+ * 2026-10-01 (Fase 3) use {@link convertBudgetOptionToWorkOrder}, which
+ * resolves the winning option and refuses ambiguous choices.
+ */
+export const convertBudgetToWorkOrder = (id: number | string) =>
+  http.post(`/work-orders/from-budget/${id}`);
 export const sendBudgetWhatsApp = (id: number | string) => http.post(`/budgets/${id}/send-whatsapp`);
 export const sendBudgetEmail = (id: number | string) => http.post(`/budgets/${id}/send-email`);
 export const getNextBudgetNumber = () => http.get('/budgets/next-number');
@@ -18,6 +26,23 @@ export const getBudgetPdf = (id: number | string) => `${http.defaults.baseURL}/b
 export const getBudgetPublicPdfToken = (id: number | string) => http.get(`/budgets/${id}/public-token`);
 export const convertAlternativeToWorkOrder = (budgetId: number | string, idx: number) =>
   http.post(`/budgets/${budgetId}/alternatives/${idx}/convert-to-work-order`);
+
+/**
+ * Convert a budget into a Work Order from the WINNING option
+ * (2026-10-01, Fase 3 "Opciones / Escenarios Independientes").
+ *
+ * `optionId` is optional for a legacy / single-option budget (the backend
+ * resolves it as `SINGLE`). For a multi-option budget the backend REFUSES
+ * the call (400) when the id is unknown or when no single option wins —
+ * so callers must resolve it with `pickWinningOptionId` first and block
+ * the action when it returns `null`.
+ *
+ * Responds 201 with `{ work_order, option_id, option_name }`.
+ */
+export const convertBudgetOptionToWorkOrder = (
+  id: number | string,
+  optionId?: string | null,
+) => http.post(`/budgets/${id}/convert`, { option_id: optionId ?? null });
 
 interface UnifiedBudgetRaw {
   id: number;

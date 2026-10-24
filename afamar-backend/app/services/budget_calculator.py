@@ -160,12 +160,29 @@ def compute_alternative_totals(alt: dict, budget) -> tuple:
 
 
 def compute_detail_totals(detalles: list) -> tuple:
+    """Bucket fabrication (zócalo / frente / laburo) rows into (ars, usd).
+
+    Tolerant of BOTH key spellings (2026-10-01 fix): the legacy rows carry
+    the Spanish keys (`precio` / `cantidad` / `moneda`) while the pieces
+    flow sends the English ones (`price` / `quantity` / `currency`). Reading
+    only the Spanish spelling priced every zócalo / frente authored from a
+    piece at $0 — the operator saw the amount in the form while the
+    server-side recalc ignored it. The English spelling wins when present
+    (that is what the frontend writes), the Spanish one is the fallback.
+    """
     total_ars = 0.0
     total_usd = 0.0
-    for d in (detalles if isinstance(detalles, list) else []):
-        p = float(d.get("precio", 0) or 0)
-        c = float(d.get("cantidad") or d.get("quantity", 1) or 1)
-        if d.get("moneda") == "USD":
+    for d in detalles if isinstance(detalles, list) else []:
+        if not isinstance(d, dict):
+            continue
+        p = float(d.get("price") if d.get("price") is not None else d.get("precio", 0) or 0)
+        c = float(
+            d.get("quantity")
+            if d.get("quantity") is not None
+            else (d.get("cantidad", 1) or 1)
+        )
+        currency = (d.get("currency") or d.get("moneda") or "ARS").upper()
+        if currency == "USD":
             total_usd += p * c
         else:
             total_ars += p * c
@@ -178,7 +195,11 @@ def compute_pool_totals(pools: list) -> tuple:
     for pt in pools:
         p = float(pt.get("precio") or pt.get("price", 0) or 0)
         c = float(pt.get("cantidad") or pt.get("quantity", 1) or 1)
-        if pt.get("moneda") == "USD":
+        # Tolerate both spellings: legacy rows carry the Spanish `moneda`,
+        # while rows built by the pieces flow (e.g. a per-alternative sink
+        # override) carry `currency`.
+        currency = pt.get("moneda") or pt.get("currency") or "ARS"
+        if currency == "USD":
             total_usd += p * c
         else:
             total_ars += p * c
@@ -220,13 +241,24 @@ def compute_additional_totals(rows: list) -> tuple:
     for r in rows if isinstance(rows, list) else []:
         if not isinstance(r, dict):
             continue
-        currency = (r.get("currency") or "ARS").upper()
+        # Tolerant of both spellings (2026-10-01): legacy rows carry
+        # `moneda` / `precio` / `cantidad`, the pieces flow carries
+        # `currency` / `price` / `quantity`.
+        currency = (r.get("currency") or r.get("moneda") or "ARS").upper()
         is_frente = (r.get("type") or "flat") == "frente"
         if is_frente:
             total = float(r.get("total") or 0)
         else:
-            price = float(r.get("price") or 0)
-            quantity = float(r.get("quantity") or 1)
+            price = float(
+                r.get("price")
+                if r.get("price") is not None
+                else (r.get("precio") or 0)
+            )
+            quantity = float(
+                r.get("quantity")
+                if r.get("quantity") is not None
+                else (r.get("cantidad", 1) or 1)
+            )
             total = price * quantity
         if currency == "USD":
             total_usd += total

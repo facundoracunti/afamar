@@ -700,6 +700,22 @@ def _payment_methods_catalogue(db) -> list:
 
 def build_budget_pdf_data(budget_data: dict, client_dict: dict, company: dict, terms: dict, db=None) -> dict:
     from app.services.budget_calculator import filter_main_materials, parse_materials_data
+    from app.services.budget_option_totals import winning_option_flat
+
+    # MULTI-OPTION BUDGETS (2026-10-01): the document-level flat arrays
+    # hold whichever option the form had OPEN when the budget was saved.
+    # The client-facing download must describe the WINNING option (the one
+    # a conversion turns into a work order), so the flat arrays are
+    # re-derived from it. A legacy / single-option budget is untouched.
+    option_flat = winning_option_flat(budget_data)
+    if option_flat:
+        budget_data = {
+            **budget_data,
+            "materials_data": option_flat["materials"],
+            "fabrication_details": option_flat["fabrication"],
+            "additional_works_data": option_flat["additional"],
+            "pools_data": option_flat["pools"],
+        }
 
     materiales_raw = parse_materials_data(budget_data.get("materials_data"))
     main_materials = filter_main_materials(materiales_raw)

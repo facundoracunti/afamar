@@ -129,6 +129,19 @@ class Budget(Base):
     # alternative materials and their own additional works.
     pieces_data: Mapped[str] = mapped_column(Text, nullable=True)
 
+    # Multi-option / multi-escenario budgets (2026-10-01, "Opciones /
+    # Escenarios Independientes" Fase 1). JSON array of `BudgetOption[]`;
+    # each option owns its OWN `pieces` (same wire shape as
+    # `pieces_data`) so several independent quote variants can live side
+    # by side (Opción 1 granite+sink A, Opción 2 full granite B, …) and the
+    # operator converts only the winning one.
+    #
+    # **NULL/empty = legacy single-configuration budget.** The runtime
+    # fallback in `app.services.budget_options.resolve_budget_options`
+    # synthesises one "Opción Única" option from `pieces_data`, so old
+    # rows need NO backfill and every existing flow keeps working.
+    options_data: Mapped[str] = mapped_column(Text, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 

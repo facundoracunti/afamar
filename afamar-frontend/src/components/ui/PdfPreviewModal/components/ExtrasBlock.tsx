@@ -5,6 +5,7 @@ import { BANK_INFO, PAYMENT_METHOD_TRANSFER } from '../../../../constants';
 import { formatUsdFetchedAt, fmt } from '../DocumentPdf.utils';
 import { styles } from '../DocumentPdf.styles';
 import { DataTable, ObsBox } from './Atoms';
+import { SignatureBlock } from './SignatureBlock';
 import {
   COMPARISON_FLEXES,
   COMPARISON_HEADERS,
@@ -244,18 +245,7 @@ export function ExtrasBlock({
       ) : null}
 
       {/* SIGNATURES */}
-      <View style={styles.signatures} wrap={false}>
-        <View style={styles.signatureCell}>
-          <View style={styles.signatureLine} />
-          <Text style={styles.signatureCaption}>
-            {`${data.company.company_name || 'AFAMAR'}\nResponsable`}
-          </Text>
-        </View>
-        <View style={styles.signatureCell}>
-          <View style={styles.signatureLine} />
-          <Text style={styles.signatureCaption}>{'CLIENTE CONFORME\nFirma y aclaración'}</Text>
-        </View>
-      </View>
+      <SignatureBlock companyName={data.company.company_name} />
     </>
   );
 }

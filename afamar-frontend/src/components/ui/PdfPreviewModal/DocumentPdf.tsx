@@ -28,6 +28,9 @@ import { OptionSectionBlock } from './components/OptionSectionBlock';
 import { PieceBlock } from './components/PieceBlock';
 import { AlternativesSheet } from './components/AlternativesSheet';
 import { AlternativeTotalsSummary } from './components/AlternativeTotalsSummary';
+import { OptionsComparisonSheet, CommercialFooter } from './components/OptionsComparisonSheet';
+import { OptionTotalsCard } from './components/OptionTotalsCard';
+import { SignatureBlock } from './components/SignatureBlock';
 import { ExtrasBlock } from './components/ExtrasBlock';
 import { DataTable } from './components/Atoms';
 import {
@@ -67,6 +70,20 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
   const hasPieces = pieces.length > 0;
   const hasPieceAlternatives = pieces.some((p) => p.alternatives.length > 0);
 
+  // MULTI-OPTION BUDGET (2026-10-01): the budget carries 2+ INDEPENDENT
+  // options, each with its own pieces / materials / piletas. The PDF must
+  // detail EVERY variant — a one-line summary per option is not a
+  // quotable document, the customer cannot evaluate what he is paying
+  // for. Layout:
+  //
+  //   PAGE 1        → "Comparativa de opciones": each option with its
+  //                   final price (commercial summary) + terms + signature.
+  //   PAGE 2..N+1   → one page per option: its pieces in full detail
+  //                   (materials, measures, zócalo/frente, traforos,
+  //                   piletas) + that option's own subtotal and TOTAL.
+  const optionTotals = data.option_totals || [];
+  const hasOptions = optionTotals.length >= 2;
+
   // Dedicated croquis page (landscape) shown for the *principal* option — the
   // same treatment in every mode so the wide editor rectángulo has room. The
   // `withHeader`/`withDivider` flags mirror the per-mode differences (pieces
@@ -88,7 +105,50 @@ export default function DocumentPdf({ data }: DocumentPdfProps) {
 
 return (
     <Document title={`${data.title} ${data.number}`} author={data.company.company_name}>
-      {hasPieces ? (
+      {hasOptions ? (
+        <Fragment>
+          {/* PAGE 1 — COMPARATIVA DE OPCIONES (commercial summary).
+              The customer sees every variant's final price at a glance and
+              signs the quote once. No internal control vocabulary. */}
+          <Page size="A4" style={styles.page} wrap>
+            <DocumentHeader data={data} />
+            <ClientGrid data={data} />
+            <SpecsGrid data={data} />
+            <OptionsComparisonSheet totals={optionTotals} />
+            <View wrap={false}>
+              <TermsBlock data={data} />
+              {/* Commercial conditions (validity + reference exchange
+                  rate) — a single block at the foot of the page. The
+                  payment modalities are NOT repeated here: the document
+                  already prints them in its own "Método de pago" box. */}
+              <CommercialFooter data={data} />
+              <SignatureBlock companyName={data.company.company_name} />
+              {footer}
+            </View>
+          </Page>
+
+          {/* ONE PAGE PER OPTION — the full breakdown of every variant:
+              its pieces (materials + measures + zócalo/frente + traforos +
+              piletas) and ITS OWN subtotal / final price. Consecutive pages
+              so the customer can compare them side by side. */}
+          {optionTotals.map((option) => (
+            <Page key={option.id} size="A4" style={styles.page} wrap>
+              <DocumentHeader data={data} />
+              <ClientGrid data={data} />
+              <Text style={styles.sectionTitle}>{option.name}</Text>
+              {option.pieces.map((piece) => (
+                <PieceBlock key={piece.id || piece.name} piece={piece} />
+              ))}
+              <OptionTotalsCard option={option} />
+              {footer}
+            </Page>
+          ))}
+
+          {/* Dedicated croquis page (landscape), same treatment as the
+              legacy layout so the drawing has room to breathe */}
+          {data.sketch_images.length > 0 ? croquisPage(false, false) : null}
+        </Fragment>
+      ) : hasPieces ? (
         <Fragment>
           {/* PAGE 1 — PRESUPUESTO/OT PRINCIPAL: one block per piece (COCINA,
               BAÑO, PARRILLA …) instead of the legacy single "PRINCIPAL"
@@ -116,13 +176,9 @@ return (
             </View>
           </Page>
 
-          {/* PAGE 2 — HOJA DE ALTERNATIVAS, grouped by piece. No `break`
-              prop here (it was forcing a blank page between the main
-              budget and the alternatives when page 1 still had room).
-              Each alternative block is `wrap={false}` inside
-              `AlternativesSheet`, so the flow is continuous and atomic:
-              alternatives either fit at the bottom of page 1 or move
-              cleanly to page 2 without intermediate blank pages. */}
+          {/* PAGE 2 — legacy single-option budget → the traditional
+              Hoja de Alternativas (per-material alternatives + consolidated
+              totals). Unchanged for budgets without options. */}
           {hasPieceAlternatives ? (
             <Page size="A4" style={styles.page} wrap>
               <DocumentHeader data={data} />
@@ -132,8 +188,6 @@ return (
               <AlternativeTotalsSummary
                 totals={data.alternative_totals || []}
                 showSaldo={data.document_type === 'work_order' || data.deposit_received > 0 || data.deposit_usd > 0}
-                usdRate={data.usd_rate}
-                usdRateFetchedAt={data.usd_rate_fetched_at}
               />
               {footer}
             </Page>

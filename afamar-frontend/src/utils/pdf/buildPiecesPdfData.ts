@@ -27,6 +27,7 @@
 import type { BudgetPiece, FabricationDetail, MaterialInForm } from '../../types/budget';
 import type { PiecesPdfPiece } from './pdfTypes';
 import { materialGroupKey } from '../materialGroups';
+import { fmtMoney } from './pdfHelpers';
 import {
   buildAdditionalWorksRows,
   buildFabricationRows,
@@ -99,9 +100,19 @@ export function buildPieces(
     const piece = (raw as BudgetPiece[])[pieceIndex];
     if (!piece) continue;
 
-    const mainList: MaterialInForm[] = piece.mainMaterial
-      ? [piece.mainMaterial, ...(piece.mainMaterialRows || [])]
-      : [];
+    // The principal material + its extra panes ("tramos").
+    //
+    // NOTE (2026-10-01 bugfix): the tramos are collected INDEPENDENTLY of
+    // the principal row. Gating them on `piece.mainMaterial` silently
+    // DROPPED every pane of a piece whose anchor row was removed — the
+    // piece then priced at $0 in the PDF while the UI (which reads the
+    // flat `materials_data`, built by `flattenPieces` with the same
+    // independent handling) kept showing the material's amount. The two
+    // must collect the same rows.
+    const mainList: MaterialInForm[] = [
+      ...(piece.mainMaterial ? [piece.mainMaterial] : []),
+      ...(piece.mainMaterialRows || []),
+    ];
     const altList: MaterialInForm[] = Array.isArray(piece.alternativeMaterials)
       ? piece.alternativeMaterials
       : [];
@@ -178,25 +189,30 @@ export function buildPieces(
         const r = revalueFrenteForMaterial(a, representative, usdRate);
         return { ...r, materialName: representative.name || '' };
       });
-      // Pools travel with the piece (no revaluation — the legacy
-      // sections layout doesn't revalue pools either).
+      // Pools: the variant INHERITS the piece's piletas verbatim ("piletas
+      // travel with the piece"). The per-variant sink override was
+      // removed (2026-10-23): the top-level OPCIONES (tabs) are the only
+      // place where a variant is defined, and each option carries its own
+      // piletas.
+      const altPools: PoolPdfRow[] = poolRows;
+
       return {
         title: `Alternativa ${i + 1}: ${representative.name || ''}`.trim(),
         material_name: representative.name || '',
         materials: altMaterialRows,
         fabrication_details: altFabrication,
         additional_works: altAdditional,
-        pools: poolRows,
+        pools: altPools,
         subtotal_ars:
           sumArs(altMaterialRows) +
           sumArs(altFabrication) +
           sumArs(altAdditional) +
-          sumArs(poolRows),
+          sumArs(altPools),
         subtotal_usd:
           sumUsd(altMaterialRows) +
           sumUsd(altFabrication) +
           sumUsd(altAdditional) +
-          sumUsd(poolRows),
+          sumUsd(altPools),
       };
     });
 

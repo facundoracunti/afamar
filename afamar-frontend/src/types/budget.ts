@@ -48,12 +48,12 @@ export interface BudgetAdditionalSchema {
   unitPrice?: number;
   subtotal?: number;
 }
-
 export interface MaterialInForm {
-  /** Catalogue `materials.id` for this material on the form snapshot. Optional
-   *  for legacy rows that pre-date the Frente / Regrueso flow (when the
-   *  snapshot only carried `name` + prices). The backend uses this for the
-   *  `assigned_material_id` lookup so the formula has a real FK to resolve. */
+  /** Catalogue `materials.id` for this material on the form snapshot. 
+Optional
+ *  for legacy rows that pre-date the Frente / Regrueso flow (when the
+ *  snapshot only carried `name` + prices). The backend uses this for the
+ *  `assigned_material_id` lookup so the formula has a real FK to resolve. */
   id?: number | null;
   name: string;
   category?: string;
@@ -74,6 +74,7 @@ export interface MaterialInForm {
   allows_integrated_sink?: boolean;
 }
 
+
 /**
  * Sentinel value for the `material` field on `PoolInForm` that flags a pool
  * as "global" — i.e. the pool doesn't belong to any specific material/option
@@ -84,6 +85,35 @@ export interface MaterialInForm {
  * Mirrors the "Global" option in `FabricationTable` for fabrication details.
  */
 export const POOL_MATERIAL_GLOBAL = '__GLOBAL__' as const;
+
+/**
+ * One independent quote option / scenario of a budget (2026-10-01,
+ * "Opciones / Escenarios Independientes").
+ *
+ * Each option owns its OWN `pieces` (same `BudgetPiece[]` wire shape as
+ * the legacy `pieces_data` column), so several complete variants can
+ * live side by side — Opción 1 with Calacatta + JOHNSON Q 76 A, Opción 2
+ * full NEGRO BRASIL with MI PILETA DESIGNA 787 — and the operator
+ * converts only the winning one.
+ */
+export interface BudgetOption {
+  /** Stable id (e.g. `opt-1`). Used as the conversion target. */
+  id: string;
+  /** Operator-facing label, e.g. "Opción 1". */
+  name: string;
+  /** The winning option — the one a conversion will use. */
+  is_selected: boolean;
+  /** This option's own pieces (each with its materials, piletas, …). */
+  pieces: BudgetPiece[];
+}
+
+/** Stable id of the synthetic option that wraps a legacy single-option
+ *  budget (no `options_data`). Mirrors the backend's
+ *  `budget_options.SINGLE_OPTION_ID`. */
+export const SINGLE_OPTION_ID = 'SINGLE' as const;
+
+/** Human label of the synthetic legacy option. */
+export const SINGLE_OPTION_NAME = 'Opción Única' as const;
 
 export interface PoolInForm {
   pool_id: number;

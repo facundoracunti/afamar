@@ -192,6 +192,23 @@
   cursor: not-allowed;
 }
 
+/* Convert-to-WO block with the winning-option hint (2026-10-01 Fase 3).
+   The hint explains WHY the button is disabled (ambiguous option) or
+   WHICH option will be converted, so the operator never fires an
+   ambiguous request. */
+.budget-form__convert-block {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.budget-form__convert-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
 @media (max-width: 1024px) {
   .budget-form__layout,
   .budget-form__layout--no-sketch {

@@ -70,7 +70,13 @@ export function AlternativesSheet({ pieces }: { pieces: PiecesPdfPiece[] }) {
 
                 {poolRows.length > 0 ? (
                   <View style={{ marginTop: 4 }}>
-                    <Text style={styles.optAdicionalBreakdown}>Piletas (heredadas)</Text>
+                    {/* The variant inherits the piece's piletas ("piletas
+                        travel with the piece") — the per-variant sink
+                        override was removed (2026-10-23) in favour of the
+                        top-level OPCIONES, each with its own piletas. */}
+                    <Text style={styles.optAdicionalBreakdown}>
+                      Piletas (heredadas de la pieza)
+                    </Text>
                     <DataTable headers={POOL_HEADERS} rows={poolRows} flexes={POOL_FLEXES} />
                   </View>
                 ) : null}

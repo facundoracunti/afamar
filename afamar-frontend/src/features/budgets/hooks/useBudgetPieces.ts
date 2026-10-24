@@ -29,6 +29,7 @@ import type { BudgetPiece, MaterialInForm } from '@/types/budget';
 import type { AdditionalWork } from '@/types/additionalWork';
 import { getAdditionalWorks } from '@/api/resources/additionalWorks';
 import { createEmptyPiece, flattenPieces } from '@features/budgets/utils/pieces';
+import { resolveActiveOptionId } from '@features/budgets/options/budgetOptions';
 import {
   mutateAddPieceAlternative,
   mutateAddPieceAlternativeRow,
@@ -101,6 +102,34 @@ export function useBudgetPieces({
     },
     [setForm],
   );
+
+  // Multi-option budgets (2026-10-01 Fase 2): push the edited pieces
+  // into the ACTIVE option so switching tabs never loses work. Written
+  // inline (no context dependency) to keep this hook usable outside a
+  // `BudgetOptionsProvider` (work orders) — the guard below makes it a
+  // no-op when the budget has no options.
+  //
+  // NEVER push an EMPTY pieces array (2026-10-01 bugfix): `form.pieces`
+  // may momentarily be empty while the provider swaps tabs, and the
+  // editor renders a GHOST piece (`createEmptyPiece`) for that empty
+  // state. Persisting the ghost would replace the option's real pieces
+  // with a material-less piece — the option then priced at $0 in the
+  // PDF (only its traforos survived).
+  useEffect(() => {
+    const list = form.options;
+    if (!list || list.length === 0) return;
+    if (!form.pieces || form.pieces.length === 0) return;
+    const activeId =
+      resolveActiveOptionId(list, form.active_option_id ?? '') || '';
+    const option = list.find((o) => o.id === activeId);
+    if (!option || option.pieces === form.pieces) return;
+    setForm((prev) => ({
+      ...prev,
+      options: (prev.options ?? []).map((o) =>
+        o.id === activeId ? { ...o, pieces: prev.pieces } : o,
+      ),
+    }));
+  }, [form.pieces, form.options, form.active_option_id, setForm]);
 
   const pieces = form.pieces && form.pieces.length > 0
     ? form.pieces

@@ -418,6 +418,25 @@ describe('buildPieces', () => {
     expect(pieces[0].alternatives[0].subtotal_usd).toBe(600);
   });
 
+  // ────────────────────────────────────────────────────────────────────
+  // Sink variants (2026-10-23): REMOVED. The per-variant pileta override
+  // is gone — the top-level OPCIONES (tabs) are the only place where a
+  // variant is defined, and each option carries its own piletas. A
+  // material alternative INHERITS the piece's piletas.
+  // ────────────────────────────────────────────────────────────────────
+
+  it('a variant inherits the piece piletas (no per-variant sink override)', () => {
+    const pieces = buildPieces(makeForm([piece1]), 1000);
+    const alt = pieces[0].alternatives[0];
+
+    // The variant carries the piece's own piletas ("piletas travel with
+    // the piece").
+    expect(alt.pools).toHaveLength(1);
+    expect(alt.pools[0].model).toBe('SIGNATURE ENKEL');
+    // The inherited pileta is part of the variant total.
+    expect(alt.subtotal_ars).toBeGreaterThan(0);
+  });
+
   it('sums the principal material AND its mainMaterialRows tramos into the piece', () => {
     const tramo = mat({
       name: 'Negro',
@@ -568,6 +587,137 @@ describe('buildAlternativeTotals', () => {
     expect(totals[0].pieces).toEqual(['Mesada 1', 'Mesada 2']);
   });
 
+  it('adds the FIXED pieces (no alternative) to the TOTAL GENERAL ALTERNATIVO', () => {
+    // Business rule (2026-10-01 cont.6): a budget often quotes
+    // alternatives for ONE sector only (e.g. "COCINA / ALZADA / ISLA"
+    // → Negro Brasil) while the rest of the job keeps its original
+    // material (e.g. "BAÑO" stays Blanco Suggar). The customer asks
+    // "cuánto me sale la obra COMPLETA con esta variante?", so the
+    // TOTAL GENERAL ALTERNATIVO must add the fixed pieces' subtotals to
+    // the alternative ones. Before this fix the block quoted only the
+    // variable piece (a fraction of the job).
+    const pieces = buildPieces(makeForm([piece1, piece2]), 1000);
+
+    // Sanity: piece1 quotes the alternative, piece2 does NOT (it's fixed).
+    expect(pieces[0].alternatives).toHaveLength(1);
+    expect(pieces[1].alternatives).toHaveLength(0);
+
+    const totals = buildAlternativeTotals(pieces, altParams);
+    expect(totals).toHaveLength(1);
+    const t = totals[0];
+
+    // Composition is transparent: the alternative piece contributes its
+    // own alternative subtotal, the fixed piece its principal subtotal.
+    const altOnly = pieces[0].alternatives[0].subtotal_ars;
+    const fixedSubtotal = pieces[1].subtotal_ars;
+    expect(altOnly).toBeGreaterThan(0);
+    expect(fixedSubtotal).toBeGreaterThan(0);
+
+    expect(t.alternative_subtotal_ars).toBe(altOnly);
+    expect(t.fixed_subtotal_ars).toBe(fixedSubtotal);
+    // The combined job subtotal is what the document rules run on.
+    expect(t.subtotal_ars).toBe(altOnly + fixedSubtotal);
+    // The fixed piece is disclosed by name so the customer knows it
+    // stays on the base material under this variant.
+    expect(t.fixed_pieces).toEqual(['Mesada 2']);
+    expect(t.pieces).toEqual(['Mesada 1']);
+  });
+
+  it('keeps the alternative-only total when EVERY piece quotes that alternative', () => {
+    // Control case: with no fixed pieces the block is unchanged from
+    // the pre-fix behaviour (no phantom fixed baseline added).
+    const pieces = buildPieces(makeForm([piece1, piece2]), 1000);
+    const fixedlessPieces = [
+      pieces[0],
+      { ...pieces[1], alternatives: [pieces[0].alternatives[0]] },
+    ];
+
+    const totals = buildAlternativeTotals(fixedlessPieces, altParams);
+    expect(totals).toHaveLength(1);
+    const t = totals[0];
+    expect(t.fixed_pieces).toEqual([]);
+    expect(t.fixed_subtotal_ars).toBe(0);
+    expect(t.subtotal_ars).toBe(t.alternative_subtotal_ars);
+  });
+
+  it('folds every fixed piece into EVERY alternative block (multiple variants)', () => {
+    // Two different alternative materials (Negro Absoluto + ZIRCONIUM) on
+    // the variable piece + one fixed piece. BOTH variant blocks must
+    // include the fixed baseline, otherwise the customer compares a
+    // "partial" variant against a "full" one.
+    const extraAlt1 = mat({
+      name: 'Negro Absoluto',
+      currency: 'USD',
+      price_m2_usd: 500,
+      is_alternative: true,
+    });
+    const extraAlt2 = mat({
+      name: 'ZIRCONIUM',
+      currency: 'USD',
+      price_m2_usd: 750,
+      is_alternative: true,
+    });
+    const variableWithTwoAlts: BudgetPiece = {
+      ...piece1,
+      alternativeMaterials: [materialB, extraAlt1, extraAlt2],
+    };
+    const pieces = buildPieces(makeForm([variableWithTwoAlts, piece2]), 1000);
+    expect(pieces[1].alternatives).toHaveLength(0); // fixed
+
+    const totals = buildAlternativeTotals(pieces, altParams);
+    // Three variant blocks (Marmol / Negro Absoluto / ZIRCONIUM), each
+    // carrying the same fixed baseline.
+    expect(totals).toHaveLength(3);
+    const fixedSubtotal = pieces[1].subtotal_ars;
+    for (const t of totals) {
+      expect(t.fixed_pieces).toEqual(['Mesada 2']);
+      expect(t.fixed_subtotal_ars).toBe(fixedSubtotal);
+      expect(t.subtotal_ars).toBe(t.alternative_subtotal_ars + fixedSubtotal);
+    }
+    // Each block's alternative subtotal is its OWN material's price
+    // (ZIRCONIUM is priciest → highest alternative subtotal).
+    const byName = new Map(totals.map((t) => [t.material_name, t]));
+    const zirconium = byName.get('ZIRCONIUM');
+    const marmol = byName.get('Marmol');
+    expect(zirconium!.alternative_subtotal_ars).toBeGreaterThan(
+      marmol!.alternative_subtotal_ars,
+    );
+  });
+
+  it('ignores fixed pieces with a zero subtotal (no phantom row in the PDF)', () => {
+    // A piece with no material / no extras has subtotal 0. It must NOT
+    // appear in `fixed_pieces` (an empty name list would print
+    // "Piezas fijas (base): —" noise on every block).
+    const emptyPiece: BudgetPiece = {
+      id: 'p3',
+      name: 'Mesada 3 (vacía)',
+      mainMaterial: null,
+      mainMaterialRows: [],
+      alternativeMaterials: [],
+      fabrication_details: [],
+      additional_works_data: '[]',
+      pools: [],
+    };
+    const pieces = buildPieces(makeForm([piece1, piece2, emptyPiece]), 1000);
+
+    const totals = buildAlternativeTotals(pieces, altParams);
+    expect(totals).toHaveLength(1);
+    expect(totals[0].fixed_pieces).toEqual(['Mesada 2']);
+  });
+
+  it('the TOTAL GENERAL ALTERNATIVO consolidates the variant with the fixed pieces', () => {
+    // The per-variant sink breakdown was removed (2026-10-23): the block
+    // now reports the variant's own subtotal + the fixed pieces, and the
+    // variant inherits the piece's piletas.
+    const pieces = buildPieces(makeForm([piece1, piece2]), 1000);
+    const totals = buildAlternativeTotals(pieces, altParams);
+    expect(totals).toHaveLength(1);
+    const t = totals[0];
+    // The combined job total = the alternative + the fixed pieces.
+    expect(t.subtotal_usd).toBeCloseTo(t.alternative_subtotal_usd + t.fixed_subtotal_usd);
+    expect(t.subtotal_ars).toBeCloseTo(t.alternative_subtotal_ars + t.fixed_subtotal_ars);
+  });
+
   it('keeps different alternative materials in separate blocks', () => {
     const extraAlt = mat({
       name: 'Negro Absoluto',
@@ -660,16 +810,24 @@ describe('buildPdfData — pieces branch', () => {
     });
 
     expect(data.pieces).toBeDefined();
-    // Only piece1 quotes an alternative — one consolidated block.
+    // Only piece1 quotes an alternative → one consolidated block, but the
+    // block now carries piece2 (the FIXED piece) as the job baseline
+    // (business rule 2026-10-01 cont.6): the customer wants the cost of
+    // the WHOLE obra under that variant, not just the variable sector.
     expect(data.alternative_totals).toEqual([
       expect.objectContaining({
         material_name: 'Marmol',
         pieces: ['Mesada 1'],
-        subtotal_ars: 1406000,
-        subtotal_usd: 1406,
-        total_ars: 1406000,
-        total_usd: 1406,
-        balance_due: 1406000,
+        // Composition: piece1's alternative + piece2's fixed baseline.
+        alternative_subtotal_ars: 1406000,
+        fixed_subtotal_ars: 812000,
+        fixed_pieces: ['Mesada 2'],
+        // Combined job subtotal runs through the document rules.
+        subtotal_ars: 1406000 + 812000,
+        subtotal_usd: 1406 + 812,
+        total_ars: 1406000 + 812000,
+        total_usd: 1406 + 812,
+        balance_due: 1406000 + 812000,
       }),
     ]);
   });

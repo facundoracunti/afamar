@@ -38,8 +38,12 @@ const FONT = 'Helvetica';
 const ACCENT = '#c0392b';
 const HEADER_RED = '#c0392b';
 const SLATE_700 = '#334155';
+const SLATE_600 = '#475569';
+const SLATE_900 = '#0f172a';
+const SLATE_800 = '#1e293b';
 const SLATE_500 = '#64748b';
 const SLATE_400 = '#94a3b8';
+const SLATE_300 = '#cbd5e1';
 const SLATE_200 = '#e2e8f0';
 const SLATE_100 = '#f1f5f9';
 const SLATE_50 = '#f8fafc';
@@ -123,19 +127,243 @@ export const styles = StyleSheet.create({
   optSectionSubtotalLbl: { fontSize: 8, fontWeight: 'bold', color: SLATE_700, marginRight: 8 },
   optSectionSubtotalVal: { fontSize: 9, fontWeight: 'bold', color: HEADER_RED },
   optSectionSubtotalUsd: { fontSize: 8, color: BLUE_700, marginLeft: 6 },
-  // Consolidated TOTAL GENERAL ALTERNATIVO block (end of the HOJA DE
-  // ALTERNATIVAS) — highlighted summary per alternative material.
-  altTotalsBlock: {
-    marginTop: 6,
+  // Consolidated TOTAL GENERAL ALTERNATIVO card (end of the HOJA DE
+  // ALTERNATIVAS) — one compact 3-line card per alternative material
+  // (2026-10-01 cont.7): [name + pieces] / [Subtotal] / [TOTAL bar].
+  // Deliberately tight paddings: N alternatives must fit on one page
+  // instead of each eating a full block.
+  altTotalCard: {
+    marginTop: 3,
+    marginBottom: 3,
+    paddingVertical: 4,
+    paddingHorizontal: 5,
+    border: `1px solid ${SLATE_200}`,
+    borderLeft: `3px solid ${BLUE_700}`,
+    borderRadius: 3,
+  },
+  altTotalHead: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
+  altTotalName: { fontSize: 9, fontWeight: 'bold', color: SLATE_700 },
+  altTotalPieces: { fontSize: 6.5, color: SLATE_500 },
+  altTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 1,
+  },
+  altTotalLbl: { fontSize: 7.5, color: SLATE_500 },
+  optAdicionalBreakdown: { fontSize: 7, color: SLATE_500, fontStyle: 'italic', marginTop: 1 },
+  altTotalVal: { fontSize: 8, fontWeight: 'bold', color: SLATE_700 },
+  altTotalBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: BLUE_700,
+    paddingVertical: 3,
+    paddingHorizontal: 4,
+    marginTop: 2,
+    borderRadius: 2,
+  },
+  altTotalBarLbl: { fontSize: 7.5, fontWeight: 'bold', color: '#fff' },
+  altTotalBarVal: { fontSize: 9, fontWeight: 'bold', color: '#fff' },
+  // ===== RESUMEN COMPARATIVO DE OPCIONES (B1) =====
+  // One compact row per independent option: name + badge on the first
+  // line, pieces/materiales/sink summary on a muted second line, and the
+  // dual-currency total right-aligned. Deliberately tight so N options
+  // fit on a single sheet.
+  optRow: {
+    marginTop: 3,
+    marginBottom: 3,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    border: `1px solid ${SLATE_200}`,
+    borderRadius: 3,
+  },
+  optRowWinner: {
+    borderColor: BLUE_700,
+    backgroundColor: '#eff6ff',
+  },
+  optRowCheapest: {
+    borderColor: SLATE_400,
+    backgroundColor: '#f8fafc',
+  },
+  optRowHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  optRowName: { fontSize: 9.5, fontWeight: 'bold', color: SLATE_700 },
+  optRowBadge: {
+    fontSize: 6.5,
+    fontWeight: 'bold',
+    color: '#fff',
+    backgroundColor: BLUE_700,
+    paddingVertical: 1,
+    paddingHorizontal: 3,
+    borderRadius: 2,
+  },
+  optRowBadgeMuted: {
+    fontSize: 6.5,
+    fontWeight: 'bold',
+    color: SLATE_500,
+    paddingVertical: 1,
+    paddingHorizontal: 3,
+  },
+  optRowMeta: { fontSize: 6.5, color: SLATE_500, marginTop: 1 },
+  optRowTotal: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'flex-end',
+    marginTop: 2,
+  },
+  optRowTotalArs: { fontSize: 10, fontWeight: 'bold', color: HEADER_RED },
+  optRowTotalUsd: { fontSize: 7.5, color: BLUE_700, marginLeft: 5 },
+  optRowFootnote: {
+    fontSize: 6.5,
+    color: SLATE_500,
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
+
+  // ===== COMPARATIVA DE OPCIONES — PORTADA (2026-10-01) =====
+  // The first page of a multi-option budget used to look empty: a thin
+  // list of prices on a white sheet. It now reads as a commercial cover:
+  // roomy option cards with a strong price hierarchy, the pileta each
+  // variant includes, and a closing block with the commercial conditions.
+
+  /** Option card — roomy, with a defined border. */
+  optCard: {
+    marginTop: 4,
     marginBottom: 4,
-    padding: 6,
-    border: `1px solid ${AMBER_200}`,
-    borderLeft: `4px solid ${AMBER_700}`,
-    backgroundColor: AMBER_50,
+    paddingVertical: 7,
+    paddingHorizontal: 8,
+    border: `1px solid ${SLATE_300}`,
+    borderRadius: 4,
+    backgroundColor: '#fff',
+  },
+  /** The cheapest option gets the accent border + tint. */
+  optCardCheapest: {
+    borderColor: HEADER_RED,
+    borderWidth: 1.5,
+    backgroundColor: '#fff7f5',
+  },
+  /** Rank badge (1, 2, 3…) shown on the left of the option name. */
+  optCardRank: {
+    fontSize: 8,
+    fontWeight: 'bold',
+    color: '#fff',
+    backgroundColor: SLATE_700,
+    width: 13,
+    height: 13,
+    textAlign: 'center',
+    paddingTop: 2,
+    borderRadius: 7,
+    marginRight: 5,
+  },
+  optCardRankCheapest: { backgroundColor: HEADER_RED },
+  optCardHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  optCardNameWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexGrow: 1,
+  },
+  optCardName: { fontSize: 12, fontWeight: 'bold', color: SLATE_900 },
+  optCardBadge: {
+    fontSize: 7,
+    fontWeight: 'bold',
+    color: '#fff',
+    backgroundColor: HEADER_RED,
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+    borderRadius: 2,
+  },
+  optCardBadgeMuted: {
+    fontSize: 7,
+    fontWeight: 'bold',
+    color: SLATE_600,
+    backgroundColor: SLATE_100,
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+    borderRadius: 2,
+  },
+  optCardMeta: { fontSize: 7.5, color: SLATE_600, marginTop: 3 },
+  /** The pileta (bacha) the option includes — a discreet highlighted row. */
+  optCardPool: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    paddingVertical: 3,
+    paddingHorizontal: 5,
+    backgroundColor: SLATE_50,
+    borderRadius: 2,
+  },
+  optCardPoolLabel: {
+    fontSize: 6.5,
+    fontWeight: 'bold',
+    color: SLATE_500,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    marginRight: 5,
+  },
+  optCardPoolValue: { fontSize: 7.5, fontWeight: 'bold', color: SLATE_700 },
+  /** Price block — right aligned, big ARS + smaller USD below. */
+  optCardPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    marginTop: 5,
+    paddingTop: 4,
+    borderTop: `1px dashed ${SLATE_200}`,
+  },
+  optCardPriceLabel: {
+    fontSize: 6.5,
+    color: SLATE_500,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  optCardPriceArs: { fontSize: 15, fontWeight: 'bold', color: HEADER_RED },
+  optCardPriceUsd: { fontSize: 8.5, color: BLUE_700, marginTop: 1 },
+
+  /** Closing block with the commercial conditions. */
+  optFooterBox: {
+    marginTop: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    backgroundColor: '#f8fafc',
+    border: `1px solid ${SLATE_200}`,
     borderRadius: 4,
   },
-  altTotalsPieces: { fontSize: 7.5, color: SLATE_500, marginBottom: 2 },
-  optAdicionalBreakdown: { fontSize: 7, color: SLATE_500, fontStyle: 'italic', marginTop: 1 },
+  optFooterTitle: {
+    fontSize: 8.5,
+    fontWeight: 'bold',
+    color: SLATE_800,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    marginBottom: 3,
+  },
+  optFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 2,
+  },
+  optFooterBullet: {
+    fontSize: 7.5,
+    color: SLATE_600,
+    width: 10,
+  },
+  optFooterText: {
+    fontSize: 7.5,
+    color: SLATE_600,
+    flexGrow: 1,
+    lineHeight: 1.35,
+  },
   // ===== SECTION TITLE =====
   // ===== CROQUIS =====
   // The sketch image is rendered at the same aspect ratio as the editor's

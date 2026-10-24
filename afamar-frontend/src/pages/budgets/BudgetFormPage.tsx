@@ -25,6 +25,9 @@ import {
   EntityFormStyleProvider,
 } from '../../components/entity/EntityFormContexts';
 import ObservationsSection from '../../components/orders/ObservationsSection/ObservationsSection';
+import { BudgetOptionsProvider } from '../../features/budgets/options/BudgetOptionsContext';
+import BudgetOptionsTabs from '../../features/budgets/options/BudgetOptionsTabs';
+import { pickWinningOptionId } from '../../features/budgets/options/budgetOptions';
 import type { EntityFormState, MaterialInForm, EntityServices } from '../../types';
 import {
   buildOptionFromMaterial,
@@ -122,18 +125,48 @@ export default function BudgetForm(props: BudgetFormProps = {}) {
     paymentMethods,
   });
 
+  // Multi-option guard (2026-10-01 Fase 3): `pickWinningOptionId` returns
+  // null when the choice is ambiguous (2+ options with none or several
+  // marked as the winner). The convert button is DISABLED and explains
+  // why, so the operator never fires a request the backend would reject —
+  // and never converts the wrong scenario by accident.
+  const winningOptionId = pickWinningOptionId(form.options ?? []);
+  const conversionAmbiguous = winningOptionId === null;
+  const winningOptionName =
+    !conversionAmbiguous && winningOptionId
+      ? (form.options ?? []).find((o) => o.id === winningOptionId)?.name ?? null
+      : null;
+
   // Acción primaria "CONVERTIR A ORDEN" — se renderiza debajo de
   // Traslado dentro del Presupuesto card, no en el header.
   const convertAction = isEdit && !workOrderNumber && form.status === 'APPROVED' ? (
-    <button
-      type="button"
-      className={`btn btn-primary ${s['budget-form__btn-convert']}`}
-      onClick={() => setShowConvertDialog(true)}
-      disabled={saving}
-      style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-    >
-      <FileOutput size={16} /> {saving ? 'CONVIRTIENDO...' : 'CONVERTIR A ORDEN'}
-    </button>
+    <div className={s['budget-form__convert-block']}>
+      <button
+        type="button"
+        className={`btn btn-primary ${s['budget-form__btn-convert']}`}
+        onClick={() => setShowConvertDialog(true)}
+        disabled={saving || conversionAmbiguous}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+        title={
+          conversionAmbiguous
+            ? 'Marcá una sola opción como ganadora (✓) para poder convertir'
+            : winningOptionName
+              ? `Se convierte la opción: ${winningOptionName}`
+              : undefined
+        }
+      >
+        <FileOutput size={16} /> {saving ? 'CONVIRTIENDO...' : 'CONVERTIR A ORDEN'}
+      </button>
+      {conversionAmbiguous ? (
+        <span className={s['budget-form__convert-hint']}>
+          Tenés varias opciones: marcá una sola con ✓ como ganadora para convertir.
+        </span>
+      ) : winningOptionName && winningOptionName !== 'Opción Única' ? (
+        <span className={s['budget-form__convert-hint']}>
+          {`Se va a convertir: ${winningOptionName}`}
+        </span>
+      ) : null}
+    </div>
   ) : null;
 
   const { refresh: refreshUsdRate } = useUsdRate({ form, setForm, isEdit, source: 'official' });
@@ -238,6 +271,12 @@ export default function BudgetForm(props: BudgetFormProps = {}) {
       </FormHeader>
 
       <EntityFormStyleProvider value={{ styles: s, prefix: 'budget-form__' }}>
+        {/* Multi-option budgets (2026-10-01 Fase 2): the provider owns the
+            options array AND keeps `form.pieces` mirroring the active
+            option, so every consumer below (totals, PDF, pieces editor)
+            keeps reading `form.pieces` unchanged. A legacy budget has
+            `options: []` → fully inert. */}
+        <BudgetOptionsProvider form={form} setForm={setForm}>
         <EntityFormStateProvider
           value={{
             form,
@@ -305,6 +344,10 @@ export default function BudgetForm(props: BudgetFormProps = {}) {
                 setShowCroquis,
               }}
             >
+              {/* Option tabs — only render when the budget really has 2+
+                  options (the component self-hides otherwise, so legacy
+                  and single-option budgets keep their current UI). */}
+              <BudgetOptionsTabs />
               <EntityFormLayout
                 mode={props.layoutMode || 'full'}
                 showPieces
@@ -330,7 +373,11 @@ export default function BudgetForm(props: BudgetFormProps = {}) {
                         void handleConvertirGuardar().catch(() => { /* already notifies errors */ });
                       }}
                       title="Convertir a Orden de Trabajo"
-                      message="Se guardará y copiará toda la información: croquis, material, detalles de fabricación, pileta, firma, precios y condiciones comerciales."
+                      message={
+                        winningOptionName && winningOptionName !== 'Opción Única'
+                          ? `Se guardará y copiará toda la información de la opción "${winningOptionName}": croquis, materiales, detalles de fabricación, piletas, precios y condiciones comerciales. El stock se descuenta del stock de esa opción.`
+                          : 'Se guardará y copiará toda la información: croquis, material, detalles de fabricación, pileta, firma, precios y condiciones comerciales.'
+                      }
                       confirmLabel="Convertir"
                     />
 
@@ -354,6 +401,7 @@ export default function BudgetForm(props: BudgetFormProps = {}) {
             </EntityFormActionsProvider>
           </EntityFormDomainProvider>
         </EntityFormStateProvider>
+        </BudgetOptionsProvider>
       </EntityFormStyleProvider>
 
     </div>

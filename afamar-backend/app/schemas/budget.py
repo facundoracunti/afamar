@@ -141,6 +141,12 @@ class BudgetBase(BaseModel):
     # JSON snapshot of the multi-piece budget model (`BudgetPiece[]`).
     # Additive: NULL/empty → legacy budget as today.
     pieces_data: str | None = None
+    # JSON array of `BudgetOption[]` — multi-option / multi-escenario
+    # budgets (2026-10-01 Fase 1). NULL/empty = legacy single-option
+    # budget; `app.services.budget_options.resolve_budget_options`
+    # synthesises one "Opción Única" from `pieces_data` at read time, so
+    # old rows need no backfill.
+    options_data: str | None = None
 
 
 class BudgetCreate(BudgetBase):
@@ -225,6 +231,8 @@ class BudgetUpdate(BaseModel):
     stock_deducted: bool | None = None
     pools_data: str | None = None
     pieces_data: str | None = None
+    # Multi-option budgets — see `BudgetBase.options_data`.
+    options_data: str | None = None
     items: list[BudgetItemCreate] | None = None
     # See `BudgetCreate.additional_works` — legacy input still accepted
     # for backwards compat. Service treats it as a no-op (the new path

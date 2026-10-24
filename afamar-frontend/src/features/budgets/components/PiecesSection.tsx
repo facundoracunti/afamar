@@ -11,6 +11,7 @@ import { useList } from '@/api/hooks';
 import { getMaterialCategories } from '@/api/resources/materials';
 import { parseNumber } from '@/utils/formatters';
 import { M2_CONCEPTS } from '@/hooks/entityFormHelpers';
+import { materialGroupKey } from '@/utils/materialGroups';
 import type { UseBudgetPiecesReturn } from '@features/budgets/hooks/useBudgetPieces';
 import MaterialCard from '@/components/materials/MaterialCard/MaterialCard';
 import MaterialPickerControls from '@/components/materials/MaterialPickerControls/MaterialPickerControls';
@@ -301,9 +302,21 @@ function PieceCard({
   }, [piece.alternativeMaterials]);
 
   // Unified material picker: if the piece has no main material yet, the
-  // pick becomes the principal material; otherwise it's appended to the
-  // piece's `alternativeMaterials` array. This is the ONLY way to add
-  // alternatives in pieces v3 — the per-row checkbox was removed.
+  // pick becomes the principal material.
+  //
+  // 2026-10-01 (punto 2 del pedido): the "+ AGREGAR ALTERNATIVA DE MATERIAL"
+  // entry point was REMOVED from the piece cards. The business model now
+  // expresses variants at the OPCIONES level (the tabs above each option
+  // owns its own pieces / materials / piletas), so a per-piece material
+  // alternative was a second, conceptually duplicated way of quoting the
+  // same thing — and the operator mixed both up (they added an
+  // "alternative" inside a piece and expected it to show up as a
+  // separate option in the comparative summary, which it never did).
+  //
+  // The picker therefore only shows up while the piece has NO principal
+  // material yet ("+ AGREGAR MATERIAL PRINCIPAL"). Alternatives can still
+  // be created by the pileta-override flow ("PILETAS ALTERNATIVAS POR
+  // VARIANTE"), which is a different feature (per-variant sink).
   const handlePickMaterial = (name: string) => {
     if (!piece.mainMaterial) {
       handlers.setPieceMain(piece.id, name);
@@ -341,7 +354,7 @@ function PieceCard({
         </button>
       </div>
 
-      {!readOnly && (
+      {!readOnly && !piece.mainMaterial && (
         <div className={s['pieces__material-controls']}>
           <MaterialPickerControls
             materials={materials}
@@ -351,6 +364,14 @@ function PieceCard({
             placeholder={pickerPlaceholder}
           />
         </div>
+      )}
+
+      {piece.mainMaterial && (
+        <p className={s['piece-card__variant-hint']}>
+          Para cotizar una variante (por ejemplo, cambiar el material de la
+          alzada) usá <strong>«Agregar Opción»</strong> en la barra de
+          opciones: cada opción tiene sus propias piezas y materiales.
+        </p>
       )}
 
       <div className={s['pieces__materials-grid']}>
