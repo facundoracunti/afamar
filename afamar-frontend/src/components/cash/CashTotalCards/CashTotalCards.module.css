@@ -12,12 +12,38 @@
 
 @media (max-width: 560px) {
   .cash-totals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .cash-totals__card {
+    padding: 12px 8px;
+  }
+
+  .cash-totals__label,
+  .cash-totals__highlight-label {
+    font-size: 11px;
+    line-height: 1.2;
+  }
+
+  .cash-totals__hint,
+  .cash-totals__highlight-hint {
+    overflow-wrap: anywhere;
+    font-size: 10px;
+    line-height: 1.25;
+  }
+}
+
+@media (max-width: 360px) {
+  .cash-totals {
     grid-template-columns: 1fr;
   }
 }
 
 .cash-totals__card {
   text-align: center;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .cash-totals__label {
@@ -30,9 +56,11 @@
 }
 
 .cash-totals__value {
-  font-size: 22px;
+  font-size: clamp(16px, 2.2vw, 22px);
   font-weight: 700;
   color: var(--text-primary);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .cash-totals__value--expense {
@@ -69,9 +97,11 @@
 }
 
 .cash-totals__highlight-value {
-  font-size: 26px;
+  font-size: clamp(18px, 2.5vw, 26px);
   font-weight: 800;
   color: var(--color-success);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .cash-totals__highlight-hint {

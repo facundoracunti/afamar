@@ -2,7 +2,20 @@
 .calculator {
   display: grid;
   gap: 16px;
+  width: 100%;
   max-width: 980px;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.calculator > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.calculator .table-container {
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .calculator__title {
@@ -151,6 +164,7 @@
   border-radius: 8px;
   padding: 16px;
   border-left: 4px solid var(--color-info);
+  min-width: 0;
 }
 
 .calculator__plateRow {
@@ -173,6 +187,8 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .calculator__plateTitle {
@@ -185,6 +201,8 @@
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .calculator__plateInput {
@@ -204,6 +222,7 @@
   font-size: 14px;
   color: var(--text-muted);
   font-weight: 400;
+  min-width: 0;
 }
 
 .calculator__plateNote {
@@ -384,10 +403,126 @@
 /* Empty state in pieces table                                        */
 /* ------------------------------------------------------------------ */
 
-.calculator__emptyRow {
+.calculator__emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 72px;
+  padding: 16px;
   text-align: center;
-  padding: 32px;
   color: var(--text-muted);
+}
+
+.calculator__emptyState strong {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.calculator__emptyState span {
+  font-size: 13px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Mobile pieces cards                                                 */
+/* ------------------------------------------------------------------ */
+
+.calculator__piecesCards {
+  display: none;
+}
+
+.calculator__pieceCard {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 14px;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-alt-bg);
+}
+
+.calculator__pieceCardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.calculator__pieceCardHeader > div {
+  min-width: 0;
+}
+
+.calculator__pieceNumber,
+.calculator__pieceName {
+  display: block;
+}
+
+.calculator__pieceNumber {
+  margin-bottom: 3px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.calculator__pieceName {
+  overflow-wrap: anywhere;
+  color: var(--text-primary);
+  font-size: 15px;
+}
+
+.calculator__pieceCard .calculator__deleteBtn {
+  flex: 0 0 auto;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 8px;
+}
+
+.calculator__pieceDetails {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 16px;
+  margin: 0;
+  padding-top: 12px;
+}
+
+.calculator__pieceDetails > div {
+  min-width: 0;
+}
+
+.calculator__pieceDetails dt {
+  margin-bottom: 2px;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.calculator__pieceDetails dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.calculator__pieceDetailsTotal {
+  grid-column: 1 / -1;
+  padding-top: 10px;
+  border-top: 1px solid var(--surface-border);
+}
+
+.calculator__pieceDetailsTotal dd {
+  color: var(--color-info);
+}
+
+.calculator__piecesCardsTotal {
+  padding: 12px 14px 2px;
+  color: var(--color-info);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: right;
 }
 
 /* ------------------------------------------------------------------ */
@@ -396,6 +531,7 @@
 
 .calculator__card {
   margin-bottom: 16px;
+  min-width: 0;
 }
 
 .calculator__sectionTitleSm {
@@ -413,6 +549,7 @@
   grid-template-columns: 1fr 1fr 1fr auto;
   gap: 12px;
   align-items: end;
+  min-width: 0;
 }
 
 .calculator__fieldFlush {
@@ -438,6 +575,7 @@
 
 .calculator__progressWrap {
   margin-top: 8px;
+  min-width: 0;
 }
 
 .calculator__progressFill--mid-bg {
@@ -448,6 +586,10 @@
   .calculator__formGrid {
     grid-template-columns: 1fr 1fr;
   }
+
+  .calculator__plateNote {
+    gap: 10px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -457,5 +599,118 @@
 
   .calculator__plateRow {
     flex-wrap: wrap;
+  }
+
+  .calculator__plateIconWrap {
+    flex: 0 0 auto;
+  }
+
+  .calculator__plateDimensions {
+    gap: 6px;
+  }
+
+  .calculator__plateTotal {
+    flex-basis: 100%;
+  }
+}
+
+@media (max-width: 767px) {
+  .calculator__statGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .calculator__statCard {
+    padding: 9px 8px;
+    border-radius: 7px;
+  }
+
+  .calculator__statLabel {
+    margin-bottom: 2px;
+    font-size: 10px;
+    line-height: 1.2;
+  }
+
+  .calculator__statValue {
+    font-size: 18px;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+
+  .calculator__progressWrap {
+    margin-top: 4px;
+  }
+
+  .calculator__progressMeta {
+    margin-bottom: 4px;
+    font-size: 11px;
+  }
+
+  .calculator__progressTrack {
+    height: 18px;
+    border-radius: 9px;
+  }
+
+  .calculator__progressFill {
+    border-radius: 9px;
+    font-size: 10px;
+  }
+
+  .calculator__pieceCard {
+    padding: 9px;
+    border-radius: 7px;
+  }
+
+  .calculator__pieceCardHeader {
+    gap: 8px;
+    padding-bottom: 7px;
+  }
+
+  .calculator__pieceName {
+    font-size: 13px;
+  }
+
+  .calculator__pieceCard .calculator__deleteBtn {
+    min-width: 36px;
+    min-height: 36px;
+    padding: 6px;
+  }
+
+  .calculator__pieceDetails {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px 8px;
+    padding-top: 8px;
+  }
+
+  .calculator__pieceDetails dt {
+    font-size: 9px;
+    line-height: 1.15;
+  }
+
+  .calculator__pieceDetails dd {
+    font-size: 12px;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  .calculator__pieceDetailsTotal {
+    grid-column: auto;
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .calculator__piecesCardsTotal {
+    padding: 8px 2px 0;
+    font-size: 12px;
+  }
+
+  .calculator__piecesTable {
+    display: none;
+  }
+
+  .calculator__piecesCards {
+    display: grid;
+    gap: 10px;
   }
 }

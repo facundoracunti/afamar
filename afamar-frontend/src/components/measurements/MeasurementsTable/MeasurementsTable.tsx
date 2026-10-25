@@ -129,6 +129,47 @@ function MeasurementsTableInner({
           )}
         </tbody>
       </table>
+      <div className={s['m-table__mobile-list']}>
+        <div className={s['m-table__mobile-sort']}>
+          <label htmlFor="measurements-mobile-sort">Ordenar por</label>
+          <select
+            id="measurements-mobile-sort"
+            className="input"
+            value={sortField}
+            onChange={(e) => onSort(e.target.value as SortField)}
+          >
+            <option value="client_name">Cliente</option>
+            <option value="client_phone">Teléfono</option>
+            <option value="client_address">Dirección</option>
+            <option value="scheduled_date">Fecha</option>
+            <option value="scheduled_time">Hora</option>
+            <option value="status">Estado</option>
+          </select>
+          <button type="button" className="btn btn-outline" onClick={() => onSort(sortField)}>
+            {sortDir === 'asc' ? 'Ascendente' : 'Descendente'}
+          </button>
+        </div>
+        {visibleRows.map((m: Measurement) => (
+          <article key={`mobile-${m.id}`} className={s['m-table__mobile-card']} onClick={() => onView(m.id)}>
+            <div className={s['m-table__mobile-header']}>
+              <strong>{m.client_name || 'Sin cliente'}</strong>
+              <StatusBadge status={m.status || ''} />
+            </div>
+            <dl className={s['m-table__mobile-details']}>
+              <div><dt>Teléfono</dt><dd>{m.client_phone || 'Sin teléfono'}</dd></div>
+              <div><dt>Dirección</dt><dd>{m.client_address || 'Sin dirección'}</dd></div>
+              <div><dt>Fecha</dt><dd>{formatDate(m.scheduled_date)}</dd></div>
+              <div><dt>Hora</dt><dd>{m.scheduled_time || 'Sin hora'}</dd></div>
+            </dl>
+            <div className={s['m-table__mobile-actions']} onClick={(e) => e.stopPropagation()}>
+              {m.status === 'PENDING' && <button className="btn btn-success" onClick={() => onDone(m.id)}><Check size={14} /> Realizar</button>}
+              <button className="btn btn-outline" onClick={() => onView(m.id)}><Eye size={14} /> Ver</button>
+              <button className="btn btn-danger" onClick={() => onDelete(m.id)}><Trash2 size={14} /> Eliminar</button>
+            </div>
+          </article>
+        ))}
+        {visibleRows.length === 0 && <div className={s['m-table__mobile-empty']}><EmptyState message={emptyMessage(activeStatus, dateFilter, dateFilterEnabled)} /></div>}
+      </div>
     </div>
   );
 }

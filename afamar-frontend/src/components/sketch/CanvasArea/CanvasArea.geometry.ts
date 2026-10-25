@@ -7,6 +7,8 @@
  * to that space so nothing can be dragged off-canvas.
  */
 import { SKETCH_STAGE_WIDTH, SKETCH_STAGE_HEIGHT } from '../../../constants';
+import type Konva from 'konva';
+import type { Point } from '@/types/sketch';
 
 /** Grid pitch in px. */
 export const GRID = 20;
@@ -23,6 +25,12 @@ export const MIN_DIST = 4;
 /** Clamps a coordinate to `[0.5, max - 0.5]`. */
 export function clampCoord(v: number, max: number): number {
   return Math.max(0.5, Math.min(max - 0.5, v));
+}
+
+/** Converts the active pointer to the stage's logical coordinate space. */
+export function logicalPointerPosition(stage: Konva.Stage): Point | null {
+  const position = stage.getRelativePointerPosition();
+  return position ? { x: position.x, y: position.y } : null;
 }
 
 let _tid = 0;

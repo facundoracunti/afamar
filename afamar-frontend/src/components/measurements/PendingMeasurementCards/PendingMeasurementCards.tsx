@@ -121,13 +121,15 @@ export default function PendingMeasurementCards({
         </div>
       )}
 
-      <Pagination
-        page={page}
-        pageSize={pageSize}
-        total={total}
-        onPageChange={onPageChange}
-        label="órdenes pendientes"
-      />
+      {total > 0 && (
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={onPageChange}
+          label="órdenes pendientes"
+        />
+      )}
     </section>
   );
 }

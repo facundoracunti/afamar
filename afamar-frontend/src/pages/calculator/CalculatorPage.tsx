@@ -178,59 +178,83 @@ export default function Calculator() {
 
       <div className={`card ${s['calculator__card']}`}>
         <h2 className={s['calculator__sectionTitleSm']}>Piezas</h2>
-        <div className="table-container">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Nombre</th>
-                <th>Largo</th>
-                <th>Ancho</th>
-                <th>M² c/u</th>
-                <th>Cantidad</th>
-                <th>Total M²</th>
-                <th className={s['calculator__th--narrow']}></th>
-              </tr>
-            </thead>
-            <tbody>
+        {piezas.length === 0 ? (
+          <div className={s['calculator__emptyState']}>
+            <strong>Todavía no agregaste piezas.</strong>
+            <span>Completá las medidas y presioná Agregar Pieza.</span>
+          </div>
+        ) : (
+          <>
+            <div className={`table-container ${s['calculator__piecesTable']}`}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Nombre</th>
+                    <th>Largo</th>
+                    <th>Ancho</th>
+                    <th>M² c/u</th>
+                    <th>Cantidad</th>
+                    <th>Total M²</th>
+                    <th className={s['calculator__th--narrow']}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {piezas.map((p, i) => (
+                    <tr key={p.id}>
+                      <td className={s['calculator__td--bold']}>{i + 1}</td>
+                      <td>{p.nombre || '—'}</td>
+                      <td>{p.largo.toFixed(2)} m</td>
+                      <td>{p.ancho.toFixed(2)} m</td>
+                      <td>{(p.largo * p.ancho).toFixed(5)}</td>
+                      <td>{p.cantidad}</td>
+                      <td className={s['calculator__td--bold']}>{(p.largo * p.ancho * p.cantidad).toFixed(5)}</td>
+                      <td>
+                        <button className={`btn btn-danger ${s['calculator__deleteBtn']}`} onClick={() => eliminarPieza(p.id)} title="Eliminar" aria-label={`Eliminar pieza ${i + 1}`}>
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className={s['calculator__tfootRow']}>
+                    <td colSpan={5}></td>
+                    <td className={s['calculator__tfootCell']}>TOTAL</td>
+                    <td className={`${s['calculator__tfootCell']} ${s['calculator__tfootCell--highlight']}`}>
+                      {totalM2.toFixed(5)} m²
+                    </td>
+                    <td className={s['calculator__tfootCell']}></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            <div className={s['calculator__piecesCards']}>
               {piezas.map((p, i) => (
-                <tr key={p.id}>
-                  <td className={s['calculator__td--bold']}>{i + 1}</td>
-                  <td>{p.nombre || '—'}</td>
-                  <td>{p.largo.toFixed(2)} m</td>
-                  <td>{p.ancho.toFixed(2)} m</td>
-                  <td>{(p.largo * p.ancho).toFixed(5)}</td>
-                  <td>{p.cantidad}</td>
-                  <td className={s['calculator__td--bold']}>{(p.largo * p.ancho * p.cantidad).toFixed(5)}</td>
-                  <td>
-                    <button className={`btn btn-danger ${s['calculator__deleteBtn']}`} onClick={() => eliminarPieza(p.id)} title="Eliminar">
-                      <Trash2 size={14} />
+                <article className={s['calculator__pieceCard']} key={p.id}>
+                  <div className={s['calculator__pieceCardHeader']}>
+                    <div>
+                      <span className={s['calculator__pieceNumber']}>Pieza {i + 1}</span>
+                      <strong className={s['calculator__pieceName']}>{p.nombre || '—'}</strong>
+                    </div>
+                    <button className={`btn btn-danger ${s['calculator__deleteBtn']}`} onClick={() => eliminarPieza(p.id)} title="Eliminar" aria-label={`Eliminar pieza ${i + 1}`}>
+                      <Trash2 size={16} />
                     </button>
-                  </td>
-                </tr>
+                  </div>
+                  <dl className={s['calculator__pieceDetails']}>
+                    <div><dt>Largo</dt><dd>{p.largo.toFixed(2)} m</dd></div>
+                    <div><dt>Ancho</dt><dd>{p.ancho.toFixed(2)} m</dd></div>
+                    <div><dt>Cantidad</dt><dd>{p.cantidad}</dd></div>
+                    <div><dt>M² c/u</dt><dd>{(p.largo * p.ancho).toFixed(5)}</dd></div>
+                    <div className={s['calculator__pieceDetailsTotal']}><dt>Total M²</dt><dd>{(p.largo * p.ancho * p.cantidad).toFixed(5)} m²</dd></div>
+                  </dl>
+                </article>
               ))}
-              {piezas.length === 0 && (
-                <tr>
-                  <td colSpan={8} className={s['calculator__emptyRow']}>
-                    No hay piezas agregadas. Agregue piezas para comenzar el cálculo.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-            {piezas.length > 0 && (
-              <tfoot>
-                <tr className={s['calculator__tfootRow']}>
-                  <td colSpan={5}></td>
-                  <td className={s['calculator__tfootCell']}>TOTAL</td>
-                  <td className={`${s['calculator__tfootCell']} ${s['calculator__tfootCell--highlight']}`}>
-                    {totalM2.toFixed(5)} m²
-                  </td>
-                  <td className={s['calculator__tfootCell']}></td>
-                </tr>
-              </tfoot>
-            )}
-          </table>
-        </div>
+              <div className={s['calculator__piecesCardsTotal']}>TOTAL: {totalM2.toFixed(5)} m²</div>
+            </div>
+          </>
+        )}
       </div>
 
       {piezas.length > 0 && (

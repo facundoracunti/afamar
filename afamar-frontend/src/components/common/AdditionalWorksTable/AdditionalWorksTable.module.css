@@ -25,3 +25,20 @@ table thead th:nth-child(6) {
   color: var(--text-muted);
   font-size: 14px;
 }
+
+.aw-table__mobile-list { display: none; }
+
+@media (max-width: 767px) {
+  .aw-table__desktop { display: none; }
+  .aw-table__mobile-list { display: grid; gap: 12px; }
+  .aw-table__mobile-card { padding: 14px; background: var(--surface-bg); border: 1px solid var(--border-color); border-radius: 8px; }
+  .aw-table__mobile-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+  .aw-table__mobile-header strong { min-width: 0; overflow-wrap: anywhere; }
+  .aw-table__mobile-details { display: grid; gap: 8px; margin: 12px 0; }
+  .aw-table__mobile-details > div { display: flex; justify-content: space-between; gap: 12px; }
+  .aw-table__mobile-details dt { color: var(--text-muted); font-size: 12px; }
+  .aw-table__mobile-details dd { margin: 0; max-width: 65%; overflow-wrap: anywhere; text-align: right; font-size: 13px; font-weight: 600; }
+  .aw-table__mobile-actions { display: flex; gap: 8px; }
+  .aw-table__mobile-actions .btn { flex: 1; min-height: 38px; justify-content: center; }
+  .aw-table__mobile-empty { padding: 18px 12px; color: var(--text-muted); background: var(--surface-bg); border: 1px dashed var(--border-color); border-radius: 8px; text-align: center; }
+}

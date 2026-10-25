@@ -83,4 +83,56 @@ describe('PlateResultsPanel — impresión de TODAS las placas', () => {
     expect(printAll.textContent).toContain('Placa #1');
     expect(screen.getAllByText('Tabla de Despiece / Leyenda de Cortes').length).toBe(2);
   });
+
+  it('muestra el resumen real de distribución y mantiene la correspondencia placa/leyenda', () => {
+    render(
+      <PlateResultsPanel
+        plates={[plate(0, [piece(1, 2.0, 1.0)]), plate(1, [piece(2, 2.0, 1.0)])]}
+        plateW={3.0}
+        plateH={1.4}
+        kerf={0}
+        platesM2Bought={2 * 3.0 * 1.4}
+        totalM2={4}
+        utilizacion={47.6}
+        unplaced={[]}
+      />,
+    );
+
+    expect(screen.getByLabelText('Resumen de distribución').textContent).toContain(
+      '2 de 2 piezas distribuidas',
+    );
+    expect(screen.getByLabelText('Resumen de distribución').textContent).toContain('2 placas');
+    expect(screen.getByRole('tablist').textContent).toContain('Placa #1');
+    expect(screen.getByRole('tablist').textContent).toContain('Placa #2');
+    expect(screen.getByTestId('plate-results-print-all').textContent).toContain('Pieza 1');
+    expect(screen.getByTestId('plate-results-print-all').textContent).toContain('Pieza 2');
+  });
+
+  it('muestra las piezas no ubicadas en el resumen sin inventar cantidades', () => {
+    render(
+      <PlateResultsPanel
+        plates={[plate(0, [piece(1, 2.0, 1.0)])]}
+        plateW={3.0}
+        plateH={1.4}
+        kerf={0}
+        platesM2Bought={3.0 * 1.4}
+        totalM2={6}
+        utilizacion={47.6}
+        unplaced={[{
+          action: 'unplaced',
+          pieceId: 2,
+          pieceIndex: 0,
+          origen: 2,
+          nombre: 'Pieza 2',
+          largo: 4,
+          ancho: 2,
+        }]}
+      />,
+    );
+
+    expect(screen.getByLabelText('Resumen de distribución').textContent).toContain(
+      '1 de 2 piezas distribuidas',
+    );
+    expect(screen.getByLabelText('Resumen de distribución').textContent).toContain('1 sin ubicar');
+  });
 });

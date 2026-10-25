@@ -141,3 +141,21 @@
   margin-right: 6px;
   color: var(--text-muted);
 }
+
+.colors__mobile-list { display: none; }
+
+@media (max-width: 767px) {
+  .colors :global(.header__toolbar), .colors__toolbar { width: 100%; }
+  .colors :global(.header__toolbar) .btn { width: 100%; min-height: 42px; justify-content: center; }
+  .colors__toolbar { align-items: stretch; }
+  .colors__toolbar > div:first-child { width: 100%; min-width: 0; max-width: none; }
+  .colors__table { display: contents; }
+  .colors__table > table { display: none; }
+  .colors__mobile-list { display: grid; gap: 12px; }
+  .colors__mobile-card { padding: 14px; background: var(--surface-bg); border: 1px solid var(--border-color); border-radius: 8px; }
+  .colors__mobile-name { overflow-wrap: anywhere; font-weight: 700; }
+  .colors__mobile-meta { margin: 8px 0 12px; color: var(--text-muted); font-size: 12px; }
+  .colors__mobile-card .colors__cell-actions { justify-content: stretch; }
+  .colors__mobile-card .btn { flex: 1; min-height: 38px; justify-content: center; }
+  .colors__mobile-empty { padding: 18px 12px; background: var(--surface-bg); border: 1px dashed var(--border-color); border-radius: 8px; text-align: center; }
+}

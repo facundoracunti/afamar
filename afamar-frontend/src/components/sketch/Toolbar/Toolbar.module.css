@@ -170,3 +170,29 @@
   font-size: 11px;
   color: var(--text-muted);
 }
+
+/* Keep desktop sizing unchanged while making the existing controls usable
+ * with a finger or stylus. */
+@media (pointer: coarse), (max-width: 768px) {
+  .toolbar__button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .toolbar__page-button,
+  .toolbar__add-page,
+  .toolbar__material-select {
+    min-height: 40px;
+  }
+
+  .toolbar__page-remove {
+    min-width: 32px;
+    min-height: 40px;
+  }
+
+  .toolbar__action-danger,
+  .toolbar__action-danger--disabled {
+    min-height: 40px;
+    padding-inline: 12px;
+  }
+}

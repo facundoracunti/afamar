@@ -25,7 +25,7 @@ function AdditionalWorksTableInner({ data,
 onEdit, onDelete }: AdditionalWorksTableProps) {
   return (
     <div className="card">
-      <div className="table-container">
+      <div className={`${s['aw-table__desktop']} table-container`}>
         <table>
           <thead>
             <tr>
@@ -98,6 +98,27 @@ onEdit, onDelete }: AdditionalWorksTableProps) {
             )}
           </tbody>
         </table>
+      </div>
+      <div className={s['aw-table__mobile-list']}>
+        {data.map((a) => (
+          <article key={`mobile-${a.id}`} className={s['aw-table__mobile-card']}>
+            <div className={s['aw-table__mobile-header']}>
+              <strong>{a.name}</strong>
+              <span className="badge">{a.type === 'frente' ? 'Frente' : 'Plano'}</span>
+            </div>
+            <dl className={s['aw-table__mobile-details']}>
+              <div><dt>Detalle</dt><dd>{a.detail || '—'}</dd></div>
+              <div><dt>Precio</dt><dd>{a.type === 'frente' ? 'Automático' : formatCurrencyValue(Number(a.price || 0), { currency: a.currency as 'ARS' | 'USD' })}</dd></div>
+              <div><dt>Moneda</dt><dd>{a.currency}</dd></div>
+              {a.type === 'frente' && a.formula_constant != null && <div><dt>Multiplicador</dt><dd>{Number(a.formula_constant).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</dd></div>}
+            </dl>
+            <div className={s['aw-table__mobile-actions']}>
+              <button className="btn btn-outline" onClick={() => onEdit(a)}><Edit size={14} /> Editar</button>
+              <button className="btn btn-danger" onClick={() => onDelete(a.id)}><Trash2 size={14} /> Eliminar</button>
+            </div>
+          </article>
+        ))}
+        {(!data || data.length === 0) && <div className={s['aw-table__mobile-empty']}>No hay trabajos adicionales configurados.</div>}
       </div>
     </div>
   );

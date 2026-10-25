@@ -63,18 +63,18 @@ describe('MeasurementsTable', () => {
         makeMeasurement({ id: 2, client_name: 'Bruno' }),
       ],
     });
-    expect(screen.getByText('Ana')).toBeDefined();
-    expect(screen.getByText('Bruno')).toBeDefined();
+    expect(screen.getAllByText('Ana')).toHaveLength(2);
+    expect(screen.getAllByText('Bruno')).toHaveLength(2);
   });
 
   it('calls onView when the row (name/phone/date) is clicked', () => {
     const onView = vi.fn();
     renderTable({ onView });
 
-    fireEvent.click(screen.getByText('Juan Pérez'));
+    fireEvent.click(screen.getAllByText('Juan Pérez')[0]);
     expect(onView).toHaveBeenCalledWith(1);
 
-    fireEvent.click(screen.getByText('+54 11 1234-5678'));
+    fireEvent.click(screen.getAllByText('+54 11 1234-5678')[0]);
     expect(onView).toHaveBeenCalledWith(1);
   });
 
@@ -83,11 +83,11 @@ describe('MeasurementsTable', () => {
     const onDelete = vi.fn();
     renderTable({ onView, onDelete, data: [makeMeasurement({ status: 'DONE' })] });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Eliminar medición' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Eliminar medición' })[0]);
     expect(onDelete).toHaveBeenCalledWith(1);
     expect(onView).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Ver medición' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Ver medición' })[0]);
     expect(onView).toHaveBeenCalledWith(1);
   });
 });

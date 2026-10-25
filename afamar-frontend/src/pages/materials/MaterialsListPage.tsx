@@ -132,8 +132,9 @@ export default function MaterialsList() {
       {loading ? (
         <LoadingSpinner />
       ) : (
-        <div className={s['materials__table']}>
-          <table>
+        <>
+          <div className={s['materials__table']}>
+            <table>
             <thead>
               <tr>
                 <th className={s['materials__th']}>Foto</th>
@@ -222,8 +223,43 @@ export default function MaterialsList() {
                 </tr>
               )}
             </tbody>
-          </table>
-        </div>
+            </table>
+          </div>
+          <div className={s['materials__mobile-list']}>
+            {data.map((m: Material) => {
+              const currency = m.currency || 'ARS';
+              const precio = currency === 'USD' ? m.price_usd || 0 : m.base_price || 0;
+              const categoryName = m.category_id
+                ? (categoryNameById[Number(m.category_id)] || `Categoria #${m.category_id}`)
+                : '-';
+              return (
+                <article key={`mobile-${m.id}`} className={s['materials__mobile-card']}>
+                  <div className={s['materials__mobile-card-header']}>
+                    {m.photo ? (
+                      <button type="button" className={s['materials__thumb-btn']} title={`Ver foto de ${m.name}`} onClick={() => openPhoto(m)}>
+                        <img src={m.photo} alt={m.name} className={s['materials__thumb']} />
+                      </button>
+                    ) : <span className={s['materials__thumb-empty']} title="Sin foto"><ImageIcon size={16} /></span>}
+                    <div className={s['materials__mobile-title']}>{m.name}</div>
+                  </div>
+                  <dl className={s['materials__mobile-details']}>
+                    <div><dt>Categoría</dt><dd><span className="badge badge-approved">{categoryName}</span></dd></div>
+                    <div><dt>Color</dt><dd>{m.color || '-'}</dd></div>
+                    <div><dt>Espesor</dt><dd>{m.available_thickness || '-'}</dd></div>
+                    <div><dt>Precio M2</dt><dd className={currency === 'USD' ? s['materials__mobile-price--usd'] : ''}>{formatCurrencyValue(precio, { currency })}</dd></div>
+                    <div><dt>Proveedor</dt><dd>{m.supplier || '-'}</dd></div>
+                    <div><dt>Stock</dt><dd>{m.stock_available || 0}</dd></div>
+                  </dl>
+                  <div className={s['materials__mobile-actions']}>
+                    <button type="button" className="btn btn-outline" onClick={() => openEdit(m.id)}><Edit size={14} /> Editar</button>
+                    <button type="button" className="btn btn-danger" onClick={() => requestDelete(m.id)}><Trash2 size={14} /> Eliminar</button>
+                  </div>
+                </article>
+              );
+            })}
+            {data.length === 0 && <div className={s['materials__mobile-empty']}><EmptyState message="No hay materiales registrados" /></div>}
+          </div>
+        </>
       )}
 
       <ConfirmDialog

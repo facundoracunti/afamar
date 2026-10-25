@@ -146,6 +146,29 @@ export default function PlateCutMap({
               </tbody>
             </table>
           </div>
+          <div className={s['plateCutMapLegendCards']}>
+            {pieces.map((p, i) => (
+              <article
+                key={`${p.pieceId}-${p.pieceIndex}-${i}`}
+                className={s['plateCutMapLegendCard']}
+              >
+                <div className={s['plateCutMapLegendCardHeader']}>
+                  <strong className={s['plateCutMapLegendCode']}>#{i + 1}</strong>
+                  <span>{p.nombre || `Pieza ${p.origen ?? i + 1}`}</span>
+                </div>
+                <dl className={s['plateCutMapLegendCardDetails']}>
+                  <div>
+                    <dt>Dimensiones</dt>
+                    <dd>{fmt(p.largo)} × {fmt(p.ancho)} m</dd>
+                  </div>
+                  <div>
+                    <dt>Rotado</dt>
+                    <dd>{p.rotated ? 'Sí (↻)' : '—'}</dd>
+                  </div>
+                </dl>
+              </article>
+            ))}
+          </div>
         </div>
       )}
     </div>

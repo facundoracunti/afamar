@@ -227,6 +227,19 @@ export default function MaterialsColors() {
               )}
             </tbody>
           </table>
+          <div className={s['colors__mobile-list']}>
+            {paginated.map((color) => (
+              <article key={`mobile-${color.id}`} className={s['colors__mobile-card']}>
+                <div className={s['colors__mobile-name']}><Palette size={14} className={s['colors__tag-icon']} />{color.name}</div>
+                <div className={s['colors__mobile-meta']}>ID: {color.id}</div>
+                <div className={s['colors__cell-actions']}>
+                  <button type="button" className="btn btn-outline" onClick={() => openEdit(color)}><Edit size={14} /> Editar</button>
+                  <button type="button" className="btn btn-danger" onClick={() => setDeleteId(color.id)}><Trash2 size={14} /> Eliminar</button>
+                </div>
+              </article>
+            ))}
+            {filtered.length === 0 && <div className={s['colors__mobile-empty']}><EmptyState message={data.length === 0 ? 'No hay colores registrados.' : 'Sin resultados para la búsqueda actual.'} /></div>}
+          </div>
           {filtered.length > PAGE_SIZE && (
             <Pagination page={safePage} pageSize={PAGE_SIZE} total={filtered.length} onPageChange={setPage} label="colores" />
           )}

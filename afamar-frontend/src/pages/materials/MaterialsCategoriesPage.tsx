@@ -233,6 +233,19 @@ export default function MaterialsCategories() {
               )}
             </tbody>
           </table>
+          <div className={s['categories__mobile-list']}>
+            {paginated.map((category) => (
+              <article key={`mobile-${category.id}`} className={s['categories__mobile-card']}>
+                <div className={s['categories__mobile-name']}><Tags size={14} className={s['categories__tag-icon']} />{category.name}</div>
+                <div className={s['categories__mobile-meta']}>ID: {category.id}</div>
+                <div className={s['categories__cell-actions']}>
+                  <button type="button" className="btn btn-outline" onClick={() => openEdit(category)}><Edit size={14} /> Editar</button>
+                  <button type="button" className="btn btn-danger" onClick={() => setDeleteId(category.id)}><Trash2 size={14} /> Eliminar</button>
+                </div>
+              </article>
+            ))}
+            {filtered.length === 0 && <div className={s['categories__mobile-empty']}><EmptyState message={data.length === 0 ? 'No hay categorías registradas.' : 'Sin resultados para la búsqueda actual.'} /></div>}
+          </div>
           {filtered.length > PAGE_SIZE && (
             <Pagination page={safePage} pageSize={PAGE_SIZE} total={filtered.length} onPageChange={setPage} label="categorías" />
           )}

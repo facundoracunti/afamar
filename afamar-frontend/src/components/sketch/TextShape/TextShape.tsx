@@ -30,8 +30,7 @@ export default function TextShape({ element, isDraggable, onDragEnd, onTransform
         width={approxW}
         height={approxH}
         fill="transparent"
-        onClick={() => onSelect(element.id)}
-        onTap={() => onSelect(element.id)}
+        onPointerClick={() => onSelect(element.id)}
       />
       <Text
         x={0}

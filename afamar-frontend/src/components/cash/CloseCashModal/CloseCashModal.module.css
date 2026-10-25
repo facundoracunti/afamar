@@ -54,3 +54,23 @@
 .close-cash__summary-expense { color: var(--color-danger); }
 .close-cash__summary-total { color: var(--tw-blue-600); }
 .close-cash__summary-real { color: var(--text-primary); }
+
+@media (max-width: 600px) {
+  .close-cash__footer {
+    flex-direction: column-reverse;
+  }
+
+  .close-cash__footer .btn {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .close-cash__summary-row {
+    gap: 12px;
+  }
+
+  .close-cash__summary-row strong {
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+}

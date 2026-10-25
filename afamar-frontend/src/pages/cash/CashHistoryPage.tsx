@@ -34,6 +34,10 @@ export default function CashHistoryPage() {
     );
   const [selected, setSelected] = useState<CashHistoryItem | null>(null);
 
+  const toggleSelected = (cash: CashHistoryItem) => {
+    setSelected((current) => (current?.id === cash.id ? null : cash));
+  };
+
   if (loading) return <LoadingSpinner />;
 
   return (
@@ -49,9 +53,9 @@ export default function CashHistoryPage() {
       ) : (
         <div className={`${s['cash-history__grid']}${selected ? ' ' + s['cash-history__grid--split'] : ''}`}>
           {/* Lista cronológica por número de sesión */}
-          <div>
+          <div className={s['cash-history__list-column']}>
             <div className={`card ${s['cash-history__list-card']}`}>
-              <div className="table-container">
+              <div className={`table-container ${s['cash-history__desktop-list']}`}>
                 <table>
                   <thead>
                     <tr>
@@ -68,7 +72,7 @@ export default function CashHistoryPage() {
                   <tbody>
                     {cashRecords.map((c: CashHistoryItem) => (
                       <tr key={c.id as number}
-                        onClick={() => setSelected((selected?.id as number) === (c.id as number) ? null : c)}
+                        onClick={() => toggleSelected(c)}
                         className={`${s['cash-history__row']}${(selected?.id as number) === (c.id as number) ? ' ' + s['cash-history__row--selected'] : ''}`}>
                         <td className={s['cash-history__number']}>#{c.number ?? '-'}</td>
                         <td className={s['cash-history__date']}>{formatDateTime(c.opened_at)}</td>
@@ -79,7 +83,10 @@ export default function CashHistoryPage() {
                         <td className={s['cash-history__real-cash']}><CurrencyDisplay value={c.real_cash as number} /></td>
                         <td>
                           <button className={`btn ${s['cash-history__detail-btn']}`}
-                            onClick={(e: React.MouseEvent) => { e.stopPropagation(); setSelected((selected?.id as number) === (c.id as number) ? null : c); }}>
+                            onClick={(e: React.MouseEvent) => { e.stopPropagation(); toggleSelected(c); }}
+                            aria-label={`Ver detalle de Caja #${c.number ?? '-'}`}
+                            title="Ver detalle"
+                            type="button">
                             <FileText size={16} />
                           </button>
                         </td>
@@ -88,13 +95,58 @@ export default function CashHistoryPage() {
                   </tbody>
                 </table>
               </div>
+
+              <div className={s['cash-history__mobile-list']} data-testid="cash-history-mobile-list">
+                {cashRecords.map((c: CashHistoryItem) => {
+                  const isSelected = selected?.id === c.id;
+                  return (
+                    <article
+                      key={c.id as number}
+                      className={`${s['cash-history__mobile-card']}${isSelected ? ' ' + s['cash-history__mobile-card--selected'] : ''}`}
+                      data-testid="cash-history-mobile-card"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Seleccionar Caja #${c.number ?? '-'}`}
+                      aria-pressed={isSelected}
+                      onClick={() => toggleSelected(c)}
+                      onKeyDown={(e: React.KeyboardEvent) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          toggleSelected(c);
+                        }
+                      }}
+                    >
+                      <div className={s['cash-history__mobile-card-header']}>
+                        <strong>#{c.number ?? '-'}</strong>
+                        <button
+                          className={`btn ${s['cash-history__detail-btn']}`}
+                          onClick={(e: React.MouseEvent) => { e.stopPropagation(); toggleSelected(c); }}
+                          aria-label={`Ver detalle de Caja #${c.number ?? '-'}`}
+                          type="button"
+                        >
+                          <FileText size={16} />
+                          <span>Detalle</span>
+                        </button>
+                      </div>
+                      <dl className={s['cash-history__mobile-details']}>
+                        <div><dt>Apertura</dt><dd>{formatDateTime(c.opened_at)}</dd></div>
+                        <div><dt>Cierre</dt><dd>{formatDateTime(c.closed_at)}</dd></div>
+                        <div><dt>Ingresos</dt><dd className={s['cash-history__income']}><CurrencyDisplay value={c.total_income as number} /></dd></div>
+                        <div><dt>Salidas</dt><dd className={s['cash-history__expense']}><CurrencyDisplay value={c.total_expenses as number} /></dd></div>
+                        <div><dt>Saldo actual</dt><dd className={s['cash-history__balance']}><CurrencyDisplay value={c.current_balance as number} /></dd></div>
+                        <div><dt>Efectivo real</dt><dd className={s['cash-history__real-cash']}><CurrencyDisplay value={c.real_cash as number} /></dd></div>
+                      </dl>
+                    </article>
+                  );
+                })}
+              </div>
               <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} label="cierres" />
             </div>
           </div>
 
           {/* Detalle de la caja seleccionada */}
           {selected && (
-            <div>
+            <div className={s['cash-history__detail-column']}>
               <div className={`card ${s['cash-history__detail-card']}`}>
                 <h3 className={s['cash-history__detail-title']}>Caja #{selected.number ?? '-'}</h3>
                 <div className={s['cash-history__detail-times']}>
@@ -179,6 +231,30 @@ export default function CashHistoryPage() {
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                  <div className={s['cash-history__mobile-movements']} data-testid="cash-history-mobile-movements">
+                    {(selected.movements as CashMovement[]).map((m: CashMovement) => (
+                      <article key={m.id as number} className={s['cash-history__mobile-movement-card']}>
+                        <div className={s['cash-history__mobile-movement-header']}>
+                          <span className={`badge ${(m.type as string) === 'INCOME' ? 'badge-approved' : 'badge-rejected'}`}>
+                            {(m.type as string) === 'INCOME' ? 'Entrada' : 'Salida'}
+                          </span>
+                          <strong className={`${s['cash-history__movement-amount']} ${(m.type as string) === 'INCOME' ? s['cash-history__movement-amount--income'] : s['cash-history__movement-amount--expense']}`}>
+                            <CurrencyDisplay value={m.amount as number} />
+                          </strong>
+                        </div>
+                        <dl className={s['cash-history__mobile-movement-details']}>
+                          <div><dt>Concepto</dt><dd>{(m.description as string) || '-'}</dd></div>
+                          <div><dt>Pago</dt><dd>{(m.payment_method as string) || (m.expense_type as string) || '-'}</dd></div>
+                          {m.order_number || m.order_id ? (
+                            <div><dt>Orden</dt><dd>{m.order_number || `#${m.order_id}`}</dd></div>
+                          ) : null}
+                          {m.created_at ? (
+                            <div><dt>Fecha</dt><dd>{formatDateTime(m.created_at)}</dd></div>
+                          ) : null}
+                        </dl>
+                      </article>
+                    ))}
                   </div>
                 </div>
               )}

@@ -88,6 +88,37 @@ export function CashMovementTable({
           </tbody>
         </table>
       </div>
+
+      <div className={styles['cash-movement__mobile-list']} aria-label={`${title} en tarjetas`}>
+        {movements.length === 0 ? (
+          <div className={styles['cash-movement__mobile-empty']}>{emptyMessage}</div>
+        ) : (
+          movements.map((row) => (
+            <article className={styles['cash-movement__mobile-card']} key={row.id as number}>
+              <div className={styles['cash-movement__mobile-card-header']}>
+                <strong>{title}</strong>
+                <button
+                  type="button"
+                  className={`btn ${styles['cash-movement__delete-btn']}`}
+                  onClick={() => onDelete(row.id as number)}
+                  title="Eliminar"
+                  aria-label={`Eliminar movimiento ${row.id}`}
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+              <dl className={styles['cash-movement__mobile-details']}>
+                {columns.map((column) => (
+                  <div key={column.key}>
+                    <dt>{column.label}</dt>
+                    <dd>{column.render(row)}</dd>
+                  </div>
+                ))}
+              </dl>
+            </article>
+          ))
+        )}
+      </div>
     </div>
   );
 }

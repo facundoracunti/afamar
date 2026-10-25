@@ -29,6 +29,11 @@
 
 .fabrication-section__comparison-table {
   font-size: 12px;
+  table-layout: auto;
+}
+
+.fabrication-section__comparison-cards {
+  display: none;
 }
 
 .fabrication-section__comparison-head-row {
@@ -81,4 +86,79 @@
 
 .fabrication-section__comparison-cell--neutral {
   color: var(--text-muted);
+}
+
+@media (max-width: 767px) {
+  .fabrication-section__comparison {
+    min-width: 0;
+  }
+
+  .fabrication-section__comparison-table {
+    display: none;
+  }
+
+  .fabrication-section__comparison-cards {
+    display: grid;
+    gap: 8px;
+  }
+
+  .fabrication-section__comparison-card {
+    min-width: 0;
+    padding: 9px 10px;
+    background: var(--surface-alt-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+  }
+
+  .fabrication-section__comparison-card-name {
+    min-width: 0;
+    margin: 0 0 8px;
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+
+  .fabrication-section__comparison-card-values {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    margin: 0;
+  }
+
+  .fabrication-section__comparison-card-values > div {
+    min-width: 0;
+    padding: 6px;
+    background: var(--surface-bg);
+    border-radius: 4px;
+  }
+
+  .fabrication-section__comparison-card-values dt {
+    margin: 0 0 3px;
+    color: var(--text-muted);
+    font-size: 10px;
+    line-height: 1.2;
+  }
+
+  .fabrication-section__comparison-card-values dd {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+  .fabrication-section__comparison {
+    min-width: 0;
+    overflow-x: auto;
+    max-width: 100%;
+  }
+
+  .fabrication-section__comparison-table {
+    min-width: 0;
+  }
 }

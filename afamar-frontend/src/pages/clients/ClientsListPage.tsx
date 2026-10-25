@@ -99,8 +99,9 @@ export default function ClientsList() {
       {loading ? (
         <LoadingSpinner />
       ) : (
-        <div className={s['clients__table']}>
-          <table>
+        <>
+          <div className={s['clients__table']}>
+            <table>
             <thead>
               <tr>
                 <th>ID</th>
@@ -166,8 +167,37 @@ export default function ClientsList() {
                 </tr>
               )}
             </tbody>
-          </table>
-        </div>
+            </table>
+          </div>
+          <div className={s['clients__mobile-list']}>
+            {clients.map((c) => (
+              <article key={`mobile-${c.id}`} className={s['clients__mobile-card']} onClick={() => setModal({ kind: 'edit', id: c.id })}>
+                <div className={s['clients__mobile-header']}>
+                  <div>
+                    <span className={s['clients__mobile-id']}>#{c.id}</span>
+                    <h2>{c.name || 'Sin nombre'}</h2>
+                  </div>
+                  <div className={s['clients__mobile-counts']}>
+                    <span className="badge badge-pending" title="Presupuestos">P {c.total_budgets ?? 0}</span>
+                    <span className="badge badge-approved" title="Órdenes">O {c.total_orders ?? 0}</span>
+                  </div>
+                </div>
+                <dl className={s['clients__mobile-details']}>
+                  <div><dt>Teléfono</dt><dd>{c.phone || 'Sin teléfono'}</dd></div>
+                  <div><dt>Correo</dt><dd>{c.email || 'Sin correo'}</dd></div>
+                  <div><dt>Dirección</dt><dd>{c.address || 'Sin dirección'}</dd></div>
+                  <div><dt>Última orden</dt><dd>{c.last_order_number || 'Sin órdenes'}</dd></div>
+                  <div><dt>Alta</dt><dd>{formatDate(c.created_at)}</dd></div>
+                </dl>
+                <div className={s['clients__mobile-actions']} onClick={(e) => e.stopPropagation()}>
+                  <button type="button" className="btn btn-outline" onClick={() => setModal({ kind: 'edit', id: c.id })}><Edit size={14} /> Editar</button>
+                  <button type="button" className="btn btn-danger" onClick={() => requestDelete(c.id)}><Trash2 size={14} /> Eliminar</button>
+                </div>
+              </article>
+            ))}
+            {clients.length === 0 && <div className={s['clients__mobile-empty']}><EmptyState message="No hay clientes registrados" /></div>}
+          </div>
+        </>
       )}
 
       <ConfirmDialog

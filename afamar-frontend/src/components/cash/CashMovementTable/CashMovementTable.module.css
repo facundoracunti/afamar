@@ -1,8 +1,6 @@
 .card {
   padding: 0;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  overflow-y: hidden;
+  overflow: hidden;
   background: var(--surface-bg);
   border: 1px solid var(--border-color);
   border-radius: 12px;
@@ -31,6 +29,12 @@
 
 .cash-movement__table-wrap {
   margin-top: 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cash-movement__mobile-list {
+  display: none;
 }
 
 .cash-movement__delete-btn {
@@ -48,6 +52,110 @@
 /* Print-only compact line replaces the big EmptyState web card */
 .cash-movement__empty-print {
   display: none;
+}
+
+@media (max-width: 767px) {
+  .header {
+    padding: 12px 12px 0;
+    align-items: flex-start;
+  }
+
+  .title {
+    font-size: 15px;
+  }
+
+  .cash-movement__btn-add {
+    min-height: 40px;
+    padding: 7px 10px;
+    white-space: normal;
+  }
+
+  .cash-movement__table-wrap {
+    display: none;
+  }
+
+  .cash-movement__mobile-list {
+    display: grid;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 0 10px 10px;
+  }
+
+  .cash-movement__mobile-card {
+    min-width: 0;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--surface-alt-bg);
+  }
+
+  .cash-movement__mobile-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
+    padding-bottom: 7px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .cash-movement__mobile-card-header strong {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .cash-movement__mobile-card-header .cash-movement__delete-btn {
+    flex: 0 0 auto;
+    min-width: 40px;
+    min-height: 40px;
+    padding: 8px;
+  }
+
+  .cash-movement__mobile-details {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding-top: 8px;
+  }
+
+  .cash-movement__mobile-details > div {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .cash-movement__mobile-details dt {
+    flex: 0 1 42%;
+    min-width: 0;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .cash-movement__mobile-details dd {
+    flex: 1 1 58%;
+    min-width: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 600;
+    text-align: right;
+  }
+
+  .cash-movement__mobile-empty {
+    padding: 12px 8px;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-style: italic;
+    text-align: center;
+  }
 }
 
 /* Compact spreadsheet-like report: small rows, tight padding, one A4 sheet */
@@ -73,6 +181,7 @@
   }
 
   .cash-movement__table-wrap {
+    display: block;
     margin-top: 2px;
   }
 
@@ -96,5 +205,9 @@
     font-size: 11px;
     font-style: italic;
     color: var(--text-muted);
+  }
+
+  .cash-movement__mobile-list {
+    display: none !important;
   }
 }

@@ -51,9 +51,32 @@
   .previous-balance {
     flex-wrap: wrap;
     gap: 8px;
+    align-items: flex-start;
+    padding: 12px;
   }
 
   .previous-balance__edit-row {
+    width: 100%;
     flex-wrap: wrap;
+  }
+
+  .previous-balance__edit-row input {
+    flex: 1 1 140px;
+    min-width: 0;
+    min-height: 42px;
+  }
+
+  .previous-balance__edit-row .btn {
+    min-height: 42px;
+  }
+
+  .previous-balance__display {
+    min-width: 0;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+  }
+
+  .previous-balance__amount {
+    overflow-wrap: anywhere;
   }
 }

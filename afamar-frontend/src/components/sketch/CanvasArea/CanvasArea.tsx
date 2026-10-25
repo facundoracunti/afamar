@@ -112,9 +112,10 @@ export default function CanvasArea({
   const {
     handleStageClick,
     handleShapeSelect,
-    handleMouseDown,
-    handleMouseMove,
-    handleMouseUp,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+    handlePointerCancel,
     handleDragEnd,
     handleTransformEnd,
   } = useCanvasHandlers({
@@ -147,10 +148,11 @@ export default function CanvasArea({
         height={STAGE_H}
         scaleX={stageScale}
         scaleY={stageScale}
-        onClick={handleStageClick}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
+        onPointerClick={handleStageClick}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
         style={{
           cursor: readOnly ? 'default' : tool === 'select' ? 'default' : tool === 'text' ? 'text' : 'crosshair',
           display: 'block',

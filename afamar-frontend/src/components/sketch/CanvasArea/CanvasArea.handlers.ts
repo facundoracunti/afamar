@@ -9,15 +9,17 @@
  * 0..STAGE_H space), never in screen pixels.
  */
 import type Konva from 'konva';
+import { useEffect, useRef } from 'react';
 import type { SketchToolType, SketchElement, Point } from '@/types/sketch';
-import { STAGE_W, STAGE_H, MIN_DIST, clampCoord, genId } from './CanvasArea.geometry';
+import { STAGE_W, STAGE_H, MIN_DIST, clampCoord, genId, logicalPointerPosition } from './CanvasArea.geometry';
 
 export interface CanvasHandlers {
-  handleStageClick: (e: Konva.KonvaEventObject<MouseEvent>) => void;
+  handleStageClick: (e: Konva.KonvaEventObject<PointerEvent>) => void;
   handleShapeSelect: (id: string) => void;
-  handleMouseDown: (e: Konva.KonvaEventObject<MouseEvent>) => void;
-  handleMouseMove: (e: Konva.KonvaEventObject<MouseEvent>) => void;
-  handleMouseUp: () => void;
+  handlePointerDown: (e: Konva.KonvaEventObject<PointerEvent>) => void;
+  handlePointerMove: (e: Konva.KonvaEventObject<PointerEvent>) => void;
+  handlePointerUp: (e: Konva.KonvaEventObject<PointerEvent>) => void;
+  handlePointerCancel: (e: Konva.KonvaEventObject<PointerEvent>) => void;
   handleDragEnd: (e: Konva.KonvaEventObject<DragEvent>, id: string) => void;
   handleTransformEnd: (e: Konva.KonvaEventObject<Event>) => void;
 }
@@ -42,6 +44,8 @@ export interface CanvasHandlerParams {
   snapNear: (v: number) => number;
 }
 
+type PointerKonvaEvent = Konva.KonvaEventObject<PointerEvent>;
+
 export function useCanvasHandlers(params: CanvasHandlerParams): CanvasHandlers {
   const {
     tool,
@@ -62,8 +66,44 @@ export function useCanvasHandlers(params: CanvasHandlerParams): CanvasHandlers {
     snapNear,
   } = params;
 
-  const ptr = (e: Konva.KonvaEventObject<MouseEvent>): Point => {
-    const p = e.target.getStage()?.getPointerPosition();
+  const activePointerId = useRef<number | null>(null);
+
+  const capturePointer = (stage: Konva.Stage, pointerId: number) => {
+    const container = stage.container();
+    if (typeof container.setPointerCapture === 'function') {
+      try { container.setPointerCapture(pointerId); } catch { /* pointer may have ended */ }
+    }
+  };
+
+  const releasePointer = (stage: Konva.Stage, pointerId: number) => {
+    const container = stage.container();
+    if (typeof container.releasePointerCapture === 'function' && container.hasPointerCapture(pointerId)) {
+      try { container.releasePointerCapture(pointerId); } catch { /* pointer may have ended */ }
+    }
+  };
+
+  const resetDrawing = () => {
+    setIsDrawing(false);
+    setDrawStart(null);
+    setDrawEnd(null);
+  };
+
+  // A toolbar action can change the tool while a pointer is still pressed.
+  // Drop that gesture so its pointerId cannot block the next interaction.
+  useEffect(() => {
+    if (tool === 'select' || readOnly) {
+      activePointerId.current = null;
+      if (isDrawing) {
+        setIsDrawing(false);
+        setDrawStart(null);
+        setDrawEnd(null);
+      }
+    }
+  }, [tool, readOnly, isDrawing, setIsDrawing, setDrawStart, setDrawEnd]);
+
+  const ptr = (e: PointerKonvaEvent): Point => {
+    const stage = e.target.getStage();
+    const p = stage ? logicalPointerPosition(stage) : null;
     return p ? { x: snapNear(p.x), y: snapNear(p.y) } : { x: 0, y: 0 };
   };
 
@@ -74,7 +114,7 @@ export function useCanvasHandlers(params: CanvasHandlerParams): CanvasHandlers {
       : { x: a.x, y: b.y };
   }
 
-  const handleTextTool = (e: Konva.KonvaEventObject<MouseEvent>, stagePos: Point) => {
+  const handleTextTool = (e: PointerKonvaEvent, stagePos: Point) => {
     const input = document.createElement('input');
     input.type = 'text';
     input.style.position = 'fixed';
@@ -119,7 +159,7 @@ export function useCanvasHandlers(params: CanvasHandlerParams): CanvasHandlers {
     requestAnimationFrame(() => input.focus());
   };
 
-  const handleStageClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
+  const handleStageClick = (e: PointerKonvaEvent) => {
     if (readOnly || tool !== 'select') return;
     if (e.target === e.target.getStage()) setSid(null);
   };
@@ -129,8 +169,13 @@ export function useCanvasHandlers(params: CanvasHandlerParams): CanvasHandlers {
     setSid(id);
   };
 
-  const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
+  const handlePointerDown = (e: PointerKonvaEvent) => {
     if (readOnly || tool === 'select') return;
+
+    if (activePointerId.current !== null && activePointerId.current !== e.evt.pointerId) return;
+    activePointerId.current = e.evt.pointerId;
+    const stage = e.target.getStage();
+    if (stage) capturePointer(stage, e.evt.pointerId);
 
     const pos = ptr(e);
     if (tool === 'text') { handleTextTool(e, pos); return; }
@@ -143,22 +188,28 @@ export function useCanvasHandlers(params: CanvasHandlerParams): CanvasHandlers {
     setIsDrawing(true);
   };
 
-  const handleMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
+  const handlePointerMove = (e: PointerKonvaEvent) => {
+    if (activePointerId.current !== e.evt.pointerId) return;
     if (readOnly || !isDrawing || !drawStart) return;
     const pos = ptr(e);
     setDrawEnd(tool === 'line' ? resolveEnd(drawStart, pos) : pos);
   };
 
-  const handleMouseUp = () => {
-    if (readOnly || !isDrawing || !drawStart || !drawEnd) return;
+  const handlePointerUp = (e: PointerKonvaEvent) => {
+    if (activePointerId.current !== e.evt.pointerId) return;
+    activePointerId.current = null;
+    const stage = e.target.getStage();
+    if (stage) releasePointer(stage, e.evt.pointerId);
+    if (readOnly || !isDrawing || !drawStart || !drawEnd) {
+      resetDrawing();
+      return;
+    }
 
     const dx = drawEnd.x - drawStart.x;
     const dy = drawEnd.y - drawStart.y;
 
     if (Math.abs(dx) <= MIN_DIST && Math.abs(dy) <= MIN_DIST) {
-      setIsDrawing(false);
-      setDrawStart(null);
-      setDrawEnd(null);
+      resetDrawing();
       return;
     }
 
@@ -202,9 +253,15 @@ export function useCanvasHandlers(params: CanvasHandlerParams): CanvasHandlers {
           } as SketchElement;
 
     addShape(el);
-    setIsDrawing(false);
-    setDrawStart(null);
-    setDrawEnd(null);
+    resetDrawing();
+  };
+
+  const handlePointerCancel = (e: PointerKonvaEvent) => {
+    if (activePointerId.current !== e.evt.pointerId) return;
+    activePointerId.current = null;
+    const stage = e.target.getStage();
+    if (stage) releasePointer(stage, e.evt.pointerId);
+    resetDrawing();
   };
 
   const handleDragEnd = (e: Konva.KonvaEventObject<DragEvent>, id: string) => {
@@ -309,9 +366,10 @@ export function useCanvasHandlers(params: CanvasHandlerParams): CanvasHandlers {
   return {
     handleStageClick,
     handleShapeSelect,
-    handleMouseDown,
-    handleMouseMove,
-    handleMouseUp,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+    handlePointerCancel,
     handleDragEnd,
     handleTransformEnd,
   };

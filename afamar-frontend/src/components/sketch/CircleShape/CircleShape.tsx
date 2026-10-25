@@ -23,8 +23,7 @@ export default function CircleShape({ element, isDraggable, onDragEnd, onTransfo
       draggable={isDraggable}
       listening={true}
       hitStrokeWidth={20}
-      onClick={() => onSelect(element.id)}
-      onTap={() => onSelect(element.id)}
+      onPointerClick={() => onSelect(element.id)}
       onDragEnd={(e) => onDragEnd(e, element.id)}
       onTransformEnd={onTransformEnd}
     />

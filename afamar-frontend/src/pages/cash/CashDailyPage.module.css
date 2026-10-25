@@ -172,6 +172,53 @@
   }
 }
 
+@media (max-width: 767px) {
+  .cash {
+    min-width: 0;
+    gap: 12px;
+  }
+
+  .cash__page-header {
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .cash__page-header-title {
+    min-width: 0;
+    font-size: 20px;
+    line-height: 1.25;
+  }
+
+  .cash__badge {
+    margin-left: 4px;
+    font-size: 11px;
+  }
+
+  .cash__controls {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .cash__controls-btn {
+    flex: 1 1 150px;
+    min-height: 44px;
+    padding: 9px 10px;
+    white-space: normal;
+  }
+
+  .cash__meta {
+    gap: 6px 12px;
+    margin-bottom: 8px;
+    font-size: 12px;
+  }
+
+  .cash__movements-grid {
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+}
+
 /* ============ Print styles (Cierre de Caja → one A4 page) ============ */
 /* Print-only blocks: hidden on screen, enabled inside `@media print`. */
 .cash__print-totals {

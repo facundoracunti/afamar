@@ -21,6 +21,43 @@ function fmt(n: number, digits = 2): string {
   return n.toFixed(digits);
 }
 
+type DistributionUnit = {
+  placed: number;
+  unplaced: number;
+  expected: number;
+};
+
+function distributionKey(item: { pieceId: number; pieceIndex: number }): string {
+  return `${item.pieceId}:${item.pieceIndex}`;
+}
+
+function distributionSummary(plates: PlateLayout[], unplaced: PackAction[]) {
+  const units = new Map<string, DistributionUnit>();
+
+  for (const piece of plates.flatMap((plate) => plate.pieces)) {
+    const key = distributionKey(piece);
+    const current = units.get(key) ?? { placed: 0, unplaced: 0, expected: 1 };
+    current.placed += 1;
+    current.expected = Math.max(current.expected, piece.split?.total ?? 1);
+    units.set(key, current);
+  }
+
+  for (const piece of unplaced) {
+    const key = distributionKey(piece);
+    const current = units.get(key) ?? { placed: 0, unplaced: 0, expected: 1 };
+    current.unplaced += 1;
+    current.expected = Math.max(current.expected, piece.split?.total ?? 1);
+    units.set(key, current);
+  }
+
+  const total = units.size;
+  const distributed = [...units.values()].filter(
+    (unit) => unit.unplaced === 0 && unit.placed >= unit.expected,
+  ).length;
+
+  return { total, distributed, unplaced: total - distributed };
+}
+
 /**
  * Panel de resultados de la calculadora de placa: resumen superior (m²
  * comprados vs m² de piezas, % aprovechamiento), pestañas por placa con su
@@ -39,6 +76,7 @@ export default function PlateResultsPanel({
   const [activeIndex, setActiveIndex] = useState(0);
   const safeIndex = Math.min(activeIndex, Math.max(0, plates.length - 1));
   const activePlate = plates[safeIndex];
+  const distribution = distributionSummary(plates, unplaced);
 
   const handlePrint = () => {
     window.print();
@@ -73,6 +111,22 @@ export default function PlateResultsPanel({
         </div>
       </div>
 
+      {distribution.total > 0 && (
+        <div className={s['plateResultsDistribution']} aria-label="Resumen de distribución">
+          <span className={s['plateResultsDistributionMain']}>
+            {distribution.distributed} de {distribution.total} piezas distribuidas
+          </span>
+          {distribution.unplaced > 0 && (
+            <span className={s['plateResultsDistributionUnplaced']}>
+              {distribution.unplaced} sin ubicar
+            </span>
+          )}
+          <span className={s['plateResultsDistributionPlates']}>
+            {plates.length} {plates.length === 1 ? 'placa' : 'placas'}
+          </span>
+        </div>
+      )}
+
       {unplaced.length > 0 && (
         <div className={s['plateResultsUnplaced']}>
           <strong>No entraron por superar el tamaño de la placa:</strong>{' '}
@@ -83,24 +137,27 @@ export default function PlateResultsPanel({
       )}
 
       {plates.length > 1 && (
-        <div className={s['plateResultsTabs']} role="tablist">
-          {plates.map((pl, i) => (
-            <button
-              key={pl.index}
-              type="button"
-              role="tab"
-              aria-selected={i === safeIndex}
-              className={`${s['plateResultsTab']} ${
-                i === safeIndex ? s['plateResultsTab--active'] : ''
-              }`}
-              onClick={() => setActiveIndex(i)}
-            >
-              Placa #{i + 1}
-              <span className={s['plateResultsTabPct']}>
-                {pl.plateM2 > 0 ? ((pl.usedM2 / pl.plateM2) * 100).toFixed(0) : 0}%
-              </span>
-            </button>
-          ))}
+        <div className={s['plateResultsTabsHeader']}>
+          <span className={s['plateResultsTabsHint']}>Consultá el gráfico de cada placa:</span>
+          <div className={s['plateResultsTabs']} role="tablist">
+            {plates.map((pl, i) => (
+              <button
+                key={pl.index}
+                type="button"
+                role="tab"
+                aria-selected={i === safeIndex}
+                className={`${s['plateResultsTab']} ${
+                  i === safeIndex ? s['plateResultsTab--active'] : ''
+                }`}
+                onClick={() => setActiveIndex(i)}
+              >
+                Placa #{i + 1}
+                <span className={s['plateResultsTabPct']}>
+                  {pl.plateM2 > 0 ? ((pl.usedM2 / pl.plateM2) * 100).toFixed(0) : 0}%
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

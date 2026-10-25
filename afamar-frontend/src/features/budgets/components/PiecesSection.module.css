@@ -28,6 +28,20 @@
   }
 }
 
+@media (max-width: 767px) {
+  .piece-pools__filters {
+    width: 100%;
+    max-width: none;
+    flex-direction: column;
+  }
+
+  .piece-pools__type-filter,
+  .piece-pools__add {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
 .piece-card {
   display: flex;
   flex-direction: column;

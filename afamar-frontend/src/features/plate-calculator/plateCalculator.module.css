@@ -22,6 +22,9 @@
   margin-top: 14px;
   border-top: 1px solid var(--border, #334155);
   padding-top: 14px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .plateResultsSummary {
@@ -29,6 +32,7 @@
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
   margin-bottom: 14px;
+  min-width: 0;
 }
 
 /* Tarjetas resumen: siempre oscuras (slate/navy) con tipografía blanca para
@@ -42,6 +46,7 @@
   border-radius: 8px;
   background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
   color: #f8fafc;
+  min-width: 0;
 }
 
 .plateResultsSummaryCol--accent {
@@ -70,6 +75,36 @@
   color: rgba(255, 255, 255, 0.8);
 }
 
+.plateResultsDistribution {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: -4px 0 12px;
+  padding: 7px 10px;
+  border: 1px solid var(--border, #334155);
+  border-radius: 6px;
+  background: var(--surface-alt-bg, #1e293b);
+  color: var(--text-secondary, #cbd5e1);
+  font-size: 0.82rem;
+}
+
+.plateResultsDistributionMain {
+  color: var(--text-primary, #f1f5f9);
+  font-weight: 700;
+}
+
+.plateResultsDistributionUnplaced {
+  color: var(--color-warning, #f59e0b);
+  font-weight: 700;
+}
+
+.plateResultsDistributionPlates {
+  margin-left: auto;
+  color: var(--color-info, #60a5fa);
+  font-weight: 700;
+}
+
 .plateResultsSummaryValue--accent {
   color: #ffffff;
 }
@@ -89,6 +124,25 @@
   flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 12px;
+  min-width: 0;
+}
+
+.plateResultsTabsHeader {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-bottom: 12px;
+  min-width: 0;
+}
+
+.plateResultsTabsHeader .plateResultsTabs {
+  margin-bottom: 0;
+}
+
+.plateResultsTabsHint {
+  color: var(--text-secondary, #cbd5e1);
+  font-size: 0.78rem;
 }
 
 .plateResultsTab {
@@ -104,6 +158,7 @@
   color: var(--text-secondary, #cbd5e1);
   cursor: pointer;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
+  max-width: 100%;
 }
 
 .plateResultsTab:hover {
@@ -126,6 +181,19 @@
 .plateResultsCanvas {
   margin-bottom: 14px;
   overflow-x: auto;
+  overflow-y: hidden;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.plateResultsCanvas .plateCutMapSvg {
+  max-width: 100%;
+  height: auto;
+}
+
+.plateResults .table-container {
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 /* Sección solo-impresión (ver @media print abajo): iterable de TODAS las
@@ -139,11 +207,21 @@
 .plateResultsActions {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.plateResultsActions .btn {
+  max-width: 100%;
+  white-space: normal;
 }
 
 /* Tabla de Despiece / Leyenda de Cortes */
 .plateCutMapLegend {
   margin-top: 12px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .plateCutMapLegendTitle {
@@ -156,6 +234,10 @@
 .plateCutMapLegendCode {
   font-weight: 700;
   color: var(--color-info, #2980b9);
+}
+
+.plateCutMapLegendCards {
+  display: none;
 }
 
 .plateCutMapId {
@@ -230,5 +312,161 @@
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
     break-inside: avoid;
+  }
+}
+
+@media (max-width: 767px) {
+  .plateResultsSummary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .plateResultsSummaryCol {
+    padding: 8px 9px;
+  }
+
+  .plateResultsSummaryLabel {
+    font-size: 0.65rem;
+    line-height: 1.2;
+  }
+
+  .plateResultsSummaryValue {
+    font-size: 0.9rem;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
+
+  .plateResultsUnplaced {
+    margin-bottom: 10px;
+    padding: 7px 8px;
+    font-size: 0.78rem;
+    line-height: 1.3;
+  }
+
+  .plateResultsDistribution {
+    margin-bottom: 10px;
+    padding: 7px 8px;
+    font-size: 0.76rem;
+    line-height: 1.25;
+  }
+
+  .plateResultsDistributionPlates {
+    margin-left: 0;
+  }
+
+  .plateResultsTabs {
+    gap: 5px;
+    margin-bottom: 9px;
+  }
+
+  .plateResultsTabsHeader {
+    align-items: flex-start;
+    gap: 5px;
+    margin-bottom: 9px;
+  }
+
+  .plateResultsTabsHeader .plateResultsTabs {
+    width: 100%;
+  }
+
+  .plateResultsTabsHint {
+    font-size: 0.72rem;
+  }
+
+  .plateResultsTab {
+    padding: 5px 9px;
+    font-size: 0.78rem;
+  }
+
+  .plateResultsCanvas {
+    margin-bottom: 10px;
+  }
+
+  .plateCutMapMeta {
+    gap: 5px;
+    margin-bottom: 5px;
+    font-size: 0.76rem;
+    line-height: 1.25;
+  }
+
+  .plateCutMapMeta strong {
+    font-size: 0.84rem;
+  }
+
+  .plateCutMapLegend {
+    margin-top: 9px;
+  }
+
+  .plateCutMapLegendTitle {
+    margin-bottom: 5px;
+    font-size: 0.8rem;
+  }
+
+  .plateCutMapLegend > .table-container {
+    display: none;
+  }
+
+  .plateCutMapLegendCards {
+    display: grid;
+    gap: 6px;
+  }
+
+  .plateCutMapLegendCard {
+    min-width: 0;
+    padding: 7px 8px;
+    background: var(--surface-alt-bg, #1e293b);
+    border: 1px solid var(--border, #334155);
+    border-radius: 6px;
+  }
+
+  .plateCutMapLegendCardHeader {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    min-width: 0;
+    padding-bottom: 5px;
+    border-bottom: 1px solid var(--border, #334155);
+    color: var(--text-primary, #f1f5f9);
+    font-size: 0.78rem;
+    line-height: 1.25;
+  }
+
+  .plateCutMapLegendCardHeader span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .plateCutMapLegendCardDetails {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 5px 10px;
+    margin: 0;
+    padding-top: 5px;
+  }
+
+  .plateCutMapLegendCardDetails dt {
+    color: var(--text-muted, #94a3b8);
+    font-size: 0.66rem;
+    line-height: 1.2;
+  }
+
+  .plateCutMapLegendCardDetails dd {
+    margin: 0;
+    color: var(--text-primary, #f1f5f9);
+    font-size: 0.74rem;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+  }
+}
+
+@media print {
+  .plateCutMapLegend > .table-container {
+    display: block;
+  }
+
+  .plateCutMapLegendCards {
+    display: none;
   }
 }

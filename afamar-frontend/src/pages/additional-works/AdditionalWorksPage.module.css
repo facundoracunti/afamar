@@ -29,6 +29,11 @@
   }
 }
 
+@media (max-width: 767px) {
+  .additional-works :global(.header__toolbar) { width: 100%; }
+  .additional-works :global(.header__toolbar) .btn { width: 100%; min-height: 42px; justify-content: center; }
+}
+
 .additional-works__detail-empty { color: var(--text-muted); }
 .additional-works__multi-text  { margin-left: 6px; font-size: 11px; color: var(--text-muted); }
 .additional-works__auto-text   { color: var(--text-muted); }

@@ -67,6 +67,42 @@ export default function FabricationSection({
       });
   }, [showMeasurementComparison, materialsData]);
 
+  const comparisonDisplayRows = comparisonRows.map((m, i) => {
+    const m2Real = computeM2Real(m);
+    const m2Budgeted = Number(m.m2_budgeted) || 0;
+    // delta = real - budgeted:
+    //   > 0  → se agregaron M² (verde — más material del presupuestado)
+    //   < 0  → se restaron M² (rojo — menos material del presupuestado)
+    //   === 0 or no budget → neutro
+    const delta = m2Real - m2Budgeted;
+    const hasBudget = m2Budgeted > 0;
+    const deltaClass = !hasBudget
+      ? s['fabrication-section__comparison-cell--neutral']
+      : delta > 0.00001
+        ? s['fabrication-section__comparison-cell--positive']
+        : delta < -0.00001
+          ? s['fabrication-section__comparison-cell--negative']
+          : s['fabrication-section__comparison-cell--neutral'];
+    const m2RealClass = hasBudget
+      ? delta > 0.00001
+        ? s['fabrication-section__comparison-cell--positive']
+        : delta < -0.00001
+          ? s['fabrication-section__comparison-cell--negative']
+          : ''
+      : '';
+
+    return {
+      key: m.id ?? `${m.name}-${i}`,
+      name: m.name,
+      m2Real,
+      m2Budgeted,
+      hasBudget,
+      deltaStr: hasBudget ? `${delta > 0 ? '+' : ''}${delta.toFixed(5)} m²` : '—',
+      deltaClass,
+      m2RealClass,
+    };
+  });
+
   return (
     <div className={`card ${s['fabrication-section']}`}>
       <AdditionalMaterial
@@ -95,49 +131,45 @@ export default function FabricationSection({
               </tr>
             </thead>
             <tbody>
-              {comparisonRows.map((m, i) => {
-                const m2Real = computeM2Real(m);
-                const m2Budgeted = Number(m.m2_budgeted) || 0;
-                // delta = real - budgeted:
-                //   > 0  → se agregaron M² (verde — más material del presupuestado)
-                //   < 0  → se restaron M² (rojo  — menos material del presupuestado)
-                //   === 0 or no budget → neutro
-                const delta = m2Real - m2Budgeted;
-                const hasBudget = m2Budgeted > 0;
-                const deltaClass = !hasBudget
-                  ? s['fabrication-section__comparison-cell--neutral']
-                  : delta > 0.00001
-                    ? s['fabrication-section__comparison-cell--positive']
-                    : delta < -0.00001
-                      ? s['fabrication-section__comparison-cell--negative']
-                      : s['fabrication-section__comparison-cell--neutral'];
-                const m2RealClass = hasBudget
-                  ? delta > 0.00001
-                    ? s['fabrication-section__comparison-cell--positive']
-                    : delta < -0.00001
-                      ? s['fabrication-section__comparison-cell--negative']
-                      : ''
-                  : '';
-                const deltaStr = hasBudget
-                  ? `${delta > 0 ? '+' : ''}${delta.toFixed(5)} m²`
-                  : '—';
+              {comparisonDisplayRows.map((row) => {
                 return (
-                  <tr key={m.id ?? `${m.name}-${i}`} className={s['fabrication-section__comparison-row']}>
-                    <td className={s['fabrication-section__comparison-name']}>{m.name}</td>
-                    <td className={`${s['fabrication-section__comparison-cell-center']} ${m2RealClass}`}>
-                      {m2Real.toFixed(5)} m²
+                  <tr key={row.key} className={s['fabrication-section__comparison-row']}>
+                    <td className={s['fabrication-section__comparison-name']}>{row.name}</td>
+                    <td className={`${s['fabrication-section__comparison-cell-center']} ${row.m2RealClass}`}>
+                      {row.m2Real.toFixed(5)} m²
                     </td>
                     <td className={s['fabrication-section__comparison-cell-strong']}>
-                      {hasBudget ? `${m2Budgeted} m²` : '—'}
+                      {row.hasBudget ? `${row.m2Budgeted} m²` : '—'}
                     </td>
-                    <td className={`${s['fabrication-section__comparison-cell-center']} ${deltaClass}`}>
-                      {deltaStr}
+                    <td className={`${s['fabrication-section__comparison-cell-center']} ${row.deltaClass}`}>
+                      {row.deltaStr}
                     </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
+          <div className={s['fabrication-section__comparison-cards']}>
+            {comparisonDisplayRows.map((row) => (
+              <article key={row.key} className={s['fabrication-section__comparison-card']}>
+                <h5 className={s['fabrication-section__comparison-card-name']}>{row.name}</h5>
+                <dl className={s['fabrication-section__comparison-card-values']}>
+                  <div>
+                    <dt>M² Real</dt>
+                    <dd className={row.m2RealClass}>{row.m2Real.toFixed(5)} m²</dd>
+                  </div>
+                  <div>
+                    <dt>M² Presupuestado</dt>
+                    <dd>{row.hasBudget ? `${row.m2Budgeted} m²` : '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>Diferencia</dt>
+                    <dd className={row.deltaClass}>{row.deltaStr}</dd>
+                  </div>
+                </dl>
+              </article>
+            ))}
+          </div>
         </div>
       )}
     </div>

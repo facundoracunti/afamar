@@ -55,6 +55,66 @@ describe('packGuillotine — cálculos simples', () => {
     expect(verifyNoOverlap(result)).toBe(true);
   });
 
+  it('conserva las unidades solicitadas entre placas y piezas no ubicadas', () => {
+    const scenarios = [
+      {
+        name: 'tres en una placa',
+        pieces: [piece(1, 1, 0.5), piece(2, 1, 0.5), piece(3, 1, 0.5)],
+        options: { plateW: 3, plateH: 1.8, kerf: KERF, allowRotation: true },
+        expected: { distributed: 3, unplaced: 0, plates: 1 },
+      },
+      {
+        name: 'tres en varias placas',
+        pieces: [piece(1, 2.9, 1.7), piece(2, 2.9, 1.7), piece(3, 2.9, 1.7)],
+        options: { plateW: 3, plateH: 1.8, kerf: KERF, allowRotation: true },
+        expected: { distributed: 3, unplaced: 0, plates: 3 },
+      },
+      {
+        name: 'una no ubicable',
+        pieces: [piece(1, 2.8, 2.0)],
+        options: { plateW: 3, plateH: 1.8, kerf: KERF, allowRotation: true },
+        expected: { distributed: 0, unplaced: 1, plates: 0 },
+      },
+      {
+        name: 'cantidad mayor a una',
+        pieces: [piece(1, 1, 0.5, 3)],
+        options: { plateW: 2, plateH: 2, kerf: KERF, allowRotation: true },
+        expected: { distributed: 3, unplaced: 0, plates: 1 },
+      },
+      {
+        name: 'rotación habilitada',
+        pieces: [piece(1, 0.5, 1.9)],
+        options: { plateW: 3, plateH: 1.8, kerf: KERF, allowRotation: true },
+        expected: { distributed: 1, unplaced: 0, plates: 1 },
+      },
+      {
+        name: 'rotación deshabilitada',
+        pieces: [piece(1, 0.5, 1.9)],
+        options: { plateW: 3, plateH: 1.8, kerf: KERF, allowRotation: false },
+        expected: { distributed: 0, unplaced: 1, plates: 0 },
+      },
+    ];
+
+    for (const scenario of scenarios) {
+      const result = packGuillotine(scenario.pieces, scenario.options);
+      const unitKey = (item: { pieceId: number; pieceIndex: number }) =>
+        `${item.pieceId}:${item.pieceIndex}`;
+      const distributed = new Set(
+        result.plates.flatMap((pl) => pl.pieces).map(unitKey),
+      );
+      const unplaced = new Set(result.unplaced.map(unitKey));
+      const requested = scenario.pieces.reduce((sum, p) => sum + p.cantidad, 0);
+
+      expect(distributed.size, scenario.name).toBe(scenario.expected.distributed);
+      expect(unplaced.size, scenario.name).toBe(scenario.expected.unplaced);
+      expect(result.plates.length, scenario.name).toBe(scenario.expected.plates);
+      expect(distributed.size + unplaced.size).toBe(requested);
+      expect(result.plates.flatMap((pl) => pl.pieces).length).toBeGreaterThanOrEqual(
+        distributed.size,
+      );
+    }
+  });
+
   it('rotación 90° cuando la pieza solo entra girada', () => {
     // 0.5 × 1.9 no entra acostada (1.9 > 1.8) pero sí girada
     const result = packGuillotine(

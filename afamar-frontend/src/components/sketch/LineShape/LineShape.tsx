@@ -24,8 +24,7 @@ export default function LineShape({ element, isDraggable, onDragEnd, onTransform
       draggable={isDraggable}
       listening={true}
       hitStrokeWidth={20}
-      onClick={() => onSelect(element.id)}
-      onTap={() => onSelect(element.id)}
+      onPointerClick={() => onSelect(element.id)}
       onDragEnd={(e) => onDragEnd(e, element.id)}
       onTransformEnd={onTransformEnd}
     />
