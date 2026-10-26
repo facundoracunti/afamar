@@ -12,12 +12,14 @@
 import React, { useState, useRef } from 'react';
 import { Save } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { getSettings, updateSettings, uploadLogo } from '@/api/resources/settings';
+import { getSettings, updateSettings, uploadLogo, uploadDashboardImage, restoreDashboardImage } from '@/api/resources/settings';
+import { useAuth } from '../../context/AuthContext';
 import { parseApiError } from '../../utils/error';
 import { useGet } from '../../api/hooks';
 import { useNotify } from '../../context/NotificationContext';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import TermsEditor from '../../components/ui/TermsEditor/TermsEditor';
+import originalHeroImage from '@/assets/slider/2.jpg';
 import styles from './ConfigurationPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -110,7 +112,12 @@ export default function ConfigurationPage() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoDirty, setLogoDirty] = useState(false);
   const [configDirty, setConfigDirty] = useState(false);
+  const [appearanceFile, setAppearanceFile] = useState<File | null>(null);
+  const [appearancePreview, setAppearancePreview] = useState<string | null>(null);
+  const [appearanceSaving, setAppearanceSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const appearanceInputRef = useRef<HTMLInputElement | null>(null);
+  const { user } = useAuth();
 
   if (loading) return <LoadingSpinner />;
 
@@ -129,6 +136,61 @@ export default function ConfigurationPage() {
   const handleFieldChange = (key: string, value: ConfigValue) => {
     setConfig({ ...config, [key]: value });
     setConfigDirty(true);
+  };
+
+  const handleAppearanceChange = (file: File | null) => {
+    if (!file) return;
+    const extension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedExtensions.includes(extension) || !allowedTypes.includes(file.type)) {
+      notify('Formato no permitido. Usá JPG, PNG o WebP.', 'error');
+      return;
+    }
+    if (file.size > 30 * 1024 * 1024) {
+      notify('La imagen supera los 30MB.', 'error');
+      return;
+    }
+    if (appearancePreview) URL.revokeObjectURL(appearancePreview);
+    setAppearanceFile(file);
+    setAppearancePreview(URL.createObjectURL(file));
+  };
+
+  const handleSaveAppearance = async () => {
+    if (!appearanceFile) return;
+    setAppearanceSaving(true);
+    try {
+      const response = await uploadDashboardImage(appearanceFile);
+      const uploaded = (response as unknown as { data: { path: string } }).data;
+      setConfig((current) => ({ ...current, dashboard_image: uploaded.path }));
+      await queryClient.invalidateQueries({ queryKey: ['settings'] });
+      if (appearancePreview) URL.revokeObjectURL(appearancePreview);
+      setAppearanceFile(null);
+      setAppearancePreview(null);
+      notify('Imagen del encabezado guardada correctamente', 'success');
+    } catch (err) {
+      notify(parseApiError(err, 'Error al guardar la imagen del encabezado'), 'error');
+    } finally {
+      setAppearanceSaving(false);
+    }
+  };
+
+  const handleRestoreAppearance = async () => {
+    if (!window.confirm('¿Restaurar la imagen original?')) return;
+    setAppearanceSaving(true);
+    try {
+      await restoreDashboardImage();
+      setConfig((current) => ({ ...current, dashboard_image: '' }));
+      await queryClient.invalidateQueries({ queryKey: ['settings'] });
+      if (appearancePreview) URL.revokeObjectURL(appearancePreview);
+      setAppearanceFile(null);
+      setAppearancePreview(null);
+      notify('Imagen original restaurada correctamente', 'success');
+    } catch (err) {
+      notify(parseApiError(err, 'Error al restaurar la imagen original'), 'error');
+    } finally {
+      setAppearanceSaving(false);
+    }
   };
 
   const handleSave = async () => {
@@ -173,6 +235,8 @@ export default function ConfigurationPage() {
 
   const companyLogo = typeof config.company_logo === 'string' ? config.company_logo : '';
   const logoSrc = logoPreview || companyLogo || null;
+  const dashboardImage = typeof config.dashboard_image === 'string' ? config.dashboard_image : '';
+  const dashboardImageSrc = appearancePreview || dashboardImage || originalHeroImage;
 
   const companyNameValue = typeof config.company_name === 'string' ? config.company_name : '';
   const canSave = !!(companyNameValue.trim()) && (configDirty || logoDirty);
@@ -182,6 +246,34 @@ export default function ConfigurationPage() {
       <div className={s['configuration__header']}>
         <h1 className={s['configuration__title']}>Configuración</h1>
       </div>
+
+      {user?.is_admin === true && (
+        <div className={s['configuration__card']}>
+          <h3 className={s['configuration__section']}>Apariencia</h3>
+          <div className={s['configuration__appearance']}>
+            <img src={dashboardImageSrc} alt="Vista previa del encabezado" className={s['configuration__appearance-preview']} />
+            <div className={s['configuration__appearance-actions']}>
+              <input
+                ref={appearanceInputRef}
+                type="file"
+                accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                className={s['configuration__hidden-file']}
+                onChange={(event) => handleAppearanceChange(event.target.files?.[0] || null)}
+              />
+              <button type="button" className="btn btn-secondary" onClick={() => appearanceInputRef.current?.click()} disabled={appearanceSaving}>
+                Cambiar imagen
+              </button>
+              <button type="button" className="btn btn-primary" onClick={handleSaveAppearance} disabled={appearanceSaving || !appearanceFile}>
+                {appearanceSaving ? 'Guardando...' : 'Guardar cambios'}
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={handleRestoreAppearance} disabled={appearanceSaving}>
+                Restaurar imagen original
+              </button>
+            </div>
+          </div>
+          <small className={s['configuration__appearance-hint']}>JPG, PNG o WebP. Se valida y almacena de forma persistente en el servidor.</small>
+        </div>
+      )}
 
       <div className={s['configuration__card']}>
         <h3 className={s['configuration__section']}>Datos de AFAMAR</h3>

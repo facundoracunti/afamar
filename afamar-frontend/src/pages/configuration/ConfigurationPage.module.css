@@ -43,6 +43,38 @@
   max-width: 700px;
 }
 
+.configuration__appearance {
+  display: grid;
+  gap: 16px;
+}
+
+.configuration__appearance-preview {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--surface-alt-bg);
+}
+
+.configuration__appearance-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.configuration__hidden-file {
+  display: none;
+}
+
+.configuration__appearance-hint {
+  display: block;
+  margin-top: 10px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
 .configuration__section {
   font-size: 16px;
   font-weight: 700;

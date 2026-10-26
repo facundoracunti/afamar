@@ -1,10 +1,14 @@
 import json
 import os
+from io import BytesIO
+from pathlib import Path
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from PIL import Image, UnidentifiedImageError
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_current_user, get_db
+from app.api.dependencies import get_current_user, get_db, require_admin
 from app.core.settings import settings
 from app.utils.responses import success
 from app.models.setting import Setting
@@ -31,6 +35,7 @@ DEFAULT_KEYS = {
     "company_phone": "",
     "company_email": "",
     "company_logo": "",
+    "dashboard_image": "",
     "pdf_footer": "",
     "default_usd_rate": "1000",
     "budget_terms": [],
@@ -150,3 +155,103 @@ def upload_logo(file: UploadFile = File(...), db: Session = Depends(get_db)):
         db.add(Setting(key="company_logo", value="/uploads/logo.png"))
     db.commit()
     return success({"path": "/uploads/logo.png"})
+
+
+_DASHBOARD_IMAGE_PREFIX = "dashboard-hero-"
+_DASHBOARD_IMAGE_ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+
+
+def _dashboard_file_from_setting(value: str | None) -> Path | None:
+    """Resolve only files created by the dashboard-image endpoint."""
+    if not value or not value.startswith("/uploads/"):
+        return None
+    filename = value.removeprefix("/uploads/")
+    if not filename.startswith(_DASHBOARD_IMAGE_PREFIX) or "/" in filename or "\\" in filename:
+        return None
+    candidate = UPLOAD_DIR / filename
+    return candidate if candidate.parent == UPLOAD_DIR else None
+
+
+def _validate_dashboard_image(file: UploadFile) -> bytes:
+    extension = Path(file.filename or "").suffix.lower()
+    if extension not in _DASHBOARD_IMAGE_ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Formato no permitido. Usá JPG, PNG o WebP.")
+
+    contents = file.file.read()
+    if not contents:
+        raise HTTPException(status_code=400, detail="El archivo está vacío.")
+    if len(contents) > settings.MAX_UPLOAD_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="La imagen supera los 30MB.")
+
+    try:
+        with Image.open(BytesIO(contents)) as image:
+            image.verify()
+        with Image.open(BytesIO(contents)) as image:
+            image.load()
+    except (UnidentifiedImageError, OSError) as exc:
+        raise HTTPException(status_code=400, detail="El archivo no contiene una imagen válida.") from exc
+    return contents
+
+
+@router.post("/upload-dashboard-image")
+def upload_dashboard_image(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _: object = Depends(require_admin),
+):
+    """Persist the dashboard photo without replacing the previous one first."""
+    contents = _validate_dashboard_image(file)
+    stored_name = f"{_DASHBOARD_IMAGE_PREFIX}{uuid4().hex}.webp"
+    destination = UPLOAD_DIR / stored_name
+
+    try:
+        with Image.open(BytesIO(contents)) as image:
+            normalized = image.convert("RGB")
+            if max(normalized.width, normalized.height) > settings.MAX_UPLOAD_DIMENSION:
+                ratio = settings.MAX_UPLOAD_DIMENSION / max(normalized.width, normalized.height)
+                normalized = normalized.resize(
+                    (int(normalized.width * ratio), int(normalized.height * ratio)),
+                    Image.LANCZOS,
+                )
+            output = BytesIO()
+            normalized.save(output, format="WEBP", quality=88, optimize=True)
+
+        destination.write_bytes(output.getvalue())
+        setting = db.query(Setting).filter(Setting.key == "dashboard_image").first()
+        previous_path = setting.value if setting else None
+        public_path = f"/uploads/{stored_name}"
+        if setting:
+            setting.value = public_path
+        else:
+            db.add(Setting(key="dashboard_image", value=public_path))
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        destination.unlink(missing_ok=True)
+        raise HTTPException(status_code=500, detail="No se pudo guardar la imagen del dashboard.") from exc
+
+    previous_file = _dashboard_file_from_setting(previous_path)
+    if previous_file and previous_file != destination:
+        previous_file.unlink(missing_ok=True)
+    return success({"path": public_path})
+
+
+@router.post("/restore-dashboard-image")
+def restore_dashboard_image(
+    db: Session = Depends(get_db),
+    _: object = Depends(require_admin),
+):
+    setting = db.query(Setting).filter(Setting.key == "dashboard_image").first()
+    previous_path = setting.value if setting else None
+    try:
+        if setting:
+            setting.value = ""
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="No se pudo restaurar la imagen original.") from exc
+
+    previous_file = _dashboard_file_from_setting(previous_path)
+    if previous_file:
+        previous_file.unlink(missing_ok=True)
+    return success({"path": ""})

@@ -53,11 +53,14 @@ function getPageTitle(pathname: string): string {
 }
 
 export default function MainLayout() {
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
+  const location = useLocation();
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+    const preference = window.localStorage.getItem('afamar.sidebar.collapsed');
+    return preference === null ? window.location.pathname !== '/admin' : preference === 'true';
+  });
   const [expanded, setExpanded] = useState<string>('');
   const [isMobile, setIsMobile] = useState<boolean>(false);
   const [mobileOpen, setMobileOpen] = useState<boolean>(false);
-  const location = useLocation();
 
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 768px)');
@@ -75,14 +78,24 @@ export default function MainLayout() {
     if (isMobile) setMobileOpen(false);
   }, [location.pathname, isMobile]);
 
+  useEffect(() => {
+    if (window.localStorage.getItem('afamar.sidebar.collapsed') === null) {
+      setIsCollapsed(location.pathname !== '/admin');
+    }
+  }, [location.pathname]);
+
   const pageTitle = getPageTitle(location.pathname);
   const contentMargin = isMobile ? 0 : isCollapsed ? 64 : SIDEBAR_WIDTH;
+  const handleCollapse = (collapsed: boolean) => {
+    setIsCollapsed(collapsed);
+    window.localStorage.setItem('afamar.sidebar.collapsed', String(collapsed));
+  };
 
   return (
     <div className={s['main-layout']}>
       <Sidebar
         isCollapsed={isCollapsed}
-        onCollapse={setIsCollapsed}
+        onCollapse={handleCollapse}
         expanded={expanded}
         onExpand={setExpanded}
         isMobile={isMobile}

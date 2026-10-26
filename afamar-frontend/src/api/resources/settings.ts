@@ -9,3 +9,11 @@ export const uploadLogo = (file: File) => {
   fd.append('file', file);
   return http.post('/settings/upload-logo', fd);
 };
+
+export const uploadDashboardImage = (file: File) => {
+  const fd = new FormData();
+  fd.append('file', file);
+  return http.post('/settings/upload-dashboard-image', fd);
+};
+
+export const restoreDashboardImage = () => http.post('/settings/restore-dashboard-image');

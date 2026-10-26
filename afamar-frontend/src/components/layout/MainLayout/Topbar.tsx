@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { User, Moon, Sun, LogOut, Menu } from 'lucide-react';
+import { User, Moon, Sun, LogOut, Menu, CalendarDays, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
@@ -46,6 +46,7 @@ export function Topbar({ pageTitle, onMenuClick }: TopbarProps) {
       </div>
       <div className={s['main-layout__topbar-right']}>
         <div className={s['main-layout__date']}>
+          <CalendarDays size={18} />
           {new Date().toLocaleDateString('es-AR', {
             weekday: 'long',
             year: 'numeric',
@@ -60,6 +61,8 @@ export function Topbar({ pageTitle, onMenuClick }: TopbarProps) {
             title="Perfil"
           >
             <User size={20} />
+            <span className={s['main-layout__profile-label']}>{user?.full_name || user?.username || 'Usuario'}</span>
+            <ChevronDown size={15} />
           </button>
           {profileOpen && (
             <div className={s['main-layout__profile-dropdown']}>
