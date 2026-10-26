@@ -159,6 +159,7 @@ export function buildFrenteSelectionFor(
   linear_meters: number;
   assigned_material_id: number | null;
   formula_values: null;
+  price_source: 'catalog';
 } {
   const computed = computeFrenteTotal(material.price_per_m2, multiplier, 1);
   return {
@@ -179,5 +180,6 @@ export function buildFrenteSelectionFor(
     linear_meters: 1,
     assigned_material_id: material.id ?? null,
     formula_values: null,
+    price_source: 'catalog',
   };
 }

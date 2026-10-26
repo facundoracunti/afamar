@@ -60,5 +60,25 @@ describe('applyAdditionalWorkField — frente GLOBAL', () => {
     expect(out.price).toBeCloseTo(112.12);
     expect(out.total).toBeCloseTo(370.01);
     expect(out.currency).toBe('USD');
+    expect(out.price_source).toBe('catalog');
+  });
+
+  it('keeps a manually entered frente price when its length changes', () => {
+    const out = applyAdditionalWorkField(
+      {
+        ...frenteRow,
+        assigned_material_id: 27,
+        materialName: '__ALT__:ZIRCONIUM',
+        price: 120,
+        total: 396,
+        price_source: 'manual',
+      },
+      'linear_meters',
+      4,
+      { catalogueItem: catalogue, materialOptions },
+    );
+    expect(out.price).toBe(120);
+    expect(out.total).toBe(480);
+    expect(out.price_source).toBe('manual');
   });
 });

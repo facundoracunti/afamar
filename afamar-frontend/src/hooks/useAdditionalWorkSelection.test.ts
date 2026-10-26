@@ -87,6 +87,28 @@ describe('parseAdditionalWorksData — frente fields', () => {
     expect(parsed[0].formula_values?.multiplier).toBe(1.15);
   });
 
+  it('round-trips the explicit price source without changing legacy rows', () => {
+    const original = [{
+      additional_work_id: 24,
+      name: 'Frente manual',
+      detail: null,
+      price: 120,
+      currency: 'USD' as const,
+      quantity: 1,
+      total: 240,
+      materialName: 'Blanco Dallas',
+      type: 'frente' as const,
+      linear_meters: 2,
+      assigned_material_id: 42,
+      price_source: 'manual' as const,
+      formula_values: null,
+    }];
+    const parsed = parseAdditionalWorksData(serializeAdditionalWorksData(original));
+    expect(parsed[0].price_source).toBe('manual');
+    expect(parseAdditionalWorksData(JSON.stringify([{ ...original[0], price_source: undefined }]))[0].price_source)
+      .toBeUndefined();
+  });
+
   it('preserves the COMPARATIVA snapshot keys on a frente row through parse + serialize', () => {
     // Regression sentinel for the "Presupuestado: —" frente bug: the picker
     // whitelist used to DROP `linear_meters_budgeted`/`total_*_budgeted`, so

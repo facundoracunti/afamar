@@ -270,6 +270,7 @@ function repriceSwappedFrente(
       multiplier,
       computed_at: new Date().toISOString(),
     },
+    price_source: 'catalog',
   };
 }
 

@@ -6,6 +6,7 @@
  */
 import { AdditionalWork, AdditionalWorkType } from '../types/additionalWork';
 import { POOL_MATERIAL_GLOBAL } from '../types/budget';
+import type { PriceSource } from '../types/budget';
 
 export interface AdditionalWorkSelection {
   additional_work_id: number | null;
@@ -15,6 +16,8 @@ export interface AdditionalWorkSelection {
   currency: 'ARS' | 'USD';
   quantity: number;
   total: number;
+  /** Explicitly distinguishes catalogue-linked prices from operator overrides. */
+  price_source?: PriceSource;
   materialName?: string;
   type: AdditionalWorkType;
   linear_meters?: number;
@@ -69,6 +72,9 @@ export function parseAdditionalWorksData(json: string | null | undefined): Addit
             currency: row.currency === 'USD' ? 'USD' : 'ARS',
             quantity: pickNumeric(row.quantity, 1),
             total: pickNumeric(row.total, 0),
+            price_source: row.price_source === 'manual' || row.price_source === 'catalog'
+              ? row.price_source
+              : undefined,
             materialName:
               typeof row.materialName === 'string' ? row.materialName : POOL_MATERIAL_GLOBAL,
             type,

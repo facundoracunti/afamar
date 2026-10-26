@@ -262,6 +262,24 @@ describe('BudgetOptionsProvider — mirror + CRUD', () => {
     expect(result.current!.activeOptionId).toBe('opt-2');
   });
 
+  it('duplicateOption materialises implicit SINGLE as Opción 1 + Opción 2', () => {
+    const { result } = setup(baseForm({
+      pieces: [piece('p1', 'COCINA'), piece('p2', 'BAÑO')],
+    }));
+
+    act(() => result.current!.duplicateOption('SINGLE'));
+
+    const opts = result.current!.options;
+    expect(opts.map((o) => o.name)).toEqual(['Opción 1', 'Opción 2']);
+    expect(opts).toHaveLength(2);
+    expect(opts[0].is_selected).toBe(true);
+    expect(opts[1].is_selected).toBe(false);
+    expect(opts[1].pieces.map((p) => p.name)).toEqual(['COCINA', 'BAÑO']);
+    expect(opts[1].pieces.map((p, i) => p.id === opts[0].pieces[i].id)).toEqual([false, false]);
+    expect(result.current!.activeOptionId).toBe('opt-2');
+    expect(result.current!.options.some((o) => o.name === 'Opción 3')).toBe(false);
+  });
+
   it('removeOption drops it and promotes a survivor when the winner was removed', () => {
     const src1 = option('opt-1', 'Opción 1', true, piece('p1', 'A'));
     const src2 = option('opt-2', 'Opción 2', false, piece('p2', 'B'));

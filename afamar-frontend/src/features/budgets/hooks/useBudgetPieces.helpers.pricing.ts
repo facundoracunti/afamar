@@ -16,6 +16,7 @@ import type {
   BudgetPiece,
   FabricationDetail,
   MaterialInForm,
+  PriceSource,
 } from '@/types/budget';
 import { POOL_MATERIAL_GLOBAL } from '@/types/budget';
 import type { AdditionalWork } from '@/types/additionalWork';
@@ -27,6 +28,32 @@ import {
   computeFrenteTotal,
   resolveFrenteMultiplier,
 } from '@/utils/frentePricing';
+
+function isManualPriceSource(source: PriceSource | undefined): boolean {
+  return source === 'manual';
+}
+
+/**
+ * Legacy rows have no provenance marker. Only infer catalogue origin when a
+ * dimensional row exactly matches its stored material-price snapshot; an
+ * ambiguous row is preserved rather than overwritten.
+ */
+function isLegacyAutomaticFabricationPrice(row: FabricationDetail): boolean {
+  if (row.price_source === 'catalog') return true;
+  if (row.price_source === 'manual') return false;
+  const m2 = Number(row.length || 0) * Number(row.width || 0) * Number(row.quantity || 1);
+  const snapshot = Number(row.material_price_m2 || 0);
+  if (m2 <= 0) return Number(row.price || 0) === 0;
+  if (snapshot <= 0) return false;
+  const expected = Math.round(m2 * snapshot * 100) / 100;
+  return Math.abs(Number(row.price || 0) - expected) < 0.01;
+}
+
+function isLegacyAutomaticFrentePrice(row: AdditionalWorkSelection): boolean {
+  if (row.price_source === 'catalog') return true;
+  if (row.price_source === 'manual') return false;
+  return row.formula_values != null;
+}
 
 /**
  * Re-price every m²-based fabrication row (BASEBOARD, FRONT — see
@@ -79,6 +106,7 @@ export function refreshPieceFabricationDetails(
   const next = fabrications.map((d) => {
     if (!M2_CONCEPTS.includes(String(d.concept || ''))) return d;
     if ((d.material || '').trim() !== materialName) return d;
+    if (!isLegacyAutomaticFabricationPrice(d) || isManualPriceSource(d.price_source)) return d;
 
     const length = Number(d.length || 0);
     const width = Number(d.width || 0);
@@ -91,6 +119,7 @@ export function refreshPieceFabricationDetails(
       ...d,
       material_price_m2: newPricePerM2,
       currency: newCurrency,
+      price_source: 'catalog',
     };
 
     if (length <= 0 || width <= 0) {
@@ -156,6 +185,7 @@ export function refreshPieceFrentes(
   let changed = false;
   const nextRows = rows.map((row) => {
     if (row.type !== 'frente') return row;
+    if (!isLegacyAutomaticFrentePrice(row)) return row;
     const isGlobal =
       row.materialName === POOL_MATERIAL_GLOBAL && row.assigned_material_id == null;
     if (isGlobal) return row;
@@ -191,6 +221,7 @@ export function refreshPieceFrentes(
         multiplier,
         computed_at: new Date().toISOString(),
       },
+      price_source: 'catalog',
     };
     // Only adopt the recomputation when something actually moved — avoid
     // churning `computed_at` (and the JSON) on every unrelated commit.

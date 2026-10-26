@@ -564,7 +564,7 @@ describe('useBudgetPieces (pieces-only mode)', () => {
       additional_work_id: 88, name: 'Frente Ingletetado 45°', detail: null,
       price: 100, currency: 'ARS' as const, quantity: 1, total: 200,
       materialName, type: 'frente', linear_meters: 2,
-      assigned_material_id: id, formula_values: null,
+      assigned_material_id: id, formula_values: null, price_source: 'catalog' as const,
     });
     const { result, getForm } = setupWith(blankForm({
       pieces: [{
@@ -627,7 +627,7 @@ describe('useBudgetPieces (pieces-only mode)', () => {
           additional_work_id: 88, name: 'Frente Ingletetado 45°', detail: null,
           price: 100, currency: 'ARS' as const, quantity: 1, total: 200,
           materialName: '__ALT__:Marmol', type: 'frente', linear_meters: 2,
-          assigned_material_id: 21, formula_values: null,
+          assigned_material_id: 21, formula_values: null, price_source: 'catalog' as const,
         }]),
         pools: [],
       }],
@@ -669,6 +669,7 @@ describe('useBudgetPieces (pieces-only mode)', () => {
       quantity: 1,
       currency: 'ARS',
       price: 40, // 0.4 m² × 100000 = 40000 (the OLD price snapshot)
+      price_source: 'catalog',
       labor: null,
     };
     const { result, getForm } = setupWith(blankForm({
@@ -791,6 +792,139 @@ describe('useBudgetPieces (pieces-only mode)', () => {
     expect(pieceFab.material).toBe('Marmol');
     expect(pieceFab.price).toBe(20);
     expect(pieceFab.material_price_m2).toBe(50000);
+  });
+
+  it('updatePieceMainGroup preserves explicit manual fabrication and frente prices', () => {
+    const mat: MaterialInForm = {
+      id: BLANCO_MAT.id, name: 'Blanco', category: '', color: '',
+      price_m2: 100000, price_m2_usd: 300, currency: 'USD',
+      quantity: 1, m2_used: 0, m2_budgeted: 0,
+      length: 2, width: 1, is_alternative: false,
+    };
+    const manualZocalo: FabricationDetail = {
+      concept: 'BASEBOARD', detail: '', material: 'Blanco',
+      material_price_m2: 300, length: 1, width: 0.1, m2: 0.1,
+      quantity: 1, currency: 'USD', price: 120, price_source: 'manual', labor: null,
+    };
+    const manualFrente = {
+      additional_work_id: 21, name: 'Frente manual', detail: null,
+      price: 120, currency: 'USD' as const, quantity: 1, total: 240,
+      materialName: 'Blanco', type: 'frente' as const, linear_meters: 2,
+      assigned_material_id: BLANCO_MAT.id,
+      price_source: 'manual' as const,
+      formula_values: {
+        material_price_m2_at_selection: 300,
+        multiplier: 1.15,
+        computed_at: '2026-01-01T00:00:00.000Z',
+      },
+    };
+    const { result } = setupWith(blankForm({
+      pieces: [{
+        id: 'p1', name: 'Mesada 1', mainMaterial: mat, alternativeMaterials: [],
+        fabrication_details: [manualZocalo],
+        additional_works_data: JSON.stringify([manualFrente]), pools: [],
+      }],
+    }));
+
+    act(() => result.current.updatePieceMainGroup('p1', 'price_m2_usd', 97));
+
+    expect(result.current.pieces[0].fabrication_details[0].price).toBe(120);
+    expect(JSON.parse(result.current.pieces[0].additional_works_data)[0].price).toBe(120);
+  });
+
+  it('re-prices automatic USD concepts when the material changes from 300 to 97', () => {
+    const mat: MaterialInForm = {
+      id: BLANCO_MAT.id, name: 'Blanco', category: '', color: '',
+      price_m2: 0, price_m2_usd: 300, currency: 'USD',
+      quantity: 1, m2_used: 0, m2_budgeted: 0,
+      length: 2, width: 1, is_alternative: false,
+    };
+    const automaticZocalo: FabricationDetail = {
+      concept: 'BASEBOARD', detail: '', material: 'Blanco',
+      material_price_m2: 300, length: 1, width: 0.1, m2: 0.1,
+      quantity: 1, currency: 'USD', price: 30, price_source: 'catalog', labor: null,
+    };
+    const automaticFrente = {
+      additional_work_id: 21, name: 'Frente automático', detail: null,
+      price: 44.85, currency: 'USD' as const, quantity: 1, total: 44.85,
+      materialName: 'Blanco', type: 'frente' as const, linear_meters: 1,
+      assigned_material_id: BLANCO_MAT.id, price_source: 'catalog' as const,
+      formula_values: {
+        material_price_m2_at_selection: 300,
+        multiplier: 1.15,
+        computed_at: '2026-01-01T00:00:00.000Z',
+      },
+    };
+    const { result } = setupWith(blankForm({
+      pieces: [{
+        id: 'p1', name: 'Mesada 1', mainMaterial: mat, alternativeMaterials: [],
+        fabrication_details: [automaticZocalo],
+        additional_works_data: JSON.stringify([automaticFrente]), pools: [],
+      }],
+    }));
+
+    act(() => result.current.updatePieceMainGroup('p1', 'price_m2_usd', 97));
+
+    const piece = result.current.pieces[0];
+    expect(piece.fabrication_details[0].price).toBe(9.7);
+    expect(JSON.parse(piece.additional_works_data)[0].price).toBeCloseTo(14.5015);
+  });
+
+  it('uses the effective piece material price instead of the stale catalogue price', () => {
+    const dallasInPiece: MaterialInForm = {
+      id: 99, name: 'DALLAS', category: '', color: '',
+      price_m2: 0, price_m2_usd: 97, currency: 'USD',
+      quantity: 1, m2_used: 0, m2_budgeted: 0,
+      length: 3.22, width: 0.05, is_alternative: false,
+    };
+    const staleCatalogueDallas: Material = {
+      id: 99, name: 'DALLAS', category_id: 1,
+      base_price: 0, price_usd: 300, currency: 'USD',
+    };
+    const automaticZocalo: FabricationDetail = {
+      concept: 'BASEBOARD', detail: '', material: 'DALLAS',
+      material_id: 99, material_price_m2: 300,
+      length: 3.22, width: 0.05, m2: 0.161,
+      quantity: 1, currency: 'USD', price: 48.3,
+      price_source: 'catalog', labor: null,
+    };
+    const { result } = setupWith(blankForm({
+      pieces: [{
+        id: 'p1', name: 'Mesada 1', mainMaterial: dallasInPiece,
+        alternativeMaterials: [], fabrication_details: [automaticZocalo],
+        additional_works_data: '[]', pools: [],
+      }],
+    }), [staleCatalogueDallas]);
+
+    act(() => result.current.updatePieceMainGroup('p1', 'price_m2_usd', 97));
+
+    expect(result.current.pieces[0].fabrication_details[0].price).toBeCloseTo(15.617);
+  });
+
+  it('preserves legacy fabrication prices when their origin is ambiguous', () => {
+    const mat: MaterialInForm = {
+      id: BLANCO_MAT.id, name: 'Blanco', category: '', color: '',
+      price_m2: 100000, price_m2_usd: 300, currency: 'USD',
+      quantity: 1, m2_used: 0, m2_budgeted: 0,
+      length: 2, width: 1, is_alternative: false,
+    };
+    const legacyRow: FabricationDetail = {
+      concept: 'BASEBOARD', detail: '', material: 'Blanco',
+      material_price_m2: 300, length: 1, width: 0.1, m2: 0.1,
+      quantity: 1, currency: 'USD', price: 120, labor: null,
+    };
+    const { result } = setupWith(blankForm({
+      pieces: [{
+        id: 'p1', name: 'Mesada 1', mainMaterial: mat, alternativeMaterials: [],
+        fabrication_details: [legacyRow], additional_works_data: '[]', pools: [],
+      }],
+    }));
+
+    act(() => result.current.updatePieceMainGroup('p1', 'price_m2_usd', 97));
+
+    const row = result.current.pieces[0].fabrication_details[0];
+    expect(row.price).toBe(120);
+    expect(row.material_price_m2).toBe(300);
   });
 
   it('a GLOBAL frente survives a price edit untouched (never zeroed, never re-priced)', () => {

@@ -17,6 +17,7 @@ import {
   nextOptionId,
   nextOptionName,
   resolveActiveOptionId,
+  SINGLE_OPTION_ID,
 } from './budgetOptions';
 import { withPieces } from './budgetOptions.pieces';
 
@@ -112,6 +113,30 @@ export function applyDuplicateOption(
   id: string,
 ): EntityFormState {
   const list = prev.options ?? [];
+  // A legacy/new budget exposes its current configuration as the implicit
+  // `SINGLE` option, but does not persist an option row until the operator
+  // creates a variant. Materialize that configuration before cloning it.
+  if (list.length === 0 && id === SINGLE_OPTION_ID) {
+    const originalPieces = prev.pieces ?? [];
+    const copyPieces = clonePieces(originalPieces);
+    const original: BudgetOption = {
+      id: 'opt-1',
+      name: 'Opción 1',
+      is_selected: true,
+      pieces: originalPieces,
+    };
+    const copy: BudgetOption = {
+      id: 'opt-2',
+      name: 'Opción 2',
+      is_selected: false,
+      pieces: copyPieces,
+    };
+    return {
+      ...withPieces(prev, copyPieces),
+      options: [original, copy],
+      active_option_id: copy.id,
+    };
+  }
   const source = list.find((o) => o.id === id);
   if (!source) return prev;
   const newId = nextOptionId(list);

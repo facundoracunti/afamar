@@ -3,11 +3,15 @@
 
 import type { FinancialBase } from './shared';
 
+export type PriceSource = 'catalog' | 'manual';
+
 export interface FabricationDetail {
   concept: string;
   detail: string;
   custom_concept?: string;
   material?: string;
+  /** Catalogue id of the material selected for this row, when available. */
+  material_id?: number | null;
   material_price_m2?: number;
   length: number | null;
   width: number | null;
@@ -16,6 +20,8 @@ export interface FabricationDetail {
   currency: 'ARS' | 'USD';
   quantity: number;
   price: number;
+  /** Explicitly distinguishes catalogue-linked prices from operator overrides. */
+  price_source?: PriceSource;
   /** Snapshot keys the COMPARATIVA DE MEDICIÓN reads (taken at
    *  budget→WO conversion by `work_order._bake_snapshot_into_pieces`).
    *  All optional: rows that predate the snapshot feature or that were

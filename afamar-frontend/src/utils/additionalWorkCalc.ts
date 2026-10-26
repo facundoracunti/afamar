@@ -17,6 +17,12 @@ export function recomputeFrenteRow(
     updated.assigned_material_id != null
   ) {
     const matOpt = materialOptions.find((m) => m.id === updated.assigned_material_id);
+    if (updated.price_source === 'manual') {
+      updated.total = Math.round(
+        Number(updated.price || 0) * Number(updated.linear_meters || 0) * 100,
+      ) / 100;
+      return updated;
+    }
     const multiplier = resolveFrenteMultiplier(catalogueItem);
     const computed = computeFrenteTotal(
       matOpt?.price_per_m2 ?? 0,
@@ -31,6 +37,7 @@ export function recomputeFrenteRow(
       multiplier,
       computed_at: new Date().toISOString(),
     };
+    updated.price_source = 'catalog';
   } else if (updated.assigned_material_id == null) {
     updated.price = 0;
     updated.total = 0;
@@ -53,8 +60,13 @@ export function applyAdditionalWorkField(
   const updated = { ...row };
   if (field === 'price') {
     updated.price = Number(value) || 0;
+    updated.price_source = 'manual';
     if (updated.type !== 'frente') {
       updated.total = Math.round((updated.price * updated.quantity) * 100) / 100;
+    } else {
+      updated.total = Math.round(
+        updated.price * Number(updated.linear_meters || 0) * 100,
+      ) / 100;
     }
   } else if (field === 'quantity') {
     updated.quantity = Number(value) || 1;

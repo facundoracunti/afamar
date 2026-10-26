@@ -79,6 +79,7 @@ export function useFormDetails({
       quantity: 1,
       currency: (singleMain?.currency as 'ARS' | 'USD') || 'ARS',
       price: 0,
+      price_source: 'catalog',
     };
     update('fabrication_details', [
       ...(form.fabrication_details || []),

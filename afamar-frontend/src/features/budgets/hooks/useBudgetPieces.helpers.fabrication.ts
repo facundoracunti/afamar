@@ -7,7 +7,7 @@
  * whenever the linked material's $/m² changes.
  */
 import type { Material } from '@/types/material';
-import type { BudgetPiece, FabricationDetail } from '@/types/budget';
+import type { BudgetPiece, FabricationDetail, MaterialInForm } from '@/types/budget';
 import { recomputeFabricationRow } from '@features/budgets/utils/fabricationDetails';
 import { pieceMainPrices } from './useBudgetPieces.helpers.pieces';
 
@@ -17,6 +17,7 @@ export function mutateAddPieceFabrication(piece: BudgetPiece): BudgetPiece {
     concept: 'BASEBOARD',
     detail: '',
     material: singleMain ? singleMain.name || '' : '',
+    material_id: singleMain?.id ?? null,
     material_price_m2: singleMain
       ? singleMain.currency === 'USD'
         ? singleMain.price_m2_usd || 0
@@ -29,6 +30,7 @@ export function mutateAddPieceFabrication(piece: BudgetPiece): BudgetPiece {
     quantity: 1,
     currency: (singleMain?.currency as 'ARS' | 'USD') || 'ARS',
     price: 0,
+    price_source: 'catalog',
   };
   return { ...piece, fabrication_details: [...piece.fabrication_details, base] };
 }
@@ -41,6 +43,11 @@ export function mutateUpdatePieceFabrication(
   materials: Material[],
 ): BudgetPiece {
   const { ars, usd } = pieceMainPrices(piece);
+  const pieceMaterials: MaterialInForm[] = [
+    piece.mainMaterial,
+    ...(piece.mainMaterialRows || []),
+    ...(piece.alternativeMaterials || []),
+  ].filter((material): material is MaterialInForm => Boolean(material));
   return {
     ...piece,
     fabrication_details: recomputeFabricationRow(
@@ -48,7 +55,13 @@ export function mutateUpdatePieceFabrication(
       idx,
       field,
       value,
-      { materials, materialPriceArs: ars, materialUsd: usd, fallbackMaterialPriceM2: ars },
+      {
+        materials,
+        pieceMaterials,
+        materialPriceArs: ars,
+        materialUsd: usd,
+        fallbackMaterialPriceM2: ars,
+      },
     ),
   };
 }
