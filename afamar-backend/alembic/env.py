@@ -8,6 +8,10 @@ from app.db.base import Base
 from app.models import *  # noqa: F401, F403
 
 config = context.config
+
+if settings.is_testing:
+    raise RuntimeError("Alembic migrations are disabled in testing")
+
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 if config.config_file_name is not None:

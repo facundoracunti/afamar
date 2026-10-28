@@ -4,7 +4,7 @@ from sqlalchemy.pool import QueuePool
 
 from app.core.settings import settings
 
-_connect_args = {"charset": "utf8mb4"} if not settings.is_development else {}
+_connect_args = {"charset": "utf8mb4"} if not (settings.is_development or settings.is_testing) else {}
 
 engine = create_engine(
     str(settings.DATABASE_URL),

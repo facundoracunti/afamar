@@ -1,6 +1,7 @@
 import os
 import tempfile
 
+os.environ["ENVIRONMENT"] = "testing"
 os.environ["RATE_LIMIT_ENABLED"] = "false"
 
 import pytest

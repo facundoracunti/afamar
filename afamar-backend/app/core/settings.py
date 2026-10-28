@@ -1,4 +1,6 @@
+import tempfile
 from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # settings.py lives at afamar-backend/app/core/settings.py
@@ -8,6 +10,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # user data co-located with the app that owns it (instead of leaking into
 # the repo root).
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
+TEST_DATABASE_PATH = Path(tempfile.gettempdir()) / "afamar_test.db"
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -101,8 +104,10 @@ class Settings(BaseSettings):
 
     @property
     def DATABASE_URL(self) -> str:
-        if self.ENVIRONMENT == "development":
+        if self.is_development:
             return "sqlite:///afamar.db"
+        if self.is_testing:
+            return f"sqlite:///{TEST_DATABASE_PATH}"
         return (
             f"mysql+pymysql://{self.DB_USER}:{self.DB_PASSWORD}"
             f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
@@ -110,8 +115,10 @@ class Settings(BaseSettings):
 
     @property
     def DATABASE_URL_SAFE(self) -> str:
-        if self.ENVIRONMENT == "development":
+        if self.is_development:
             return "sqlite:///afamar.db"
+        if self.is_testing:
+            return f"sqlite:///{TEST_DATABASE_PATH}"
         return (
             f"mysql+pymysql://{self.DB_USER}:******"
             f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
@@ -124,6 +131,10 @@ class Settings(BaseSettings):
     @property
     def is_development(self) -> bool:
         return self.ENVIRONMENT == "development"
+
+    @property
+    def is_testing(self) -> bool:
+        return self.ENVIRONMENT == "testing"
 
 
 settings = Settings()

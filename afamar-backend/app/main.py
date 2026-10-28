@@ -26,6 +26,9 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
 
 
 def run_migrations():
+    if settings.is_testing:
+        raise RuntimeError("Alembic migrations are disabled in testing")
+
     alembic_cfg = AlembicConfig("alembic.ini")
     # NOTE: never stamp the head as a fallback. Doing so marks the DB as
     # migrated while leaving the real schema half-applied, which silently
@@ -52,13 +55,16 @@ async def lifespan(app: FastAPI):
     logger.info("Frontend URL: %s", settings.FRONTEND_URL)
     logger.info("-" * 60)
     
-    ok, msg = check_database()
-    if ok:
-        logger.info("Database check: %s", msg)
+    if settings.is_testing:
+        logger.info("Testing environment: database check and migrations disabled")
     else:
-        logger.error("Database check: %s", msg)
-        raise RuntimeError(msg)
-    run_migrations()
+        ok, msg = check_database()
+        if ok:
+            logger.info("Database check: %s", msg)
+        else:
+            logger.error("Database check: %s", msg)
+            raise RuntimeError(msg)
+        run_migrations()
     logger.info("=" * 60)
     logger.info("AFAMAR initialization OK — ready to serve requests")
     logger.info("Frontend: %s", settings.FRONTEND_URL)
