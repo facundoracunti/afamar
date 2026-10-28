@@ -69,16 +69,18 @@ export function useCanvasHandlers(params: CanvasHandlerParams): CanvasHandlers {
   const activePointerId = useRef<number | null>(null);
 
   const capturePointer = (stage: Konva.Stage, pointerId: number) => {
-    const container = stage.container();
-    if (typeof container.setPointerCapture === 'function') {
-      try { container.setPointerCapture(pointerId); } catch { /* pointer may have ended */ }
+    // Konva listens on its content element. Capturing on the outer container
+    // can retarget pointerup/pointercancel away from the Stage handlers.
+    const content = stage.getContent();
+    if (typeof content.setPointerCapture === 'function') {
+      try { content.setPointerCapture(pointerId); } catch { /* pointer may have ended */ }
     }
   };
 
   const releasePointer = (stage: Konva.Stage, pointerId: number) => {
-    const container = stage.container();
-    if (typeof container.releasePointerCapture === 'function' && container.hasPointerCapture(pointerId)) {
-      try { container.releasePointerCapture(pointerId); } catch { /* pointer may have ended */ }
+    const content = stage.getContent();
+    if (typeof content.releasePointerCapture === 'function' && content.hasPointerCapture(pointerId)) {
+      try { content.releasePointerCapture(pointerId); } catch { /* pointer may have ended */ }
     }
   };
 

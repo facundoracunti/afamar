@@ -26,6 +26,8 @@ import type { DocumentType } from './pdfTypes';
 
 /** The document's monetary outputs. */
 export interface DocumentRuleSet {
+  computedSubtotal: number;
+  computedSubtotalUsd: number;
   transport: number;
   transportUsd: number;
   discountPct: number;
@@ -62,6 +64,7 @@ export interface DocumentRuleSetParams {
   document_type: DocumentType;
   paymentMethods: PaymentMethod[];
   totalPaid?: number;
+  usePersistedCommercialTotals?: boolean;
 }
 
 /**
@@ -73,6 +76,7 @@ export function computeDocumentRuleSet({
   document_type,
   paymentMethods,
   totalPaid,
+  usePersistedCommercialTotals = false,
 }: DocumentRuleSetParams): DocumentRuleSet {
   const str = (k: string): string => formStr(form, k);
   const num = (k: string): number => formNum(form, k);
@@ -177,6 +181,15 @@ export function computeDocumentRuleSet({
     balance_due: computedBalanceDue,
   } = totals;
 
+  const persisted = usePersistedCommercialTotals && form.number != null && form.total != null;
+  const effectiveTotal = persisted ? num('total') : computedTotal;
+  const effectiveTotalUsd = persisted ? num('total_usd') : computedTotalUsd;
+  const effectiveSubtotal = persisted ? num('subtotal') : computedSubtotal;
+  const effectiveSubtotalUsd = persisted ? num('subtotal_usd') : mainSectionSubtotalUsd;
+  const effectiveBalance = persisted
+    ? Math.max(0, effectiveTotal - paidArs)
+    : computedBalanceDue;
+
   // No main material + at least one alternative: value EVERY alternative's
   // own final price so each option page shows its correct total (dólar,
   // recargo, descuento, saldo) — works for any number of alternatives.
@@ -200,6 +213,8 @@ export function computeDocumentRuleSet({
   };
 
   return {
+    computedSubtotal: effectiveSubtotal,
+    computedSubtotalUsd: effectiveSubtotalUsd,
     transport,
     transportUsd,
     discountPct,
@@ -212,9 +227,9 @@ export function computeDocumentRuleSet({
     paidArs,
     paidUsd,
     paidLabel,
-    computedTotal,
-    computedTotalUsd,
-    computedBalanceDue,
+    computedTotal: effectiveTotal,
+    computedTotalUsd: effectiveTotalUsd,
+    computedBalanceDue: effectiveBalance,
     discountFixed,
     surchargePct,
     surchargeAmount,

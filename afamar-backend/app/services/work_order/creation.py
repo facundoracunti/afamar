@@ -8,6 +8,7 @@ from app.models.work_order import WorkOrder
 from app.services.stock_helpers import deduct_pool_stock
 from app.services.work_order.cash import create_cash_movement_on_deposit
 from app.services.work_order.conversion import build_conversion_payload
+from app.services.dolar import get_blue_mid_rate
 from app.services.work_order.helpers import (
     deposit_native_amount,
     stash_sketch_into_budgeted_details,
@@ -27,6 +28,10 @@ def create_work_order(repo, data: dict) -> WorkOrder:
         "Debe seleccionar o escribir un cliente antes de guardar la orden de trabajo.",
     )
     data.pop("client_address", None)
+    # The frontend displays this same blue-mid quote, but the backend is the
+    # authority for persisted commercial values. Never accept a stale or
+    # client-supplied rate for a new work order.
+    data["usd_rate"] = get_blue_mid_rate()
     # The frontend sends the sketch as `sketch_elements` (an array of
     # pages). The WorkOrder model doesn't have a sketch_elements column
     # (the sketch lives on the Budget), so we serialise it into the
@@ -84,7 +89,13 @@ def create_work_order_from_budget(repo, budget) -> WorkOrder:
     # All snapshot baking, gate inheritance, zeroed-deposit and
     # term-override rules live in the conversion module so the
     # alternative-conversion path can reuse them.
-    data = build_conversion_payload(budget, repo)
+    # A converted work order is a new commercial operation: use the current
+    # blue-mid rate, never the official rate frozen on the source budget.
+    data = build_conversion_payload(budget, repo, get_blue_mid_rate())
+    # Rebuild the definitive ARS/USD totals once, at conversion time. After
+    # this point updates use the frozen order rate and do not reprice merely
+    # because measurements change.
+    recalculate_totals_from_items(repo.db, data)
 
     budget.status = "CONVERTED_TO_OT"
     order = repo.create(data)

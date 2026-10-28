@@ -143,7 +143,11 @@ export default function useEntityForm({
   const { filteredClients, handleClientSelect } = useFormClient({ clientes, form, setForm });
 
   // ----- Calculations (subtotal/total/balance_due via useBudgetCalculations)
-  useBudgetCalculations(form, setForm, paymentMethods);
+  useBudgetCalculations(form, setForm, paymentMethods, {
+    // Existing work orders are commercial documents whose quote is frozen by
+    // the backend. Budgets and new orders keep the live calculator.
+    freezeExistingWorkOrder: isEdit && services.listPath === '/admin/work-orders',
+  });
 
   // ----- Financial input handlers (transport/deposit/USD)
   const {

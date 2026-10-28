@@ -1,22 +1,28 @@
 import { describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import type Konva from 'konva';
+import { useState } from 'react';
 import { useCanvasHandlers } from './CanvasArea.handlers';
 import { logicalPointerPosition } from './CanvasArea.geometry';
 import type { SketchToolType } from '@/types/sketch';
 
 function makeStage(x = 0, y = 0, scale = 1) {
   const container = document.createElement('div');
+  const content = document.createElement('div');
   const stage = {
-    getRelativePointerPosition: () => ({ x, y }),
+    getRelativePointerPosition: vi.fn(() => ({ x, y })),
     getStage: () => stage,
     container: () => container,
+    getContent: () => content,
     setPointerCapture: vi.fn(),
   } as unknown as Konva.Stage;
   Object.defineProperty(container, 'setPointerCapture', { value: vi.fn() });
   Object.defineProperty(container, 'releasePointerCapture', { value: vi.fn() });
   Object.defineProperty(container, 'hasPointerCapture', { value: vi.fn(() => true) });
-  return { stage, container, scale };
+  Object.defineProperty(content, 'setPointerCapture', { value: vi.fn() });
+  Object.defineProperty(content, 'releasePointerCapture', { value: vi.fn() });
+  Object.defineProperty(content, 'hasPointerCapture', { value: vi.fn(() => true) });
+  return { stage, container, content, scale };
 }
 
 function event(stage: Konva.Stage, pointerId: number, pointerType: string) {
@@ -32,7 +38,8 @@ function renderHandlers(overrides: Partial<Parameters<typeof useCanvasHandlers>[
   const setIsDrawing = vi.fn();
   const setDrawStart = vi.fn();
   const setDrawEnd = vi.fn();
-  const stage = makeStage(120, 80).stage;
+  const stageFixture = makeStage(120, 80);
+  const stage = stageFixture.stage;
   const result = renderHook(() => useCanvasHandlers({
     tool: 'rect',
     snap: false,
@@ -53,10 +60,70 @@ function renderHandlers(overrides: Partial<Parameters<typeof useCanvasHandlers>[
     snapNear: (v) => v,
     ...overrides,
   }));
-  return { ...result, addShape, setSid, setIsDrawing, setDrawStart, setDrawEnd, stage };
+  return { ...result, addShape, setSid, setIsDrawing, setDrawStart, setDrawEnd, ...stageFixture, stage };
+}
+
+function renderStatefulHandlers() {
+  const stageFixture = makeStage(120, 80);
+  const result = renderHook(({ revision }) => {
+    const [isDrawing, setIsDrawing] = useState(false);
+    const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(null);
+    const [drawEnd, setDrawEnd] = useState<{ x: number; y: number } | null>(null);
+    const [shapes, setShapes] = useState<unknown[]>([]);
+    const handlers = useCanvasHandlers({
+      tool: 'rect',
+      snap: false,
+      readOnly: false,
+      isDrawing,
+      drawStart,
+      drawEnd,
+      currentShapes: [],
+      shiftRef: { current: false },
+      setSid: vi.fn(),
+      setIsDrawing,
+      setDrawStart,
+      setDrawEnd,
+      addShape: (shape) => setShapes((current) => [...current, shape]),
+      updateElementPosition: vi.fn(),
+      updateElementTransform: vi.fn(),
+      snapCoord: (v) => v,
+      snapNear: (v) => v,
+    });
+    return { ...handlers, isDrawing, drawStart, drawEnd, shapes, revision };
+  }, { initialProps: { revision: 0 } });
+  return { ...result, ...stageFixture };
 }
 
 describe('CanvasArea pointer events', () => {
+  it('runs the real pointerDown -> pointerMove -> pointerUp drawing sequence', () => {
+    const handlers = renderStatefulHandlers();
+
+    act(() => handlers.result.current.handlePointerDown(event(handlers.stage, 1, 'mouse')));
+    expect(handlers.result.current.isDrawing).toBe(true);
+    expect(handlers.result.current.drawStart).toEqual({ x: 120, y: 80 });
+
+    vi.mocked(handlers.stage.getRelativePointerPosition).mockReturnValue({ x: 180, y: 140 });
+    act(() => handlers.result.current.handlePointerMove(event(handlers.stage, 1, 'mouse')));
+    expect(handlers.result.current.drawEnd).toEqual({ x: 180, y: 140 });
+
+    act(() => handlers.result.current.handlePointerUp(event(handlers.stage, 1, 'mouse')));
+    expect(handlers.result.current.shapes).toHaveLength(1);
+    expect(handlers.result.current.isDrawing).toBe(false);
+  });
+
+  it('keeps drawing state through an unrelated render and cancels it correctly', () => {
+    const handlers = renderStatefulHandlers();
+    act(() => handlers.result.current.handlePointerDown(event(handlers.stage, 4, 'touch')));
+    handlers.rerender({ revision: 1 });
+    expect(handlers.result.current.isDrawing).toBe(true);
+    expect(handlers.result.current.drawStart).toEqual({ x: 120, y: 80 });
+
+    act(() => handlers.result.current.handlePointerCancel(event(handlers.stage, 4, 'touch')));
+    expect(handlers.result.current.isDrawing).toBe(false);
+    expect(handlers.result.current.drawStart).toBeNull();
+    expect(handlers.result.current.drawEnd).toBeNull();
+  });
+
   it.each(['mouse', 'touch', 'pen'])('starts and completes a %s drawing gesture', (pointerType) => {
     const handlers = renderHandlers({
       isDrawing: true,
@@ -86,6 +153,7 @@ describe('CanvasArea pointer events', () => {
     act(() => handlers.result.current.handlePointerDown(event(handlers.stage, 7, 'touch')));
     act(() => handlers.result.current.handlePointerCancel(event(handlers.stage, 7, 'touch')));
     expect(handlers.addShape).not.toHaveBeenCalled();
+    expect((handlers.stage.getContent() as HTMLDivElement).releasePointerCapture).toHaveBeenCalledWith(7);
     expect(handlers.setIsDrawing).toHaveBeenCalledWith(false);
     expect(handlers.setDrawStart).toHaveBeenCalledWith(null);
     expect(handlers.setDrawEnd).toHaveBeenCalledWith(null);
@@ -147,7 +215,7 @@ describe('CanvasArea pointer events', () => {
     expect(setIsDrawing).toHaveBeenCalledTimes(3);
   });
 
-  it('keeps the gesture finalizable outside the canvas through pointer capture', () => {
+  it('captures and releases the pointer on Konva content, not the outer container', () => {
     const handlers = renderHandlers({
       isDrawing: true,
       drawStart: { x: 120, y: 80 },
@@ -155,8 +223,10 @@ describe('CanvasArea pointer events', () => {
     });
     const down = event(handlers.stage, 3, 'pen');
     act(() => handlers.result.current.handlePointerDown(down));
-    expect(handlers.stage.container().setPointerCapture).toHaveBeenCalledWith(3);
+    expect(handlers.container.setPointerCapture).not.toHaveBeenCalled();
+    expect((handlers.stage.getContent() as HTMLDivElement).setPointerCapture).toHaveBeenCalledWith(3);
     act(() => handlers.result.current.handlePointerUp(event(handlers.stage, 3, 'pen')));
+    expect((handlers.stage.getContent() as HTMLDivElement).releasePointerCapture).toHaveBeenCalledWith(3);
     expect(handlers.addShape).toHaveBeenCalledOnce();
   });
 

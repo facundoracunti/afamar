@@ -36,6 +36,7 @@ export interface UseUsdRateReturn {
 export function useUsdRate({
   form,
   setForm,
+  isEdit = false,
   source = 'official',
 }: UseUsdRateParams): UseUsdRateReturn {
   const [fetchedAt, setFetchedAt] = useState<string | null>(form.usd_rate_fetched_at ?? null);
@@ -43,6 +44,9 @@ export function useUsdRate({
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
+    // Existing documents keep the quote captured at creation/conversion. A
+    // new DolarAPI value must never reprice an already persisted operation.
+    if (isEdit) return;
     setLoading(true);
     setError(null);
     try {
@@ -60,9 +64,10 @@ export function useUsdRate({
     } finally {
       setLoading(false);
     }
-  }, [setForm, source]);
+  }, [isEdit, setForm, source]);
 
   useEffect(() => {
+    if (isEdit) return;
     let cancelled = false;
     (async () => {
       try {
@@ -87,7 +92,7 @@ export function useUsdRate({
     return () => {
       cancelled = true;
     };
-  }, [setForm, source]);
+  }, [isEdit, setForm, source]);
 
   return { fetchedAt, loading, error, refresh };
 }

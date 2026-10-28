@@ -37,7 +37,7 @@ export function asPools(raw: unknown): PoolInForm[] {
   return (parseJsonList(raw) as PoolInForm[]).filter(Boolean);
 }
 
-export function buildFabricationRows(raw: unknown, usdRate: number): PdfDataRow[] {
+export function buildFabricationRows(raw: unknown, usdRate: number, useBudgetedMeasures = false): PdfDataRow[] {
   const items = parseJsonList(raw) as FabricationRawItem[];
   if (!items || items.length === 0) return [];
   const result: PdfDataRow[] = [];
@@ -57,9 +57,19 @@ export function buildFabricationRows(raw: unknown, usdRate: number): PdfDataRow[
     const showWidth = isM2 || width > 0;
     const showM2 = isM2;
     const showQuantity = isM2 || isUnit || quantity > 0;
-    const m2Value = isM2 ? Math.round(length * width * quantity * 100000000) / 100000000 : null;
+    const budgetedM2 = Number((d as Record<string, unknown>).m2_budgeted);
+    const m2Value = isM2
+      ? (useBudgetedMeasures && Number.isFinite(budgetedM2)
+        ? budgetedM2
+        : Math.round(length * width * quantity * 100000000) / 100000000)
+      : null;
 
-    const lineTotal = price * quantity;
+    const budgetedNativeTotal = currency === 'USD'
+      ? Number((d as Record<string, unknown>).total_usd_budgeted)
+      : Number((d as Record<string, unknown>).total_ars_budgeted);
+    const lineTotal = useBudgetedMeasures && Number.isFinite(budgetedNativeTotal)
+      ? budgetedNativeTotal
+      : price * quantity;
     const subtotalArs = currency === 'ARS' ? lineTotal : usdRate > 0 ? lineTotal * usdRate : 0;
     const subtotalUsd = currency === 'USD' ? lineTotal : usdRate > 0 ? lineTotal / usdRate : 0;
 
@@ -92,13 +102,16 @@ export function buildFabricationRows(raw: unknown, usdRate: number): PdfDataRow[
   return result;
 }
 
-export function buildMaterialRows(materials: MaterialInForm[], usdRate: number): MaterialPdfRow[] {
+export function buildMaterialRows(materials: MaterialInForm[], usdRate: number, useBudgetedMeasures = false): MaterialPdfRow[] {
   const result: MaterialPdfRow[] = [];
   for (const src of materials) {
     const length = Number(src.length || 0);
     const width = Number(src.width || 0);
     const quantity = Number(src.quantity || 1);
-    const m2 = length * width * quantity;
+    const budgetedM2 = Number((src as unknown as Record<string, unknown>).m2_budgeted);
+    const m2 = useBudgetedMeasures && Number.isFinite(budgetedM2)
+      ? budgetedM2
+      : length * width * quantity;
     const currency: 'ARS' | 'USD' = src.currency === 'USD' ? 'USD' : 'ARS';
     const priceM2Ars = Number(src.price_m2 || 0);
     const priceM2Usd = Number(src.price_m2_usd || 0);
@@ -158,6 +171,7 @@ export function buildPoolRows(pools: PoolInForm[], usdRate: number): PoolPdfRow[
 export function buildAdditionalWorksRows(
   form: Record<string, unknown>,
   usdRate: number,
+  useBudgetedMeasures = false,
 ): AdditionalWorkPdfRow[] {
   const additionalWorksRaw = (form as { additional_works_data?: unknown }).additional_works_data;
   let additionalWorksParsed: Array<Record<string, unknown>> = [];
@@ -180,7 +194,12 @@ export function buildAdditionalWorksRows(
     const currency = (row['currency'] === 'USD' ? 'USD' : 'ARS') as 'ARS' | 'USD';
     const price = Number(row['price']) || 0;
     const quantity = Number(row['quantity']) || 1;
-    const totalInSourceCurrency = Number(row['total']) || (price * quantity);
+    const budgetedNativeTotal = currency === 'USD'
+      ? Number(row['total_usd_budgeted'])
+      : Number(row['total_ars_budgeted']);
+    const totalInSourceCurrency = useBudgetedMeasures && Number.isFinite(budgetedNativeTotal)
+      ? budgetedNativeTotal
+      : Number(row['total']) || (price * quantity);
     const rowType: 'flat' | 'frente' = row['type'] === 'frente' ? 'frente' : 'flat';
     const formulaValues = (row['formula_values'] as Record<string, unknown> | null | undefined) ?? null;
     const rawMaterialName = (row['materialName'] ?? row['material_name'] ?? '') as string;
@@ -206,7 +225,10 @@ export function buildAdditionalWorksRows(
 
     if (rowType !== 'frente') return base;
 
-    const linearMeters = Number(row['linear_meters']) || 0;
+    const budgetedLinearMeters = Number(row['linear_meters_budgeted']);
+    const linearMeters = useBudgetedMeasures && Number.isFinite(budgetedLinearMeters)
+      ? budgetedLinearMeters
+      : Number(row['linear_meters']) || 0;
     const m2AtSelection = Number(formulaValues?.['material_price_m2_at_selection']) || 0;
     const multiplier = Number(formulaValues?.['multiplier'] ?? formulaValues?.['constant']);
 

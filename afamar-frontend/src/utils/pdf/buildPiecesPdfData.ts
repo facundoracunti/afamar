@@ -57,6 +57,7 @@ function sumUsd(rows: Array<{ subtotal_usd: number }>): number {
 export function buildPieces(
   form: Record<string, unknown>,
   usdRate: number,
+  useBudgetedMeasures = false,
 ): PiecesPdfPiece[] {
   const raw = (form as { pieces?: unknown }).pieces;
   if (!Array.isArray(raw) || raw.length === 0) return [];
@@ -73,7 +74,7 @@ export function buildPieces(
   // PDF block: we first collect the keys of ALL pieces and skip any row
   // that belongs to one of them.
   const rawDocFab = ((form as { fabrication_details?: FabricationDetail[] | undefined }).fabrication_details) || [];
-  const docFabRows: PdfDataRow[] = buildFabricationRows(rawDocFab, usdRate);
+  const docFabRows: PdfDataRow[] = buildFabricationRows(rawDocFab, usdRate, useBudgetedMeasures);
   const docFabKey = (r: PdfDataRow) => `${r.concept}__${r.detail ?? ''}`;
   const docFabByKey = new Map<string, PdfDataRow>();
   for (const r of docFabRows) {
@@ -89,6 +90,7 @@ export function buildPieces(
     for (const fr of buildFabricationRows(
       Array.isArray(p.fabrication_details) ? p.fabrication_details : [],
       usdRate,
+      useBudgetedMeasures,
     )) {
       allPieceFabKeys.add(docFabKey(fr));
     }
@@ -117,8 +119,8 @@ export function buildPieces(
       : [];
     const piecePools = Array.isArray(piece.pools) ? piece.pools : [];
 
-    const mainRows = buildMaterialRows(mainList, usdRate);
-    const pieceFabRows = buildFabricationRows(piece.fabrication_details, usdRate);
+    const mainRows = buildMaterialRows(mainList, usdRate, useBudgetedMeasures);
+    const pieceFabRows = buildFabricationRows(piece.fabrication_details, usdRate, useBudgetedMeasures);
     // Only the primary piece inherits the calculator's docFab rows. Other
     // pieces keep their own fabrication (no cross-piece leak). Within the
     // primary piece, dedup by (concept, detail) so a row that was
@@ -140,6 +142,7 @@ export function buildPieces(
     const adicRows = buildAdditionalWorksRows(
       { ...form, additional_works_data: piece.additional_works_data },
       usdRate,
+      useBudgetedMeasures,
     );
     const poolRows: PoolPdfRow[] = buildPoolRows(piecePools, usdRate);
 
@@ -165,7 +168,7 @@ export function buildPieces(
 
     const alternatives = [...altGroups.values()].map((group, i) => {
       const representative = group[0];
-      const altMaterialRows = buildMaterialRows(group, usdRate);
+      const altMaterialRows = buildMaterialRows(group, usdRate, useBudgetedMeasures);
       // Replace the `material` field on every zócalo/frente row with the
       // alternative material name — the rows were authored against the
       // principal so the label still reads "ABSOLUTE WHITE" otherwise.

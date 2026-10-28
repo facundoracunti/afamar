@@ -33,6 +33,7 @@ from app.services.budget_calculator import flatten_pieces
 from app.services.budget_option_totals import pick_winning_option
 from app.services.budget_options import SINGLE_OPTION_ID
 from app.services.stock_helpers import deduct_pool_stock
+from app.services.dolar import get_blue_mid_rate
 
 
 def _first_main_material(pieces: list[dict]) -> tuple[str, float]:
@@ -51,6 +52,7 @@ def build_option_conversion_payload(
     budget: Budget,
     repo: WorkOrderRepository,
     option_id: Optional[str] = None,
+    usd_rate: float | None = None,
 ) -> tuple[dict, dict, list]:
     """Build the ``data`` dict for the winning option's work order.
 
@@ -62,7 +64,6 @@ def build_option_conversion_payload(
     """
     import json
 
-    from app.core.settings import settings
     from app.services.work_order.conversion import (
         _serialize_sketch,
         _snapshot_additional_works,
@@ -101,10 +102,10 @@ def build_option_conversion_payload(
     additional_works_list = json.loads(scratch["additional_works_data"] or "[]")
     pools = json.loads(scratch["pools_data"] or "[]")
 
-    usd_rate = float(budget.usd_rate or settings.DEFAULT_USD_RATE)
+    conversion_rate = float(usd_rate if usd_rate is not None else get_blue_mid_rate())
     _, materiales_json = _snapshot_materials(materials_raw, 0.0)
-    additional_works_list = _snapshot_additional_works(additional_works_list, usd_rate)
-    fabrication_details = _snapshot_fabrication_details(fabrication_details, usd_rate)
+    additional_works_list = _snapshot_additional_works(additional_works_list, conversion_rate)
+    fabrication_details = _snapshot_fabrication_details(fabrication_details, conversion_rate)
     sketch_list, sketch_json = _serialize_sketch(budget)
 
     material_name, material_price = _first_main_material(pieces)
@@ -135,7 +136,7 @@ def build_option_conversion_payload(
         "bacha": budget.bacha,
         "anafe": budget.anafe,
         "currency": budget.currency,
-        "usd_rate": budget.usd_rate or usd_rate,
+        "usd_rate": conversion_rate,
         # Zeroed: `recalculate_totals_from_items` recomputes the OPTION's
         # own subtotal/total/balance before the row is created. Seeding
         # them with the BUDGET's totals would charge the customer for the
@@ -144,7 +145,9 @@ def build_option_conversion_payload(
         "subtotal_usd": 0.0,
         "total": 0.0,
         "total_usd": 0.0,
-        "transport": budget.transport or 0,
+        "transport": round(float(budget.transport_usd or 0) * conversion_rate, 2)
+        if budget.transport_usd
+        else budget.transport or 0,
         "transport_usd": budget.transport_usd or 0,
         "installation": budget.installation or 0,
         "discount": budget.discount or 0,
@@ -208,7 +211,12 @@ def convert_budget_to_work_order(
         raise ValidationError("El presupuesto ya fue convertido a una Orden de Trabajo")
 
     repo = WorkOrderRepository(db)
-    data, option, pools = build_option_conversion_payload(budget, repo, option_id)
+    data, option, pools = build_option_conversion_payload(
+        budget,
+        repo,
+        option_id,
+        usd_rate=get_blue_mid_rate(),
+    )
 
     # Server-side recompute of the OPTION's totals (materials + fabrication +
     # additional works + pools of THIS option only) so the WO carries the

@@ -14,7 +14,6 @@ deposit + terms-override rules live in a single place.
 import json
 from typing import TYPE_CHECKING
 
-from app.core.settings import settings
 from app.services.work_order.snapshots import bake_snapshot_into_pieces
 
 if TYPE_CHECKING:
@@ -147,7 +146,11 @@ def _resolve_additional_works(budget) -> list:
     return out
 
 
-def build_conversion_payload(budget, repo: "WorkOrderRepository") -> dict:
+def build_conversion_payload(
+    budget,
+    repo: "WorkOrderRepository",
+    usd_rate: float,
+) -> dict:
     """Assemble the ``data`` dict ready for ``WorkOrderRepository.create``.
 
     This is the single source of truth for the budget → WO conversion: the
@@ -158,12 +161,10 @@ def build_conversion_payload(budget, repo: "WorkOrderRepository") -> dict:
     from app.services.budget_calculator import filter_main_materials, parse_materials_data
     from app.utils.numbering import generate_work_order_number
 
-    # The budget already carries the canonical totals (subtotal, total,
-    # balance_due, etc.) computed and submitted by the frontend when the
-    # user approved it. Recomputing from materials_data here would lose
-    # any fabrication_details / surcharge logic the frontend baked in,
-    # so we trust the budget's numbers and only derive a few display
-    # fields from materials_data (material name + price_m2 fallback).
+    # The budget uses the official rate, while a work order is a new
+    # operation priced with the blue-mid rate. The caller obtains that rate
+    # from DolarAPI before entering this builder; never inherit the budget's
+    # official rate here.
     materials_raw = parse_materials_data(budget.materials_data)
     main_materials = filter_main_materials(materials_raw)
 
@@ -174,20 +175,12 @@ def build_conversion_payload(budget, repo: "WorkOrderRepository") -> dict:
         material_nombre = budget.material or ""
         material_precio_m2 = budget.material_price_m2 or 0
 
-    # `budget.total` / `budget.total_usd` already include the surcharge
-    # that was applied budget-side (the budget's `total` is what the
-    # customer signed). We mirror those figures 1:1 into the WO so the
-    # conversion doesn't change what the customer owes. No need to
-    # re-apply surcharge here — the budget is the source of truth.
-    budget_total_ars = float(budget.total or 0)
-    budget_total_usd = float(budget.total_usd or 0)
-
     last_number = repo.get_last_number()
 
     materials_with_snapshot, materiales_json = _snapshot_materials(materials_raw, 0.0)
 
     additional_works_list = _resolve_additional_works(budget)
-    wo_usd_rate = float(budget.usd_rate or settings.DEFAULT_USD_RATE)
+    wo_usd_rate = float(usd_rate)
     additional_works_list = _snapshot_additional_works(additional_works_list, wo_usd_rate)
 
     sketch_list, sketch_json = _serialize_sketch(budget)
@@ -227,9 +220,14 @@ def build_conversion_payload(budget, repo: "WorkOrderRepository") -> dict:
         "workshop_term": getattr(budget, "workshop_term", None) or "",
         "workshop_sopapas": getattr(budget, "workshop_sopapas", None) or "",
         "currency": budget.currency,
-        "usd_rate": budget.usd_rate or settings.DEFAULT_USD_RATE,
-        "subtotal": float(budget.subtotal or 0),
-        "transport": budget.transport or 0,
+        "usd_rate": wo_usd_rate,
+        "subtotal": 0.0,
+        # `transport_usd` is the native mirror entered by the operator. The
+        # ARS mirror must be re-derived with the conversion rate, otherwise a
+        # quote created with the official rate leaks into the work order.
+        "transport": round(float(budget.transport_usd or 0) * wo_usd_rate, 2)
+        if budget.transport_usd
+        else float(budget.transport or 0),
         "installation": budget.installation or 0,
         "discount": budget.discount or 0,
         "discount_percentage": budget.discount_percentage or 0,
@@ -241,10 +239,10 @@ def build_conversion_payload(budget, repo: "WorkOrderRepository") -> dict:
         # j0k1l2m3n4o5 migration, default 'total').
         "discount_enabled": budget.discount_enabled or False,
         "discount_target": budget.discount_target or "materials",
-        "total": budget_total_ars,
-        "subtotal_usd": float(budget.subtotal_usd or 0),
+        "total": 0.0,
+        "subtotal_usd": 0.0,
         "transport_usd": budget.transport_usd or 0,
-        "total_usd": budget_total_usd,
+        "total_usd": 0.0,
         # Budgets are pure quote documents — the seña is collected at the
         # WORK ORDER (in MEDICIÓN), never at budget time. The converted
         # order starts fully unpaid: no deposit carried over, `balance_due`
@@ -255,10 +253,11 @@ def build_conversion_payload(budget, repo: "WorkOrderRepository") -> dict:
         "deposit_received": 0,
         "deposit_currency": "ARS",
         "deposit_usd": 0,
-        "balance_due": budget_total_ars,
-        "balance_due_usd": budget_total_usd,
+        "balance_due": 0.0,
+        "balance_due_usd": 0.0,
         "balance_paid": False,
         "payment_method": budget.payment_method,
+        "payment_method_id": getattr(budget, "payment_method_id", None),
         "installments": budget.installments or 1,
         "priority": budget.priority or "NORMAL",
         "delivery_date": budget.delivery_date,

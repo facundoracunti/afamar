@@ -51,6 +51,7 @@ export function buildPdfData({
   sketchImages = [],
   paymentMethods = [],
   totalPaid,
+  usePersistedCommercialTotals = false,
 }: BuildPdfDataParams): PdfDocumentData {
   // ── Multi-option budgets (2026-10-01): the document describes the
   // WINNING option ────────────────────────────────────────────────────
@@ -67,6 +68,7 @@ export function buildPdfData({
     document_type,
     paymentMethods,
     totalPaid,
+    usePersistedCommercialTotals: usePersistedCommercialTotals && document_type === 'work_order',
   });
 
   const base = buildBaseDocument(ctx, {
@@ -85,7 +87,12 @@ export function buildPdfData({
   // the legacy single-section "PRINCIPAL" card. This unifies the OT and
   // Presupuesto layouts so the operator gets the same per-piece grouping
   // in both document types.
-  attachPiecesBlocks(base, effectiveForm, ctx.usdRate);
+  attachPiecesBlocks(
+    base,
+    effectiveForm,
+    ctx.usdRate,
+    usePersistedCommercialTotals && document_type === 'work_order',
+  );
 
   if (document_type === 'budget') {
     // Budget terms + (multi-piece budgets) the consolidated TOTAL GENERAL

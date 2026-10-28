@@ -19,10 +19,16 @@ from app.services.budget_calculator import (
     parse_materials_data,
 )
 from app.services.stock_helpers import deduct_pool_stock
+from app.services.dolar import get_blue_mid_rate
 from app.utils.numbering import generate_work_order_number
 
 
-def create_alternative_work_order(budget, repo: BudgetRepository, idx: int) -> WorkOrder:
+def create_alternative_work_order(
+    budget,
+    repo: BudgetRepository,
+    idx: int,
+    usd_rate: float | None = None,
+) -> WorkOrder:
     """Create the work order converted from the alternative material ``idx``.
 
     Raises ``ValidationError`` when the index is out of range or the row is
@@ -36,7 +42,12 @@ def create_alternative_work_order(budget, repo: BudgetRepository, idx: int) -> W
     if not (alt.get("is_alternative") or alt.get("es_alternativa")):
         raise ValidationError("Material at index is not marked as alternative")
 
-    mat_cost_ars, mat_cost_usd, alt_currency, usd_rate_value, _ = compute_alternative_totals(alt, budget)
+    usd_rate_value = float(usd_rate if usd_rate is not None else get_blue_mid_rate())
+    mat_cost_ars, mat_cost_usd, alt_currency, _, _ = compute_alternative_totals(
+        alt,
+        budget,
+        usd_rate=usd_rate_value,
+    )
 
     detalles = []
     if budget.fabrication_details:

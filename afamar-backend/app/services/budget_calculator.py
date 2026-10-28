@@ -135,7 +135,7 @@ def calculate_material_totals(materials: list, usd_rate: float) -> dict:
     return {"ars": ars, "usd": usd}
 
 
-def compute_alternative_totals(alt: dict, budget) -> tuple:
+def compute_alternative_totals(alt: dict, budget, usd_rate: float | None = None) -> tuple:
     largo = float(alt.get("length") or alt.get("largo", 0) or 0)
     ancho = float(alt.get("width") or alt.get("ancho", 0) or 0)
     m2 = (largo * ancho) if largo > 0 and ancho > 0 else 0
@@ -143,7 +143,7 @@ def compute_alternative_totals(alt: dict, budget) -> tuple:
     area = m2 * cantidad
 
     alt_currency = alt.get("moneda") or alt.get("currency") or budget.currency or "ARS"
-    usd_rate_value = budget.usd_rate or settings.DEFAULT_USD_RATE
+    usd_rate_value = float(usd_rate if usd_rate is not None else (budget.usd_rate or settings.DEFAULT_USD_RATE))
 
     if alt_currency == "USD":
         mat_cost_usd = round(area * float(alt.get("price_m2_usd") or alt.get("precio_m2_usd", 0) or 0), 2)

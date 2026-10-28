@@ -12,7 +12,7 @@ from app.services.pdf_html.formatting import (
 )
 
 
-def _parse_fabrication_details(raw) -> list[dict]:
+def _parse_fabrication_details(raw, use_budgeted_measures: bool = False) -> list[dict]:
     if not raw:
         return []
     import json as _json
@@ -62,7 +62,11 @@ def _parse_fabrication_details(raw) -> list[dict]:
 
         # M² is meaningful only when we actually have length & width. For
         # unit cuts the cell shows "U" (unit) instead.
-        m2_value = round(length * width * quantity, 8) if is_m2 else None
+        budgeted_m2 = float(d.get("m2_budgeted")) if d.get("m2_budgeted") is not None else None
+        m2_value = (
+            budgeted_m2 if use_budgeted_measures and budgeted_m2 is not None
+            else round(length * width * quantity, 8)
+        ) if is_m2 else None
 
         result.append({
             "concept": _concept_to_display(concept_code, custom),
@@ -81,13 +85,14 @@ def _parse_fabrication_details(raw) -> list[dict]:
     return result
 
 
-def _build_materials_pdf(main_materials: list, alternatives: list) -> list[dict]:
+def _build_materials_pdf(main_materials: list, alternatives: list, use_budgeted_measures: bool = False) -> list[dict]:
     result = []
     for src in (main_materials or []) + (alternatives or []):
         length = src.get("largo") or src.get("length", 0) or 0
         width = src.get("ancho") or src.get("width", 0) or 0
         quantity = src.get("cantidad") or src.get("quantity", 1) or 1
-        m2 = length * width * quantity
+        budgeted_m2 = float(src.get("m2_budgeted")) if src.get("m2_budgeted") is not None else None
+        m2 = budgeted_m2 if use_budgeted_measures and budgeted_m2 is not None else length * width * quantity
         price_m2 = src.get("precio_m2") or src.get("price_m2", 0) or 0
         subtotal = m2 * price_m2
         result.append({
@@ -132,7 +137,7 @@ def _parse_piece_list(raw) -> list[dict]:
     return parsed if isinstance(parsed, list) else []
 
 
-def _build_piece_materials_pdf(materials: list) -> list[dict]:
+def _build_piece_materials_pdf(materials: list, use_budgeted_measures: bool = False) -> list[dict]:
     """Build display rows for the OT piece cards.
 
     This mirrors the existing material row presentation but keeps the native
@@ -148,7 +153,8 @@ def _build_piece_materials_pdf(materials: list) -> list[dict]:
         currency = "USD" if str(src.get("currency") or "").upper() == "USD" else "ARS"
         price_key = "price_m2_usd" if currency == "USD" else "price_m2"
         price = float(src.get(price_key) or 0)
-        m2 = length * width * quantity
+        budgeted_m2 = float(src.get("m2_budgeted")) if src.get("m2_budgeted") is not None else None
+        m2 = budgeted_m2 if use_budgeted_measures and budgeted_m2 is not None else length * width * quantity
         result.append({
             "name": src.get("name") or src.get("nombre") or "",
             "color": src.get("color") or "",
@@ -163,7 +169,7 @@ def _build_piece_materials_pdf(materials: list) -> list[dict]:
     return result
 
 
-def _build_piece_additional_pdf(raw) -> list[dict]:
+def _build_piece_additional_pdf(raw, use_budgeted_measures: bool = False) -> list[dict]:
     """Build presentation rows for piece-owned additional works."""
     result = []
     for src in _parse_piece_list(raw):
@@ -172,7 +178,9 @@ def _build_piece_additional_pdf(raw) -> list[dict]:
         currency = "USD" if str(src.get("currency") or "").upper() == "USD" else "ARS"
         price = float(src.get("price") or 0)
         quantity = float(src.get("quantity") or 1)
-        total = float(src.get("total") or price * quantity)
+        budgeted_key = "total_usd_budgeted" if currency == "USD" else "total_ars_budgeted"
+        budgeted_total = float(src[budgeted_key]) if src.get(budgeted_key) is not None else None
+        total = budgeted_total if use_budgeted_measures and budgeted_total is not None else float(src.get("total") or price * quantity)
         result.append({
             "name": src.get("name") or "Trabajo adicional",
             "detail": src.get("detail") or src.get("detalle") or "",
@@ -184,7 +192,7 @@ def _build_piece_additional_pdf(raw) -> list[dict]:
     return result
 
 
-def _build_work_order_pieces_pdf(raw, usd_rate: float = 0) -> list[dict]:
+def _build_work_order_pieces_pdf(raw, usd_rate: float = 0, use_budgeted_measures: bool = False) -> list[dict]:
     """Adapt ``pieces_data`` into presentation-only OT card rows.
 
     The legacy builder remains flat for budgets and for OTs without valid
@@ -201,14 +209,14 @@ def _build_work_order_pieces_pdf(raw, usd_rate: float = 0) -> list[dict]:
         materials = ([main] if isinstance(main, dict) else []) + [
             row for row in main_rows if isinstance(row, dict)
         ]
-        fabrication = _parse_fabrication_details(piece.get("fabrication_details"))
+        fabrication = _parse_fabrication_details(piece.get("fabrication_details"), use_budgeted_measures)
         for row in fabrication:
             row["currency"] = "USD" if str(row.get("currency") or "").upper() == "USD" else "ARS"
         result.append({
             "name": piece.get("name") or "Pieza",
-            "materials": _build_piece_materials_pdf(materials),
+            "materials": _build_piece_materials_pdf(materials, use_budgeted_measures),
             "fabrication": fabrication,
-            "additional": _build_piece_additional_pdf(piece.get("additional_works_data")),
+            "additional": _build_piece_additional_pdf(piece.get("additional_works_data"), use_budgeted_measures),
             "pools": _build_pools_pdf(piece.get("pools") or []),
         })
     return [

@@ -34,6 +34,7 @@ from app.services.budget_calculator import (
     parse_materials_data,
 )
 from app.services.budget_conversion import create_alternative_work_order
+from app.services.dolar import get_blue_mid_rate
 from app.services.budget_helpers import (
     _flatten_sketch_pages,
     _process_additional_works_snapshot,
@@ -229,4 +230,9 @@ class BudgetService:
         budget = self.repo.get_by_id(budget_id)
         if not budget:
             raise NotFoundError("Budget")
-        return create_alternative_work_order(budget, self.repo, idx)
+        return create_alternative_work_order(
+            budget,
+            self.repo,
+            idx,
+            usd_rate=get_blue_mid_rate(),
+        )

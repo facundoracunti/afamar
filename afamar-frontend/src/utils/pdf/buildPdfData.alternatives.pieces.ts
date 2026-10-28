@@ -34,8 +34,9 @@ export function attachPiecesBlocks(
   base: PdfDocumentData,
   form: Record<string, unknown>,
   usdRate: number,
+  useBudgetedMeasures = false,
 ): void {
-  const pieces = buildPieces(form, usdRate);
+  const pieces = buildPieces(form, usdRate, useBudgetedMeasures);
   if (pieces.length > 0) {
     base.pieces = pieces;
   }

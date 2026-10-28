@@ -60,10 +60,12 @@ export function collectDocumentRows({
   form,
   effectiveForm,
   document_type,
+  usePersistedCommercialTotals = false,
 }: {
   form: Record<string, unknown>;
   effectiveForm: Record<string, unknown>;
   document_type: DocumentType;
+  usePersistedCommercialTotals?: boolean;
 }): DocumentRows {
   const allMaterials = asMaterials(effectiveForm.materials_data);
   const mainMaterials = allMaterials.filter((m) => !m.is_alternative);
@@ -71,9 +73,10 @@ export function collectDocumentRows({
   const pools = asPools(effectiveForm.pools_data);
   const usdRate = formNum(form, 'usd_rate');
 
-  const fabricationRows = buildFabricationRows(effectiveForm.fabrication_details, usdRate);
+  const useBudgetedMeasures = document_type === 'work_order' && usePersistedCommercialTotals;
+  const fabricationRows = buildFabricationRows(effectiveForm.fabrication_details, usdRate, useBudgetedMeasures);
 
-  const additional_works = buildAdditionalWorksRows(effectiveForm, usdRate);
+  const additional_works = buildAdditionalWorksRows(effectiveForm, usdRate, useBudgetedMeasures);
   const {
     ars: additionalWorksSubtotalArs,
     usd: additionalWorksSubtotalUsd,
@@ -95,6 +98,7 @@ export function collectDocumentRows({
     fabricationRows,
     usdRate,
     adtBuckets,
+    useBudgetedMeasures,
   );
 
   const mainSection = sections.find((s) => s.is_main);
@@ -105,7 +109,7 @@ export function collectDocumentRows({
   // document subtotal the moment the operator marks a material as
   // "Alternativa". The piece principal subtotals already include pools
   // (they moved into the pieces), so they sum to the true document total.
-  const piecesEarly = buildPieces(effectiveForm, usdRate);
+  const piecesEarly = buildPieces(effectiveForm, usdRate, useBudgetedMeasures);
   const piecesTotals = piecesEarly.length > 0 ? piecesSubtotal(piecesEarly) : null;
   const globalSection = sections.find((s) => s.is_global);
   const computedSubtotal = piecesTotals

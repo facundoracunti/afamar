@@ -39,6 +39,7 @@ export interface DocumentContextParams {
   document_type: DocumentType;
   paymentMethods: PaymentMethod[];
   totalPaid?: number;
+  usePersistedCommercialTotals?: boolean;
 }
 
 /**
@@ -50,14 +51,16 @@ export function buildDocumentContext({
   document_type,
   paymentMethods,
   totalPaid,
+  usePersistedCommercialTotals = false,
 }: DocumentContextParams): DocumentContext {
-  const rows = collectDocumentRows({ form, effectiveForm, document_type });
+  const rows = collectDocumentRows({ form, effectiveForm, document_type, usePersistedCommercialTotals });
   const ruleSet = computeDocumentRuleSet({
     form,
     rows,
     document_type,
     paymentMethods,
     totalPaid,
+    usePersistedCommercialTotals,
   });
   const measurement_comparison = buildDocumentComparison(
     form,

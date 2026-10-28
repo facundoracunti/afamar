@@ -78,6 +78,14 @@ function renderCalc(initial: EntityFormState, paymentMethods: PaymentMethod[] = 
   return result;
 }
 
+function renderFrozenCalc(initial: EntityFormState, paymentMethods: PaymentMethod[] = PAYMENT_METHODS) {
+  return renderHook(() => {
+    const [current, setCurrent] = useState<EntityFormState>(initial);
+    useBudgetCalculations(current, setCurrent, paymentMethods, { freezeExistingWorkOrder: true });
+    return { form: current, setForm: setCurrent };
+  });
+}
+
 describe('useBudgetCalculations — basic totals', () => {
   it('returns zero for an empty form', () => {
     const { result } = renderCalc(makeForm({ usd_rate: 1000 }));
@@ -93,6 +101,71 @@ describe('useBudgetCalculations — basic totals', () => {
     const { result } = renderCalc(makeForm({ fabrication_details, transport: 1500 }));
     expect(result.current.form.subtotal).toBe(2000);
     expect(result.current.form.total).toBe(3500); // 2000 + 1500
+  });
+});
+
+describe('useBudgetCalculations — existing work-order commercial freeze', () => {
+  it('keeps persisted totals when only real measurements change', () => {
+    const materials = [{
+      id: 1,
+      name: 'Material congelado',
+      currency: 'ARS',
+      price_m2: 100000,
+      price_m2_usd: 100,
+      length: 1,
+      width: 1,
+      quantity: 1,
+      m2_used: 1,
+      m2_budgeted: 1,
+      is_alternative: false,
+    }] as unknown as MaterialInForm[];
+    const result = renderFrozenCalc(makeForm({
+      number: 'A-000003',
+      usd_rate: 1565,
+      materials_data: materials,
+      subtotal: 200000,
+      subtotal_usd: 127.8,
+      total: 249862,
+      total_usd: 159.66,
+      balance_due: 199862,
+      balance_due_usd: 127.71,
+    }));
+
+    act(() => {
+      result.result.current.setForm((prev) => ({
+        ...prev,
+        materials_data: [{ ...materials[0], length: 4, width: 2, m2_used: 8 }],
+      }));
+    });
+
+    expect(result.result.current.form.usd_rate).toBe(1565);
+    expect(result.result.current.form.total).toBe(249862);
+    expect(result.result.current.form.balance_due).toBe(199862);
+  });
+
+  it('recalculates when a commercial price changes explicitly', () => {
+    const result = renderFrozenCalc(makeForm({
+      number: 'A-000003',
+      materials_data: [{
+        id: 1, name: 'Material', currency: 'ARS', price_m2: 100000,
+        price_m2_usd: 100, length: 1, width: 1, quantity: 1,
+        is_alternative: false,
+      }] as unknown as MaterialInForm[],
+      total: 100000,
+      subtotal: 100000,
+      total_usd: 100,
+      subtotal_usd: 100,
+    }));
+
+    act(() => {
+      result.result.current.setForm((prev) => ({
+        ...prev,
+        materials_data: [{ ...(prev.materials_data[0] as MaterialInForm), price_m2: 200000 }],
+      }));
+    });
+
+    expect(result.result.current.form.total).toBe(200000);
+    expect(result.result.current.form.subtotal).toBe(200000);
   });
 });
 

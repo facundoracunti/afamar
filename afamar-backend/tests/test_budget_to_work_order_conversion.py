@@ -64,6 +64,27 @@ def conversion_db():
         db.close()
 
 
+@pytest.fixture(autouse=True)
+def deterministic_blue_rate(monkeypatch):
+    """Use a fake blue-mid quote; conversion must not call DolarAPI in tests."""
+    monkeypatch.setattr(
+        "app.services.work_order.creation.get_blue_mid_rate",
+        lambda: 1000.0,
+    )
+    monkeypatch.setattr(
+        "app.services.budget_conversion.get_blue_mid_rate",
+        lambda: 1000.0,
+    )
+    monkeypatch.setattr(
+        "app.services.budget.get_blue_mid_rate",
+        lambda: 1000.0,
+    )
+    monkeypatch.setattr(
+        "app.services.budget_option_conversion.get_blue_mid_rate",
+        lambda: 1000.0,
+    )
+
+
 MAIN_MAT = {
     "id": 1, "name": "Mármol Blanco", "currency": "ARS",
     "price_m2": 200000.0, "price_m2_usd": 200.0,
@@ -176,8 +197,25 @@ def test_create_from_budget_respects_false_gate_and_empty_terms(conversion_db):
     assert order.discount_target == "materials"
     assert order.delivery_terms_override == ""
     assert order.warranty_override == ""
-    assert order.balance_due == 540000.0
+    # The gate is off, so the configured 10% discount is not applied.
+    assert order.balance_due == 600000.0
     assert order.deposit_received == 0
+
+
+def test_create_from_budget_uses_blue_rate_at_conversion(conversion_db, monkeypatch):
+    monkeypatch.setattr(
+        "app.services.work_order.creation.get_blue_mid_rate",
+        lambda: 1500.0,
+    )
+    db = conversion_db
+    db.add(_quoted_budget())
+    db.commit()
+
+    order = WorkOrderService(db).create_from_budget(db.query(Budget).first())
+
+    assert order.usd_rate == 1500.0
+    assert order.total == 540000.0
+    assert order.total_usd == 360.0
 
 
 # ────────────────────────────────────────────────────────────────────

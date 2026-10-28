@@ -18,13 +18,12 @@ def _sum_income_paid(db, order_id) -> float:
     """
     if db is None or not order_id:
         return 0.0
-    from sqlalchemy import func
-
     from app.models.daily_cash import CashMovement
+    from app.repositories.daily_cash import movement_ars
 
-    total = (
-        db.query(func.coalesce(func.sum(CashMovement.amount), 0.0))
+    movements = (
+        db.query(CashMovement)
         .filter(CashMovement.order_id == order_id, CashMovement.type == "INCOME")
-        .scalar()
+        .all()
     )
-    return round(float(total or 0.0), 2)
+    return round(sum(movement_ars(movement) for movement in movements), 2)

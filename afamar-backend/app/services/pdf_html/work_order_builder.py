@@ -23,8 +23,11 @@ def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict
     materiales_raw = parse_materials_data(order_data.get("materials_data"))
     main_materials = filter_main_materials(materiales_raw)
 
-    fabrication_details = _parse_fabrication_details(order_data.get("fabrication_details"))
-    materials = _build_materials_pdf(main_materials, [])
+    fabrication_details = _parse_fabrication_details(
+        order_data.get("fabrication_details"),
+        use_budgeted_measures=True,
+    )
+    materials = _build_materials_pdf(main_materials, [], use_budgeted_measures=True)
     pools = _build_pools_pdf(parse_materials_data(order_data.get("pools_data")) or [])
 
     total_ars = float(order_data.get("total") or 0)
@@ -94,6 +97,7 @@ def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict
     work_order_pieces = _build_work_order_pieces_pdf(
         order_data.get("pieces_data"),
         usd_rate_value,
+        use_budgeted_measures=True,
     )
 
     return {

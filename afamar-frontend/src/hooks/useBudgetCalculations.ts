@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { EntityFormState, FabricationDetail, MaterialInForm, PoolInForm } from '../types';
 import type { PaymentMethod } from '../types/paymentMethod';
 import { round2 } from '../utils/math';
@@ -41,7 +41,12 @@ export function useBudgetCalculations(
   form: EntityFormState,
   setForm: React.Dispatch<React.SetStateAction<EntityFormState>>,
   paymentMethods: PaymentMethod[] = [],
+  options: { freezeExistingWorkOrder?: boolean } = {},
 ) {
+  const freezeExistingWorkOrder = options.freezeExistingWorkOrder === true;
+  const commercialSignatureRef = useRef<string | null>(null);
+  const depositSignatureRef = useRef<string | null>(null);
+  const frozenRateRef = useRef<number | null>(null);
   // Stable stringified views of the JSON-shaped form slices, used both
   // in the effect for diff detection and as its dependency list (raw
   // array/object deps would alias across renders and skip re-runs).
@@ -53,7 +58,95 @@ export function useBudgetCalculations(
     paymentMethods.map((pm) => [pm.id, pm.type, pm.value, pm.is_percentage, pm.applies_to_installments]),
   );
 
+  // Measurement fields are deliberately excluded. They are edited during
+  // MEDICION, but do not represent a new commercial quote for an existing OT.
+  // The backend applies the same distinction before persisting a PATCH.
+  const commercialSignature = JSON.stringify({
+    materials: JSON.parse(materialsDepsJson || '[]').map((row: Record<string, unknown>) => {
+      const copy = { ...row };
+      for (const key of ['length', 'width', 'quantity', 'largo', 'ancho', 'cantidad', 'm2', 'm2_used', 'm2_budgeted']) delete copy[key];
+      return copy;
+    }),
+    fabrication: JSON.parse(fabricationDepsJson || '[]').map((row: Record<string, unknown>) => {
+      const copy = { ...row };
+      for (const key of ['length', 'width', 'quantity', 'largo', 'ancho', 'cantidad', 'linear_meters', 'metros_lineales', 'm2_budgeted', 'linear_meters_budgeted', 'total_ars_budgeted', 'total_usd_budgeted']) delete copy[key];
+      return copy;
+    }),
+    additional: (() => {
+      try {
+        const rows = typeof form.additional_works_data === 'string' && form.additional_works_data
+          ? JSON.parse(form.additional_works_data)
+          : [];
+        return (Array.isArray(rows) ? rows : []).map((row: Record<string, unknown>) => {
+          const copy = { ...row };
+          if (String(copy.type || '').toLowerCase() === 'frente') delete copy.linear_meters;
+          for (const key of ['linear_meters_budgeted', 'total_ars_budgeted', 'total_usd_budgeted']) delete copy[key];
+          return copy;
+        });
+      } catch {
+        return [];
+      }
+    })(),
+    pools: JSON.parse(poolsDepsJson || '[]'),
+    transport: form.transport,
+    transport_usd: form.transport_usd,
+    discount_enabled: form.discount_enabled,
+    discount_target: form.discount_target,
+    discount_percentage: form.discount_percentage,
+    discount_fixed_amount: form.discount_fixed_amount,
+    payment_method: form.payment_method,
+    payment_method_id: form.payment_method_id,
+    installments: form.installments,
+  });
+  const depositSignature = JSON.stringify({
+    deposit_received: form.deposit_received,
+    deposit_usd: form.deposit_usd,
+    deposit_currency: form.deposit_currency,
+  });
+
   useEffect(() => {
+    if (freezeExistingWorkOrder) {
+      // `number` is empty until the GET response hydrates an existing form.
+      // Never run the new-document calculator against that empty pre-load
+      // state, and capture the API values as the commercial baseline.
+      if (!form.number) return;
+      if (commercialSignatureRef.current === null) {
+        commercialSignatureRef.current = commercialSignature;
+        depositSignatureRef.current = depositSignature;
+        frozenRateRef.current = Number(form.usd_rate) || 0;
+        return;
+      }
+      const commercialChanged = commercialSignatureRef.current !== commercialSignature;
+      const depositChanged = depositSignatureRef.current !== depositSignature;
+      commercialSignatureRef.current = commercialSignature;
+      depositSignatureRef.current = depositSignature;
+
+      // A rate refresh must never replace the historical quote of an existing
+      // OT. The backend also ignores it on measurement-only updates.
+      if (frozenRateRef.current !== null && Number(form.usd_rate) !== frozenRateRef.current) {
+        const historicalRate = frozenRateRef.current;
+        setForm((prev) => prev.usd_rate === historicalRate ? prev : { ...prev, usd_rate: historicalRate });
+      }
+
+      if (!commercialChanged) {
+        if (depositChanged) {
+          const rate = frozenRateRef.current || Number(form.usd_rate) || 0;
+          const paidArs = String(form.deposit_currency || 'ARS').toUpperCase() === 'USD'
+            ? (Number(form.deposit_usd) || 0) * rate
+            : Number(form.deposit_received) || 0;
+          const paidUsd = String(form.deposit_currency || 'ARS').toUpperCase() === 'USD'
+            ? Number(form.deposit_usd) || 0
+            : rate > 0 ? (Number(form.deposit_received) || 0) / rate : 0;
+          setForm((prev) => ({
+            ...prev,
+            balance_due: Math.max(0, (Number(prev.total) || 0) - paidArs),
+            balance_due_usd: Math.max(0, Math.round(((Number(prev.total_usd) || 0) - paidUsd) * 100) / 100),
+          }));
+        }
+        return;
+      }
+    }
+
     const fabricationDetails = form.fabrication_details || [];
     const materialsData = form.materials_data || [];
     const poolsData = form.pools_data || [];
@@ -286,5 +379,6 @@ export function useBudgetCalculations(
     form.discount_percentage, form.discount_fixed_amount,
     form.discount_enabled, form.discount_target,
     form.deposit_received, form.deposit_usd, form.deposit_currency,
+    freezeExistingWorkOrder, commercialSignature, depositSignature,
   ]);
 }

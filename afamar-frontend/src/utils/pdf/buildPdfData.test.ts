@@ -300,6 +300,46 @@ describe('buildPdfData — structured pieces keep ARS/USD totals aligned', () =>
   });
 });
 
+describe('buildPdfData — persisted work-order commercial totals', () => {
+  it('uses the persisted total and budgeted line snapshots, not current measurements', () => {
+    const data = buildPdfData({
+      ...pdfParams,
+      document_type: 'work_order',
+      usePersistedCommercialTotals: true,
+      form: makeForm({
+        number: 'A-000003',
+        usd_rate: 1565,
+        materials_data: [{
+          id: 1,
+          name: 'Material congelado',
+          currency: 'ARS',
+          price_m2: 100000,
+          price_m2_usd: 63.8978,
+          length: 4,
+          width: 2,
+          quantity: 1,
+          m2_used: 8,
+          m2_budgeted: 1,
+          is_alternative: false,
+        }],
+        subtotal: 200000,
+        subtotal_usd: 127.8,
+        total: 249862,
+        total_usd: 159.66,
+        deposit_received: 50000,
+        balance_due: 199862,
+        balance_due_usd: 127.71,
+      }),
+    });
+
+    expect(data.usd_rate).toBe(1565);
+    expect(data.subtotal).toBe(200000);
+    expect(data.total).toBe(249862);
+    expect(data.balance_due).toBe(199862);
+    expect(data.materials[0].subtotal_ars).toBe(100000);
+  });
+});
+
 describe('buildPdfData — additional works per-section routing', () => {
   it('puts global adicionais in every section', () => {
     const additional_works_data = JSON.stringify([

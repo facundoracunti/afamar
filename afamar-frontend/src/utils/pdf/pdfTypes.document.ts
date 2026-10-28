@@ -163,4 +163,6 @@ export interface BuildPdfDataParams {
    *  él (Paid + Saldo = TOTAL). Omitido / 0 → usa el equivalente ARS de la
    *  seña (budgets y previews legacy, comportamiento sin cambio). */
   totalPaid?: number;
+  /** Existing work orders use persisted commercial totals in the PDF. */
+  usePersistedCommercialTotals?: boolean;
 }

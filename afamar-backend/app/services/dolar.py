@@ -96,6 +96,19 @@ class DolarRatesService:
         }
 
 
+def get_blue_mid_rate() -> float:
+    """Return the current blue-mid rate for a new work-order operation.
+
+    Conversion must not silently fall back to the budget's official rate: the
+    budget and the work order intentionally use different quote sources.
+    Callers should surface ``DolarRatesError`` when DolarAPI is unavailable.
+    """
+    rate = float(dolar_rates_service.get_rates().get("blue_mid_rate") or 0)
+    if rate <= 0:
+        raise DolarRatesError("DolarAPI devolvió una cotización blue inválida")
+    return rate
+
+
 def _iso_now() -> str:
     import datetime
 

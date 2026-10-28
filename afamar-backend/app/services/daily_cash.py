@@ -66,12 +66,53 @@ class DailyCashService:
         movement_data["currency"] = (movement_data.get("currency") or "ARS").upper()
         cash = self.cash_repo.get_or_create_current()
         movement = self.movement_repo.create_and_recalculate(cash.id, movement_data)
+        if movement.type == "INCOME" and movement.order_id:
+            self._refresh_work_order_balance(movement.order_id, movement)
         self.db.commit()
         self.db.refresh(movement)
         return movement
 
+    def _refresh_work_order_balance(self, order_id: int, movement=None) -> None:
+        """Apply registered payments to the frozen commercial total.
+
+        Cash movements keep their own historical USD conversion. The order's
+        price is never recomputed here; only its saldo is reduced by the
+        surviving income movements.
+        """
+        from app.core.settings import settings
+        from app.models.daily_cash import CashMovement
+        from app.models.work_order import WorkOrder
+
+        order = self.db.query(WorkOrder).filter(WorkOrder.id == order_id).first()
+        if not order:
+            return
+        movements = (
+            self.db.query(CashMovement)
+            .filter(CashMovement.order_id == order_id, CashMovement.type == "INCOME")
+            .all()
+        )
+        rate = float(order.usd_rate or settings.DEFAULT_USD_RATE)
+        if rate <= 0:
+            rate = settings.DEFAULT_USD_RATE
+        paid_ars = sum(movement_ars(m) for m in movements)
+        paid_usd = sum(
+            float(m.amount or 0)
+            if (m.currency or "ARS").upper() == "USD"
+            else (movement_ars(m) / rate if rate > 0 else 0)
+            for m in movements
+        )
+        order.balance_due = max(0.0, round(float(order.total or 0) - paid_ars, 2))
+        order.balance_due_usd = max(0.0, round(float(order.total_usd or 0) - paid_usd, 2))
+        order.balance_paid = order.balance_due <= 0.001
+        if movement is not None:
+            movement.remaining_balance = order.balance_due
+
     def delete_movement(self, movement_id: int):
+        movement = self.movement_repo.get_by_id(movement_id)
+        order_id = movement.order_id if movement else None
         self.movement_repo.delete(movement_id)
+        if order_id:
+            self._refresh_work_order_balance(order_id)
         self.db.commit()
 
     def close_cash(self, notes: str | None = None) -> dict:

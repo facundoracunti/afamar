@@ -37,6 +37,15 @@ from app.services.work_order import WorkOrderService, _bake_snapshot_into_pieces
 from tests.conftest import TestingSessionLocal
 
 
+@pytest.fixture(autouse=True)
+def deterministic_blue_rate(monkeypatch):
+    """Keep snapshot money assertions deterministic and offline."""
+    monkeypatch.setattr(
+        "app.services.work_order.creation.get_blue_mid_rate",
+        lambda: USD_RATE,
+    )
+
+
 # ────────────────────────────────────────────────────────────────────
 # Test data — budget with 2 NEGRO BRASIL mesadas, one zócalo and one frente
 # ────────────────────────────────────────────────────────────────────

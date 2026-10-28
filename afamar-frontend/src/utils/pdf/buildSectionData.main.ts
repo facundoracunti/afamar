@@ -28,6 +28,7 @@ export interface MainSectionInput {
   fabricationByMaterial: Record<string, PdfDataRow[]>;
   fabricationCommon: PdfDataRow[];
   addicionalBuckets: AdditionalBuckets;
+  useBudgetedMeasures?: boolean;
 }
 
 /** Everything the PRINCIPAL section is made of (rows + its subtotal). */
@@ -54,8 +55,9 @@ export function buildMainSection({
   fabricationByMaterial,
   fabricationCommon,
   addicionalBuckets,
+  useBudgetedMeasures = false,
 }: MainSectionInput): MainSectionData {
-  const materialRows = buildMaterialRows(mainMaterials, usdRate);
+  const materialRows = buildMaterialRows(mainMaterials, usdRate, useBudgetedMeasures);
 
   // GLOBAL (unassigned) zócalos / frentes carry a $0 stored subtotal because
   // they have no material of their own. Every section that has a material —

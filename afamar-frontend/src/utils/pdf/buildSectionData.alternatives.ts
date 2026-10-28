@@ -29,6 +29,7 @@ export interface AlternativeSectionsInput {
   fabricationByMaterial: Record<string, PdfDataRow[]>;
   fabricationCommon: PdfDataRow[];
   addicionalBuckets: AdditionalBuckets;
+  useBudgetedMeasures?: boolean;
 }
 
 /**
@@ -48,6 +49,7 @@ export function buildAlternativeSections({
   fabricationByMaterial,
   fabricationCommon,
   addicionalBuckets,
+  useBudgetedMeasures = false,
 }: AlternativeSectionsInput): MaterialSection[] {
   const builtAlternatives: MaterialSection[] = [];
   const altGroups = new Map<string, MaterialInForm[]>();
@@ -60,7 +62,7 @@ export function buildAlternativeSections({
   let altIdx = 0;
   for (const [, altGroup] of altGroups) {
     const representative = altGroup[0];
-    const altMaterialRows = buildMaterialRows(altGroup, usdRate);
+    const altMaterialRows = buildMaterialRows(altGroup, usdRate, useBudgetedMeasures);
     // A GLOBAL (unassigned) m² fabrication row (ZÓCALO) and a GLOBAL frente
     // have no material of their own, so they render "sin ningún valor" ($0).
     // Fold them into each option revalued with THAT option's material price —

@@ -15,6 +15,11 @@ from app.services.work_order.helpers import (
     update_client_total_purchased,
 )
 from app.services.work_order.recalc import recalculate_totals_from_items
+from app.services.work_order.frozen_totals import (
+    apply_frozen_financials,
+    has_commercial_line_change,
+    has_commercial_scalar_change,
+)
 
 # Status transitions between the 4 main states are bidirectional so the
 # list page's "Retroceder estado" button can undo a premature advance
@@ -39,16 +44,14 @@ def update_work_order(repo, order_id: int, data: dict) -> Optional[WorkOrder]:
     # totals server-side. This keeps `total` consistent with the rows
     # even when the client only sent partial data and patched in stale
     # `total` / `total_usd` values.
-    if any(
-        key in data
-        for key in (
-            "fabrication_details", "materials_data", "pieces_data", "pools_data",
-            "usd_rate", "transport", "transport_usd", "discount_percentage",
-            "discount_fixed_amount", "payment_method", "installments",
-            "apply_cash_discount",
-            "deposit_received", "deposit_usd", "deposit_currency",
-        )
-    ):
+    has_deposit_change = any(
+        key in data for key in ("deposit_received", "deposit_usd", "deposit_currency")
+    )
+    has_commercial_change = (
+        has_commercial_line_change(order, data)
+        or has_commercial_scalar_change(order, data)
+    )
+    if has_commercial_change:
         # Derive missing flat arrays from an incoming `pieces_data` BEFORE
         # seeding `merged` from the persisted row — otherwise the
         # persisted arrays would mask the pieces and the derivation would
@@ -66,6 +69,7 @@ def update_work_order(repo, order_id: int, data: dict) -> Optional[WorkOrder]:
             "discount_percentage": order.discount_percentage,
             "discount_fixed_amount": order.discount_fixed_amount,
             "payment_method": order.payment_method,
+            "payment_method_id": order.payment_method_id,
             "installments": order.installments,
             "apply_cash_discount": order.apply_cash_discount,
             "deposit_received": order.deposit_received,
@@ -74,7 +78,12 @@ def update_work_order(repo, order_id: int, data: dict) -> Optional[WorkOrder]:
             "fabrication_details": order.fabrication_details,
             "materials_data": order.materials_data,
             "pools_data": order.pools_data,
+            "additional_works_data": order.additional_works_data,
         }
+        # A DolarAPI refresh is never a commercial edit of an existing OT.
+        # Manual commercial edits still recalculate, but always at the frozen
+        # rate captured on the order.
+        data["usd_rate"] = order.usd_rate
         for key, value in data.items():
             if value is not None:
                 merged[key] = value
@@ -98,6 +107,17 @@ def update_work_order(repo, order_id: int, data: dict) -> Optional[WorkOrder]:
         ):
             if key in merged:
                 data[key] = merged[key]
+    elif has_deposit_change or any(
+        key in data
+        for key in (
+            "fabrication_details", "materials_data", "pieces_data",
+            "additional_works_data", "usd_rate", "pools_data",
+        )
+    ):
+        # Measurement-only edits may change the persisted JSON and snapshots,
+        # but they must not reprice the commercial operation. Keep ARS/USD and
+        # derive the new saldo only from the frozen total plus the deposit.
+        apply_frozen_financials(order, data)
     old_status = order.status
     new_status = data.get("status", old_status)
 

@@ -33,6 +33,7 @@ export function buildSections(
   fabricationRows: PdfDataRow[],
   usdRate: number,
   addicionalBuckets: AdditionalBuckets = { additionalByMaterial: {}, additionalCommon: [] },
+  useBudgetedMeasures = false,
 ): SectionsResult {
   const mainMaterials = allMaterials.filter((m) => !m.is_alternative);
   const flatMaterials: MaterialPdfRow[] = [];
@@ -51,6 +52,7 @@ export function buildSections(
     fabricationByMaterial: fabricationGroups.fabricationByMaterial,
     fabricationCommon: fabricationGroups.fabricationCommon,
     addicionalBuckets,
+    useBudgetedMeasures,
   });
 
   const builtAlternatives = buildAlternativeSections({
@@ -61,6 +63,7 @@ export function buildSections(
     fabricationByMaterial: fabricationGroups.fabricationByMaterial,
     fabricationCommon: fabricationGroups.fabricationCommon,
     addicionalBuckets,
+    useBudgetedMeasures,
   });
 
   // Main section
