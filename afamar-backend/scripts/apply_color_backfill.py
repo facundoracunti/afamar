@@ -2,6 +2,7 @@
 tries to run f6a2c9d4e1b8 first and that one fails because color_id
 already exists). This script is idempotent and safe to re-run.
 """
+import argparse
 import sys
 from pathlib import Path
 
@@ -10,10 +11,19 @@ sys.path.insert(0, str(ROOT))
 
 from sqlalchemy import text
 
+from app.core.settings import settings
 from app.db.database import SessionLocal
+from scripts.safety import Operation, classify_destination, require_operation
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Apply the historical material color backfill")
+    parser.add_argument("--confirm", action="store_true", help="Confirm a local administrative operation")
+    args = parser.parse_args()
+
+    destination = classify_destination(settings.ENVIRONMENT, settings.DATABASE_URL)
+    require_operation(destination, Operation.DDL, confirmed=args.confirm)
+
     db = SessionLocal()
     try:
         columns = {c[0] for c in db.execute(text("SHOW COLUMNS FROM materials")).fetchall()}

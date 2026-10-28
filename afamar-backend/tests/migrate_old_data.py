@@ -32,6 +32,7 @@ from app.models.reference import (
     PriorityLevel,
     WorkOrderStatus,
 )
+from scripts.safety import Operation, classify_destination, require_operation
 from scripts.seed_reference_data import (
     BUDGET_STATUSES,
     FINISH_TYPES,
@@ -1040,17 +1041,21 @@ def migrate_users(db: Session) -> int:
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 
-def main() -> int:
+def _main() -> int:
     parser = argparse.ArgumentParser(description="Migrate old Spanish schema → new English schema")
     parser.add_argument("--dry-run", action="store_true", help="Show what would be done without doing it")
     parser.add_argument("--drop-old", action="store_true", help="Drop old tables after successful migration")
     parser.add_argument("--env", default="production", choices=["development", "production"],
                         help="Environment to use (reads DB config from .env)")
+    parser.add_argument("--confirm", action="store_true", help="Confirm a permitted administrative operation")
     args = parser.parse_args()
 
-    # Override env
-    if args.env:
-        settings.ENVIRONMENT = args.env
+    # Keep the historical target flag, but validate the resulting target before
+    # creating an engine. Production writes and DDL are always blocked.
+    settings.ENVIRONMENT = args.env
+    operation = Operation.READ if args.dry_run else Operation.DDL if args.drop_old else Operation.WRITE
+    destination = classify_destination(settings.ENVIRONMENT, settings.DATABASE_URL)
+    require_operation(destination, operation, confirmed=args.confirm)
 
     print(SEP)
     print(f"  AFAMAR — Data Migration ({settings.ENVIRONMENT})")
@@ -1221,6 +1226,14 @@ def main() -> int:
         return 1
     finally:
         db.close()
+
+
+def main() -> int:
+    previous_environment = settings.ENVIRONMENT
+    try:
+        return _main()
+    finally:
+        settings.ENVIRONMENT = previous_environment
 
 
 if __name__ == "__main__":
