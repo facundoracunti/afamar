@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar, SIDEBAR_WIDTH } from './Sidebar';
 import { Topbar } from './Topbar';
 import styles from './MainLayout.module.css';
+import { readLocalStorage, writeLocalStorage } from '@/utils/safeStorage';
 
 const s = styles as unknown as Record<string, string>;
 
@@ -55,7 +56,7 @@ function getPageTitle(pathname: string): string {
 export default function MainLayout() {
   const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
-    const preference = window.localStorage.getItem('afamar.sidebar.collapsed');
+    const preference = readLocalStorage('afamar.sidebar.collapsed');
     return preference === null ? window.location.pathname !== '/admin' : preference === 'true';
   });
   const [expanded, setExpanded] = useState<string>('');
@@ -66,8 +67,15 @@ export default function MainLayout() {
     const mq = window.matchMedia('(max-width: 768px)');
     const update = () => setIsMobile(mq.matches);
     update();
-    mq.addEventListener('change', update);
-    return () => mq.removeEventListener('change', update);
+    if (typeof mq.addEventListener === 'function') {
+      mq.addEventListener('change', update);
+      return () => mq.removeEventListener('change', update);
+    }
+    if (typeof mq.addListener === 'function') {
+      mq.addListener(update);
+      return () => mq.removeListener(update);
+    }
+    return undefined;
   }, []);
 
   useEffect(() => {
@@ -79,7 +87,7 @@ export default function MainLayout() {
   }, [location.pathname, isMobile]);
 
   useEffect(() => {
-    if (window.localStorage.getItem('afamar.sidebar.collapsed') === null) {
+    if (readLocalStorage('afamar.sidebar.collapsed') === null) {
       setIsCollapsed(location.pathname !== '/admin');
     }
   }, [location.pathname]);
@@ -88,7 +96,7 @@ export default function MainLayout() {
   const contentMargin = isMobile ? 0 : isCollapsed ? 64 : SIDEBAR_WIDTH;
   const handleCollapse = (collapsed: boolean) => {
     setIsCollapsed(collapsed);
-    window.localStorage.setItem('afamar.sidebar.collapsed', String(collapsed));
+    writeLocalStorage('afamar.sidebar.collapsed', String(collapsed));
   };
 
   return (

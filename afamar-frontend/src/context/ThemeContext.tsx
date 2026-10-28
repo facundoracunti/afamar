@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { readLocalStorage, writeLocalStorage } from '@/utils/safeStorage';
 
 export type Theme = 'dark' | 'light';
 
@@ -14,7 +15,7 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 function readInitialTheme(): Theme {
   if (typeof window === 'undefined') return 'dark';
-  const stored = window.localStorage.getItem(STORAGE_KEY);
+  const stored = readLocalStorage(STORAGE_KEY);
   if (stored === 'light' || stored === 'dark') return stored;
   return 'dark';
 }
@@ -29,7 +30,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     } else {
       root.removeAttribute('data-theme');
     }
-    window.localStorage.setItem(STORAGE_KEY, theme);
+    writeLocalStorage(STORAGE_KEY, theme);
   }, [theme]);
 
   const value = useMemo<ThemeContextValue>(

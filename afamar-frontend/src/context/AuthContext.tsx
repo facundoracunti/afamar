@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import http from '@/api/http';
 import type { AuthResponse, LoginCredentials, User } from '@/types';
+import { readLocalStorage, removeLocalStorage, writeLocalStorage } from '@/utils/safeStorage';
 
 interface AuthContextType {
   user: User | null;
@@ -17,14 +18,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('auth_token');
-    const storedUser = localStorage.getItem('auth_user');
+    const token = readLocalStorage('auth_token');
+    const storedUser = readLocalStorage('auth_user');
     if (token && storedUser) {
       try {
         setUser(JSON.parse(storedUser));
       } catch {
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('auth_user');
+        removeLocalStorage('auth_token');
+        removeLocalStorage('auth_user');
       }
     }
     setLoading(false);
@@ -33,14 +34,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (credentials: LoginCredentials) => {
     const res = await http.post('/auth/login', credentials);
     const data = res.data as unknown as AuthResponse;
-    localStorage.setItem('auth_token', data.access_token);
-    localStorage.setItem('auth_user', JSON.stringify(data.user));
+    writeLocalStorage('auth_token', data.access_token);
+    writeLocalStorage('auth_user', JSON.stringify(data.user));
     setUser(data.user);
   };
 
   const logout = () => {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('auth_user');
+    removeLocalStorage('auth_token');
+    removeLocalStorage('auth_user');
     setUser(null);
   };
 

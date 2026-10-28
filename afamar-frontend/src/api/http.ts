@@ -6,6 +6,7 @@
 // we unwrap it here. Keys stay snake_case end-to-end so the frontend matches
 // the backend (Pydantic) literally — no implicit conversion.
 import axios from "axios";
+import { readLocalStorage, removeLocalStorage } from '@/utils/safeStorage';
 
 export const API_URL = window.APP_CONFIG?.API_URL || '/api/v1';
 
@@ -15,7 +16,7 @@ const http = axios.create({
 });
 
 http.interceptors.request.use((config) => {
-  const token = localStorage.getItem("auth_token");
+  const token = readLocalStorage("auth_token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -43,8 +44,8 @@ http.interceptors.response.use(
   },
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem("auth_token");
-      localStorage.removeItem("auth_user");
+      removeLocalStorage("auth_token");
+      removeLocalStorage("auth_user");
       if (window.location.pathname.startsWith("/admin")) {
         window.location.href = "/login";
       }
