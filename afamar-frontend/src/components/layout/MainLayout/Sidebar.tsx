@@ -123,9 +123,10 @@ export function Sidebar({ isCollapsed, onCollapse, expanded, onExpand, isMobile 
   const location = useLocation();
   const groupByKey = new Map(accordionGroups.map((group) => [group.key, group]));
   const sidebarWidth = isMobile ? SIDEBAR_WIDTH : isCollapsed ? SIDEBAR_COLLAPSED : SIDEBAR_WIDTH;
+  const visuallyCollapsed = isCollapsed && !isMobile;
   const sidebarClass = [
     s['main-layout__sidebar'],
-    isCollapsed && !isMobile ? s['main-layout__sidebar--collapsed'] : '',
+    visuallyCollapsed ? s['main-layout__sidebar--collapsed'] : '',
     isMobile ? s['main-layout__sidebar--mobile'] : '',
     isMobile && isMobileOpen ? s['main-layout__sidebar--mobile-open'] : '',
   ].filter(Boolean).join(' ');
@@ -143,7 +144,7 @@ export function Sidebar({ isCollapsed, onCollapse, expanded, onExpand, isMobile 
 
   const renderGroup = (group: AccordionGroup) => {
     const active = isGroupActive(group);
-    const isExpanded = !isCollapsed && expanded === group.key;
+    const isExpanded = !visuallyCollapsed && expanded === group.key;
     return (
       <li key={group.key} className={`${s['main-layout__menu-item']}${active ? ' ' + s['main-layout__menu-item--active'] : ''}`}>
         {group.subItems ? (
@@ -151,16 +152,16 @@ export function Sidebar({ isCollapsed, onCollapse, expanded, onExpand, isMobile 
             <button
               className={s['main-layout__menu-btn']}
               onClick={() => onExpand(expanded === group.key ? '' : group.key)}
-              title={isCollapsed ? group.label : undefined}
+              title={visuallyCollapsed ? group.label : undefined}
               aria-expanded={isExpanded}
             >
               <span className={s['main-layout__menu-btn-icon']}>
                 <group.icon size={18} />
-                {!isCollapsed && <span>{group.label}</span>}
+                {!visuallyCollapsed && <span>{group.label}</span>}
               </span>
-              {!isCollapsed && <ChevronDown size={14} className={`${s['main-layout__arrow']}${isExpanded ? ' ' + s['main-layout__arrow--rotated'] : ''}`} />}
+              {!visuallyCollapsed && <ChevronDown size={14} className={`${s['main-layout__arrow']}${isExpanded ? ' ' + s['main-layout__arrow--rotated'] : ''}`} />}
             </button>
-            {!isCollapsed && (
+            {!visuallyCollapsed && (
               <ul className={s['main-layout__submenu']} style={{ maxHeight: isExpanded ? `${group.subItems.length * 40}px` : 0 }}>
                 {group.subItems.map((sub) => {
                   const [subPath, subQuery] = sub.path.split('?');
@@ -173,7 +174,7 @@ export function Sidebar({ isCollapsed, onCollapse, expanded, onExpand, isMobile 
                 })}
               </ul>
             )}
-            {isCollapsed && expanded === group.key && (
+            {visuallyCollapsed && expanded === group.key && (
               <ul className={s['main-layout__submenu-popover']}>
                 <li className={s['main-layout__submenu-popover-header']}><group.icon size={14} /><span>{group.label}</span></li>
                 {group.subItems.map((sub) => <li key={sub.path} className={s['main-layout__submenu-item']}>
@@ -185,8 +186,8 @@ export function Sidebar({ isCollapsed, onCollapse, expanded, onExpand, isMobile 
             )}
           </>
         ) : (
-          <button className={s['main-layout__menu-btn']} onClick={() => handleNavigate(group.path!)} title={isCollapsed ? group.label : undefined}>
-            <span className={s['main-layout__menu-btn-icon']}><group.icon size={18} />{!isCollapsed && <span>{group.label}</span>}</span>
+          <button className={s['main-layout__menu-btn']} onClick={() => handleNavigate(group.path!)} title={visuallyCollapsed ? group.label : undefined}>
+            <span className={s['main-layout__menu-btn-icon']}><group.icon size={18} />{!visuallyCollapsed && <span>{group.label}</span>}</span>
           </button>
         )}
       </li>
@@ -216,7 +217,7 @@ export function Sidebar({ isCollapsed, onCollapse, expanded, onExpand, isMobile 
       <nav className={s['main-layout__menu-links']} aria-label="Navegación principal">
         {navigationSections.map((section) => (
           <div key={section.label} className={s['main-layout__menu-section']}>
-            {!isCollapsed && <div className={s['main-layout__menu-section-label']}>{section.label}</div>}
+            {!visuallyCollapsed && <div className={s['main-layout__menu-section-label']}>{section.label}</div>}
             <ul className={s['main-layout__menu-section-items']}>
               {section.keys.map((key) => {
                 const group = groupByKey.get(key);
