@@ -11,7 +11,7 @@ show the real measure with None on budgeted/delta ('—' in the template).
 """
 import json
 
-from app.services.pdf_html import _build_measurement_comparison
+from app.services.pdf_html import _build_materials_pdf, _build_measurement_comparison, build_work_order_pdf_data
 
 
 def _materials(name="NEGRO BRASIL", m2_budgeted=3.0, length=6, width=1, currency="USD",
@@ -45,6 +45,54 @@ def test_material_row_keeps_measure_columns_and_own_delta():
     assert row["delta_str"] == "+3.00"
     assert row["subtotal_usd"] == 990.0  # (6 − 3) × 330 USD/m²
     assert row["subtotal_ars"] == 990000.0
+
+
+def test_material_pdf_rows_always_show_current_measured_surface():
+    materials = [
+        {"name": "Pieza 1", "length": 2.22, "width": 0.64, "quantity": 1,
+         "price_m2": 200000, "m2_budgeted": 0.92},
+        {"name": "Pieza 2", "length": 1.00, "width": 0.64, "quantity": 1,
+         "price_m2": 200000, "m2_budgeted": 0.92},
+        {"name": "Pieza 3", "length": 2.22, "width": 0.60, "quantity": 1,
+         "price_m2": 200000, "m2_budgeted": 0.89},
+    ]
+
+    rows = _build_materials_pdf(materials, [], use_budgeted_measures=True)
+
+    assert [row["m2_str"] for row in rows] == ["1.42", "0.64", "1.33"]
+    assert [row["subtotal_str"] for row in rows] == ["184,000.00", "184,000.00", "178,000.00"]
+
+    comparison = _build_measurement_comparison(materials, usd_rate=1000)
+    assert [row["m2_budgeted_str"] for row in comparison] == ["0.92", "0.92", "0.89"]
+    assert [row["m2_real_str"] for row in comparison] == ["1.42", "0.64", "1.33"]
+
+
+def test_work_order_pdf_keeps_frozen_totals_and_adds_measurement_note():
+    materials = [
+        {"name": "Pieza 1", "length": 2.22, "width": 0.64, "quantity": 1,
+         "price_m2": 200000, "m2_budgeted": 0.92, "is_alternative": False},
+        {"name": "Pieza 2", "length": 1.00, "width": 0.64, "quantity": 1,
+         "price_m2": 200000, "m2_budgeted": 0.92, "is_alternative": False},
+        {"name": "Pieza 3", "length": 2.22, "width": 0.60, "quantity": 1,
+         "price_m2": 200000, "m2_budgeted": 0.89, "is_alternative": False},
+    ]
+    order = {
+        "id": 31, "number": "A-000031", "materials_data": json.dumps(materials),
+        "fabrication_details": "[]", "additional_works_data": "[]", "pools_data": "[]",
+        "pieces_data": None, "include_measurement_comparison_in_pdf": True,
+        "usd_rate": 1000, "subtotal": 678400, "subtotal_usd": 678.4,
+        "total": 678400, "total_usd": 678.4, "deposit_received": 0,
+        "deposit_usd": 0, "balance_due": 678400, "payment_method": "EFECTIVO",
+        "installments": 1,
+    }
+
+    pdf = build_work_order_pdf_data(order, {}, {}, {})
+
+    assert [row["m2_str"] for row in pdf["materials"]] == ["1.42", "0.64", "1.33"]
+    assert pdf["subtotal"] == 678400
+    assert pdf["total"] == 678400
+    assert pdf["usd_rate"] == 1000
+    assert pdf["measurement_note"]
 
 
 def test_zocalo_detail_row_with_snapshot_shows_full_measure_columns():

@@ -156,7 +156,7 @@ def test_work_order_totals_and_payment_blocks_render_without_compression():
     assert "987,654,321.99" in text
     assert "USD" in text
     assert "635,147.15" in text
-    assert "Metodo de pago" in text
+    assert "METODO DE PAGO" in text
     assert "TARJETA DE CRÉDITO" in text
     assert "Saldo pendiente" in text
 

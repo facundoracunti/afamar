@@ -48,6 +48,11 @@ export function ExtrasBlock({
           `measurement_comparison` array is empty when disabled */}
       {data.document_type === 'work_order' && data.measurement_comparison.length > 0 ? (
         <View style={{ marginTop: 4 }}>
+          {data.measurement_note ? (
+            <Text style={{ fontSize: 8, color: '#69717C', fontStyle: 'italic', marginBottom: 4 }}>
+              {data.measurement_note}
+            </Text>
+          ) : null}
           <Text style={styles.sectionTitle}>Comparativa de medición</Text>
           <DataTable
             headers={COMPARISON_HEADERS}

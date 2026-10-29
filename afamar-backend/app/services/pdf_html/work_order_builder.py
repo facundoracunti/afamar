@@ -94,6 +94,16 @@ def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict
         if include_comparison
         else []
     )
+    current_measurement_differs = any(
+        abs(
+            float(mat.get("length") or mat.get("largo") or 0)
+            * float(mat.get("width") or mat.get("ancho") or 0)
+            * float(mat.get("quantity") or mat.get("cantidad") or 1)
+            - float(mat.get("m2_budgeted"))
+        ) > 1e-9
+        for mat in main_materials
+        if isinstance(mat, dict) and mat.get("m2_budgeted") is not None
+    )
     work_order_pieces = _build_work_order_pieces_pdf(
         order_data.get("pieces_data"),
         usd_rate_value,
@@ -140,6 +150,10 @@ def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict
         "measurement_comparison_total_usd": (
             f"{'+' if (t := sum(r['subtotal_usd'] for r in measurement_comparison)) > 0 else ''}{_fmt_money(t)}"
             if measurement_comparison else ""
+        ),
+        "measurement_note": (
+            "Superficies según medición actual. Importes comerciales según presupuesto confirmado."
+            if current_measurement_differs else ""
         ),
 
         # Pools (English field names with computed subtotal)

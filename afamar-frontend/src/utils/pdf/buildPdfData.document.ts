@@ -57,6 +57,7 @@ export function buildBaseDocument(
     materials: ctx.flatMaterials,
     pools: ctx.flatPools,
     measurement_comparison: ctx.measurement_comparison,
+    measurement_note: ctx.measurement_note,
     subtotal: ctx.computedSubtotal,
     transport: ctx.transport,
     discount_percentage: num('discount_percentage'),

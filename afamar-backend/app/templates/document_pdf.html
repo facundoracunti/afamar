@@ -55,6 +55,7 @@
   .obs-title { font-size: 8pt; font-weight: bold; color: #92400e; text-transform: uppercase; margin-bottom: 2px; }
   .obs-list { font-size: 8.5pt; padding-left: 18px; }
   .obs-list li { margin-bottom: 2px; }
+  .measurement-note { font-size: 8pt; color: #69717C; font-style: italic; margin: 4px 0 6px 0; }
 
   /* ===== CROQUIS ===== */
   .croquis-img { max-width: 100%; max-height: 180px; margin: 4px 0; }
@@ -346,6 +347,9 @@
    Concepto | Presupuestado | Real | Diferencia
    (materials/zócalos in m², frentes in ml — unit per cell)
    ========================================================================= #}
+{% if measurement_note %}
+<div class="measurement-note">{{ measurement_note }}</div>
+{% endif %}
 {% if measurement_comparison %}
 <div class="section-title">Comparativa de medición</div>
 <table class="data-table">

@@ -86,15 +86,25 @@ def _parse_fabrication_details(raw, use_budgeted_measures: bool = False) -> list
 
 
 def _build_materials_pdf(main_materials: list, alternatives: list, use_budgeted_measures: bool = False) -> list[dict]:
+    """Build material rows using the dimensions currently stored on the row.
+
+    ``m2_budgeted`` belongs to the measurement comparison, not the visible
+    current-measurement row.  Keep the parameter for callers that also build
+    fabrication/additional rows, but never let a historical snapshot replace
+    the current material surface here.
+    """
     result = []
     for src in (main_materials or []) + (alternatives or []):
         length = src.get("largo") or src.get("length", 0) or 0
         width = src.get("ancho") or src.get("width", 0) or 0
         quantity = src.get("cantidad") or src.get("quantity", 1) or 1
+        m2 = length * width * quantity
         budgeted_m2 = float(src.get("m2_budgeted")) if src.get("m2_budgeted") is not None else None
-        m2 = budgeted_m2 if use_budgeted_measures and budgeted_m2 is not None else length * width * quantity
+        commercial_m2 = (
+            budgeted_m2 if use_budgeted_measures and budgeted_m2 is not None else m2
+        )
         price_m2 = src.get("precio_m2") or src.get("price_m2", 0) or 0
-        subtotal = m2 * price_m2
+        subtotal = commercial_m2 * price_m2
         result.append({
             "name": src.get("nombre") or src.get("name", ""),
             "color": src.get("color", ""),
@@ -153,8 +163,13 @@ def _build_piece_materials_pdf(materials: list, use_budgeted_measures: bool = Fa
         currency = "USD" if str(src.get("currency") or "").upper() == "USD" else "ARS"
         price_key = "price_m2_usd" if currency == "USD" else "price_m2"
         price = float(src.get(price_key) or 0)
+        # Piece cards show the current measured dimensions.  Historical
+        # m2_budgeted is rendered only by the measurement comparison.
+        m2 = length * width * quantity
         budgeted_m2 = float(src.get("m2_budgeted")) if src.get("m2_budgeted") is not None else None
-        m2 = budgeted_m2 if use_budgeted_measures and budgeted_m2 is not None else length * width * quantity
+        commercial_m2 = (
+            budgeted_m2 if use_budgeted_measures and budgeted_m2 is not None else m2
+        )
         result.append({
             "name": src.get("name") or src.get("nombre") or "",
             "color": src.get("color") or "",
@@ -163,7 +178,7 @@ def _build_piece_materials_pdf(materials: list, use_budgeted_measures: bool = Fa
             "quantity": int(quantity) if quantity.is_integer() else quantity,
             "m2_str": _fmt_m2(m2),
             "price_str": _fmt_money(price),
-            "subtotal_str": _fmt_money(m2 * price),
+            "subtotal_str": _fmt_money(commercial_m2 * price),
             "currency": currency,
         })
     return result

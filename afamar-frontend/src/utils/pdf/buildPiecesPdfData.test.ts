@@ -902,4 +902,16 @@ describe('buildPdfData — pieces branch', () => {
       expect(zocaloLabels).toContain('Zócalo de 10cm');
     }
   });
+
+  it('shows current material surfaces when budgeted snapshots differ', () => {
+    const pieces: BudgetPiece[] = [
+      { ...piece1, mainMaterial: mat({ name: 'Pieza 1', length: 2.22, width: 0.64, m2_budgeted: 0.92 }) },
+      { ...piece2, mainMaterial: mat({ name: 'Pieza 2', length: 1, width: 0.64, m2_budgeted: 0.92 }) },
+      { ...piece1, id: 'piece-3', mainMaterial: mat({ name: 'Pieza 3', length: 2.22, width: 0.6, m2_budgeted: 0.89 }) },
+    ];
+
+    const rows = buildPieces({ pieces }, 1000, true);
+
+    expect(rows.map((piece) => piece.materials[0].m2_str)).toEqual(['1,42', '0,64', '1,33']);
+  });
 });

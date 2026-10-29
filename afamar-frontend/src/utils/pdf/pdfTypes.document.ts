@@ -41,6 +41,8 @@ export interface PdfDocumentData {
   /** COMPARATIVA DE MEDICIÓN rows (work orders only). Empty when the
    *  per-order flag `include_measurement_comparison_in_pdf` is false. */
   measurement_comparison: MeasurementComparisonRow[];
+  /** Informational note shown when current measured m² differs from quote. */
+  measurement_note: string;
   additional_works: AdditionalWorkPdfRow[];
   additional_works_subtotal_ars: number;
   additional_works_subtotal_usd: number;

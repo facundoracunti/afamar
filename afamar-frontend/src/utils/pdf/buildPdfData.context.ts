@@ -27,6 +27,7 @@ export interface DocumentContextExtras {
   effectiveForm: Record<string, unknown>;
   measurement_comparison: MeasurementComparisonRow[];
   payment_methods_catalogue: string[];
+  measurement_note: string;
 }
 
 export type DocumentContext = DocumentRows & DocumentRuleSet & DocumentContextExtras;
@@ -68,6 +69,12 @@ export function buildDocumentContext({
     document_type,
     rows.usdRate,
   );
+  const measurement_note = measurement_comparison.some(
+    (row) => !row.is_detail && row.measure_budgeted != null
+      && row.measure_delta != null && Math.abs(row.measure_delta) > 1e-9,
+  )
+    ? 'Superficies según medición actual. Importes comerciales según presupuesto confirmado.'
+    : '';
 
   // Active payment methods from the catalogue, printed as a reference box in
   // the PDF ("METODO DE PAGO") so the customer sees every option they can
@@ -80,6 +87,7 @@ export function buildDocumentContext({
     ...ruleSet,
     effectiveForm,
     measurement_comparison,
+    measurement_note,
     payment_methods_catalogue,
   };
 }

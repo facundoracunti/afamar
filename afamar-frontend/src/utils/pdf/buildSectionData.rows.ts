@@ -108,16 +108,17 @@ export function buildMaterialRows(materials: MaterialInForm[], usdRate: number, 
     const length = Number(src.length || 0);
     const width = Number(src.width || 0);
     const quantity = Number(src.quantity || 1);
+    // Main material rows always show the current measured surface. Historical
+    // m2_budgeted is reserved for the measurement-comparison columns.
+    const m2 = length * width * quantity;
     const budgetedM2 = Number((src as unknown as Record<string, unknown>).m2_budgeted);
-    const m2 = useBudgetedMeasures && Number.isFinite(budgetedM2)
-      ? budgetedM2
-      : length * width * quantity;
+    const commercialM2 = useBudgetedMeasures && Number.isFinite(budgetedM2) ? budgetedM2 : m2;
     const currency: 'ARS' | 'USD' = src.currency === 'USD' ? 'USD' : 'ARS';
     const priceM2Ars = Number(src.price_m2 || 0);
     const priceM2Usd = Number(src.price_m2_usd || 0);
     const subtotalOriginal = currency === 'USD'
-      ? m2 * priceM2Usd
-      : m2 * priceM2Ars;
+      ? commercialM2 * priceM2Usd
+      : commercialM2 * priceM2Ars;
     const subtotalArs = currency === 'ARS' ? subtotalOriginal : usdRate > 0 ? subtotalOriginal * usdRate : 0;
     const subtotalUsd = currency === 'USD' ? subtotalOriginal : usdRate > 0 ? subtotalOriginal / usdRate : 0;
     const priceM2 = currency === 'USD' ? priceM2Usd : priceM2Ars;
