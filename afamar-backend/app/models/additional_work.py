@@ -51,6 +51,9 @@ class AdditionalWork(Base):
     # business rule at migration time; operators can override per catalogue
     # item from the `/admin/additional-works` UI.
     formula_constant: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Semantic discriminator for specialized frente workflows. Null keeps
+    # legacy catalogue rows unchanged; MITER_45 is informational only.
+    front_kind: Mapped[str | None] = mapped_column(String(30), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 

@@ -20,6 +20,8 @@ export interface AdditionalWork {
    *  sigue siendo `formula_constant` (no se renombró para evitar una
    *  migración adicional). */
   formula_constant: number | null;
+  /** Semantic discriminator for specialized frente workflows. */
+  front_kind?: 'MITER_45' | string | null;
   created_at?: string;
   updated_at?: string;
 }

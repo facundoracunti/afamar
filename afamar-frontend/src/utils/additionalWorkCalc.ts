@@ -78,6 +78,11 @@ export function applyAdditionalWorkField(
   } else if (field === 'linear_meters') {
     updated.linear_meters = Math.max(0, Number(value) || 0);
     return recomputeFrenteRow(updated, _options?.catalogueItem, _options?.materialOptions);
+  } else if (field === 'front_height_cm') {
+    updated.front_height_cm = Number(value) > 0 ? Number(value) : null;
+    if (_options?.catalogueItem?.front_kind) {
+      updated.front_kind = _options.catalogueItem.front_kind;
+    }
   } else if (field === 'assigned_material_id') {
     if (value === POOL_MATERIAL_GLOBAL) {
       // "GLOBAL - SUMA AL TOTAL": no material of its own. The frente renders

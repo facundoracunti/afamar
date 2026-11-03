@@ -20,7 +20,7 @@ import { Document, Page, View } from '@react-pdf/renderer';
 import type { WorkshopPdfData } from '../../../utils/pdf/buildWorkshopPdfData';
 import { styles } from './WorkshopSheet.styles';
 import { WorkshopHeader, WorkshopInfoGrid } from './WorkshopSheet.header';
-import { WorkshopPoolsTable } from './WorkshopSheet.pools';
+import { WorkshopFrontsTable, WorkshopPoolsTable } from './WorkshopSheet.pools';
 import { WorkshopSketch } from './WorkshopSheet.sketch';
 import { WorkshopSpecsBlock } from './WorkshopSheet.specs';
 
@@ -58,6 +58,7 @@ export default function WorkshopSheet({ data }: WorkshopSheetProps) {
         <WorkshopInfoGrid materials={data.materials} clientName={data.client_name} />
 
         <WorkshopPoolsTable pools={data.pools} />
+        <WorkshopFrontsTable fronts={data.fronts} />
 
         <WorkshopSketch pages={data.sketch_pages} imageHeight={sketchImgHeight} />
 

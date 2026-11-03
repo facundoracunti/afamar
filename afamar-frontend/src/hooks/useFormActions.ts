@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { EntityFormState, EntityServices } from '../types';
 import { todayLocalISO } from './entityFormHelpers';
 import { applyCreditCardAutoFill } from '../utils/creditCardAutoFill';
+import { validateMiter45Heights } from '../utils/additionalWorkParse';
 
 /** Describes what a save/delete did, so `onAfterAction` callers can
  *  branch (e.g. the work-order form navigates to the freshly-created
@@ -88,6 +89,11 @@ export function useFormActions({
       submittingRef.current = true;
       setSaving(true);
       try {
+        const additionalWorkError = validateMiter45Heights(form.additional_works_data);
+        if (additionalWorkError) {
+          onError?.(additionalWorkError);
+          return false;
+        }
         const payload = { ...buildPayload(), ...(extraPayloadFields?.() ?? {}) };
         // Saving a rejected budget resets its status to PENDING so the user
         // can re-approve it (and eventually convert to a work order).

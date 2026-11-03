@@ -8,6 +8,8 @@ import { AdditionalWork, AdditionalWorkType } from '../types/additionalWork';
 import { POOL_MATERIAL_GLOBAL } from '../types/budget';
 import type { PriceSource } from '../types/budget';
 
+export const MITER_45_FRONT_KIND = 'MITER_45' as const;
+
 export interface AdditionalWorkSelection {
   additional_work_id: number | null;
   name: string;
@@ -20,6 +22,8 @@ export interface AdditionalWorkSelection {
   price_source?: PriceSource;
   materialName?: string;
   type: AdditionalWorkType;
+  front_kind?: string | null;
+  front_height_cm?: number | null;
   linear_meters?: number;
   /** Snapshot keys the COMPARATIVA DE MEDICIÓN reads (written by the
    *  backend at budget save and budget→WO conversion). They MUST survive
@@ -78,6 +82,7 @@ export function parseAdditionalWorksData(json: string | null | undefined): Addit
             materialName:
               typeof row.materialName === 'string' ? row.materialName : POOL_MATERIAL_GLOBAL,
             type,
+            front_kind: typeof row.front_kind === 'string' ? row.front_kind : null,
             linear_meters_budgeted: pickNullableNumber(row.linear_meters_budgeted),
             total_ars_budgeted: pickNullableNumber(row.total_ars_budgeted),
             total_usd_budgeted: pickNullableNumber(row.total_usd_budgeted),
@@ -93,7 +98,8 @@ export function parseAdditionalWorksData(json: string | null | undefined): Addit
               | undefined;
             return {
               ...base,
-              linear_meters: pickNumeric(row.linear_meters, 0),
+                linear_meters: pickNumeric(row.linear_meters, 0),
+                front_height_cm: pickNullableNumber(row.front_height_cm),
               assigned_material_id:
                 row.assigned_material_id === null || row.assigned_material_id === undefined
                   ? null
@@ -123,6 +129,16 @@ export function parseAdditionalWorksData(json: string | null | undefined): Addit
 
 export function serializeAdditionalWorksData(items: AdditionalWorkSelection[]): string {
   return JSON.stringify(items);
+}
+
+export function validateMiter45Heights(json: string | null | undefined): string | null {
+  for (const row of parseAdditionalWorksData(json)) {
+    if (row.front_kind !== MITER_45_FRONT_KIND) continue;
+    if (!(Number(row.front_height_cm) > 0)) {
+      return 'El frente ingletado a 45° requiere una altura positiva en centímetros.';
+    }
+  }
+  return null;
 }
 
 export function AdditionalWorkTypeGuard(v: string): v is AdditionalWorkType {

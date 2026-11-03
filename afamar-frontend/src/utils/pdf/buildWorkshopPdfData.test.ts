@@ -36,11 +36,40 @@ describe('buildWorkshopPdfData', () => {
     expect(result.client_name).toBe('Juan Pérez');
     expect(result.materials).toEqual(['NEGRO BRASIL']);
     expect(result.pools).toEqual([]);
+    expect(result.fronts).toEqual([]);
     expect(result.design_observations).toBe('Zócalo de 10 cm');
     expect(result.sketch_pages).toEqual([
       { name: 'Página 1', material: '', image: 'data:image/png;base64,abc123' },
     ]);
     expect(result.specs).toHaveLength(6);
+  });
+
+  it('includes the height of MITER_45 fronts for the workshop sheet', () => {
+    const result = buildWorkshopPdfData({
+      form: {
+        ...minimalForm,
+        additional_works_data: JSON.stringify([
+          {
+            type: 'frente',
+            name: 'Frente Ingletado 45°',
+            front_kind: 'MITER_45',
+            front_height_cm: 15,
+          },
+          {
+            type: 'frente',
+            name: 'Frente Doble',
+            front_kind: null,
+            front_height_cm: null,
+          },
+        ]),
+      },
+      company,
+      sketchImages: [],
+    });
+
+    expect(result.fronts).toEqual([
+      { name: 'Frente Ingletado 45°', height_cm: 15 },
+    ]);
   });
 
   it('labels each sketch page with its name + material for the taller sheet', () => {

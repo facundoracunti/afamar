@@ -14,6 +14,7 @@ from typing import Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
+from app.core.exceptions import ValidationError
 from app.core.settings import settings
 from app.models.additional_work import AdditionalWork
 from app.models.budget import Budget
@@ -130,6 +131,25 @@ def _process_additional_works_snapshot(
             m.id: m for m in db.query(Material).filter(Material.id.in_(material_ids)).all()
         }
 
+    _validate_miter45_rows(db, rows)
+
+    # Attach the semantic catalogue discriminator to each selected row. This
+    # path never participates in pricing.
+    for row in rows:
+        if not isinstance(row, dict) or str(row.get("type") or "").lower() != "frente":
+            continue
+        catalog_id = row.get("additional_work_id")
+        try:
+            catalog_key = int(catalog_id) if catalog_id is not None else None
+        except (TypeError, ValueError):
+            catalog_key = None
+        catalog = catalogue_by_id.get(catalog_key) if catalog_key is not None else None
+        front_kind = row.get("front_kind") or getattr(catalog, "front_kind", None)
+        if front_kind:
+            row["front_kind"] = front_kind
+        if front_kind != "MITER_45":
+            continue
+
     try:
         processed = apply_frente_rows(
             rows,
@@ -173,3 +193,47 @@ def _process_additional_works_snapshot(
     processed = snapped
 
     return json.dumps(processed, ensure_ascii=False)
+
+
+def _validate_miter45_rows(db: Session, raw_rows) -> None:
+    """Reject missing/invalid heights for catalogue-identified MITER_45 rows."""
+    if isinstance(raw_rows, str):
+        try:
+            raw_rows = json.loads(raw_rows)
+        except (TypeError, ValueError):
+            return
+    if not isinstance(raw_rows, list):
+        return
+
+    catalogue_ids = set()
+    for row in raw_rows:
+        if not isinstance(row, dict) or row.get("additional_work_id") is None:
+            continue
+        try:
+            catalogue_ids.add(int(row["additional_work_id"]))
+        except (TypeError, ValueError):
+            continue
+    catalogue_by_id = {
+        item.id: item
+        for item in db.query(AdditionalWork).filter(AdditionalWork.id.in_(catalogue_ids)).all()
+    } if catalogue_ids else {}
+
+    for row in raw_rows:
+        if not isinstance(row, dict) or str(row.get("type") or "").lower() != "frente":
+            continue
+        try:
+            catalogue_key = int(row.get("additional_work_id"))
+        except (TypeError, ValueError):
+            catalogue_key = None
+        catalogue = catalogue_by_id.get(catalogue_key)
+        front_kind = row.get("front_kind") or getattr(catalogue, "front_kind", None)
+        if front_kind != "MITER_45":
+            continue
+        try:
+            height = float(row.get("front_height_cm"))
+        except (TypeError, ValueError):
+            height = 0
+        if height <= 0:
+            raise ValidationError(
+                "El frente ingletado a 45° requiere una altura positiva en centímetros."
+            )

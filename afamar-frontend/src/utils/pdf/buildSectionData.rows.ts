@@ -222,6 +222,10 @@ export function buildAdditionalWorksRows(
       subtotal_usd: currency === 'USD' ? totalInSourceCurrency : (usdRate > 0 ? totalInSourceCurrency / usdRate : 0),
       material_name,
       assigned_material_id,
+      front_kind: typeof row['front_kind'] === 'string' ? row['front_kind'] : null,
+      front_height_cm: Number.isFinite(Number(row['front_height_cm']))
+        ? Number(row['front_height_cm'])
+        : null,
     };
 
     if (rowType !== 'frente') return base;

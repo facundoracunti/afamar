@@ -289,7 +289,7 @@
   <table class="data-table">
     <thead><tr><th>Trabajo</th><th>Detalle</th><th class="num">Cant.</th><th class="num">Precio</th><th class="num">Subtotal</th></tr></thead>
     <tbody>{% for a in piece.additional %}<tr>
-      <td>{{ a.name }}</td><td>{{ a.detail or "" }}</td><td class="num">{{ a.quantity }}</td>
+       <td>{{ a.name }}</td><td>{{ a.detail or "" }}{% if a.height_str %} — Altura: {{ a.height_str }}{% endif %}</td><td class="num">{{ a.quantity }}</td>
       <td class="num">{{ a.currency }} {{ a.price_str }}</td><td class="num">{{ a.currency }} {{ a.total_str }}</td>
     </tr>{% endfor %}</tbody>
   </table>

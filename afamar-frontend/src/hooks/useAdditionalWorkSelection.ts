@@ -51,6 +51,7 @@ import {
 export {
   parseAdditionalWorksData,
   serializeAdditionalWorksData,
+  validateMiter45Heights,
 } from '../utils/additionalWorkParse';
 export type { AdditionalWorkSelection } from '../utils/additionalWorkParse';
 
@@ -116,6 +117,8 @@ export function useAdditionalWorkSelection(
           total: 0,
           materialName: POOL_MATERIAL_GLOBAL,
           type: 'frente',
+          front_kind: catalogueItem.front_kind ?? null,
+          front_height_cm: null,
           linear_meters,
           assigned_material_id: initialAssignedMaterialId,
           formula_values: null,

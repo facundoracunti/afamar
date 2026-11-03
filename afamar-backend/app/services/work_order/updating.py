@@ -6,6 +6,7 @@ Extracted verbatim from ``app/services/work_order/mutations.py`` (ADR 0009
 
 from app.core.exceptions import ValidationError
 from app.models.work_order import WorkOrder
+from app.services.budget_helpers import _validate_miter45_rows
 from app.services.commercial_rounding import (
     apply_contractual_totals,
     copy_contractual_totals,
@@ -53,6 +54,8 @@ def update_work_order(repo, order_id: int, data: dict) -> WorkOrder | None:
         "Debe seleccionar un cliente antes de guardar la orden de trabajo.",
     )
     stash_sketch_into_budgeted_details(data)
+    if "additional_works_data" in data:
+        _validate_miter45_rows(repo.db, data.get("additional_works_data"))
     # If the update carries line-item arrays (or totals) we recompute
     # totals server-side. This keeps `total` consistent with the rows
     # even when the client only sent partial data and patched in stale
@@ -78,6 +81,8 @@ def update_work_order(repo, order_id: int, data: dict) -> WorkOrder | None:
         # never run. Explicit arrays in the patch still win.
         from app.services.budget_calculator import flatten_pieces
         flatten_pieces(data, only_if_missing=True)
+        if "additional_works_data" in data:
+            _validate_miter45_rows(repo.db, data.get("additional_works_data"))
         # Merge persisted values with the incoming patch so the helper
         # can recalculate from a complete picture.
         merged = {

@@ -137,7 +137,7 @@ export function computeFrenteTotal(
  * backend's `compute_frente_subtotal`.
  */
 export function buildFrenteSelectionFor(
-  catalogueRow: Pick<AdditionalWork, 'id' | 'name' | 'detail' | 'currency'>,
+  catalogueRow: Pick<AdditionalWork, 'id' | 'name' | 'detail' | 'currency' | 'front_kind'>,
   material: {
     id?: number | null;
     name: string;
@@ -158,6 +158,8 @@ export function buildFrenteSelectionFor(
   type: 'frente';
   linear_meters: number;
   assigned_material_id: number | null;
+  front_kind: string | null;
+  front_height_cm: null;
   formula_values: null;
   price_source: 'catalog';
 } {
@@ -179,6 +181,8 @@ export function buildFrenteSelectionFor(
     type: 'frente',
     linear_meters: 1,
     assigned_material_id: material.id ?? null,
+    front_kind: catalogueRow.front_kind ?? null,
+    front_height_cm: null,
     formula_values: null,
     price_source: 'catalog',
   };

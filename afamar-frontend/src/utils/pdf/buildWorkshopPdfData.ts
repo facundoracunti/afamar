@@ -15,6 +15,7 @@
  */
 import type { CompanyInfo } from './pdfTypes';
 import { POOL_MATERIAL_GLOBAL } from '../../types/budget';
+import { MITER_45_FRONT_KIND } from '../additionalWorkParse';
 
 export interface WorkshopSpecCell {
   key: string;
@@ -41,6 +42,11 @@ export interface WorkshopPoolCell {
   display: string;
 }
 
+export interface WorkshopFrontCell {
+  name: string;
+  height_cm: number;
+}
+
 export interface WorkshopPdfData {
   document_type: 'workshop_sheet';
   company: CompanyInfo;
@@ -51,6 +57,8 @@ export interface WorkshopPdfData {
   materials: string[];
   /** ALL pools (brand + model) with the mesada each one is assigned to. */
   pools: WorkshopPoolCell[];
+  /** Ingletados a 45° with their required workshop height. */
+  fronts: WorkshopFrontCell[];
   specs: WorkshopSpecCell[];
   design_observations: string;
   sketch_pages: WorkshopSketchPage[];
@@ -83,6 +91,13 @@ interface MaterialLike {
   is_alternative?: unknown;
   length?: unknown;
   width?: unknown;
+}
+
+interface AdditionalWorkLike {
+  name?: unknown;
+  type?: unknown;
+  front_kind?: unknown;
+  front_height_cm?: unknown;
 }
 
 /** A croquis page from the form (`savePayload` shape: `{ pagina_id, name,
@@ -215,6 +230,7 @@ export function buildWorkshopPdfData(opts: {
     client_name: String(form.client_name || ''),
     materials: resolveMaterialNames(form),
     pools: resolvePoolCells(form.pools_data, form.materials_data),
+    fronts: resolveFrontCells(form.additional_works_data),
     design_observations: String(form.design_observations || ''),
     sketch_pages: resolveSketchPages(form, sketchImages),
     // The taller spec grid is ALWAYS printed blank — the shop-floor workers
@@ -226,4 +242,15 @@ export function buildWorkshopPdfData(opts: {
       value: EMPTY_SPEC_VALUE,
     })),
   };
+}
+
+function resolveFrontCells(raw?: unknown): WorkshopFrontCell[] {
+  return asArray(raw)
+    .map((it) => it as AdditionalWorkLike)
+    .filter((row) => row.type === 'frente' && row.front_kind === MITER_45_FRONT_KIND)
+    .map((row) => ({
+      name: String(row.name || 'Frente ingletado a 45°'),
+      height_cm: Number(row.front_height_cm),
+    }))
+    .filter((row) => Number.isFinite(row.height_cm) && row.height_cm > 0);
 }

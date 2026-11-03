@@ -42,3 +42,25 @@ export function WorkshopPoolsTable({ pools }: WorkshopPoolsTableProps) {
     </View>
   );
 }
+
+interface WorkshopFrontsTableProps {
+  fronts: WorkshopPdfData['fronts'];
+}
+
+export function WorkshopFrontsTable({ fronts }: WorkshopFrontsTableProps) {
+  if (fronts.length === 0) return null;
+  return (
+    <View style={styles.poolsBox}>
+      <View style={styles.poolsHeader}>
+        <Text style={styles.poolsHeaderModel}>Frente</Text>
+        <Text style={styles.poolsHeaderTarget}>Altura</Text>
+      </View>
+      {fronts.map((front, index) => (
+        <View key={`${front.name}-${index}`} style={styles.poolsRow}>
+          <Text style={styles.poolModel}>{front.name}</Text>
+          <Text style={styles.poolTarget}>{front.height_cm} cm</Text>
+        </View>
+      ))}
+    </View>
+  );
+}

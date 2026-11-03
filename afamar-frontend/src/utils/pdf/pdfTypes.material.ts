@@ -88,4 +88,6 @@ export interface AdditionalWorkPdfRow {
    *  still carries a name). Used so the bucketing treats an unassigned
    *  frente as a common row shown in every option. */
   readonly assigned_material_id?: number | string | null;
+  readonly front_kind?: string | null;
+  readonly front_height_cm?: number | null;
 }

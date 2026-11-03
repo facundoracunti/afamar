@@ -149,9 +149,12 @@ export function comparisonSectionHeaderFlags(
 
 export function adicRowCells(a: AdditionalWorkPdfRow): (string | null)[] {
   const priceLabel = a.type === 'frente' ? `$ ${a.price_str} x ml` : `$ ${a.price_str}`;
+  const detail = a.front_height_cm && a.front_height_cm > 0
+    ? `${a.detail || ''}${a.detail ? ' — ' : ''}Altura: ${fmt(a.front_height_cm)} cm`
+    : a.detail;
   return [
     a.name,
-    a.detail,
+    detail,
     String(a.quantity),
     priceLabel,
     a.currency,

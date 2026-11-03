@@ -125,6 +125,7 @@ export default function AdditionalWorkSection({ value, onChange, readOnly, formM
         name: frente.name,
         detail: frente.detail ?? null,
         currency: mat.currency === 'USD' ? 'USD' : 'ARS',
+        front_kind: frente.front_kind ?? null,
       },
       {
         id: mat.id ?? null,

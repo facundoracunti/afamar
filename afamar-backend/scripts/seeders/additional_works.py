@@ -6,12 +6,13 @@ a fresh DB; existing rows are left untouched (idempotent — preserves
 manual price/formula changes).
 
 Each entry is a tuple matching the `AdditionalWork` model's columns:
-    (name, detail, price, currency_id, type, formula_constant)
+    (name, detail, price, currency_id, type, formula_constant, front_kind)
 
 - `type`: "flat" (fixed price) or "frente" (priced by linear meter
   using `formula_constant` — see `utils/frentePricing.py`).
 - `currency_id`: 1 = ARS, 2 = USD (see `seed_currencies`).
-- `formula_constant`: only set for `frente` rows; null for `flat`.
+    - `formula_constant`: only set for `frente` rows; null for `flat`.
+    - `front_kind`: semantic discriminator for specialized frente rows.
 """
 from __future__ import annotations
 
@@ -22,24 +23,24 @@ from app.models.additional_work import AdditionalWork
 # Single source of truth: the production catalogue on 2026-07-29.
 ADDITIONAL_WORKS: tuple[tuple, ...] = (
     # flat / ARS
-    ("Traforo de Pileta", "Apertura y pegado de pileta", 60000.0, 1, "flat", None),
-    ("Traforo de Anafe", "Apertura de anafe", 70000.0, 1, "flat", None),
-    ("Traforo de Pileta de apoyo", "Apertura pileta de apoyo", 30000.0, 1, "flat", None),
-    ("Mensula de Amurar", "Mensulas para mesadas", 30000.0, 1, "flat", None),
+    ("Traforo de Pileta", "Apertura y pegado de pileta", 60000.0, 1, "flat", None, None),
+    ("Traforo de Anafe", "Apertura de anafe", 70000.0, 1, "flat", None, None),
+    ("Traforo de Pileta de apoyo", "Apertura pileta de apoyo", 30000.0, 1, "flat", None, None),
+    ("Mensula de Amurar", "Mensulas para mesadas", 30000.0, 1, "flat", None, None),
     # flat / USD
-    ("Bacha Integrada", "Pileta de Material ", 420.0, 2, "flat", None),
+    ("Bacha Integrada", "Pileta de Material ", 420.0, 2, "flat", None, None),
     # frente / USD (price is 0.0 — the actual cost is linear meters *
     # formula_constant, computed at runtime)
-    ("Frente Ingletetado 45°", "Frente 45°", 0.0, 2, "frente", 1.15),
-    ("Frente Doble", "Doble Frente Pulido", 0.0, 2, "frente", 1.0),
+    ("Frente Ingletetado 45°", "Frente 45°", 0.0, 2, "frente", 1.15, "MITER_45"),
+    ("Frente Doble", "Doble Frente Pulido", 0.0, 2, "frente", 1.0, None),
     # frente / ARS
-    ("Frentin Clasico Rasado", "", 0.0, 1, "frente", 1.0),
+    ("Frentin Clasico Rasado", "", 0.0, 1, "frente", 1.0, None),
     # flat / ARS — nuevos del catálogo actual
-    ("Traforo de Atornillar", "", 20000.0, 1, "flat", None),
-    ("Traforo filtro de agua", "", 20000.0, 1, "flat", None),
-    ("Toma de luz", "Toma de luz por unidad", 20000.0, 1, "flat", None),
-    ("Toma de gas", "", 20000.0, 1, "flat", None),
-    ("Traforo de Ducha", "Apertura de llave de agua", 10000.0, 1, "flat", None),
+    ("Traforo de Atornillar", "", 20000.0, 1, "flat", None, None),
+    ("Traforo filtro de agua", "", 20000.0, 1, "flat", None, None),
+    ("Toma de luz", "Toma de luz por unidad", 20000.0, 1, "flat", None, None),
+    ("Toma de gas", "", 20000.0, 1, "flat", None, None),
+    ("Traforo de Ducha", "Apertura de llave de agua", 10000.0, 1, "flat", None, None),
 )
 
 
@@ -66,6 +67,7 @@ def seed_additional_works() -> SeedResult:
                 currency_id=row[3],
                 type=row[4],
                 formula_constant=row[5],
+                front_kind=row[6],
             ))
             result.inserted += 1
             logger.info("Added additional work: %s", name)

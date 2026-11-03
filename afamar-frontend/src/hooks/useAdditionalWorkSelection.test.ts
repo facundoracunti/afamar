@@ -4,9 +4,22 @@ import { useAdditionalWorkSelection } from './useAdditionalWorkSelection';
 import {
   parseAdditionalWorksData,
   serializeAdditionalWorksData,
+  validateMiter45Heights,
 } from '../utils/additionalWorkParse';
 
 describe('parseAdditionalWorksData — frente fields', () => {
+  it('requires a positive height only for MITER_45 fronts', () => {
+    const missing = validateMiter45Heights(JSON.stringify([
+      { type: 'frente', front_kind: 'MITER_45', front_height_cm: null },
+    ]));
+    expect(missing).toContain('altura positiva');
+
+    expect(validateMiter45Heights(JSON.stringify([
+      { type: 'frente', front_kind: 'MITER_45', front_height_cm: 15 },
+      { type: 'frente', front_kind: null, front_height_cm: null },
+    ]))).toBeNull();
+  });
+
   it('parses a flat snapshot row (legacy contract)', () => {
     const rows = parseAdditionalWorksData(
       JSON.stringify([

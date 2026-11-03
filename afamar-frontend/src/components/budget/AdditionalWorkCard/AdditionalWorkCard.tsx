@@ -8,6 +8,7 @@ import {
   resolveFrenteMultiplier,
 } from '../../../utils/frentePricing';
 import { LinearMetersInput } from '../../common/LinearMetersInput/LinearMetersInput';
+import { MITER_45_FRONT_KIND } from '../../../utils/additionalWorkParse';
 
 function formatNumber(n: number): string {
   if (!Number.isFinite(n)) return '0';
@@ -50,6 +51,10 @@ export default function AdditionalWorkCard({
   removeAdditionalWork,
 }: AdditionalWorkCardProps) {
   const isFrente = selection.type === 'frente';
+  const isMiter45 = isFrente && (
+    selection.front_kind === MITER_45_FRONT_KIND
+    || catalogueItem?.front_kind === MITER_45_FRONT_KIND
+  );
   const materialOptions = React.useMemo(
     () => buildFrenteMaterialOptions({ materials: formMaterials }),
     [formMaterials],
@@ -169,6 +174,28 @@ export default function AdditionalWorkCard({
               }
             />
           </div>
+
+          {isMiter45 ? (
+            <div className={`${s['additional-work-card__field']} ${s['additional-work-card__field--cant']}`}>
+              <label className={s['additional-work-card__label']}>
+                Altura del frente (cm) *
+              </label>
+              <input
+                className={`input ${s['additional-work-card__input']}`}
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={selection.front_height_cm ?? ''}
+                placeholder="Ej.: 15"
+                onChange={(e) => updateAdditionalWork(idx, 'front_height_cm', e.target.value === '' ? null : Number(e.target.value), { catalogueItem, materialOptions })}
+                disabled={readOnly}
+                aria-label="Altura del frente (cm)"
+              />
+              <small className={s['additional-work-card__formula']}>
+                Obligatoria para el frente ingletado a 45°.
+              </small>
+            </div>
+          ) : null}
 
           <div className={`${s['additional-work-card__field']} ${s['additional-work-card__field--subtotal']}`}>
             <label className={s['additional-work-card__label']}>Subtotal</label>

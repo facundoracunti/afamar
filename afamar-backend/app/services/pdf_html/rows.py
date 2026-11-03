@@ -8,6 +8,7 @@ from app.services.pdf_html.formatting import (
     _concept_to_display,
     _fmt_m2,
     _fmt_money,
+    _fmt_num,
     _fmt_unit,
 )
 
@@ -193,6 +194,15 @@ def _build_piece_materials_pdf(materials: list, use_budgeted_measures: bool = Fa
 
 def _build_piece_additional_pdf(raw, use_budgeted_measures: bool = False) -> list[dict]:
     """Build presentation rows for piece-owned additional works."""
+    def front_height_str(src: dict) -> str:
+        if str(src.get("front_kind") or "") != "MITER_45":
+            return ""
+        try:
+            height = float(src.get("front_height_cm"))
+        except (TypeError, ValueError):
+            return ""
+        return _fmt_num(height) + " cm" if height > 0 else ""
+
     result = []
     for src in _parse_piece_list(raw):
         if not isinstance(src, dict):
@@ -215,6 +225,7 @@ def _build_piece_additional_pdf(raw, use_budgeted_measures: bool = False) -> lis
         result.append({
             "name": src.get("name") or "Trabajo adicional",
             "detail": src.get("detail") or src.get("detalle") or "",
+            "height_str": front_height_str(src),
             "quantity": int(displayed_quantity) if displayed_quantity.is_integer() else displayed_quantity,
             "price_str": _fmt_money(price),
             "total_str": _fmt_money(total),

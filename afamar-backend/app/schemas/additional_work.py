@@ -20,6 +20,7 @@ class AdditionalWorkBase(BaseModel):
     # Constant used in the `frente` formula (units match the material
     # currency; default 1.15 for newly created `frente` rows).
     formula_constant: float | None = None
+    front_kind: str | None = None
 
 
 class AdditionalWorkCreate(AdditionalWorkBase):
@@ -33,6 +34,7 @@ class AdditionalWorkUpdate(BaseModel):
     currency: str | None = None
     type: str | None = None
     formula_constant: float | None = None
+    front_kind: str | None = None
 
 
 class AdditionalWorkResponse(AdditionalWorkBase, CurrencyCodeMixin, BaseResponse):
