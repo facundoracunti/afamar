@@ -248,6 +248,7 @@ export function useBudgetActions({
       // método (SURCHARGE / DISCOUNT) y emitir la tabla 3-columnas
       // de cuotas cuando hay tarjeta de crédito.
       paymentMethods,
+      usePersistedCommercialTotals: true,
     });
     setPdfData(data);
     setPdfPreviewLoading(false);

@@ -1,5 +1,12 @@
 ﻿export function parseNumber(v: string): number | null {
-  return v === '' ? null : parseFloat(v);
+  const raw = String(v ?? '').trim();
+  if (raw === '') return null;
+  // Accept either decimal separator, but reject ambiguous mixed separators.
+  if ((raw.match(/[.,]/g) || []).length > 1) return null;
+  const normalized = raw.replace(',', '.');
+  if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized)) return null;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 export const formatCurrency = (value: number): string => {

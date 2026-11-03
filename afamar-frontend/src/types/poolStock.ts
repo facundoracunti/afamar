@@ -19,6 +19,37 @@ export interface PoolType {
   label: string;
 }
 
+export interface WorkOrderPoolRequirement {
+  id: number;
+  work_order_id: number | null;
+  work_order_number: string;
+  pool_id: number | null;
+  pool_key: string;
+  pool_snapshot?: string | null;
+  required_quantity: number;
+  allocated_quantity: number;
+  pending_quantity: number;
+  recovered_quantity: number;
+  unrecovered_quantity: number;
+  status: string;
+}
+
+export interface PendingPoolRequirement {
+  requirement_id: number;
+  work_order_id: number;
+  work_order_number: string;
+  work_order_status: string;
+  client_id: number;
+  client_name: string;
+  pool_id: number | null;
+  pool_brand: string;
+  pool_model: string;
+  required_quantity: number;
+  allocated_quantity: number;
+  pending_quantity: number;
+  available_quantity: number;
+}
+
 export interface PoolMovement {
   id: number;
   pool_id: number;

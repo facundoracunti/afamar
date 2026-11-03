@@ -524,7 +524,7 @@ describe('PDF multi-opción — documento comercial sin jerga interna', () => {
     );
     expect(detailPages).toHaveLength(3);
     const detailTotals = detailPages.map((p) => {
-      const m = p.match(/\$([\d.]+,\d\d)\(USD/);
+      const m = p.match(/TOTALDELAOPCIÓN\$([\d.]+,\d\d)USD\$?/);
       return m ? Number(m[1].replace(/\./g, '').replace(',', '.')) : 0;
     });
     expect(detailTotals).toEqual([...detailTotals].sort((a, b) => a - b));

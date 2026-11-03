@@ -340,6 +340,56 @@ describe('buildPdfData — persisted work-order commercial totals', () => {
   });
 });
 
+describe('buildPdfData — persisted budget commercial totals', () => {
+  it('uses the P-000012 contractual total and derives the PDF USD value from it', () => {
+    const data = buildPdfData({
+      ...pdfParams,
+      document_type: 'budget',
+      usePersistedCommercialTotals: true,
+      form: makeForm({
+        number: 'P-000012',
+        usd_rate: 1565,
+        // Compatibility subtotal is intentionally stale: it omits the
+        // $305,000 pileta that the structured piece renders.
+        subtotal: 800_808.40,
+        subtotal_usd: 512.02,
+        total: 800_808.40,
+        total_usd: 512.02,
+        total_exact_ars: 1_105_808.40,
+        total_exact_usd: 706.59,
+        rounding_adjustment_ars: 4_191.60,
+        rounding_adjustment_usd: 2.68,
+        total_contractual_ars: 1_110_000,
+        total_contractual_usd: 709.27,
+        balance_due: 1_110_000,
+        balance_due_usd: 709.27,
+      }),
+    });
+
+    expect(data.subtotal).toBe(1_105_808.40);
+    expect(data.total).toBe(1_110_000);
+    expect(data.total_usd).toBe(709.27);
+    expect(data.balance_due).toBe(1_110_000);
+    expect(data.total).not.toBe(data.subtotal);
+  });
+
+  it('keeps legacy budgets on the calculated path when no contractual snapshot exists', () => {
+    const data = buildPdfData({
+      ...pdfParams,
+      document_type: 'budget',
+      usePersistedCommercialTotals: true,
+      form: structuredForm([structuredPiece()], {
+        number: 'P-LEGACY',
+        total_contractual_ars: null,
+        total_contractual_usd: null,
+      }),
+    });
+
+    expect(data.total).toBe(2_200_000);
+    expect(data.total_usd).toBe(2200);
+  });
+});
+
 describe('buildPdfData — additional works per-section routing', () => {
   it('puts global adicionais in every section', () => {
     const additional_works_data = JSON.stringify([

@@ -29,9 +29,11 @@ import {
 export function ExtrasBlock({
   data,
   section,
+  showSubtotal = true,
 }: {
   data: PdfDocumentData;
   section?: Partial<MaterialSection> | null;
+  showSubtotal?: boolean;
 }) {
   // "Saldo pendiente" only makes sense when payments were actually
   // registered against this document: a work order always tracks payments,
@@ -48,6 +50,11 @@ export function ExtrasBlock({
           `measurement_comparison` array is empty when disabled */}
       {data.document_type === 'work_order' && data.measurement_comparison.length > 0 ? (
         <View style={{ marginTop: 4 }}>
+          {data.measurement_approval_count > 0 ? (
+            <Text style={{ fontSize: 8, color: '#166534', marginBottom: 4 }}>
+              Diferencias de medición aprobadas. Importe original: {fmt(data.measurement_original_total || 0)} · Total comercial vigente: {fmt(data.total)}
+            </Text>
+          ) : null}
           {data.measurement_note ? (
             <Text style={{ fontSize: 8, color: '#69717C', fontStyle: 'italic', marginBottom: 4 }}>
               {data.measurement_note}
@@ -102,11 +109,13 @@ export function ExtrasBlock({
           </Text>
         </View>
 
-        <View style={styles.totalsLayoutRight}>
-          <View style={styles.totalsRow}>
-            <Text style={styles.totalsLbl}>Subtotal</Text>
-            <Text style={styles.totalsVal}>{`$ ${fmt(section?.subtotal_ars ?? data.subtotal)}`}</Text>
-          </View>
+          <View style={styles.totalsLayoutRight}>
+          {showSubtotal ? (
+            <View style={styles.totalsRow}>
+              <Text style={styles.totalsLbl}>Subtotal</Text>
+              <Text style={styles.totalsVal}>{`$ ${fmt(section?.subtotal_ars ?? data.subtotal)}`}</Text>
+            </View>
+          ) : null}
           {data.transport > 0 ? (
             <View style={styles.totalsRow}>
               <Text style={styles.totalsLbl}>Traslado</Text>

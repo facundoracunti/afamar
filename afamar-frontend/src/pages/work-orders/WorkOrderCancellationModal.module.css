@@ -1,0 +1,117 @@
+.cancellation__content {
+  display: grid;
+  gap: 16px;
+}
+
+.cancellation__intro,
+.cancellation__notice {
+  margin: 0;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.cancellation__payment-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--color-warning);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--color-warning) 10%, transparent);
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.cancellation__payment-warning input {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.cancellation__notice {
+  padding: 10px 12px;
+  border: 1px solid var(--tw-amber-200);
+  border-radius: 6px;
+  background: var(--tw-amber-50);
+  color: var(--tw-amber-900);
+  font-size: 13px;
+}
+
+.cancellation__list {
+  display: grid;
+  gap: 8px;
+}
+
+.cancellation__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+}
+
+.cancellation__pool {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cancellation__pool span,
+.cancellation__pending {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.cancellation__field {
+  display: grid;
+  gap: 4px;
+  min-width: 130px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.cancellation__field input {
+  width: 100%;
+  min-height: 38px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  color: var(--text-primary);
+  background: var(--surface-bg);
+}
+
+.cancellation__summary {
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--tw-emerald-50);
+  color: var(--tw-emerald-800);
+}
+
+.cancellation__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 600px) {
+  .cancellation__row {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .cancellation__field {
+    min-width: 0;
+  }
+
+  .cancellation__actions {
+    flex-direction: column-reverse;
+  }
+
+  .cancellation__actions button {
+    width: 100%;
+    min-height: 42px;
+  }
+}

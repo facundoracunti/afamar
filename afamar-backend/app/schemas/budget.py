@@ -18,6 +18,12 @@ class BudgetItemBase(BaseModel):
     price_m2: float = 0.0
     unit_price: float = 0.0
     total: float = 0.0
+    total_exact_ars: float | None = None
+    total_exact_usd: float | None = None
+    rounding_adjustment_ars: float | None = None
+    rounding_adjustment_usd: float | None = None
+    total_contractual_ars: float | None = None
+    total_contractual_usd: float | None = None
 
 
 class BudgetItemCreate(BudgetItemBase):
@@ -93,6 +99,14 @@ class BudgetBase(BaseModel):
     discount_enabled: bool = False
     discount_target: str = "total"
     total: float = 0.0
+    # Persisted commercial-rounding snapshot. Nullable keeps historical
+    # budgets on the legacy calculation path when no snapshot exists.
+    total_exact_ars: float | None = None
+    total_exact_usd: float | None = None
+    rounding_adjustment_ars: float | None = None
+    rounding_adjustment_usd: float | None = None
+    total_contractual_ars: float | None = None
+    total_contractual_usd: float | None = None
     subtotal_usd: float = 0.0
     transport_usd: float = 0.0
     total_usd: float = 0.0
@@ -164,6 +178,7 @@ class BudgetCreate(BudgetBase):
 
 
 class BudgetUpdate(BaseModel):
+    client_id: int | None = None
     status: str | None = None
     delivery_address_id: int | None = None
     material: str | None = None
@@ -190,6 +205,12 @@ class BudgetUpdate(BaseModel):
     discount_enabled: bool | None = None
     discount_target: str | None = None
     total: float | None = None
+    total_exact_ars: float | None = None
+    total_exact_usd: float | None = None
+    rounding_adjustment_ars: float | None = None
+    rounding_adjustment_usd: float | None = None
+    total_contractual_ars: float | None = None
+    total_contractual_usd: float | None = None
     subtotal_usd: float | None = None
     transport_usd: float | None = None
     total_usd: float | None = None

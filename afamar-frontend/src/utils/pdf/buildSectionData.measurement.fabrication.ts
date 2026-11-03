@@ -11,6 +11,7 @@ import type { FabricationDetail, MaterialInForm } from '../../types/budget';
 import type { MeasurementComparisonRow } from './pdfTypes';
 import { M2_CONCEPTS, LINEAR_CONCEPTS, fmtMoney } from './pdfHelpers';
 import { detailRow, fabLabel, fabMaterialName } from './buildSectionData.measurement.rows';
+import { budgetedAmounts } from './buildSectionData.measurement.money';
 
 export interface FabContext {
   pieceName: string;
@@ -86,10 +87,13 @@ export function fabRowFor(
   } else {
     const lineArs = fdCurrency === 'ARS' ? lineTotal : ctx.usdRate > 0 ? lineTotal * ctx.usdRate : 0;
     const lineUsd = fdCurrency === 'USD' ? lineTotal : ctx.usdRate > 0 ? lineTotal / ctx.usdRate : 0;
-    const budgetedDelta = (current: number, budgeted: number | undefined | null): number =>
-      budgeted == null ? 0 : current - budgeted;
-    deltaArs = budgetedDelta(lineArs, d.total_ars_budgeted);
-    deltaUsd = budgetedDelta(lineUsd, d.total_usd_budgeted);
+    const budgeted = budgetedAmounts(
+      d as unknown as Record<string, unknown>,
+      fdCurrency,
+      ctx.usdRate,
+    );
+    deltaArs = budgeted.ars == null ? 0 : lineArs - budgeted.ars;
+    deltaUsd = budgeted.usd == null ? 0 : lineUsd - budgeted.usd;
   }
   return {
     row: detailRow(

@@ -545,6 +545,68 @@ def test_update_with_deposit_books_sena_when_sena_registered_false(fresh_db):
     )
 
 
+def test_update_with_usd_deposit_books_one_usd_sena_and_uses_order_rate(fresh_db):
+    """USD deposits use the same seña path as ARS deposits.
+
+    The native amount is ``deposit_usd``; the cash movement stores that amount
+    as USD and its ARS equivalent using the order's frozen rate. The
+    idempotency flag prevents a second movement on a later save.
+    """
+    from app.models.daily_cash import CashMovement, DailyCash
+    from app.services.daily_cash import DailyCashService
+
+    svc = WorkOrderService(fresh_db)
+    DailyCashService(fresh_db).open_cash(previous_balance=0)
+    order = svc.create({
+        "client_id": 1,
+        "status": "MEASUREMENT",
+        "currency": "ARS",
+        "usd_rate": 1000.0,
+        "payment_method": "EFECTIVO",
+        "payment_method_id": 1,
+        "installments": 1,
+        "deposit_received": 0,
+        "deposit_currency": "ARS",
+        "deposit_usd": 0,
+        "materials_data": "[]",
+        "fabrication_details": "[]",
+        "additional_works_data": "[]",
+    })
+
+    svc.update(order.id, {
+        "deposit_received": 0,
+        "deposit_currency": "USD",
+        "deposit_usd": 100,
+        "materials_data": "[]",
+        "fabrication_details": "[]",
+    })
+    fresh_db.refresh(order)
+    movement = (
+        fresh_db.query(CashMovement)
+        .filter(CashMovement.order_id == order.id, CashMovement.type == "INCOME")
+        .one()
+    )
+    assert movement.currency == "USD"
+    assert movement.amount == 100
+    assert movement.amount_ars == round(100 * order.usd_rate, 2)
+    assert order.deposit_usd == 100
+    assert order.sena_registered is True
+
+    svc.update(order.id, {
+        "deposit_received": 0,
+        "deposit_currency": "USD",
+        "deposit_usd": 100,
+        "materials_data": "[]",
+        "fabrication_details": "[]",
+    })
+    assert (
+        fresh_db.query(CashMovement)
+        .filter(CashMovement.order_id == order.id, CashMovement.type == "INCOME")
+        .count()
+        == 1
+    )
+
+
 def test_update_does_not_book_sena_when_balance_paid_true(fresh_db):
     """A fully-paid OT (tarjeta debito/credito autofill at create time)
     must NEVER book a senia in update(), even if the operator edits the

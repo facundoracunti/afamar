@@ -23,14 +23,19 @@ goes through the full OT service (integration); a final test exercises
 `deduct_pool_stock` standalone to lock the EXACT `pool.quantity -= qty`
 operation (the user's main concern in cont.6 follow-up).
 
-Symmetry check: cancelling the OT (or converting then cancelling)
-restores the stock via `restore_pool_stock` and records an INCOMING
-movement (`type="entry"`).
+Symmetry check: cancelling a requirement-backed OT uses the explicit recovery
+endpoint/service and records an INCOMING movement (`type="entry"`) only for
+the quantities confirmed as physically recovered.
 """
 import json
 
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
+import app.models  # noqa: F401 - register every mapped table
+from app.db.base import Base
 from app.models.client import Client
 from app.models.daily_cash import CashMovement, DailyCash
 from app.models.pool_stock import PoolStock, StockMovement
@@ -41,8 +46,7 @@ from app.services.stock_helpers import (
     deduct_pool_stock,
 )
 from app.services.work_order import WorkOrderService
-
-from tests.conftest import TestingSessionLocal
+from app.services.work_order.pool_requirements import cancel_work_order_with_recovery
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -54,7 +58,13 @@ from tests.conftest import TestingSessionLocal
 def pool_db():
     """Session pre-seeded with currency + payment method + client + open
     cash box + a pool (JOHNSON Q 76 A, 5 in stock)."""
-    db = TestingSessionLocal()
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(engine)
+    db = sessionmaker(bind=engine)()
     try:
         # Currency (required FK on PoolStock).
         if not db.query(Currency).first():
@@ -81,6 +91,8 @@ def pool_db():
         yield db
     finally:
         db.close()
+        Base.metadata.drop_all(engine)
+        engine.dispose()
 
 
 def _make_pools_data(pool_id: int, quantity: int = 1) -> str:
@@ -310,9 +322,7 @@ def test_double_create_does_not_double_deduct(pool_db):
 
 
 def test_cancel_ot_restores_stock_and_records_entry_movement(pool_db):
-    """Status flip to CANCELLED triggers `restore_pool_stock` — the inverse
-    of `deduct_pool_stock`. Mirrors the deposit `sena_registered` /
-    `saldo_registered` symmetry on the cash side."""
+    """New requirement-backed OTs restore only explicitly recovered units."""
     db = pool_db
     pool = db.query(PoolStock).filter(PoolStock.id == 1).one()
     initial = pool.quantity
@@ -332,8 +342,12 @@ def test_cancel_ot_restores_stock_and_records_entry_movement(pool_db):
     consumed = pool.quantity
     assert consumed == initial - 1
 
-    # Cancel via status update → restore_pool_stock runs.
-    order = WorkOrderService(db).update(order.id, {"status": "CANCELLED"})
+    requirement = order.pool_requirements[0]
+    order = cancel_work_order_with_recovery(
+        db,
+        order.id,
+        [{"requirement_id": requirement.id, "recovered_quantity": 1}],
+    )
 
     db.refresh(pool)
     assert pool.quantity == initial
@@ -348,7 +362,7 @@ def test_cancel_ot_restores_stock_and_records_entry_movement(pool_db):
     assert order.number in entry_move.notes
     assert "cancelación" in entry_move.notes.lower()
     db.refresh(order)
-    assert order.stock_deducted is False  # flag flipped back so a re-POST can re-create
+    assert order.stock_deducted is False
 
 
 # ────────────────────────────────────────────────────────────────────

@@ -102,7 +102,11 @@ export function useBudgetPieces({
     materials,
     catalogueById,
   });
-  const worksHandlers = useWorksHandlers({ commit, materials });
+  const worksHandlers = useWorksHandlers({
+    commit,
+    materials,
+    markNewMeasurementRows: form.status === 'MEASUREMENT' && form.budget_id != null,
+  });
   const poolHandlers = usePoolHandlers(commit);
 
   return {

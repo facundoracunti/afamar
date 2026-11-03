@@ -11,7 +11,11 @@ show the real measure with None on budgeted/delta ('—' in the template).
 """
 import json
 
-from app.services.pdf_html import _build_materials_pdf, _build_measurement_comparison, build_work_order_pdf_data
+from app.services.pdf_html import (
+    _build_materials_pdf,
+    _build_measurement_comparison,
+    build_work_order_pdf_data,
+)
 
 
 def _materials(name="NEGRO BRASIL", m2_budgeted=3.0, length=6, width=1, currency="USD",
@@ -57,10 +61,10 @@ def test_material_pdf_rows_always_show_current_measured_surface():
          "price_m2": 200000, "m2_budgeted": 0.89},
     ]
 
-    rows = _build_materials_pdf(materials, [], use_budgeted_measures=True)
+    rows = _build_materials_pdf(materials, [], use_budgeted_measures=False)
 
     assert [row["m2_str"] for row in rows] == ["1.42", "0.64", "1.33"]
-    assert [row["subtotal_str"] for row in rows] == ["184,000.00", "184,000.00", "178,000.00"]
+    assert [row["subtotal_str"] for row in rows] == ["284,160.00", "128,000.00", "266,400.00"]
 
     comparison = _build_measurement_comparison(materials, usd_rate=1000)
     assert [row["m2_budgeted_str"] for row in comparison] == ["0.92", "0.92", "0.89"]

@@ -15,7 +15,7 @@ import type {
 } from './pdfTypes.material';
 import type { MeasurementComparisonRow } from './pdfTypes.measurement';
 import type { OptionTotal } from './pdfTypes.options';
-import type { PieceAlternativeTotal, PiecesPdfPiece } from './pdfTypes.piece';
+import type { ApprovalGlobalPdfLine, PieceAlternativeTotal, PiecesPdfPiece } from './pdfTypes.piece';
 import type { MaterialSection } from './pdfTypes.section';
 
 export type DocumentType = 'budget' | 'work_order';
@@ -43,6 +43,9 @@ export interface PdfDocumentData {
   measurement_comparison: MeasurementComparisonRow[];
   /** Informational note shown when current measured m² differs from quote. */
   measurement_note: string;
+  measurement_original_total: number | null;
+  measurement_original_total_usd: number | null;
+  measurement_approval_count: number;
   additional_works: AdditionalWorkPdfRow[];
   additional_works_subtotal_ars: number;
   additional_works_subtotal_usd: number;
@@ -126,6 +129,8 @@ export interface PdfDocumentData {
    * and for work orders.
    */
   pieces?: PiecesPdfPiece[];
+  /** Global approved concepts remain outside every piece. */
+  approval_global_lines?: ApprovalGlobalPdfLine[];
   /**
    * Multi-piece budgets only. One consolidated TOTAL GENERAL ALTERNATIVO
    * per alternative material, aggregated across every piece that quotes it

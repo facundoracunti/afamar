@@ -62,11 +62,20 @@ def _parse_fabrication_details(raw, use_budgeted_measures: bool = False) -> list
 
         # M² is meaningful only when we actually have length & width. For
         # unit cuts the cell shows "U" (unit) instead.
-        budgeted_m2 = float(d.get("m2_budgeted")) if d.get("m2_budgeted") is not None else None
-        m2_value = (
-            budgeted_m2 if use_budgeted_measures and budgeted_m2 is not None
-            else round(length * width * quantity, 8)
-        ) if is_m2 else None
+        m2_value = round(length * width * quantity, 8) if is_m2 else None
+        budgeted_native_total = (
+            float(d.get("total_usd_budgeted"))
+            if str(d.get("currency") or "ARS").upper() == "USD"
+            and d.get("total_usd_budgeted") is not None
+            else float(d.get("total_ars_budgeted"))
+            if d.get("total_ars_budgeted") is not None
+            else None
+        )
+        display_price = (
+            budgeted_native_total
+            if use_budgeted_measures and budgeted_native_total is not None
+            else price
+        )
 
         result.append({
             "concept": _concept_to_display(concept_code, custom),
@@ -80,7 +89,7 @@ def _parse_fabrication_details(raw, use_budgeted_measures: bool = False) -> list
             "width_str": _fmt_unit(width, suffix="m") if show_width and width else None,
             "m2_label": "U" if is_unit else _fmt_m2(m2_value) if is_m2 else None,
             "quantity": int(quantity) if quantity and float(quantity).is_integer() else quantity,
-            "price_str": _fmt_money(price),
+            "price_str": _fmt_money(display_price),
         })
     return result
 
@@ -100,16 +109,14 @@ def _build_materials_pdf(main_materials: list, alternatives: list, use_budgeted_
         quantity = src.get("cantidad") or src.get("quantity", 1) or 1
         m2 = length * width * quantity
         budgeted_m2 = float(src.get("m2_budgeted")) if src.get("m2_budgeted") is not None else None
-        commercial_m2 = (
-            budgeted_m2 if use_budgeted_measures and budgeted_m2 is not None else m2
-        )
+        commercial_m2 = budgeted_m2 if use_budgeted_measures and budgeted_m2 is not None else m2
         price_m2 = src.get("precio_m2") or src.get("price_m2", 0) or 0
         subtotal = commercial_m2 * price_m2
         result.append({
             "name": src.get("nombre") or src.get("name", ""),
             "color": src.get("color", ""),
-            "length_str": _fmt_unit(length, suffix="m"),
-            "width_str": _fmt_unit(width, suffix="m"),
+            "length_str": _fmt_unit(length, suffix="m") if length else None,
+            "width_str": _fmt_unit(width, suffix="m") if width else None,
             "quantity": int(quantity) if float(quantity).is_integer() else float(quantity),
             "m2_str": _fmt_m2(m2),
             "price_m2_str": _fmt_money(price_m2),
@@ -196,10 +203,19 @@ def _build_piece_additional_pdf(raw, use_budgeted_measures: bool = False) -> lis
         budgeted_key = "total_usd_budgeted" if currency == "USD" else "total_ars_budgeted"
         budgeted_total = float(src[budgeted_key]) if src.get(budgeted_key) is not None else None
         total = budgeted_total if use_budgeted_measures and budgeted_total is not None else float(src.get("total") or price * quantity)
+        linear_meters = float(src.get("linear_meters") or src.get("metros_lineales") or 0)
+        budgeted_linear_meters = src.get("linear_meters_budgeted")
+        displayed_quantity = (
+            float(budgeted_linear_meters)
+            if use_budgeted_measures and budgeted_linear_meters is not None
+            else linear_meters
+            if str(src.get("type") or "").lower() == "frente"
+            else quantity
+        )
         result.append({
             "name": src.get("name") or "Trabajo adicional",
             "detail": src.get("detail") or src.get("detalle") or "",
-            "quantity": int(quantity) if quantity.is_integer() else quantity,
+            "quantity": int(displayed_quantity) if displayed_quantity.is_integer() else displayed_quantity,
             "price_str": _fmt_money(price),
             "total_str": _fmt_money(total),
             "currency": currency,
@@ -238,3 +254,90 @@ def _build_work_order_pieces_pdf(raw, usd_rate: float = 0, use_budgeted_measures
         piece for piece in result
         if piece["materials"] or piece["fabrication"] or piece["additional"] or piece["pools"]
     ]
+
+
+def _apply_approval_breakdown_to_pieces(
+    pieces: list[dict], breakdown: dict | None,
+) -> tuple[list[dict], list[dict]]:
+    """Overlay approved line amounts without re-running commercial rules.
+
+    Dimensions remain the current fabrication dimensions already present in the
+    piece rows. Only the persisted approved line amounts and piece subtotals
+    are replaced. Global lines are returned separately so callers do not attach
+    them to an arbitrary piece.
+    """
+    if not isinstance(breakdown, dict):
+        return pieces, []
+    approved_pieces = breakdown.get("pieces") or []
+    for index, piece in enumerate(pieces):
+        source = next(
+            (candidate for candidate in approved_pieces if candidate.get("name") == piece.get("name")),
+            approved_pieces[index] if index < len(approved_pieces) else None,
+        )
+        if not isinstance(source, dict):
+            continue
+        by_kind = {}
+        for line in source.get("lines") or []:
+            by_kind.setdefault(line.get("line_kind"), []).append(line)
+        for kind, key in (("material", "materials"), ("fabrication", "fabrication"), ("additional", "additional"), ("pool", "pools")):
+            for row, line in zip(piece.get(key) or [], by_kind.get(kind, [])):
+                amount = line.get("subtotal_approved") or {}
+                native = amount.get("native", amount.get("usd", amount.get("ars", 0)))
+                row["currency"] = amount.get("currency", row.get("currency", "ARS"))
+                if key == "additional":
+                    row["total_str"] = _fmt_money(native)
+                elif key == "materials" or key == "pools":
+                    row["subtotal_str"] = _fmt_money(native)
+                else:
+                    row["subtotal_str"] = _fmt_money(native)
+        subtotal = source.get("subtotal_approved") or {}
+        piece["subtotal_ars_str"] = _fmt_money(subtotal.get("ars", 0))
+        piece["subtotal_usd_str"] = _fmt_money(subtotal.get("usd", 0))
+    global_rows = []
+    for line in breakdown.get("global_lines") or []:
+        amount = line.get("subtotal_approved") or {}
+        native = amount.get("native", amount.get("usd", amount.get("ars", 0)))
+        global_rows.append({
+            "name": line.get("concept_type") or line.get("line_kind") or "Concepto global",
+            "detail": line.get("material") or "",
+            "currency": amount.get("currency", "ARS"),
+            "total_str": _fmt_money(native),
+        })
+    return pieces, global_rows
+
+
+def _apply_approval_breakdown_to_flat_rows(
+    materials: list[dict],
+    fabrication: list[dict],
+    additional: list[dict],
+    pools: list[dict],
+    breakdown: dict | None,
+) -> tuple[list[dict], list[dict], list[dict], list[dict]]:
+    """Apply approved amounts to the legacy flat layout, if it is used."""
+    if not isinstance(breakdown, dict):
+        return materials, fabrication, additional, pools
+    lines = [
+        line
+        for piece in breakdown.get("pieces") or []
+        for line in piece.get("lines") or []
+    ] + list(breakdown.get("global_lines") or [])
+    by_kind: dict[str, list[dict]] = {}
+    for line in lines:
+        by_kind.setdefault(line.get("line_kind"), []).append(line)
+
+    def apply(rows: list[dict], kind: str, field: str) -> list[dict]:
+        result = []
+        for row, line in zip(rows, by_kind.get(kind, [])):
+            amount = line.get("subtotal_approved") or {}
+            native = amount.get("native", amount.get("usd", amount.get("ars", 0)))
+            copy = {**row, "currency": amount.get("currency", row.get("currency", "ARS"))}
+            copy[field] = _fmt_money(native)
+            result.append(copy)
+        return result + rows[len(result):]
+
+    return (
+        apply(materials, "material", "subtotal_str"),
+        apply(fabrication, "fabrication", "subtotal_str"),
+        apply(additional, "additional", "total_str"),
+        apply(pools, "pool", "subtotal_str"),
+    )

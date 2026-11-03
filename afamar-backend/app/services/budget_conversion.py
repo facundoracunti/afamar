@@ -7,7 +7,7 @@ CRUD surface. The multi-option conversion lives in its own module
 """
 import json
 
-from app.core.exceptions import ValidationError
+from app.core.exceptions import ConflictError, ValidationError
 from app.models.work_order import WorkOrder
 from app.repositories.budget import BudgetRepository
 from app.repositories.work_order import WorkOrderRepository
@@ -18,8 +18,11 @@ from app.services.budget_calculator import (
     parse_additional_works_snapshot,
     parse_materials_data,
 )
-from app.services.stock_helpers import deduct_pool_stock
 from app.services.dolar import get_blue_mid_rate
+from app.services.work_order.pool_requirements import (
+    ensure_budget_stock_is_traceable,
+    register_initial_pool_requirements,
+)
 from app.utils.numbering import generate_work_order_number
 
 
@@ -34,6 +37,11 @@ def create_alternative_work_order(
     Raises ``ValidationError`` when the index is out of range or the row is
     not flagged as an alternative.
     """
+    if budget.status == "CONVERTED_TO_OT":
+        raise ConflictError("El presupuesto ya fue convertido a una Orden de Trabajo")
+    if repo.db.query(WorkOrder.id).filter(WorkOrder.budget_id == budget.id).first():
+        raise ConflictError("El presupuesto ya tiene una Orden de Trabajo asociada")
+    ensure_budget_stock_is_traceable(budget)
     materials = parse_materials_data(budget.materials_data)
     if idx < 0 or idx >= len(materials):
         raise ValidationError(f"Alternative index {idx} out of range")
@@ -176,19 +184,10 @@ def create_alternative_work_order(
 
     wo_repo = WorkOrderRepository(repo.db)
     work_order = wo_repo.create(data)
-    repo.db.commit()
-    repo.db.refresh(work_order)
-    # Deduct the pileta the OT actually carries — the piece's own
-    # piletas (the per-variant sink override was removed on
-    # 2026-10-23), so the stock movement references the model the
-    # customer chose.
-    deduct_pool_stock(
-        repo.db,
-        budget.pool_id,
-        json.dumps(pools, ensure_ascii=False) if pools else None,
-        work_order.number,
-    )
-    work_order.stock_deducted = True
+    # Allocate the OT's own pileta requirements. Missing units remain open;
+    # no stock quantity or movement is created for them.
+    work_order.stock_deducted = register_initial_pool_requirements(repo.db, work_order)
+    budget.status = "CONVERTED_TO_OT"
     repo.db.commit()
     repo.db.refresh(work_order)
     return work_order

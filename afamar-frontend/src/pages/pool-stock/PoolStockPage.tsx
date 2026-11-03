@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
-import { Search, Plus, Trash2 } from 'lucide-react';
-import { useQueryClient } from '@tanstack/react-query';
-import { getPoolStock, createPool, updatePool, deletePool } from '@/api/resources/poolStock';
+import { Search, Plus, Trash2, PackageCheck } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { assignPendingPoolRequirement, getPendingPoolRequirements, getPoolStock, createPool, updatePool, deletePool } from '@/api/resources/poolStock';
 import http from '@/api/http';
 import { useList } from '../../api/hooks';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner/LoadingSpinner';
 import { Pagination } from '../../components/ui/Pagination';
 import { formatCurrencyValue } from '../../utils/formatters';
-import type { Pool, PoolType } from '../../types/poolStock';
+import type { PendingPoolRequirement, Pool, PoolType } from '../../types/poolStock';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog/ConfirmDialog';
 import { PoolFormModal, type PoolFormState } from '../../components/pool-stock/PoolFormModal/PoolFormModal';
 import { PoolMovementsModal } from '../../components/pool-stock/PoolMovementsModal/PoolMovementsModal';
 import { useEntityList } from '../../hooks/useEntityList';
 import { POOLS_KEY } from '../../hooks/useFormReferences';
+import { useNotify } from '../../context/NotificationContext';
+import { parseApiError } from '../../utils/error';
 import styles from './PoolStockPage.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -25,6 +27,15 @@ export default function PoolStockPage() {
   const [editItem, setEditItem] = useState<Pool | null>(null);
 
   const queryClient = useQueryClient();
+  const notify = useNotify();
+  const [assigningId, setAssigningId] = useState<number | null>(null);
+  const [assignQuantities, setAssignQuantities] = useState<Record<number, number>>({});
+
+  const pendingQuery = useQuery({
+    queryKey: ['pool-stock', 'pending-requirements'],
+    queryFn: async () => (await getPendingPoolRequirements()).data,
+  });
+  const pending = (pendingQuery.data || []) as PendingPoolRequirement[];
 
   const { items: poolTypes } = useList<PoolType>(
     ['pool-types'],
@@ -68,6 +79,36 @@ export default function PoolStockPage() {
     setShowMov(pileta);
   };
 
+  const handleAssign = async (item: PendingPoolRequirement) => {
+    if (assigningId !== null) return;
+    const quantity = assignQuantities[item.requirement_id] || 0;
+    if (quantity <= 0) {
+      notify('Ingresá una cantidad positiva para asignar', 'error');
+      return;
+    }
+    setAssigningId(item.requirement_id);
+    try {
+      const response = await assignPendingPoolRequirement(item.requirement_id, quantity);
+      const assigned = Number((response.data as { assigned_quantity?: number }).assigned_quantity || 0);
+      notify(
+        assigned < quantity
+          ? `Se asignaron ${assigned} unidades. El resto queda pendiente por falta de stock.`
+          : `Se asignaron ${assigned} unidades a la OT ${item.work_order_number}`,
+        'success',
+      );
+      setAssignQuantities((current) => ({ ...current, [item.requirement_id]: 0 }));
+      await Promise.all([
+        pendingQuery.refetch(),
+        refetch(),
+        queryClient.invalidateQueries({ queryKey: POOLS_KEY }),
+      ]);
+    } catch (error) {
+      notify(parseApiError(error, 'No se pudo asignar la pileta'), 'error');
+    } finally {
+      setAssigningId(null);
+    }
+  };
+
   return (
     <div className={s['poolStock']}>
       <div className={s['poolStock__header']}>
@@ -88,6 +129,67 @@ export default function PoolStockPage() {
           />
         </div>
       </div>
+
+      <section className={`card ${s['poolStock__pending']}`} aria-labelledby="pending-pools-title">
+        <div className={s['poolStock__pending-header']}>
+          <div>
+            <h2 id="pending-pools-title" className={s['poolStock__pending-title']}>Piletas pendientes de conseguir</h2>
+            <p className={s['poolStock__pending-subtitle']}>
+              La mercadería se asigna manualmente después de ingresar al inventario.
+            </p>
+          </div>
+          <span className={s['poolStock__pending-count']}>{pending.length} pendientes</span>
+        </div>
+        {pendingQuery.isLoading ? <LoadingSpinner /> : pending.length === 0 ? (
+          <p className={s['poolStock__pending-empty']}>No hay piletas pendientes.</p>
+        ) : (
+          <div className={s['poolStock__pending-list']}>
+            {pending.map((item) => {
+              const requested = assignQuantities[item.requirement_id] || 0;
+              const busy = assigningId === item.requirement_id;
+              return (
+                <article className={s['poolStock__pending-item']} key={item.requirement_id}>
+                  <div className={s['poolStock__pending-info']}>
+                    <strong>{item.pool_brand} {item.pool_model}</strong>
+                    <span>OT {item.work_order_number} · {item.client_name}</span>
+                  </div>
+                  <div className={s['poolStock__pending-metrics']}>
+                    <span>Requeridas <b>{item.required_quantity}</b></span>
+                    <span>Asignadas <b>{item.allocated_quantity}</b></span>
+                    <span className={s['poolStock__pending-missing']}>Pendientes <b>{item.pending_quantity}</b></span>
+                    <span>Disponible <b>{item.available_quantity}</b></span>
+                  </div>
+                  <div className={s['poolStock__pending-action']}>
+                    <label>
+                      Asignar
+                      <input
+                        aria-label={`Cantidad a asignar OT ${item.work_order_number} ${item.pool_model}`}
+                        type="number"
+                        min={1}
+                        max={item.pending_quantity}
+                        value={requested || ''}
+                        disabled={busy || item.available_quantity <= 0 || !item.pool_id}
+                        onChange={(event) => setAssignQuantities((current) => ({
+                          ...current,
+                          [item.requirement_id]: Math.max(0, Number(event.target.value) || 0),
+                        }))}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => void handleAssign(item)}
+                      disabled={busy || requested <= 0 || item.available_quantity <= 0 || !item.pool_id}
+                    >
+                      <PackageCheck size={15} /> {busy ? 'ASIGNANDO...' : 'Asignar'}
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
 
       {loading ? <LoadingSpinner /> : (
         <div className="card">

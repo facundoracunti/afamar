@@ -40,8 +40,16 @@ def build_budget_pdf_data(budget_data: dict, client_dict: dict, company: dict, t
     transport = float(budget_data.get("transport") or 0)
     desc_pct = float(budget_data.get("discount_percentage") or 0)
     desc_fijo = float(budget_data.get("discount_fixed_amount") or 0)
-    total_ars = float(budget_data.get("total") or 0)
-    total_usd_val = float(budget_data.get("total_usd") or 0)
+    total_ars = float(
+        budget_data["total_contractual_ars"]
+        if budget_data.get("total_contractual_ars") is not None
+        else budget_data.get("total") or 0
+    )
+    total_usd_val = float(
+        budget_data["total_contractual_usd"]
+        if budget_data.get("total_contractual_usd") is not None
+        else budget_data.get("total_usd") or 0
+    )
     sena = float(budget_data.get("deposit_received") or 0)
     deposit_usd = float(budget_data.get("deposit_usd") or 0)
     deposit_currency = (budget_data.get("deposit_currency") or "ARS").upper()
@@ -117,6 +125,12 @@ def build_budget_pdf_data(budget_data: dict, client_dict: dict, company: dict, t
         "balance_due": saldo,
         "total": total_ars,
         "total_usd": total_usd_val,
+        "total_exact_ars": budget_data.get("total_exact_ars"),
+        "total_exact_usd": budget_data.get("total_exact_usd"),
+        "rounding_adjustment_ars": budget_data.get("rounding_adjustment_ars"),
+        "rounding_adjustment_usd": budget_data.get("rounding_adjustment_usd"),
+        "total_contractual_ars": budget_data.get("total_contractual_ars"),
+        "total_contractual_usd": budget_data.get("total_contractual_usd"),
         # Dólar del día (2026-09-25 tarde) — surfaced as a render key so the
         # legacy template can put it in the LEFT column of the totals block.
         "usd_rate": usd_rate_for_pdf,

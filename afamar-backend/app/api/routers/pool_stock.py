@@ -3,9 +3,24 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user, get_db
 from app.core.exceptions import NotFoundError
-from app.utils.responses import PaginationInfo, created, success
-from app.schemas.pool_stock import PoolStockCreate, PoolStockResponse, PoolStockUpdate, StockMovementCreate
+from app.schemas.pool_stock import (
+    PoolStockCreate,
+    PoolStockResponse,
+    PoolStockUpdate,
+    StockMovementCreate,
+)
+from app.schemas.work_order_pool_requirement import (
+    PendingPoolRequirementResponse,
+    PoolRequirementAssignmentRequest,
+    PoolRequirementAssignmentResponse,
+    WorkOrderPoolRequirementResponse,
+)
 from app.services.pool_stock import PoolStockService
+from app.services.work_order.pool_requirements import (
+    assign_pending_pool_requirement,
+    list_pending_pool_requirements,
+)
+from app.utils.responses import PaginationInfo, created, success
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
 
@@ -41,6 +56,33 @@ def search_pool_stock(q: str, db: Session = Depends(get_db)):
     pools = service.search(q)
     payload = [PoolStockResponse.model_validate(p).model_dump(mode="json") for p in pools]
     return success(payload)
+
+
+@router.get("/pending-requirements")
+def list_pending_requirements(db: Session = Depends(get_db)):
+    payload = [
+        PendingPoolRequirementResponse.model_validate(item).model_dump(mode="json")
+        for item in list_pending_pool_requirements(db)
+    ]
+    return success(payload)
+
+
+@router.post("/pending-requirements/{requirement_id}/assign")
+def assign_pending_requirement(
+    requirement_id: int,
+    data: PoolRequirementAssignmentRequest,
+    db: Session = Depends(get_db),
+):
+    requirement, assigned, available = assign_pending_pool_requirement(
+        db, requirement_id, data.quantity
+    )
+    return success(
+        PoolRequirementAssignmentResponse(
+            requirement=WorkOrderPoolRequirementResponse.model_validate(requirement),
+            assigned_quantity=assigned,
+            available_quantity=available,
+        ).model_dump(mode="json")
+    )
 
 
 @router.get("/{pool_id}")

@@ -19,13 +19,16 @@ absent or malformed).
 import json
 
 from app.services.work_order.helpers import FAB_LINEAR_CONCEPTS, FAB_M2_CONCEPTS
+from app.utils.measurement_numbers import measurement_number, positive_snapshot
 
 
 def _m2_snapshot(row: dict) -> dict:
-    length_m = float(row.get("length") or row.get("largo") or 0)
-    width_m = float(row.get("width") or row.get("ancho") or 0)
-    quantity = float(row.get("quantity") or row.get("cantidad") or 1)
-    return {**row, "m2_budgeted": length_m * width_m * quantity}
+    length_m = measurement_number(row.get("length") or row.get("largo"))
+    width_m = measurement_number(row.get("width") or row.get("ancho"))
+    quantity = measurement_number(row.get("quantity") or row.get("cantidad"), default=1)
+    existing = positive_snapshot(row.get("m2_budgeted"))
+    snapshot = existing if existing is not None else length_m * width_m * quantity
+    return {**row, "m2_budgeted": snapshot}
 
 
 def _fab_snapshot(row: dict, wo_usd_rate: float) -> dict:
@@ -33,15 +36,26 @@ def _fab_snapshot(row: dict, wo_usd_rate: float) -> dict:
     fd_total = float((row.get("price") or 0) * (row.get("quantity") or 1))
     fd_ars = fd_total if fd_currency == "ARS" else (fd_total * wo_usd_rate if wo_usd_rate > 0 else 0)
     fd_usd = fd_total if fd_currency == "USD" else (fd_total / wo_usd_rate if wo_usd_rate > 0 else 0)
-    fd_length = float(row.get("length") or row.get("largo") or 0)
-    fd_width = float(row.get("width") or row.get("ancho") or 0)
-    fd_qty = float(row.get("quantity") or row.get("cantidad") or 1)
+    fd_length = measurement_number(row.get("length") or row.get("largo"))
+    fd_width = measurement_number(row.get("width") or row.get("ancho"))
+    fd_qty = measurement_number(row.get("quantity") or row.get("cantidad"), default=1)
     fd_concept = str(row.get("concept") or row.get("concepto") or "").strip().upper()
-    snapshot = {"total_ars_budgeted": fd_ars, "total_usd_budgeted": fd_usd}
+    existing_ars = positive_snapshot(row.get("total_ars_budgeted"))
+    existing_usd = positive_snapshot(row.get("total_usd_budgeted"))
+    snapshot = {
+        "total_ars_budgeted": existing_ars if existing_ars is not None else fd_ars,
+        "total_usd_budgeted": existing_usd if existing_usd is not None else fd_usd,
+    }
     if fd_concept in FAB_M2_CONCEPTS:
-        snapshot["m2_budgeted"] = fd_length * fd_width * fd_qty
+        existing_m2 = positive_snapshot(row.get("m2_budgeted"))
+        snapshot["m2_budgeted"] = (
+            existing_m2 if existing_m2 is not None else fd_length * fd_width * fd_qty
+        )
     elif fd_concept in FAB_LINEAR_CONCEPTS:
-        snapshot["linear_meters_budgeted"] = fd_length * fd_qty
+        existing_ml = positive_snapshot(row.get("linear_meters_budgeted"))
+        snapshot["linear_meters_budgeted"] = (
+            existing_ml if existing_ml is not None else fd_length * fd_qty
+        )
     return {**row, **snapshot}
 
 
@@ -54,9 +68,17 @@ def _additional_snapshot(row: dict, wo_usd_rate: float) -> dict:
     )
     aw_ars = aw_total if aw_currency == "ARS" else (aw_total * wo_usd_rate if wo_usd_rate > 0 else 0)
     aw_usd = aw_total if aw_currency == "USD" else (aw_total / wo_usd_rate if wo_usd_rate > 0 else 0)
-    snapshot = {"total_ars_budgeted": aw_ars, "total_usd_budgeted": aw_usd}
+    existing_ars = positive_snapshot(row.get("total_ars_budgeted"))
+    existing_usd = positive_snapshot(row.get("total_usd_budgeted"))
+    snapshot = {
+        "total_ars_budgeted": existing_ars if existing_ars is not None else aw_ars,
+        "total_usd_budgeted": existing_usd if existing_usd is not None else aw_usd,
+    }
     if str(row.get("type") or "").lower() == "frente" and row.get("linear_meters") is not None:
-        snapshot["linear_meters_budgeted"] = float(row.get("linear_meters") or 0)
+        existing_ml = positive_snapshot(row.get("linear_meters_budgeted"))
+        snapshot["linear_meters_budgeted"] = (
+            existing_ml if existing_ml is not None else measurement_number(row.get("linear_meters"), default=0)
+        )
     return {**row, **snapshot}
 
 

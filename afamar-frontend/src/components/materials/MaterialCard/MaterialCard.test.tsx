@@ -100,3 +100,19 @@ describe('MaterialCard — inline price editing', () => {
     expect(screen.getByText('$ 180.000,00')).toBeDefined();
   });
 });
+
+describe('MaterialCard — medidas decimales', () => {
+  it('accepts a comma decimal in the ancho without converting 0,50 to 50', () => {
+    const { props } = renderCard();
+    const inputs = screen.getAllByRole('textbox');
+    fireEvent.change(inputs[1], { target: { value: '0,50' } });
+    expect(props.updateMaterial).toHaveBeenCalledWith(0, 'width', 0.5);
+  });
+
+  it('accepts a dot decimal in the largo', () => {
+    const { props } = renderCard();
+    const inputs = screen.getAllByRole('textbox');
+    fireEvent.change(inputs[0], { target: { value: '0.15' } });
+    expect(props.updateMaterial).toHaveBeenCalledWith(0, 'length', 0.15);
+  });
+});

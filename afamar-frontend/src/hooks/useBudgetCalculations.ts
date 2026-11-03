@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { EntityFormState, FabricationDetail, MaterialInForm, PoolInForm } from '../types';
 import type { PaymentMethod } from '../types/paymentMethod';
 import { round2 } from '../utils/math';
+import { roundCommercialTotals } from '../utils/commercialRounding';
 import {
   applyPaymentMethodToTotals,
   computeInstallmentDetail,
@@ -27,6 +28,16 @@ interface AdditionalWorkRow {
   } | null;
 }
 
+function fabricationDetailTotal(detail: FabricationDetail): number {
+  const price = Number(detail.price) || 0;
+  const quantity = Number(detail.quantity) || 1;
+  if (price > 0) return price * quantity;
+
+  const row = detail as FabricationDetail & { price_m2?: number };
+  const priceM2 = Number(row.material_price_m2 || row.price_m2 || 0);
+  return Number(detail.length || 0) * Number(detail.width || 0) * quantity * priceM2;
+}
+
 // Re-export the payment-method helpers from the calculations module so
 // older call sites that imported them directly from
 // ``useBudgetCalculations`` keep working (the actual implementations live
@@ -41,9 +52,11 @@ export function useBudgetCalculations(
   form: EntityFormState,
   setForm: React.Dispatch<React.SetStateAction<EntityFormState>>,
   paymentMethods: PaymentMethod[] = [],
-  options: { freezeExistingWorkOrder?: boolean } = {},
+  options: { freezeExistingWorkOrder?: boolean; freezeExistingBudget?: boolean } = {},
 ) {
   const freezeExistingWorkOrder = options.freezeExistingWorkOrder === true;
+  const freezeExistingBudget = options.freezeExistingBudget === true;
+  const freezeExistingDocument = freezeExistingWorkOrder || freezeExistingBudget;
   const commercialSignatureRef = useRef<string | null>(null);
   const depositSignatureRef = useRef<string | null>(null);
   const frozenRateRef = useRef<number | null>(null);
@@ -165,11 +178,11 @@ export function useBudgetCalculations(
     const poolsForMain = poolsData.filter((pt) => !isAltLinked(pt.material));
 
     const arsTotal = fabricationForMain.reduce(
-      (sum: number, d: FabricationDetail) => sum + (d.currency === 'USD' ? 0 : (Number(d.price) || 0) * (d.quantity || 1)),
+      (sum: number, d: FabricationDetail) => sum + (d.currency === 'USD' ? 0 : fabricationDetailTotal(d)),
       0
     );
     const usdTotal = fabricationForMain.reduce(
-      (sum: number, d: FabricationDetail) => sum + (d.currency === 'USD' ? (Number(d.price) || 0) * (d.quantity || 1) : 0),
+      (sum: number, d: FabricationDetail) => sum + (d.currency === 'USD' ? fabricationDetailTotal(d) : 0),
       0
     );
     const dd = Number(form.usd_rate);
@@ -349,21 +362,45 @@ export function useBudgetCalculations(
     // `totalFinal`/`totalUsdFinal` son el total **post-recargo**;
     // cuando hay alternativa, ya están computados contra el base
     // alternativa.
+    // Existing work orders may explicitly reprice commercial data. Existing
+    // budgets, however, are frozen documents and must only display their
+    // persisted snapshot.
+    const shouldRoundCommercialTotal = !freezeExistingBudget;
+    const commercialTotals = shouldRoundCommercialTotal
+      ? roundCommercialTotals(totalFinal, dd)
+      : {
+        exactArs: form.total_exact_ars ?? form.total,
+        exactUsd: form.total_exact_usd ?? form.total_usd,
+        adjustmentArs: form.rounding_adjustment_ars ?? 0,
+        adjustmentUsd: form.rounding_adjustment_usd ?? 0,
+        contractualArs: form.total_contractual_ars ?? form.total,
+        contractualUsd: form.total_contractual_usd ?? form.total_usd,
+      };
+    const paidArsForBalance = depositTotalArs;
+    const paidUsdForBalance = depositTotalUsd;
+    const contractualTotal = commercialTotals.contractualArs;
+    const contractualTotalUsd = commercialTotals.contractualUsd;
     const installmentDetail = computeInstallmentDetail(
       pm,
       installmentsCount,
-      totalFinal,
-      totalUsdFinal,
+      contractualTotal,
+      contractualTotalUsd,
     );
 
     setForm((prev: EntityFormState) => ({
       ...prev,
       subtotal,
-      total: totalFinal,
-      subtotal_usd,
-      total_usd: totalUsdFinal,
-      balance_due: balanceDueFinal,
-      balance_due_usd: balanceDueUsdFinal,
+       total: contractualTotal,
+       total_exact_ars: commercialTotals.exactArs,
+       total_exact_usd: commercialTotals.exactUsd,
+       rounding_adjustment_ars: commercialTotals.adjustmentArs,
+       rounding_adjustment_usd: commercialTotals.adjustmentUsd,
+        total_contractual_ars: shouldRoundCommercialTotal ? contractualTotal : prev.total_contractual_ars,
+        total_contractual_usd: shouldRoundCommercialTotal ? contractualTotalUsd : prev.total_contractual_usd,
+       subtotal_usd,
+       total_usd: contractualTotalUsd,
+       balance_due: Math.max(0, contractualTotal - paidArsForBalance),
+       balance_due_usd: Math.max(0, contractualTotalUsd - paidUsdForBalance),
       discount_amount: discountAmount,
       installment_detail_ars: installmentDetail.ars,
       installment_detail_usd: installmentDetail.usd,
@@ -379,6 +416,6 @@ export function useBudgetCalculations(
     form.discount_percentage, form.discount_fixed_amount,
     form.discount_enabled, form.discount_target,
     form.deposit_received, form.deposit_usd, form.deposit_currency,
-    freezeExistingWorkOrder, commercialSignature, depositSignature,
+     freezeExistingDocument, commercialSignature, depositSignature,
   ]);
 }

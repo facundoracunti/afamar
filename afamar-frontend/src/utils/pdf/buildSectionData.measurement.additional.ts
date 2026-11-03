@@ -12,6 +12,7 @@ import type { MaterialInForm } from '../../types/budget';
 import type { MeasurementComparisonRow } from './pdfTypes';
 import { fmtMoney } from './pdfHelpers';
 import { detailRow } from './buildSectionData.measurement.rows';
+import { budgetedAmounts } from './buildSectionData.measurement.money';
 
 export interface AddContext {
   pieceName: string;
@@ -48,14 +49,13 @@ export function additionalRowFor(
     lineArs = awCurrency === 'ARS' ? totalSrc : ctx.usdRate > 0 ? totalSrc * ctx.usdRate : 0;
     lineUsd = awCurrency === 'USD' ? totalSrc : ctx.usdRate > 0 ? totalSrc / ctx.usdRate : 0;
   }
-  const budgetedDelta = (current: number, budgeted: number | undefined | null): number =>
-    budgeted == null ? 0 : current - budgeted;
+  const budgeted = budgetedAmounts(row, awCurrency, ctx.usdRate);
   const deltaArs = isNew
     ? lineArs
-    : budgetedDelta(lineArs, row['total_ars_budgeted'] as number | undefined | null);
+    : budgeted.ars == null ? 0 : lineArs - budgeted.ars;
   const deltaUsd = isNew
     ? lineUsd
-    : budgetedDelta(lineUsd, row['total_usd_budgeted'] as number | undefined | null);
+    : budgeted.usd == null ? 0 : lineUsd - budgeted.usd;
   const isFrente = String(row['type'] || '').toLowerCase() === 'frente';
   const awMeasureReal = isFrente ? (Number(row['linear_meters']) || null) : null;
   const awMeasureBudgeted = isFrente

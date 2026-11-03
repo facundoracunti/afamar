@@ -226,6 +226,116 @@
   color: var(--text-muted);
 }
 
+.poolStock__pending {
+  display: grid;
+  gap: 14px;
+  border-left: 4px solid var(--color-warning);
+}
+
+.poolStock__pending-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.poolStock__pending-title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 18px;
+}
+
+.poolStock__pending-subtitle {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.poolStock__pending-count {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--tw-amber-100);
+  color: var(--tw-amber-800);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.poolStock__pending-list {
+  display: grid;
+  gap: 8px;
+}
+
+.poolStock__pending-item {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.2fr) minmax(280px, 1.6fr) minmax(210px, 1fr);
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+}
+
+.poolStock__pending-info,
+.poolStock__pending-metrics {
+  display: grid;
+  gap: 4px;
+}
+
+.poolStock__pending-info span,
+.poolStock__pending-metrics span,
+.poolStock__pending-action label,
+.poolStock__pending-empty {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.poolStock__pending-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.poolStock__pending-metrics b {
+  display: block;
+  color: var(--text-primary);
+  font-size: 16px;
+}
+
+.poolStock__pending-missing b {
+  color: var(--color-warning);
+}
+
+.poolStock__pending-action {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.poolStock__pending-action label {
+  display: grid;
+  gap: 4px;
+  flex: 1;
+}
+
+.poolStock__pending-action input {
+  width: 100%;
+  min-height: 38px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  background: var(--surface-bg);
+  color: var(--text-primary);
+}
+
+.poolStock__pending-action button {
+  min-height: 38px;
+  white-space: nowrap;
+}
+
+.poolStock__pending-empty {
+  margin: 0;
+}
+
 @media (max-width: 767px) {
   .poolStock__header {
     align-items: stretch;
@@ -271,6 +381,24 @@
 
   .poolStock__cardActions button:nth-child(2) {
     flex: 1.4;
+  }
+
+  .poolStock__pending-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .poolStock__pending-item {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .poolStock__pending-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .poolStock__pending-action {
+    align-items: stretch;
   }
 }
 

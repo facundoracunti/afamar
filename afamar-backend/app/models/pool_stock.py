@@ -52,7 +52,13 @@ class StockMovement(Base):
     pool_id: Mapped[int] = mapped_column(ForeignKey("pool_stock.id"), nullable=False)
     type: Mapped[str] = mapped_column(String(10), nullable=False)  # entry, exit
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    requirement_id: Mapped[int | None] = mapped_column(
+        ForeignKey("work_order_pool_requirements.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     notes: Mapped[str] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     pool = relationship("PoolStock", back_populates="movements")
+    requirement = relationship("WorkOrderPoolRequirement")

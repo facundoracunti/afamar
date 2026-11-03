@@ -26,6 +26,7 @@ export function mutateSetPieceMain(
   form: EntityFormState,
   materials: Material[],
   name: string,
+  markAsNew = false,
 ): BudgetPiece {
   const seed = piece.mainMaterial ? [piece.mainMaterial] : [];
   const dims = pieceDims(piece);
@@ -35,7 +36,12 @@ export function mutateSetPieceMain(
     name,
   );
   const newMain = list && list.length > 0
-    ? { ...list[0], ...dims, is_alternative: false }
+    ? {
+      ...list[0],
+      ...dims,
+      is_alternative: false,
+      ...(markAsNew && !piece.mainMaterial ? { measurement_origin: 'new' as const } : {}),
+    }
     : piece.mainMaterial;
   const alternativeMaterials = piece.alternativeMaterials.map((a) => ({
     ...a,
@@ -141,6 +147,7 @@ export function mutateRemovePieceMain(piece: BudgetPiece): BudgetPiece {
 export function mutateAddPieceMainRow(
   piece: BudgetPiece,
   mat: MaterialInForm,
+  markAsNew = false,
 ): BudgetPiece {
   if (!piece.mainMaterial) return piece;
   const seed = piece.mainMaterial;
@@ -152,6 +159,7 @@ export function mutateAddPieceMainRow(
     length: 0,
     width: 0,
     is_alternative: false,
+    ...(markAsNew ? { measurement_origin: 'new' as const } : {}),
   };
   // Strictly LOCAL — does NOT mirror the new pane into the
   // alternatives. Each alternative owns its own rows.

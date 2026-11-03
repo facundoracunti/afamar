@@ -26,6 +26,7 @@ import { ClientGrid, SpecsGrid } from './components/InfoGrids';
 import { TermsBlock } from './components/TermsBlock';
 import { OptionSectionBlock } from './components/OptionSectionBlock';
 import { PieceBlock } from './components/PieceBlock';
+import { ApprovalGlobalLines } from './components/ApprovalGlobalLines';
 import { AlternativesSheet } from './components/AlternativesSheet';
 import { AlternativeTotalsSummary } from './components/AlternativeTotalsSummary';
 import { OptionsComparisonSheet, CommercialFooter } from './components/OptionsComparisonSheet';
@@ -139,7 +140,11 @@ return (
                 <Text style={styles.optionPageTitleText}>{option.name}</Text>
               </View>
               {option.pieces.map((piece) => (
-                <PieceBlock key={piece.id || piece.name} piece={piece} />
+                <PieceBlock
+                  key={piece.id || piece.name}
+                  piece={piece}
+                  showSubtotal={data.document_type === 'work_order'}
+                />
               ))}
               <OptionTotalsCard option={option} />
               {footer}
@@ -164,8 +169,14 @@ return (
             <SpecsGrid data={data} />
 
             {pieces.map((piece) => (
-              <PieceBlock key={piece.id || piece.name} piece={piece} />
+              <PieceBlock
+                key={piece.id || piece.name}
+                piece={piece}
+                showSubtotal={data.document_type === 'work_order'}
+              />
             ))}
+
+            <ApprovalGlobalLines lines={data.approval_global_lines || []} />
 
             {/* In pieces mode pools live INSIDE each PieceBlock — no global
                 Piletas block here (otherwise the same pileta would be
@@ -173,7 +184,7 @@ return (
 
             <View wrap={false}>
               <TermsBlock data={data} />
-              <ExtrasBlock data={data} />
+              <ExtrasBlock data={data} showSubtotal={data.document_type === 'work_order'} />
               {footer}
             </View>
           </Page>
@@ -221,7 +232,9 @@ return (
               <View wrap={false}>
                 <TermsBlock data={data} />
 
-                {section.is_main || !hasMainSection ? <ExtrasBlock data={data} section={section} /> : null}
+                {section.is_main || !hasMainSection ? (
+                  <ExtrasBlock data={data} section={section} showSubtotal={data.document_type === 'work_order'} />
+                ) : null}
                 {footer}
               </View>
             </Page>
@@ -276,7 +289,7 @@ return (
             {/* Final block (totals + saldo) wrapped in `wrap={false}` so it
                 travels atomically to page 2 if needed. */}
             <View wrap={false}>
-              <ExtrasBlock data={data} />
+              <ExtrasBlock data={data} showSubtotal={data.document_type === 'work_order'} />
               <TermsBlock data={data} />
               {footer}
             </View>

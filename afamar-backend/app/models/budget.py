@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -50,6 +50,14 @@ class Budget(Base):
         String(20), default="total", server_default="total"
     )
     total: Mapped[float] = mapped_column(Float, default=0.0)
+    # Nullable by design: NULL identifies historical budgets that must not be
+    # retroactively rounded when opened or edited.
+    total_exact_ars: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    total_exact_usd: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    rounding_adjustment_ars: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    rounding_adjustment_usd: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    total_contractual_ars: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    total_contractual_usd: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
     subtotal_usd: Mapped[float] = mapped_column(Float, default=0.0)
     transport_usd: Mapped[float] = mapped_column(Float, default=0.0)
     total_usd: Mapped[float] = mapped_column(Float, default=0.0)

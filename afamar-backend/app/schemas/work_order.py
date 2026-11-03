@@ -1,9 +1,54 @@
 import datetime
-from typing import Optional
+import json
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.base import BaseResponse
+from app.schemas.work_order_pool_requirement import WorkOrderPoolRequirementResponse
+
+
+class WorkOrderMeasurementApprovalResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    approved_by_user_id: int
+    approved_at: datetime.datetime
+    previous_total: float
+    previous_total_usd: float
+    positive_difference_ars: float
+    negative_difference_ars: float
+    difference_ars: float
+    difference_usd: float
+    discount_difference_ars: float
+    new_total: float
+    new_total_usd: float
+    new_total_exact_ars: float | None = None
+    new_total_exact_usd: float | None = None
+    rounding_adjustment_ars: float | None = None
+    rounding_adjustment_usd: float | None = None
+    usd_rate: float
+    measurement_fingerprint: str
+    # Nullable for approvals created before the commercial ledger existed.
+    approval_breakdown: dict | None = None
+
+    @field_validator("approval_breakdown", mode="before")
+    @classmethod
+    def parse_approval_breakdown(cls, value):
+        if value in (None, ""):
+            return None
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+            except (TypeError, ValueError):
+                return None
+            return parsed if isinstance(parsed, dict) else None
+        return value if isinstance(value, dict) else None
+
+
+class WorkOrderMeasurementAdjustmentRequest(BaseModel):
+    measurement_fingerprint: str
+    previous_total: float
+    previous_total_usd: float
 
 
 class WorkOrderBase(BaseModel):
@@ -45,6 +90,12 @@ class WorkOrderBase(BaseModel):
     discount_percentage: float = 0.0
     discount_fixed_amount: float = 0.0
     total: float = 0.0
+    total_exact_ars: float | None = None
+    total_exact_usd: float | None = None
+    rounding_adjustment_ars: float | None = None
+    rounding_adjustment_usd: float | None = None
+    total_contractual_ars: float | None = None
+    total_contractual_usd: float | None = None
     subtotal_usd: float = 0.0
     transport_usd: float = 0.0
     total_usd: float = 0.0
@@ -62,7 +113,7 @@ class WorkOrderBase(BaseModel):
     installment_detail_ars: str | None = None
     installment_detail_usd: str | None = None
     priority: str = "NORMAL"
-    delivery_date: Optional[datetime.date] = None
+    delivery_date: datetime.date | None = None
     digital_signature: str | None = None
     fabrication_details: str | None = None
     budgeted_details: str | None = None
@@ -93,7 +144,7 @@ class WorkOrderBase(BaseModel):
     # Per-order opt-in for the discount configured on the selected
     # payment method (e.g. "Efectivo — descuento 7%"). Off by default.
     apply_cash_discount: bool = False
-    date: Optional[datetime.datetime] = None
+    date: datetime.datetime | None = None
 
 
 class WorkOrderCreate(WorkOrderBase):
@@ -101,6 +152,7 @@ class WorkOrderCreate(WorkOrderBase):
 
 
 class WorkOrderUpdate(BaseModel):
+    client_id: int | None = None
     status: str | None = None
     delivery_address_id: int | None = None
     origin: str | None = None
@@ -129,6 +181,12 @@ class WorkOrderUpdate(BaseModel):
     discount_percentage: float | None = None
     discount_fixed_amount: float | None = None
     total: float | None = None
+    total_exact_ars: float | None = None
+    total_exact_usd: float | None = None
+    rounding_adjustment_ars: float | None = None
+    rounding_adjustment_usd: float | None = None
+    total_contractual_ars: float | None = None
+    total_contractual_usd: float | None = None
     subtotal_usd: float | None = None
     transport_usd: float | None = None
     total_usd: float | None = None
@@ -138,16 +196,16 @@ class WorkOrderUpdate(BaseModel):
     balance_due: float | None = None
     balance_due_usd: float | None = None
     balance_paid: bool | None = None
-    balance_paid_at: Optional[datetime.datetime] = None
+    balance_paid_at: datetime.datetime | None = None
     payment_method: str | None = None
     payment_method_id: int | None = None
     installments: int | None = None
     installment_detail_ars: str | None = None
     installment_detail_usd: str | None = None
     priority: str | None = None
-    delivery_date: Optional[datetime.date] = None
+    delivery_date: datetime.date | None = None
     digital_signature: str | None = None
-    signed_at: Optional[datetime.datetime] = None
+    signed_at: datetime.datetime | None = None
     fabrication_details: str | None = None
     budgeted_details: str | None = None
     sketch_elements: str | None = None
@@ -164,7 +222,7 @@ class WorkOrderUpdate(BaseModel):
     notes: str | None = None
     include_measurement_comparison_in_pdf: bool | None = None
     apply_cash_discount: bool | None = None
-    date: Optional[datetime.datetime] = None
+    date: datetime.datetime | None = None
 
 
 class WorkOrderResponse(WorkOrderBase, BaseResponse):
@@ -174,8 +232,8 @@ class WorkOrderResponse(WorkOrderBase, BaseResponse):
     origin: str
     stock_deducted: bool
     balance_paid: bool
-    balance_paid_at: Optional[datetime.datetime] = None
-    signed_at: Optional[datetime.datetime] = None
+    balance_paid_at: datetime.datetime | None = None
+    signed_at: datetime.datetime | None = None
     created_at: datetime.datetime
     updated_at: datetime.datetime
     # Idempotency flags for the cash box (server-managed, read-only). Exposed
@@ -183,6 +241,8 @@ class WorkOrderResponse(WorkOrderBase, BaseResponse):
     # cash box" and know it will never be re-booked.
     sena_registered: bool = False
     saldo_registered: bool = False
+    measurement_approvals: list[WorkOrderMeasurementApprovalResponse] = Field(default_factory=list)
+    pool_requirements: list[WorkOrderPoolRequirementResponse] = Field(default_factory=list)
 
     @classmethod
     def from_orm_with_client(cls, order) -> "WorkOrderResponse":

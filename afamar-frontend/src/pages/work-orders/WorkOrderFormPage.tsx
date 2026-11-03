@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useNotify } from '../../context/NotificationContext';
 import { useAuth } from '../../context/AuthContext';
 import { useUsdRate } from '../../hooks/useUsdRate';
-import { getWorkOrder, createWorkOrder, updateWorkOrder, deleteWorkOrder, getNextWorkOrderNumber, getWorkOrderPdf } from '@/api/resources/workOrders';
+import { getWorkOrder, createWorkOrder, updateWorkOrder, deleteWorkOrder, cancelWorkOrderWithRecovery, getNextWorkOrderNumber, getWorkOrderPdf, getMeasurementAdjustment, approveMeasurementAdjustment } from '@/api/resources/workOrders';
 import { getMaterials } from '@/api/resources/materials';
 import { getPoolStock } from '@/api/resources/poolStock';
 import { getClients } from '@/api/resources/clients';
@@ -20,7 +20,7 @@ import FormHeader from '../../components/orders/FormHeader/FormHeader';
 import EntityFormLayout from '../../components/entity/EntityFormLayout';
 import { AlternativeBudgetGrid } from './AlternativeBudgetGrid';
 import ObservationsSection from '../../components/orders/ObservationsSection/ObservationsSection';
-import type { EntityServices, MaterialInForm } from '../../types';
+import type { EntityFormState, EntityServices, MaterialInForm } from '../../types';
 import styles from './WorkOrderFormPage.module.css';
 import WorkOrderFormPageHeaderActions from './WorkOrderFormPage.HeaderActions';
 import WorkOrderFormPageBeforeLayout from './WorkOrderFormPage.BeforeLayout';
@@ -29,6 +29,9 @@ import WorkOrderFormPageProviders from './WorkOrderFormPage.Providers';
 import { useWorkOrderPdfPreview } from './WorkOrderFormPage.usePdfPreview';
 import { useWorkOrderWhatsAppShare } from './WorkOrderFormPage.useWhatsAppShare';
 import { buildWorkOrderTerms } from './WorkOrderFormPage.terms';
+import MeasurementAdjustmentDialog, { type MeasurementAdjustmentProposal } from './MeasurementAdjustmentDialog';
+import WorkOrderCancellationModal from './WorkOrderCancellationModal';
+import { parseApiError } from '../../utils/error';
 
 const s = styles as unknown as Record<string, string>;
 
@@ -68,6 +71,13 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
   // al preview del PDF: fila "Seña / Pagos Registrados" = este acumulado
   // (el pago real; la seña del form solo funge de fallback legacy).
   const [pagoAcumuladoModulo, setPagoAcumuladoModulo] = useState(0);
+  const [measurementAdjustment, setMeasurementAdjustment] = useState<MeasurementAdjustmentProposal | null>(null);
+  const [measurementAdjustmentOpen, setMeasurementAdjustmentOpen] = useState(false);
+  const [measurementAdjustmentLoading, setMeasurementAdjustmentLoading] = useState(false);
+  const [measurementAdjustmentSaving, setMeasurementAdjustmentSaving] = useState(false);
+  const [cancellationOpen, setCancellationOpen] = useState(false);
+  const [cancellationSaving, setCancellationSaving] = useState(false);
+  const [hasRegisteredPayments, setHasRegisteredPayments] = useState(false);
   const { company, globalTerms } = useSettingsWithTerms();
 
   // Ficha de Taller: documento interno SIN precios para los trabajadores del
@@ -83,6 +93,34 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
 
   const handleCancelClick = () =>
     props.onCancel ? props.onCancel() : navigate('/admin/work-orders');
+
+  const handleStatusRequest = (status: string) => {
+    if (status === 'CANCELLED' && id && (entity.form.pool_requirements?.length ?? 0) > 0) {
+      setCancellationOpen(true);
+      return;
+    }
+    handleStatusChangeAction(status);
+  };
+
+  const handlePoolCancellation = async (
+    recoveries: Array<{ requirement_id: number; recovered_quantity: number }>,
+    paymentsConfirmed: boolean,
+  ) => {
+    if (!id || cancellationSaving) return;
+    setCancellationSaving(true);
+    try {
+      await cancelWorkOrderWithRecovery(id, recoveries, paymentsConfirmed);
+      await queryClient.invalidateQueries({ queryKey: ['pool-stock'] });
+      await queryClient.invalidateQueries({ queryKey: ['work-orders'] });
+      notify('Orden cancelada y recuperación de piletas registrada', 'success');
+      setCancellationOpen(false);
+      handleSuccessCallback({ deleted: true });
+    } catch (error) {
+      notify(parseApiError(error, 'No se pudo cancelar la orden'), 'error');
+    } finally {
+      setCancellationSaving(false);
+    }
+  };
   // Create → jump to the just-created record's edit page so the operator can
   // keep tweaking without re-opening it (and the form stops being "create
   // mode" re-submittable, preventing duplicates). Update → stay put.
@@ -152,6 +190,59 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
     );
   };
 
+  const handleOpenMeasurementAdjustment = async () => {
+    if (!id) return;
+    setMeasurementAdjustmentLoading(true);
+    try {
+      const response = await getMeasurementAdjustment(id);
+      setMeasurementAdjustment(response.data as MeasurementAdjustmentProposal);
+      setMeasurementAdjustmentOpen(true);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : 'No se pudieron calcular las diferencias.', 'error');
+    } finally {
+      setMeasurementAdjustmentLoading(false);
+    }
+  };
+
+  const handleApproveMeasurementAdjustment = async () => {
+    if (!id || !measurementAdjustment) return;
+    setMeasurementAdjustmentSaving(true);
+    try {
+      const response = await approveMeasurementAdjustment(id, {
+        measurement_fingerprint: measurementAdjustment.measurement_fingerprint,
+        previous_total: measurementAdjustment.original_total,
+        previous_total_usd: measurementAdjustment.original_total_usd,
+      });
+      const approved = response.data as { order?: EntityFormState };
+      const updated = approved.order;
+      if (updated) {
+        setForm((previous) => ({
+          ...previous,
+          // The approval response is authoritative. Do not recompute these
+          // values in the browser after the server-side commercial recalc.
+          subtotal: updated.subtotal,
+          subtotal_usd: updated.subtotal_usd,
+          total: updated.total,
+          total_usd: updated.total_usd,
+          balance_due: updated.balance_due,
+          balance_due_usd: updated.balance_due_usd,
+          balance_paid: updated.balance_paid,
+          measurement_approvals: updated.measurement_approvals,
+        }));
+      }
+      setMeasurementAdjustmentOpen(false);
+      setMeasurementAdjustment(null);
+      queryClient.invalidateQueries({ queryKey: ['work-orders', id] });
+      queryClient.invalidateQueries({ queryKey: ['work-orders'] });
+      notify('Diferencias de medición confirmadas.', 'success');
+    } catch (error) {
+      setMeasurementAdjustmentOpen(false);
+      notify(error instanceof Error ? error.message : 'No se pudo confirmar la diferencia.', 'error');
+    } finally {
+      setMeasurementAdjustmentSaving(false);
+    }
+  };
+
   const { whatsappSending, handleEnviarWhatsApp } = useWorkOrderWhatsAppShare({
     form,
     id,
@@ -213,10 +304,12 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
           hasId={Boolean(id)}
           pdfPreviewLoading={pdfPreviewLoading}
           whatsappSending={whatsappSending}
-          onStatusChange={handleStatusChangeAction}
+           onStatusChange={handleStatusRequest}
           onPrintFicha={handlePrintFicha}
           onEnviarWhatsApp={handleEnviarWhatsApp}
-          onPreviewPdf={handlePreviewPdf}
+           onPreviewPdf={handlePreviewPdf}
+           onConfirmMeasurementAdjustment={handleOpenMeasurementAdjustment}
+           measurementAdjustmentLoading={measurementAdjustmentLoading}
           onSubmit={handleSubmit}
           showSaveButton={props.layoutMode !== 'wizard'}
         />
@@ -245,10 +338,11 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
             <WorkOrderFormPagePaymentSection
               orderId={id ? Number(id) : null}
               form={form}
-              update={update}
-              onPaidChange={setPagoAcumuladoModulo}
-              isAdmin={user?.is_admin === true}
-            />
+               update={update}
+               onPaidChange={setPagoAcumuladoModulo}
+               onPaymentsPresenceChange={setHasRegisteredPayments}
+               isAdmin={user?.is_admin === true}
+             />
           }
           alternativasGrid={alternativasGrid}
           beforeLayout={
@@ -257,8 +351,9 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
               readOnly={readOnly}
               update={update}
               setForm={setForm}
-              showComparisonToggle={showComparisonToggle}
-              setShowComparisonToggle={setShowComparisonToggle}
+               showComparisonToggle={showComparisonToggle}
+               setShowComparisonToggle={setShowComparisonToggle}
+               onCancelRequest={() => handleStatusRequest('CANCELLED')}
             />
           }
           observations={
@@ -281,7 +376,25 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
           fabricationShowMeasurementComparison={form.status === 'MEASUREMENT'}
           fabricationMaterialsData={form.materials_data}
         />
-      </WorkOrderFormPageProviders>
+       </WorkOrderFormPageProviders>
+
+        <MeasurementAdjustmentDialog
+         proposal={measurementAdjustment}
+         open={measurementAdjustmentOpen}
+         saving={measurementAdjustmentSaving}
+         onCancel={() => setMeasurementAdjustmentOpen(false)}
+         onConfirm={handleApproveMeasurementAdjustment}
+        />
+
+        <WorkOrderCancellationModal
+          open={cancellationOpen}
+          orderNumber={form.number}
+          requirements={form.pool_requirements || []}
+          hasRegisteredPayments={hasRegisteredPayments}
+          loading={cancellationSaving}
+          onClose={() => setCancellationOpen(false)}
+          onConfirm={handlePoolCancellation}
+        />
 
       {ficha.UI}
 

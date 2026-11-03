@@ -2,6 +2,7 @@ import React from 'react';
 import { Plus } from 'lucide-react';
 import type { FabricationDetail, MaterialInForm } from '../../../types/budget';
 import { formatCurrencyValue } from '../../../utils/formatters';
+import { LinearMetersInput } from '../../../components/common/LinearMetersInput/LinearMetersInput';
 import styles from './AdditionalMaterial.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -120,24 +121,18 @@ export default function AdditionalMaterial({
                   <label className={s['additional-material__label']}>Detalle</label>
                   {isM2 ? (
                     <div className={s['additional-material__m2-fields']}>
-                      <input
+                      <LinearMetersInput
                         className={`input ${s['additional-material__input-sm']}`}
-                        type="number"
-                        step="0.001"
-                        min="0"
-                        value={d.length ?? ''}
-                        onChange={(e) => handleDetailChange(i, 'length', num(e.target.value))}
+                        value={d.length}
+                        onCommit={(value) => handleDetailChange(i, 'length', value)}
                         placeholder="Largo"
                         disabled={readOnly}
                       />
                       <span className={s['additional-material__mult']}>×</span>
-                      <input
+                      <LinearMetersInput
                         className={`input ${s['additional-material__input-sm']}`}
-                        type="number"
-                        step="0.001"
-                        min="0"
-                        value={d.width ?? ''}
-                        onChange={(e) => handleDetailChange(i, 'width', num(e.target.value))}
+                        value={d.width}
+                        onCommit={(value) => handleDetailChange(i, 'width', value)}
                         placeholder="Ancho"
                         disabled={readOnly}
                       />
@@ -152,13 +147,10 @@ export default function AdditionalMaterial({
                         disabled={readOnly}
                       />
                       <div className={s['additional-material__m2-fields']}>
-                        <input
+                        <LinearMetersInput
                           className={`input ${s['additional-material__input-sm']}`}
-                          type="number"
-                          step="0.001"
-                          min="0"
-                          value={d.length ?? ''}
-                          onChange={(e) => handleDetailChange(i, 'length', num(e.target.value))}
+                          value={d.length}
+                          onCommit={(value) => handleDetailChange(i, 'length', value)}
                           placeholder="Largo"
                           disabled={readOnly}
                         />

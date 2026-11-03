@@ -32,11 +32,14 @@ export default function ClientSection({
   const [showModal, setShowModal] = useState(false);
   const notify = useNotify();
 
-  const selectedClient = clientes.find((c) => c.name === form.client_name);
+  const selectedClient = form.client_id != null
+    ? clientes.find((c) => c.id === form.client_id)
+    : clientes.find((c) => c.name === form.client_name);
   const addresses: ClientAddress[] = selectedClient?.addresses || [];
   const hasMultipleAddresses = addresses.length > 1;
 
   const handleSelect = (c: Client) => {
+    update('client_id', c.id);
     update('client_name', c.name);
     update('client_phone', c.phone || '');
     update('client_email', c.email || '');
@@ -47,6 +50,7 @@ export default function ClientSection({
   };
 
   const handleClear = () => {
+    update('client_id', null);
     update('client_name', '');
     update('client_phone', '');
     update('client_email', '');
@@ -83,6 +87,7 @@ export default function ClientSection({
   };
 
   const handleClientCreated = (client: Client) => {
+    update('client_id', client.id);
     update('client_name', client.name);
     update('client_phone', client.phone || '');
     update('client_email', client.email || '');

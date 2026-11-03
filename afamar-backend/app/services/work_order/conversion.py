@@ -15,6 +15,7 @@ import json
 from typing import TYPE_CHECKING
 
 from app.services.work_order.snapshots import bake_snapshot_into_pieces
+from app.utils.measurement_numbers import measurement_number, positive_snapshot
 
 if TYPE_CHECKING:
     from app.repositories.work_order import WorkOrderRepository
@@ -32,10 +33,11 @@ def _snapshot_materials(materials_raw: list, wo_usd_rate: float) -> tuple[list, 
         if not isinstance(mat, dict):
             out.append(mat)
             continue
-        length_m = float(mat.get("length") or mat.get("largo") or 0)
-        width_m = float(mat.get("width") or mat.get("ancho") or 0)
-        quantity = float(mat.get("quantity") or mat.get("cantidad") or 1)
-        m2_snapshot = length_m * width_m * quantity
+        length_m = measurement_number(mat.get("length") or mat.get("largo"))
+        width_m = measurement_number(mat.get("width") or mat.get("ancho"))
+        quantity = measurement_number(mat.get("quantity") or mat.get("cantidad"), default=1)
+        existing = positive_snapshot(mat.get("m2_budgeted"))
+        m2_snapshot = existing if existing is not None else length_m * width_m * quantity
         out.append({**mat, "m2_budgeted": m2_snapshot})
     return out, (json.dumps(out) if out else None)
 
@@ -55,12 +57,28 @@ def _snapshot_additional_works(additional_works_list: list, wo_usd_rate: float) 
         )
         aw_ars = aw_total if aw_currency == "ARS" else (aw_total * wo_usd_rate if wo_usd_rate > 0 else 0)
         aw_usd = aw_total if aw_currency == "USD" else (aw_total / wo_usd_rate if wo_usd_rate > 0 else 0)
-        aw_snapshot = {"total_ars_budgeted": aw_ars, "total_usd_budgeted": aw_usd}
+        existing_usd = positive_snapshot(aw.get("total_usd_budgeted"))
+        if aw_currency == "USD":
+            snapshot_usd = existing_usd if existing_usd is not None else aw_usd
+            aw_snapshot = {
+                "total_ars_budgeted": round(snapshot_usd * wo_usd_rate, 2) if wo_usd_rate > 0 else 0,
+                "total_usd_budgeted": snapshot_usd,
+            }
+        else:
+            existing_ars = positive_snapshot(aw.get("total_ars_budgeted"))
+            snapshot_ars = existing_ars if existing_ars is not None else aw_ars
+            aw_snapshot = {
+                "total_ars_budgeted": snapshot_ars,
+                "total_usd_budgeted": round(snapshot_ars / wo_usd_rate, 2) if wo_usd_rate > 0 else 0,
+            }
         # Frentes are measured in ml — snapshot the budgeted linear meters
         # so the COMPARATIVA DE MEDICIÓN can show "Presupuestado vs Real"
         # on the frente detail row (flat works have no measure).
         if str(aw.get("type") or "").lower() == "frente" and "linear_meters" in aw:
-            aw_snapshot["linear_meters_budgeted"] = float(aw.get("linear_meters") or 0)
+            existing_ml = positive_snapshot(aw.get("linear_meters_budgeted"))
+            aw_snapshot["linear_meters_budgeted"] = (
+                existing_ml if existing_ml is not None else measurement_number(aw.get("linear_meters"), default=0)
+            )
         out.append({**aw, **aw_snapshot})
     return out
 
@@ -109,15 +127,34 @@ def _snapshot_fabrication_details(fabrication_details, wo_usd_rate: float):
         fd_total = float((fd.get("price") or 0) * (fd.get("quantity") or 1))
         fd_ars = fd_total if fd_currency == "ARS" else (fd_total * wo_usd_rate if wo_usd_rate > 0 else 0)
         fd_usd = fd_total if fd_currency == "USD" else (fd_total / wo_usd_rate if wo_usd_rate > 0 else 0)
-        fd_length = float(fd.get("length") or fd.get("largo") or 0)
-        fd_width = float(fd.get("width") or fd.get("ancho") or 0)
-        fd_qty = float(fd.get("quantity") or fd.get("cantidad") or 1)
+        fd_length = measurement_number(fd.get("length") or fd.get("largo"))
+        fd_width = measurement_number(fd.get("width") or fd.get("ancho"))
+        fd_qty = measurement_number(fd.get("quantity") or fd.get("cantidad"), default=1)
         fd_concept = str(fd.get("concept") or fd.get("concepto") or "").strip().upper()
-        fd_snapshot = {"total_ars_budgeted": fd_ars, "total_usd_budgeted": fd_usd}
+        existing_usd = positive_snapshot(fd.get("total_usd_budgeted"))
+        if fd_currency == "USD":
+            snapshot_usd = existing_usd if existing_usd is not None else fd_usd
+            fd_snapshot = {
+                "total_ars_budgeted": round(snapshot_usd * wo_usd_rate, 2) if wo_usd_rate > 0 else 0,
+                "total_usd_budgeted": snapshot_usd,
+            }
+        else:
+            existing_ars = positive_snapshot(fd.get("total_ars_budgeted"))
+            snapshot_ars = existing_ars if existing_ars is not None else fd_ars
+            fd_snapshot = {
+                "total_ars_budgeted": snapshot_ars,
+                "total_usd_budgeted": round(snapshot_ars / wo_usd_rate, 2) if wo_usd_rate > 0 else 0,
+            }
         if fd_concept in FAB_M2_CONCEPTS:
-            fd_snapshot["m2_budgeted"] = fd_length * fd_width * fd_qty
+            existing_m2 = positive_snapshot(fd.get("m2_budgeted"))
+            fd_snapshot["m2_budgeted"] = (
+                existing_m2 if existing_m2 is not None else fd_length * fd_width * fd_qty
+            )
         elif fd_concept in FAB_LINEAR_CONCEPTS:
-            fd_snapshot["linear_meters_budgeted"] = fd_length * fd_qty
+            existing_ml = positive_snapshot(fd.get("linear_meters_budgeted"))
+            fd_snapshot["linear_meters_budgeted"] = (
+                existing_ml if existing_ml is not None else fd_length * fd_qty
+            )
         out.append({**fd, **fd_snapshot})
     return json.dumps(out, ensure_ascii=False)
 
@@ -158,7 +195,10 @@ def build_conversion_payload(
     quote documents), the term overrides, the sketch + fabrication
     snapshots and the pieces-tree bake all happen here.
     """
-    from app.services.budget_calculator import filter_main_materials, parse_materials_data
+    from app.services.budget_calculator import (
+        filter_main_materials,
+        parse_materials_data,
+    )
     from app.utils.numbering import generate_work_order_number
 
     # The budget uses the official rate, while a work order is a new
@@ -177,7 +217,7 @@ def build_conversion_payload(
 
     last_number = repo.get_last_number()
 
-    materials_with_snapshot, materiales_json = _snapshot_materials(materials_raw, 0.0)
+    _materials_with_snapshot, materiales_json = _snapshot_materials(materials_raw, 0.0)
 
     additional_works_list = _resolve_additional_works(budget)
     wo_usd_rate = float(usd_rate)
@@ -186,7 +226,7 @@ def build_conversion_payload(
     sketch_list, sketch_json = _serialize_sketch(budget)
     fabrication_details = _snapshot_fabrication_details(budget.fabrication_details, wo_usd_rate)
 
-    return {
+    payload = {
         "number": generate_work_order_number(last_number),
         "client_id": budget.client_id,
         "delivery_address_id": budget.delivery_address_id,
@@ -277,3 +317,7 @@ def build_conversion_payload(
         "warranty_override": budget.warranty_override or "",
         "date": budget.date,
     }
+    # A conversion creates a new OT. Its exact total is recalculated by the
+    # caller from the selected option, then the contractual snapshot is set
+    # once there. Keeping this payload unrounded avoids rounding twice.
+    return payload

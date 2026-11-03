@@ -22,8 +22,8 @@ def _parse_raw_list(raw):
 def _build_measurement_comparison(
     materiales_raw: list,
     usd_rate: float = 0,
-    fabrication_raw: str = None,
-    additional_raw: str = None,
+    fabrication_raw: str | None = None,
+    additional_raw: str | None = None,
 ) -> list[dict]:
     """Build "COMPARATIVA DE MEDICIÓN" rows from `materials_data`.
 
@@ -49,6 +49,25 @@ def _build_measurement_comparison(
 
     def _delta(actual, budgeted):
         return 0 if budgeted is None else actual - budgeted
+
+    def _budgeted_amounts(row, currency):
+        """Return the historical amount in ARS/USD at the frozen rate.
+
+        USD rows must use the native USD snapshot as the source of truth. An
+        ARS snapshot may have been produced with the budget's older exchange
+        rate and is therefore not safe for reconciliation.
+        """
+        if currency == "USD":
+            native = row.get("total_usd_budgeted")
+            if native is None:
+                return None, None
+            native = float(native)
+            return native * usd_rate if usd_rate > 0 else 0, native
+        ars = row.get("total_ars_budgeted")
+        if ars is None:
+            return None, None
+        ars = float(ars)
+        return ars, ars / usd_rate if usd_rate > 0 else 0
 
     def _signed(value):
         return f"{'+' if value > 0 else ''}{_fmt_money(value)}"
@@ -127,16 +146,20 @@ def _build_measurement_comparison(
         name = mat.get("name") or mat.get("nombre") or ""
 
         if m2_real > 0 or m2_budgeted > 0:
+            has_budget_snapshot = mat.get("m2_budgeted") is not None
+            is_new = mat.get("is_new") is True or mat.get("measurement_origin") == "new"
             rows.append({
                 "name": name,
                 "is_detail": False,
-                "m2_budgeted_str": _fmt_m2(m2_budgeted) if m2_budgeted else None,
+                "m2_budgeted_str": _fmt_m2(m2_budgeted) if has_budget_snapshot or is_new else None,
                 "m2_real_str": _fmt_m2(m2_real),
-                "delta_str": f"{'+' if delta > 0 else ''}{_fmt_m2(delta)}" if m2_budgeted else None,
-                "subtotal_ars_str": _signed(subtotal_ars) if m2_budgeted else None,
-                "subtotal_usd_str": _signed(subtotal_usd) if m2_budgeted else None,
-                "subtotal_ars": subtotal_ars,
-                "subtotal_usd": subtotal_usd,
+                "delta_str": f"{'+' if delta > 0 else ''}{_fmt_m2(delta)}" if has_budget_snapshot or is_new else None,
+                "subtotal_ars_str": _signed(subtotal_ars) if has_budget_snapshot or is_new else None,
+                "subtotal_usd_str": _signed(subtotal_usd) if has_budget_snapshot or is_new else None,
+                # A legacy row without a budget snapshot has no approved
+                # baseline, so it must never inflate the comparison total.
+                "subtotal_ars": subtotal_ars if has_budget_snapshot or is_new else 0,
+                "subtotal_usd": subtotal_usd if has_budget_snapshot or is_new else 0,
             })
 
         # Indented detail rows — zócalo/frente from the fabrication table.
@@ -183,6 +206,7 @@ def _build_measurement_comparison(
             # buildSectionData.ts::buildMeasurementComparison.
             d_currency = "USD" if str(d.get("currency") or d.get("moneda") or "").upper() == "USD" else "ARS"
             line_total = float(d.get("price") or d.get("precio") or 0) * float(d.get("quantity") or d.get("cantidad") or 1)
+            is_new = d.get("is_new") is True or d.get("measurement_origin") == "new"
             if line_total == 0 and unit == "m²" and d_delta is not None and price_m2 > 0:
                 delta_native = d_delta * price_m2
                 d_ars = delta_native if currency == "ARS" else (delta_native * usd_rate if usd_rate > 0 else 0)
@@ -190,8 +214,12 @@ def _build_measurement_comparison(
             else:
                 line_ars = line_total if d_currency == "ARS" else (line_total * usd_rate if usd_rate > 0 else 0)
                 line_usd = line_total if d_currency == "USD" else (line_total / usd_rate if usd_rate > 0 else 0)
-                d_ars = _delta(line_ars, d.get("total_ars_budgeted"))
-                d_usd = _delta(line_usd, d.get("total_usd_budgeted"))
+                if is_new and d.get("total_ars_budgeted") is None and d.get("total_usd_budgeted") is None:
+                    d_ars, d_usd = line_ars, line_usd
+                else:
+                    budgeted_ars, budgeted_usd = _budgeted_amounts(d, d_currency)
+                    d_ars = _delta(line_ars, budgeted_ars)
+                    d_usd = _delta(line_usd, budgeted_usd)
             emitted_zocalo_keys.add(zocalo_key)
             rows.append({
                 "name": label,
@@ -226,8 +254,7 @@ def _build_measurement_comparison(
             raw_mat = str(r.get("materialName") or r.get("material_name") or "")
             if not raw_mat or raw_mat == "POOL_MATERIAL_GLOBAL":
                 continue
-            if raw_mat.startswith("__ALT__:"):
-                raw_mat = raw_mat[len("__ALT__:"):]
+            raw_mat = raw_mat.removeprefix("__ALT__:")
             if raw_mat != name:
                 continue
             dedupe_key = str(r.get("additional_work_id") or r.get("name") or "")
@@ -239,8 +266,13 @@ def _build_measurement_comparison(
             total_src = float(r.get("total") or price * quantity)
             line_ars = total_src if r_currency == "ARS" else (total_src * usd_rate if usd_rate > 0 else 0)
             line_usd = total_src if r_currency == "USD" else (total_src / usd_rate if usd_rate > 0 else 0)
-            d_ars = _delta(line_ars, r.get("total_ars_budgeted"))
-            d_usd = _delta(line_usd, r.get("total_usd_budgeted"))
+            is_new = r.get("is_new") is True or r.get("measurement_origin") == "new"
+            if is_new and r.get("total_ars_budgeted") is None and r.get("total_usd_budgeted") is None:
+                d_ars, d_usd = line_ars, line_usd
+            else:
+                budgeted_ars, budgeted_usd = _budgeted_amounts(r, r_currency)
+                d_ars = _delta(line_ars, budgeted_ars)
+                d_usd = _delta(line_usd, budgeted_usd)
             label = str(r.get("name") or "Trabajo adicional")
             # Frentes are measured in ml (snapshot `linear_meters_budgeted`);
             # flat works carry no measure at all.

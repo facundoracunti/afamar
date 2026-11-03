@@ -6,13 +6,19 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
-from app.db.session import SessionLocal
 from app.api.dependencies import get_current_user, get_db, require_admin
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.core.settings import settings
+from app.db.session import SessionLocal
 from app.models.client import Client
 from app.models.user import User
-from app.schemas.work_order import WorkOrderCreate, WorkOrderResponse, WorkOrderUpdate
+from app.schemas.work_order import (
+    WorkOrderCreate,
+    WorkOrderMeasurementAdjustmentRequest,
+    WorkOrderResponse,
+    WorkOrderUpdate,
+)
+from app.schemas.work_order_pool_requirement import WorkOrderPoolCancellationRequest
 from app.services.budget import BudgetService
 from app.services.email import send_work_order_email
 from app.services.pdf_helpers import prepare_work_order_payload
@@ -112,6 +118,34 @@ def list_order_payments(order_id: int, db: Session = Depends(get_db)):
     return success([CashMovementResponse.model_validate(m).model_dump(mode="json") for m in movements])
 
 
+@router.get("/{order_id}/measurement-adjustment")
+def get_measurement_adjustment(order_id: int, db: Session = Depends(get_db)):
+    """Build the current server-side proposal without changing the order."""
+    return success(WorkOrderService(db).measurement_adjustment(order_id))
+
+
+@router.post("/{order_id}/measurement-adjustment")
+def approve_measurement_adjustment(
+    order_id: int,
+    data: WorkOrderMeasurementAdjustmentRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    order, approval = WorkOrderService(db).approve_measurement_adjustment(
+        order_id, current_user.id, data.model_dump()
+    )
+    return success({
+        "order": WorkOrderResponse.from_orm_with_client(order).model_dump(mode="json"),
+        "approval": {
+            "id": approval.id,
+            "difference_ars": approval.difference_ars,
+            "difference_usd": approval.difference_usd,
+            "new_total": approval.new_total,
+            "new_total_usd": approval.new_total_usd,
+        },
+    })
+
+
 @router.delete("/{order_id}/payments/{movement_id}")
 def reverse_order_payment(
     order_id: int,
@@ -136,6 +170,21 @@ def reverse_order_payment(
     )
 
 
+@router.post("/{order_id}/cancel-with-recovery")
+def cancel_work_order_with_recovery(
+    order_id: int,
+    data: WorkOrderPoolCancellationRequest,
+    db: Session = Depends(get_db),
+):
+    """Cancel a requirement-backed OT after explicit physical recovery."""
+    order = WorkOrderService(db).cancel_with_recovery(
+        order_id,
+        [item.model_dump() for item in data.recoveries],
+        payments_confirmed=data.payments_confirmed,
+    )
+    return success(WorkOrderResponse.from_orm_with_client(order).model_dump(mode="json"))
+
+
 @router.post("", status_code=201)
 def create_work_order(data: WorkOrderCreate, db: Session = Depends(get_db)):
     service = WorkOrderService(db)
@@ -151,8 +200,8 @@ def create_from_budget(budget_id: int, db: Session = Depends(get_db)):
     service = WorkOrderService(db)
     try:
         return created(service.create_from_budget(budget))
-    except ValueError as e:
-        return error(detail=str(e), status_code=400)
+    except (ConflictError, ValidationError) as exc:
+        return error(detail=str(exc.detail), status_code=exc.status_code)
 
 
 @router.put("/{order_id}")

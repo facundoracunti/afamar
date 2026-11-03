@@ -3,6 +3,8 @@ from app.models.client import Client
 from app.models.client_address import ClientAddress
 from app.models.budget import Budget, BudgetItem, BudgetAdicional, BudgetSketchElement
 from app.models.work_order import WorkOrder
+from app.models.work_order_measurement_approval import WorkOrderMeasurementApproval
+from app.models.work_order_pool_requirement import WorkOrderPoolRequirement
 from app.models.material import Material, MaterialCategory, MaterialColor, MaterialThickness
 from app.models.options import AppOption
 from app.models.pool_stock import PoolStock, PoolType, StockMovement
@@ -22,6 +24,8 @@ __all__ = [
     "BudgetAdicional",
     "BudgetSketchElement",
     "WorkOrder",
+    "WorkOrderMeasurementApproval",
+    "WorkOrderPoolRequirement",
     "Material",
     "MaterialCategory",
     "MaterialColor",

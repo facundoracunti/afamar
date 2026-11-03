@@ -3,6 +3,7 @@ from typing import List, Optional
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.exceptions import NotFoundError, ValidationError
 from app.models.pool_stock import PoolStock, StockMovement
 from app.repositories.base import BaseRepository
 
@@ -59,10 +60,24 @@ class PoolStockRepository(BaseRepository):
         super().delete(pool)
 
     def add_movement(self, pool_id: int, data: dict) -> StockMovement:
-        movement = StockMovement(pool_id=pool_id, **data)
-        pool = self.get_by_id(pool_id)
-        if data["type"] == "entry":
-            pool.quantity += data["quantity"]
-        elif data["type"] == "exit":
-            pool.quantity -= data["quantity"]
+        movement_type = data.get("type")
+        quantity = int(data.get("quantity") or 0)
+        if movement_type not in {"entry", "exit"} or quantity <= 0:
+            raise ValidationError("El movimiento debe ser entrada/salida con cantidad positiva")
+        pool = (
+            self.db.query(PoolStock)
+            .filter(PoolStock.id == pool_id)
+            .with_for_update()
+            .first()
+        )
+        if pool is None:
+            raise NotFoundError("Pool stock")
+        if movement_type == "entry":
+            pool.quantity += quantity
+        elif quantity > (pool.quantity or 0):
+            raise ValidationError("El stock disponible no puede quedar negativo")
+        else:
+            pool.quantity -= quantity
+        movement_data = {**data, "quantity": quantity}
+        movement = StockMovement(pool_id=pool_id, **movement_data)
         return self.save(movement)

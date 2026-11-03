@@ -51,6 +51,12 @@ const FINANCIAL_FIELDS = [
   'discount_enabled',
   'discount_target',
   'discount_amount',
+  'total_exact_ars',
+  'total_exact_usd',
+  'rounding_adjustment_ars',
+  'rounding_adjustment_usd',
+  'total_contractual_ars',
+  'total_contractual_usd',
 ] as const;
 
 describe('FinancialBase — shared types', () => {
@@ -89,6 +95,12 @@ describe('FinancialBase — shared types', () => {
       discount_enabled: false,
       discount_target: 'total',
       discount_amount: 0,
+      total_exact_ars: null,
+      total_exact_usd: null,
+      rounding_adjustment_ars: null,
+      rounding_adjustment_usd: null,
+      total_contractual_ars: null,
+      total_contractual_usd: null,
     });
   });
 
@@ -298,6 +310,11 @@ describe('buildPayload — integrates FinancialBase', () => {
     // buildFinancialPayload normalizes to null. buildPayload keeps form semantics.
     expect('payment_method' in apiPayload).toBe(true);
   });
+
+  it('persists the selected client id and explicitly sends null after clearing', () => {
+    expect(buildPayload({ ...INITIAL_FORM, client_id: 42 }).client_id).toBe(42);
+    expect(buildPayload({ ...INITIAL_FORM, client_id: null }).client_id).toBeNull();
+  });
 });
 
 describe('mapApiToForm — integrates FinancialBase', () => {
@@ -307,6 +324,12 @@ describe('mapApiToForm — integrates FinancialBase', () => {
       usd_rate: 1300,
       subtotal: 75000,
       total: 90000,
+      total_exact_ars: 1105808.40,
+      total_exact_usd: 706.59,
+      rounding_adjustment_ars: 4191.60,
+      rounding_adjustment_usd: 2.68,
+      total_contractual_ars: 1110000,
+      total_contractual_usd: 709.27,
       deposit_received: 30000,
       payment_method: 'TRANSFER',
       installments: 2,
@@ -317,6 +340,12 @@ describe('mapApiToForm — integrates FinancialBase', () => {
     expect(form.usd_rate).toBe(1300);
     expect(form.subtotal).toBe(75000);
     expect(form.total).toBe(90000);
+    expect(form.total_exact_ars).toBe(1105808.40);
+    expect(form.total_exact_usd).toBe(706.59);
+    expect(form.rounding_adjustment_ars).toBe(4191.60);
+    expect(form.rounding_adjustment_usd).toBe(2.68);
+    expect(form.total_contractual_ars).toBe(1110000);
+    expect(form.total_contractual_usd).toBe(709.27);
     expect(form.deposit_received).toBe(30000);
     expect(form.payment_method).toBe('TRANSFER');
     expect(form.installments).toBe(2);
@@ -328,6 +357,21 @@ describe('mapApiToForm — integrates FinancialBase', () => {
     for (const f of FINANCIAL_FIELDS) {
       expect(form[f]).toBe(DEFAULT_FINANCIALS[f]);
     }
+  });
+
+  it('hydrates client_id independently from display client fields', () => {
+    const form = mapApiToForm({
+      client_id: 42,
+      client_name: 'Cliente Nuevo',
+      client_phone: '123',
+      client_email: 'new@test.com',
+      client_address: 'Obra nueva',
+    }, 'APPROVED');
+
+    expect(form.client_id).toBe(42);
+    expect(form.client_name).toBe('Cliente Nuevo');
+    expect(form.client_phone).toBe('123');
+    expect(form.client_address).toBe('Obra nueva');
   });
 });
 
@@ -396,6 +440,14 @@ describe('mapApiToForm — COMPARATIVA snapshot hydration', () => {
     expect(flatAdd[0]).toMatchObject({
       linear_meters_budgeted: 3.3, total_ars_budgeted: 162790, total_usd_budgeted: 162.79,
     });
+
+    // The next save must send coherent flat and pieces snapshots, not only
+    // repair them transiently in React state.
+    const payload = buildPayload(form);
+    const payloadPieces = JSON.parse(String(payload.pieces_data)) as Array<Record<string, any>>;
+    const payloadMaterials = JSON.parse(String(payload.materials_data)) as Array<Record<string, any>>;
+    expect(payloadPieces[0].mainMaterial.m2_budgeted).toBe(1.76);
+    expect(payloadMaterials[0].m2_budgeted).toBe(1.76);
   });
 
   it('returns the pieces untouched when no snapshot exists in the flat arrays', () => {

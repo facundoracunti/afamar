@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { parseNumber } from '../../../utils/formatters';
 
 function formatInitialDraft(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value) || value === 0) return '';
@@ -38,25 +39,24 @@ export function LinearMetersInput({
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
     setDraft(raw);
-    const cleaned = raw.replace(',', '.');
-    if (cleaned === '' || cleaned === '.' || cleaned === '-') {
+    if (raw.trim() === '' || raw === '.' || raw === ',' || raw === '-') {
       onCommit(0);
       return;
     }
-    const parsed = Number(cleaned);
-    if (Number.isFinite(parsed) && parsed >= 0) {
+    const parsed = parseNumber(raw);
+    if (parsed !== null && parsed >= 0) {
       onCommit(parsed);
     }
   };
 
   const handleBlur = () => {
-    const cleaned = draft.replace(',', '.').trim();
-    if (cleaned === '' || cleaned === '.' || cleaned === '-') {
+    const cleaned = draft.trim();
+    if (cleaned === '' || cleaned === '.' || cleaned === ',' || cleaned === '-') {
       setDraft('');
       return;
     }
-    const parsed = Number(cleaned);
-    if (Number.isFinite(parsed) && parsed >= 0) {
+    const parsed = parseNumber(cleaned);
+    if (parsed !== null && parsed >= 0) {
       setDraft(parsed === 0 ? '' : trimTrailingZeros(String(parsed)));
     } else {
       setDraft('');

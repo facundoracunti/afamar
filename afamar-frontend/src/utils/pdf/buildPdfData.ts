@@ -35,6 +35,8 @@ import {
   buildOptionTotals,
 } from './buildPdfData.alternatives';
 import type { BuildPdfDataParams, PdfDocumentData } from './pdfTypes';
+import { applyApprovalBreakdownToPieces } from './buildPiecesPdfData';
+import type { ApprovalBreakdown } from '../../types/form';
 
 /**
  * Build the canonical PDF data object from the current `EntityFormState`.
@@ -68,7 +70,7 @@ export function buildPdfData({
     document_type,
     paymentMethods,
     totalPaid,
-    usePersistedCommercialTotals: usePersistedCommercialTotals && document_type === 'work_order',
+    usePersistedCommercialTotals,
   });
 
   const base = buildBaseDocument(ctx, {
@@ -93,6 +95,18 @@ export function buildPdfData({
     ctx.usdRate,
     usePersistedCommercialTotals && document_type === 'work_order',
   );
+  if (document_type === 'work_order' && base.pieces) {
+    const approvals = Array.isArray(form.measurement_approvals)
+      ? form.measurement_approvals as Array<{ id?: number; approval_breakdown?: ApprovalBreakdown | null }>
+      : [];
+    const latest = approvals
+      .filter((approval) => approval.approval_breakdown)
+      .sort((a, b) => Number(b.id || 0) - Number(a.id || 0))[0]
+      ?.approval_breakdown;
+    const applied = applyApprovalBreakdownToPieces(base.pieces, latest);
+    base.pieces = applied.pieces;
+    base.approval_global_lines = applied.globalLines;
+  }
 
   if (document_type === 'budget') {
     // Budget terms + (multi-piece budgets) the consolidated TOTAL GENERAL

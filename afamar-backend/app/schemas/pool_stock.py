@@ -16,6 +16,7 @@ class StockMovementResponse(BaseResponse):
     pool_id: int
     type: str
     quantity: int
+    requirement_id: int | None = None
     notes: str | None = None
     created_at: datetime
 

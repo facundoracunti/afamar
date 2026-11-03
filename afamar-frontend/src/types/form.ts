@@ -1,7 +1,7 @@
 import type { BudgetOption, FabricationDetail, BudgetPiece, MaterialInForm, PoolInForm } from './budget';
 import type { Client } from './client';
 import type { Material } from './material';
-import type { Pool } from './poolStock';
+import type { Pool, WorkOrderPoolRequirement } from './poolStock';
 import type { FinancialBase } from './shared';
 
 /**
@@ -16,7 +16,10 @@ export interface InstallmentDetailRow {
 }
 
 export interface EntityFormState extends FinancialBase {
+  measurement_approvals?: MeasurementApproval[];
+  pool_requirements?: WorkOrderPoolRequirement[];
   // Client info — matches BudgetBase.client_*
+  client_id: number | null;
   client_name: string;
   client_phone: string;
   client_address: string;
@@ -258,4 +261,59 @@ export interface UseEntityFormReturn {
   handleStatusChangeAction: (newStatus: string) => Promise<void>;
   handlePrint: () => void;
   buildPayload: () => Record<string, unknown>;
+}
+
+export interface MeasurementApproval {
+  id: number;
+  approved_by_user_id: number;
+  approved_at: string;
+  previous_total: number;
+  previous_total_usd: number;
+  positive_difference_ars: number;
+  negative_difference_ars: number;
+  difference_ars: number;
+  difference_usd: number;
+  discount_difference_ars: number;
+  new_total: number;
+  new_total_usd: number;
+  usd_rate: number;
+  measurement_fingerprint: string;
+  approval_breakdown?: ApprovalBreakdown | null;
+}
+
+export interface ApprovalBreakdownAmount {
+  ars: number;
+  usd: number;
+  native: number;
+  currency: 'ARS' | 'USD';
+}
+
+export interface ApprovalBreakdownLine {
+  line_key: string;
+  line_kind: 'material' | 'fabrication' | 'additional' | 'pool';
+  concept_type: string;
+  material?: string | null;
+  measurement_approved?: {
+    length?: number | null;
+    width?: number | null;
+    quantity?: number | null;
+    linear_meters?: number | null;
+  } | null;
+  subtotal_approved: ApprovalBreakdownAmount;
+}
+
+export interface ApprovalBreakdownPiece {
+  piece_key: string;
+  piece_id?: string | null;
+  name: string;
+  lines: ApprovalBreakdownLine[];
+  subtotal_approved: ApprovalBreakdownAmount;
+}
+
+export interface ApprovalBreakdown {
+  version: 1;
+  usd_rate: number;
+  pieces: ApprovalBreakdownPiece[];
+  global_lines: ApprovalBreakdownLine[];
+  total_approved: ApprovalBreakdownAmount;
 }

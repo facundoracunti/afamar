@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildPieces, piecesSubtotal } from './buildPiecesPdfData';
+import { applyApprovalBreakdownToPieces, buildPieces, piecesSubtotal } from './buildPiecesPdfData';
 import { buildPdfData, buildAlternativeTotals } from './buildPdfData';
 import { flattenPieces } from '@features/budgets/utils/pieces';
 import type { BudgetPiece, MaterialInForm, PoolInForm } from '../../types/budget';
@@ -132,6 +132,119 @@ function makeForm(pieces: BudgetPiece[], extra: Record<string, unknown> = {}) {
 }
 
 describe('buildPieces', () => {
+  it('overlays the latest approval amounts per piece and keeps globals separate', () => {
+    const pieces = buildPieces(makeForm([piece1, piece2]), 1000);
+    const result = applyApprovalBreakdownToPieces(pieces, {
+      version: 1,
+      usd_rate: 1000,
+      pieces: [
+        {
+          piece_key: 'piece:p1',
+          name: 'Mesada 1',
+          lines: [...pieces[0].materials, ...pieces[0].fabrication_details, ...pieces[0].additional_works, ...pieces[0].pools].map((_, index) => ({
+            line_key: `line-${index}`,
+            line_kind: index === 0 ? 'material' : index === 1 ? 'fabrication' : index === 2 ? 'additional' : 'pool',
+            concept_type: 'TEST',
+            subtotal_approved: { ars: 10, usd: 0.01, native: 10, currency: 'ARS' },
+          })),
+          subtotal_approved: { ars: 40, usd: 0.04, native: 40, currency: 'ARS' },
+        },
+        {
+          piece_key: 'piece:p2',
+          name: 'Mesada 2',
+          lines: [{
+            line_key: 'line-p2', line_kind: 'material', concept_type: 'TEST',
+            subtotal_approved: { ars: 20, usd: 0.02, native: 20, currency: 'ARS' },
+          }],
+          subtotal_approved: { ars: 20, usd: 0.02, native: 20, currency: 'ARS' },
+        },
+      ],
+      global_lines: [{
+        line_key: 'global-1', line_kind: 'pool', concept_type: 'GLOBAL', material: 'Traslado',
+        subtotal_approved: { ars: 50, usd: 0.05, native: 50, currency: 'ARS' },
+      }],
+      total_approved: { ars: 110, usd: 0.11, native: 110, currency: 'ARS' },
+    });
+
+    expect(result.pieces.map((piece) => piece.subtotal_ars)).toEqual([40, 20]);
+    expect(result.pieces[0].materials[0].subtotal_ars).toBe(10);
+    expect(result.pieces[0].fabrication_details[0].subtotal_ars).toBe(10);
+    expect(result.pieces[0].additional_works[0].subtotal_ars).toBe(10);
+    expect(result.pieces[0].pools[0].subtotal_ars).toBe(10);
+    expect(result.globalLines).toHaveLength(1);
+    expect(result.globalLines[0].name).toBe('GLOBAL');
+    expect(result.pieces.reduce((sum, piece) => sum + piece.subtotal_ars, 0) + 50).toBe(110);
+  });
+
+  it('matches approval pieces by piece_id before name or position', () => {
+    const pieces = buildPieces(makeForm([piece1, piece2]), 1000);
+    const result = applyApprovalBreakdownToPieces(pieces, {
+      version: 1,
+      usd_rate: 1000,
+      pieces: [
+        {
+          piece_key: 'piece:p2',
+          piece_id: 'p2',
+          name: 'Mesada 1',
+          lines: [],
+          subtotal_approved: { ars: 222, usd: 0.222, native: 222, currency: 'ARS' },
+        },
+        {
+          piece_key: 'piece:p1',
+          piece_id: 'p1',
+          name: 'Mesada 2',
+          lines: [],
+          subtotal_approved: { ars: 111, usd: 0.111, native: 111, currency: 'ARS' },
+        },
+      ],
+      global_lines: [],
+      total_approved: { ars: 333, usd: 0.333, native: 333, currency: 'ARS' },
+    });
+
+    expect(result.pieces.map((piece) => piece.subtotal_ars)).toEqual([111, 222]);
+  });
+
+  it('uses the approved native currency and measure for unit prices', () => {
+    const material = mat({
+      name: 'SILESTONE',
+      currency: 'USD',
+      // Deliberately keep the ARS equivalent in the legacy field. The PDF
+      // must not print it as USD after an approval overlay.
+      price_m2: 729166.67,
+      price_m2_usd: 729166.67,
+      length: 1.2,
+      width: 1.2,
+      is_alternative: false,
+    });
+    const pieces = buildPieces(makeForm([{ ...piece1, id: 'silestone', mainMaterial: material }], { usd_rate: 1200 }), 1200);
+    const approved = applyApprovalBreakdownToPieces(pieces, {
+      version: 1,
+      usd_rate: 1200,
+      pieces: [{
+        piece_key: 'piece:silestone',
+        piece_id: 'silestone',
+        name: 'Mesada 1',
+        lines: [{
+          line_key: 'material:silestone:0',
+          line_kind: 'material',
+          concept_type: 'MATERIAL',
+          measurement_approved: { length: 1.2, width: 1.2, quantity: 1 },
+          subtotal_approved: { ars: 1050000, usd: 875, native: 875, currency: 'USD' },
+        }],
+        subtotal_approved: { ars: 1050000, usd: 875, native: 875, currency: 'USD' },
+      }],
+      global_lines: [],
+      total_approved: { ars: 1050000, usd: 875, native: 875, currency: 'USD' },
+    });
+
+    expect(approved.pieces[0].materials[0]).toEqual(expect.objectContaining({
+      currency: 'USD',
+      price_m2_str: '607,64',
+      subtotal_ars: 1050000,
+      subtotal_usd: 875,
+    }));
+  });
+
   it('returns no pieces for a legacy budget (empty / missing pieces_data)', () => {
     expect(buildPieces({ pieces: [] }, 1000)).toEqual([]);
     expect(buildPieces({}, 1000)).toEqual([]);
@@ -910,7 +1023,7 @@ describe('buildPdfData — pieces branch', () => {
       { ...piece1, id: 'piece-3', mainMaterial: mat({ name: 'Pieza 3', length: 2.22, width: 0.6, m2_budgeted: 0.89 }) },
     ];
 
-    const rows = buildPieces({ pieces }, 1000, true);
+    const rows = buildPieces({ pieces }, 1000, false);
 
     expect(rows.map((piece) => piece.materials[0].m2_str)).toEqual(['1,42', '0,64', '1,33']);
   });

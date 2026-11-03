@@ -37,7 +37,9 @@ export function useMainMaterialHandlers({
     (id: string, name: string) => {
       commit((p) =>
         p.map((piece) =>
-          piece.id === id ? mutateSetPieceMain(piece, form, materials, name) : piece,
+          piece.id === id
+            ? mutateSetPieceMain(piece, form, materials, name, form.status === 'MEASUREMENT' && form.budget_id != null)
+            : piece,
         ),
       );
     },
@@ -78,10 +80,14 @@ export function useMainMaterialHandlers({
   const addPieceMainRow = useCallback(
     (id: string, mat: MaterialInForm) => {
       commit((p) =>
-        p.map((piece) => (piece.id === id ? mutateAddPieceMainRow(piece, mat) : piece)),
+        p.map((piece) => (
+          piece.id === id
+            ? mutateAddPieceMainRow(piece, mat, form.status === 'MEASUREMENT' && form.budget_id != null)
+            : piece
+        )),
       );
     },
-    [commit],
+    [commit, form.status, form.budget_id],
   );
 
   const updatePieceMainRow = useCallback(

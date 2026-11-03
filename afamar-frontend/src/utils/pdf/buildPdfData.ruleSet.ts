@@ -181,11 +181,43 @@ export function computeDocumentRuleSet({
     balance_due: computedBalanceDue,
   } = totals;
 
-  const persisted = usePersistedCommercialTotals && form.number != null && form.total != null;
-  const effectiveTotal = persisted ? num('total') : computedTotal;
-  const effectiveTotalUsd = persisted ? num('total_usd') : computedTotalUsd;
-  const effectiveSubtotal = persisted ? num('subtotal') : computedSubtotal;
-  const effectiveSubtotalUsd = persisted ? num('subtotal_usd') : mainSectionSubtotalUsd;
+  const hasCompleteContractualSnapshot = [
+    'total_exact_ars',
+    'total_exact_usd',
+    'rounding_adjustment_ars',
+    'rounding_adjustment_usd',
+    'total_contractual_ars',
+    'total_contractual_usd',
+  ].every((key) => form[key] != null && Number.isFinite(Number(form[key])));
+  const persisted = usePersistedCommercialTotals
+    && form.number != null
+    && form.total != null
+    // Work orders already use the persisted financial snapshot to keep their
+    // measurement lines stable. Budgets need the complete commercial snapshot
+    // before the saved contractual total can override the calculated path;
+    // legacy budgets without it remain on their historical behavior.
+    && (document_type === 'work_order' || hasCompleteContractualSnapshot);
+  const persistedContractTotal = form.total_contractual_ars != null
+    ? num('total_contractual_ars')
+    : num('total');
+  const persistedContractTotalUsd = form.total_contractual_usd != null
+    ? num('total_contractual_usd')
+    : num('total_usd');
+  const effectiveTotal = persisted ? persistedContractTotal : computedTotal;
+  const effectiveTotalUsd = persisted ? persistedContractTotalUsd : computedTotalUsd;
+  // A complete commercial snapshot stores the exact pre-rounding amount in
+  // `total_exact_*`. The compatibility `subtotal` fields can be stale for
+  // pieces budgets (notably when a pool was added after the flat financial
+  // snapshot), while the contractual total remains correct. Use the exact
+  // snapshot for the document subtotal without applying any new rounding.
+  const persistedExactSubtotal = document_type === 'budget' && hasCompleteContractualSnapshot
+    ? num('total_exact_ars')
+    : num('subtotal');
+  const persistedExactSubtotalUsd = document_type === 'budget' && hasCompleteContractualSnapshot
+    ? num('total_exact_usd')
+    : num('subtotal_usd');
+  const effectiveSubtotal = persisted ? persistedExactSubtotal : computedSubtotal;
+  const effectiveSubtotalUsd = persisted ? persistedExactSubtotalUsd : mainSectionSubtotalUsd;
   const effectiveBalance = persisted
     ? Math.max(0, effectiveTotal - paidArs)
     : computedBalanceDue;

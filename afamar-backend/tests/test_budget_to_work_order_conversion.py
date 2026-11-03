@@ -26,7 +26,12 @@ Budgets are pure quote documents: the seña is collected at the WORK ORDER
 import json
 
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
+import app.models  # noqa: F401 - register every mapped table
+from app.db.base import Base
 from app.models.budget import Budget
 from app.models.client import Client
 from app.models.daily_cash import CashMovement, DailyCash
@@ -34,9 +39,6 @@ from app.models.reference import PaymentMethod
 from app.services.budget import BudgetService
 from app.services.daily_cash import DailyCashService
 from app.services.work_order import WorkOrderService
-
-from tests.conftest import TestingSessionLocal
-
 
 # ────────────────────────────────────────────────────────────────────
 # Fixtures
@@ -46,7 +48,13 @@ from tests.conftest import TestingSessionLocal
 @pytest.fixture
 def conversion_db():
     """Session pre-seeded with payment method + client + open cash box."""
-    db = TestingSessionLocal()
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(engine)
+    db = sessionmaker(bind=engine)()
     try:
         db.add(PaymentMethod(
             id=1, name="EFECTIVO", label="Efectivo",
@@ -62,6 +70,8 @@ def conversion_db():
         yield db
     finally:
         db.close()
+        Base.metadata.drop_all(engine)
+        engine.dispose()
 
 
 @pytest.fixture(autouse=True)

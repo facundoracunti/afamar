@@ -13,6 +13,8 @@ export interface FabricationDetail {
   /** Catalogue id of the material selected for this row, when available. */
   material_id?: number | null;
   material_price_m2?: number;
+  /** Optional per-m² source used before the derived row price is materialized. */
+  price_m2?: number;
   length: number | null;
   width: number | null;
   m2: number;
@@ -22,6 +24,8 @@ export interface FabricationDetail {
   price: number;
   /** Explicitly distinguishes catalogue-linked prices from operator overrides. */
   price_source?: PriceSource;
+  /** Explicit marker for a line added during MEDICIÓN. */
+  measurement_origin?: 'budget' | 'new';
   /** Snapshot keys the COMPARATIVA DE MEDICIÓN reads (taken at
    *  budget→WO conversion by `work_order._bake_snapshot_into_pieces`).
    *  All optional: rows that predate the snapshot feature or that were
@@ -73,6 +77,8 @@ Optional
   length: number;
   width: number;
   is_alternative: boolean;
+  /** Explicit marker for a material added during MEDICIÓN. */
+  measurement_origin?: 'budget' | 'new';
   /** Whether the catalogue row allows an integrated sink ("BACHA
    *  INTEGRADA"). Copied from the catalogue so the additional-works picker
    *  can block incompatible materials even when the full `Material[]`

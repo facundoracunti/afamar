@@ -32,8 +32,15 @@ from app.repositories.work_order import WorkOrderRepository
 from app.services.budget_calculator import flatten_pieces
 from app.services.budget_option_totals import pick_winning_option
 from app.services.budget_options import SINGLE_OPTION_ID
-from app.services.stock_helpers import deduct_pool_stock
+from app.services.commercial_rounding import (
+    apply_contractual_totals,
+    has_contractual_totals,
+)
 from app.services.dolar import get_blue_mid_rate
+from app.services.work_order.pool_requirements import (
+    ensure_budget_stock_is_traceable,
+    register_initial_pool_requirements,
+)
 
 
 def _first_main_material(pieces: list[dict]) -> tuple[str, float]:
@@ -204,39 +211,48 @@ def convert_budget_to_work_order(
     """
     from app.services.work_order.recalc import recalculate_totals_from_items
 
-    budget = db.get(Budget, budget_id)
+    budget = (
+        db.query(Budget)
+        .filter(Budget.id == budget_id)
+        .with_for_update()
+        .first()
+    )
     if budget is None:
         raise NotFoundError("Budget")
     if budget.status == "CONVERTED_TO_OT":
         raise ValidationError("El presupuesto ya fue convertido a una Orden de Trabajo")
+    if db.query(WorkOrder.id).filter(WorkOrder.budget_id == budget.id).first():
+        raise ValidationError("El presupuesto ya tiene una Orden de Trabajo asociada")
+    ensure_budget_stock_is_traceable(budget)
 
     repo = WorkOrderRepository(db)
+    frozen_rate = (
+        float(budget.usd_rate)
+        if has_contractual_totals(budget) and float(budget.usd_rate or 0) > 0
+        else None
+    )
     data, option, pools = build_option_conversion_payload(
         budget,
         repo,
         option_id,
-        usd_rate=get_blue_mid_rate(),
+        usd_rate=frozen_rate,
     )
 
     # Server-side recompute of the OPTION's totals (materials + fabrication +
     # additional works + pools of THIS option only) so the WO carries the
     # real price of the winning scenario — not the whole budget's total.
     recalculate_totals_from_items(db, data)
+    # Options do not currently persist their own contractual snapshot. Never
+    # copy the budget-level total because it may belong to another option. If
+    # the budget has a valid frozen snapshot, use its frozen rate while
+    # computing this option's own exact total and round exactly once.
+    apply_contractual_totals(data)
 
     order = repo.create(data)
-    db.commit()
-    db.refresh(order)
 
-    # Stock deduction scoped to the OPTION's piletas: a sink quoted only in
-    # a losing option is never decremented. `pools` (already flattened) is
-    # the source of truth — checking the persisted `pools_data` instead
-    # would misfire, because the recalc rewrites an absent column to the
-    # empty-array JSON `'[]'`, which is a truthy string.
-    if pools:
-        deduct_pool_stock(db, order.pool_id, order.pools_data, order.number)
-        order.stock_deducted = True
-        db.commit()
-        db.refresh(order)
+    # Stock allocation is scoped to the selected option's persisted
+    # `pools_data`; only available units are allocated.
+    order.stock_deducted = register_initial_pool_requirements(db, order)
 
     budget.status = "CONVERTED_TO_OT"
     budget.stock_deducted = bool(order.stock_deducted)

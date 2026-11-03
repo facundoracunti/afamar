@@ -16,6 +16,12 @@ export interface FinancialBase {
   subtotal: number;
   transport: number;
   total: number;
+  total_exact_ars?: number | null;
+  total_exact_usd?: number | null;
+  rounding_adjustment_ars?: number | null;
+  rounding_adjustment_usd?: number | null;
+  total_contractual_ars?: number | null;
+  total_contractual_usd?: number | null;
 
   // Totals (mirror of the above in USD, computed from `usd_rate`).
   subtotal_usd: number;

@@ -25,6 +25,7 @@
  */
 
 import type { BudgetPiece, FabricationDetail, MaterialInForm } from '../../types/budget';
+import type { ApprovalBreakdown } from '../../types/form';
 import type { PiecesPdfPiece } from './pdfTypes';
 import { materialGroupKey } from '../materialGroups';
 import {
@@ -37,9 +38,11 @@ import {
 } from './buildSectionData';
 import type {
   AdditionalWorkPdfRow,
+  MaterialPdfRow,
   PdfDataRow,
   PoolPdfRow,
 } from './pdfTypes';
+import { fmtMoney } from './pdfHelpers';
 
 function sumArs(rows: Array<{ subtotal_ars: number }>): number {
   return rows.reduce((sum, r) => sum + (Number(r.subtotal_ars) || 0), 0);
@@ -244,4 +247,81 @@ export function piecesSubtotal(pieces: PiecesPdfPiece[]): { ars: number; usd: nu
     ars: pieces.reduce((sum, p) => sum + (Number(p.subtotal_ars) || 0), 0),
     usd: pieces.reduce((sum, p) => sum + (Number(p.subtotal_usd) || 0), 0),
   };
+}
+
+/** Apply the last persisted approval ledger to presentation rows. */
+export function applyApprovalBreakdownToPieces(
+  pieces: PiecesPdfPiece[],
+  breakdown: ApprovalBreakdown | null | undefined,
+): { pieces: PiecesPdfPiece[]; globalLines: Array<{ name: string; detail: string; currency: 'ARS' | 'USD'; total_str: string }> } {
+  if (!breakdown) return { pieces, globalLines: [] };
+  const approvedPieces = breakdown.pieces || [];
+  const approvedUnitPrice = (
+    row: PdfDataRow | AdditionalWorkPdfRow | MaterialPdfRow | PoolPdfRow,
+    line: ApprovalBreakdown['pieces'][number]['lines'][number],
+    kind: string,
+  ): string | null => {
+    const measurement = line.measurement_approved;
+    const quantity = Number(measurement?.quantity || row.quantity || 1);
+    const unit = kind === 'material'
+      ? Number(measurement?.length || 0) * Number(measurement?.width || 0) * quantity
+      : kind === 'fabrication' && 'show_m2' in row && row.show_m2
+        ? Number(measurement?.length || 0) * Number(measurement?.width || 0) * quantity
+        : kind === 'additional' && 'type' in row && row.type === 'frente'
+          ? Number(measurement?.linear_meters || 0)
+          : quantity;
+    return unit > 0 ? fmtMoney(Number(line.subtotal_approved.native || 0) / unit) : null;
+  };
+  const overlay = <T extends { subtotal_ars: number; subtotal_usd: number; currency: 'ARS' | 'USD' }>(rows: T[], lines: ApprovalBreakdown['pieces'][number]['lines'], kind: string): T[] => {
+    const matching = lines.filter((line) => line.line_kind === kind);
+    return rows.map((row, index) => {
+      const line = matching[index];
+      const amount = line?.subtotal_approved;
+      if (!line || !amount) return row;
+      const unitPrice = approvedUnitPrice(row as unknown as PdfDataRow | AdditionalWorkPdfRow | MaterialPdfRow | PoolPdfRow, line, kind);
+      if (kind === 'material') {
+        const currentPrice = 'price_m2_str' in row ? row.price_m2_str : null;
+        return { ...row, currency: amount.currency, price_m2_str: unitPrice ?? currentPrice, subtotal_ars: amount.ars, subtotal_usd: amount.usd } as T;
+      }
+      if (kind === 'fabrication') {
+        const currentPrice = 'price_per_m2_str' in row ? row.price_per_m2_str : null;
+        return { ...row, currency: amount.currency, price_per_m2_str: unitPrice ?? currentPrice, subtotal_ars: amount.ars, subtotal_usd: amount.usd } as T;
+      }
+      const currentPrice = 'price_str' in row ? row.price_str : null;
+      return {
+        ...row,
+        currency: amount.currency,
+        price_str: unitPrice ?? currentPrice,
+        subtotal_ars: amount.ars,
+        subtotal_usd: amount.usd,
+      } as T;
+    });
+  };
+  const updated = pieces.map((piece, index) => {
+    const source = approvedPieces.find(
+      (candidate) => candidate.piece_id != null && String(candidate.piece_id) === String(piece.id),
+    ) || approvedPieces.find((candidate) => candidate.name === piece.name) || approvedPieces[index];
+    if (!source) return piece;
+    const lines = source.lines || [];
+    const materials = overlay(piece.materials, lines, 'material');
+    const fabrication_details = overlay(piece.fabrication_details, lines, 'fabrication');
+    const additional_works = overlay(piece.additional_works, lines, 'additional');
+    const pools = overlay(piece.pools, lines, 'pool');
+    return {
+      ...piece,
+      materials,
+      fabrication_details,
+      additional_works,
+      pools,
+      subtotal_ars: source.subtotal_approved.ars,
+      subtotal_usd: source.subtotal_approved.usd,
+    };
+  });
+  const globalLines = (breakdown.global_lines || []).map((line) => ({
+    name: line.concept_type || line.line_kind,
+    detail: line.material || '',
+    currency: line.subtotal_approved.currency,
+    total_str: fmtMoney(line.subtotal_approved.native),
+  }));
+  return { pieces: updated, globalLines };
 }

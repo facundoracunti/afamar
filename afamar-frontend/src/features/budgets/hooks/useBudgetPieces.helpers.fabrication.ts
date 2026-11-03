@@ -11,7 +11,7 @@ import type { BudgetPiece, FabricationDetail, MaterialInForm } from '@/types/bud
 import { recomputeFabricationRow } from '@features/budgets/utils/fabricationDetails';
 import { pieceMainPrices } from './useBudgetPieces.helpers.pieces';
 
-export function mutateAddPieceFabrication(piece: BudgetPiece): BudgetPiece {
+export function mutateAddPieceFabrication(piece: BudgetPiece, markAsNew = false): BudgetPiece {
   const singleMain = piece.mainMaterial;
   const base: FabricationDetail = {
     concept: 'BASEBOARD',
@@ -31,6 +31,7 @@ export function mutateAddPieceFabrication(piece: BudgetPiece): BudgetPiece {
     currency: (singleMain?.currency as 'ARS' | 'USD') || 'ARS',
     price: 0,
     price_source: 'catalog',
+    ...(markAsNew ? { measurement_origin: 'new' as const } : {}),
   };
   return { ...piece, fabrication_details: [...piece.fabrication_details, base] };
 }

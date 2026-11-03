@@ -5,11 +5,21 @@ consumes: header, client, materials, the COMPARATIVA DE MEDICIÓN, pools,
 financials, terms and company.
 """
 from app.core.settings import settings
-from app.services.pdf_html.catalogue import _payment_methods_catalogue, _resolve_catalogue_adjustment
-from app.services.pdf_html.formatting import _format_date, _format_date_optional, _fmt_money, _split_terms
+from app.services.pdf_html.catalogue import (
+    _payment_methods_catalogue,
+    _resolve_catalogue_adjustment,
+)
+from app.services.pdf_html.formatting import (
+    _fmt_money,
+    _format_date,
+    _format_date_optional,
+    _split_terms,
+)
 from app.services.pdf_html.measurement import _build_measurement_comparison
 from app.services.pdf_html.payments import _sum_income_paid
 from app.services.pdf_html.rows import (
+    _apply_approval_breakdown_to_flat_rows,
+    _apply_approval_breakdown_to_pieces,
     _build_materials_pdf,
     _build_pools_pdf,
     _build_work_order_pieces_pdf,
@@ -18,20 +28,36 @@ from app.services.pdf_html.rows import (
 
 
 def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict, terms: dict, db=None) -> dict:
-    from app.services.budget_calculator import filter_main_materials, parse_materials_data
+    from app.services.budget_calculator import (
+        filter_main_materials,
+        parse_materials_data,
+    )
 
     materiales_raw = parse_materials_data(order_data.get("materials_data"))
     main_materials = filter_main_materials(materiales_raw)
 
+    has_measurement_approval = bool(order_data.get("measurement_approvals"))
+    # Measurements are always the current fabrication values. Before approval,
+    # line amounts still use the historical snapshots; after approval they use
+    # the current commercial values approved for the OT.
+    use_budgeted_amounts = not has_measurement_approval
     fabrication_details = _parse_fabrication_details(
         order_data.get("fabrication_details"),
-        use_budgeted_measures=True,
+        use_budgeted_measures=use_budgeted_amounts,
     )
-    materials = _build_materials_pdf(main_materials, [], use_budgeted_measures=True)
+    materials = _build_materials_pdf(main_materials, [], use_budgeted_measures=use_budgeted_amounts)
     pools = _build_pools_pdf(parse_materials_data(order_data.get("pools_data")) or [])
 
-    total_ars = float(order_data.get("total") or 0)
-    total_usd_val = float(order_data.get("total_usd") or 0)
+    total_ars = float(
+        order_data["total_contractual_ars"]
+        if order_data.get("total_contractual_ars") is not None
+        else order_data.get("total") or 0
+    )
+    total_usd_val = float(
+        order_data["total_contractual_usd"]
+        if order_data.get("total_contractual_usd") is not None
+        else order_data.get("total_usd") or 0
+    )
     sena = float(order_data.get("deposit_received") or 0)
     deposit_usd = float(order_data.get("deposit_usd") or 0)
     deposit_currency = (order_data.get("deposit_currency") or "ARS").upper()
@@ -94,6 +120,8 @@ def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict
         if include_comparison
         else []
     )
+    measurement_approvals = order_data.get("measurement_approvals") or []
+    first_measurement_approval = measurement_approvals[0] if measurement_approvals else None
     current_measurement_differs = any(
         abs(
             float(mat.get("length") or mat.get("largo") or 0)
@@ -107,7 +135,21 @@ def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict
     work_order_pieces = _build_work_order_pieces_pdf(
         order_data.get("pieces_data"),
         usd_rate_value,
-        use_budgeted_measures=True,
+        use_budgeted_measures=use_budgeted_amounts,
+    )
+    approval_with_breakdown = [
+        approval for approval in measurement_approvals
+        if isinstance(approval, dict) and isinstance(approval.get("approval_breakdown"), dict)
+    ]
+    latest_breakdown = (
+        max(approval_with_breakdown, key=lambda approval: int(approval.get("id") or 0)).get("approval_breakdown")
+        if approval_with_breakdown else None
+    )
+    work_order_pieces, approval_global_lines = _apply_approval_breakdown_to_pieces(
+        work_order_pieces, latest_breakdown,
+    )
+    materials, fabrication_details, _, pools = _apply_approval_breakdown_to_flat_rows(
+        materials, fabrication_details, [], pools, latest_breakdown,
     )
 
     return {
@@ -139,6 +181,8 @@ def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict
         # Presentation-only per-piece layout. The persisted financial fields
         # below remain the sole source for totals and balances.
         "work_order_pieces": work_order_pieces,
+        "approval_global_lines": approval_global_lines,
+        "approval_breakdown_used": latest_breakdown is not None,
 
         # COMPARATIVA DE MEDICIÓN (Concepto | M² Real | M² Presupuestado |
         # Diferencia). Empty when the per-order flag is off.
@@ -152,8 +196,19 @@ def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict
             if measurement_comparison else ""
         ),
         "measurement_note": (
+            "Diferencias de medición aprobadas. El importe original y el total vigente se distinguen en este documento."
+            if first_measurement_approval else
             "Superficies según medición actual. Importes comerciales según presupuesto confirmado."
             if current_measurement_differs else ""
+        ),
+        "measurement_approval_count": len(measurement_approvals),
+        "measurement_original_total": (
+            float(first_measurement_approval.get("previous_total") or 0)
+            if first_measurement_approval else None
+        ),
+        "measurement_original_total_usd": (
+            float(first_measurement_approval.get("previous_total_usd") or 0)
+            if first_measurement_approval else None
         ),
 
         # Pools (English field names with computed subtotal)
@@ -175,6 +230,12 @@ def build_work_order_pdf_data(order_data: dict, client_dict: dict, company: dict
         "balance_due": saldo,
         "total": total_ars,
         "total_usd": total_usd_val,
+        "total_exact_ars": order_data.get("total_exact_ars"),
+        "total_exact_usd": order_data.get("total_exact_usd"),
+        "rounding_adjustment_ars": order_data.get("rounding_adjustment_ars"),
+        "rounding_adjustment_usd": order_data.get("rounding_adjustment_usd"),
+        "total_contractual_ars": order_data.get("total_contractual_ars"),
+        "total_contractual_usd": order_data.get("total_contractual_usd"),
         # Dólar del día (2026-09-25 tarde) — render key for the LEFT column.
         "usd_rate": usd_rate_for_pdf,
         "payment_method": order_data.get("payment_method", ""),

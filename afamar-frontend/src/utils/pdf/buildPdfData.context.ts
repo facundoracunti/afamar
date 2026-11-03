@@ -28,6 +28,9 @@ export interface DocumentContextExtras {
   measurement_comparison: MeasurementComparisonRow[];
   payment_methods_catalogue: string[];
   measurement_note: string;
+  measurement_original_total: number | null;
+  measurement_original_total_usd: number | null;
+  measurement_approval_count: number;
 }
 
 export type DocumentContext = DocumentRows & DocumentRuleSet & DocumentContextExtras;
@@ -81,6 +84,10 @@ export function buildDocumentContext({
   // pay with (uppercase `name`s, ordered by `sort_order`; percentage
   // surcharges append their per-cuota rate).
   const payment_methods_catalogue = computePaymentMethodsCatalogue(paymentMethods);
+  const approvals = Array.isArray(form.measurement_approvals)
+    ? form.measurement_approvals as Array<Record<string, unknown>>
+    : [];
+  const firstApproval = approvals[0];
 
   return {
     ...rows,
@@ -88,6 +95,9 @@ export function buildDocumentContext({
     effectiveForm,
     measurement_comparison,
     measurement_note,
+    measurement_original_total: firstApproval ? Number(firstApproval.previous_total) : null,
+    measurement_original_total_usd: firstApproval ? Number(firstApproval.previous_total_usd) : null,
+    measurement_approval_count: approvals.length,
     payment_methods_catalogue,
   };
 }

@@ -18,6 +18,21 @@ from app.services.budget_option_totals import (
 )
 from app.services.budget_options import SINGLE_OPTION_ID
 from app.services.budget_option_totals import winning_option_flat
+from app.services.budget_calculator import compute_detail_totals
+
+
+def test_m2_detail_totals_use_dimensions_when_derived_price_is_missing():
+    rows = [
+        {"concept": "BASEBOARD", "length": 2.22, "width": 0.64, "quantity": 1, "price": 0, "material_price_m2": 300, "currency": "ARS"},
+        {"concept": "BASEBOARD", "length": 1.00, "width": 0.64, "quantity": 1, "price": 0, "material_price_m2": 300, "currency": "ARS"},
+        {"concept": "BASEBOARD", "length": 2.22, "width": 0.60, "quantity": 1, "price": 0, "material_price_m2": 300, "currency": "ARS"},
+        {"concept": "BASEBOARD", "length": 4.46, "width": 0.05, "quantity": 1, "price": 0, "material_price_m2": 300, "currency": "ARS"},
+    ]
+
+    total_ars, total_usd = compute_detail_totals(rows)
+
+    assert total_ars == 1084.74
+    assert total_usd == 0
 
 
 def _main(name: str, price_m2: float, length: float = 2, width: float = 1, currency: str = "ARS") -> dict:

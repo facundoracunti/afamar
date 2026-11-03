@@ -18,6 +18,7 @@ interface WorkOrderFormPageBeforeLayoutProps {
   setForm: React.Dispatch<React.SetStateAction<EntityFormState>>;
   showComparisonToggle: boolean;
   setShowComparisonToggle: (v: boolean) => void;
+  onCancelRequest?: () => void;
 }
 
 export default function WorkOrderFormPageBeforeLayout({
@@ -27,6 +28,7 @@ export default function WorkOrderFormPageBeforeLayout({
   setForm,
   showComparisonToggle,
   setShowComparisonToggle,
+  onCancelRequest,
 }: WorkOrderFormPageBeforeLayoutProps) {
   return (
     <>
@@ -35,6 +37,7 @@ export default function WorkOrderFormPageBeforeLayout({
           form={form}
           readOnly={readOnly}
           update={update}
+          onCancelRequest={onCancelRequest}
         />
       </div>
       <div className={s['work-order-form__card-section']}>

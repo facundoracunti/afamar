@@ -36,7 +36,11 @@ export default function EntityFormClient({
   const [editClientOpen, setEditClientOpen] = useState(false);
   const notify = useNotify();
 
-  const selectedClient = clientes.find((c) => c.name === form.client_name);
+  // `client_id` is authoritative. The name fallback only keeps old, already
+  // hydrated form fixtures visible until they are saved through the new path.
+  const selectedClient = form.client_id != null
+    ? clientes.find((c) => c.id === form.client_id)
+    : clientes.find((c) => c.name === form.client_name);
   const hasClient = !!form.client_name && !!selectedClient;
 
   const handleAddAddress = async () => {
@@ -127,6 +131,7 @@ export default function EntityFormClient({
   };
 
   const handleRemoveClient = () => {
+    update('client_id', null);
     update('client_name', '');
     update('client_phone', '');
     update('client_email', '');
@@ -140,6 +145,7 @@ export default function EntityFormClient({
       && (form.client_address || '') === currentPrimaryAddress;
 
     onClientCreated(updatedClient);
+    update('client_id', updatedClient.id);
     update('client_name', updatedClient.name);
     update('client_phone', updatedClient.phone || '');
     update('client_email', updatedClient.email || '');

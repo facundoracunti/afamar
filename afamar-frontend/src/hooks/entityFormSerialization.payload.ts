@@ -16,6 +16,7 @@ import { jsonStringify, sliceDateToInput } from './entityFormSerialization.helpe
  */
 export function buildPayload(form: EntityFormState): Record<string, unknown> {
   return {
+    client_id: form.client_id,
     client_name: form.client_name,
     client_phone: form.client_phone,
     client_address: form.client_address,

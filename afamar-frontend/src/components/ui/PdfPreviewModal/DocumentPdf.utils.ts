@@ -28,5 +28,5 @@ export function logoUrl(company: PdfDocumentData['company']): string | null {
   // reach the same host root the uploads are served from.
   const base = API_URL.endsWith('/api/v1') ? API_URL.slice(0, -'/api/v1'.length) : '';
   if (!path) return null;
-  return path.startsWith('http') ? path : `${base}${path}`;
+  return path.startsWith('http') || path.startsWith('data:') ? path : `${base}${path}`;
 }

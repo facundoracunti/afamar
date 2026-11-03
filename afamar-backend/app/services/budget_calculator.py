@@ -2,6 +2,7 @@ import json
 import logging
 
 from app.core.settings import settings
+from app.utils.measurement_numbers import measurement_number
 
 logger = logging.getLogger(__name__)
 
@@ -122,9 +123,9 @@ def calculate_material_totals(materials: list, usd_rate: float) -> dict:
     ars = 0.0
     usd = 0.0
     for m in materials:
-        largo = float(m.get("length") or m.get("largo", 0) or 0)
-        ancho = float(m.get("width") or m.get("ancho", 0) or 0)
-        cantidad = float(m.get("quantity") or m.get("cantidad", 1) or 1)
+        largo = measurement_number(m.get("length") or m.get("largo", 0))
+        ancho = measurement_number(m.get("width") or m.get("ancho", 0))
+        cantidad = measurement_number(m.get("quantity") or m.get("cantidad", 1), default=1)
         m2 = (largo * ancho) if largo > 0 and ancho > 0 else 0
         area = m2 * cantidad
         moneda = m.get("moneda") or m.get("currency", "ARS")
@@ -136,10 +137,10 @@ def calculate_material_totals(materials: list, usd_rate: float) -> dict:
 
 
 def compute_alternative_totals(alt: dict, budget, usd_rate: float | None = None) -> tuple:
-    largo = float(alt.get("length") or alt.get("largo", 0) or 0)
-    ancho = float(alt.get("width") or alt.get("ancho", 0) or 0)
+    largo = measurement_number(alt.get("length") or alt.get("largo", 0))
+    ancho = measurement_number(alt.get("width") or alt.get("ancho", 0))
     m2 = (largo * ancho) if largo > 0 and ancho > 0 else 0
-    cantidad = float(alt.get("quantity") or alt.get("cantidad", 1) or 1)
+    cantidad = measurement_number(alt.get("quantity") or alt.get("cantidad", 1), default=1)
     area = m2 * cantidad
 
     alt_currency = alt.get("moneda") or alt.get("currency") or budget.currency or "ARS"
@@ -171,12 +172,26 @@ def compute_detail_totals(detalles: list) -> tuple:
     for d in detalles if isinstance(detalles, list) else []:
         if not isinstance(d, dict):
             continue
-        p = float(d.get("price") if d.get("price") is not None else d.get("precio", 0) or 0)
+        raw_price = d.get("price") if d.get("price") is not None else d.get("precio")
+        p = float(raw_price or 0)
         c = float(
             d.get("quantity")
             if d.get("quantity") is not None
             else (d.get("cantidad", 1) or 1)
         )
+        # New m² rows may carry the per-m² snapshot before the frontend has
+        # materialized their derived `price`. Preserve an explicit price, but
+        # otherwise calculate the row from its dimensions and $/m².
+        if p == 0:
+            length = float(d.get("length") or d.get("largo", 0) or 0)
+            width = float(d.get("width") or d.get("ancho", 0) or 0)
+            price_m2 = float(
+                d.get("material_price_m2")
+                if d.get("material_price_m2") is not None
+                else d.get("price_m2", 0) or 0
+            )
+            if length > 0 and width > 0 and price_m2 > 0:
+                p = length * width * price_m2
         currency = (d.get("currency") or d.get("moneda") or "ARS").upper()
         if currency == "USD":
             total_usd += p * c

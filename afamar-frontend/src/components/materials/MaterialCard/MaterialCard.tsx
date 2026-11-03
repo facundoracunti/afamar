@@ -4,6 +4,7 @@ import type { Material } from '../../../types/material';
 import type { MaterialCategory } from '../../../api/resources/materials';
 import { formatCurrencyValue } from '../../../utils/formatters';
 import { CurrencyDisplay } from '../../../components/ui/CurrencyDisplay/CurrencyDisplay';
+import { LinearMetersInput } from '../../../components/common/LinearMetersInput/LinearMetersInput';
 import MaterialPickerControls from '../MaterialPickerControls/MaterialPickerControls';
 import styles from './MaterialCard.module.css';
 
@@ -210,23 +211,19 @@ function MaterialCardInner({
               </div>
               <div className={s['material-card__field']}>
                 <label className={s['material-card__label']}>Largo (mts)</label>
-                <input
+                <LinearMetersInput
                   className={`input ${s['material-card__input']}`}
-                  type="number"
-                  step="0.01"
-                  value={mat.length || ''}
-                  onChange={(e) => updateMaterial(idx, 'length', num(e.target.value))}
+                  value={mat.length}
+                  onCommit={(value) => updateMaterial(idx, 'length', value)}
                   disabled={readOnly}
                 />
               </div>
               <div className={s['material-card__field']}>
                 <label className={s['material-card__label']}>Ancho (mts)</label>
-                <input
+                <LinearMetersInput
                   className={`input ${s['material-card__input']}`}
-                  type="number"
-                  step="0.01"
-                  value={mat.width || ''}
-                  onChange={(e) => updateMaterial(idx, 'width', num(e.target.value))}
+                  value={mat.width}
+                  onCommit={(value) => updateMaterial(idx, 'width', value)}
                   disabled={readOnly}
                 />
               </div>

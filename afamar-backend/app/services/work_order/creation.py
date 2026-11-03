@@ -4,15 +4,25 @@ Extracted verbatim from ``app/services/work_order/mutations.py`` (ADR 0009
 — modularización) so no file in the package exceeds ~300 lines.
 """
 from app.core.exceptions import ConflictError, ValidationError
+from app.models.budget import Budget
 from app.models.work_order import WorkOrder
-from app.services.stock_helpers import deduct_pool_stock
+from app.services.budget_options import is_multi_option
+from app.services.commercial_rounding import (
+    apply_contractual_totals,
+    copy_contractual_totals,
+    has_contractual_totals,
+)
+from app.services.dolar import get_blue_mid_rate
 from app.services.work_order.cash import create_cash_movement_on_deposit
 from app.services.work_order.conversion import build_conversion_payload
-from app.services.dolar import get_blue_mid_rate
 from app.services.work_order.helpers import (
     deposit_native_amount,
     stash_sketch_into_budgeted_details,
     update_client_total_purchased,
+)
+from app.services.work_order.pool_requirements import (
+    ensure_budget_stock_is_traceable,
+    register_initial_pool_requirements,
 )
 from app.services.work_order.recalc import recalculate_totals_from_items
 from app.utils.client_helpers import resolve_client_id
@@ -44,14 +54,12 @@ def create_work_order(repo, data: dict) -> WorkOrder:
     # `subtotal_usd` directly from the DB, so a wrong value here means the
     # PDF shows $0 even though the line items are populated.
     recalculate_totals_from_items(repo.db, data)
+    apply_contractual_totals(data)
     order = repo.create(data)
+    if not order.stock_deducted and (order.pool_id or order.pools_data):
+        order.stock_deducted = register_initial_pool_requirements(repo.db, order)
     repo.db.commit()
     repo.db.refresh(order)
-    if not order.stock_deducted and (order.pool_id or order.pools_data):
-        deduct_pool_stock(repo.db, order.pool_id, order.pools_data, order.number)
-        order.stock_deducted = True
-        repo.db.commit()
-        repo.db.refresh(order)
     # A direct WO is a confirmed sale — record the seña in the open
     # cash box, same as create_from_budget() does on conversion. The
     # `sena_registered` idempotency flag guarantees it lands EXACTLY
@@ -81,37 +89,61 @@ def create_work_order(repo, data: dict) -> WorkOrder:
 
 def create_work_order_from_budget(repo, budget) -> WorkOrder:
     """Create a work order by converting an APPROVED budget."""
+    if is_multi_option(budget):
+        raise ValidationError(
+            "Los presupuestos con múltiples opciones deben convertirse desde "
+            "POST /budgets/{id}/convert indicando option_id"
+        )
     if budget.status == "CONVERTED_TO_OT":
         raise ConflictError("Budget already converted to a work order")
     if budget.status != "APPROVED":
         raise ValidationError("Budget must be approved to convert")
+    locked_budget = (
+        repo.db.query(Budget)
+        .filter(Budget.id == budget.id)
+        .with_for_update()
+        .first()
+    )
+    if locked_budget is None:
+        raise ValidationError("El presupuesto no existe")
+    budget = locked_budget
+    if budget.status == "CONVERTED_TO_OT":
+        raise ConflictError("Budget already converted to a work order")
+    if repo.db.query(WorkOrder.id).filter(WorkOrder.budget_id == budget.id).first():
+        raise ConflictError("Budget already has a work order")
+    ensure_budget_stock_is_traceable(budget)
 
     # All snapshot baking, gate inheritance, zeroed-deposit and
     # term-override rules live in the conversion module so the
     # alternative-conversion path can reuse them.
     # A converted work order is a new commercial operation: use the current
     # blue-mid rate, never the official rate frozen on the source budget.
-    data = build_conversion_payload(budget, repo, get_blue_mid_rate())
+    source_rate = (
+        float(budget.usd_rate)
+        if has_contractual_totals(budget) and float(budget.usd_rate or 0) > 0
+        else get_blue_mid_rate()
+    )
+    data = build_conversion_payload(budget, repo, source_rate)
     # Rebuild the definitive ARS/USD totals once, at conversion time. After
     # this point updates use the frozen order rate and do not reprice merely
     # because measurements change.
     recalculate_totals_from_items(repo.db, data)
+    # The converted order is a new commercial document. Use the exact amount
+    # produced for the selected budget/option, then freeze its contract value.
+    if has_contractual_totals(budget):
+        copy_contractual_totals(data, budget)
+    else:
+        apply_contractual_totals(data)
 
     budget.status = "CONVERTED_TO_OT"
     order = repo.create(data)
 
-    # Stock deduction: if the budget hadn't yet debited pool stock
-    # (the usual case — stock is debited at conversion time, not at
-    # approval), do it now and mark the budget. Then carry the final
-    # flag over to the order so subsequent re-renders / cancellations
-    # see the truth.
+    # Register the OT's own requirements. A legacy stock flag was rejected
+    # above because it cannot be reconciled safely with requirement history;
+    # new conversions allocate only available units and keep the remainder open.
     if not budget.stock_deducted:
-        deduct_pool_stock(repo.db, budget.pool_id, budget.pools_data, order.number)
-        budget.stock_deducted = True
+        budget.stock_deducted = register_initial_pool_requirements(repo.db, order)
     order.stock_deducted = budget.stock_deducted
-    repo.db.commit()
-    repo.db.refresh(order)
-
     if budget.client_id:
         update_client_total_purchased(repo.db, budget.client_id)
     # Book the seña from the source budget. Since budgets are pure quote

@@ -16,17 +16,19 @@ End-to-end coverage of `POST /budgets/{id}/convert` →
 import json
 
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
+import app.models  # noqa: F401 - register every mapped table
 from app.core.exceptions import ValidationError
+from app.db.base import Base
 from app.models.budget import Budget
 from app.models.client import Client
 from app.models.pool_stock import PoolStock, StockMovement
 from app.models.reference import Currency
 from app.models.work_order import WorkOrder
 from app.services.budget_option_conversion import convert_budget_to_work_order
-
-from tests.conftest import TestingSessionLocal
-
 
 # ────────────────────────────────────────────────────────────────────
 # Fixtures
@@ -35,16 +37,14 @@ from tests.conftest import TestingSessionLocal
 
 @pytest.fixture
 def opt_db():
-    db = TestingSessionLocal()
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(engine)
+    db = sessionmaker(bind=engine)()
     try:
-        # The testing engine is a shared file DB, so clear the tables this
-        # module asserts on — otherwise a previous test's budget (id=1) or
-        # work order leaks in and `convert_budget_to_work_order(db, 1, ...)`
-        # converts the WRONG row.
-        for model in (WorkOrder, Budget, StockMovement, PoolStock):
-            db.query(model).delete()
-        db.commit()
-
         if not db.query(Currency).first():
             db.add(Currency(id=1, code="ARS", symbol="$", name="Peso Argentino"))
         if not db.query(Client).first():
@@ -65,6 +65,8 @@ def opt_db():
         yield db
     finally:
         db.close()
+        Base.metadata.drop_all(engine)
+        engine.dispose()
 
 
 def _piece(pid: str, name: str, material: str, price_m2: float,

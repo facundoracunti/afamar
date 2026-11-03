@@ -41,9 +41,16 @@ export const DEFAULT_FINANCIALS: FinancialBase = {
   discount_enabled: false,
   discount_target: 'total',
   discount_amount: 0,
+  total_exact_ars: null,
+  total_exact_usd: null,
+  rounding_adjustment_ars: null,
+  rounding_adjustment_usd: null,
+  total_contractual_ars: null,
+  total_contractual_usd: null,
 };
 
 export const INITIAL_FORM: EntityFormState = {
+  client_id: null,
   client_name: '',
   client_phone: '',
   client_address: '',

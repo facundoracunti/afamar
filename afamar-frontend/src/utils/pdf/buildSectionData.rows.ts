@@ -57,11 +57,8 @@ export function buildFabricationRows(raw: unknown, usdRate: number, useBudgetedM
     const showWidth = isM2 || width > 0;
     const showM2 = isM2;
     const showQuantity = isM2 || isUnit || quantity > 0;
-    const budgetedM2 = Number((d as Record<string, unknown>).m2_budgeted);
     const m2Value = isM2
-      ? (useBudgetedMeasures && Number.isFinite(budgetedM2)
-        ? budgetedM2
-        : Math.round(length * width * quantity * 100000000) / 100000000)
+      ? Math.round(length * width * quantity * 100000000) / 100000000
       : null;
 
     const budgetedNativeTotal = currency === 'USD'
@@ -128,7 +125,10 @@ export function buildMaterialRows(materials: MaterialInForm[], usdRate: number, 
       length_str: fmtMeasureUnit(length, 'm'),
       width_str: fmtMeasureUnit(width, 'm'),
       quantity: Number.isInteger(quantity) ? quantity : quantity,
-      m2_str: fmtNum(Math.round(m2 * 100000000) / 100000000, 2),
+      m2_str: fmtNum(
+        Math.round((useBudgetedMeasures && Number.isFinite(budgetedM2) ? budgetedM2 : m2) * 100000000) / 100000000,
+        2,
+      ),
       price_m2_str: fmtMoney(priceM2),
       subtotal_str: fmtMoney(subtotalOriginal),
       currency,
@@ -226,10 +226,7 @@ export function buildAdditionalWorksRows(
 
     if (rowType !== 'frente') return base;
 
-    const budgetedLinearMeters = Number(row['linear_meters_budgeted']);
-    const linearMeters = useBudgetedMeasures && Number.isFinite(budgetedLinearMeters)
-      ? budgetedLinearMeters
-      : Number(row['linear_meters']) || 0;
+     const linearMeters = Number(row['linear_meters']) || 0;
     const m2AtSelection = Number(formulaValues?.['material_price_m2_at_selection']) || 0;
     const multiplier = Number(formulaValues?.['multiplier'] ?? formulaValues?.['constant']);
 

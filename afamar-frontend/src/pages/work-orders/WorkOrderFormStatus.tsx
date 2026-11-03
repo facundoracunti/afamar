@@ -10,12 +10,14 @@ interface WorkOrderFormStatusProps {
   form: EntityFormState;
   readOnly: boolean;
   update: (field: string, value: unknown) => void;
+  onCancelRequest?: () => void;
 }
 
 export default function WorkOrderFormStatus({
   form,
   readOnly,
   update,
+  onCancelRequest,
 }: WorkOrderFormStatusProps) {
   return (
     <div className="card">
@@ -26,7 +28,13 @@ export default function WorkOrderFormStatus({
           <select
             className="input"
             value={form.status}
-            onChange={(e) => update('status', e.target.value)}
+            onChange={(e) => {
+              if (e.target.value === 'CANCELLED' && onCancelRequest) {
+                onCancelRequest();
+                return;
+              }
+              update('status', e.target.value);
+            }}
             disabled={readOnly}
           >
             {orderStatuses.map((status) => (

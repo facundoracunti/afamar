@@ -73,10 +73,17 @@ export function collectDocumentRows({
   const pools = asPools(effectiveForm.pools_data);
   const usdRate = formNum(form, 'usd_rate');
 
-  const useBudgetedMeasures = document_type === 'work_order' && usePersistedCommercialTotals;
-  const fabricationRows = buildFabricationRows(effectiveForm.fabrication_details, usdRate, useBudgetedMeasures);
+  const hasMeasurementApproval = Array.isArray(form.measurement_approvals)
+    && form.measurement_approvals.length > 0;
+  // Dimensions are always the current fabrication values. Before approval,
+  // only the line amounts use historical snapshots; after approval all line
+  // amounts use the current commercial values.
+  const useBudgetedAmounts = document_type === 'work_order'
+    && usePersistedCommercialTotals
+    && !hasMeasurementApproval;
+  const fabricationRows = buildFabricationRows(effectiveForm.fabrication_details, usdRate, useBudgetedAmounts);
 
-  const additional_works = buildAdditionalWorksRows(effectiveForm, usdRate, useBudgetedMeasures);
+  const additional_works = buildAdditionalWorksRows(effectiveForm, usdRate, useBudgetedAmounts);
   const {
     ars: additionalWorksSubtotalArs,
     usd: additionalWorksSubtotalUsd,
@@ -98,7 +105,7 @@ export function collectDocumentRows({
     fabricationRows,
     usdRate,
     adtBuckets,
-    useBudgetedMeasures,
+    useBudgetedAmounts,
   );
 
   const mainSection = sections.find((s) => s.is_main);
@@ -109,7 +116,7 @@ export function collectDocumentRows({
   // document subtotal the moment the operator marks a material as
   // "Alternativa". The piece principal subtotals already include pools
   // (they moved into the pieces), so they sum to the true document total.
-  const piecesEarly = buildPieces(effectiveForm, usdRate, useBudgetedMeasures);
+  const piecesEarly = buildPieces(effectiveForm, usdRate, useBudgetedAmounts);
   const piecesTotals = piecesEarly.length > 0 ? piecesSubtotal(piecesEarly) : null;
   const globalSection = sections.find((s) => s.is_global);
   const computedSubtotal = piecesTotals

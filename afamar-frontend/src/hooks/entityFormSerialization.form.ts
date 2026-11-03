@@ -21,6 +21,7 @@ export function mapApiToForm(d: Record<string, unknown>, defaultStatus: string):
   return {
     ...INITIAL_FORM,
     ...mapFinancialToForm(d),
+    client_id: (d.client_id as number | null) ?? null,
     client_name: (d.client_name as string) || '',
     client_phone: (d.client_phone as string) || '',
     client_address: (d.client_address as string) || '',
@@ -32,6 +33,12 @@ export function mapApiToForm(d: Record<string, unknown>, defaultStatus: string):
     // only work orders with a `budget_id` show the comparison toggle in
     // the form (direct orders skip it).
     budget_id: (d.budget_id as number | null) ?? null,
+    measurement_approvals: Array.isArray(d.measurement_approvals)
+      ? d.measurement_approvals as EntityFormState['measurement_approvals']
+      : [],
+    pool_requirements: Array.isArray(d.pool_requirements)
+      ? d.pool_requirements as EntityFormState['pool_requirements']
+      : [],
     number: (d.number as string) || (d.numero as string) || '',
     date: sliceDateToInput(d.date) || todayLocalISO(),
     status: (d.status as string) || (d.estado as string) || defaultStatus,

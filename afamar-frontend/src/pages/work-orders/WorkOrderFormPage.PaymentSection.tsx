@@ -17,6 +17,7 @@ interface WorkOrderFormPagePaymentSectionProps {
   update: (field: string, value: unknown) => void;
   /** Live accumulated amount of the payments registered in the session. */
   onPaidChange: (paid: number) => void;
+  onPaymentsPresenceChange: (hasPayments: boolean) => void;
   isAdmin: boolean;
 }
 
@@ -25,6 +26,7 @@ export default function WorkOrderFormPagePaymentSection({
   form,
   update,
   onPaidChange,
+  onPaymentsPresenceChange,
   isAdmin,
 }: WorkOrderFormPagePaymentSectionProps) {
   const montoSeniaRequerida = (() => {
@@ -59,7 +61,11 @@ export default function WorkOrderFormPagePaymentSection({
       onPreferredMethodChange={(method: PaymentMethod | null) =>
         update('payment_method', backendMethodFor(method))
       }
-      onPaidChange={onPaidChange}
+      onPaidChange={(paid) => {
+        onPaidChange(paid);
+        if (paid > 0) onPaymentsPresenceChange(true);
+      }}
+      onPaymentsPresenceChange={onPaymentsPresenceChange}
       isAdmin={isAdmin}
     />
   );

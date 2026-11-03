@@ -1,6 +1,7 @@
 import http from '../http';
 import { createResource } from './createResource';
 import type { Pool } from '@/types/poolStock';
+import type { PendingPoolRequirement } from '@/types/poolStock';
 
 const poolStock = createResource<Pool, Record<string, unknown>, Record<string, unknown>>('pool-stock');
 
@@ -14,3 +15,9 @@ export const deletePool = (id: number | string) => poolStock.delete(id);
 export const getPoolMovements = (id: number | string) => http.get(`/pool-stock/${id}/movements`);
 export const createPoolMovement = (id: number | string, data: Record<string, unknown>) =>
   http.post(`/pool-stock/${id}/movements`, data);
+
+export const getPendingPoolRequirements = () =>
+  http.get<PendingPoolRequirement[]>('/pool-stock/pending-requirements');
+
+export const assignPendingPoolRequirement = (requirementId: number, quantity: number) =>
+  http.post(`/pool-stock/pending-requirements/${requirementId}/assign`, { quantity });

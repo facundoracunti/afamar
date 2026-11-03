@@ -55,6 +55,13 @@ export interface PiecesPdfPiece {
   alternatives: PiecesPdfAlternative[];
 }
 
+export interface ApprovalGlobalPdfLine {
+  name: string;
+  detail: string;
+  currency: 'ARS' | 'USD';
+  total_str: string;
+}
+
 /**
  * Consolidated TOTAL GENERAL ALTERNATIVO for ONE alternative material,
  * aggregated across every piece that quotes it (e.g. "BLANCO NORTE"

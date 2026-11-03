@@ -18,13 +18,15 @@ export const FAB_HEADERS = [
   { label: 'Largo', num: true },
   { label: 'Ancho', num: true },
   { label: 'M²/Cant', num: true },
-  { label: 'Precio', num: true },
+     { label: 'Precio', num: true },
   { label: 'Mano de obra', num: true },
   { label: 'Mon.' },
   { label: 'Subtotal ARS', num: true },
   { label: 'Subtotal USD', num: true },
 ];
-export const FAB_FLEXES = [1.5, 2.1, 1.3, 0.55, 0.55, 0.6, 1.0, 0.8, 0.45, 1.4, 1.4];
+// Give the unit-price column enough room for values such as
+// "$ 500.000,00/m²" without forcing the unit onto a separate visual line.
+export const FAB_FLEXES = [1.45, 1.9, 1.25, 0.55, 0.55, 0.6, 1.3, 0.8, 0.45, 1.4, 1.4];
 
 export const MAT_HEADERS = [
   { label: 'Material' },
@@ -183,7 +185,9 @@ export function fabRowCells(d: PdfDataRow): (string | null)[] {
     d.show_length && d.length_str ? d.length_str : null,
     d.show_width && d.width_str ? d.width_str : null,
     d.show_m2 ? d.m2_label : d.show_quantity ? String(d.quantity) : null,
-    d.show_m2 && d.price_per_m2_str ? `$ ${d.price_per_m2_str}/m²` : `$ ${d.price_str}`,
+    // The M²/Cant column already carries the unit. Keeping the unit price
+    // numeric here prevents long values from wrapping at the slash.
+    d.show_m2 && d.price_per_m2_str ? `$ ${d.price_per_m2_str}` : `$ ${d.price_str}`,
     d.labor_str ? `$ ${d.labor_str}` : null,
     d.currency,
     d.subtotal_ars > 0 ? `$ ${fmt(d.subtotal_ars)}` : null,

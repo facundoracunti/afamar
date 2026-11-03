@@ -49,8 +49,16 @@ from app.services.work_order.mutations import (
     reverse_work_order_payment,
     update_work_order,
 )
+from app.services.work_order.pool_requirements import (
+    cancel_work_order_with_recovery,
+    register_initial_pool_requirements,
+)
 from app.services.work_order.recalc import recalculate_totals_from_items
 from app.services.work_order.snapshots import bake_snapshot_into_pieces
+from app.services.work_order_measurement_approval import (
+    approve_measurement_adjustment,
+    build_measurement_adjustment,
+)
 from app.utils.client_helpers import resolve_client_id
 from app.utils.numbering import generate_work_order_number
 
@@ -79,6 +87,8 @@ __all__ = [
     "settings",
     "deduct_pool_stock",
     "restore_pool_stock",
+    "register_initial_pool_requirements",
+    "cancel_work_order_with_recovery",
     "resolve_client_id",
     "generate_work_order_number",
     "WorkOrder",
@@ -156,6 +166,20 @@ class WorkOrderService:
     def delete(self, order_id: int) -> bool:
         return delete_work_order(self.repo, order_id)
 
+    def cancel_with_recovery(
+        self,
+        order_id: int,
+        recoveries: list[dict],
+        payments_confirmed: bool = False,
+    ) -> WorkOrder:
+        """Cancel a new OT after explicit per-pileta recovery quantities."""
+        return cancel_work_order_with_recovery(
+            self.repo.db,
+            order_id,
+            recoveries,
+            payments_confirmed=payments_confirmed,
+        )
+
     def reverse_payment(self, order_id: int, movement_id: int):
         """Reverse an INCOME cash movement booked against a work order.
 
@@ -164,3 +188,19 @@ class WorkOrderService:
         status and the ``deposit_*`` columns are never touched).
         """
         return reverse_work_order_payment(self.repo, order_id, movement_id)
+
+    def measurement_adjustment(self, order_id: int) -> dict:
+        order = self.repo.get_by_id(order_id)
+        if not order:
+            raise NotFoundError("Work order")
+        return build_measurement_adjustment(order, self.repo.db)
+
+    def approve_measurement_adjustment(self, order_id: int, user_id: int, data: dict):
+        return approve_measurement_adjustment(
+            self.repo.db,
+            order_id,
+            user_id,
+            data["measurement_fingerprint"],
+            float(data["previous_total"]),
+            float(data["previous_total_usd"]),
+        )

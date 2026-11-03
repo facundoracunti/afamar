@@ -30,6 +30,8 @@ interface WorkOrderFormPageHeaderActionsProps {
   onPrintFicha: () => void;
   onEnviarWhatsApp: () => void;
   onPreviewPdf: () => void;
+  onConfirmMeasurementAdjustment: () => void;
+  measurementAdjustmentLoading: boolean;
   onSubmit: (e?: React.FormEvent) => void;
   /** The wizard renders its own save button in the last step. */
   showSaveButton: boolean;
@@ -45,6 +47,8 @@ export default function WorkOrderFormPageHeaderActions({
   onPrintFicha,
   onEnviarWhatsApp,
   onPreviewPdf,
+  onConfirmMeasurementAdjustment,
+  measurementAdjustmentLoading,
   onSubmit,
   showSaveButton,
 }: WorkOrderFormPageHeaderActionsProps) {
@@ -74,6 +78,16 @@ export default function WorkOrderFormPageHeaderActions({
         <span className={s['work-order-form__badge-delivered']}>
           📦 Trabajo Entregado
         </span>
+      )}
+      {hasId && form.budget_id != null && form.status === 'MEASUREMENT' && (
+        <button
+          type="button"
+          className={`btn btn-outline ${s['work-order-form__btn-measurement']}`}
+          onClick={onConfirmMeasurementAdjustment}
+          disabled={measurementAdjustmentLoading || saving}
+        >
+          {measurementAdjustmentLoading ? 'REVISANDO...' : 'Confirmar diferencias de medición'}
+        </button>
       )}
       <button type="button" className={`btn btn-outline ${s['work-order-form__preview-btn']}`} onClick={onPrintFicha} disabled={!hasId || pdfPreviewLoading}>
         🖨️ Ficha de Taller

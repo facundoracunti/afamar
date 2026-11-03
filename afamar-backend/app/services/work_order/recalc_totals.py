@@ -8,7 +8,11 @@ verbatim from the former monolithic ``recalc.py``.
 import json
 from dataclasses import dataclass
 
-from app.services.work_order.recalc_links import _collect_alt_material_names, _is_alt_linked
+from app.services.work_order.recalc_links import (
+    _collect_alt_material_names,
+    _is_alt_linked,
+)
+from app.utils.measurement_numbers import measurement_number
 
 
 @dataclass
@@ -66,6 +70,13 @@ def compute_line_totals(data: dict, dd: float) -> LineTotals:
         currency = (
             (d.get("currency") or d.get("moneda") or "ARS").upper()
         )
+        if price == 0:
+            concept = str(d.get("concept") or d.get("concepto") or "").upper()
+            price_m2 = float(d.get("material_price_m2") or d.get("price_m2") or 0)
+            if concept in {"LENGTH", "BASEBOARD", "FRONT", "LARGO", "ZOCALOS", "FRENTE"} and price_m2 > 0:
+                length = measurement_number(d.get("length") or d.get("largo", 0))
+                width = measurement_number(d.get("width") or d.get("ancho", 0))
+                price = length * width * price_m2
         amount = price * qty
         if currency == "USD":
             fab_usd += amount
@@ -79,9 +90,9 @@ def compute_line_totals(data: dict, dd: float) -> LineTotals:
     mat_ars = 0.0
     mat_usd = 0.0
     for m in main_mats:
-        length = float(m.get("length") or m.get("largo", 0) or 0)
-        width = float(m.get("width") or m.get("ancho", 0) or 0)
-        quantity = float(m.get("quantity") or m.get("cantidad", 1) or 1)
+        length = measurement_number(m.get("length") or m.get("largo", 0))
+        width = measurement_number(m.get("width") or m.get("ancho", 0))
+        quantity = measurement_number(m.get("quantity") or m.get("cantidad", 1), default=1)
         area = length * width * quantity  # metres × metres × qty
         currency = m.get("currency") or m.get("moneda", "ARS")
         if currency == "USD":

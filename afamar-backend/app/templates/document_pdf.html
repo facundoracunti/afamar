@@ -276,11 +276,11 @@
   {% if piece.fabrication %}
   <div class="wo-piece-subtitle">Fabricación</div>
   <table class="data-table">
-    <thead><tr><th>Concepto</th><th>Detalle</th><th>Material</th><th class="num">Largo</th><th class="num">Ancho</th><th class="num">Cant.</th><th class="num">Precio</th></tr></thead>
+    <thead><tr><th>Concepto</th><th>Detalle</th><th>Material</th><th class="num">Largo</th><th class="num">Ancho</th><th class="num">Cant.</th><th class="num">Precio</th><th class="num">Subtotal</th></tr></thead>
     <tbody>{% for d in piece.fabrication %}<tr>
       <td>{{ d.concept or "" }}</td><td>{{ d.detail or "" }}</td><td>{{ d.material or "" }}</td>
       <td class="num">{{ d.length_str or "" }}</td><td class="num">{{ d.width_str or "" }}</td>
-      <td class="num">{{ d.quantity if d.show_quantity else "" }}</td><td class="num">{{ d.currency }} {{ d.price_str or "0.00" }}</td>
+      <td class="num">{{ d.quantity if d.show_quantity else "" }}</td><td class="num">{{ d.currency }} {{ d.price_str or "0.00" }}</td><td class="num">{{ d.currency }} {{ d.subtotal_str or d.price_str or "0.00" }}</td>
     </tr>{% endfor %}</tbody>
   </table>
   {% endif %}
@@ -304,8 +304,21 @@
     </tr>{% endfor %}</tbody>
   </table>
   {% endif %}
+  {% if piece.subtotal_ars_str or piece.subtotal_usd_str %}
+  <div class="wo-piece-subtotal"><strong>Subtotal pieza:</strong> $ {{ piece.subtotal_ars_str or "0.00" }}{% if piece.subtotal_usd_str %} · USD {{ piece.subtotal_usd_str }}{% endif %}</div>
+  {% endif %}
 </div>
 {% endfor %}
+{% endif %}
+
+{% if approval_global_lines %}
+<div class="section-title">Conceptos globales aprobados</div>
+<table class="data-table">
+  <thead><tr><th>Concepto</th><th>Detalle</th><th class="num">Subtotal</th></tr></thead>
+  <tbody>{% for line in approval_global_lines %}<tr>
+    <td>{{ line.name }}</td><td>{{ line.detail or "" }}</td><td class="num">{{ line.currency }} {{ line.total_str }}</td>
+  </tr>{% endfor %}</tbody>
+</table>
 {% endif %}
 
 {# =========================================================================
@@ -349,6 +362,13 @@
    ========================================================================= #}
 {% if measurement_note %}
 <div class="measurement-note">{{ measurement_note }}</div>
+{% endif %}
+{% if measurement_approval_count %}
+<div class="measurement-approval-note">
+  <strong>Diferencias de medición aprobadas.</strong>
+  Importe original: $ {{ "{:,.2f}".format(measurement_original_total or 0) }} ·
+  Total comercial vigente: $ {{ "{:,.2f}".format(total or 0) }}.
+</div>
 {% endif %}
 {% if measurement_comparison %}
 <div class="section-title">Comparativa de medición</div>
@@ -626,7 +646,7 @@
     {% if payment_methods_catalogue %}
     <td class="{% if document_type == 'work_order' %}wo-bottom-payment{% endif %}" style="vertical-align: top; width: 40%;">
       <div class="info-box"{% if document_type != "work_order" %} style="margin-top: 8px;"{% endif %}>
-        <div class="terms-title">Metodo de pago</div>
+        <div class="terms-title">METODO DE PAGO</div>
         <div class="{% if document_type == 'work_order' %}payment-method-item{% endif %}" style="font-size: 8.5pt;">
           {% for m in payment_methods_catalogue %}{{ m }}{% if not loop.last %}<br>{% endif %}{% endfor %}
         </div>

@@ -19,7 +19,7 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import NotFoundError, ValidationError
+from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.core.settings import settings
 from app.models.budget import Budget, BudgetItem, BudgetSketchElement
 from app.models.work_order import WorkOrder
@@ -34,15 +34,21 @@ from app.services.budget_calculator import (
     parse_materials_data,
 )
 from app.services.budget_conversion import create_alternative_work_order
-from app.services.dolar import get_blue_mid_rate
 from app.services.budget_helpers import (
     _flatten_sketch_pages,
     _process_additional_works_snapshot,
     _sync_children,
 )
+from app.services.budget_options import is_multi_option
+from app.services.commercial_rounding import (
+    apply_contractual_totals,
+    copy_contractual_totals,
+    has_contractual_totals,
+)
+from app.services.dolar import get_blue_mid_rate
 from app.services.frente_pricing import apply_frente_rows
 from app.services.stock_helpers import deduct_pool_stock, restore_pool_stock
-from app.utils.client_helpers import resolve_client_id
+from app.utils.client_helpers import apply_client_update, resolve_client_id
 from app.utils.numbering import generate_budget_number, generate_work_order_number
 
 __all__ = [
@@ -145,6 +151,9 @@ class BudgetService:
         # the legacy flat arrays from it. Client-provided arrays win here
         # (`only_if_missing=True`) — the budget path trusts the form totals.
         flatten_pieces(data, only_if_missing=True)
+        # New budgets receive the silent commercial snapshot. Existing rows
+        # remain untouched because this path only handles creation.
+        apply_contractual_totals(data)
         last_number = self.repo.get_last_number()
         data["number"] = generate_budget_number(last_number)
         data["client_id"] = resolve_client_id(
@@ -174,6 +183,12 @@ class BudgetService:
         budget = self.repo.get_by_id(budget_id)
         if not budget:
             return None
+        apply_client_update(
+            self.repo.db,
+            data,
+            budget.client_id,
+            "Debe seleccionar un cliente antes de guardar el presupuesto.",
+        )
         data.pop("items", None)
         # The catalogue selection is persisted as a JSON snapshot in
         # `additional_works_data` (the canonical wire format from the
@@ -201,6 +216,23 @@ class BudgetService:
         # Same derivation as create(): fill missing flat arrays from
         # `pieces_data` without clobbering client-provided ones.
         flatten_pieces(data, only_if_missing=True)
+        # Do not retroactively round historical budgets. New budgets carry a
+        # non-null contractual snapshot and keep it synchronized on edits.
+        if has_contractual_totals(budget):
+            # Existing budgets are frozen documents. Do not recompute or
+            # round them again merely because the form sent a derived total.
+            copy_contractual_totals(data, budget)
+        else:
+            # Legacy budgets keep their original totals until an explicit
+            # future commercial policy says otherwise.
+            data["total"] = budget.total
+            data["total_usd"] = budget.total_usd
+            for key in (
+                "total_exact_ars", "total_exact_usd",
+                "rounding_adjustment_ars", "rounding_adjustment_usd",
+                "total_contractual_ars", "total_contractual_usd",
+            ):
+                data.pop(key, None)
         budget = self.repo.update(budget, data)
         if raw_additional_works_data is not None:
             budget.additional_works_data = _process_additional_works_snapshot(
@@ -216,6 +248,15 @@ class BudgetService:
         budget = self.repo.get_by_id(budget_id)
         if not budget:
             return False
+        if (
+            self.repo.db.query(WorkOrder.id)
+            .filter(WorkOrder.budget_id == budget.id)
+            .first()
+            is not None
+        ):
+            raise ConflictError(
+                "No se puede eliminar un presupuesto asociado a una Orden de Trabajo"
+            )
         if budget.stock_deducted:
             restore_pool_stock(
                 self.repo.db, budget.pool_id, budget.pools_data, budget.number,
@@ -227,9 +268,19 @@ class BudgetService:
         return True
 
     def convert_alternative_to_work_order(self, budget_id: int, idx: int) -> WorkOrder:
-        budget = self.repo.get_by_id(budget_id)
+        budget = (
+            self.repo.db.query(Budget)
+            .filter(Budget.id == budget_id)
+            .with_for_update()
+            .first()
+        )
         if not budget:
             raise NotFoundError("Budget")
+        if is_multi_option(budget):
+            raise ConflictError(
+                "Las alternativas legacy no pueden convertir presupuestos "
+                "multiopción; use POST /budgets/{id}/convert con option_id"
+            )
         return create_alternative_work_order(
             budget,
             self.repo,

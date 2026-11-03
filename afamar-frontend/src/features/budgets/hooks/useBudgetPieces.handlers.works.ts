@@ -16,16 +16,17 @@ import type { CommitPieces } from './useBudgetPieces.commit';
 export interface WorksHandlerDeps {
   commit: CommitPieces;
   materials: Material[];
+  markNewMeasurementRows?: boolean;
 }
 
-export function useWorksHandlers({ commit, materials }: WorksHandlerDeps) {
+export function useWorksHandlers({ commit, materials, markNewMeasurementRows = false }: WorksHandlerDeps) {
   const addPieceFabrication = useCallback(
     (id: string) => {
       commit((p) =>
-        p.map((piece) => (piece.id === id ? mutateAddPieceFabrication(piece) : piece)),
+        p.map((piece) => (piece.id === id ? mutateAddPieceFabrication(piece, markNewMeasurementRows) : piece)),
       );
     },
-    [commit],
+    [commit, markNewMeasurementRows],
   );
 
   const updatePieceFabrication = useCallback(
@@ -53,10 +54,14 @@ export function useWorksHandlers({ commit, materials }: WorksHandlerDeps) {
   const setPieceAdditionalWorks = useCallback(
     (id: string, json: string) => {
       commit((p) =>
-        p.map((piece) => (piece.id === id ? mutateSetPieceAdditionalWorks(piece, json) : piece)),
+        p.map((piece) => (
+          piece.id === id
+            ? mutateSetPieceAdditionalWorks(piece, json, markNewMeasurementRows)
+            : piece
+        )),
       );
     },
-    [commit],
+    [commit, markNewMeasurementRows],
   );
 
   return {

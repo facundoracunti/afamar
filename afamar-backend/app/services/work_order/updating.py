@@ -3,23 +3,30 @@
 Extracted verbatim from ``app/services/work_order/mutations.py`` (ADR 0009
 — modularización) so no file in the package exceeds ~300 lines.
 """
-from typing import Optional
 
 from app.core.exceptions import ValidationError
 from app.models.work_order import WorkOrder
+from app.services.commercial_rounding import (
+    apply_contractual_totals,
+    copy_contractual_totals,
+    has_contractual_totals,
+)
 from app.services.stock_helpers import restore_pool_stock
 from app.services.work_order.cash import create_cash_movement_on_deposit
+from app.services.work_order.frozen_totals import (
+    ambiguous_measurement_changes,
+    apply_frozen_financials,
+    has_commercial_line_change,
+    has_commercial_scalar_change,
+)
 from app.services.work_order.helpers import (
     deposit_native_amount,
     stash_sketch_into_budgeted_details,
     update_client_total_purchased,
 )
+from app.services.work_order.pool_requirements import has_active_pool_requirements
 from app.services.work_order.recalc import recalculate_totals_from_items
-from app.services.work_order.frozen_totals import (
-    apply_frozen_financials,
-    has_commercial_line_change,
-    has_commercial_scalar_change,
-)
+from app.utils.client_helpers import apply_client_update
 
 # Status transitions between the 4 main states are bidirectional so the
 # list page's "Retroceder estado" button can undo a premature advance
@@ -34,11 +41,17 @@ VALID_TRANSITIONS = {
 }
 
 
-def update_work_order(repo, order_id: int, data: dict) -> Optional[WorkOrder]:
+def update_work_order(repo, order_id: int, data: dict) -> WorkOrder | None:
     """Patch a work order: recompute totals, validate the status change."""
     order = repo.get_by_id(order_id)
     if not order:
         return None
+    apply_client_update(
+        repo.db,
+        data,
+        order.client_id,
+        "Debe seleccionar un cliente antes de guardar la orden de trabajo.",
+    )
     stash_sketch_into_budgeted_details(data)
     # If the update carries line-item arrays (or totals) we recompute
     # totals server-side. This keeps `total` consistent with the rows
@@ -51,6 +64,13 @@ def update_work_order(repo, order_id: int, data: dict) -> Optional[WorkOrder]:
         has_commercial_line_change(order, data)
         or has_commercial_scalar_change(order, data)
     )
+    ambiguous = ambiguous_measurement_changes(order, data)
+    if ambiguous:
+        raise ValidationError(
+            "No se puede determinar con seguridad si el cambio es dimensional o comercial: "
+            + ", ".join(ambiguous)
+            + ". Recargue la orden y revise el precio antes de guardar."
+        )
     if has_commercial_change:
         # Derive missing flat arrays from an incoming `pieces_data` BEFORE
         # seeding `merged` from the persisted row — otherwise the
@@ -88,6 +108,11 @@ def update_work_order(repo, order_id: int, data: dict) -> Optional[WorkOrder]:
             if value is not None:
                 merged[key] = value
         recalculate_totals_from_items(repo.db, merged)
+        if has_contractual_totals(order):
+            if has_commercial_change:
+                apply_contractual_totals(merged)
+            else:
+                copy_contractual_totals(merged, order)
         # Mirror the recomputed totals into the outgoing payload so the
         # repo.update() call below writes them back. The list-page
         # PDF preview reads `installment_detail_*` directly from the
@@ -104,6 +129,9 @@ def update_work_order(repo, order_id: int, data: dict) -> Optional[WorkOrder]:
             # resolves to a catalogue row whose name differs from the
             # stale legacy string — propagate it so the repo writes it.
             "payment_method",
+            "total_exact_ars", "total_exact_usd",
+            "rounding_adjustment_ars", "rounding_adjustment_usd",
+            "total_contractual_ars", "total_contractual_usd",
         ):
             if key in merged:
                 data[key] = merged[key]
@@ -124,6 +152,11 @@ def update_work_order(repo, order_id: int, data: dict) -> Optional[WorkOrder]:
     if new_status != old_status:
         if new_status != "CANCELLED" and new_status not in VALID_TRANSITIONS.get(old_status, set()):
             raise ValidationError(f"Invalid status transition from {old_status} to {new_status}")
+        if new_status == "CANCELLED" and has_active_pool_requirements(repo.db, order.id):
+            raise ValidationError(
+                "La orden tiene requerimientos de piletas. Confirme la recuperación "
+                "por modelo antes de cancelarla."
+            )
         if new_status == "CANCELLED" and order.stock_deducted:
             # Cancellation — distinguish from the legacy "Entrada por
             # producción" prefix (the latter is reserved for budget
@@ -152,10 +185,10 @@ def update_work_order(repo, order_id: int, data: dict) -> Optional[WorkOrder]:
     # Skipped for fully-paid orders (tarjeta débito / crédito autofill)
     # — the full amount was booked at create() time.
     if (
-        "deposit_received" in data
+        any(key in data for key in ("deposit_received", "deposit_usd", "deposit_currency"))
         and not order.sena_registered
         and not order.balance_paid
-        and (data.get("deposit_received") or 0) > 0
+        and deposit_native_amount(order) > 0
     ):
         result.register_flag = "sena_registered"
         create_cash_movement_on_deposit(

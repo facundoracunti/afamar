@@ -118,6 +118,76 @@ def test_work_order_builder_exposes_piece_cards_without_changing_financial_value
     assert data["balance_due"] == 3100275.20
 
 
+def test_work_order_builder_keeps_historical_null_breakdown_compatible():
+    order = _order_data([_piece("Mesada 1")])
+    order["measurement_approvals"] = [{"id": 1, "approval_breakdown": None}]
+    data = build_work_order_pdf_data(
+        order,
+        {"name": "Cliente", "phone": "", "email": "", "address": ""},
+        _company(),
+        {"delivery_terms": "", "warranty_text": ""},
+    )
+
+    assert data["approval_breakdown_used"] is False
+    assert data["total"] == order["total"]
+
+
+def test_work_order_builder_uses_latest_approval_breakdown_per_piece_and_keeps_globals_global():
+    order = _order_data([_piece("Mesada 1", 280000), _piece("Mesada 2")])
+    order.update({"subtotal": 565, "total": 565, "subtotal_usd": 0.36, "total_usd": 0.36, "deposit_received": 0})
+    order["measurement_approvals"] = [{
+        "id": 2,
+        "approval_breakdown": {
+            "version": 1,
+            "usd_rate": 1555,
+            "pieces": [
+                {
+                    "piece_key": "piece:p1",
+                    "name": "Mesada 1",
+                    "lines": [
+                        {"line_kind": "material", "concept_type": "MATERIAL", "subtotal_approved": {"ars": 111, "usd": 0.07, "native": 111, "currency": "ARS"}},
+                        {"line_kind": "fabrication", "concept_type": "BASEBOARD", "subtotal_approved": {"ars": 22, "usd": 0.01, "native": 22, "currency": "ARS"}},
+                        {"line_kind": "additional", "concept_type": "FLAT", "subtotal_approved": {"ars": 33, "usd": 0.02, "native": 33, "currency": "ARS"}},
+                        {"line_kind": "pool", "concept_type": "POOL", "subtotal_approved": {"ars": 44, "usd": 0.03, "native": 44, "currency": "ARS"}},
+                    ],
+                    "subtotal_approved": {"ars": 210, "usd": 0.13, "native": 210, "currency": "ARS"},
+                },
+                {
+                    "piece_key": "piece:p2",
+                    "name": "Mesada 2",
+                    "lines": [{"line_kind": "material", "concept_type": "MATERIAL", "subtotal_approved": {"ars": 300, "usd": 0.19, "native": 300, "currency": "ARS"}}],
+                    "subtotal_approved": {"ars": 300, "usd": 0.19, "native": 300, "currency": "ARS"},
+                },
+            ],
+            "global_lines": [{
+                "line_kind": "additional", "concept_type": "TRASLADO", "material": "__GLOBAL__",
+                "subtotal_approved": {"ars": 55, "usd": 0.04, "native": 55, "currency": "ARS"},
+            }],
+            "total_approved": {"ars": 565, "usd": 0.36, "native": 565, "currency": "ARS"},
+        },
+    }]
+    data = build_work_order_pdf_data(
+        order,
+        {"name": "Cliente", "phone": "", "email": "", "address": ""},
+        _company(),
+        {"delivery_terms": "", "warranty_text": ""},
+    )
+
+    assert data["approval_breakdown_used"] is True
+    assert [piece["subtotal_ars_str"] for piece in data["work_order_pieces"]] == ["210.00", "300.00"]
+    assert data["work_order_pieces"][0]["materials"][0]["subtotal_str"] == "111.00"
+    assert data["work_order_pieces"][0]["additional"][0]["total_str"] == "33.00"
+    assert data["approval_global_lines"] == [{
+        "name": "TRASLADO", "detail": "__GLOBAL__", "currency": "ARS", "total_str": "55.00",
+    }]
+    assert data["total"] == 565
+    assert sum(float(piece["subtotal_ars_str"]) for piece in data["work_order_pieces"]) + 55 == data["total"]
+    pdf = generate_work_order_pdf(data).read()
+    text = "\n".join(page.extract_text() or "" for page in PdfReader(BytesIO(pdf)).pages)
+    assert "Subtotal pieza" in text
+    assert "Conceptos globales aprobados" in text
+
+
 def test_work_order_premium_template_renders_real_xhtml2pdf_with_piece_cards():
     data = build_work_order_pdf_data(
         _order_data([_piece("Mesada 1", 280000)]),

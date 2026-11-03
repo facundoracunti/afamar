@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from app.services.work_order.helpers import FAB_M2_CONCEPTS
 
 _SNAPSHOT_KEYS = {
     "m2_budgeted",
@@ -24,6 +25,7 @@ _MATERIAL_MEASURE_KEYS = {
 _FABRICATION_MEASURE_KEYS = _MATERIAL_MEASURE_KEYS | {
     "linear_meters", "metros_lineales",
 }
+_VOLATILE_FORMULA_KEYS = {"computed_at"}
 
 
 def _parse_list(raw: Any) -> list:
@@ -42,7 +44,9 @@ def _strip_row(raw: Any, *, kind: str) -> Any:
     if not isinstance(raw, dict):
         return raw
     out = {}
+    concept = str(raw.get("concept") or raw.get("concepto") or "").upper()
     is_front = str(raw.get("type") or "").lower() == "frente"
+    is_catalogue = raw.get("price_source") == "catalog"
     for key, value in raw.items():
         if key in _SNAPSHOT_KEYS:
             continue
@@ -52,8 +56,101 @@ def _strip_row(raw: Any, *, kind: str) -> Any:
             continue
         if kind == "additional" and is_front and key in {"linear_meters", "metros_lineales"}:
             continue
+        # These amounts are recalculated from dimensions by the form. Only
+        # catalogue rows are safe to treat as derived; manual prices remain
+        # commercial changes.
+        if kind == "fabrication" and concept in FAB_M2_CONCEPTS and is_catalogue and key == "price":
+            continue
+        if kind == "additional" and is_front and is_catalogue and key == "total":
+            continue
+        if key == "formula_values" and isinstance(value, dict):
+            value = {
+                nested_key: nested_value
+                for nested_key, nested_value in value.items()
+                if nested_key not in _VOLATILE_FORMULA_KEYS
+            }
         out[key] = value
     return out
+
+
+def _rows_by_index(before: Any, after: Any) -> list[tuple[dict, dict]]:
+    before_rows = _parse_list(before)
+    after_rows = _parse_list(after)
+    return [
+        (old, new)
+        for old, new in zip(before_rows, after_rows)
+        if isinstance(old, dict) and isinstance(new, dict)
+    ]
+
+
+def _measurement_changed(old: dict, new: dict, *, kind: str) -> bool:
+    keys = _MATERIAL_MEASURE_KEYS
+    if kind in {"fabrication", "additional"}:
+        keys = _FABRICATION_MEASURE_KEYS
+    if kind == "additional":
+        keys = _FABRICATION_MEASURE_KEYS
+    return any(old.get(key) != new.get(key) for key in keys)
+
+
+def _ambiguous_rows(before: Any, after: Any, *, kind: str, label: str) -> list[str]:
+    """Find row changes whose derived amount lacks a safe provenance."""
+    ambiguous: list[str] = []
+    for old, new in _rows_by_index(before, after):
+        if not _measurement_changed(old, new, kind=kind):
+            continue
+        old_source = old.get("price_source")
+        new_source = new.get("price_source")
+        if old_source in {"catalog", "manual"} and new_source in {"catalog", "manual"}:
+            continue
+        concept = str(new.get("concept") or new.get("concepto") or "").upper()
+        is_front = str(new.get("type") or "").lower() == "frente"
+        derived_key_changed = (
+            kind == "fabrication"
+            and concept in FAB_M2_CONCEPTS
+            and old.get("price") != new.get("price")
+        ) or (
+            kind == "additional"
+            and is_front
+            and old.get("total") != new.get("total")
+        )
+        if derived_key_changed:
+            ambiguous.append(f"{label} sin price_source explícito")
+    return ambiguous
+
+
+def ambiguous_measurement_changes(order, data: dict) -> list[str]:
+    """Return unsafe dimensional changes instead of silently repricing them."""
+    ambiguous: list[str] = []
+    for key, kind, label in (
+        ("fabrication_details", "fabrication", "Fabricación"),
+        ("additional_works_data", "additional", "Trabajo adicional"),
+    ):
+        if key in data:
+            ambiguous.extend(
+                _ambiguous_rows(getattr(order, key, None), data[key], kind=kind, label=label)
+            )
+
+    if "pieces_data" in data:
+        for old_piece, new_piece in zip(
+            _parse_list(getattr(order, "pieces_data", None)),
+            _parse_list(data["pieces_data"]),
+        ):
+            if not isinstance(old_piece, dict) or not isinstance(new_piece, dict):
+                continue
+            for key, kind, label in (
+                ("fabrication_details", "fabrication", "Fabricación en piezas"),
+                ("additional_works_data", "additional", "Trabajo adicional en piezas"),
+            ):
+                if key in new_piece:
+                    ambiguous.extend(
+                        _ambiguous_rows(
+                            old_piece.get(key),
+                            new_piece[key],
+                            kind=kind,
+                            label=label,
+                        )
+                    )
+    return sorted(set(ambiguous))
 
 
 def _normalise_flat(raw: Any, *, kind: str) -> list:
@@ -148,6 +245,12 @@ def apply_frozen_financials(order, data: dict) -> None:
     data["usd_rate"] = order.usd_rate
     for key in ("subtotal", "subtotal_usd", "total", "total_usd"):
         data[key] = getattr(order, key)
+    for key in (
+        "total_exact_ars", "total_exact_usd",
+        "rounding_adjustment_ars", "rounding_adjustment_usd",
+        "total_contractual_ars", "total_contractual_usd",
+    ):
+        data[key] = getattr(order, key, None)
     data["balance_due"] = max(0.0, float(order.total or 0) - deposit_ars_equivalent)
     data["balance_due_usd"] = max(0.0, round((float(order.total_usd or 0) - deposit_usd) * 100) / 100)
     if deposit_currency == "ARS" and deposit_ars > 0:

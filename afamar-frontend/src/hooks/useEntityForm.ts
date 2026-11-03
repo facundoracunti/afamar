@@ -145,8 +145,10 @@ export default function useEntityForm({
   // ----- Calculations (subtotal/total/balance_due via useBudgetCalculations)
   useBudgetCalculations(form, setForm, paymentMethods, {
     // Existing work orders are commercial documents whose quote is frozen by
-    // the backend. Budgets and new orders keep the live calculator.
+    // the backend. Existing budgets are also frozen to prevent legacy totals
+    // from being rounded merely by opening or saving the form.
     freezeExistingWorkOrder: isEdit && services.listPath === '/admin/work-orders',
+    freezeExistingBudget: isEdit && services.listPath === '/admin/budgets',
   });
 
   // ----- Financial input handlers (transport/deposit/USD)

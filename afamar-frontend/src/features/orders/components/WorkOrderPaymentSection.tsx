@@ -62,6 +62,7 @@ export interface WorkOrderPaymentSectionProps {
    *  real del preview del PDF (fila "Seña / Pagos Registrados"; la seña del
    *  form solo cae de fallback legacy cuando el módulo no registró nada). */
   onPaidChange?: (paid: number) => void;
+  onPaymentsPresenceChange?: (hasPayments: boolean) => void;
   /** True si el operador logueado es admin: habilita la reversión de pagos
    *  persistidos (elimina el movimiento de caja y restablece el saldo
    *  pendiente — ver `WorkOrderService.reverse_payment`). */
@@ -109,6 +110,10 @@ export function WorkOrderPaymentSection(props: WorkOrderPaymentSectionProps) {
   const reconciledRef = useRef(false);
 
   useEffect(() => {
+    props.onPaymentsPresenceChange?.(payments.some((payment) => payment.type === 'INCOME'));
+  }, [payments, props.onPaymentsPresenceChange]);
+
+  useEffect(() => {
     if (!paymentsSuccess || reconciledRef.current) return;
     reconciledRef.current = true;
     reconcileFromServer(payments.filter(isModulePayment).map((p) => mapMovementToPayment(p)));
@@ -119,6 +124,9 @@ export function WorkOrderPaymentSection(props: WorkOrderPaymentSectionProps) {
       try {
         await registerPayment(tx);
         setIsModalOpen(false);
+        await queryClient.invalidateQueries({
+          queryKey: ['work-orders', props.orderId, 'payments'],
+        });
         notify(props.successMessage ?? 'Pago registrado correctamente', 'success');
       } catch (err) {
         notify(props.errorMessage ?? 'No se pudo registrar el pago', 'error');
@@ -139,6 +147,9 @@ export function WorkOrderPaymentSection(props: WorkOrderPaymentSectionProps) {
         const movements = (fresh.data ?? []) as CashMovement[];
         reconcileFromServer(movements.filter(isModulePayment).map((p) => mapMovementToPayment(p)));
         queryClient.invalidateQueries({ queryKey: ['work-orders', props.orderId] });
+        queryClient.invalidateQueries({
+          queryKey: ['work-orders', props.orderId, 'payments'],
+        });
         queryClient.invalidateQueries({ queryKey: ['cash', 'current'] });
         notify('Pago reversado correctamente', 'success');
       } catch {

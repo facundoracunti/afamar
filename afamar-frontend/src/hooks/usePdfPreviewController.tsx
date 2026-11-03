@@ -96,7 +96,7 @@ export function usePdfPreviewController(params: UsePdfPreviewControllerParams): 
         // (and the catalogue-driven recargo / discount lines) even
         // when the form hook didn't run for this render path.
         paymentMethods,
-        usePersistedCommercialTotals: documentType === 'work_order',
+        usePersistedCommercialTotals: true,
       });
     } catch (err: unknown) {
       // `buildPdfData` can throw on malformed legacy data (e.g. a budget

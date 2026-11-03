@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -64,6 +64,14 @@ class WorkOrder(Base):
     discount_percentage: Mapped[float] = mapped_column(Float, default=0.0)
     discount_fixed_amount: Mapped[float] = mapped_column(Float, default=0.0)
     total: Mapped[float] = mapped_column(Float, default=0.0)
+    # NULL means legacy work order. New orders and explicit approvals populate
+    # these fields; opening a legacy order never backfills or rounds it.
+    total_exact_ars: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    total_exact_usd: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    rounding_adjustment_ars: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    rounding_adjustment_usd: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    total_contractual_ars: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    total_contractual_usd: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
     subtotal_usd: Mapped[float] = mapped_column(Float, default=0.0)
     transport_usd: Mapped[float] = mapped_column(Float, default=0.0)
     total_usd: Mapped[float] = mapped_column(Float, default=0.0)
@@ -160,3 +168,14 @@ class WorkOrder(Base):
     budget = relationship("Budget", back_populates="work_order")
     pool = relationship("PoolStock", foreign_keys=[pool_id])
     measurement = relationship("Measurement", back_populates="work_order", uselist=False)
+    measurement_approvals = relationship(
+        "WorkOrderMeasurementApproval",
+        back_populates="work_order",
+        cascade="all, delete-orphan",
+        order_by="WorkOrderMeasurementApproval.approved_at",
+    )
+    pool_requirements = relationship(
+        "WorkOrderPoolRequirement",
+        back_populates="work_order",
+        passive_deletes=True,
+    )

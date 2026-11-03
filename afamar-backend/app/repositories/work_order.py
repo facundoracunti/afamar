@@ -17,6 +17,8 @@ def _eager_query(db: Session):
             joinedload(WorkOrder.client),
             joinedload(WorkOrder.pool),
             joinedload(WorkOrder.budget),
+            joinedload(WorkOrder.measurement_approvals),
+            joinedload(WorkOrder.pool_requirements),
         )
     )
 

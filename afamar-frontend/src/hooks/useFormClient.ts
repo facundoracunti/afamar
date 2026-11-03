@@ -35,6 +35,7 @@ export function useFormClient({ clientes, form, setForm }: UseFormClientParams):
     (c: Record<string, unknown>) => {
       setForm((prev) => ({
         ...prev,
+        client_id: (c.id as number) || null,
         client_name: c.name as string,
         client_phone: (c.phone as string) || '',
         client_email: (c.email as string) || '',

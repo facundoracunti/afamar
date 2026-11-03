@@ -86,6 +86,23 @@ function renderFrozenCalc(initial: EntityFormState, paymentMethods: PaymentMetho
   });
 }
 
+describe('useBudgetCalculations - m2 fabrication pricing', () => {
+  it('prices rows from dimensions when the derived price is missing', async () => {
+    const { result } = renderCalc(makeForm({
+      fabrication_details: [
+        { concept: 'BASEBOARD', detail: '', material: '', material_price_m2: 300, length: 2.22, width: 0.64, m2: 0, labor: null, currency: 'ARS', quantity: 1, price: 0 },
+        { concept: 'BASEBOARD', detail: '', material: '', material_price_m2: 300, length: 1, width: 0.64, m2: 0, labor: null, currency: 'ARS', quantity: 1, price: 0 },
+        { concept: 'BASEBOARD', detail: '', material: '', material_price_m2: 300, length: 2.22, width: 0.6, m2: 0, labor: null, currency: 'ARS', quantity: 1, price: 0 },
+        { concept: 'BASEBOARD', detail: '', material: '', material_price_m2: 300, length: 4.46, width: 0.05, m2: 0, labor: null, currency: 'ARS', quantity: 1, price: 0 },
+      ],
+    }));
+
+    await act(async () => {});
+    expect(result.current.form.subtotal).toBe(1084.74);
+    expect(result.current.form.total).toBe(5000);
+  });
+});
+
 describe('useBudgetCalculations — basic totals', () => {
   it('returns zero for an empty form', () => {
     const { result } = renderCalc(makeForm({ usd_rate: 1000 }));
@@ -100,7 +117,24 @@ describe('useBudgetCalculations — basic totals', () => {
     ];
     const { result } = renderCalc(makeForm({ fabrication_details, transport: 1500 }));
     expect(result.current.form.subtotal).toBe(2000);
-    expect(result.current.form.total).toBe(3500); // 2000 + 1500
+    expect(result.current.form.total).toBe(5000); // 3500 exact → 5000 contractual
+  });
+
+  it('keeps the P-000012 screen total contractual after a silent ARS rounding', async () => {
+    const fabrication_details: FabricationDetail[] = [
+      { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 1_105_808.40 },
+    ];
+    const { result } = renderCalc(makeForm({
+      number: 'P-000012',
+      usd_rate: 1565,
+      fabrication_details,
+    }));
+
+    await act(async () => {});
+    expect(result.current.form.subtotal).toBe(1_105_808.40);
+    expect(result.current.form.total).toBe(1_110_000);
+    expect(result.current.form.total_usd).toBe(709.27);
+    expect(result.current.form.balance_due).toBe(1_110_000);
   });
 });
 
@@ -229,7 +263,7 @@ describe('useBudgetCalculations — discounts', () => {
       discount_percentage: 10,
       discount_enabled: true,
     }));
-    expect(result.current.form.total).toBe(9000); // 10000 * 0.9
+    expect(result.current.form.total).toBe(10000); // 9000 exact → 10000 contractual
     expect(result.current.form.discount_amount).toBe(1000);
   });
 
@@ -264,7 +298,7 @@ describe('useBudgetCalculations — discounts', () => {
     }));
     // totalBase = 100000 (mat) + 5000 (fabricación) + 2000 (traslado) = 107000
     // discount = 10% of materials-only 100000 = 10000 → total = 97000
-    expect(result.current.form.total).toBe(97000);
+    expect(result.current.form.total).toBe(100000);
     expect(result.current.form.discount_amount).toBe(10000);
   });
 
@@ -284,7 +318,7 @@ describe('useBudgetCalculations — discounts', () => {
       discount_target: 'total',
     }));
     // totalBase = 107000 → 10% = 10700 → total = 96300
-    expect(result.current.form.total).toBe(96300);
+    expect(result.current.form.total).toBe(100000);
     expect(result.current.form.discount_amount).toBe(10700);
   });
 
@@ -296,7 +330,7 @@ describe('useBudgetCalculations — discounts', () => {
       fabrication_details,
       discount_fixed_amount: 3000,
     }));
-    expect(result.current.form.total).toBe(7000); // 10000 - 3000
+    expect(result.current.form.total).toBe(10000); // 7000 exact → 10000 contractual
   });
 });
 
@@ -316,7 +350,7 @@ describe('useBudgetCalculations — catalogue-driven surcharge (recargo lineal p
       payment_method_id: 4,
       installments: 1,
     }));
-    expect(result.current.form.total).toBe(10900);
+    expect(result.current.form.total).toBe(15000);
   });
 
   it('2 cuotas adds 18% (total = base × 1.18, cuota = 5900)', () => {
@@ -329,7 +363,7 @@ describe('useBudgetCalculations — catalogue-driven surcharge (recargo lineal p
       payment_method_id: 4,
       installments: 2,
     }));
-    expect(result.current.form.total).toBe(11800); // 10000 × 1.18
+    expect(result.current.form.total).toBe(15000); // 11800 exact → 15000 contractual
   });
 
   it('3 cuotas adds 27% (total = base × 1.27, cuota = 4233.33)', () => {
@@ -342,7 +376,7 @@ describe('useBudgetCalculations — catalogue-driven surcharge (recargo lineal p
       payment_method_id: 4,
       installments: 3,
     }));
-    expect(result.current.form.total).toBe(12700); // 10000 × 1.27
+    expect(result.current.form.total).toBe(15000); // 12700 exact → 15000 contractual
   });
 
   it('matches the customer-facing example: base=900000, 3 cuotas, value=9 → 1_143_000, cada cuota = 381_000', () => {
@@ -355,7 +389,7 @@ describe('useBudgetCalculations — catalogue-driven surcharge (recargo lineal p
       payment_method_id: 4,
       installments: 3,
     }));
-    expect(result.current.form.total).toBe(1143000); // 900000 × 1.27
+    expect(result.current.form.total).toBe(1145000); // 1143000 exact → 1145000 contractual
   });
 
   it('exposes installment_detail_ars with uniform rows (3 cuotas, base=900000)', () => {
@@ -368,11 +402,11 @@ describe('useBudgetCalculations — catalogue-driven surcharge (recargo lineal p
       payment_method_id: 4,
       installments: 3,
     }));
-    // total = 900000 × 1.27 = 1143000; cuota = 1143000 / 3 = 381000 (todas iguales)
+    // contractual = 1145000; cuota = 1145000 / 3 (todas iguales)
     expect(result.current.form.installment_detail_ars).toEqual([
-      { cuota: 1, interes: 9, monto: 381000 },
-      { cuota: 2, interes: 9, monto: 381000 },
-      { cuota: 3, interes: 9, monto: 381000 },
+      { cuota: 1, interes: 9, monto: 381666.67 },
+      { cuota: 2, interes: 9, monto: 381666.67 },
+      { cuota: 3, interes: 9, monto: 381666.67 },
     ]);
   });
 
@@ -428,7 +462,7 @@ describe('useBudgetCalculations — deposit & balance_due', () => {
       fabrication_details,
       deposit_received: 5000,
     }));
-    expect(result.current.form.total).toBe(1000);
+    expect(result.current.form.total).toBe(5000);
     expect(result.current.form.balance_due).toBe(0);
   });
 
@@ -446,8 +480,8 @@ describe('useBudgetCalculations — deposit & balance_due', () => {
       deposit_currency: 'ARS',
       usd_rate: 1530,
     }));
-    expect(result.current.form.total).toBe(2502183);
-    expect(result.current.form.balance_due).toBe(1002183);
+    expect(result.current.form.total).toBe(2505000);
+    expect(result.current.form.balance_due).toBe(1005000);
   });
 });
 
@@ -492,7 +526,7 @@ describe('useBudgetCalculations — USD handling', () => {
     }));
     // subtotal_usd = 110.50, no transport. Recargo lineal (value=9, N=3):
     // ratio = 1.27 → total_usd = 110.50 × 1.27 = 140.34 (round2).
-    expect(result.current.form.total_usd).toBe(140.34);
+    expect(result.current.form.total_usd).toBe(145);
   });
 
   it('rounds USD total after percentage discount to 2dp', () => {
@@ -537,7 +571,7 @@ describe('useBudgetCalculations — USD handling', () => {
     // Alternative replaces principal: mat cost = 85.50 USD
     // Recargo lineal (value=9, N=3): ratio = 1.27
     // total_usd = 85.50 × 1.27 = 108.585 → round2 = 108.59
-    expect(result.current.form.total_usd).toBe(108.59);
+    expect(result.current.form.total_usd).toBe(110);
   });
 });
 
@@ -608,7 +642,7 @@ describe('useBudgetCalculations — additional_works_data triggers total recompu
       usd_rate: 1000,
     }));
     // Triggers the recalc on mount once, then again after the clear.
-    expect(result.current.form.total).toBe(26000);
+    expect(result.current.form.total).toBe(30000);
     act(() => {
       result.current.setForm((prev) => ({ ...prev, additional_works_data: '[]' }));
     });
