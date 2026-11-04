@@ -178,6 +178,9 @@ class BudgetCreate(BudgetBase):
 
 
 class BudgetUpdate(BaseModel):
+    # Temporary diagnostic compatibility: retain unexpected fields so a
+    # frontend/backend contract drift is visible in the service trace instead
+    # of being silently discarded by Pydantic.
     client_id: int | None = None
     status: str | None = None
     delivery_address_id: int | None = None

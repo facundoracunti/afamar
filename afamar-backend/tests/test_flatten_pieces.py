@@ -128,6 +128,19 @@ def test_flatten_pieces_only_if_missing_keeps_client_arrays():
     assert json.loads(data["fabrication_details"])[0]["price"] == 30000
 
 
+def test_flatten_pieces_only_if_missing_preserves_explicit_empty_deletions():
+    data = {
+        "pieces_data": json.dumps(_pieces()),
+        "pools_data": "[]",
+        "additional_works_data": "[]",
+    }
+
+    flatten_pieces(data, only_if_missing=True)
+
+    assert data["pools_data"] == "[]"
+    assert data["additional_works_data"] == "[]"
+
+
 # ────────────────────────────────────────────────────────────────────
 # 4. Recalc derives from pieces_data alone
 # ────────────────────────────────────────────────────────────────────

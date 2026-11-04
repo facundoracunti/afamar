@@ -6,6 +6,7 @@ from app.services.commercial_rounding import (
     copy_contractual_totals,
     contractual_snapshot_state,
     contractual_totals,
+    round_to_nearest_multiple,
 )
 from app.core.exceptions import ValidationError
 from app.models.budget import Budget
@@ -38,6 +39,11 @@ def test_exact_multiple_and_cent_values_are_idempotent():
 def test_zero_or_negative_totals_are_zero():
     assert contractual_totals(0, 1_500)["contractual_ars"] == 0
     assert contractual_totals(-1, 1_500)["contractual_ars"] == 0
+
+
+def test_round_to_nearest_multiple_rounds_935440_up_to_940000():
+    assert round_to_nearest_multiple(935_440) == 940_000
+    assert round_to_nearest_multiple(940_000) == 940_000
 
 
 def test_contractual_snapshot_recomputes_balance_from_frozen_total():

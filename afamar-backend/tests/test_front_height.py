@@ -130,6 +130,140 @@ def test_api_persists_two_miter45_heights_without_swapping(isolated_api):
     assert [row["front_height_cm"] for row in json.loads(order.additional_works_data)] == [10.0, 24.0]
 
 
+def test_budget_update_recalculates_live_total_without_contractual_freeze(isolated_api):
+    """An editable quote must update its total and keep no frozen snapshot."""
+    client, db = isolated_api
+    initial_material = {
+        "name": "BLANCO SUGGAR",
+        "length": 2.0,
+        "width": 1.0,
+        "quantity": 1,
+        "price_m2": 405000,
+        "price_m2_usd": 0,
+        "currency": "ARS",
+        "is_alternative": False,
+    }
+
+    first = client.put(
+        "/budgets/1",
+        json={"materials_data": json.dumps([initial_material])},
+    )
+    assert first.status_code == 200
+    assert db.get(Budget, 1).total == 810000
+
+    updated_material = {**initial_material, "length": 1.0, "width": 2.31}
+    second = client.put(
+        "/budgets/1",
+        json={"materials_data": json.dumps([updated_material])},
+    )
+    assert second.status_code == 200
+
+    budget = db.get(Budget, 1)
+    assert budget.total == 940000
+    assert budget.total != 810000
+    assert budget.total_exact_ars is None
+    assert budget.total_contractual_ars is None
+    assert budget.balance_due == 940000
+
+
+def test_budget_create_edit_and_remove_pool_recalculates_without_ghost_amounts(isolated_api):
+    """The API flow must price the current item set, including deletions."""
+    client, db = isolated_api
+    material = {
+        "name": "BLANCO SUGGAR",
+        "length": 1.0,
+        "width": 1.0,
+        "quantity": 1,
+        "price_m2": 500000,
+        "price_m2_usd": 0,
+        "currency": "ARS",
+        "is_alternative": False,
+    }
+    pool = {
+        "pool_id": 1,
+        "brand": "JOHNSON",
+        "model": "LUXOR",
+        "price": 435440,
+        "currency": "ARS",
+        "quantity": 1,
+    }
+
+    created = client.post(
+        "/budgets",
+        json={
+            "client_id": 1,
+            "usd_rate": 1000,
+            "materials_data": json.dumps([material]),
+            "fabrication_details": "[]",
+            "additional_works_data": "[]",
+            "pools_data": json.dumps([pool]),
+        },
+    )
+    assert created.status_code == 201, created.text
+    budget_id = created.json()["data"]["id"]
+    budget = db.get(Budget, budget_id)
+    assert budget.subtotal == 935440
+    assert budget.total == 940000
+
+    edited_material = {**material, "price_m2": 600000}
+    edited = client.put(
+        f"/budgets/{budget_id}",
+        json={
+            "materials_data": json.dumps([edited_material]),
+            "pools_data": json.dumps([pool]),
+        },
+    )
+    assert edited.status_code == 200, edited.text
+    budget = db.get(Budget, budget_id)
+    assert budget.subtotal == 1035440
+    assert budget.total == 1040000
+
+    removed_pool = client.put(
+        f"/budgets/{budget_id}",
+        json={"pools_data": "[]"},
+    )
+    assert removed_pool.status_code == 200, removed_pool.text
+    budget = db.get(Budget, budget_id)
+    assert budget.pools_data == "[]"
+    assert budget.subtotal == 600000
+    assert budget.total == 600000
+
+
+def test_budget_pool_survives_put_and_fresh_get(isolated_api):
+    """A pool added through the API remains after the next read transaction."""
+    client, _ = isolated_api
+    created = client.post(
+        "/budgets",
+        json={
+            "client_id": 1,
+            "materials_data": "[]",
+            "pools_data": "[]",
+            "fabrication_details": "[]",
+            "additional_works_data": "[]",
+        },
+    )
+    assert created.status_code == 201, created.text
+    budget_id = created.json()["data"]["id"]
+    pool = {
+        "pool_id": 77,
+        "brand": "JOHNSON",
+        "model": "LUXOR",
+        "price": 305000,
+        "currency": "ARS",
+        "quantity": 1,
+    }
+
+    updated = client.put(
+        f"/budgets/{budget_id}",
+        json={"pools_data": json.dumps([pool])},
+    )
+    assert updated.status_code == 200, updated.text
+
+    reloaded = client.get(f"/budgets/{budget_id}")
+    assert reloaded.status_code == 200, reloaded.text
+    assert json.loads(reloaded.json()["data"]["pools_data"]) == [pool]
+
+
 def test_historical_front_without_height_remains_compatible(isolated_api):
     client, db = isolated_api
     historical = {

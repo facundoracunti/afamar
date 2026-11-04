@@ -473,6 +473,35 @@ describe('mapApiToForm — COMPARATIVA snapshot hydration', () => {
     expect(form.pieces[0].mainMaterial?.m2_budgeted).toBe(0);
     expect(form.pieces[0].mainMaterial?.length).toBe(2);
   });
+
+  it('hydrates pools_data into the visible piece and form state on reload', () => {
+    const pool = {
+      pool_id: 20, brand: 'JOHNSON', model: 'LUXOR', price: 305000,
+      currency: 'ARS', quantity: 1, material: 'NEGRO BRASIL',
+    };
+    const form = mapApiToForm({
+      pieces_data: JSON.stringify([{
+        id: 'p1', name: 'Mesada 1',
+        mainMaterial: {
+          id: 10, name: 'NEGRO BRASIL', price_m2: 100000,
+          price_m2_usd: 0, currency: 'ARS', quantity: 1,
+          length: 2, width: 1, is_alternative: false,
+        },
+        alternativeMaterials: [], fabrication_details: [],
+        additional_works_data: '[]', pools: [],
+      }]),
+      materials_data: JSON.stringify([{
+        id: 10, name: 'NEGRO BRASIL', price_m2: 100000,
+        price_m2_usd: 0, currency: 'ARS', quantity: 1,
+        length: 2, width: 1, is_alternative: false,
+      }]),
+      pools_data: JSON.stringify([pool]),
+    }, 'PENDING');
+
+    expect(form.pools_data).toEqual([pool]);
+    expect(form.pieces[0].pools).toEqual([pool]);
+    expect(form.materials_data[0].name).toBe('NEGRO BRASIL');
+  });
 });
 
 describe('mapApiToForm — sketch_elements round-trip', () => {

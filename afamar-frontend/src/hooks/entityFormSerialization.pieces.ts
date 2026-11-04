@@ -11,6 +11,28 @@ import type { BudgetPiece, PoolInForm } from '../types/budget';
 import { hydratePiecesSnapshots } from './entityForm/piecesHydration';
 import { isLegacyAlternative, jsonParseList } from './entityFormSerialization.helpers';
 
+function hydratePoolsFromFlat(
+  data: Record<string, unknown>,
+  pieces: BudgetPiece[],
+): BudgetPiece[] {
+  if (!Object.prototype.hasOwnProperty.call(data, 'pools_data')) return pieces;
+
+  const flatPools = jsonParseList(data.pools_data) as PoolInForm[];
+  const next = pieces.map((piece) => ({ ...piece, pools: [] as PoolInForm[] }));
+  for (const pool of flatPools) {
+    const material = String(pool.material || '').trim();
+    const targetIndex = material
+      ? next.findIndex((piece) => [
+        piece.mainMaterial?.name,
+        ...(piece.mainMaterialRows || []).map((row) => row.name),
+        ...(piece.alternativeMaterials || []).map((row) => row.name),
+      ].some((name) => String(name || '').trim() === material))
+      : -1;
+    (next[targetIndex >= 0 ? targetIndex : 0].pools || []).push(pool);
+  }
+  return next;
+}
+
 /** Single source of truth for the pieces + their derived flat columns.
  *
  *  Pieces v3 guarantees the form always has ≥ 1 piece. When the backend
@@ -30,8 +52,14 @@ export function loadPieces(
 
   if (!hadPiecesData) {
     const legacyMats = jsonParseList(d.materials_data) as Array<Record<string, unknown>>;
-    if (legacyMats.length > 0 && pieces.length === 1 && pieces[0].mainMaterial === null) {
-      const legacyMains = legacyMats.filter((m) => !isLegacyAlternative(m));
+    const legacyMains = legacyMats.filter((m) => !isLegacyAlternative(m));
+    const legacyFab = jsonParseList(d.fabrication_details) as BudgetPiece['fabrication_details'];
+    const legacyAddRows = jsonParseList(d.additional_works_data);
+    const legacyAdd = JSON.stringify(legacyAddRows);
+    const legacyPools = jsonParseList(d.pools_data) as BudgetPiece['pools'];
+    const hasLegacyData = legacyMats.length > 0 || legacyFab.length > 0
+      || legacyAddRows.length > 0 || legacyPools.length > 0;
+    if (hasLegacyData && pieces.length === 1 && pieces[0].mainMaterial === null) {
       const firstMain = legacyMains[0] || null;
       // Extra non-alternative rows (legacy "panes" of the principal) become
       // `mainMaterialRows` tramos — each keeps its own dims so the re-split
@@ -42,11 +70,6 @@ export function loadPieces(
       const alts = legacyMats
         .filter(isLegacyAlternative)
         .map((m) => ({ ...m, is_alternative: true })) as BudgetPiece['alternativeMaterials'];
-      const legacyFab = jsonParseList(d.fabrication_details) as BudgetPiece['fabrication_details'];
-      const legacyAdd = (typeof d.additional_works_data === 'string' && d.additional_works_data)
-        ? d.additional_works_data
-        : '[]';
-      const legacyPools = jsonParseList(d.pools_data) as BudgetPiece['pools'];
       pieces[0] = {
         ...pieces[0],
         mainMaterial: firstMain
@@ -68,7 +91,8 @@ export function loadPieces(
   // MEDICIÓN loses the "Presupuestado" column at the first measurement
   // change and the flat `flattenPieces` output below would diverge from
   // the API's snapshot-carrying flat arrays.
-  const hydrated = hydratePiecesSnapshots(d, pieces);
+  const withPools = hydratePoolsFromFlat(d, pieces);
+  const hydrated = hydratePiecesSnapshots(d, withPools);
 
   return {
     pieces: hydrated,

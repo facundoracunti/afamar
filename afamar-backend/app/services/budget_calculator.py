@@ -2,6 +2,7 @@ import json
 import logging
 
 from app.core.settings import settings
+from app.services.commercial_rounding import round_to_nearest_multiple
 from app.utils.measurement_numbers import measurement_number
 
 logger = logging.getLogger(__name__)
@@ -114,7 +115,10 @@ def flatten_pieces(data: dict, only_if_missing: bool = False) -> None:
         "pools_data": json.dumps(pools, ensure_ascii=False),
     }
     for key, value in derived.items():
-        if only_if_missing and data.get(key) not in (None, "", "[]"):
+        # An explicit empty array is a deletion, not a missing value. Using
+        # ``data.get(key)`` here used to resurrect pools/additionals from
+        # pieces_data after the operator removed them in the form.
+        if only_if_missing and key in data and data[key] not in (None, ""):
             continue
         data[key] = value
 
@@ -316,7 +320,7 @@ def calculate_budget_totals(
     )
     rate = float(usd_rate or 0)
     transport = float(transport_ars or 0)
-    total_ars = round(subtotal_ars + subtotal_usd * rate + transport)
+    total_ars = round_to_nearest_multiple(subtotal_ars + subtotal_usd * rate + transport)
     total_usd = (
         round(subtotal_usd + subtotal_ars / rate + transport / rate, 2)
         if rate > 0

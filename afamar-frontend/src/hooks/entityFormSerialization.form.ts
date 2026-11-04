@@ -13,11 +13,15 @@ import { unflattenSketchElements } from './entityForm/sketch';
 import { loadOptions } from './entityFormSerialization.options';
 import { loadPieces } from './entityFormSerialization.pieces';
 import { jsonParseList, sliceDateToInput } from './entityFormSerialization.helpers';
+import { flattenPieces } from '@features/budgets/utils/pieces';
 
 /**
  * Map an API row into the form state the editors consume.
  */
 export function mapApiToForm(d: Record<string, unknown>, defaultStatus: string): EntityFormState {
+  const loadedPieces = loadPieces(d);
+  const optionState = loadOptions(d, loadedPieces.pieces);
+  const flattened = flattenPieces(optionState.pieces);
   return {
     ...INITIAL_FORM,
     ...mapFinancialToForm(d),
@@ -62,16 +66,17 @@ export function mapApiToForm(d: Record<string, unknown>, defaultStatus: string):
     design_observations: (d.design_observations as string) || '',
     important_observations: (d.important_observations as string) || '',
     include_measurement_comparison_in_pdf: (d.include_measurement_comparison_in_pdf as boolean) ?? false,
-    fabrication_details: jsonParseList(d.fabrication_details) as EntityFormState['fabrication_details'],
     // Pieces v3: pieces-only mode is the ONLY mode. The pieces + their
     // derived flat columns are computed ONCE (see `loadPieces`) so
     // the legacy migration runs once and the flat arrays are guaranteed
     // to match the pieces (no drift between `pools_data` and `piece.pools`,
     // which was a bug in the previous duplicated-IIFE implementation).
-    ...loadOptions(d, loadPieces(d).pieces),
-    materials_data: jsonParseList(d.materials_data) as EntityFormState['materials_data'],
-    sketch_elements: unflattenSketchElements(d.sketch_elements) as unknown[],
-    additional_works_data: (d.additional_works_data as string | null) ?? null,
+     ...optionState,
+     materials_data: flattened.materials_data as EntityFormState['materials_data'],
+     pools_data: flattened.pools_data,
+     fabrication_details: flattened.fabrication_details as EntityFormState['fabrication_details'],
+     sketch_elements: unflattenSketchElements(d.sketch_elements) as unknown[],
+     additional_works_data: flattened.additional_works_data,
     // Per-cuota breakdown persisted by the backend. Empty list when
     // the active method isn't a credit-card percentage surcharge.
     installment_detail_ars: jsonParseList(d.installment_detail_ars) as EntityFormState['installment_detail_ars'],

@@ -57,7 +57,7 @@ export default function BudgetFormPageHeaderActions({
           </button>
         ) : null
         ) : showSaveButton ? (
-        <button className={`btn btn-primary ${s['budget-form__btn-save']}`} onClick={onSubmit} disabled={saving}>
+        <button type="button" className={`btn btn-primary ${s['budget-form__btn-save']}`} onClick={onSubmit} disabled={saving}>
           <Save size={16} /> {saving ? 'GUARDANDO...' : 'GUARDAR'}
         </button>
       ) : null}

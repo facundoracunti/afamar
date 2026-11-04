@@ -341,6 +341,27 @@ describe('buildPdfData — persisted work-order commercial totals', () => {
 });
 
 describe('buildPdfData — persisted budget commercial totals', () => {
+  it('uses the persisted rounded budget total instead of the raw subtotal', () => {
+    const data = buildPdfData({
+      ...pdfParams,
+      document_type: 'budget',
+      usePersistedCommercialTotals: true,
+      form: structuredForm([structuredPiece()], {
+        number: 'P-000099',
+        subtotal: 935_440,
+        total: 940_000,
+        subtotal_usd: 935.44,
+        total_usd: 940,
+        total_contractual_ars: null,
+        total_contractual_usd: null,
+      }),
+    });
+
+    expect(data.subtotal).toBe(935_440);
+    expect(data.total).toBe(940_000);
+    expect(data.total).not.toBe(data.subtotal);
+  });
+
   it('uses the P-000012 contractual total and derives the PDF USD value from it', () => {
     const data = buildPdfData({
       ...pdfParams,

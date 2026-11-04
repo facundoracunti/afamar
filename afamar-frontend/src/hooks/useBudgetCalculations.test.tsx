@@ -66,11 +66,15 @@ function makeForm(overrides: Partial<EntityFormState> = {}): EntityFormState {
   } as EntityFormState;
 }
 
-function renderCalc(initial: EntityFormState, paymentMethods: PaymentMethod[] = PAYMENT_METHODS) {
+function renderCalc(
+  initial: EntityFormState,
+  paymentMethods: PaymentMethod[] = PAYMENT_METHODS,
+  options: { editableBudget?: boolean } = {},
+) {
   const result = renderHook(
     ({ form, pms }: { form: EntityFormState; pms: PaymentMethod[] }) => {
       const [current, setCurrent] = useState<EntityFormState>(form);
-      useBudgetCalculations(current, setCurrent, pms);
+      useBudgetCalculations(current, setCurrent, pms, options);
       return { form: current, setForm: setCurrent };
     },
     { initialProps: { form: initial, pms: paymentMethods } },
@@ -135,6 +139,26 @@ describe('useBudgetCalculations — basic totals', () => {
     expect(result.current.form.total).toBe(1_110_000);
     expect(result.current.form.total_usd).toBe(709.27);
     expect(result.current.form.balance_due).toBe(1_110_000);
+  });
+
+  it('keeps editable budget USD exact while rounding only the ARS total', async () => {
+    const { result } = renderCalc(
+      makeForm({
+        usd_rate: 1000,
+        fabrication_details: [
+          { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 935440 },
+        ],
+      }),
+      PAYMENT_METHODS,
+      { editableBudget: true },
+    );
+
+    await act(async () => {});
+    expect(result.current.form.subtotal).toBe(935440);
+    expect(result.current.form.total).toBe(940000);
+    expect(result.current.form.total_usd).toBe(935.44);
+    expect(result.current.form.total_exact_ars).toBeNull();
+    expect(result.current.form.total_contractual_ars).toBeNull();
   });
 });
 

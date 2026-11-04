@@ -1,3 +1,4 @@
+import { useState, type MouseEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   BarChart3,
@@ -121,6 +122,7 @@ interface SidebarProps {
 export function Sidebar({ isCollapsed, onCollapse, expanded, onExpand, isMobile = false, isMobileOpen = false, onMobileToggle, onMobileClose }: SidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const [popoverTop, setPopoverTop] = useState<number | null>(null);
   const groupByKey = new Map(accordionGroups.map((group) => [group.key, group]));
   const sidebarWidth = isMobile ? SIDEBAR_WIDTH : isCollapsed ? SIDEBAR_COLLAPSED : SIDEBAR_WIDTH;
   const visuallyCollapsed = isCollapsed && !isMobile;
@@ -138,8 +140,19 @@ export function Sidebar({ isCollapsed, onCollapse, expanded, onExpand, isMobile 
 
   const handleNavigate = (path: string): void => {
     navigate(path);
+    onExpand('');
+    setPopoverTop(null);
     if (isMobile) onMobileClose?.();
-    else if (isCollapsed) onExpand('');
+  };
+
+  const handleGroupToggle = (groupKey: string, event: MouseEvent<HTMLButtonElement>): void => {
+    const nextExpanded = expanded === groupKey ? '' : groupKey;
+    onExpand(nextExpanded);
+    setPopoverTop(
+      nextExpanded && visuallyCollapsed
+        ? event.currentTarget.getBoundingClientRect().top
+        : null,
+    );
   };
 
   const renderGroup = (group: AccordionGroup) => {
@@ -151,7 +164,7 @@ export function Sidebar({ isCollapsed, onCollapse, expanded, onExpand, isMobile 
           <>
             <button
               className={s['main-layout__menu-btn']}
-              onClick={() => onExpand(expanded === group.key ? '' : group.key)}
+              onClick={(event) => handleGroupToggle(group.key, event)}
               title={visuallyCollapsed ? group.label : undefined}
               aria-expanded={isExpanded}
             >
@@ -175,7 +188,10 @@ export function Sidebar({ isCollapsed, onCollapse, expanded, onExpand, isMobile 
               </ul>
             )}
             {visuallyCollapsed && expanded === group.key && (
-              <ul className={s['main-layout__submenu-popover']}>
+              <ul
+                className={s['main-layout__submenu-popover']}
+                style={{ top: popoverTop ?? undefined, left: `${SIDEBAR_COLLAPSED}px` }}
+              >
                 <li className={s['main-layout__submenu-popover-header']}><group.icon size={14} /><span>{group.label}</span></li>
                 {group.subItems.map((sub) => <li key={sub.path} className={s['main-layout__submenu-item']}>
                   <a href="#!" className={s['main-layout__submenu-link']} onClick={(event) => { event.preventDefault(); handleNavigate(sub.path); }}>

@@ -30,6 +30,22 @@ def _decimal(value: Any) -> Decimal:
         return Decimal("0")
 
 
+def round_to_nearest_multiple(amount: Any, factor: int = 5000) -> float:
+    """Round a positive amount upward to the next commercial multiple.
+
+    Decimal avoids binary-float boundary errors (for example, an amount just
+    below a multiple being represented as just above it). Non-positive values
+    remain zero and a non-positive factor is rejected instead of silently
+    producing an invalid commercial total.
+    """
+    if factor <= 0:
+        raise ValueError("factor must be greater than zero")
+    value = max(Decimal("0"), _decimal(amount))
+    unit = Decimal(factor)
+    rounded = (value / unit).to_integral_value(rounding=ROUND_CEILING) * unit
+    return float(rounded.quantize(Decimal("0.01")))
+
+
 def contractual_totals(exact_ars: Any, usd_rate: Any) -> dict[str, float]:
     """Return exact, adjustment and contractual ARS/USD values.
 
@@ -39,9 +55,7 @@ def contractual_totals(exact_ars: Any, usd_rate: Any) -> dict[str, float]:
     """
     exact = max(Decimal("0"), _decimal(exact_ars))
     rate = _decimal(usd_rate)
-    contractual = (exact / ROUNDING_UNIT_ARS).to_integral_value(
-        rounding=ROUND_CEILING,
-    ) * ROUNDING_UNIT_ARS
+    contractual = Decimal(str(round_to_nearest_multiple(exact, int(ROUNDING_UNIT_ARS))))
     adjustment = contractual - exact
     contractual_usd = contractual / rate if rate > 0 else Decimal("0")
     exact_usd = exact / rate if rate > 0 else Decimal("0")
@@ -101,6 +115,27 @@ def apply_contractual_totals(data: dict, *, exact_ars: Any | None = None) -> dic
         total_usd=values["contractual_usd"],
     )
     _apply_contractual_balance(data, values)
+    return data
+
+
+def apply_live_budget_rounding(data: dict) -> dict:
+    """Round an editable quote's final ARS total without freezing a snapshot.
+
+    The exact subtotals and the USD total remain untouched. Only the final
+    ARS quote and its ARS balance use the commercial rounded amount.
+    """
+    rounded_ars = round_to_nearest_multiple(data.get("total"))
+    data["total"] = rounded_ars
+
+    rate = _decimal(data.get("usd_rate"))
+    deposit = _decimal(data.get("deposit_received"))
+    deposit_usd = _decimal(data.get("deposit_usd"))
+    currency = str(data.get("deposit_currency") or "ARS").upper()
+    deposit_ars = deposit_usd * rate if currency == "USD" else deposit
+    data["balance_due"] = float(
+        max(Decimal("0"), Decimal(str(rounded_ars)) - deposit_ars)
+        .quantize(Decimal("0.01"))
+    )
     return data
 
 

@@ -158,6 +158,39 @@ describe('useFormActions after-action info', () => {
     expect(onAfterAction).toHaveBeenCalledWith({ created: false });
   });
 
+  it('sends the complete serialized child collections on budget update', async () => {
+    const services = makeServices(vi.fn());
+    services.listPath = '/admin/budgets';
+    const update = vi.fn().mockResolvedValue({});
+    services.update = update;
+    const payload = {
+      pools_data: '[{"pool_id":77}]',
+      materials_data: '[{"name":"Mármol"}]',
+      pieces_data: '[{"id":"piece-1","pools":[{"pool_id":77}]}]',
+      additional_works_data: '[]',
+    };
+    const { wrapper } = makeWrapper();
+
+    const { result } = renderHook(
+      () => useFormActions({
+        form: { ...INITIAL_FORM } as EntityFormState,
+        setForm: () => {},
+        setSaving: () => {},
+        services,
+        id: '12',
+        isEdit: true,
+        navigate: () => {},
+        buildPayload: () => payload,
+        onError: () => {},
+      }),
+      { wrapper },
+    );
+
+    await result.current.handleSubmit(undefined as never);
+
+    expect(update).toHaveBeenCalledWith('12', expect.objectContaining(payload));
+  });
+
   it('passes { deleted: true } to onAfterAction after delete', async () => {
     const services = makeServices(vi.fn());
     services.delete = vi.fn().mockResolvedValue({});

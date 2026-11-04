@@ -193,10 +193,13 @@ export function computeDocumentRuleSet({
     && form.number != null
     && form.total != null
     // Work orders already use the persisted financial snapshot to keep their
-    // measurement lines stable. Budgets need the complete commercial snapshot
-    // before the saved contractual total can override the calculated path;
-    // legacy budgets without it remain on their historical behavior.
-    && (document_type === 'work_order' || hasCompleteContractualSnapshot);
+    // measurement lines stable. A saved budget's `total` is already the
+    // commercial ARS amount persisted by BudgetService, so the PDF must use
+    // it instead of recalculating the footer from line-item subtotals. When a
+    // complete contractual snapshot exists, its explicit contractual fields
+    // still take precedence for compatibility with converted documents.
+    && Number(form.total) > 0
+    && (document_type === 'work_order' || document_type === 'budget');
   const persistedContractTotal = form.total_contractual_ars != null
     ? num('total_contractual_ars')
     : num('total');

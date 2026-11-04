@@ -163,75 +163,81 @@ export default function AdditionalWorkCard({
             ) : null}
           </div>
 
-          <div className={`${s['additional-work-card__field']} ${s['additional-work-card__field--cant']}`}>
-            <label
-              className={s['additional-work-card__label']}
-              title="Metros lineales de frente / regrueso a cobrar."
-            >
-              Metros Lineales
-            </label>
-            <LinearMetersInput
-              className={`input ${s['additional-work-card__input']}`}
-              value={selection.linear_meters}
-              disabled={readOnly}
-              onCommit={(n) =>
-                updateAdditionalWork(idx, 'linear_meters', n, {
-                  catalogueItem,
-                  materialOptions,
-                })
-              }
-            />
+          <div className={s['additional-work-card__dimensions']}>
+            <div className={s['additional-work-card__field']}>
+              <label
+                className={s['additional-work-card__label']}
+                title="Metros lineales de frente / regrueso a cobrar."
+              >
+                Metros Lineales (ml) *
+              </label>
+              <LinearMetersInput
+                className={`input ${s['additional-work-card__input']}`}
+                value={selection.linear_meters}
+                disabled={readOnly}
+                onCommit={(n) =>
+                  updateAdditionalWork(idx, 'linear_meters', n, {
+                    catalogueItem,
+                    materialOptions,
+                  })
+                }
+              />
+            </div>
+
+            {isMiter45 ? (
+              <div className={s['additional-work-card__field']}>
+                <label className={s['additional-work-card__label']}>
+                  Altura del frente (cm) *
+                </label>
+                <input
+                  className={`input ${s['additional-work-card__input']}`}
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={selection.front_height_cm ?? ''}
+                  placeholder="Ej.: 15"
+                  onChange={(e) => updateAdditionalWork(idx, 'front_height_cm', e.target.value === '' ? null : Number(e.target.value), { catalogueItem, materialOptions })}
+                  disabled={readOnly}
+                  aria-label="Altura del frente (cm)"
+                />
+                <small className={s['additional-work-card__formula']}>
+                  Obligatoria para el frente ingletado a 45°.
+                </small>
+              </div>
+            ) : null}
           </div>
 
-          {isMiter45 ? (
-            <div className={`${s['additional-work-card__field']} ${s['additional-work-card__field--height']}`}>
-              <label className={s['additional-work-card__label']}>
-                Altura del frente (cm) *
-              </label>
-              <input
-                className={`input ${s['additional-work-card__input']}`}
-                type="number"
-                min="0.01"
-                step="0.01"
-                value={selection.front_height_cm ?? ''}
-                placeholder="Ej.: 15"
-                onChange={(e) => updateAdditionalWork(idx, 'front_height_cm', e.target.value === '' ? null : Number(e.target.value), { catalogueItem, materialOptions })}
-                disabled={readOnly}
-                aria-label="Altura del frente (cm)"
-              />
+          <div className={s['additional-work-card__summary']}>
+            <div className={s['additional-work-card__summary-formula']}>
               <small className={s['additional-work-card__formula']}>
-                Obligatoria para el frente ingletado a 45°.
+                {formulaBreakdown ? (
+                  <>
+                    Precio unitario: {formatNumber(formulaBreakdown.material_price_m2)} /m² ×{' '}
+                    {formatNumber(formulaBreakdown.linear_coefficient)} ×{' '}
+                    {formatNumber(formulaBreakdown.multiplier)} ={' '}
+                    {formatNumber(formulaBreakdown.price_per_meter)}/ml
+                    {' · '}
+                    Subtotal: {formatNumber(formulaBreakdown.price_per_meter)}/ml ×{' '}
+                    {formatNumber(formulaBreakdown.linear_meters)} ml ={' '}
+                    {formatNumber(formulaBreakdown.subtotal)}
+                  </>
+                ) : (
+                  <>Asigná un material y cargá los metros lineales.</>
+                )}
               </small>
+              {formulaAt ? (
+                <small className={s['additional-work-card__formula-audit']}>
+                  Calculado y congelado: {new Date(formulaAt).toLocaleString('es-AR')}
+                </small>
+              ) : null}
             </div>
-          ) : null}
-
-          <div className={`${s['additional-work-card__field']} ${s['additional-work-card__field--subtotal']}`}>
-            <label className={s['additional-work-card__label']}>Subtotal</label>
-            <strong className={s['additional-work-card__subtotal']}>
-              {selection.currency === 'USD' ? 'USD ' : '$ '}
-              {formatNumber(selection.total || 0)}
-            </strong>
-            <small className={s['additional-work-card__formula']}>
-              {formulaBreakdown ? (
-                <>
-                  Precio unitario: {formatNumber(formulaBreakdown.material_price_m2)} /m² ×{' '}
-                  {formatNumber(formulaBreakdown.linear_coefficient)} ×{' '}
-                  {formatNumber(formulaBreakdown.multiplier)} ={' '}
-                  {formatNumber(formulaBreakdown.price_per_meter)}/ml
-                  {' · '}
-                  Subtotal: {formatNumber(formulaBreakdown.price_per_meter)}/ml ×{' '}
-                  {formatNumber(formulaBreakdown.linear_meters)} ml ={' '}
-                  {formatNumber(formulaBreakdown.subtotal)}
-                </>
-              ) : (
-                <>Asigná un material y cargá los metros lineales.</>
-              )}
-            </small>
-            {formulaAt ? (
-              <small className={s['additional-work-card__formula-audit']}>
-                Frozen {new Date(formulaAt).toLocaleString('es-AR')}
-              </small>
-            ) : null}
+            <div className={s['additional-work-card__summary-total']}>
+              <span className={s['additional-work-card__summary-label']}>Subtotal</span>
+              <strong className={s['additional-work-card__subtotal']}>
+                {selection.currency === 'USD' ? 'USD ' : '$ '}
+                {formatNumber(selection.total || 0)}
+              </strong>
+            </div>
           </div>
         </div>
       ) : (

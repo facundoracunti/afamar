@@ -52,10 +52,15 @@ export function useBudgetCalculations(
   form: EntityFormState,
   setForm: React.Dispatch<React.SetStateAction<EntityFormState>>,
   paymentMethods: PaymentMethod[] = [],
-  options: { freezeExistingWorkOrder?: boolean; freezeExistingBudget?: boolean } = {},
+  options: {
+    freezeExistingWorkOrder?: boolean;
+    freezeExistingBudget?: boolean;
+    editableBudget?: boolean;
+  } = {},
 ) {
   const freezeExistingWorkOrder = options.freezeExistingWorkOrder === true;
   const freezeExistingBudget = options.freezeExistingBudget === true;
+  const editableBudget = options.editableBudget === true;
   const freezeExistingDocument = freezeExistingWorkOrder || freezeExistingBudget;
   const commercialSignatureRef = useRef<string | null>(null);
   const depositSignatureRef = useRef<string | null>(null);
@@ -384,23 +389,25 @@ export function useBudgetCalculations(
       pm,
       installmentsCount,
       contractualTotal,
-      contractualTotalUsd,
+      editableBudget ? total_usd : contractualTotalUsd,
     );
+
+    const formTotalUsd = editableBudget ? total_usd : contractualTotalUsd;
 
     setForm((prev: EntityFormState) => ({
       ...prev,
       subtotal,
        total: contractualTotal,
-       total_exact_ars: commercialTotals.exactArs,
-       total_exact_usd: commercialTotals.exactUsd,
-       rounding_adjustment_ars: commercialTotals.adjustmentArs,
-       rounding_adjustment_usd: commercialTotals.adjustmentUsd,
-        total_contractual_ars: shouldRoundCommercialTotal ? contractualTotal : prev.total_contractual_ars,
-        total_contractual_usd: shouldRoundCommercialTotal ? contractualTotalUsd : prev.total_contractual_usd,
+       total_exact_ars: editableBudget ? null : commercialTotals.exactArs,
+       total_exact_usd: editableBudget ? null : commercialTotals.exactUsd,
+       rounding_adjustment_ars: editableBudget ? null : commercialTotals.adjustmentArs,
+       rounding_adjustment_usd: editableBudget ? null : commercialTotals.adjustmentUsd,
+        total_contractual_ars: editableBudget ? null : (shouldRoundCommercialTotal ? contractualTotal : prev.total_contractual_ars),
+        total_contractual_usd: editableBudget ? null : (shouldRoundCommercialTotal ? contractualTotalUsd : prev.total_contractual_usd),
        subtotal_usd,
-       total_usd: contractualTotalUsd,
+       total_usd: formTotalUsd,
        balance_due: Math.max(0, contractualTotal - paidArsForBalance),
-       balance_due_usd: Math.max(0, contractualTotalUsd - paidUsdForBalance),
+       balance_due_usd: Math.max(0, formTotalUsd - paidUsdForBalance),
       discount_amount: discountAmount,
       installment_detail_ars: installmentDetail.ars,
       installment_detail_usd: installmentDetail.usd,
