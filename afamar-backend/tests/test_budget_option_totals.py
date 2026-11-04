@@ -11,14 +11,109 @@ Covers `app.services.budget_option_totals`:
 """
 import json
 
+from app.services.budget_calculator import (
+    calculate_budget_totals,
+    compute_detail_totals,
+)
 from app.services.budget_option_totals import (
     compute_option_subtotals,
     compute_options_report,
     pick_winning_option,
+    winning_option_flat,
 )
 from app.services.budget_options import SINGLE_OPTION_ID
-from app.services.budget_option_totals import winning_option_flat
-from app.services.budget_calculator import compute_detail_totals
+
+
+def test_budget_totals_include_materials_fabrication_additional_and_pools():
+    totals = calculate_budget_totals(
+        materials=[
+            {
+                "length": 2,
+                "width": 1,
+                "quantity": 1,
+                "price_m2_usd": 500,
+                "currency": "USD",
+            }
+        ],
+        fabrication_details=[
+            {"length": 1, "width": 1, "quantity": 1, "price": 10000, "currency": "ARS"}
+        ],
+        additional_works=[
+            {"price": 100, "quantity": 1, "currency": "USD", "type": "flat"}
+        ],
+        pools=[{"price": 20000, "quantity": 1, "currency": "ARS"}],
+        usd_rate=1000,
+        transport_ars=5000,
+    )
+
+    assert totals["subtotal_ars"] == 30000
+    assert totals["subtotal_usd"] == 1100
+    assert totals["total_ars"] == 1135000
+    assert totals["total_usd"] == 1135
+
+
+def test_reported_budget_fixture_reaches_755_38_usd_with_miter_front():
+    """Isolated reproduction of the reported partial-total scenario."""
+    totals = calculate_budget_totals(
+        materials=[
+            {
+                "length": 1,
+                "width": 1,
+                "quantity": 1,
+                "price_m2_usd": 506.37,
+                "currency": "USD",
+            }
+        ],
+        fabrication_details=[],
+        additional_works=[
+            {
+                "type": "frente",
+                "front_kind": "MITER_45",
+                "linear_meters": 1,
+                "total": 249.01,
+                "currency": "USD",
+            }
+        ],
+        pools=[],
+        usd_rate=1000,
+    )
+
+    assert totals["materials_usd"] == 506.37
+    assert totals["additional_usd"] == 249.01
+    assert totals["subtotal_usd"] == 755.38
+    assert totals["total_usd"] == 755.38
+
+
+def test_budget_totals_include_pool_price_and_currency():
+    """A pool in the real PoolInForm wire shape contributes to the total."""
+    totals = calculate_budget_totals(
+        materials=[
+            {
+                "length": 1,
+                "width": 1,
+                "quantity": 1,
+                "price_m2_usd": 385.35,
+                "currency": "USD",
+            }
+        ],
+        fabrication_details=[],
+        additional_works=[],
+        pools=[
+            {
+                "pool_id": 305,
+                "brand": "Mi Pileta",
+                "model": "305",
+                "price": 160000,
+                "currency": "ARS",
+                "quantity": 1,
+            }
+        ],
+        usd_rate=1594.74,
+    )
+
+    assert totals["pools_ars"] == 160000
+    assert totals["subtotal_usd"] == 385.35
+    assert totals["total_usd"] == 485.68
 
 
 def test_m2_detail_totals_use_dimensions_when_derived_price_is_missing():

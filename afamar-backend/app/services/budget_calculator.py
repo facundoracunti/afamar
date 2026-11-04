@@ -276,3 +276,63 @@ def compute_additional_totals(rows: list) -> tuple:
         else:
             total_ars += total
     return total_ars, total_usd
+
+
+def calculate_budget_totals(
+    materials: list,
+    fabrication_details: list,
+    additional_works: list,
+    pools: list,
+    usd_rate: float,
+    transport_ars: float = 0.0,
+) -> dict:
+    """Aggregate every budget component in its native currency.
+
+    The result keeps ARS and USD buckets separate until the final conversion.
+    This is the single aggregation path for conversion/reporting code:
+
+    ``materials + fabrication + additional works + pools``
+
+    Alternatives are expected to be filtered by the caller when the document
+    represents one selected option. ``additional_works`` is intentionally a
+    required argument so a caller cannot silently omit that block.
+    """
+    material_totals = calculate_material_totals(materials, usd_rate)
+    fabrication_ars, fabrication_usd = compute_detail_totals(fabrication_details)
+    additional_ars, additional_usd = compute_additional_totals(additional_works)
+    pools_ars, pools_usd = compute_pool_totals(pools)
+
+    subtotal_ars = (
+        material_totals["ars"]
+        + fabrication_ars
+        + additional_ars
+        + pools_ars
+    )
+    subtotal_usd = (
+        material_totals["usd"]
+        + fabrication_usd
+        + additional_usd
+        + pools_usd
+    )
+    rate = float(usd_rate or 0)
+    transport = float(transport_ars or 0)
+    total_ars = round(subtotal_ars + subtotal_usd * rate + transport)
+    total_usd = (
+        round(subtotal_usd + subtotal_ars / rate + transport / rate, 2)
+        if rate > 0
+        else 0.0
+    )
+    return {
+        "materials_ars": round(material_totals["ars"], 2),
+        "materials_usd": round(material_totals["usd"], 2),
+        "fabrication_ars": round(fabrication_ars, 2),
+        "fabrication_usd": round(fabrication_usd, 2),
+        "additional_ars": round(additional_ars, 2),
+        "additional_usd": round(additional_usd, 2),
+        "pools_ars": round(pools_ars, 2),
+        "pools_usd": round(pools_usd, 2),
+        "subtotal_ars": round(subtotal_ars, 2),
+        "subtotal_usd": round(subtotal_usd, 2),
+        "total_ars": total_ars,
+        "total_usd": total_usd,
+    }

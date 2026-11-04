@@ -25,7 +25,11 @@ fields the budget needs to render and to survive catalogue edits:
       "total": 144.57,
       "currency": "USD",
       "formula_values": { "material_price_m2_at_selection": 330.0,
+                          "linear_coefficient": 0.13,
                           "multiplier": 1.15,
+                          "linear_meters": 2.93,
+                          "unit_price_per_meter": 49.34,
+                          "subtotal": 144.57,
                           "computed_at": "..." }
     }]
 

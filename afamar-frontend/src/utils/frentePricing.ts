@@ -1,7 +1,12 @@
 import { AdditionalWork } from '../types/additionalWork';
 import { MaterialInForm } from '../types/budget';
-import { round2 } from './math';
 import { materialGroupKey } from './materialGroups';
+
+function roundMoney(value: number): number {
+  // A small decimal epsilon keeps .005 cases aligned with the backend's
+  // Decimal/ROUND_HALF_UP rule despite IEEE-754 representation.
+  return Math.round((value + 1e-9) * 100) / 100;
+}
 
 /** Re-export the group option type so existing call sites don't need
  *  to import from `./materialGroups` separately. The helper exists in
@@ -13,6 +18,15 @@ import { materialGroupKey } from './materialGroups';
  *  here so the picker preview agrees with the persisted value. */
 export const FRENTE_LINEAR_COEFFICIENT = 0.13;
 export const FRENTE_FORMULA_MULTIPLIER_DEFAULT = 1.15;
+
+export interface FrentePricingBreakdown {
+  material_price_m2: number;
+  linear_coefficient: number;
+  multiplier: number;
+  linear_meters: number;
+  price_per_meter: number;
+  subtotal: number;
+}
 
 /** Backwards-compatible shape used by `AdditionalWorkCard` and the
  *  `useAdditionalWorkSelection` hook. Each entry corresponds to one
@@ -115,9 +129,33 @@ export function computeFrenteTotal(
   const multiplier = Number(formulaMultiplier || 0);
   const basePrice = Number(materialPricePerM2 || 0);
   const ml = Number(linearMeters || 0);
-  const pricePerMeter = round2(basePrice * FRENTE_LINEAR_COEFFICIENT * multiplier);
-  const total = round2(basePrice * FRENTE_LINEAR_COEFFICIENT * multiplier * ml);
+  const pricePerMeter = roundMoney(basePrice * FRENTE_LINEAR_COEFFICIENT * multiplier);
+  const total = roundMoney(pricePerMeter * ml);
   return { price_per_meter: pricePerMeter, total };
+}
+
+/** Return the values used by the UI formula explanation.
+ *
+ * The subtotal is intentionally calculated from the rounded unit price. This
+ * mirrors the backend and makes the visible equation auditable.
+ */
+export function buildFrentePricingBreakdown(
+  materialPricePerM2: number,
+  formulaMultiplier: number,
+  linearMeters: number,
+): FrentePricingBreakdown {
+  const materialPrice = Number(materialPricePerM2 || 0);
+  const multiplier = Number(formulaMultiplier || 0);
+  const meters = Number(linearMeters || 0);
+  const computed = computeFrenteTotal(materialPrice, multiplier, meters);
+  return {
+    material_price_m2: materialPrice,
+    linear_coefficient: FRENTE_LINEAR_COEFFICIENT,
+    multiplier,
+    linear_meters: meters,
+    price_per_meter: computed.price_per_meter,
+    subtotal: computed.total,
+  };
 }
 
 /**

@@ -48,6 +48,7 @@ from app.services.commercial_rounding import (
 from app.services.dolar import get_blue_mid_rate
 from app.services.frente_pricing import apply_frente_rows
 from app.services.stock_helpers import deduct_pool_stock, restore_pool_stock
+from app.services.work_order.recalc import recalculate_totals_from_items
 from app.utils.client_helpers import apply_client_update, resolve_client_id
 from app.utils.numbering import generate_budget_number, generate_work_order_number
 
@@ -151,6 +152,21 @@ class BudgetService:
         # the legacy flat arrays from it. Client-provided arrays win here
         # (`only_if_missing=True`) — the budget path trusts the form totals.
         flatten_pieces(data, only_if_missing=True)
+
+        # Materialize the additional-work snapshot before recalculating. The
+        # frente total is frozen here, so the normal budget path sees the same
+        # fabrication/additional/pool components as conversion and the PDF.
+        if raw_additional_works_data is not None:
+            data["additional_works_data"] = _process_additional_works_snapshot(
+                self.repo.db,
+                raw_additional_works_data,
+                usd_rate=data.get("usd_rate"),
+            )
+
+        # Recompute from the complete line-item payload. This preserves the
+        # existing discount/payment-method rules before the contractual round.
+        recalculate_totals_from_items(self.repo.db, data)
+
         # New budgets receive the silent commercial snapshot. Existing rows
         # remain untouched because this path only handles creation.
         apply_contractual_totals(data)
@@ -164,12 +180,6 @@ class BudgetService:
         # Persist the snapshot directly in `additional_works_data`. We don't
         # create `BudgetAdicional` rows anymore (the legacy table is
         # kept for historical rows and could be migrated in a follow-up).
-        if raw_additional_works_data is not None:
-            budget.additional_works_data = _process_additional_works_snapshot(
-                self.repo.db,
-                raw_additional_works_data,
-                usd_rate=data.get("usd_rate"),
-            )
         for item_data in items_data:
             item = BudgetItem(budget_id=budget.id, **item_data)
             self.repo.add(item)

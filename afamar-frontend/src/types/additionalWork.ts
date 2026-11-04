@@ -13,8 +13,8 @@ export interface AdditionalWork {
   price: number;
   currency: 'ARS' | 'USD';
   /** 'flat' (legacy `price * quantity` math) or 'frente'
-   *  (formula `(material.price_m2 * 0.13) * formula_constant`,
-   *  multiplied by `linear_meters` from the budget row). */
+   *  (unit formula `(material.price_m2 * 0.13) * formula_constant`,
+   *  then unit price multiplied by `linear_meters`). */
   type: 'flat' | 'frente';
   /** Multiplicador (default 1.15). Solo aplica a `frente`. DB column name
    *  sigue siendo `formula_constant` (no se renombró para evitar una

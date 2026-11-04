@@ -35,11 +35,15 @@ export interface AdditionalWorkSelection {
   assigned_material_id?: number | null;
   formula_values?: {
     material_price_m2_at_selection: number;
+    linear_coefficient?: number;
     /** Backend renombró el campo a `multiplier` cuando la fórmula pasó de
      *  aditiva (`+1.15`) a puramente multiplicativa (`×1.15`). Toleramos
      *  `constant` para snapshots creados por la build anterior. */
     multiplier?: number;
     constant?: number;
+    linear_meters?: number;
+    unit_price_per_meter?: number;
+    subtotal?: number;
     computed_at: string;
   } | null;
 }
@@ -91,9 +95,13 @@ export function parseAdditionalWorksData(json: string | null | undefined): Addit
             const fv = row.formula_values as
               | {
                   material_price_m2_at_selection: unknown;
-                  multiplier?: unknown;
-                  constant?: unknown;
-                  computed_at: unknown;
+                   multiplier?: unknown;
+                   constant?: unknown;
+                   linear_coefficient?: unknown;
+                   linear_meters?: unknown;
+                   unit_price_per_meter?: unknown;
+                   subtotal?: unknown;
+                   computed_at: unknown;
                 }
               | undefined;
             return {
@@ -110,7 +118,11 @@ export function parseAdditionalWorksData(json: string | null | undefined): Addit
                       fv.material_price_m2_at_selection,
                       0,
                     ),
+                    linear_coefficient: pickNumeric(fv.linear_coefficient, 0.13),
                     multiplier: pickNumeric(fv.multiplier ?? fv.constant, 0),
+                    linear_meters: pickNumeric(fv.linear_meters, 0),
+                    unit_price_per_meter: pickNumeric(fv.unit_price_per_meter, 0),
+                    subtotal: pickNumeric(fv.subtotal, 0),
                     computed_at:
                       typeof fv.computed_at === 'string' ? fv.computed_at : new Date().toISOString(),
                   }

@@ -6,6 +6,14 @@
    .additional-works__totals                 totals row below the card list
 */
 
+.additional-works {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+  container-type: inline-size;
+}
+
 .additional-works__loading,
 .additional-works__empty {
   text-align: center;
@@ -24,6 +32,7 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 8px;
+  min-width: 0;
 }
 
 .additional-works__add-select,
@@ -60,5 +69,11 @@
     flex-wrap: wrap;
     gap: 6px 12px;
     padding-inline: 4px;
+  }
+}
+
+@container (max-width: 620px) {
+  .additional-works__picker {
+    grid-template-columns: 1fr;
   }
 }

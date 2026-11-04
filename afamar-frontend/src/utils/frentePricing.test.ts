@@ -3,6 +3,7 @@ import {
   FRENTE_FORMULA_MULTIPLIER_DEFAULT,
   FRENTE_LINEAR_COEFFICIENT,
   buildFrenteMaterialOptions,
+  buildFrentePricingBreakdown,
   buildFrenteSelectionFor,
   computeFrenteTotal,
   resolveFrenteMultiplier,
@@ -21,9 +22,16 @@ describe('computeFrenteTotal — multiplicative formula', () => {
 
   it('matches the 1.5 ml case (decimal reported by the operator)', () => {
     const out = computeFrenteTotal(330, 1.15, 1.5);
-    // 330 * 0.13 * 1.15 = 49.33; × 1.5 = 73.995 → 74.00
-    expect(Math.abs(out.price_per_meter - 49.33)).toBeLessThanOrEqual(0.01);
-    expect(Math.abs(out.total - 74.00)).toBeLessThanOrEqual(0.05);
+    // HALF_UP: 330 * 0.13 * 1.15 = 49.335 → 49.34; × 1.5 = 74.01
+    expect(out.price_per_meter).toBe(49.34);
+    expect(out.total).toBe(74.01);
+  });
+
+  it('calculates the subtotal from the displayed unit price', () => {
+    const out = buildFrentePricingBreakdown(330, 1.15, 2.93);
+    expect(out.price_per_meter).toBe(49.34);
+    expect(out.subtotal).toBe(144.57);
+    expect(out.subtotal).toBe(Math.round(out.price_per_meter * out.linear_meters * 100) / 100);
   });
 
   it('keeps the multiplier in the material currency (ARS case)', () => {
@@ -185,8 +193,8 @@ describe('buildFrenteSelectionFor', () => {
     expect(out.type).toBe('frente');
     expect(out.materialName).toBe('Negro Brasil');
     expect(out.currency).toBe('USD');
-    // 330 × 0.13 × 1.15 = 49.33 / 49.34 (IEEE-754); × 1ml = same.
-    expect(Math.abs(out.total - 49.33)).toBeLessThanOrEqual(0.01);
+    // The displayed unit price is also the one used for the 1ml subtotal.
+    expect(out.total).toBe(49.34);
   });
 
   it('tags the materialName for alternativas so downstream bucketing distinguishes them', () => {

@@ -5,6 +5,7 @@ import type { AdditionalWorkSelection } from '../../../hooks/useAdditionalWorkSe
 import {
   FrenteMaterialOption,
   buildFrenteMaterialOptions,
+  buildFrentePricingBreakdown,
   resolveFrenteMultiplier,
 } from '../../../utils/frentePricing';
 import { LinearMetersInput } from '../../common/LinearMetersInput/LinearMetersInput';
@@ -77,6 +78,13 @@ export default function AdditionalWorkCard({
     : null;
   const formulaM2 = selection.formula_values?.material_price_m2_at_selection ?? null;
   const formulaAt = selection.formula_values?.computed_at ?? null;
+  const formulaBreakdown = formulaM2 !== null && formulaMultiplier !== null
+    ? buildFrentePricingBreakdown(
+      formulaM2,
+      formulaMultiplier,
+      Number(selection.linear_meters || 0),
+    )
+    : null;
 
   return (
     <div
@@ -176,7 +184,7 @@ export default function AdditionalWorkCard({
           </div>
 
           {isMiter45 ? (
-            <div className={`${s['additional-work-card__field']} ${s['additional-work-card__field--cant']}`}>
+            <div className={`${s['additional-work-card__field']} ${s['additional-work-card__field--height']}`}>
               <label className={s['additional-work-card__label']}>
                 Altura del frente (cm) *
               </label>
@@ -204,11 +212,16 @@ export default function AdditionalWorkCard({
               {formatNumber(selection.total || 0)}
             </strong>
             <small className={s['additional-work-card__formula']}>
-              {formulaM2 !== null && formulaMultiplier !== null ? (
+              {formulaBreakdown ? (
                 <>
-                  {formatNumber(formulaM2)} × 0.13 × {formatNumber(formulaMultiplier)} ×{' '}
-                  {formatNumber(Number(selection.linear_meters || 0))} ml ={' '}
-                  {formatNumber(Number(selection.price) || 0)}/ml
+                  Precio unitario: {formatNumber(formulaBreakdown.material_price_m2)} /m² ×{' '}
+                  {formatNumber(formulaBreakdown.linear_coefficient)} ×{' '}
+                  {formatNumber(formulaBreakdown.multiplier)} ={' '}
+                  {formatNumber(formulaBreakdown.price_per_meter)}/ml
+                  {' · '}
+                  Subtotal: {formatNumber(formulaBreakdown.price_per_meter)}/ml ×{' '}
+                  {formatNumber(formulaBreakdown.linear_meters)} ml ={' '}
+                  {formatNumber(formulaBreakdown.subtotal)}
                 </>
               ) : (
                 <>Asigná un material y cargá los metros lineales.</>

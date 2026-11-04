@@ -56,9 +56,9 @@ describe('applyAdditionalWorkField — frente GLOBAL', () => {
     );
     expect(out.assigned_material_id).toBe(27);
     expect(out.materialName).toBe('__ALT__:ZIRCONIUM');
-    // price/ml = 750 × 0.13 × 1.15 ≈ 112.12 ; total = × 3.3 ≈ 370.01
-    expect(out.price).toBeCloseTo(112.12);
-    expect(out.total).toBeCloseTo(370.01);
+    // price/ml = 750 × 0.13 × 1.15 = 112.13 ; total = 112.13 × 3.3 = 370.03
+    expect(out.price).toBeCloseTo(112.13);
+    expect(out.total).toBeCloseTo(370.03);
     expect(out.currency).toBe('USD');
     expect(out.price_source).toBe('catalog');
   });

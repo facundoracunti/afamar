@@ -3,7 +3,7 @@ the `additional_works_data` JSON snapshot on a budget / work-order.
 
 The formula is purely multiplicative:
     price_per_meter = material.price_m2 × 0.13 × formula_multiplier
-    total           = material.price_m2 × 0.13 × formula_multiplier × linear_meters
+    total           = rounded_price_per_meter × linear_meters
 
 `formula_multiplier` defaults to `1.15` when the catalogue row has
 `formula_constant = None` (legacy rows before this feature was added).
@@ -23,11 +23,54 @@ math takes over.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Dict, List, Optional
+
+from app.schemas.additional_work import FrentePricingBreakdown, FrentePricingInput
 
 
 FRENTE_FORMULA_MULTIPLIER_DEFAULT = 1.15
 FRENTE_LINEAR_COEFFICIENT = 0.13
+_MONEY_QUANTUM = Decimal("0.01")
+
+
+def _decimal(value: Any) -> Decimal:
+    """Convert through text so binary float artifacts do not enter pricing."""
+    try:
+        return Decimal(str(value))
+    except (ArithmeticError, TypeError, ValueError):
+        return Decimal("0")
+
+
+def _money(value: Decimal) -> Decimal:
+    return value.quantize(_MONEY_QUANTUM, rounding=ROUND_HALF_UP)
+
+
+def calculate_frente_pricing(data: FrentePricingInput) -> FrentePricingBreakdown:
+    """Calculate the unit price and subtotal for a linear-meter frente.
+
+    The business rule is deliberately staged:
+
+    ``unit price/ml = material price/m2 * 0.13 * multiplier``
+    ``subtotal = rounded unit price/ml * linear meters``
+
+    Keeping these stages explicit prevents the displayed unit price and the
+    persisted subtotal from disagreeing by a cent.
+    """
+    material_price = _decimal(data.material_price_m2)
+    multiplier = _decimal(data.formula_multiplier)
+    linear_meters = _decimal(data.linear_meters)
+    coefficient = _decimal(FRENTE_LINEAR_COEFFICIENT)
+    price_per_meter = _money(material_price * coefficient * multiplier)
+    subtotal = _money(price_per_meter * linear_meters)
+    return FrentePricingBreakdown(
+        material_price_m2=material_price,
+        linear_coefficient=coefficient,
+        formula_multiplier=multiplier,
+        linear_meters=linear_meters,
+        price_per_meter=price_per_meter,
+        subtotal=subtotal,
+    )
 
 
 def resolve_frente_multiplier(catalog_row: Any) -> float:
@@ -62,16 +105,17 @@ def compute_frente_subtotal(
     material's per-m² price, scaled by the catalogue's multiplier
     (default 1.15), times the linear meters the operator booked.
     """
-    multiplier = float(formula_multiplier)
-    price_per_meter = round(
-        float(material_price_m2) * FRENTE_LINEAR_COEFFICIENT * multiplier,
-        2,
+    result = calculate_frente_pricing(
+        FrentePricingInput(
+            material_price_m2=material_price_m2,
+            formula_multiplier=formula_multiplier,
+            linear_meters=linear_meters,
+        )
     )
-    total = round(
-        float(material_price_m2) * FRENTE_LINEAR_COEFFICIENT * multiplier * float(linear_meters),
-        2,
-    )
-    return {"price_per_meter": price_per_meter, "total": total}
+    return {
+        "price_per_meter": float(result.price_per_meter),
+        "total": float(result.subtotal),
+    }
 
 
 def apply_frente_rows(
@@ -143,19 +187,25 @@ def apply_frente_rows(
             out.append(row)
             continue
 
-        computed = compute_frente_subtotal(
-            material_price_m2=material_price_m2,
-            formula_multiplier=multiplier,
-            linear_meters=linear_meters,
+        breakdown = calculate_frente_pricing(
+            FrentePricingInput(
+                material_price_m2=material_price_m2,
+                formula_multiplier=multiplier,
+                linear_meters=linear_meters,
+            )
         )
 
         new_row = dict(row)
-        new_row["price"] = computed["price_per_meter"]
-        new_row["total"] = computed["total"]
+        new_row["price"] = float(breakdown.price_per_meter)
+        new_row["total"] = float(breakdown.subtotal)
         new_row["currency"] = material_currency_code
         new_row["formula_values"] = {
             "material_price_m2_at_selection": material_price_m2,
+            "linear_coefficient": float(breakdown.linear_coefficient),
             "multiplier": multiplier,
+            "linear_meters": float(breakdown.linear_meters),
+            "unit_price_per_meter": float(breakdown.price_per_meter),
+            "subtotal": float(breakdown.subtotal),
             "computed_at": now_iso,
         }
         out.append(new_row)

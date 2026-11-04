@@ -34,7 +34,11 @@ export function recomputeFrenteRow(
     updated.currency = matOpt?.currency ?? updated.currency;
     updated.formula_values = {
       material_price_m2_at_selection: matOpt?.price_per_m2 ?? 0,
+      linear_coefficient: 0.13,
       multiplier,
+      linear_meters: Number(updated.linear_meters || 0),
+      unit_price_per_meter: computed.price_per_meter,
+      subtotal: computed.total,
       computed_at: new Date().toISOString(),
     };
     updated.price_source = 'catalog';

@@ -10,14 +10,17 @@ Coverage:
     the business default (1.15).
 """
 import json
+from decimal import Decimal
 
 from app.services.frente_pricing import (
     FRENTE_FORMULA_MULTIPLIER_DEFAULT,
     FRENTE_LINEAR_COEFFICIENT,
     apply_frente_rows,
+    calculate_frente_pricing,
     compute_frente_subtotal,
     resolve_frente_multiplier,
 )
+from app.schemas.additional_work import FrentePricingInput
 
 
 class _StubCatalogue:
@@ -67,6 +70,20 @@ def test_compute_frente_subtotal_rounds_to_2dp():
     assert round(out["total"], 2) == out["total"]
 
 
+def test_subtotal_is_rounded_unit_price_times_linear_meters():
+    result = calculate_frente_pricing(
+        FrentePricingInput(
+            material_price_m2="330",
+            formula_multiplier="1.15",
+            linear_meters="2.93",
+        )
+    )
+
+    assert result.price_per_meter == Decimal("49.34")
+    assert result.subtotal == Decimal("144.57")
+    assert result.subtotal == (result.price_per_meter * result.linear_meters).quantize(Decimal("0.01"))
+
+
 def test_resolve_frente_multiplier_default():
     cat = _StubCatalogue(id=1, formula_constant=None)
     assert resolve_frente_multiplier(cat) == FRENTE_FORMULA_MULTIPLIER_DEFAULT
@@ -108,6 +125,9 @@ def test_apply_frente_rows_freezes_usd():
     assert out[0]["currency"] == "USD"
     assert out[0]["formula_values"]["material_price_m2_at_selection"] == 330.0
     assert out[0]["formula_values"]["multiplier"] == 1.15
+    assert out[0]["formula_values"]["unit_price_per_meter"] == 49.34
+    assert out[0]["formula_values"]["linear_meters"] == 2.93
+    assert out[0]["formula_values"]["subtotal"] == out[0]["total"]
     assert out[0]["formula_values"]["computed_at"]
 
 

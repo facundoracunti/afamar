@@ -12,9 +12,8 @@ from app.models.work_order import WorkOrder
 from app.repositories.budget import BudgetRepository
 from app.repositories.work_order import WorkOrderRepository
 from app.services.budget_calculator import (
+    calculate_budget_totals,
     compute_alternative_totals,
-    compute_detail_totals,
-    compute_pool_totals,
     parse_additional_works_snapshot,
     parse_materials_data,
 )
@@ -51,7 +50,7 @@ def create_alternative_work_order(
         raise ValidationError("Material at index is not marked as alternative")
 
     usd_rate_value = float(usd_rate if usd_rate is not None else get_blue_mid_rate())
-    mat_cost_ars, mat_cost_usd, alt_currency, _, _ = compute_alternative_totals(
+    _, _, alt_currency, _, _ = compute_alternative_totals(
         alt,
         budget,
         usd_rate=usd_rate_value,
@@ -63,28 +62,27 @@ def create_alternative_work_order(
             detalles = json.loads(budget.fabrication_details) if isinstance(budget.fabrication_details, str) else budget.fabrication_details
         except (json.JSONDecodeError, TypeError):
             pass
-    total_detalles_ars, total_detalles_usd = compute_detail_totals(detalles)
-
     pools = parse_materials_data(budget.pools_data)
     # The alternative inherits the piece's piletas ("piletas travel with
     # the piece"). The per-variant sink override was removed
     # (2026-10-23): the top-level OPCIONES are the only place where a
     # variant is defined, and each option carries its own piletas.
-    total_piletas_ars, total_piletas_usd = compute_pool_totals(pools)
     budget_additional = parse_additional_works_snapshot(budget.additional_works_data)
     additional_for_wo = list(budget_additional)
 
     traslado = float(budget.transport or 0)
-
-    if alt_currency == "USD":
-        subtotal_ars = total_detalles_ars + total_piletas_ars
-        subtotal_usd = mat_cost_usd + total_detalles_usd + total_piletas_usd
-    else:
-        subtotal_ars = mat_cost_ars + total_detalles_ars + total_piletas_ars
-        subtotal_usd = total_detalles_usd + total_piletas_usd
-
-    total_ars = round(subtotal_ars + round(subtotal_usd * usd_rate_value, 2) + traslado)
-    total_usd_val = round(subtotal_usd + round(subtotal_ars / usd_rate_value, 2) + round(traslado / usd_rate_value, 2), 2) if usd_rate_value > 0 else 0
+    totals = calculate_budget_totals(
+        materials=[alt],
+        fabrication_details=detalles,
+        additional_works=budget_additional,
+        pools=pools,
+        usd_rate=usd_rate_value,
+        transport_ars=traslado,
+    )
+    subtotal_ars = totals["subtotal_ars"]
+    subtotal_usd = totals["subtotal_usd"]
+    total_ars = totals["total_ars"]
+    total_usd_val = totals["total_usd"]
 
     common = [m for m in materials if not (m.get("is_alternative") or m.get("es_alternativa"))]
     budgeted_details_list = [alt] + common

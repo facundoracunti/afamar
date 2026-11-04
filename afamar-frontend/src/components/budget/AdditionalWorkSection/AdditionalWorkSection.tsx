@@ -140,7 +140,7 @@ export default function AdditionalWorkSection({ value, onChange, readOnly, formM
   };
 
   return (
-    <div className="card">
+    <div className={`card ${s['additional-works']}`}>
       <h3 className="section-title">TRABAJO ADICIONAL</h3>
 
       {catalogueLoading ? (
