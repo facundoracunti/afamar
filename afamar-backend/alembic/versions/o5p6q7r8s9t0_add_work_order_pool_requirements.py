@@ -70,22 +70,25 @@ def upgrade() -> None:
         )
 
     if not _column_exists("stock_movements", "requirement_id"):
-        # SQLite cannot ALTER TABLE ADD COLUMN with a standalone FK
-        # constraint; batch mode rebuilds the table portably for both SQLite
-        # and MySQL while keeping the migration idempotent.
-        with op.batch_alter_table("stock_movements", recreate="always") as batch:
-            batch.add_column(
-                sa.Column(
-                    "requirement_id",
-                    sa.Integer(),
-                    sa.ForeignKey(
-                        "work_order_pool_requirements.id",
-                        ondelete="SET NULL",
-                        name="fk_stock_movements_requirement_id",
-                    ),
-                    nullable=True,
-                )
-            )
+        # SQLite no soporta ADD COLUMN con FK standalone; alli se usa batch
+        # (recrea la tabla). En MySQL, recreate="always" crea una tabla
+        # temporal mientras la original existe y choca por nombre de FK
+        # duplicado (error 1826), por eso se usa ALTER TABLE directo.
+        column = sa.Column(
+            "requirement_id",
+            sa.Integer(),
+            sa.ForeignKey(
+                "work_order_pool_requirements.id",
+                ondelete="SET NULL",
+                name="fk_stock_movements_requirement_id",
+            ),
+            nullable=True,
+        )
+        if op.get_bind().dialect.name == "sqlite":
+            with op.batch_alter_table("stock_movements", recreate="always") as batch:
+                batch.add_column(column)
+        else:
+            op.add_column("stock_movements", column)
         op.create_index(
             "ix_stock_movements_requirement_id",
             "stock_movements",
@@ -96,8 +99,11 @@ def upgrade() -> None:
 def downgrade() -> None:
     if _column_exists("stock_movements", "requirement_id"):
         op.drop_index("ix_stock_movements_requirement_id", table_name="stock_movements")
-        with op.batch_alter_table("stock_movements", recreate="always") as batch:
-            batch.drop_column("requirement_id")
+        if op.get_bind().dialect.name == "sqlite":
+            with op.batch_alter_table("stock_movements", recreate="always") as batch:
+                batch.drop_column("requirement_id")
+        else:
+            op.drop_column("stock_movements", "requirement_id")
     if _table_exists("work_order_pool_requirements"):
         op.drop_index(
             "ix_work_order_pool_requirements_pool_id",

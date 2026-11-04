@@ -15,7 +15,9 @@ if settings.is_testing:
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # No desactivar los loggers ya configurados por la app: si una migracion
+    # falla, el error debe quedar visible en los logs en lugar de perderse.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = Base.metadata
 
