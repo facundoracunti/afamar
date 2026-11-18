@@ -44,12 +44,19 @@ def _table_exists(table: str) -> bool:
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    is_mysql = bind.dialect.name == "mysql"
+
     # 0) Drop the FK that points `price_history.material_id` at the
     # legacy `materiales` table. The model's FK target is
     # `materials.id`, not `materiales.id`; this constraint would
     # otherwise prevent dropping `materiales` and would also reject
     # inserts to `price_history` once the data lives in `materials`.
-    op.execute("ALTER TABLE price_history DROP FOREIGN KEY `price_history_ibfk_1`")
+    # SQLite does not support MySQL's DROP FOREIGN KEY syntax.  The local
+    # development database already has the canonical FK from the initial
+    # schema, so there is nothing to drop there.
+    if is_mysql and _table_exists("price_history"):
+        op.execute("ALTER TABLE price_history DROP FOREIGN KEY `price_history_ibfk_1`")
 
     # 1) `price_history`: copy any legacy Spanish data into the English
     # columns, then drop the Spanish columns. Renames that are already
@@ -100,11 +107,12 @@ def upgrade() -> None:
 
     # 3) Recreate the FK from `price_history.material_id` to the
     # canonical `materials.id` (matching the SQLAlchemy model).
-    op.execute(
-        "ALTER TABLE price_history "
-        "ADD CONSTRAINT `price_history_ibfk_1` "
-        "FOREIGN KEY (`material_id`) REFERENCES `materials` (`id`)"
-    )
+    if is_mysql and _table_exists("price_history"):
+        op.execute(
+            "ALTER TABLE price_history "
+            "ADD CONSTRAINT `price_history_ibfk_1` "
+            "FOREIGN KEY (`material_id`) REFERENCES `materials` (`id`)"
+        )
 
 
 def downgrade() -> None:

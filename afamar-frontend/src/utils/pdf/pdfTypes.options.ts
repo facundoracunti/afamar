@@ -46,6 +46,9 @@ export interface OptionTotal {
   piece_count: number;
   subtotal_ars: number;
   subtotal_usd: number;
+  /** Commercially rounded values used only for the printed breakdown. */
+  display_subtotal_ars?: number;
+  display_discount_fixed_amount?: number;
   discount_fixed_amount: number;
   surcharge_percentage: number;
   surcharge_amount: number;

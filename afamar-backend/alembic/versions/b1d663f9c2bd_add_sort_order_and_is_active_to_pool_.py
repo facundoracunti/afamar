@@ -18,10 +18,42 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column('pool_types', sa.Column('is_active', sa.Boolean(), nullable=False, server_default=sa.text('1')))
-    op.add_column('pool_types', sa.Column('sort_order', sa.Integer(), nullable=False, server_default=sa.text('0')))
-    op.alter_column('pool_types', 'is_active', server_default=None)
-    op.alter_column('pool_types', 'sort_order', server_default=None)
+    bind = op.get_bind()
+    existing_columns = {
+        column['name'] for column in sa.inspect(bind).get_columns('pool_types')
+    }
+
+    added_columns: list[str] = []
+    if 'is_active' not in existing_columns:
+        op.add_column(
+            'pool_types',
+            sa.Column(
+                'is_active',
+                sa.Boolean(),
+                nullable=False,
+                server_default=sa.text('1'),
+            ),
+        )
+        added_columns.append('is_active')
+
+    if 'sort_order' not in existing_columns:
+        op.add_column(
+            'pool_types',
+            sa.Column(
+                'sort_order',
+                sa.Integer(),
+                nullable=False,
+                server_default=sa.text('0'),
+            ),
+        )
+        added_columns.append('sort_order')
+
+    # SQLite does not support this ALTER COLUMN form. The defaults are only
+    # needed to backfill existing rows, and leaving them in place is safe for
+    # the local development database.
+    if bind.dialect.name != 'sqlite':
+        for column_name in added_columns:
+            op.alter_column('pool_types', column_name, server_default=None)
 
 
 def downgrade() -> None:

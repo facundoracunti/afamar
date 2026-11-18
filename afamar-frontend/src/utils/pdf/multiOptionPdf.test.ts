@@ -161,9 +161,9 @@ describe('PDF multi-opción — data payload', () => {
     const data = buildPdfData({ ...baseParams, form: multiOptionForm(), overrides: {} });
     const t = data.option_totals!.find((x) => x.material_names.includes('NEGRO BRASIL'))!;
     // 2 m² × 300.000 = 600.000 material + 42.000 zócalo + 60.000 traforo
-    // + 850.000 pileta = 1.552.000
+    // + 850.000 pileta = 1.552.000 exact; contractual total rounds to 1.555.000
     expect(t.subtotal_ars).toBe(1_552_000);
-    expect(t.total_ars).toBe(1_552_000);
+    expect(t.total_ars).toBe(1_555_000);
     expect(t.piece_names).toEqual(['COCINA']);
     expect(t.material_names).toEqual(['NEGRO BRASIL']);
   });

@@ -183,4 +183,49 @@ describe('buildOptionTotals — Resumen Comparativo de Opciones (B1)', () => {
     expect(data.option_totals![0].total_ars).toBe(180_000);
     expect(data.option_totals![1].total_ars).toBe(540_000);
   });
+
+  it('uses the contractual commercial rounding for each option final total', () => {
+    const opts = [
+      option('opt-1', 'OpciÃ³n 1', true, [piece('COCINA', 'CALACATTA', 285_149.70)]),
+      option('opt-2', 'OpciÃ³n 2', false, [piece('COCINA', 'CHACARERA', 285_149.70)]),
+    ];
+    const data = buildPdfData({
+      ...baseParams,
+      form: {
+        ...formWithOptions(opts),
+        usd_rate: 1575,
+      },
+      overrides: {},
+    });
+
+    const totals = data.option_totals!;
+    expect(totals[0].subtotal_ars).toBe(570_299.40);
+    expect(totals[0].display_subtotal_ars).toBe(575_000);
+    expect(totals[0].display_discount_fixed_amount).toBe(0);
+    expect(totals[0].total_ars).toBe(575_000);
+    expect(totals[0].total_usd).toBe(365.08);
+    expect(totals[0].balance_due).toBe(575_000);
+  });
+
+  it('shows a rounded subtotal and a commercial discount that closes to the final total', () => {
+    const opts = [
+      option('opt-1', 'OpciÃ³n 1', true, [piece('COCINA', 'GRIS MARA', 266_822)]),
+      option('opt-2', 'OpciÃ³n 2', false, [piece('COCINA', 'CHACARERA', 300_000)]),
+    ];
+    const data = buildPdfData({
+      ...baseParams,
+      form: {
+        ...formWithOptions(opts),
+        usd_rate: 1575,
+        discount_fixed_amount: 60_835.42,
+      },
+      overrides: {},
+    });
+
+    const selected = data.option_totals!.find((total) => total.is_selected)!;
+    expect(selected.subtotal_ars).toBe(533_644);
+    expect(selected.display_subtotal_ars).toBe(535_000);
+    expect(selected.display_discount_fixed_amount).toBe(60_000);
+    expect(selected.total_ars).toBe(475_000);
+  });
 });

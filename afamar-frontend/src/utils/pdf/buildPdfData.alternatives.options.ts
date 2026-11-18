@@ -10,6 +10,8 @@
 
 import { buildPieces, piecesSubtotal } from './buildPiecesPdfData';
 import { computeTotals } from './buildPdfData.totals';
+import { computeInstallmentDetail } from '../../hooks/calculations/paymentMethod';
+import { roundCommercialTotals } from '../commercialRounding';
 import type { BuildAlternativeTotalsParams } from './buildPdfData.types';
 import type { BudgetOption, BudgetPiece } from '../../types/budget';
 import type {
@@ -105,6 +107,21 @@ export function buildOptionTotals(
       discountEnabled: params.discountEnabled,
       discountTarget: params.discountTarget,
     });
+    // The live budget form presents the commercial/contractual total after
+    // rounding to multiples of $5,000.  Apply the same rule here so the
+    // comparison sheet and each option detail page do not print the raw
+    // calculated amount while the form shows the rounded amount.
+    const commercialTotals = roundCommercialTotals(totals.total, params.usdRate);
+    const displaySubtotalArs = roundCommercialTotals(subtotalArs, params.usdRate).contractualArs;
+    const displayDiscountFixedAmount = totals.discount_fixed_amount > 0 && totals.surcharge_amount <= 0
+      ? Math.max(0, displaySubtotalArs - commercialTotals.contractualArs)
+      : totals.discount_fixed_amount;
+    const installmentDetail = computeInstallmentDetail(
+      params.pm,
+      params.installments,
+      commercialTotals.contractualArs,
+      commercialTotals.contractualUsd,
+    );
     // The piletas INCLUDED in this option — printed on its card so the
     // customer knows WHICH bacha each variant comes with.
     const poolModels: string[] = [];
@@ -134,13 +151,15 @@ export function buildOptionTotals(
       piece_count: built.length,
       subtotal_ars: subtotalArs,
       subtotal_usd: subtotalUsd,
+      display_subtotal_ars: displaySubtotalArs,
+      display_discount_fixed_amount: displayDiscountFixedAmount,
       discount_fixed_amount: totals.discount_fixed_amount,
       surcharge_percentage: totals.surcharge_percentage,
       surcharge_amount: totals.surcharge_amount,
-      catalogue_installment_detail: totals.catalogue_installment_detail,
-      total_ars: totals.total,
-      total_usd: totals.total_usd,
-      balance_due: totals.balance_due,
+      catalogue_installment_detail: installmentDetail.ars,
+      total_ars: commercialTotals.contractualArs,
+      total_usd: commercialTotals.contractualUsd,
+      balance_due: Math.max(0, commercialTotals.contractualArs - params.deposit),
       // Sort key: the operator's original position (used to break ties).
       _order: index,
     };

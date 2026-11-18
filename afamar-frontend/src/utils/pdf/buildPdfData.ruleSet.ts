@@ -15,6 +15,8 @@ import {
   resolvePaymentMethod,
 } from './buildPdfData.helpers';
 import { formNum, formStr } from './buildPdfData.form';
+import { computeInstallmentDetail } from '../../hooks/calculations/paymentMethod';
+import { roundCommercialTotals } from '../commercialRounding';
 import type { DocumentRows } from './buildPdfData.rows';
 import type {
   BuildAlternativeTotalsParams,
@@ -208,6 +210,16 @@ export function computeDocumentRuleSet({
     : num('total_usd');
   const effectiveTotal = persisted ? persistedContractTotal : computedTotal;
   const effectiveTotalUsd = persisted ? persistedContractTotalUsd : computedTotalUsd;
+  // New/unsaved budgets use the same contractual commercial rounding as the
+  // live form. Saved documents keep their persisted snapshot above.
+  const commercialTotals = !persisted && document_type === 'budget'
+    ? roundCommercialTotals(computedTotal, usdRate)
+    : null;
+  const roundedTotal = commercialTotals?.contractualArs ?? effectiveTotal;
+  const roundedTotalUsd = commercialTotals?.contractualUsd ?? effectiveTotalUsd;
+  const effectiveInstallmentDetail = commercialTotals
+    ? computeInstallmentDetail(pm, installmentsNum, roundedTotal, roundedTotalUsd).ars
+    : catalogueInstallmentDetail;
   // A complete commercial snapshot stores the exact pre-rounding amount in
   // `total_exact_*`. The compatibility `subtotal` fields can be stale for
   // pieces budgets (notably when a pool was added after the flat financial
@@ -223,7 +235,9 @@ export function computeDocumentRuleSet({
   const effectiveSubtotalUsd = persisted ? persistedExactSubtotalUsd : mainSectionSubtotalUsd;
   const effectiveBalance = persisted
     ? Math.max(0, effectiveTotal - paidArs)
-    : computedBalanceDue;
+    : commercialTotals
+      ? Math.max(0, roundedTotal - paidArs)
+      : computedBalanceDue;
 
   // No main material + at least one alternative: value EVERY alternative's
   // own final price so each option page shows its correct total (dólar,
@@ -262,8 +276,8 @@ export function computeDocumentRuleSet({
     paidArs,
     paidUsd,
     paidLabel,
-    computedTotal: effectiveTotal,
-    computedTotalUsd: effectiveTotalUsd,
+    computedTotal: roundedTotal,
+    computedTotalUsd: roundedTotalUsd,
     computedBalanceDue: effectiveBalance,
     discountFixed,
     surchargePct,
@@ -273,7 +287,7 @@ export function computeDocumentRuleSet({
     catalogueDiscountPct,
     catalogueDiscountAmount,
     catalogueMethodLabel,
-    catalogueInstallmentDetail,
+    catalogueInstallmentDetail: effectiveInstallmentDetail,
     altParams,
   };
 }

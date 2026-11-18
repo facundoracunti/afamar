@@ -9,9 +9,9 @@ services:
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - DB_HOST=${DB_HOST:-mysql-central}
       - DB_PORT=${DB_PORT:-3306}
-      - DB_USER=${DB_USER:-afamar-project}
+      - DB_USER=${DB_USER:-afamar}
       - DB_PASSWORD=${DB_PASSWORD}
-      - DB_NAME=${DB_NAME:-afamar-project}
+      - DB_NAME=${DB_NAME:-afamar}
       - CORS_ALLOW_ORIGINS=${CORS_ALLOW_ORIGINS:-http://afamar-frontend:80}
       - SECRET_KEY=${SECRET_KEY:-afamar-secret-key-change-in-production}
       - ALGORITHM=${ALGORITHM:-HS256}

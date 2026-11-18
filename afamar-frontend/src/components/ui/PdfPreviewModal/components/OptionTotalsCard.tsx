@@ -35,13 +35,13 @@ export function OptionTotalsCard({ option }: { option: OptionTotal }) {
 
       <View style={styles.altTotalRow}>
         <Text style={styles.altTotalLbl}>Subtotal</Text>
-        <Text style={styles.altTotalVal}>{`$ ${fmt(option.subtotal_ars)}`}</Text>
+        <Text style={styles.altTotalVal}>{`$ ${fmt(option.display_subtotal_ars ?? option.subtotal_ars)}`}</Text>
       </View>
 
-      {option.discount_fixed_amount > 0 ? (
+      {(option.display_discount_fixed_amount ?? option.discount_fixed_amount) > 0 ? (
         <View style={styles.altTotalRow}>
           <Text style={styles.altTotalLbl}>Descuento</Text>
-          <Text style={styles.altTotalVal}>{`-$ ${fmt(option.discount_fixed_amount)}`}</Text>
+          <Text style={styles.altTotalVal}>{`-$ ${fmt(option.display_discount_fixed_amount ?? option.discount_fixed_amount)}`}</Text>
         </View>
       ) : null}
 
