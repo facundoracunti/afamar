@@ -10,22 +10,41 @@ import { HeroCarousel } from '@/components/home/HeroCarousel/HeroCarousel';
 const materials = [
   {
     name: 'Neolith',
-    desc: 'Neolith es una piedra sinterizada. Es la evolución de un porcelanato o cerámica tradicional. Su composición es 100 % natural, de la más alta calidad y pureza, unidos a un proceso de prensado y cocción de última tecnología, logran un producto con impresionantes características.',
+    desc: [
+      'Neolith es una piedra sinterizada. Es la evolución de un porcelanato o cerámica tradicional.',
+      'Su composición es 100 % natural, de la más alta calidad y pureza, unidos a un proceso de prensado',
+      'y cocción de última tecnología, logran un producto con impresionantes características.',
+    ].join(' '),
     gradient: 'linear-gradient(135deg, #2c3e50 0%, #3498db 100%)',
   },
   {
     name: 'Silestone',
-    desc: 'Silestone está compuesto en un 94% de Cuarzo Natural triturado, resina de poliéster, pigmentos y aditivos. Este aglomerado le proporciona una dureza y una resistencia extraordinarias que, unido a la protección antibacterias, le dotan de unas cualidades de higiene magníficas, bellos y variados colores, extraordinarias texturas, y unas altas prestaciones.',
+    desc: [
+      'Silestone está compuesto en un 94% de Cuarzo Natural triturado, resina de poliéster, pigmentos y aditivos.',
+      'Este aglomerado le proporciona una dureza y una resistencia extraordinarias que, unido a la protección',
+      'antibacterias, le dotan de unas cualidades de higiene magníficas, bellos y variados colores, extraordinarias',
+      'texturas, y unas altas prestaciones.',
+    ].join(' '),
     gradient: 'linear-gradient(135deg, #1a1a2e 0%, #e94560 100%)',
   },
   {
     name: 'Granito',
-    desc: 'El granito es una roca ígnea granular de color claro compuesta principalmente por al menos 20% de cuarzo y hasta 65% de feldespato alcalino en volumen, con cantidades menores de mica y minerales anfíboles. Se produce al solidificarse lentamente y a muy alta presión.',
+    desc: [
+      'El granito es una roca ígnea granular de color claro compuesta principalmente por al menos 20% de cuarzo',
+      'y hasta 65% de feldespato alcalino en volumen, con cantidades menores de mica y minerales anfíboles.',
+      'Se produce al solidificarse lentamente y a muy alta presión.',
+    ].join(' '),
     gradient: 'linear-gradient(135deg, #4a4a4a 0%, #8e8e8e 100%)',
   },
   {
     name: 'Mármol',
-    desc: 'El mármol es una roca metamórfica compacta formada a partir de rocas calizas que, sometidas a elevadas temperaturas y presiones, por largos períodos de tiempo alcanzando un alto grado de cristalización. El componente básico del mármol es el carbonato cálcico, cuyo contenido supera el 90%; los demás componentes, considerados impurezas, son los que dan gran variedad de colores en los mármoles y definen sus características físicas.',
+    desc: [
+      'El mármol es una roca metamórfica compacta formada a partir de rocas calizas que, sometidas a elevadas',
+      'temperaturas y presiones, por largos períodos de tiempo alcanzando un alto grado de cristalización.',
+      'El componente básico del mármol es el carbonato cálcico, cuyo contenido supera el 90%; los demás',
+      'componentes, considerados impurezas, son los que dan gran variedad de colores en los mármoles y definen',
+      'sus características físicas.',
+    ].join(' '),
     gradient: 'linear-gradient(135deg, #d4c5a9 0%, #f5efe0 100%)',
   },
 ];
@@ -33,6 +52,14 @@ const materials = [
 const fallbackPortfolio = [
   { image: '/assets/portfolio/portfolio-details-1.jpg' },
 ];
+
+const googleMapsEmbedUrl = [
+  'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3271.0538151506666',
+  '!2d-57.95915052357695!3d-34.92289157369655!2m3!1f0!2f0!3f0!3m2!1i1024!2i768',
+  '!4f13.1!3m3!1m2!1s0x95a2e8a5b3b3b3b3%3A0x3b3b3b3b3b3b3b3b',
+  '!2sAv.%2072%201438%2C%20La%20Plata%2C%20Provincia%20de%20Buenos%20Aires',
+  '!5e0!3m2!1ses!2sar!4v1',
+].join('');
 
 export function HomePage() {
   const [modalImg, setModalImg] = useState<string | null>(null);
@@ -178,7 +205,7 @@ export function HomePage() {
           <div className={styles.contact__map}>
             <iframe
               title="Ubicación AFAMAR"
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3271.0538151506666!2d-57.95915052357695!3d-34.92289157369655!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x95a2e8a5b3b3b3b3%3A0x3b3b3b3b3b3b3b3b!2sAv.%2072%201438%2C%20La%20Plata%2C%20Provincia%20de%20Buenos%20Aires!5e0!3m2!1ses!2sar!4v1"
+              src={googleMapsEmbedUrl}
               allowFullScreen
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"

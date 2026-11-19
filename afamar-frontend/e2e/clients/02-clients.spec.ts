@@ -41,7 +41,7 @@ test.describe('Clients', () => {
     await expect(page.getByRole('heading', { name: 'Clientes' })).toBeVisible();
   });
 
-  test('creates a new client and finds it in the list', async ({ page, request }) => {
+  test('creates a new client and finds it in the list', async ({ page }) => {
     const name = `Juan Pérez ${UNIQUE}`;
 
     await page.goto('/admin/clients');

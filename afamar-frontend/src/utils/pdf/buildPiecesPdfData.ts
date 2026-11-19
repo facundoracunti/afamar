@@ -43,6 +43,7 @@ import type {
   PoolPdfRow,
 } from './pdfTypes';
 import { fmtMoney } from './pdfHelpers';
+import { roundCommercialTotals } from '../commercialRounding';
 
 function sumArs(rows: Array<{ subtotal_ars: number }>): number {
   return rows.reduce((sum, r) => sum + (Number(r.subtotal_ars) || 0), 0);
@@ -221,6 +222,12 @@ export function buildPieces(
       };
     });
 
+    const subtotalArs =
+      sumArs(mainRows) + sumArs(fabRows) + sumArs(adicRows) + sumArs(poolRows);
+    const subtotalUsd =
+      sumUsd(mainRows) + sumUsd(fabRows) + sumUsd(adicRows) + sumUsd(poolRows);
+    const displaySubtotal = roundCommercialTotals(subtotalArs, usdRate);
+
     result.push({
       id: piece.id || '',
       name: piece.name || 'Pieza',
@@ -228,10 +235,10 @@ export function buildPieces(
       fabrication_details: fabRows,
       additional_works: adicRows,
       pools: poolRows,
-      subtotal_ars:
-        sumArs(mainRows) + sumArs(fabRows) + sumArs(adicRows) + sumArs(poolRows),
-      subtotal_usd:
-        sumUsd(mainRows) + sumUsd(fabRows) + sumUsd(adicRows) + sumUsd(poolRows),
+      subtotal_ars: subtotalArs,
+      subtotal_usd: subtotalUsd,
+      display_subtotal_ars: displaySubtotal.contractualArs,
+      display_subtotal_usd: displaySubtotal.contractualUsd,
       alternatives,
     });
   }

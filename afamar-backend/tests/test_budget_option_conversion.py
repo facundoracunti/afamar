@@ -69,6 +69,15 @@ def opt_db():
         engine.dispose()
 
 
+@pytest.fixture(autouse=True)
+def fixed_usd_rate(monkeypatch):
+    """Keep conversion tests deterministic and offline."""
+    monkeypatch.setattr(
+        "app.services.budget_option_conversion.get_blue_mid_rate",
+        lambda: 1500.0,
+    )
+
+
 def _piece(pid: str, name: str, material: str, price_m2: float,
            pool_id: int | None = None) -> dict:
     piece = {

@@ -38,7 +38,7 @@ export function useFormCalculationsInput({
         setForm((prev) => ({ ...prev, transport: ars, transport_usd: usd }));
       }
     },
-    [form.usd_rate]
+    [form.usd_rate, setForm]
   );
 
   const handleDepositCurrencyChange = useCallback(
@@ -50,7 +50,7 @@ export function useFormCalculationsInput({
         deposit_usd: currency === 'USD' ? Number(prev.deposit_usd) : 0,
       }));
     },
-    []
+    [setForm]
   );
 
   const handleDepositAmountChange = useCallback(
@@ -63,7 +63,7 @@ export function useFormCalculationsInput({
         deposit_usd: currency === 'USD' ? val : 0,
       }));
     },
-    [form.deposit_currency]
+    [form.deposit_currency, setForm]
   );
 
   const handleUsdRateChange = useCallback(
@@ -76,7 +76,7 @@ export function useFormCalculationsInput({
         transport: Math.round(tr_usd * dd * 100) / 100,
       }));
     },
-    [form.transport_usd]
+    [form.transport_usd, setForm]
   );
 
   return {

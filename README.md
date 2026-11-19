@@ -52,14 +52,15 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME:-afamar-project}
       - CORS_ALLOW_ORIGINS=${CORS_ALLOW_ORIGINS:-http://afamar-frontend:80}
-      - SECRET_KEY=${SECRET_KEY:-afamar-secret-key-change-in-production}
+      - "SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set in production}"
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
       - ALGORITHM=${ALGORITHM:-HS256}
       - ACCESS_TOKEN_EXPIRE_HOURS=${ACCESS_TOKEN_EXPIRE_HOURS:-2}
       - FRONTEND_URL=${FRONTEND_URL:-http://afamar-frontend:80}
       - DEBUG=${DEBUG:-false}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:3095/api/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:3095/health')"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -81,7 +82,7 @@ services:
     depends_on:
       - backend
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3090"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/"]
       interval: 30s
       timeout: 10s
       retries: 3

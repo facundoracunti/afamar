@@ -143,7 +143,8 @@ return (
                 <PieceBlock
                   key={piece.id || piece.name}
                   piece={piece}
-                  showSubtotal={data.document_type === 'work_order'}
+                  showSubtotal
+                  useCommercialSubtotal={data.document_type === 'budget'}
                 />
               ))}
               <OptionTotalsCard option={option} />
@@ -172,7 +173,8 @@ return (
               <PieceBlock
                 key={piece.id || piece.name}
                 piece={piece}
-                showSubtotal={data.document_type === 'work_order'}
+                showSubtotal
+                useCommercialSubtotal={data.document_type === 'budget'}
               />
             ))}
 

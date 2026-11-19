@@ -54,7 +54,7 @@ test.describe('Authentication', () => {
     expect(userAfter).toBeNull();
   });
 
-  test('visiting a protected route without a token redirects to /login', async ({ page, request }) => {
+  test('visiting a protected route without a token redirects to /login', async ({ page }) => {
     // Make sure we're logged out.
     await logout(page);
     await page.goto('/admin/cash');

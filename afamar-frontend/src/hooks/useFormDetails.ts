@@ -46,12 +46,10 @@ export function useFormDetails({
         }),
       }));
     },
-    [materials]
+    [materials, setForm]
   );
 
   const addDetalle = useCallback(() => {
-    // eslint-disable-next-line no-console
-    console.count('[addDetalle]');
     // Auto-consume the loaded material when there is exactly one material in
     // the form (normal budget with a single option). When alternatives exist
     // (multiple `materials_data` rows / `is_alternative`), the "Asignar a

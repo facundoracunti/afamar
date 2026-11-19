@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PaymentModal } from '../../payments/components/PaymentModal';
 import type { NewPaymentTransaction } from '../../payments/components/PaymentModal';
@@ -13,32 +13,7 @@ import type { PaymentMethod } from '../../payments/types/payment.types';
 import { deleteWorkOrderPayment, getWorkOrderPayments } from '../../../api/resources/workOrders';
 import type { CashMovement } from '../../../types/cash';
 import { useNotify } from '../../../context/NotificationContext';
-
-const BACKEND_TO_MODULE: Record<string, PaymentMethod> = {
-  EFECTIVO: 'efectivo',
-  'EFECTIVO (USD)': 'efectivo_usd',
-  'TRANSFERENCIA BANCARIA': 'transferencia',
-  'TARJETA DE DÉBITO': 'tarjeta',
-  'TARJETA DE CRÉDITO': 'payway_link',
-};
-
-const MODULE_TO_BACKEND: Record<PaymentMethod, string> = {
-  efectivo: 'EFECTIVO',
-  efectivo_usd: 'EFECTIVO (USD)',
-  transferencia: 'TRANSFERENCIA BANCARIA',
-  tarjeta: 'TARJETA DE DÉBITO',
-  payway_link: 'TARJETA DE CRÉDITO',
-};
-
-export function resolvePreferredMethod(backendName: string | null | undefined): PaymentMethod | null {
-  if (!backendName) return null;
-  return BACKEND_TO_MODULE[backendName] ?? null;
-}
-
-export function backendMethodFor(method: PaymentMethod | null): string | null {
-  if (!method) return null;
-  return MODULE_TO_BACKEND[method] ?? null;
-}
+import { resolvePreferredMethod } from './workOrderPaymentMethods';
 
 export interface WorkOrderPaymentSectionProps {
   orderId: number | null;
@@ -77,6 +52,7 @@ export function WorkOrderPaymentSection(props: WorkOrderPaymentSectionProps) {
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { isAdmin = false } = props;
+  const { onPaymentsPresenceChange, onPreferredMethodChange } = props;
 
   const preferredMethod = resolvePreferredMethod(props.preferredMethodBackend);
 
@@ -106,12 +82,12 @@ export function WorkOrderPaymentSection(props: WorkOrderPaymentSectionProps) {
     enabled: props.orderId !== null,
     staleTime: 30_000,
   });
-  const payments: CashMovement[] = paymentsData?.data ?? [];
+  const payments = useMemo<CashMovement[]>(() => paymentsData?.data ?? [], [paymentsData?.data]);
   const reconciledRef = useRef(false);
 
   useEffect(() => {
-    props.onPaymentsPresenceChange?.(payments.some((payment) => payment.type === 'INCOME'));
-  }, [payments, props.onPaymentsPresenceChange]);
+    onPaymentsPresenceChange?.(payments.some((payment) => payment.type === 'INCOME'));
+  }, [payments, onPaymentsPresenceChange]);
 
   useEffect(() => {
     if (!paymentsSuccess || reconciledRef.current) return;
@@ -135,7 +111,7 @@ export function WorkOrderPaymentSection(props: WorkOrderPaymentSectionProps) {
         throw err;
       }
     },
-    [registerPayment, notify, props.successMessage, props.errorMessage],
+    [registerPayment, notify, queryClient, props.orderId, props.successMessage, props.errorMessage],
   );
 
   const handleReversePayment = useCallback(
@@ -161,9 +137,9 @@ export function WorkOrderPaymentSection(props: WorkOrderPaymentSectionProps) {
 
   const handlePreferredMethodChange = useCallback(
     (method: PaymentMethod) => {
-      props.onPreferredMethodChange(method);
+      onPreferredMethodChange(method);
     },
-    [props],
+    [onPreferredMethodChange],
   );
 
   // Lift del pagado acumulado del módulo (ARS) al padre para que el preview

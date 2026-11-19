@@ -10,14 +10,10 @@
  * we never assert on absolute box numbers; we compare relative to the box
  * open at test start.
  */
-import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
+import { test, expect, type APIRequestContext } from '@playwright/test';
 import { loginViaApi } from '../helpers/login';
 
 const API_BASE = process.env.PLAYWRIGHT_API_URL ?? 'http://localhost:3095/api/v1';
-
-interface TokenBox {
-  token: string;
-}
 
 async function getToken(request: APIRequestContext): Promise<string> {
   const res = await request.post(`${API_BASE}/auth/login`, {
@@ -35,14 +31,6 @@ async function ensureOpenBox(token: string): Promise<number> {
   });
   if (!res.ok) throw new Error(`open box failed: ${res.status} ${await res.text()}`);
   const body = (await res.json()) as { number: number | null };
-  return body.number ?? 0;
-}
-
-async function getCurrentNumber(token: string): Promise<number> {
-  const res = await fetch(`${API_BASE}/cash/current`, {
-    headers: { authorization: `Bearer ${token}` },
-  });
-  const body = (await res.json()) as { number: number | null; is_closed: boolean };
   return body.number ?? 0;
 }
 

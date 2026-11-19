@@ -91,7 +91,7 @@ describe('React-PDF commercial contractual total', () => {
     expect(text).not.toContain('4.191,60');
   });
 
-  it('prints the same piece subtotal in the general subtotal and keeps the contractual total', async () => {
+  it('prints a commercially rounded piece subtotal and keeps the contractual total', async () => {
     const piece: BudgetPiece = {
       id: 'p-000012-piece',
       name: 'COCINA',
@@ -169,11 +169,14 @@ describe('React-PDF commercial contractual total', () => {
     const text = pdfText(buffer);
 
     expect(data.pieces?.[0].subtotal_ars).toBe(1_105_808.40);
+    expect(data.pieces?.[0].display_subtotal_ars).toBe(1_110_000);
+    expect(data.pieces?.[0].display_subtotal_usd).toBe(709.27);
     expect(data.subtotal).toBe(1_105_808.40);
     expect(data.total).toBe(1_110_000);
     expect(data.total_usd).toBe(709.27);
-    expect(text).not.toContain('SubtotalPieza');
-    expect(text).not.toContain('Subtotal$1.105.808,40');
+    expect(text).toContain('SubtotalPieza$1.110.000,00');
+    expect(text).toContain('(USD709,27)');
+    expect(text).not.toContain('SubtotalPieza$1.105.808,40');
     expect(text).toContain('MaterialP-000012');
     expect(text).toContain('Traforo');
     expect(text).toContain('JOHNSON');

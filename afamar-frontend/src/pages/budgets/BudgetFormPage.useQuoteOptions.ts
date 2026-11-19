@@ -44,13 +44,7 @@ export function useBudgetQuoteOptions({
   const altSections = useMemo(
     () => buildAlternativeSections(form as unknown as Record<string, unknown>).sections
       .filter((s) => !s.is_main && !s.is_global),
-    [
-      JSON.stringify(form.materials_data),
-      JSON.stringify(form.pools_data),
-      JSON.stringify(form.fabrication_details),
-      JSON.stringify(form.additional_works_data),
-      form.usd_rate,
-    ],
+    [form],
   );
 
   const buildAltOption = useCallback(

@@ -1,6 +1,7 @@
 ## AFAMAR - backend
 
-API REST desarrollada con **FastAPI**, conectada a una base de datos **MySql**, utilizando:
+API REST desarrollada con **FastAPI**, usando **SQLite en localhost** y **MySQL en producción**,
+utilizando:
 **SQLAlchemy** como ORM.
 **Alembic** para migraciones.  
 **Pydantic** para validaciones.
@@ -20,6 +21,15 @@ Antes de iniciar la aplicación, **debes configurar tu archivo `.env`**:
 ```bash
 cp .env.example .env
 ```
+
+### Perfiles de base de datos
+
+- **Localhost:** `ENVIRONMENT=development`. Usa la SQLite ubicada en
+  `afamar-backend/afamar.db`, independientemente de la carpeta desde la que se
+  inicia Uvicorn.
+- **Frosty/producción:** `ENVIRONMENT=production`. Usa el MySQL configurado por
+  `DB_HOST`, `DB_NAME`, `DB_USER` y `DB_PASSWORD`. El entorno local no debe
+  apuntar a la base operativa de Frosty.
 
 ## 📦 Instalación y ▶️ Ejecución del servidor
 - Crear y activar entorno virtual
@@ -46,9 +56,9 @@ http://127.0.0.1:3095/docs
 docker compose ps
 # esperás: "(healthy)" en ambas filas
 
-# chequeo de Alembic — la última migración aplicada debe ser d5e6f7a8b9c0
+# chequeo de Alembic — la última migración aplicada debe ser r8s9t0u1v2w3
 docker compose exec afamar-backend alembic current
-# esperás: d5e6f7a8b9c0 (head)
+# esperás: r8s9t0u1v2w3 (head)
 
 # chequeo del seed — los 4 métodos están en la DB
 docker compose exec afamar-backend python -c "

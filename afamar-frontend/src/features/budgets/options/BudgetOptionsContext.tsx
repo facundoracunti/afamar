@@ -103,7 +103,7 @@ export function BudgetOptionsProvider({
   setForm,
   children,
 }: BudgetOptionsProviderProps) {
-  const options = form.options ?? [];
+  const options = useMemo(() => form.options ?? [], [form.options]);
   const usdRate = Number(form.usd_rate) || 0;
   // Resolve the active id defensively so a stale `active_option_id`
   // (option deleted in another tab) can't strand the editor.

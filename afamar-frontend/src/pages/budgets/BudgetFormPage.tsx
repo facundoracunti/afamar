@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { getBudget, createBudget, updateBudget, deleteBudget, getNextBudgetNumber, getBudgetPdf } from '@/api/resources/budgets';
@@ -124,7 +124,10 @@ export default function BudgetForm(props: BudgetFormProps = {}) {
     if (ok) queryClient.invalidateQueries({ queryKey: ['budgets'] });
   }, [rawHandleSubmit, queryClient]);
 
-  const handleAddressAdded = useCallback(createAddressAddedHandler(clientes, updateClientAddresses), [clientes, updateClientAddresses]);
+  const handleAddressAdded = useMemo(
+    () => createAddressAddedHandler(clientes, updateClientAddresses),
+    [clientes, updateClientAddresses],
+  );
 
   const { buildOption, buildAltOption } = useBudgetQuoteOptions({
     form,

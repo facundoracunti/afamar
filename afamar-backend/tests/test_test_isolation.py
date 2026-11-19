@@ -6,7 +6,13 @@ from alembic.config import Config
 from fastapi.testclient import TestClient
 
 from alembic import command
-from app.core.settings import TEST_DATABASE_PATH, Settings, settings
+from app.core.settings import (
+    DEVELOPMENT_DATABASE_PATH,
+    TEST_DATABASE_PATH,
+    Settings,
+    settings,
+)
+from app.db import database
 from app.db.session import engine
 from app.main import app, run_migrations
 
@@ -27,6 +33,10 @@ def test_test_fixtures_use_the_same_isolated_sqlite_database(setup_db):
     with engine.connect() as connection:
         assert connection.dialect.name == "sqlite"
         assert Path(connection.engine.url.database) == TEST_DATABASE_PATH
+
+
+def test_database_module_keeps_engine_export_for_lifespan_healthcheck():
+    assert database.engine is engine
 
 
 def test_testclient_lifespan_skips_database_check_and_migrations(monkeypatch):
@@ -77,7 +87,7 @@ def test_development_and_production_database_behavior_is_unchanged():
         DB_NAME="afamar_db",
     )
 
-    assert development.DATABASE_URL == "sqlite:///afamar.db"
+    assert development.DATABASE_URL == f"sqlite:///{DEVELOPMENT_DATABASE_PATH.as_posix()}"
     assert development.is_development
     assert not development.is_testing
     assert production.DATABASE_URL == "mysql+pymysql://user:password@mysql-host:3306/afamar_db"

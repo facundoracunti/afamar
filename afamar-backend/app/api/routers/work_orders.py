@@ -221,10 +221,14 @@ def _build_client_dict_from_form(db: Session, data: dict) -> dict:
     if (not name or not phone) and data.get("client_id"):
         client = db.query(Client).filter(Client.id == int(data["client_id"])).first()
         if client:
-            if not name: name = client.name
-            if not phone: phone = client.phone or ""
-            if not email_val: email_val = client.email or ""
-            if not address: address = client.address or ""
+            if not name:
+                name = client.name
+            if not phone:
+                phone = client.phone or ""
+            if not email_val:
+                email_val = client.email or ""
+            if not address:
+                address = client.address or ""
     return {"name": name, "phone": phone, "email": email_val, "address": address}
 
 

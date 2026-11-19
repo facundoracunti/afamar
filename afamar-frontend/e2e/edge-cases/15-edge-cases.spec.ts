@@ -5,7 +5,6 @@
  * wrong" scenarios that aren't tied to a specific module.
  */
 import { test, expect, type APIRequestContext } from '@playwright/test';
-import { loginViaApi } from '../helpers/login';
 
 const API_BASE = 'http://localhost:3095/api/v1';
 

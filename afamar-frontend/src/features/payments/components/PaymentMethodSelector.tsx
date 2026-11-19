@@ -39,7 +39,11 @@ export function PaymentMethodSelector({
         onChange={(e) => onChange(e.target.value as PaymentMethod)}
         disabled={disabled}
         required={required}
-        className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-slate-100 disabled:text-slate-500"
+        className={[
+          'block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm',
+          'text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1',
+          'focus:ring-blue-500 disabled:bg-slate-100 disabled:text-slate-500',
+        ].join(' ')}
       >
         <option value="" disabled>
           Seleccionar método de pago

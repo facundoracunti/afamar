@@ -21,11 +21,25 @@ import {
 
 /** One self-contained block per piece (materials + zócalo/frente + additional
  *  works + pools + subtotal) — page 1 of a multi-piece budget. */
-export function PieceBlock({ piece, showSubtotal = true }: { piece: PiecesPdfPiece; showSubtotal?: boolean }) {
+export function PieceBlock({
+  piece,
+  showSubtotal = true,
+  useCommercialSubtotal = false,
+}: {
+  piece: PiecesPdfPiece;
+  showSubtotal?: boolean;
+  useCommercialSubtotal?: boolean;
+}) {
   const matRows = piece.materials.map(matRowCells);
   const fabRows = piece.fabrication_details.map(fabRowCells);
   const adicRows = piece.additional_works.map(adicRowCells);
   const poolRows = piece.pools.map(poolRowCells);
+  const subtotalArs = useCommercialSubtotal
+    ? (piece.display_subtotal_ars ?? piece.subtotal_ars)
+    : piece.subtotal_ars;
+  const subtotalUsd = useCommercialSubtotal
+    ? (piece.display_subtotal_usd ?? piece.subtotal_usd)
+    : piece.subtotal_usd;
   const hasContent =
     matRows.length > 0 || fabRows.length > 0 || adicRows.length > 0 || poolRows.length > 0;
   if (!hasContent) return null;
@@ -70,9 +84,9 @@ export function PieceBlock({ piece, showSubtotal = true }: { piece: PiecesPdfPie
       {showSubtotal ? (
         <View style={styles.optSectionSubtotal}>
           <Text style={styles.optSectionSubtotalLbl}>Subtotal Pieza</Text>
-          <Text style={styles.optSectionSubtotalVal}>{`$ ${fmt(piece.subtotal_ars)}`}</Text>
-          {piece.subtotal_usd > 0 ? (
-            <Text style={styles.optSectionSubtotalUsd}>{`(USD ${fmt(piece.subtotal_usd)})`}</Text>
+          <Text style={styles.optSectionSubtotalVal}>{`$ ${fmt(subtotalArs)}`}</Text>
+          {subtotalUsd > 0 ? (
+            <Text style={styles.optSectionSubtotalUsd}>{`(USD ${fmt(subtotalUsd)})`}</Text>
           ) : null}
         </View>
       ) : null}

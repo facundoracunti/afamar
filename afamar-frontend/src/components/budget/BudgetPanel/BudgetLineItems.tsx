@@ -111,7 +111,14 @@ export function BudgetLineItems({ form, fabricationDetails, materials, pools }: 
           const usdTotal = nativeCurrency === 'USD' ? nativePrice * d.quantity : (dd > 0 ? (nativePrice * d.quantity) / dd : 0);
           const isGlobal = !d.material;
           const globalTag = isGlobal ? ' [GLOBAL]' : '';
-          const label = `${d.concept === 'OTHER' ? d.detail || t('OTHER') : t(d.concept)}${d.material ? ` - ${d.material}` : ''}${d.m2 > 0 ? ` (${d.m2} m²)` : ''}${d.length && d.length > 0 && d.concept === 'OTHER' ? ` (${d.length} m)` : ''}${d.quantity > 1 ? ` x${d.quantity}` : ''}${globalTag}`;
+          const label = [
+            d.concept === 'OTHER' ? d.detail || t('OTHER') : t(d.concept),
+            d.material ? ` - ${d.material}` : '',
+            d.m2 > 0 ? ` (${d.m2} m²)` : '',
+            d.length && d.length > 0 && d.concept === 'OTHER' ? ` (${d.length} m)` : '',
+            d.quantity > 1 ? ` x${d.quantity}` : '',
+            globalTag,
+          ].join('');
           return (
             <DetailRow
               key={`${d.concept}-${d.detail ?? ''}-${d.currency}-${i}`}

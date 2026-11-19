@@ -122,7 +122,7 @@ export function useBudgetQuoteCalculations({ form, hayAlternativas }: BudgetCalc
 
   const { sumatoriaAdicionalesARS, detalleTrabajosComunes } = useMemo(
     () => computeBreakdown(form, dd2),
-    [form.fabrication_details, form.pools_data, form.transport, dd2],
+    [form, dd2],
   );
 
   const matsMain = useMemo(

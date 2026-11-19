@@ -100,7 +100,11 @@ export function PaymentMethodForm({ editItem, form, saving, onChange, onSubmit, 
             placeholder={showValue ? '0' : 'No aplica'}
             title={
               form.applies_to_installments && form.is_percentage
-                ? 'Porcentaje de interés que se aplica por cada cuota sobre el total. N cuotas = N × este valor. Ej: 9 → 1 cuota: 9%, 2 cuotas: 18%, 3 cuotas: 27%. El total con recargo se divide en N cuotas iguales.'
+                ? [
+                    'Porcentaje de interés que se aplica por cada cuota sobre el total.',
+                    'N cuotas = N × este valor. Ej: 9 → 1 cuota: 9%, 2 cuotas: 18%, 3 cuotas: 27%.',
+                    'El total con recargo se divide en N cuotas iguales.',
+                  ].join(' ')
                 : showValue
                   ? 'Monto del descuento o recargo.'
                   : 'Sin cálculo automático — la etiqueta aparece en el PDF pero no modifica el total.'
@@ -134,7 +138,9 @@ export function PaymentMethodForm({ editItem, form, saving, onChange, onSubmit, 
               {' '}Aplica por cuota (interés incremental)
             </label>
             <small className={s['pm-form__hint']}>
-              Activalo para tarjetas / métodos con interés por cuota. N cuotas cargan <code>N × valor%</code> de recargo sobre el total (1=valor%, 2=2×valor%, 3=3×valor%…). El total con recargo se divide en N cuotas iguales. Se muestra el detalle en el Presupuesto y en el PDF.
+              Activalo para tarjetas / métodos con interés por cuota. N cuotas cargan{' '}
+              <code>N × valor%</code> de recargo sobre el total (1=valor%, 2=2×valor%, 3=3×valor%…).{' '}
+              El total con recargo se divide en N cuotas iguales. Se muestra el detalle en el Presupuesto y en el PDF.
             </small>
           </div>
         </div>

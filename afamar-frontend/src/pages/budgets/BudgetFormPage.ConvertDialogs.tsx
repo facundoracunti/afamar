@@ -36,7 +36,9 @@ export default function BudgetFormPageConvertDialogs({
         title="Convertir a Orden de Trabajo"
         message={
           winningOptionName && winningOptionName !== 'Opción Única'
-            ? `Se guardará y copiará toda la información de la opción "${winningOptionName}": croquis, materiales, detalles de fabricación, piletas, precios y condiciones comerciales. El stock se descuenta del stock de esa opción.`
+            ? `Se guardará y copiará toda la información de la opción "${winningOptionName}": ` +
+              'croquis, materiales, detalles de fabricación, piletas, precios y condiciones comerciales. ' +
+              'El stock se descuenta del stock de esa opción.'
             : 'Se guardará y copiará toda la información: croquis, material, detalles de fabricación, pileta, firma, precios y condiciones comerciales.'
         }
         confirmLabel="Convertir"

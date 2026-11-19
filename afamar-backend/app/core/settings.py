@@ -1,3 +1,4 @@
+import os
 import tempfile
 from pathlib import Path
 
@@ -10,7 +11,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # user data co-located with the app that owns it (instead of leaking into
 # the repo root).
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-TEST_DATABASE_PATH = Path(tempfile.gettempdir()) / "afamar_test.db"
+DEVELOPMENT_DATABASE_PATH = BASE_DIR / "afamar.db"
+# Keep each pytest process isolated from every other process and from stale
+# files left by previous runs. The file is created by SQLAlchemy on demand.
+TEST_DATABASE_PATH = Path(tempfile.gettempdir()) / f"afamar_test_{os.getpid()}.db"
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -105,7 +109,7 @@ class Settings(BaseSettings):
     @property
     def DATABASE_URL(self) -> str:
         if self.is_development:
-            return "sqlite:///afamar.db"
+            return f"sqlite:///{DEVELOPMENT_DATABASE_PATH.as_posix()}"
         if self.is_testing:
             return f"sqlite:///{TEST_DATABASE_PATH}"
         return (
@@ -116,7 +120,7 @@ class Settings(BaseSettings):
     @property
     def DATABASE_URL_SAFE(self) -> str:
         if self.is_development:
-            return "sqlite:///afamar.db"
+            return f"sqlite:///{DEVELOPMENT_DATABASE_PATH.as_posix()}"
         if self.is_testing:
             return f"sqlite:///{TEST_DATABASE_PATH}"
         return (

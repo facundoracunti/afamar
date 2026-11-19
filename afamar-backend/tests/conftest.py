@@ -1,5 +1,4 @@
 import os
-import tempfile
 
 os.environ["ENVIRONMENT"] = "testing"
 os.environ["RATE_LIMIT_ENABLED"] = "false"
@@ -9,14 +8,16 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.core.settings import settings
-from app.db.base import Base
 from app.api.dependencies import get_current_user, get_db
+from app.core.settings import TEST_DATABASE_PATH
+from app.db.base import Base
 from app.main import app
 from app.models.user import User
 
-_db_file = os.path.join(tempfile.gettempdir(), "afamar_test.db")
-engine = create_engine(f"sqlite:///{_db_file}", connect_args={"check_same_thread": False})
+engine = create_engine(
+    f"sqlite:///{TEST_DATABASE_PATH}",
+    connect_args={"check_same_thread": False},
+)
 TestingSessionLocal = sessionmaker(bind=engine)
 
 
@@ -60,7 +61,11 @@ def seed_db(setup_db):
     """Seed the in-memory test DB with reference data."""
     db = TestingSessionLocal()
     try:
-        from app.models.material import MaterialCategory, MaterialColor, MaterialThickness
+        from app.models.material import (
+            MaterialCategory,
+            MaterialColor,
+            MaterialThickness,
+        )
         from app.models.options import AppOption
         from app.models.setting import Setting
         for name in ["Granitos", "Cuarzos"]:

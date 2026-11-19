@@ -14,7 +14,12 @@ router = APIRouter(prefix="/additional-work-categories", tags=["Additional Work 
 
 @router.get("")
 def list_categories(db: Session = Depends(get_db)):
-    rows = db.query(AdditionalWorkCategory).filter(AdditionalWorkCategory.active.is_(True)).order_by(AdditionalWorkCategory.sort_order, AdditionalWorkCategory.name).all()
+    rows = (
+        db.query(AdditionalWorkCategory)
+        .filter(AdditionalWorkCategory.active.is_(True))
+        .order_by(AdditionalWorkCategory.sort_order, AdditionalWorkCategory.name)
+        .all()
+    )
     return success([AdditionalWorkCategoryResponse.model_validate(row).model_dump() for row in rows])
 
 

@@ -281,7 +281,14 @@ function WorkOrdersTableInner({
                 <button type="button" className={btnCls('success')} onClick={() => void onOpenFicha(o)}><ClipboardList size={12} /> Ficha</button>
               </div>
               <div className={s['wo-table__mobile-action-group']}>
-                <button type="button" className={canWhatsApp ? btnCls('success') : btnCls()} onClick={canWhatsApp ? () => onWhatsApp(o) : undefined} disabled={!canWhatsApp}><Send size={12} /> WhatsApp</button>
+                <button
+                  type="button"
+                  className={canWhatsApp ? btnCls('success') : btnCls()}
+                  onClick={canWhatsApp ? () => onWhatsApp(o) : undefined}
+                  disabled={!canWhatsApp}
+                >
+                  <Send size={12} /> WhatsApp
+                </button>
                 <button type="button" className={btnCls('danger')} onClick={() => onDelete(o.id)} aria-label={`Eliminar orden ${o.number}`}><Trash2 size={12} /></button>
               </div>
             </div>

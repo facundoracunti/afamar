@@ -263,7 +263,12 @@ export default function Dashboard() {
             <div className={s['dashboard__activity-head']}><span>Tipo</span><span>Número</span><span>Cliente</span><span>Estado</span><span>Fecha</span><span /></div>
             {activity.map((item) => (
               <button key={`${item.type}-${item.id}`} className={s['dashboard__activity-row']} onClick={() => navigate(item.path)}>
-                <span className={s['dashboard__activity-type']}><span className={s['dashboard__activity-type-icon']}>{item.type === 'budget' ? <FileText size={15} /> : <ClipboardList size={15} />}</span>{item.type === 'budget' ? 'Presupuesto' : 'Orden'}</span>
+                <span className={s['dashboard__activity-type']}>
+                  <span className={s['dashboard__activity-type-icon']}>
+                    {item.type === 'budget' ? <FileText size={15} /> : <ClipboardList size={15} />}
+                  </span>
+                  {item.type === 'budget' ? 'Presupuesto' : 'Orden'}
+                </span>
                 <strong>{item.number || '—'}</strong>
                 <span>{item.customer}</span>
                 <span><em className={s['dashboard__status'] + ' ' + s[`dashboard__status--${statusTone(item.status)}`]}>{statusLabel(item.status)}</em></span>
@@ -283,7 +288,11 @@ export default function Dashboard() {
             {tools.map((tool) => (
               <button key={tool.label} className={s['dashboard__tool']} onClick={() => setActiveModal(tool.kind)} style={{ backgroundImage: `url(${tool.image})` }}>
                 <span className={s['dashboard__tool-shade']} />
-                <span className={s['dashboard__tool-content']}><span className={s['dashboard__tool-icon']}><tool.icon size={21} /></span><strong>{tool.label}</strong><small>{tool.description}</small></span>
+                <span className={s['dashboard__tool-content']}>
+                  <span className={s['dashboard__tool-icon']}><tool.icon size={21} /></span>
+                  <strong>{tool.label}</strong>
+                  <small>{tool.description}</small>
+                </span>
                 <ArrowRight className={s['dashboard__tool-arrow']} size={17} />
               </button>
             ))}

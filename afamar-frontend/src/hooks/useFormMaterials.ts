@@ -111,7 +111,7 @@ export function useFormMaterials({
         setForm((prev) => ({ ...prev, material: name, material_price_m2: 0 }));
       }
     },
-    [materials, materialPrecioRef, materialUsdRef]
+    [materials, materialPrecioRef, materialUsdRef, setForm]
   );
 
   const addMaterial = useCallback(

@@ -238,7 +238,13 @@ export default function MaterialsColors() {
                 </div>
               </article>
             ))}
-            {filtered.length === 0 && <div className={s['colors__mobile-empty']}><EmptyState message={data.length === 0 ? 'No hay colores registrados.' : 'Sin resultados para la búsqueda actual.'} /></div>}
+            {filtered.length === 0 && (
+              <div className={s['colors__mobile-empty']}>
+                <EmptyState
+                  message={data.length === 0 ? 'No hay colores registrados.' : 'Sin resultados para la búsqueda actual.'}
+                />
+              </div>
+            )}
           </div>
           {filtered.length > PAGE_SIZE && (
             <Pagination page={safePage} pageSize={PAGE_SIZE} total={filtered.length} onPageChange={setPage} label="colores" />

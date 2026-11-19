@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Save, Trash2, Plus } from 'lucide-react';
 import { useNotify } from '../../context/NotificationContext';
 import { parseApiError } from '../../utils/error';
@@ -11,8 +11,11 @@ export default function AdditionalWorkCategoriesPage() {
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [newName, setNewName] = useState('');
   const notify = useNotify();
-  const reload = () => getAdditionalWorkCategories().then(setCategories).catch((err) => notify(parseApiError(err, 'Error al cargar categorías'), 'error'));
-  useEffect(() => { reload(); }, []);
+  const reload = useCallback(
+    () => getAdditionalWorkCategories().then(setCategories).catch((err) => notify(parseApiError(err, 'Error al cargar categorías'), 'error')),
+    [notify],
+  );
+  useEffect(() => { reload(); }, [reload]);
 
   const create = async () => {
     const name = newName.trim();

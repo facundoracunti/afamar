@@ -137,7 +137,24 @@ export function useFormActions({
         setSaving(false);
       }
     },
-    [isEdit, id, services, navigate, form.status, form.payment_method, form.total, form.total_usd, buildPayload, extraPayloadFields, invalidateCash, setSaving, setForm, onError]
+    [
+      isEdit,
+      id,
+      services,
+      navigate,
+      form.status,
+      form.additional_works_data,
+      form.payment_method,
+      form.total,
+      form.total_usd,
+      buildPayload,
+      extraPayloadFields,
+      invalidateCash,
+      setSaving,
+      setForm,
+      onError,
+      onAfterAction,
+    ]
   );
 
   const handleDelete = useCallback(async () => {
@@ -145,7 +162,7 @@ export function useFormActions({
     await services.delete(id);
     if (onAfterAction) onAfterAction({ deleted: true });
     else navigate(services.listPath);
-  }, [id, services, onAfterAction]);
+  }, [id, services, onAfterAction, navigate]);
 
   const handleStatusChangeAction = useCallback(
     async (newStatus: string) => {

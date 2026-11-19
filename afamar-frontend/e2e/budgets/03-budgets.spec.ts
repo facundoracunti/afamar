@@ -6,7 +6,7 @@
  * loads materials, pools, and the full client list before it becomes
  * interactive). The form interactions themselves still go through the UI.
  */
-import { test, expect, type Page, type APIRequestContext } from '@playwright/test';
+import { test, expect, type APIRequestContext } from '@playwright/test';
 import { loginViaApi } from '../helpers/login';
 
 const UNIQUE = `E2E-BUD-${Math.random().toString(36).slice(2, 7)}`;
@@ -53,7 +53,7 @@ test.describe('Budgets', () => {
     // Create a client via the API so the form's client typeahead has a match.
     const token = await loginAndGetToken(request);
     const clientName = `Budget Client ${UNIQUE}`;
-    const clientId = await createClientViaApi(request, token, clientName);
+    await createClientViaApi(request, token, clientName);
 
     // Open the new budget form.
     await page.goto('/admin/budgets/new');

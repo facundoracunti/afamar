@@ -6,7 +6,8 @@
  * payment method and the live total of the registered payments.
  */
 import React from 'react';
-import WorkOrderPaymentSection, { backendMethodFor } from '../../features/orders/components/WorkOrderPaymentSection';
+import WorkOrderPaymentSection from '../../features/orders/components/WorkOrderPaymentSection';
+import { backendMethodFor } from '../../features/orders/components/workOrderPaymentMethods';
 import type { PaymentMethod } from '../../features/payments/types/payment.types';
 import type { EntityFormState } from '../../types';
 

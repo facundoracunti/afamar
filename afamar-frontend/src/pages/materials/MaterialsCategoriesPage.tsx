@@ -244,7 +244,13 @@ export default function MaterialsCategories() {
                 </div>
               </article>
             ))}
-            {filtered.length === 0 && <div className={s['categories__mobile-empty']}><EmptyState message={data.length === 0 ? 'No hay categorías registradas.' : 'Sin resultados para la búsqueda actual.'} /></div>}
+            {filtered.length === 0 && (
+              <div className={s['categories__mobile-empty']}>
+                <EmptyState
+                  message={data.length === 0 ? 'No hay categorías registradas.' : 'Sin resultados para la búsqueda actual.'}
+                />
+              </div>
+            )}
           </div>
           {filtered.length > PAGE_SIZE && (
             <Pagination page={safePage} pageSize={PAGE_SIZE} total={filtered.length} onPageChange={setPage} label="categorías" />

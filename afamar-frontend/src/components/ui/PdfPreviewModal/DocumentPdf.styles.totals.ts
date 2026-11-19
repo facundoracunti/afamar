@@ -145,7 +145,16 @@ export const totalStyles = StyleSheet.create({
   // Lists the active payment methods from /admin/configuration/payment-methods
   // so the customer sees every way they can pay. Renders next to the
   // delivery-conditions column in `termsRow` (right side, same row).
-  paymentMethodsBox: { flex: 1, marginTop: 6, backgroundColor: SLATE_50, border: `1px solid ${SLATE_200}`, borderLeft: `3px solid ${AFAMAR_RED}`, borderRadius: 4, paddingVertical: 4, paddingHorizontal: 6 },
+  paymentMethodsBox: {
+    flex: 1,
+    marginTop: 6,
+    backgroundColor: SLATE_50,
+    border: `1px solid ${SLATE_200}`,
+    borderLeft: `3px solid ${AFAMAR_RED}`,
+    borderRadius: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+  },
   paymentMethodsItem: { fontSize: 6.5, lineHeight: 1.3 },
   // ===== SIGNATURES =====
   signatures: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 24 },

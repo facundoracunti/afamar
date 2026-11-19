@@ -43,7 +43,16 @@ class BudgetRepository(BaseRepository):
     def get_by_client(self, client_id: int) -> List[Budget]:
         return _eager_query(self.db).filter(Budget.client_id == client_id).order_by(Budget.id.desc()).all()
 
-    def list_filtered(self, status: Optional[str] = None, client_id: Optional[int] = None, date_from: Optional[date] = None, date_to: Optional[date] = None, search: Optional[str] = None, skip: int = 0, limit: int = 100):
+    def list_filtered(
+        self,
+        status: Optional[str] = None,
+        client_id: Optional[int] = None,
+        date_from: Optional[date] = None,
+        date_to: Optional[date] = None,
+        search: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 100,
+    ):
         # Base query keeps the original shape (no Client JOIN) to preserve the
         # existing lazy-load path in downstream serializers. For the `search`
         # filter we use a subquery against Client instead of a JOIN so the
@@ -71,7 +80,14 @@ class BudgetRepository(BaseRepository):
             )
         return query.order_by(Budget.id.desc()).offset(skip).limit(limit).all()
 
-    def list_filtered_count(self, status: Optional[str] = None, client_id: Optional[int] = None, date_from: Optional[date] = None, date_to: Optional[date] = None, search: Optional[str] = None) -> int:
+    def list_filtered_count(
+        self,
+        status: Optional[str] = None,
+        client_id: Optional[int] = None,
+        date_from: Optional[date] = None,
+        date_to: Optional[date] = None,
+        search: Optional[str] = None,
+    ) -> int:
         query = self.db.query(Budget)
         if status:
             query = query.filter(Budget.status == status)

@@ -1,10 +1,20 @@
-import React, { useCallback, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNotify } from '../../context/NotificationContext';
 import { useAuth } from '../../context/AuthContext';
 import { useUsdRate } from '../../hooks/useUsdRate';
-import { getWorkOrder, createWorkOrder, updateWorkOrder, deleteWorkOrder, cancelWorkOrderWithRecovery, getNextWorkOrderNumber, getWorkOrderPdf, getMeasurementAdjustment, approveMeasurementAdjustment } from '@/api/resources/workOrders';
+import {
+  getWorkOrder,
+  createWorkOrder,
+  updateWorkOrder,
+  deleteWorkOrder,
+  cancelWorkOrderWithRecovery,
+  getNextWorkOrderNumber,
+  getWorkOrderPdf,
+  getMeasurementAdjustment,
+  approveMeasurementAdjustment,
+} from '@/api/resources/workOrders';
 import { getMaterials } from '@/api/resources/materials';
 import { getPoolStock } from '@/api/resources/poolStock';
 import { getClients } from '@/api/resources/clients';
@@ -249,7 +259,10 @@ export default function WorkOrderForm(props: WorkOrderFormProps = {}) {
     notify,
   });
 
-  const handleAddressAdded = useCallback(createAddressAddedHandler(clientes, updateClientAddresses), [clientes, updateClientAddresses]);
+  const handleAddressAdded = useMemo(
+    () => createAddressAddedHandler(clientes, updateClientAddresses),
+    [clientes, updateClientAddresses],
+  );
 
   const encodeTerms = (items: string[]) => JSON.stringify(items.filter((t) => t.trim() !== ''));
 

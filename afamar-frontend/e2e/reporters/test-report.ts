@@ -149,7 +149,6 @@ class TestReport implements Reporter {
     await fs.mkdir(path.dirname(this.outputFile), { recursive: true });
     const coverage = await this.buildCoverage();
     await fs.writeFile(this.outputFile, render(this.tests, coverage, this.startedAt), 'utf-8');
-    // eslint-disable-next-line no-console
     console.log(`\n  Reporte custom -> ${path.relative(process.cwd(), this.outputFile)}`);
   }
 }

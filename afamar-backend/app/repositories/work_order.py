@@ -58,7 +58,16 @@ class WorkOrderRepository(BaseRepository):
             .all()
         )
 
-    def list_filtered(self, status: str | None = None, client_id: int | None = None, date_from: date | None = None, date_to: date | None = None, search: str | None = None, skip: int = 0, limit: int = 100) -> List[WorkOrder]:
+    def list_filtered(
+        self,
+        status: str | None = None,
+        client_id: int | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
+        search: str | None = None,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> List[WorkOrder]:
         query = _eager_query(self.db)
         if status:
             query = query.filter(WorkOrder.status == status)

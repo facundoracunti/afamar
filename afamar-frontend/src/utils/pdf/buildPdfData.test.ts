@@ -1094,6 +1094,9 @@ describe('buildPdfData — measurement precision', () => {
 });
 
 describe('buildPdfData — discount and surcharge', () => {
+  // New budgets expose the contractual commercial total: the exact discount
+  // and surcharge remain visible, then the final ARS amount is rounded up to
+  // the next $5,000 multiple, matching the live form and saved snapshot.
   const baseParams = {
     document_type: 'budget' as const,
     company: {
@@ -1121,7 +1124,7 @@ describe('buildPdfData — discount and surcharge', () => {
     // subtotal=10000, transport=1000 → base=11000, discount=1100
     expect(data.discount_fixed_amount).toBe(1100);
     expect(data.discount_percentage).toBe(10);
-    expect(data.total).toBe(9900); // 11000 - 1100
+    expect(data.total).toBe(10000); // contractual rounding of 9900
   });
 
   it('applies fixed amount discount (takes precedence over percentage)', () => {
@@ -1135,7 +1138,7 @@ describe('buildPdfData — discount and surcharge', () => {
     });
     // fixed 2500 wins over 50% (5_000)
     expect(data.discount_fixed_amount).toBe(2500);
-    expect(data.total).toBe(7500); // 10000 - 2500
+    expect(data.total).toBe(10000); // contractual rounding of 7500
   });
 
   it('does NOT apply the percentage discount when discount_enabled is off', () => {
@@ -1150,7 +1153,7 @@ describe('buildPdfData — discount and surcharge', () => {
     // Fase 3 gating: discount_enabled defaults to false → the 10% is ignored,
     // so the total equals the base (fixed-amount discounts stay ungated).
     expect(data.discount_fixed_amount).toBe(0);
-    expect(data.total).toBe(11000);
+    expect(data.total).toBe(15000); // contractual rounding of 11000
   });
 
   it('applies the percentage over the WHOLE document with discount_target "total"', () => {
@@ -1170,7 +1173,7 @@ describe('buildPdfData — discount and surcharge', () => {
     });
     // base = materials(100000) + transport(2000) = 102000 → 10% = 10200
     expect(data.discount_fixed_amount).toBe(10200);
-    expect(data.total).toBe(91800);
+    expect(data.total).toBe(95000); // contractual rounding of 91800
   });
 
   it('applies the percentage over the MAIN MATERIALS only with discount_target "materials"', () => {
@@ -1196,7 +1199,7 @@ describe('buildPdfData — discount and surcharge', () => {
     // base = main materials only (100000; alternatives excluded) → 10% = 10000.
     // total = (100000 + 5000 + 2000) − 10000 = 97000
     expect(data.discount_fixed_amount).toBe(10000);
-    expect(data.total).toBe(97000);
+    expect(data.total).toBe(100000); // contractual rounding of 97000
   });
 
   it('1 cuota adds 9% (base × 1.09)', () => {
@@ -1211,7 +1214,7 @@ describe('buildPdfData — discount and surcharge', () => {
     });
     expect(data.surcharge_percentage).toBe(9);
     expect(data.surcharge_amount).toBe(900);
-    expect(data.total).toBe(10900);
+    expect(data.total).toBe(15000); // contractual rounding of 10900
   });
 
   it('2 cuotas adds 18% (N × value): 10000 × 1.18 = 11800, cuota = 5900', () => {
@@ -1226,7 +1229,7 @@ describe('buildPdfData — discount and surcharge', () => {
     });
     expect(data.surcharge_percentage).toBe(18);
     expect(data.surcharge_amount).toBe(1800);
-    expect(data.total).toBe(11800);
+    expect(data.total).toBe(15000); // contractual rounding of 11800
   });
 
   it('3 cuotas adds 27% (N × value): 10000 × 1.27 = 12700, cuota = 4233.33', () => {
@@ -1241,10 +1244,10 @@ describe('buildPdfData — discount and surcharge', () => {
     });
     expect(data.surcharge_percentage).toBe(27);
     expect(data.surcharge_amount).toBe(2700);
-    expect(data.total).toBe(12700);
+    expect(data.total).toBe(15000); // contractual rounding of 12700
   });
 
-  it('matches the customer-facing example: base=900000, 3 cuotas, value=9 → 1_143_000, cada cuota = 381_000', () => {
+  it('matches the customer-facing example with commercial rounding', () => {
     const fabrication_details = [
       { concept: 'LENGTH', detail: '', length: 1, width: 0, m2: 1, labor: 0, currency: 'ARS', quantity: 1, price: 900000 },
     ];
@@ -1255,7 +1258,7 @@ describe('buildPdfData — discount and surcharge', () => {
       overrides: {},
     });
     expect(data.surcharge_amount).toBe(243000); // 900000 × 0.27
-    expect(data.total).toBe(1143000); // 900000 × 1.27
+    expect(data.total).toBe(1145000); // contractual rounding of 1,143,000
   });
 
   it('emits catalogue_installment_detail with uniform rows (3 cuotas, base=900000)', () => {
@@ -1268,11 +1271,11 @@ describe('buildPdfData — discount and surcharge', () => {
       paymentMethods: PAYMENT_METHODS,
       overrides: {},
     });
-    // total = 900000 × 1.27 = 1143000; cuota = 1143000 / 3 = 381000 (todas iguales)
+    // total contractual = 1,145,000; cuota = 1,145,000 / 3 (todas iguales)
     expect(data.catalogue_installment_detail).toEqual([
-      { cuota: 1, interes: 9, monto: 381000 },
-      { cuota: 2, interes: 9, monto: 381000 },
-      { cuota: 3, interes: 9, monto: 381000 },
+      { cuota: 1, interes: 9, monto: 381666.67 },
+      { cuota: 2, interes: 9, monto: 381666.67 },
+      { cuota: 3, interes: 9, monto: 381666.67 },
     ]);
   });
 
@@ -1423,8 +1426,8 @@ describe('buildPdfData — discount and surcharge', () => {
       overrides: {},
     });
     // subtotal_usd = 110.50, recargo lineal (value=9, N=3):
-    // ratio = 1.27 → total_usd = 110.50 × 1.27 = 140.34 (round2)
-    expect(data.total_usd).toBe(140.34);
+    // ARS contractual rounding also determines the displayed USD total.
+    expect(data.total_usd).toBe(145);
   });
 });
 

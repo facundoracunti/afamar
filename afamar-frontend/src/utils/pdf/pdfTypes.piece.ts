@@ -52,6 +52,9 @@ export interface PiecesPdfPiece {
   pools: PoolPdfRow[];
   subtotal_ars: number;
   subtotal_usd: number;
+  /** Presentation-only commercial rounding for budget piece subtotals. */
+  display_subtotal_ars?: number;
+  display_subtotal_usd?: number;
   alternatives: PiecesPdfAlternative[];
 }
 

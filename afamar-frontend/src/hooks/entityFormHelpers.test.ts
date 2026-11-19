@@ -444,8 +444,12 @@ describe('mapApiToForm — COMPARATIVA snapshot hydration', () => {
     // The next save must send coherent flat and pieces snapshots, not only
     // repair them transiently in React state.
     const payload = buildPayload(form);
-    const payloadPieces = JSON.parse(String(payload.pieces_data)) as Array<Record<string, any>>;
-    const payloadMaterials = JSON.parse(String(payload.materials_data)) as Array<Record<string, any>>;
+    const payloadPieces = JSON.parse(String(payload.pieces_data)) as Array<{
+      mainMaterial: { m2_budgeted: number };
+    }>;
+    const payloadMaterials = JSON.parse(String(payload.materials_data)) as Array<{
+      m2_budgeted: number;
+    }>;
     expect(payloadPieces[0].mainMaterial.m2_budgeted).toBe(1.76);
     expect(payloadMaterials[0].m2_budgeted).toBe(1.76);
   });

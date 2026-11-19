@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import http from '@/api/http';
 import type { AuthResponse, LoginCredentials, User } from '@/types';
 import { readLocalStorage, removeLocalStorage, writeLocalStorage } from '@/utils/safeStorage';
@@ -31,19 +31,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   }, []);
 
-  const login = async (credentials: LoginCredentials) => {
+  const login = useCallback(async (credentials: LoginCredentials) => {
     const res = await http.post('/auth/login', credentials);
     const data = res.data as unknown as AuthResponse;
     writeLocalStorage('auth_token', data.access_token);
     writeLocalStorage('auth_user', JSON.stringify(data.user));
     setUser(data.user);
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     removeLocalStorage('auth_token');
     removeLocalStorage('auth_user');
     setUser(null);
-  };
+  }, []);
 
   const value = useMemo(
     () => ({ user, loading, login, logout, isAuthenticated: !!user }),

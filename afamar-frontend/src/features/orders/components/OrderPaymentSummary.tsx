@@ -235,7 +235,9 @@ export function OrderPaymentSummary({
         title="Reversar pago"
         message={
           reverseTarget
-            ? `¿Confirmás la reversión del pago de ${formatCurrency(reverseTarget.amount, reverseTarget.currency)} (${HISTORY_METHOD_LABELS[reverseTarget.method]} · ${reverseTarget.concept ?? '—'})? Esta acción elimina el movimiento de la caja y restablece el saldo pendiente de la orden.`
+            ? `¿Confirmás la reversión del pago de ${formatCurrency(reverseTarget.amount, reverseTarget.currency)} ` +
+              `(${HISTORY_METHOD_LABELS[reverseTarget.method]} · ${reverseTarget.concept ?? '—'})? ` +
+              'Esta acción elimina el movimiento de la caja y restablece el saldo pendiente de la orden.'
             : ''
         }
         confirmLabel="Sí, reversar"

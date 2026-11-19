@@ -1,23 +1,31 @@
 """Admin user seeder.
 
 Creates the default `admin` user if the `users` table is empty. The password
-comes from `ADMIN_PASSWORD` (env) and falls back to the well-known development
-password — the same value the E2E tests use.
+comes from `ADMIN_PASSWORD` (env). Development keeps the historical fallback
+for local setup; production refuses to seed without an explicit password.
 """
 from __future__ import annotations
 
 import os
 
-from scripts.seeders.base import SeedResult, get_logger, session_scope
+from app.core.settings import settings
 from app.models.user import User
 from app.services.auth import hash_password
+from scripts.seeders.base import SeedResult, get_logger, session_scope
 
 ADMIN_USERNAME = "admin"
 ADMIN_EMAIL = "admin@afamar.com.ar"
 ADMIN_FULL_NAME = "Administrador"
-# Defaults to the dev password when no env override is provided. Production
-# deployments must override `ADMIN_PASSWORD` before first boot.
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
+
+
+def _configured_admin_password() -> str:
+    """Return the configured password without allowing a production default."""
+    password = os.environ.get("ADMIN_PASSWORD")
+    if password:
+        return password
+    if settings.is_production:
+        raise RuntimeError("ADMIN_PASSWORD is required when seeding users in production")
+    return "admin123"
 
 
 def _seed_admin_once(reset_password: bool = False) -> SeedResult:
@@ -26,11 +34,12 @@ def _seed_admin_once(reset_password: bool = False) -> SeedResult:
     with session_scope() as db:
         existing = db.query(User).filter(User.username == ADMIN_USERNAME).first()
         if existing is None:
+            admin_password = _configured_admin_password()
             db.add(
                 User(
                     username=ADMIN_USERNAME,
                     email=ADMIN_EMAIL,
-                    hashed_password=hash_password(ADMIN_PASSWORD),
+                    hashed_password=hash_password(admin_password),
                     full_name=ADMIN_FULL_NAME,
                     is_active=True,
                     is_admin=True,
@@ -39,7 +48,7 @@ def _seed_admin_once(reset_password: bool = False) -> SeedResult:
             result.inserted = 1
             logger.info("Created admin user '%s'", ADMIN_USERNAME)
         elif reset_password:
-            existing.hashed_password = hash_password(ADMIN_PASSWORD)
+            existing.hashed_password = hash_password(_configured_admin_password())
             existing.is_active = True
             existing.is_admin = True
             result.updated = 1

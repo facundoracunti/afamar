@@ -87,7 +87,11 @@ export function useBudgetCalculations(
     }),
     fabrication: JSON.parse(fabricationDepsJson || '[]').map((row: Record<string, unknown>) => {
       const copy = { ...row };
-      for (const key of ['length', 'width', 'quantity', 'largo', 'ancho', 'cantidad', 'linear_meters', 'metros_lineales', 'm2_budgeted', 'linear_meters_budgeted', 'total_ars_budgeted', 'total_usd_budgeted']) delete copy[key];
+      for (const key of [
+        'length', 'width', 'quantity', 'largo', 'ancho', 'cantidad',
+        'linear_meters', 'metros_lineales', 'm2_budgeted',
+        'linear_meters_budgeted', 'total_ars_budgeted', 'total_usd_budgeted',
+      ]) delete copy[key];
       return copy;
     }),
     additional: (() => {
@@ -122,6 +126,9 @@ export function useBudgetCalculations(
     deposit_currency: form.deposit_currency,
   });
 
+  // The effect deliberately depends on serialized commercial slices. Adding
+  // the whole form would re-run its own setForm update and can create a loop;
+  // freeze flags and the setter are stable inputs from the owning form.
   useEffect(() => {
     if (freezeExistingWorkOrder) {
       // `number` is empty until the GET response hydrates an existing form.
@@ -224,7 +231,13 @@ export function useBudgetCalculations(
       .filter((m: MaterialInForm) => m.currency === 'USD')
       .reduce((sum: number, m: MaterialInForm) => sum + (Number(m.length || 0) * Number(m.width || 0) * (m.quantity || 1) * (m.price_m2_usd || 0)), 0);
 
-    const subtotal = arsTotal + (dd > 0 ? Math.round((usdTotal + matUsd) * dd * 100) / 100 : 0) + matArs + ppArs + (dd > 0 ? Math.round(ppUsd * dd * 100) / 100 : 0) + additionalArs + (dd > 0 ? Math.round(additionalUsd * dd * 100) / 100 : 0);
+    const subtotal = arsTotal
+      + (dd > 0 ? Math.round((usdTotal + matUsd) * dd * 100) / 100 : 0)
+      + matArs
+      + ppArs
+      + (dd > 0 ? Math.round(ppUsd * dd * 100) / 100 : 0)
+      + additionalArs
+      + (dd > 0 ? Math.round(additionalUsd * dd * 100) / 100 : 0);
     const tr = Number(form.transport) || 0;
     const totalBase = Math.max(0, subtotal + tr);
 
@@ -277,8 +290,6 @@ export function useBudgetCalculations(
     const depositTotalUsd = depositCurrency === 'ARS'
       ? (dd > 0 ? depositArs / dd : 0)
       : depositUsdVal;
-    const balanceDue = Math.max(0, total - depositTotalArs);
-
     // USD mirror
     const tr_usd = Number(form.transport_usd) || 0;
     const subtotal_usd = round2(usdTotal + matUsd + ppUsd + additionalUsd + (dd > 0 ? (arsTotal + matArs + ppArs + additionalArs) / dd : 0));
@@ -301,21 +312,15 @@ export function useBudgetCalculations(
       dd,
     );
     const total_usd = totalUsdWithMethod;
-    const balance_due_usd = Math.max(0, total_usd - depositTotalUsd);
-
     // Alternative material override (same shape as before; keeps the
     // alternative card's total in sync with the live form).
     const hasAlternative = materialsData.some((m: MaterialInForm) => m.is_alternative);
     let totalFinal = total;
-    let totalUsdFinal = total_usd;
-    let balanceDueFinal = balanceDue;
-    let balanceDueUsdFinal = balance_due_usd;
-    // `totalAltConDesc` / `totalAltConDescUsd` are the pre-catalogue
+    // `totalAltConDesc` is the pre-catalogue
     // base when alternatives exist — the per-cuota breakdown uses them
     // so each row's `monto` is `base/N × (1 + n × value/100)`, not
     // `final/N × (1 + n × value/100)` (which would compound twice).
     let totalAltConDesc: number = totalConDescuento;
-    let totalAltConDescUsd: number = totalConDescuentoUsd;
     if (hasAlternative) {
       const primeraAlt = materialsData.find((m: MaterialInForm) => m.is_alternative);
       if (primeraAlt) {
@@ -339,22 +344,6 @@ export function useBudgetCalculations(
           dd2,
         );
         totalFinal = totalAltConMethod;
-        const costoMatUsd = primeraAlt.currency === 'USD' ? m2 * precioMat : m2 * precioMat / dd2;
-        const fijosUsd = usdTotal + (dd2 > 0 ? arsTotal / dd2 : 0) + ppUsd + (dd2 > 0 ? ppArs / dd2 : 0) + additionalUsd + (dd2 > 0 ? additionalArs / dd2 : 0) + (dd2 > 0 ? tr / dd2 : 0);
-        const totalAltUsd = Math.round((costoMatUsd + fijosUsd) * 100) / 100;
-        totalAltConDescUsd = descEnabled && descPct > 0
-          ? round2(Math.max(0, totalAltUsd - (descTarget === 'materials' ? costoMatUsd : totalAltUsd) * descPct / 100))
-          : (descFijo > 0 && dd2 > 0 ? Math.max(0, totalAltUsd - descFijo / dd2) : totalAltUsd);
-        const { totalUsd: totalAltUsdWithMethod } = applyPaymentMethodToTotals(
-          pm,
-          installmentsCount,
-          totalAltConDescUsd,
-          totalAltConDescUsd,
-          dd2,
-        );
-        totalUsdFinal = totalAltUsdWithMethod;
-        balanceDueFinal = Math.max(0, totalFinal - depositTotalArs);
-        balanceDueUsdFinal = Math.max(0, totalUsdFinal - depositTotalUsd);
       }
     }
 
@@ -364,9 +353,8 @@ export function useBudgetCalculations(
     // (total con recargo / N). `interes` es el % por cuota, no el
     // total. La columna "Recargo (X%)" del PDF muestra el agregado
     // `N × value%` para que el cliente vea ambos niveles.
-    // `totalFinal`/`totalUsdFinal` son el total **post-recargo**;
-    // cuando hay alternativa, ya están computados contra el base
-    // alternativa.
+    // `totalFinal` is the total **post-recargo**; when there is an
+    // alternative, it is already computed against the alternative base.
     // Existing work orders may explicitly reprice commercial data. Existing
     // budgets, however, are frozen documents and must only display their
     // persisted snapshot.
@@ -412,6 +400,7 @@ export function useBudgetCalculations(
       installment_detail_ars: installmentDetail.ars,
       installment_detail_usd: installmentDetail.usd,
     }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     fabricationDepsJson,
     materialsDepsJson,

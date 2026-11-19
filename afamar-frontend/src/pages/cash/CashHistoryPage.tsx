@@ -223,7 +223,13 @@ export default function CashHistoryPage() {
                               </span>
                             </td>
                             <td>{(m.description as string) || '-'}</td>
-                            <td className={`${s['cash-history__movement-amount']} ${(m.type as string) === 'INCOME' ? s['cash-history__movement-amount--income'] : s['cash-history__movement-amount--expense']}`}>
+                            <td
+                              className={`${s['cash-history__movement-amount']} ${
+                                (m.type as string) === 'INCOME'
+                                  ? s['cash-history__movement-amount--income']
+                                  : s['cash-history__movement-amount--expense']
+                              }`}
+                            >
                               <CurrencyDisplay value={m.amount as number} />
                             </td>
                             <td>{(m.payment_method as string) || (m.expense_type as string) || '-'}</td>
@@ -239,7 +245,13 @@ export default function CashHistoryPage() {
                           <span className={`badge ${(m.type as string) === 'INCOME' ? 'badge-approved' : 'badge-rejected'}`}>
                             {(m.type as string) === 'INCOME' ? 'Entrada' : 'Salida'}
                           </span>
-                          <strong className={`${s['cash-history__movement-amount']} ${(m.type as string) === 'INCOME' ? s['cash-history__movement-amount--income'] : s['cash-history__movement-amount--expense']}`}>
+                          <strong
+                            className={`${s['cash-history__movement-amount']} ${
+                              (m.type as string) === 'INCOME'
+                                ? s['cash-history__movement-amount--income']
+                                : s['cash-history__movement-amount--expense']
+                            }`}
+                          >
                             <CurrencyDisplay value={m.amount as number} />
                           </strong>
                         </div>

@@ -103,7 +103,6 @@ export function usePdfPreviewController(params: UsePdfPreviewControllerParams): 
       // saved before the pieces v3 migration produced fields that don't
       // round-trip through the new builder). Without this catch the
       // loading spinner stays forever and the user has no feedback.
-      // eslint-disable-next-line no-console
       console.error('[usePdfPreviewController] buildPdfData failed', err);
       notify?.(
         `No se pudo generar la vista previa del ${label.toLowerCase()}: ${
