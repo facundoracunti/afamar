@@ -3,7 +3,10 @@
  */
 
 import React from 'react';
-import type { AdditionalWork, AdditionalWorkType } from '../../../types/additionalWork';
+import {
+  type AdditionalWork,
+  type AdditionalWorkType,
+} from '../../../types/additionalWork';
 import styles from './AdditionalWorkForm.module.css';
 
 const s = styles as unknown as Record<string, string>;
@@ -15,6 +18,7 @@ const TYPE_LABELS: Record<AdditionalWorkType, string> = {
 
 interface AdditionalWorkFormData {
   name: string;
+  category: string;
   detail: string;
   price: number;
   currency: 'ARS' | 'USD';
@@ -29,9 +33,10 @@ interface AdditionalWorkFormProps {
   onChange: (f: React.SetStateAction<AdditionalWorkFormData>) => void;
   onSubmit: (e: React.FormEvent) => void;
   onCancel: () => void;
+  categoryOptions: string[];
 }
 
-export function AdditionalWorkForm({ editItem, form, saving, onChange, onSubmit, onCancel }: AdditionalWorkFormProps) {
+export function AdditionalWorkForm({ editItem, form, saving, onChange, onSubmit, onCancel, categoryOptions }: AdditionalWorkFormProps) {
   return (
     <form onSubmit={onSubmit}>
       <div className="form-group">
@@ -54,6 +59,17 @@ export function AdditionalWorkForm({ editItem, form, saving, onChange, onSubmit,
           onChange={(e) => onChange((f) => ({ ...f, detail: e.target.value }))}
           placeholder="Descripción breve del trabajo adicional"
         />
+      </div>
+      <div className="form-group">
+        <label>Categoría</label>
+        <select
+          className="input"
+          value={form.category}
+          onChange={(e) => onChange((f) => ({ ...f, category: e.target.value }))}
+        >
+          <option value="">Sin categoría</option>
+          {categoryOptions.map((category) => <option key={category} value={category}>{category}</option>)}
+        </select>
       </div>
       <div className={s['aw-form__row']}>
         <div className="form-group">

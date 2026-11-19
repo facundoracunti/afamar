@@ -18,12 +18,14 @@ import { Pagination } from '../../components/ui/Pagination';
 import { AdditionalWorksTable } from '../../components/common/AdditionalWorksTable';
 import { AdditionalWorkForm } from '../../components/common/AdditionalWorkForm';
 import { useNotify } from '../../context/NotificationContext';
-import type { AdditionalWork, AdditionalWorkType } from '../../types/additionalWork';
+import type { AdditionalWork, AdditionalWorkCategory, AdditionalWorkType } from '../../types/additionalWork';
+import { getAdditionalWorkCategories } from '../../api/resources/additionalWorkCategories';
 
 const ADDITIONAL_WORKS_KEY = ['additional-works'] as const;
 
 type AdditionalWorkFormData = {
   name: string;
+  category: string;
   detail: string;
   price: number;
   currency: 'ARS' | 'USD';
@@ -33,6 +35,7 @@ type AdditionalWorkFormData = {
 
 const EMPTY_FORM: AdditionalWorkFormData = {
   name: '',
+  category: '',
   detail: '',
   price: 0,
   currency: 'ARS',
@@ -46,6 +49,9 @@ export default function AdditionalWorksPage() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<AdditionalWorkFormData>(EMPTY_FORM);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkCategory, setBulkCategory] = useState('');
+  const [categories, setCategories] = useState<AdditionalWorkCategory[]>([]);
   const notify = useNotify();
   const queryClient = useQueryClient();
 
@@ -56,6 +62,8 @@ export default function AdditionalWorksPage() {
         getAdditionalWorksPaginated({ skip, limit }) as Promise<AxiosResponse<AdditionalWork[]>>,
       { pageSize: 25 },
     );
+  useEffect(() => { getAdditionalWorkCategories().then(setCategories).catch(() => setCategories([])); }, []);
+  const categoryOptions = categories.map((category) => category.name);
 
   useEffect(() => {
     if (!showForm) setEditItem(null);
@@ -66,6 +74,7 @@ export default function AdditionalWorksPage() {
       setEditItem(item);
       setForm({
         name: item.name,
+        category: item.category || '',
         detail: item.detail || '',
         price: item.price,
         currency: item.currency,
@@ -123,6 +132,24 @@ export default function AdditionalWorksPage() {
     }
   };
 
+  const handleBulkCategory = async () => {
+    const category = bulkCategory.trim();
+    if (!category || selectedIds.size === 0) return;
+    setSaving(true);
+    try {
+      await Promise.all([...selectedIds].map((id) => updateAdditionalWork(id, { category })));
+      notify(`Categoría aplicada a ${selectedIds.size} trabajos`, 'success');
+      setSelectedIds(new Set());
+      setBulkCategory('');
+      queryClient.invalidateQueries({ queryKey: ADDITIONAL_WORKS_KEY });
+    } catch (err: unknown) {
+      notify(parseApiError(err, 'Error al aplicar la categoría'), 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+
   return (
     <div className="additional-works">
       <PageHeader
@@ -136,10 +163,26 @@ export default function AdditionalWorksPage() {
 
       {loading ? <LoadingSpinner /> : (
         <>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
+            <select className="input" value={bulkCategory} onChange={(e) => setBulkCategory(e.target.value)} style={{ maxWidth: 260 }}>
+              <option value="">Elegir categoría para asignar</option>
+              {categoryOptions.map((category) => <option key={category} value={category}>{category}</option>)}
+            </select>
+            <button className="btn btn-outline" disabled={!bulkCategory.trim() || selectedIds.size === 0 || saving} onClick={handleBulkCategory}>
+              Aplicar categoría a {selectedIds.size || ''} seleccionados
+            </button>
+            <small>Marcá varios trabajos en la tabla y asignales el mismo grupo de una sola vez.</small>
+          </div>
           <AdditionalWorksTable
             data={data || []}
             onEdit={handleOpenForm}
             onDelete={(id) => setDeleteId(id)}
+            selectedIds={selectedIds}
+            onToggleSelect={(id) => setSelectedIds((prev) => {
+              const next = new Set(prev);
+              if (next.has(id)) next.delete(id); else next.add(id);
+              return next;
+            })}
           />
           <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} label="trabajos adicionales" />
         </>
@@ -158,6 +201,7 @@ export default function AdditionalWorksPage() {
           onChange={setForm}
           onSubmit={handleSave}
           onCancel={() => setShowForm(false)}
+          categoryOptions={categoryOptions}
         />
       </Modal>
 

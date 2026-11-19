@@ -25,6 +25,8 @@ class AdditionalWork(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
+    # UI grouping for the catalogue picker. Legacy rows default to "other".
+    category: Mapped[str] = mapped_column(String(40), nullable=False, default="other", server_default="other")
     detail: Mapped[str] = mapped_column(Text, nullable=True)
     # Single price column — value is in the currency of the FK below.
     # ARS rows store the ARS price; USD rows store the USD price. The

@@ -1,4 +1,5 @@
 from app.models.additional_work import AdditionalWork
+from app.models.additional_work_category import AdditionalWorkCategory
 from app.models.client import Client
 from app.models.client_address import ClientAddress
 from app.models.budget import Budget, BudgetItem, BudgetAdicional, BudgetSketchElement
@@ -17,6 +18,7 @@ from app.models.user import User
 
 __all__ = [
     "AdditionalWork",
+    "AdditionalWorkCategory",
     "Client",
     "ClientAddress",
     "Budget",

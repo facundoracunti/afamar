@@ -19,16 +19,18 @@ interface AdditionalWorksTableProps {
   data: AdditionalWork[];
   onEdit: (a: AdditionalWork) => void;
   onDelete: (id: number) => void;
+  selectedIds?: Set<number>;
+  onToggleSelect?: (id: number) => void;
 }
 
-function AdditionalWorksTableInner({ data, 
-onEdit, onDelete }: AdditionalWorksTableProps) {
+function AdditionalWorksTableInner({ data, onEdit, onDelete, selectedIds, onToggleSelect }: AdditionalWorksTableProps) {
   return (
     <div className="card">
       <div className={`${s['aw-table__desktop']} table-container`}>
         <table>
           <thead>
             <tr>
+              <th></th>
               <th>Nombre</th>
               <th>Detalle</th>
               <th>Tipo</th>
@@ -40,6 +42,7 @@ onEdit, onDelete }: AdditionalWorksTableProps) {
           <tbody>
             {data.map((a) => (
               <tr key={a.id}>
+                <td><input type="checkbox" checked={selectedIds?.has(a.id) ?? false} onChange={() => onToggleSelect?.(a.id)} aria-label={`Seleccionar ${a.name}`} /></td>
                 <td style={{ fontWeight: 600 }}>{a.name}</td>
                 <td style={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {a.detail || <span className={s['aw-table__detail-empty']}>—</span>}
@@ -91,7 +94,7 @@ onEdit, onDelete }: AdditionalWorksTableProps) {
             ))}
             {(!data || data.length === 0) && (
               <tr>
-                <td colSpan={6} className={s['aw-table__empty-row']}>
+                <td colSpan={7} className={s['aw-table__empty-row']}>
                   No hay trabajos adicionales configurados. Hacé click en "Nuevo Trabajo Adicional" para empezar.
                 </td>
               </tr>

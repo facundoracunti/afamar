@@ -9,6 +9,7 @@
 export interface AdditionalWork {
   id: number;
   name: string;
+  category?: string;
   detail: string | null;
   price: number;
   currency: 'ARS' | 'USD';
@@ -25,6 +26,14 @@ export interface AdditionalWork {
   created_at?: string;
   updated_at?: string;
 }
+
+export interface AdditionalWorkCategory {
+  id: number;
+  name: string;
+  sort_order: number;
+  active: boolean;
+}
+
 
 /** Catalogue picklist for the picker. */
 export const ADDITIONAL_WORK_TYPES = ['flat', 'frente'] as const;

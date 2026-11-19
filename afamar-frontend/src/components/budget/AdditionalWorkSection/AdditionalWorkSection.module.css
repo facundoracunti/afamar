@@ -42,6 +42,13 @@
   font-weight: 600;
 }
 
+.additional-works__category-select {
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
 .additional-works__add-frente-select {
   color: var(--color-info, var(--tw-blue-800));
 }

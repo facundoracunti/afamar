@@ -8,6 +8,7 @@ from app.schemas.base import BaseResponse, CurrencyCodeMixin
 
 class AdditionalWorkBase(BaseModel):
     name: str
+    category: str = "other"
     detail: str | None = None
     # Single price column — value lives in the currency of the FK. The
     # wire format accepts the currency code ('ARS' / 'USD') and the
@@ -30,6 +31,7 @@ class AdditionalWorkCreate(AdditionalWorkBase):
 
 class AdditionalWorkUpdate(BaseModel):
     name: str | None = None
+    category: str | None = None
     detail: str | None = None
     price: float | None = None
     currency: str | None = None

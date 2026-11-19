@@ -24,7 +24,10 @@ import {
   FRENTE_FORMULA_MULTIPLIER_DEFAULT,
 } from '../../../utils/frentePricing';
 import { buildMaterialGroupOptions, materialGroupKey } from '../../../utils/materialGroups';
-import type { AdditionalWork } from '../../../types/additionalWork';
+import {
+  type AdditionalWork,
+} from '../../../types/additionalWork';
+import { getAdditionalWorkCategories } from '../../../api/resources/additionalWorkCategories';
 import type { MaterialInForm } from '../../../types/budget';
 import AdditionalWorkCard from '../AdditionalWorkCard/AdditionalWorkCard';
 import styles from './AdditionalWorkSection.module.css';
@@ -47,6 +50,9 @@ export default function AdditionalWorkSection({ value, onChange, readOnly, formM
     const { items: catalogue, loading: catalogueLoading } = useAdditionalWorksCatalogue();
     const { selections, add, removeAt, updateField, totalArs, totalUsd } =
       useAdditionalWorkSelection(value, onChange);
+  const [category, setCategory] = React.useState('all');
+  const [categories, setCategories] = React.useState<Array<{ id: number; name: string }>>([]);
+  React.useEffect(() => { getAdditionalWorkCategories().then(setCategories).catch(() => setCategories([])); }, []);
 
   const selectedIds = new Set(
     selections.map((s) => s.additional_work_id).filter((id): id is number => id !== null)
@@ -153,6 +159,18 @@ export default function AdditionalWorkSection({ value, onChange, readOnly, formM
       ) : (
         <div className={s['additional-works__picker']}>
           <select
+            className={`input ${s['additional-works__category-select']}`}
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            disabled={readOnly}
+            aria-label="Filtrar trabajos adicionales por categoría"
+          >
+            <option value="all">Todos los grupos</option>
+            {categories.map((item) => (
+              <option key={item.id} value={item.name}>{item.name}</option>
+            ))}
+          </select>
+          <select
             className={`input ${s['additional-works__add-select']}`}
             value=""
             onChange={(e) => {
@@ -169,6 +187,7 @@ export default function AdditionalWorkSection({ value, onChange, readOnly, formM
               // MATERIAL" select below — they must be bound to a material, so
               // they don't belong in this generic picker.
               .filter((a) => !frenteIds.has(a.id))
+              .filter((a) => category === 'all' || a.category === category)
               // Flat items: dedup by catalogue id (one row per selected id).
               // Frente items: keep dedup-by-id as well — the card already
               // supports the "Asignar material" dropdown so the operator

@@ -47,6 +47,7 @@ function getPageTitle(pathname: string): string {
     '/admin/reports': 'Reportes',
     '/admin/configuration': 'Configuración',
     '/admin/configuration/payment-methods': 'Métodos de Pago',
+    '/admin/configuration/additional-work-categories': 'Categorías trabajos adicionales',
     '/admin/product-photos': 'Fotos de Productos',
   };
   const prefix = Object.keys(prefixes).find(k => pathname === k || pathname.startsWith(k + '/'));
