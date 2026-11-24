@@ -1,17 +1,19 @@
-import pytest
 from io import BytesIO
 
-from app.services.commercial_rounding import (
-    apply_contractual_totals,
-    copy_contractual_totals,
-    contractual_snapshot_state,
-    contractual_totals,
-    round_to_nearest_multiple,
-)
+import pytest
+
 from app.core.exceptions import ValidationError
 from app.models.budget import Budget
 from app.models.client import Client
 from app.schemas.budget import BudgetResponse
+from app.services.commercial_rounding import (
+    apply_contractual_totals,
+    contractual_piece_totals,
+    contractual_snapshot_state,
+    contractual_totals,
+    copy_contractual_totals,
+    round_to_nearest_multiple,
+)
 from app.services.pdf_html.budget_builder import build_budget_pdf_data
 from app.services.pdf_html.renderer import generate_budget_pdf
 
@@ -44,6 +46,16 @@ def test_zero_or_negative_totals_are_zero():
 def test_round_to_nearest_multiple_rounds_935440_up_to_940000():
     assert round_to_nearest_multiple(935_440) == 940_000
     assert round_to_nearest_multiple(940_000) == 940_000
+
+
+def test_piece_totals_round_each_visible_piece_before_aggregating():
+    values = contractual_piece_totals(
+        [2_831_940.22, 1_491_810.55, 1_485_883.50],
+        1_615,
+    )
+
+    assert values["contractual_ars"] == 5_820_000
+    assert values["contractual_usd"] == 3_603.72
 
 
 def test_contractual_snapshot_recomputes_balance_from_frozen_total():

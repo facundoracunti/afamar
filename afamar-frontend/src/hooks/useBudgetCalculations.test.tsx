@@ -160,6 +160,44 @@ describe('useBudgetCalculations — basic totals', () => {
     expect(result.current.form.total_exact_ars).toBeNull();
     expect(result.current.form.total_contractual_ars).toBeNull();
   });
+
+  it('sums independently rounded piece subtotals for editable budgets', async () => {
+    const prices = [2_831_940.22, 1_491_810.55, 1_485_883.5];
+    const pieces = prices.map((price, index) => ({
+      id: `piece-${index}`,
+      name: `Mesada ${index + 1}`,
+      mainMaterial: {
+        name: `Material ${index + 1}`,
+        length: 1,
+        width: 1,
+        quantity: 1,
+        price_m2: price,
+        price_m2_usd: 0,
+        currency: 'ARS',
+        is_alternative: false,
+      },
+      mainMaterialRows: [],
+      alternativeMaterials: [],
+      fabrication_details: [],
+      additional_works_data: '[]',
+      pools: [],
+    }));
+    const materials_data = pieces.map((piece) => piece.mainMaterial);
+    const { result } = renderCalc(
+      makeForm({
+        usd_rate: 1_615,
+        pieces: pieces as unknown as EntityFormState['pieces'],
+        materials_data: materials_data as unknown as MaterialInForm[],
+      }),
+      PAYMENT_METHODS,
+      { editableBudget: true },
+    );
+
+    await act(async () => {});
+    expect(result.current.form.subtotal).toBeCloseTo(5_809_634.27, 2);
+    expect(result.current.form.total).toBe(5_820_000);
+    expect(result.current.form.total_usd).toBe(3_603.72);
+  });
 });
 
 describe('useBudgetCalculations — existing work-order commercial freeze', () => {

@@ -183,4 +183,54 @@ describe('React-PDF commercial contractual total', () => {
     expect(text).toContain('TOTAL$1.110.000,00');
     expect(text).toContain('709,27');
   }, 20_000);
+
+  it('makes the budget total equal the sum of rounded piece subtotals', () => {
+    const prices = [2_831_940.22, 1_491_810.55, 1_485_883.5];
+    const pieces = prices.map((price, index): BudgetPiece => ({
+      id: `piece-${index}`,
+      name: `Mesada ${index + 1}`,
+      mainMaterial: {
+        name: `Material ${index + 1}`,
+        price_m2: price,
+        price_m2_usd: 0,
+        currency: 'ARS',
+        quantity: 1,
+        length: 1,
+        width: 1,
+        m2_used: 0,
+        m2_budgeted: 0,
+        is_alternative: false,
+      },
+      mainMaterialRows: [],
+      alternativeMaterials: [],
+      fabrication_details: [],
+      additional_works_data: '[]',
+      pools: [],
+    }));
+    const flat = flattenPieces(pieces);
+    const data = buildPdfData({
+      form: {
+        ...INITIAL_FORM,
+        client_name: 'Cliente sintético',
+        usd_rate: 1_615,
+        materials_data: flat.materials_data,
+        pools_data: flat.pools_data,
+        fabrication_details: flat.fabrication_details,
+        additional_works_data: flat.additional_works_data,
+        pieces,
+      },
+      document_type: 'budget',
+      company: COMPANY,
+      globalTerms: { budget_terms: [], delivery_terms: [], warranty_text: [] },
+      overrides: {},
+    });
+
+    expect(data.pieces?.map((piece) => piece.display_subtotal_ars)).toEqual([
+      2_835_000,
+      1_495_000,
+      1_490_000,
+    ]);
+    expect(data.total).toBe(5_820_000);
+    expect(data.total_usd).toBe(3_603.72);
+  });
 });

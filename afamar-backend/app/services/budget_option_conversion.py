@@ -241,7 +241,11 @@ def convert_budget_to_work_order(
     # Server-side recompute of the OPTION's totals (materials + fabrication +
     # additional works + pools of THIS option only) so the WO carries the
     # real price of the winning scenario — not the whole budget's total.
-    recalculate_totals_from_items(db, data)
+    recalculate_totals_from_items(
+        db,
+        data,
+        round_piece_subtotals=True,
+    )
     # Options do not currently persist their own contractual snapshot. Never
     # copy the budget-level total because it may belong to another option. If
     # the budget has a valid frozen snapshot, use its frozen rate while

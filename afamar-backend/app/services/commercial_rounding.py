@@ -69,6 +69,34 @@ def contractual_totals(exact_ars: Any, usd_rate: Any) -> dict[str, float]:
     }
 
 
+def contractual_piece_totals(piece_exact_ars: list[Any], usd_rate: Any) -> dict[str, float]:
+    """Round each piece first, then aggregate the document total.
+
+    Piece subtotals are customer-facing amounts. When a budget prints each
+    piece rounded to the next ARS 5,000, its document total must be the sum of
+    those same displayed amounts instead of rounding only the exact aggregate.
+    """
+    exact = sum((_decimal(value) for value in piece_exact_ars), Decimal("0"))
+    rate = _decimal(usd_rate)
+    contractual = sum(
+        (
+            Decimal(str(round_to_nearest_multiple(value, int(ROUNDING_UNIT_ARS))))
+            for value in piece_exact_ars
+        ),
+        Decimal("0"),
+    )
+    exact_usd = exact / rate if rate > 0 else Decimal("0")
+    contractual_usd = contractual / rate if rate > 0 else Decimal("0")
+    return {
+        "exact_ars": float(exact.quantize(Decimal("0.01"))),
+        "exact_usd": float(exact_usd.quantize(Decimal("0.01"))),
+        "adjustment_ars": float((contractual - exact).quantize(Decimal("0.01"))),
+        "adjustment_usd": float((contractual_usd - exact_usd).quantize(Decimal("0.01"))),
+        "contractual_ars": float(contractual.quantize(Decimal("0.01"))),
+        "contractual_usd": float(contractual_usd.quantize(Decimal("0.01"))),
+    }
+
+
 def contractual_snapshot_state(row: Any) -> str:
     """Classify a persisted commercial snapshot without treating NULL as zero."""
     values = {

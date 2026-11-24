@@ -11,7 +11,10 @@
 import { buildPieces, piecesSubtotal } from './buildPiecesPdfData';
 import { computeTotals } from './buildPdfData.totals';
 import { computeInstallmentDetail } from '../../hooks/calculations/paymentMethod';
-import { roundCommercialTotals } from '../commercialRounding';
+import {
+  roundCommercialPieceTotals,
+  roundCommercialTotals,
+} from '../commercialRounding';
 import type { BuildAlternativeTotalsParams } from './buildPdfData.types';
 import type { BudgetOption, BudgetPiece } from '../../types/budget';
 import type {
@@ -91,11 +94,15 @@ export function buildOptionTotals(
       usdRate,
     );
     const { ars: subtotalArs, usd: subtotalUsd } = piecesSubtotal(built);
+    const commercialPiecesTotals = roundCommercialPieceTotals(
+      built.map((piece) => piece.subtotal_ars),
+      params.usdRate,
+    );
     // `buildAlternativeTotals` reuses `computeTotals`, which is the exact
     // rule set the document totals use — same discount base, same recargo.
     const totals = computeTotals({
-      subtotalArs,
-      subtotalUsd,
+      subtotalArs: commercialPiecesTotals.contractualArs,
+      subtotalUsd: commercialPiecesTotals.contractualUsd,
       transport: params.transport,
       transportUsd: params.transportUsd,
       discountPct: params.discountPct,
@@ -112,7 +119,7 @@ export function buildOptionTotals(
     // comparison sheet and each option detail page do not print the raw
     // calculated amount while the form shows the rounded amount.
     const commercialTotals = roundCommercialTotals(totals.total, params.usdRate);
-    const displaySubtotalArs = roundCommercialTotals(subtotalArs, params.usdRate).contractualArs;
+    const displaySubtotalArs = commercialPiecesTotals.contractualArs;
     const displayDiscountFixedAmount = totals.discount_fixed_amount > 0 && totals.surcharge_amount <= 0
       ? Math.max(0, displaySubtotalArs - commercialTotals.contractualArs)
       : totals.discount_fixed_amount;

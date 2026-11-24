@@ -26,6 +26,7 @@ import json
 from sqlalchemy.orm import Session
 
 from app.core.settings import settings
+from app.services.commercial_rounding import contractual_piece_totals
 from app.services.work_order.recalc_alternatives import apply_alternative_override
 from app.services.work_order.recalc_discounts import (
     apply_catalogue_adjustment,
@@ -33,18 +34,94 @@ from app.services.work_order.recalc_discounts import (
     resolve_payment_method,
 )
 from app.services.work_order.recalc_installments import _build_installment_detail
-from app.services.work_order.recalc_links import _collect_alt_material_names, _is_alt_linked
+from app.services.work_order.recalc_links import (
+    _collect_alt_material_names,
+    _is_alt_linked,
+)
 from app.services.work_order.recalc_totals import compute_line_totals
 
 __all__ = [
-    "recalculate_totals_from_items",
     "_build_installment_detail",
     "_collect_alt_material_names",
     "_is_alt_linked",
+    "recalculate_totals_from_items",
 ]
 
 
-def recalculate_totals_from_items(db: Session, data: dict) -> None:
+def _parse_json_list(value) -> list:
+    """Return a JSON/list payload as a list without raising on bad input."""
+    if isinstance(value, list):
+        return value
+    if not isinstance(value, str) or not value:
+        return []
+    try:
+        parsed = json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return []
+    return parsed if isinstance(parsed, list) else []
+
+
+def _piece_payload(piece: dict) -> dict:
+    """Build the flat line-item payload used to price one piece."""
+    materials = []
+    if isinstance(piece.get("mainMaterial"), dict):
+        materials.append({**piece["mainMaterial"], "is_alternative": False})
+        materials.extend(
+            {**row, "is_alternative": False}
+            for row in piece.get("mainMaterialRows", [])
+            if isinstance(row, dict)
+        )
+    elif isinstance(piece.get("materials"), list):
+        materials.extend(piece["materials"])
+    materials.extend(
+        {**row, "is_alternative": True}
+        for row in piece.get("alternativeMaterials", [])
+        if isinstance(row, dict)
+    )
+    return {
+        "materials_data": materials,
+        "fabrication_details": piece.get("fabrication_details") or [],
+        "additional_works_data": _parse_json_list(piece.get("additional_works_data")),
+        "pools_data": piece.get("pools") or [],
+    }
+
+
+def _rounded_piece_subtotal(
+    data: dict,
+    usd_rate: float,
+    lines,
+) -> tuple[float, float] | None:
+    """Return the subtotal obtained by rounding each piece independently."""
+    pieces = _parse_json_list(data.get("pieces_data"))
+    if not pieces:
+        return None
+
+    exact_piece_subtotals = [
+        compute_line_totals(_piece_payload(piece), usd_rate).subtotal_ars
+        for piece in pieces
+        if isinstance(piece, dict)
+    ]
+    if not exact_piece_subtotals:
+        return None
+
+    # Any legacy/global line not attached to a piece remains part of the
+    # document subtotal instead of silently disappearing from the total. The
+    # frontend attaches the same global rows to the first visible piece.
+    residual = max(0.0, lines.subtotal_ars - sum(exact_piece_subtotals))
+    if residual > 0:
+        exact_piece_subtotals[0] += residual
+    rounded = contractual_piece_totals(exact_piece_subtotals, usd_rate)
+    subtotal_ars = rounded["contractual_ars"]
+    subtotal_usd = rounded["contractual_usd"]
+    return subtotal_ars, subtotal_usd
+
+
+def recalculate_totals_from_items(
+    db: Session,
+    data: dict,
+    *,
+    round_piece_subtotals: bool = False,
+) -> None:
     """Recompute subtotal/total/etc. from the raw line-item arrays.
 
     Mutates ``data`` in place. Mirrors the frontend hook's math
@@ -74,12 +151,19 @@ def recalculate_totals_from_items(db: Session, data: dict) -> None:
     # Fabrication + materials + pools + additional works, aggregated per
     # currency family and cross-converted into the subtotal.
     lines = compute_line_totals(data, dd)
+    piece_subtotal = (
+        _rounded_piece_subtotal(data, dd, lines)
+        if round_piece_subtotals
+        else None
+    )
+    subtotal_ars = piece_subtotal[0] if piece_subtotal else lines.subtotal_ars
+    subtotal_usd = piece_subtotal[1] if piece_subtotal else lines.subtotal_usd
 
     transport = float(data.get("transport") or 0)
     transport_usd = float(data.get("transport_usd") or 0)
 
-    total_base_ars = max(0.0, lines.subtotal_ars + transport)
-    total_base_usd = max(0.0, lines.subtotal_usd + transport_usd)
+    total_base_ars = max(0.0, subtotal_ars + transport)
+    total_base_usd = max(0.0, subtotal_usd + transport_usd)
 
     # Discount + surcharge (matches the frontend hook's logic). The
     # gate (`discount_enabled`) decides whether the configured %
@@ -156,17 +240,24 @@ def recalculate_totals_from_items(db: Session, data: dict) -> None:
     # row). The list-page PDF preview reuses this snapshot so the
     # per-cuota table renders even when the form hook isn't running.
     data["installment_detail_ars"] = (
-        json.dumps(installment_detail_ars, ensure_ascii=False) if installment_detail_ars else None
+        json.dumps(installment_detail_ars, ensure_ascii=False)
+        if installment_detail_ars
+        else None
     )
     data["installment_detail_usd"] = (
-        json.dumps(installment_detail_usd, ensure_ascii=False) if installment_detail_usd else None
+        json.dumps(installment_detail_usd, ensure_ascii=False)
+        if installment_detail_usd
+        else None
     )
     # Keep the legacy `payment_method` string in sync with the FK so
     # downstream consumers (PDFs, list endpoint, exports) that still
     # read the legacy column show the catalogue label, not a stale
     # name from a previous selection. `pm` was resolved earlier from
     # either `payment_method_id` or `payment_method`.
-    if pm is not None and (pm.name != data.get("payment_method") or not data.get("payment_method")):
+    if pm is not None and (
+        pm.name != data.get("payment_method")
+        or not data.get("payment_method")
+    ):
         data["payment_method"] = pm.name
 
     # Deposit + balance due. The form keeps `deposit_received` (ARS) and

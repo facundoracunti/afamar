@@ -26,3 +26,29 @@ export function roundCommercialTotals(exactArs: number, usdRate: number): Commer
     contractualUsd,
   };
 }
+
+/**
+ * Apply the commercial rule to every piece before aggregating the budget.
+ * This keeps the document total equal to the visible piece subtotals.
+ */
+export function roundCommercialPieceTotals(
+  exactPieceArs: number[],
+  usdRate: number,
+): CommercialTotals {
+  const exactArs = exactPieceArs.reduce((sum, value) => sum + (Number(value) || 0), 0);
+  const roundedPieces = exactPieceArs.reduce(
+    (sum, value) => sum + roundCommercialTotals(value, usdRate).contractualArs,
+    0,
+  );
+  const rate = Number(usdRate) || 0;
+  const exactUsd = rate > 0 ? Math.round((exactArs / rate) * 100) / 100 : 0;
+  const contractualUsd = rate > 0 ? Math.round((roundedPieces / rate) * 100) / 100 : 0;
+  return {
+    exactArs,
+    exactUsd,
+    adjustmentArs: roundedPieces - exactArs,
+    adjustmentUsd: Math.round((contractualUsd - exactUsd) * 100) / 100,
+    contractualArs: roundedPieces,
+    contractualUsd,
+  };
+}

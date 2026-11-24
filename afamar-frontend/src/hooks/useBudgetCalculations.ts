@@ -2,7 +2,11 @@ import { useEffect, useRef } from 'react';
 import type { EntityFormState, FabricationDetail, MaterialInForm, PoolInForm } from '../types';
 import type { PaymentMethod } from '../types/paymentMethod';
 import { round2 } from '../utils/math';
-import { roundCommercialTotals } from '../utils/commercialRounding';
+import {
+  roundCommercialPieceTotals,
+  roundCommercialTotals,
+} from '../utils/commercialRounding';
+import { buildPieces } from '../utils/pdf/buildPiecesPdfData';
 import {
   applyPaymentMethodToTotals,
   computeInstallmentDetail,
@@ -238,8 +242,19 @@ export function useBudgetCalculations(
       + (dd > 0 ? Math.round(ppUsd * dd * 100) / 100 : 0)
       + additionalArs
       + (dd > 0 ? Math.round(additionalUsd * dd * 100) / 100 : 0);
+    const pieceRows = editableBudget
+      ? buildPieces(form as unknown as Record<string, unknown>, dd)
+      : [];
+    const pieceCommercialTotals = pieceRows.length > 0
+      ? roundCommercialPieceTotals(
+        pieceRows.map((piece) => piece.subtotal_ars),
+        dd,
+      )
+      : null;
+    const pricingSubtotal = pieceCommercialTotals?.contractualArs ?? subtotal;
+    const pricingSubtotalUsd = pieceCommercialTotals?.contractualUsd ?? null;
     const tr = Number(form.transport) || 0;
-    const totalBase = Math.max(0, subtotal + tr);
+    const totalBase = Math.max(0, pricingSubtotal + tr);
 
     // Commercial discount (Fase 3 — budgets feature). Gated by
     // `discount_enabled`: when off (default) the percentage never applies.
@@ -293,7 +308,7 @@ export function useBudgetCalculations(
     // USD mirror
     const tr_usd = Number(form.transport_usd) || 0;
     const subtotal_usd = round2(usdTotal + matUsd + ppUsd + additionalUsd + (dd > 0 ? (arsTotal + matArs + ppArs + additionalArs) / dd : 0));
-    const totalBaseUsd = Math.max(0, subtotal_usd + tr_usd);
+    const totalBaseUsd = Math.max(0, (pricingSubtotalUsd ?? subtotal_usd) + tr_usd);
     const materialsBaseUsd = matUsd + (dd > 0 ? matArs / dd : 0);
     let discountAmountUsd = 0;
     let totalConDescuentoUsd = totalBaseUsd;

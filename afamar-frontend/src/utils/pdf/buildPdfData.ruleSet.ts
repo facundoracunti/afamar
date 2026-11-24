@@ -91,6 +91,8 @@ export function computeDocumentRuleSet({
     globalSection,
     computedSubtotal,
     computedSubtotalUsd,
+    commercialSubtotalArs,
+    commercialSubtotalUsd,
   } = rows;
 
   const transport = num('transport');
@@ -164,8 +166,12 @@ export function computeDocumentRuleSet({
     materialsSubtotalUsd: materialsTotals.materialsSubtotalUsd,
   };
   const totals = computeTotals({
-    subtotalArs: computedSubtotal,
-    subtotalUsd: mainSectionSubtotalUsd,
+    subtotalArs: document_type === 'budget'
+      ? (commercialSubtotalArs ?? computedSubtotal)
+      : computedSubtotal,
+    subtotalUsd: document_type === 'budget'
+      ? (commercialSubtotalUsd ?? mainSectionSubtotalUsd)
+      : mainSectionSubtotalUsd,
     ...totalsContext,
   });
   const {

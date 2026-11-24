@@ -184,9 +184,13 @@ class BudgetService:
             )
 
         # Recompute from the complete line-item payload. The budget remains a
-        # live quote at this point; contractual rounding belongs to the OT
-        # conversion, not to the editable budget.
-        recalculate_totals_from_items(self.repo.db, data)
+        # live quote, while piece-level commercial totals keep the visible
+        # subtotals consistent with the document total.
+        recalculate_totals_from_items(
+            self.repo.db,
+            data,
+            round_piece_subtotals=True,
+        )
         # A budget is an editable quote. Never accept contractual snapshot
         # fields sent by the client during creation.
         apply_live_budget_rounding(data)
@@ -311,7 +315,11 @@ class BudgetService:
         # Same derivation as create(): fill missing flat arrays from pieces
         # without clobbering client-provided arrays.
         flatten_pieces(recalculation_data, only_if_missing=True)
-        recalculate_totals_from_items(self.repo.db, recalculation_data)
+        recalculate_totals_from_items(
+            self.repo.db,
+            recalculation_data,
+            round_piece_subtotals=True,
+        )
 
         # `CONVERTED_TO_OT` is the persisted state that means the quote has
         # become a confirmed work order. It is the only budget state allowed

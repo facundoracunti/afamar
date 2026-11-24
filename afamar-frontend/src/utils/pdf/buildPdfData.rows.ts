@@ -19,6 +19,7 @@ import {
 import { buildPieces, piecesSubtotal } from './buildPiecesPdfData';
 import { computeAdditionalWorksSubtotals } from './buildPdfData.helpers';
 import { formNum } from './buildPdfData.form';
+import { roundCommercialPieceTotals } from '../commercialRounding';
 import type { AdditionalBuckets } from './buildSectionData.types';
 import type {
   AdditionalWorkPdfRow,
@@ -51,6 +52,9 @@ export interface DocumentRows {
   computedSubtotal: number;
   /** The structured pieces subtotal in USD, when pieces are valid. */
   computedSubtotalUsd: number;
+  /** Budget-only base obtained by summing each visible rounded piece. */
+  commercialSubtotalArs: number | null;
+  commercialSubtotalUsd: number | null;
 }
 
 /**
@@ -118,6 +122,12 @@ export function collectDocumentRows({
   // (they moved into the pieces), so they sum to the true document total.
   const piecesEarly = buildPieces(effectiveForm, usdRate, useBudgetedAmounts);
   const piecesTotals = piecesEarly.length > 0 ? piecesSubtotal(piecesEarly) : null;
+  const commercialPiecesTotals = piecesEarly.length > 0
+    ? roundCommercialPieceTotals(
+      piecesEarly.map((piece) => piece.subtotal_ars),
+      usdRate,
+    )
+    : null;
   const globalSection = sections.find((s) => s.is_global);
   const computedSubtotal = piecesTotals
     ? piecesTotals.ars
@@ -141,5 +151,7 @@ export function collectDocumentRows({
     globalSection,
     computedSubtotal,
     computedSubtotalUsd,
+    commercialSubtotalArs: commercialPiecesTotals?.contractualArs ?? null,
+    commercialSubtotalUsd: commercialPiecesTotals?.contractualUsd ?? null,
   };
 }

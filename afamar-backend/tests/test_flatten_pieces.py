@@ -23,9 +23,7 @@ from app.models.reference import PaymentMethod
 from app.models.work_order import WorkOrder
 from app.services.budget_calculator import flatten_pieces
 from app.services.work_order import WorkOrderService, _recalculate_totals_from_items
-
 from tests.conftest import TestingSessionLocal
-
 
 # ────────────────────────────────────────────────────────────────────
 # Fixtures
@@ -67,7 +65,10 @@ def _pieces() -> list[dict]:
                 },
             ],
             "fabrication_details": [
-                {"concept": "BASEBOARD", "price": 30000, "quantity": 1, "currency": "ARS"},
+                {
+                    "concept": "BASEBOARD", "price": 30000,
+                    "quantity": 1, "currency": "ARS",
+                },
             ],
             "additional_works_data": json.dumps([
                 {"name": "Traforo", "type": "flat", "currency": "ARS",
@@ -164,6 +165,55 @@ def test_recalc_flattens_and_totals_from_pieces_data(db):
     # 200.000 + 30.000 + 50.000 + 200.000
     assert data["subtotal"] == 480000
     assert data["total"] == 480000
+
+
+def test_recalc_can_sum_independently_rounded_piece_subtotals(db):
+    pieces = [
+        {
+            "id": "p1",
+            "materials": [{
+                "name": "Mesada 1", "length": 1, "width": 1, "quantity": 1,
+                "price_m2": 2_831_940.22, "currency": "ARS",
+                "is_alternative": False,
+            }],
+            "fabrication_details": [],
+            "additional_works_data": "[]",
+        },
+        {
+            "id": "p2",
+            "materials": [{
+                "name": "Mesada 2", "length": 1, "width": 1, "quantity": 1,
+                "price_m2": 1_491_810.55, "currency": "ARS",
+                "is_alternative": False,
+            }],
+            "fabrication_details": [],
+            "additional_works_data": "[]",
+        },
+        {
+            "id": "p3",
+            "materials": [{
+                "name": "Mesada 3", "length": 1, "width": 1, "quantity": 1,
+                "price_m2": 1_485_883.50, "currency": "ARS",
+                "is_alternative": False,
+            }],
+            "fabrication_details": [],
+            "additional_works_data": "[]",
+        },
+    ]
+    data = {
+        "usd_rate": 1_615.0,
+        "currency": "ARS",
+        "pieces_data": json.dumps(pieces),
+        "payment_method": "EFECTIVO",
+        "installments": 1,
+        "transport": 0,
+    }
+
+    _recalculate_totals_from_items(db, data, round_piece_subtotals=True)
+
+    assert data["subtotal"] == pytest.approx(5_809_634.27)
+    assert data["total"] == 5_820_000
+    assert data["total_usd"] == pytest.approx(3_603.72)
 
 
 def test_recalc_without_pieces_uses_the_flat_arrays(db):
@@ -281,7 +331,10 @@ def _pieces_v2() -> list[dict]:
                 },
             ],
             "fabrication_details": [
-                {"concept": "BASEBOARD", "price": 30000, "quantity": 1, "currency": "ARS"},
+                {
+                    "concept": "BASEBOARD", "price": 30000,
+                    "quantity": 1, "currency": "ARS",
+                },
             ],
             "additional_works_data": "[]",
             "pools": [
@@ -349,4 +402,6 @@ def test_recalc_includes_per_piece_pools_in_the_total(db):
     flat_baseline = 400000 + 30000  # main materials + zócalo (no pools)
     assert data["subtotal"] > flat_baseline
     # Both piletas land in the document total.
-    assert data["subtotal"] >= flat_baseline + 936000 + 612000 - 1  # 1 ARS tolerance for rounding
+    assert data["subtotal"] >= (
+        flat_baseline + 936000 + 612000 - 1
+    )  # 1 ARS tolerance for rounding

@@ -127,7 +127,11 @@ def create_work_order_from_budget(repo, budget) -> WorkOrder:
     # Rebuild the definitive ARS/USD totals once, at conversion time. After
     # this point updates use the frozen order rate and do not reprice merely
     # because measurements change.
-    recalculate_totals_from_items(repo.db, data)
+    recalculate_totals_from_items(
+        repo.db,
+        data,
+        round_piece_subtotals=True,
+    )
     # The converted order is a new commercial document. Use the exact amount
     # produced for the selected budget/option, then freeze its contract value.
     if has_contractual_totals(budget):

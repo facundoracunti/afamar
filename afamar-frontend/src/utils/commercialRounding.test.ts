@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { roundCommercialTotals } from './commercialRounding';
+import { roundCommercialPieceTotals, roundCommercialTotals } from './commercialRounding';
 
 describe('roundCommercialTotals', () => {
   it.each([
@@ -25,5 +25,15 @@ describe('roundCommercialTotals', () => {
   it('clamps negative and zero totals without producing a negative contract', () => {
     expect(roundCommercialTotals(0, 1500).contractualArs).toBe(0);
     expect(roundCommercialTotals(-100, 1500).contractualArs).toBe(0);
+  });
+
+  it('sums independently rounded piece subtotals', () => {
+    const result = roundCommercialPieceTotals(
+      [2_831_940.22, 1_491_810.55, 1_485_883.5],
+      1_615,
+    );
+
+    expect(result.contractualArs).toBe(5_820_000);
+    expect(result.contractualUsd).toBe(3_603.72);
   });
 });
