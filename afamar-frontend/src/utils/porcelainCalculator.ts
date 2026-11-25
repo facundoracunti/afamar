@@ -66,6 +66,12 @@ export function formatPorcelainPlateCm(largoM: number, anchoM: number): string {
   return `${largoCm}x${anchoCm}`;
 }
 
+/** Formats the requested baseboard height in centimetres without losing millimetres. */
+export function formatPorcelainHeightCm(alturaM: number): string {
+  const alturaCm = Math.round(alturaM * 1000) / 10;
+  return Number.isInteger(alturaCm) ? String(alturaCm) : alturaCm.toFixed(1);
+}
+
 /**
  * Construye el ítem de fabricación que se agrega al presupuesto / orden:
  * concepto `OTHER` + `custom_concept` (el PDF muestra el texto custom).
@@ -76,7 +82,7 @@ export function buildPorcelainFabricationDetail(
 ): FabricationDetail {
   const r = calculatePorcelainCut(input);
   const plateCm = formatPorcelainPlateCm(input.largoM, input.anchoM);
-  const alturaCm = Math.round(input.alturaM * 100);
+  const alturaCm = formatPorcelainHeightCm(input.alturaM);
   const mlStr = r.ml.toFixed(2);
   const detail = `${plateCm} · ${r.placas} placas · Altura solicitada ${alturaCm} cm · Producción ${mlStr} ML`;
   return {

@@ -5,6 +5,7 @@ import { formatCurrencyValue } from '../../../utils/formatters';
 import {
   buildPorcelainFabricationDetail,
   calculatePorcelainCut,
+  formatPorcelainHeightCm,
   type PorcelainCutInput,
 } from '../../../utils/porcelainCalculator';
 import styles from './PorcelainTileCalculator.module.css';
@@ -171,9 +172,9 @@ export default function PorcelainTileCalculator({
             id="ptc-altura"
             className="input"
             type="number"
-            step="0.01"
+            step="0.001"
             min="0"
-            placeholder="0.10"
+            placeholder="0.075"
             value={fields.altura}
             onChange={(e) => handleChange('altura', e.target.value)}
           />
@@ -218,7 +219,7 @@ export default function PorcelainTileCalculator({
         <div className={s['ptc__results']}>
           <p className={s['ptc__note']}>
             Altura final aproximada del zócalo: {(calculation.alturaFinalM * 100).toFixed(1)} cm
-            {' '}(solicitada {Math.round(calculation.input.alturaM * 100)} cm −{' '}
+            {' '}(solicitada {formatPorcelainHeightCm(calculation.input.alturaM)} cm −{' '}
             {calculation.input.discoMm} mm de disco). Solo informativo — no modifica los ML.
           </p>
           <div className={s['ptc__statGrid']}>

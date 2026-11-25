@@ -3,6 +3,7 @@ import {
   PORCELAIN_CUT_SERVICE,
   buildPorcelainFabricationDetail,
   calculatePorcelainCut,
+  formatPorcelainHeightCm,
   formatPorcelainPlateCm,
 } from './porcelainCalculator';
 
@@ -119,6 +120,13 @@ describe('formatPorcelainPlateCm', () => {
   });
 });
 
+describe('formatPorcelainHeightCm', () => {
+  it('preserva milímetros en alturas como 7,5 cm', () => {
+    expect(formatPorcelainHeightCm(0.075)).toBe('7.5');
+    expect(formatPorcelainHeightCm(0.1)).toBe('10');
+  });
+});
+
 describe('buildPorcelainFabricationDetail', () => {
   it('arma el ítem OTHER con custom_concept, descripción y precios', () => {
     const d = buildPorcelainFabricationDetail(
@@ -160,5 +168,21 @@ describe('buildPorcelainFabricationDetail', () => {
     );
     expect(d.currency).toBe('USD');
     expect(d.price).toBeCloseTo(60);
+  });
+
+  it('conserva la altura decimal en la descripción del corte', () => {
+    const d = buildPorcelainFabricationDetail(
+      {
+        largoM: 0.8,
+        anchoM: 0.8,
+        cajas: 1,
+        piezasPorCaja: 6,
+        alturaM: 0.075,
+        discoMm: 3,
+        precioPorMl: 5000,
+      },
+      'ARS',
+    );
+    expect(d.detail).toContain('Altura solicitada 7.5 cm');
   });
 });
