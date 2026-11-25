@@ -5,8 +5,10 @@
  */
 import { useCallback } from 'react';
 import type { Material } from '@/types/material';
+import type { FabricationDetail } from '@/types/budget';
 import {
   mutateAddPieceFabrication,
+  mutateAddPieceFabricationDetail,
   mutateRemovePieceFabrication,
   mutateSetPieceAdditionalWorks,
   mutateUpdatePieceFabrication,
@@ -27,6 +29,17 @@ export function useWorksHandlers({ commit, materials, markNewMeasurementRows = f
       );
     },
     [commit, markNewMeasurementRows],
+  );
+
+  const addPieceFabricationDetail = useCallback(
+    (id: string, detail: FabricationDetail) => {
+      commit((p) =>
+        p.map((piece) => (
+          piece.id === id ? mutateAddPieceFabricationDetail(piece, detail) : piece
+        )),
+      );
+    },
+    [commit],
   );
 
   const updatePieceFabrication = useCallback(
@@ -66,6 +79,7 @@ export function useWorksHandlers({ commit, materials, markNewMeasurementRows = f
 
   return {
     addPieceFabrication,
+    addPieceFabricationDetail,
     updatePieceFabrication,
     removePieceFabrication,
     setPieceAdditionalWorks,

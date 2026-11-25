@@ -112,6 +112,29 @@ describe('useBudgetPieces (pieces-only mode)', () => {
     expect(result.current.pieces[before].name).toMatch(/^Mesada /);
   });
 
+  it('adds a calculated fabrication detail to the piece and flat payload', () => {
+    const { result, getForm } = setup();
+    const detail: FabricationDetail = {
+      concept: 'OTHER',
+      custom_concept: 'Corte de zócalos de porcelanato',
+      detail: '80x80 · 6 placas · Altura solicitada 7.5 cm',
+      material: '',
+      material_price_m2: 0,
+      length: 48,
+      width: null,
+      m2: 0,
+      labor: 5000,
+      currency: 'ARS',
+      quantity: 1,
+      price: 240000,
+    };
+
+    act(() => result.current.addPieceFabricationDetail('p-blank', detail));
+
+    expect(result.current.pieces[0].fabrication_details[0]).toEqual(detail);
+    expect(getForm().fabrication_details[0]).toEqual(detail);
+  });
+
   it('removePiece drops the right piece', () => {
     const { result } = setup();
     act(() => result.current.addPiece());

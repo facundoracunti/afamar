@@ -7,7 +7,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import type { EntityFormState } from '@/types';
 import type { Material } from '@/types/material';
-import type { BudgetPiece, MaterialInForm } from '@/types/budget';
+import type { BudgetPiece, FabricationDetail, MaterialInForm } from '@/types/budget';
 
 export interface UseBudgetPiecesParams {
   form: EntityFormState;
@@ -62,6 +62,7 @@ export interface UseBudgetPiecesReturn {
 
   // ----- Piece fabrication (zócalo/frente) rows
   addPieceFabrication: (id: string) => void;
+  addPieceFabricationDetail: (id: string, detail: FabricationDetail) => void;
   updatePieceFabrication: (id: string, idx: number, field: string, value: unknown) => void;
   removePieceFabrication: (id: string, idx: number) => void;
 

@@ -478,6 +478,54 @@ describe('mapApiToForm — COMPARATIVA snapshot hydration', () => {
     expect(form.pieces[0].mainMaterial?.length).toBe(2);
   });
 
+  it('hydrates calculator rows from the flat API column into the active option piece', () => {
+    const cut = {
+      concept: 'OTHER',
+      custom_concept: 'Corte de zócalos de porcelanato',
+      detail: '80x80 · 6 placas · Altura solicitada 7.5 cm · Producción 48.00 ML',
+      material: '',
+      material_price_m2: 0,
+      length: 48,
+      width: null,
+      m2: 0,
+      labor: 5000,
+      currency: 'ARS',
+      quantity: 1,
+      price: 240000,
+    };
+    const emptyPiece = {
+      id: 'piece-1',
+      name: 'Mesada 1',
+      mainMaterial: null,
+      mainMaterialRows: [],
+      alternativeMaterials: [],
+      fabrication_details: [],
+      additional_works_data: '[]',
+      pools: [],
+    };
+    const form = mapApiToForm({
+      options_data: JSON.stringify([{
+        id: 'opt-1',
+        name: 'Opción 1',
+        is_selected: true,
+        pieces: [emptyPiece],
+      }]),
+      fabrication_details: JSON.stringify([cut]),
+    }, 'PENDING');
+
+    expect(form.pieces[0].fabrication_details[0]).toMatchObject({
+      custom_concept: cut.custom_concept,
+      detail: cut.detail,
+      price: 240000,
+    });
+    expect(form.fabrication_details[0].detail).toBe(cut.detail);
+
+    const payloadPieces = JSON.parse(String(buildPayload(form).pieces_data)) as Array<{
+      fabrication_details: Array<{ detail: string }>;
+    }>;
+    expect(payloadPieces[0].fabrication_details[0].detail).toBe(cut.detail);
+  });
+
   it('hydrates pools_data into the visible piece and form state on reload', () => {
     const pool = {
       pool_id: 20, brand: 'JOHNSON', model: 'LUXOR', price: 305000,

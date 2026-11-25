@@ -36,6 +36,17 @@ export function mutateAddPieceFabrication(piece: BudgetPiece, markAsNew = false)
   return { ...piece, fabrication_details: [...piece.fabrication_details, base] };
 }
 
+/** Append a ready-to-price fabrication row, such as a porcelain cut. */
+export function mutateAddPieceFabricationDetail(
+  piece: BudgetPiece,
+  detail: FabricationDetail,
+): BudgetPiece {
+  return {
+    ...piece,
+    fabrication_details: [...piece.fabrication_details, detail],
+  };
+}
+
 export function mutateUpdatePieceFabrication(
   piece: BudgetPiece,
   idx: number,

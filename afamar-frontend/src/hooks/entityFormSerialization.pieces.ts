@@ -33,6 +33,61 @@ function hydratePoolsFromFlat(
   return next;
 }
 
+function fabricationRowKey(row: BudgetPiece['fabrication_details'][number]): string {
+  return JSON.stringify([
+    row.concept,
+    row.detail,
+    row.custom_concept,
+    row.material,
+    row.length,
+    row.width,
+    row.m2,
+    row.labor,
+    row.currency,
+    row.quantity,
+    row.price,
+  ]);
+}
+
+/**
+ * Recover calculator rows stored in the legacy flat column when a budget
+ * already has `pieces_data`. Older versions appended porcelain cuts to
+ * `fabrication_details` but did not attach them to a piece, so the pieces
+ * editor dropped them on the next load even though the PDF could still see
+ * the flat rows.
+ */
+export function hydrateUnassignedFabricationFromFlat(
+  data: Record<string, unknown>,
+  pieces: BudgetPiece[],
+): BudgetPiece[] {
+  if (!Object.prototype.hasOwnProperty.call(data, 'fabrication_details')) return pieces;
+  const flat = jsonParseList(data.fabrication_details) as BudgetPiece['fabrication_details'];
+  if (flat.length === 0 || pieces.length === 0) return pieces;
+
+  const ownedCounts = new Map<string, number>();
+  for (const piece of pieces) {
+    for (const row of piece.fabrication_details || []) {
+      const key = fabricationRowKey(row);
+      ownedCounts.set(key, (ownedCounts.get(key) || 0) + 1);
+    }
+  }
+
+  const unassigned: BudgetPiece['fabrication_details'] = [];
+  for (const row of flat) {
+    const key = fabricationRowKey(row);
+    const owned = ownedCounts.get(key) || 0;
+    if (owned > 0) ownedCounts.set(key, owned - 1);
+    else unassigned.push(row);
+  }
+  if (unassigned.length === 0) return pieces;
+
+  return pieces.map((piece, index) => (
+    index === 0
+      ? { ...piece, fabrication_details: [...piece.fabrication_details, ...unassigned] }
+      : piece
+  ));
+}
+
 /** Single source of truth for the pieces + their derived flat columns.
  *
  *  Pieces v3 guarantees the form always has ≥ 1 piece. When the backend
@@ -92,7 +147,8 @@ export function loadPieces(
   // change and the flat `flattenPieces` output below would diverge from
   // the API's snapshot-carrying flat arrays.
   const withPools = hydratePoolsFromFlat(d, pieces);
-  const hydrated = hydratePiecesSnapshots(d, withPools);
+  const withFabrication = hydrateUnassignedFabricationFromFlat(d, withPools);
+  const hydrated = hydratePiecesSnapshots(d, withFabrication);
 
   return {
     pieces: hydrated,

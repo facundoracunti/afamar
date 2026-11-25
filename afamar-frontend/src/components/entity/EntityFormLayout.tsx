@@ -90,8 +90,17 @@ export default function EntityFormLayout(props: EntityFormLayoutProps) {
     </div>
   ));
 
-  const addPorcelainDetail = (detail: FabricationDetail) =>
+  const addPorcelainDetail = (detail: FabricationDetail) => {
+    // The calculator has no piece selector. In pieces mode its rows belong to
+    // the primary piece so they are visible, flattened and persisted after a
+    // reload instead of remaining only in the legacy form array.
+    const primaryPiece = piecesOn ? piecesFlow?.pieces[0] : undefined;
+    if (primaryPiece && piecesFlow) {
+      piecesFlow.addPieceFabricationDetail(primaryPiece.id, detail);
+      return;
+    }
     update('fabrication_details', [...(form.fabrication_details || []), detail]);
+  };
 
   // Unique material names from the form so each sketch page can be labeled
   // with the countertop material it draws (printed on the taller sheet).

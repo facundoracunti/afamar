@@ -55,6 +55,7 @@ export {
 } from './useBudgetPieces.helpers.alternativeSwap';
 export {
   mutateAddPieceFabrication,
+  mutateAddPieceFabricationDetail,
   mutateRemovePieceFabrication,
   mutateUpdatePieceFabrication,
 } from './useBudgetPieces.helpers.fabrication';

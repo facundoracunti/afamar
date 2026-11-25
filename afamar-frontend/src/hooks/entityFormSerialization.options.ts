@@ -12,6 +12,7 @@ import {
 } from '@features/budgets/options/budgetOptions';
 import type { BudgetOption, BudgetPiece } from '../types/budget';
 import { hydratePiecesSnapshots } from './entityForm/piecesHydration';
+import { hydrateUnassignedFabricationFromFlat } from './entityFormSerialization.pieces';
 
 /**
  * Multi-option budgets (2026-10-01 Fase 2) — hydrate `options` /
@@ -39,7 +40,10 @@ export function loadOptions(
   // Hydrate each option's pieces so measurement snapshots survive.
   const hydrated = options.map((o) => ({
     ...o,
-    pieces: hydratePiecesSnapshots(d, o.pieces),
+    pieces: hydrateUnassignedFabricationFromFlat(
+      d,
+      hydratePiecesSnapshots(d, o.pieces),
+    ),
   }));
   const activeId = resolveActiveOptionId(hydrated, '');
   const active = hydrated.find((o) => o.id === activeId) ?? hydrated[0];
